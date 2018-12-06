@@ -13,6 +13,7 @@ set(MURE_HEADERS
     ${MURE_INCLUDE_DIR}/mure/mesh.hpp
     ${MURE_INCLUDE_DIR}/mure/box.hpp
     ${MURE_INCLUDE_DIR}/mure/interval.hpp
+    ${MURE_INCLUDE_DIR}/mure/intervals_op.hpp
     ${MURE_INCLUDE_DIR}/mure/cell_list.hpp
     ${MURE_INCLUDE_DIR}/mure/level_cell_list.hpp
     ${MURE_INCLUDE_DIR}/mure/cell_array.hpp

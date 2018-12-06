@@ -7,11 +7,13 @@
 #include <xtensor/xfunction.hpp>
 #include <xtensor/xio.hpp>
 
+#include "box.hpp"
 #include "interval.hpp"
+#include "level_cell_list.hpp"
 
 namespace mure
 {
-    template<typename MRConfig>
+    template<class MRConfig>
     class LevelCellArray
     {
     public:
@@ -38,6 +40,21 @@ namespace mure
         inline typename Box<coord_index_t, dim-1>::point_t const& max_corner_yz() const
         {
             return m_box_yz.max_corner();
+        }
+
+        auto const& operator[](index_t index) const
+        {
+            return m_cells[index];
+        }
+
+        auto& operator[](index_t index)
+        {
+            return m_cells[index];
+        }
+
+        auto size() const
+        {
+            return m_cells.size();
         }
 
     private:
