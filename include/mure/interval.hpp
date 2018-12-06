@@ -13,6 +13,8 @@ namespace mure
         value_t end;
         index_t index = 0;
 
+        Interval() = default;
+
         Interval(value_t start, value_t end, index_t index=0): start{start}, end{end}, index{index}
         {}
 
@@ -41,11 +43,12 @@ namespace mure
         using list_t::begin;
         using list_t::end;
         using list_t::insert;
+        using list_t::erase;
 
         void add_interval(interval_t const& interval)
         {
-            auto predicate = [&interval](auto const& value){return interval.start > value.end;};
-            auto it = std::find_if(begin(), end(),predicate);
+            auto predicate = [&interval](auto const& value){return interval.start < value.end;};
+            auto it = std::find_if(begin(), end(), predicate);
 
             // if we are at the end just append the new interval or
             // if we are between two intervals, insert it
@@ -55,15 +58,16 @@ namespace mure
                 return;
             }
 
-            // # else there is an overlap
-            // self[index].start = min(self[index].start, interval.start)
-            // self[index].end = max(self[index].end, interval.end)
+            // else there is an overlap
+            (*it).start = std::min((*it).start, interval.start);
+            (*it).end = std::max((*it).end, interval.end);
 
-            // index_end = index + 1
-            // while index_end < len(self.intervals) and interval.end >= self[index_end].start:
-            //     self[index].end = max(self[index_end].end, interval.end)
-            //     self.pop(index_end)
-            // return
+            auto it_end = std::next(it);
+            while (it_end != end() && interval.end >= (*it_end).start)
+            {
+                 (*it).end = std::max((*it_end).end, interval.end);
+                 erase(it_end);
+            }
         }
     };
 
