@@ -52,6 +52,21 @@ namespace mure
             return m_cells[index];
         }
 
+        auto const& offset(index_t index) const
+        {
+            return m_offsets[index];
+        }
+
+        auto& offset(index_t index)
+        {
+            return m_offsets[index];
+        }
+
+        auto beg_ind_last_dim() const
+        {
+            return _beg_ind_last_dim;
+        }
+
         auto size() const
         {
             return m_cells.size();

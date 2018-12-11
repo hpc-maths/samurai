@@ -1,5 +1,7 @@
 #pragma once
 
+#include "interval.hpp"
+
 namespace mure
 {
     template<
@@ -15,10 +17,10 @@ namespace mure
         static constexpr bool     need_pred_from_proj         = false;                 ///< if it's needed to systematically add ghosts in a less refined level (+/- prediction_stencil_width) for each leaf
 
         // base types
-        using                     coord_index_t               = int;                  ///< integer for coordinates
-        using                     coord_t                     = double;               ///< floating point type (notably for flt_... coordinates)
-        using                     index_t                     = std::size_t;          ///<
-
+        using coord_index_t = int;                  ///< integer for coordinates
+        using coord_t = double;               ///< floating point type (notably for flt_... coordinates)
+        using index_t = std::size_t;          ///<
+        using interval_t = Interval<coord_index_t, index_t>;
         // stencils
         static constexpr unsigned graduation_width            = _graduation_width;    ///< for graded tree
         static constexpr unsigned max_stencil_width           = _max_stencil_with;    ///< used notably to define how much ghost nodes we need
