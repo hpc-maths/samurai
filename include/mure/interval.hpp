@@ -18,19 +18,19 @@ namespace mure
         Interval(value_t start, value_t end, index_t index=0): start{start}, end{end}, index{index}
         {}
 
-        bool contains(value_t x) const
+        inline bool contains(value_t x) const
         {
-            return x >= start && x < end;
+            return (x >= start && x < end);
         }
 
-        value_t size() const
+        inline value_t size() const
         {
-            return end - start;
+            return (end - start);
         }
 
-        bool isvalid() const
+        inline bool isvalid() const
         {
-            return start < end;
+            return (start < end);
         }
     };
 
@@ -39,7 +39,7 @@ namespace mure
     {
         using interval_t = Interval<value_t, index_t>;
         using list_t = std::list<interval_t>;
-        using list_t::list;
+        using std::list<interval_t>::list;
         using list_t::begin;
         using list_t::end;
         using list_t::insert;
