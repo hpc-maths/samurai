@@ -1,13 +1,6 @@
 #pragma once
 
-#include <algorithm>
-#include <functional>
-#include <iostream>
-
 #include "func_node.hpp"
-#include "interval.hpp"
-#include "level_cell_array.hpp"
-#include "tuple.hpp"
 
 namespace mure
 {

@@ -16,8 +16,8 @@ namespace mure
         {
             index[iloop] = i;
             static_nested_loop_impl<nloops, start, end, step>(std::forward<function_t>(f),
-                                                                index,
-                                                                std::integral_constant<std::size_t, iloop+1>{});
+                                                              index,
+                                                              std::integral_constant<std::size_t, iloop+1>{});
         }
     }
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <array>
+#include <xtensor/xfixed.hpp>
 
 #include "level_cell_array.hpp"
 
@@ -9,11 +9,10 @@ namespace mure
     template<typename MRConfig>
     class CellArray
     {
-        enum {dim = MRConfig::dim};
-        enum {max_refinement_level = MRConfig::max_refinement_level};
-
     public:
-        CellArray(){}
+
+        static constexpr auto dim = MRConfig::dim;
+        static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
 
         CellArray(const CellList<MRConfig>& dcl)
         {
@@ -35,6 +34,6 @@ namespace mure
 
     private:
 
-        std::array<LevelCellArray<MRConfig>, max_refinement_level + 1> m_cells;
+        xt::xtensor_fixed<LevelCellArray<MRConfig>, xt::xshape<max_refinement_level + 1>> m_cells;
     };
 }

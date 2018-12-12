@@ -19,15 +19,15 @@ namespace mure
     {
     public:
 
-        static constexpr int dim = MRConfig::dim;
-        enum {max_refinement_level = MRConfig::max_refinement_level};
-        enum {ghost_width = std::max(std::max(2*(int)MRConfig::graduation_width - 1,
-                                              (int)MRConfig::max_stencil_width),
-                                              (int)MRConfig::default_s_for_prediction)};
+        static constexpr auto dim = MRConfig::dim;
+        static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
+        static constexpr auto ghost_width = std::max(std::max(2*(int)MRConfig::graduation_width - 1,
+                                                     (int)MRConfig::max_stencil_width),
+                                                     (int)MRConfig::default_s_for_prediction);
         using index_t = typename MRConfig::index_t;
         using coord_index_t = typename MRConfig::coord_index_t;
         using point_t = typename Box<int, dim>::point_t;
-        using interval_t = Interval<coord_index_t, index_t>;
+        using interval_t = typename MRConfig::interval_t;
 
         Mesh(Box<double, dim> b, size_t init_level)
         {

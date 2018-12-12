@@ -4,7 +4,7 @@
 #include <deque>
 #include <vector>
 
-#include <xtensor/xfunction.hpp>
+#include <xtensor/xfixed.hpp>
 #include <xtensor/xio.hpp>
 
 #include "box.hpp"
@@ -18,12 +18,10 @@ namespace mure
     {
     public:
 
-        enum {dim = MRConfig::dim};
+        static constexpr auto dim = MRConfig::dim;
         using index_t = typename MRConfig::index_t;
         using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = Interval<coord_index_t, index_t>;
-
-        LevelCellArray() = default;
+        using interval_t = typename MRConfig::interval_t;
 
         LevelCellArray(LevelCellList<MRConfig> const& lcl);
 
