@@ -86,7 +86,8 @@ namespace mure
             os << m_box_yz << "\n";
             os << m_grid_yz << "\n";
         }
-    private:
+
+    public: // FIXME: for debug purpose
         xt::xtensor<list_interval_t, dim-1> m_grid_yz;
         Box<coord_index_t, dim-1> m_box_yz;
     };
