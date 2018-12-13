@@ -3,6 +3,7 @@
 #include <array>
 #include <deque>
 #include <vector>
+#include <ostream>
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xio.hpp>
@@ -24,6 +25,9 @@ namespace mure
         using interval_t = typename MRConfig::interval_t;
 
         LevelCellArray(LevelCellList<MRConfig> const& lcl);
+
+        /// Display to the given stream
+        void to_stream(std::ostream& out) const;
 
         template<class function_t>
         void for_each_interval_in_x(function_t&& f) const;
@@ -277,7 +281,7 @@ namespace mure
 
             if (index_t size = inter_ranges[d-2].size() - old_nb_ranges)
             {
-                if ( new_interval.isvalid() )
+                if ( new_interval.is_valid() )
                 {
                     if ( new_interval.end == c )
                     {
@@ -296,14 +300,14 @@ namespace mure
 
                 inter_sizes[d-2].emplace_back(size);
             }
-            else if (new_interval.isvalid())
+            else if (new_interval.is_valid())
             {
                 inter_ranges[d-1].emplace_back(new_interval);
                 new_interval = {1, 0};
             }
         }
 
-        if (new_interval.isvalid())
+        if (new_interval.is_valid())
         {
             inter_ranges[d-1].emplace_back(new_interval);
         }
@@ -322,5 +326,33 @@ namespace mure
             inter_ranges[0].emplace_back(interval.start, interval.end);
         }
     }
+
+    template <class MRConfig>
+    void
+    LevelCellArray<MRConfig>::
+    to_stream(std::ostream& out) const
+    {
+        out << "cells = ";
+        for (auto const& interval : m_cells)
+            std::cout << interval << " ";
+        out << std::endl;
+
+        out << "offsets = ";
+        for (auto const& v : m_offsets)
+            std::cout << v << " ";
+        out << std::endl;
+
+        out << "beg_ind_last_dim = " << _beg_ind_last_dim << std::endl;
+        out << "end_ind_x_ranges = " << _end_ind_x_ranges << std::endl;
+    }
+
+    template <class MRConfig>
+    std::ostream& operator<< (std::ostream& out, LevelCellArray<MRConfig> const& level_cell_array)
+    {
+        level_cell_array.to_stream(out);
+        return out;
+    }
+
+
 }
 
