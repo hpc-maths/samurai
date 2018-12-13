@@ -5,18 +5,22 @@ project(mure)
 set(MURE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 find_package(xtensor REQUIRED)
+find_package(Hana REQUIRED)
 
 set(MURE_HEADERS
+    ${MURE_INCLUDE_DIR}/mure/box.hpp
+    ${MURE_INCLUDE_DIR}/mure/cell_array.hpp
+    ${MURE_INCLUDE_DIR}/mure/cell_list.hpp
+    ${MURE_INCLUDE_DIR}/mure/func_node.hpp
+    ${MURE_INCLUDE_DIR}/mure/interval.hpp
+    ${MURE_INCLUDE_DIR}/mure/intervals_operator.hpp
+    ${MURE_INCLUDE_DIR}/mure/level_cell_array.hpp
+    ${MURE_INCLUDE_DIR}/mure/level_cell_list.hpp
+    ${MURE_INCLUDE_DIR}/mure/mesh.hpp
     ${MURE_INCLUDE_DIR}/mure/mr_config.hpp
     ${MURE_INCLUDE_DIR}/mure/static_algorithm.hpp
-    ${MURE_INCLUDE_DIR}/mure/level_cell_array.hpp
-    ${MURE_INCLUDE_DIR}/mure/mesh.hpp
-    ${MURE_INCLUDE_DIR}/mure/box.hpp
-    ${MURE_INCLUDE_DIR}/mure/interval.hpp
-    ${MURE_INCLUDE_DIR}/mure/intervals_op.hpp
-    ${MURE_INCLUDE_DIR}/mure/cell_list.hpp
-    ${MURE_INCLUDE_DIR}/mure/level_cell_list.hpp
-    ${MURE_INCLUDE_DIR}/mure/cell_array.hpp
+    ${MURE_INCLUDE_DIR}/mure/subset.hpp
+    ${MURE_INCLUDE_DIR}/mure/tuple.hpp
 )
 
 add_library(mure INTERFACE)

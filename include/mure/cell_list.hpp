@@ -1,6 +1,7 @@
 #pragma once
 
 #include <xtensor/xfixed.hpp>
+
 #include "level_cell_list.hpp"
 
 namespace mure
@@ -8,11 +9,10 @@ namespace mure
     template<typename MRConfig>
     class CellList
     {
-        static constexpr int dim = MRConfig::dim;
-        enum {max_refinement_level = MRConfig::max_refinement_level};
-
     public:
-        CellList() = default;
+
+        static constexpr auto dim = MRConfig::dim;
+        static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
 
         LevelCellList<MRConfig> const& operator[](int i) const
         {

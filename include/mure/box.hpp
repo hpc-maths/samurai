@@ -8,9 +8,9 @@ namespace mure
     template<typename value_t, std::size_t dim_>
     class Box
     {
-        static constexpr std::size_t dim = dim_;
-
     public:
+
+        static constexpr std::size_t dim = dim_;
         using point_t = xt::xtensor_fixed<value_t, xt::xshape<dim>>;
 
         Box()

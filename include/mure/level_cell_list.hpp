@@ -20,19 +20,13 @@ namespace mure
     template<typename MRConfig>
     class LevelCellList
     {
-        enum {dim = MRConfig::dim};
+    public:
+
+        static constexpr auto dim = MRConfig::dim;
         using index_t = typename MRConfig::index_t;
         using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = Interval<coord_index_t, index_t>;
+        using interval_t = typename MRConfig::interval_t;
         using list_interval_t = ListOfIntervals<coord_index_t, index_t>;
-
-    public:
-        LevelCellList() = default;
-        LevelCellList(const LevelCellList&) = default;
-        LevelCellList(LevelCellList&&) = default;
-        LevelCellList& operator=(const LevelCellList&) = default;
-        LevelCellList& operator=(LevelCellList&&) = default;
-
 
         void extend(xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> start,
                     xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> end)
@@ -59,14 +53,6 @@ namespace mure
                 m_box_yz = {start, end};
             }
         }
-
-        // void resize(xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> start,
-        //             xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> end)
-        // {
-        //     auto size = end - start;
-        //     m_box_yz = {start, end};
-        //     m_grid_yz.resize(xt::eval(size));
-        // }
 
         void fill(interval_t interval)
         {

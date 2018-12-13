@@ -2,10 +2,8 @@
 
 #include <algorithm>
 #include <functional>
-#include <iostream>
 
 #include <xtensor/xfixed.hpp>
-#include <xtensor/xio.hpp>
 
 #include "func_node.hpp"
 #include "interval.hpp"
