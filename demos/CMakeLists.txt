@@ -8,3 +8,6 @@ target_link_libraries(interval_op mure)
 
 add_executable(mesh mesh.cpp ${MURE_HEADERS})
 target_link_libraries(mesh mure)
+
+add_executable(bench_level_cell_array bench_level_cell_array.cpp ${MURE_HEADERS})
+target_link_libraries(bench_level_cell_array mure)
