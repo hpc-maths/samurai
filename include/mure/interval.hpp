@@ -1,21 +1,32 @@
 #pragma once
 
-#include<algorithm>
-#include<iostream>
-#include<list>
+#include <algorithm>
+#include <iostream>
+#include <list>
+#include <cstddef>
 
 namespace mure
 {
-    template<typename value_t, typename index_t>
+    /** An interval with storage index.
+     *
+     * @tparam TValue   Coordonate type (must be signed)
+     * @tparam TIndex   Index type
+     */
+    template<typename TValue, typename TIndex = std::size_t>
     struct Interval
     {
-        value_t start;
-        value_t end;
-        index_t index = 0;
+        static_assert(std::is_signed<TValue>::value, "Coordinate type must be signed");
+
+        using value_t = TValue;
+        using index_t = TIndex;
+
+        value_t start = 0;  ///< Interval start
+        value_t end   = 0;  ///< Interval end + 1
+        index_t index = 0;  ///< Storage index where start the interval's content.
 
         Interval() = default;
 
-        Interval(value_t start, value_t end, index_t index=0): start{start}, end{end}, index{index}
+        Interval(value_t start, value_t end, index_t index = 0): start{start}, end{end}, index{index}
         {}
 
         inline bool contains(value_t x) const
@@ -28,22 +39,29 @@ namespace mure
             return (end - start);
         }
 
-        inline bool isvalid() const
+        inline bool is_valid() const
         {
             return (start < end);
         }
     };
 
-    template<typename value_t, typename index_t>
-    struct ListOfIntervals: private std::list<Interval<value_t, index_t>>
+    template<typename TValue, typename TIndex = std::size_t>
+    struct ListOfIntervals: private std::list<Interval<TValue, TIndex>>
     {
-        using interval_t = Interval<value_t, index_t>;
+        using value_t       = TValue;
+        using index_t       = TIndex;
+        using interval_t    = Interval<value_t, index_t>;
+
         using list_t = std::list<interval_t>;
         using std::list<interval_t>::list;
         using list_t::begin;
         using list_t::end;
-        using list_t::insert;
+        using list_t::size;
+
         using list_t::erase;
+        using typename list_t::iterator;
+        using typename list_t::const_iterator;
+        using typename list_t::value_type;
 
         void add_interval(interval_t const& interval)
         {
@@ -54,7 +72,7 @@ namespace mure
             // if we are between two intervals, insert it
             if (it == end() || interval.end < (*it).start)
             {
-                insert(it, interval);
+                this->insert(it, interval);
                 return;
             }
 
@@ -74,7 +92,7 @@ namespace mure
     template<typename value_t, typename index_t>
     std::ostream& operator<<(std::ostream& out, const Interval<value_t, index_t>& interval)
     {
-        out << "[" << interval.start << ", " << interval.end << ", index = " << interval.index << "]";
+        out << "[" << interval.start << "," << interval.end << "[@" << interval.index;
         return out;
     }
 
@@ -82,7 +100,7 @@ namespace mure
     std::ostream& operator<<(std::ostream& out, ListOfIntervals<value_t, index_t> interval_list)
     {
         for(auto &interval: interval_list)
-            out << interval;
+            out << interval << " ";
         return out;
     }
 }
