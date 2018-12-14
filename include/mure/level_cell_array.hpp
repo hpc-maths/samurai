@@ -344,6 +344,7 @@ namespace mure
 
         out << "beg_ind_last_dim = " << _beg_ind_last_dim << std::endl;
         out << "end_ind_x_ranges = " << _end_ind_x_ranges << std::endl;
+        out << "Box\t" << m_box_yz.min_corner() << " " << m_box_yz.max_corner() << std::endl;
     }
 
     template <class MRConfig>

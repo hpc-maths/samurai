@@ -150,7 +150,7 @@ initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
             if (curr_interval.is_valid())
             {
                 m_cells[N].push_back(curr_interval);
-                curr_interval = interval_t{0, 0, m_offsets[N-1].size()};
+                curr_interval = interval_t{0, 0, 0};
             }
         }
         else // Co-dimensions are not empty
@@ -159,7 +159,7 @@ initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
             if (curr_interval.is_valid())
                 curr_interval.end = i+1;
             else
-                curr_interval = interval_t(i, i+1, m_offsets[N-1].size());
+                curr_interval = interval_t(i, i+1, m_offsets[N-1].size() - i);
 
             // Updating m_offsets
             m_offsets[N-1].push_back(previous_offset);
@@ -237,8 +237,8 @@ for_each_interval_in_x_impl(TFunction && f,
             index[N-1] = c;
             for_each_interval_in_x_impl(std::forward<TFunction>(f),
                                         index,
-                                        m_offsets[N-1][interval.index + c - interval.start],
-                                        m_offsets[N-1][interval.index + c - interval.start + 1],
+                                        m_offsets[N-1][interval.index + c],
+                                        m_offsets[N-1][interval.index + c + 1],
                                         std::integral_constant<std::size_t, N-1>{});
         }
     }
