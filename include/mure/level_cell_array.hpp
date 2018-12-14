@@ -70,6 +70,17 @@ namespace mure
             return m_cells.size();
         }
 
+        void to_stream(std::ostream &os) const
+        {
+            os << "intervals: ";
+            for (auto& v: m_cells)
+                os << v << " ";
+            os << "\noffsets: ";
+            for (auto& v: m_offsets)
+                os << v << " ";
+            os << "\n";
+        }
+
     private:
 
         template<class function_t, index_t d>
@@ -322,5 +333,13 @@ namespace mure
             inter_ranges[0].emplace_back(interval.start, interval.end);
         }
     }
+
+    template<class MRConfig>
+    std::ostream& operator<<(std::ostream& out, const LevelCellArray<MRConfig>& level_cell_array)
+    {
+        level_cell_array.to_stream(out);
+        return out;
+    }
+
 }
 

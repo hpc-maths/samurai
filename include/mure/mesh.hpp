@@ -42,6 +42,13 @@ namespace mure
             update_ghost_nodes();
         }
     
+        void to_stream(std::ostream &os) const
+        {
+            os << "Cells\n";
+            m_cells.to_stream(os);
+            os << "\nCells and ghosts\n";
+            m_cells_and_ghosts.to_stream(os);
+        }
     private:
         void update_ghost_nodes();
         void add_ng_ghosts_and_get_nb_leaves(CellList<MRConfig>& cell_list);
@@ -172,4 +179,10 @@ namespace mure
     //         } );
     //     }
     // }
+    template<class MRConfig>
+    std::ostream& operator<<(std::ostream& out, const Mesh<MRConfig>& mesh)
+    {
+        mesh.to_stream(out);
+        return out;
+    }
 }

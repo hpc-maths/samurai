@@ -32,8 +32,26 @@ namespace mure
             return m_cells[i];
         }
 
+        void to_stream(std::ostream &os) const
+        {
+            for(std::size_t level=0; level <= max_refinement_level; ++level)
+            {
+                os << "level " << level << "\n";
+                m_cells[level].to_stream(os);
+                os << "\n";
+            }
+        }
+
     private:
 
         xt::xtensor_fixed<LevelCellArray<MRConfig>, xt::xshape<max_refinement_level + 1>> m_cells;
     };
+
+    template<class MRConfig>
+    std::ostream& operator<<(std::ostream& out, const CellArray<MRConfig>& cell_array)
+    {
+        cell_array.to_stream(out);
+        return out;
+    }
+
 }
