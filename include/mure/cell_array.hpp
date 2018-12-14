@@ -14,9 +14,9 @@ namespace mure
         static constexpr auto dim = MRConfig::dim;
         static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
 
-        CellArray(const CellList<MRConfig>& dcl)
+        CellArray(const CellList<MRConfig>& dcl = {})
         {
-            for(int level = 0; level <= (int)max_refinement_level; ++level)
+            for(int level = 0; level <= max_refinement_level; ++level)
             {
                 m_cells[level] = dcl[level];
             }

@@ -23,7 +23,7 @@ namespace mure
         using coord_index_t = typename MRConfig::coord_index_t;
         using interval_t = typename MRConfig::interval_t;
 
-        LevelCellArray(LevelCellList<MRConfig> const& lcl);
+        LevelCellArray(LevelCellList<MRConfig> const& lcl = {});
 
         template<class function_t>
         void for_each_interval_in_x(function_t&& f) const;
