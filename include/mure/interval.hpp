@@ -47,7 +47,7 @@ namespace mure
 
         void add_interval(interval_t const& interval)
         {
-            auto predicate = [&interval](auto const& value){return interval.start < value.end;};
+            auto predicate = [&interval](auto const& value){return interval.start <= value.end;};
             auto it = std::find_if(begin(), end(), predicate);
 
             // if we are at the end just append the new interval or
@@ -67,6 +67,7 @@ namespace mure
             {
                  (*it).end = std::max((*it_end).end, interval.end);
                  erase(it_end);
+                 it_end = std::next(it);
             }
         }
     };
