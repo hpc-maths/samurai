@@ -7,7 +7,6 @@
 #include <deque>
 
 #include "mure/interval.hpp"
-#include "mure/interval_value_range_no_boost.hpp"
 #include "mure/level_cell_list.hpp"
 
 namespace mure
