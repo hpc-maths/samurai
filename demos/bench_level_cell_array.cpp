@@ -7,7 +7,7 @@
 #include <mure/mr_config.hpp>
 #include <mure/level_cell_list.hpp>
 //#include <mure/level_cell_array_other.hpp>
-//#include <mure/level_cell_array_other_nolist.hpp>
+//#include <mure/level_cell_array_other_nodeque.hpp>
 #include <mure/level_cell_array.hpp>
 
 #include <xtensor/xview.hpp>
@@ -43,8 +43,8 @@ int main(int argc, char* argv[])
     mure::Box<coord_index_t, dim> box{{0, 0, 0}, {box_size, box_size, box_size}};
     mure::LevelCellList<Config> dcl;
     dcl.extend(xt::view(box.min_corner(), xt::drop(0)), xt::view(box.max_corner(), xt::drop(0)));
-    
-    std::size_t cnt = 0;
+
+    Config::index_t cnt = 0;
     for (Config::coord_index_t i = 0; i < cross_size; ++i)
     {
         if (i < (cross_size - cross_tickness)/2 || i >= (cross_size + cross_tickness)/2)
@@ -59,19 +59,22 @@ int main(int argc, char* argv[])
     for (std::size_t i = 0; i < N_run; ++i)
     {
         std::cout << "Run #" << i << std::endl;
-        
+
         tic();
         mure::LevelCellArray<Config> dca(dcl);
         auto duration = toc();
         std::cout << "\tConvertion in " << duration << "s" << std::endl;
 
-        std::size_t cnt = 0;
-        auto counter = [&cnt] (auto index, auto interval) { cnt += index[0] + index[1] + interval.index; };
+        std::size_t interval_cnt = 0;
+        std::size_t coord_sum = 0;
+        std::size_t interval_sum = 0;
+        std::size_t index_sum = 0;
+        auto counter = [&] (auto index, auto interval) { ++interval_cnt; coord_sum += index[0] + index[1]; interval_sum += interval.start + interval.end; index_sum += interval.index; };
 
         tic();
         dca.for_each_interval_in_x(counter);
         duration = toc();
-        std::cout << "\tTraversal in " << duration << "s (" << cnt << ")" << std::endl;
+        std::cout << "\tTraversal in " << duration << "s (" << interval_cnt << "," << coord_sum << "," << interval_sum << "," << index_sum << ")" << std::endl;
     }
 
     return 0;
