@@ -14,7 +14,7 @@ namespace mure
         // dimensions, storage
         static constexpr int      dim                         = _dim;
         static constexpr unsigned max_refinement_level        = _max_refinement_level; ///< nb bits par axis in the finest level
-        static constexpr bool     need_pred_from_proj         = false;                 ///< if it's needed to systematically add ghosts in a less refined level (+/- prediction_stencil_width) for each leaf
+        static constexpr bool     need_pred_from_proj         = true;                 ///< if it's needed to systematically add ghosts in a less refined level (+/- prediction_stencil_width) for each leaf
 
         // base types
         using coord_index_t = int;                  ///< integer for coordinates
