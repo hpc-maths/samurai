@@ -97,7 +97,7 @@ namespace mure
                 coord[d] = index[d];
             return m_grid_yz[coord];
 #else
-            return m_grid_yz[index - m_box_yz.min_corner()];
+            return m_grid_yz[xt::eval(index - m_box_yz.min_corner())];
 #endif
         }
 
@@ -109,7 +109,7 @@ namespace mure
                 coord[d] = index[d];
             return m_grid_yz[coord];
 #else
-            return m_grid_yz[index - m_box_yz.min_corner()];
+            return m_grid_yz[xt::eval(index - m_box_yz.min_corner())];
 #endif
         }
 
