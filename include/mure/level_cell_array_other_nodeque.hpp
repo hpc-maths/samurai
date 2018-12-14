@@ -71,6 +71,17 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
     std::size_t cnt_x = 0;
     std::size_t cnt_yz = 0;
 
+#ifdef USE_LCODE_TENSOR
+    lcl.m_grid_yz.for_each_coords([&] (auto coords)
+    {
+        auto const& l = lcl.m_grid_yz[coords];
+        if (l.size() > 0)
+        {
+            cnt_x += l.size();
+            ++cnt_yz;
+        }
+    });
+#else
     for (auto const& l : lcl.m_grid_yz)
     {
         if (l.size() > 0)
@@ -79,6 +90,7 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
             ++cnt_yz;
         }
     }
+#endif
 
     std::size_t size = 1;
     for (std::size_t N = dim-1; N >= 1; --N)
