@@ -70,6 +70,7 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
     std::size_t cnt_x = 0;
     std::size_t cnt_yz = 0;
 
+#if 0
 #ifdef USE_LCODE_TENSOR
     lcl.m_grid_yz.for_each_coords([&] (auto coords)
     {
@@ -90,6 +91,14 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
         }
     }
 #endif
+#endif
+
+    // NOTE: the estimation above takes time, more than the time needed for reallocating the vectors...
+    // Maybe 2 other solutions:
+    // - (highly) overestimating the needed size since the memory will be actually allocated only when touched (at least under Linux)
+    // - cnt_x and cnt_yz updated in LevelCellList during the filling process
+    //
+    // NOTE2: in fact, hard setting the optimal values for cnt_x and cnt_yz doesn't speedup things, strang...
 
     std::size_t size = 1;
     for (std::size_t N = dim-1; N >= 1; --N)
@@ -191,7 +200,8 @@ initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
 {
     // Along the X axis, simply copy the intervals in cells[0]
     auto const& interval_list = lcl[index];
-    m_cells[0].insert(m_cells[0].end(), interval_list.begin(), interval_list.end());
+    //m_cells[0].insert(m_cells[0].end(), interval_list.begin(), interval_list.end());
+    std::copy(interval_list.begin(), interval_list.end(), std::back_inserter(m_cells[0]));
 }
 
 template <class MRConfig>
