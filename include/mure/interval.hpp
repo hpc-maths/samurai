@@ -5,6 +5,10 @@
 #include <list>
 #include <cstddef>
 
+#ifdef USE_FAST_POOL
+#include <boost/pool/pool_alloc.hpp>
+#endif
+
 namespace mure
 {
     /** An interval with storage index.
@@ -45,15 +49,35 @@ namespace mure
         }
     };
 
+#ifdef USE_FAST_POOL
+    template <typename T>
+    using Allocator = boost::fast_pool_allocator<
+        T,
+        boost::default_user_allocator_new_delete,
+        boost::details::pool::default_mutex,
+        1024, 0
+    >;
+#endif
+
+#ifdef USE_FAST_POOL
+    template<typename TValue, typename TIndex = std::size_t>
+    struct ListOfIntervals: private std::list<Interval<TValue, TIndex>, Allocator<Interval<TValue, TIndex>>>
+#else
     template<typename TValue, typename TIndex = std::size_t>
     struct ListOfIntervals: private std::list<Interval<TValue, TIndex>>
+#endif
     {
         using value_t       = TValue;
         using index_t       = TIndex;
         using interval_t    = Interval<value_t, index_t>;
 
+#ifdef USE_FAST_POOL
+        using list_t = std::list<Interval<TValue, TIndex>, Allocator<Interval<TValue, TIndex>>>;
+#else
         using list_t = std::list<interval_t>;
-        using std::list<interval_t>::list;
+#endif
+
+        using list_t::list;
         using list_t::begin;
         using list_t::end;
         using list_t::size;
