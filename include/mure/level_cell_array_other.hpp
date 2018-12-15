@@ -5,6 +5,8 @@
 #include <utility>
 #include <ostream>
 #include <deque>
+#include <algorithm>
+#include <iterator>
 
 #include "mure/interval.hpp"
 #include "mure/level_cell_list.hpp"
@@ -83,14 +85,14 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
     for (std::size_t N = 0; N < dim; ++N)
     {
         m_cells[N].reserve(cells[N].size());
-        m_cells[N].insert(m_cells[N].begin(), cells[N].cbegin(), cells[N].cend());
+        std::copy(cells[N].cbegin(), cells[N].cend(), std::back_inserter(m_cells[N]));
     }
 
     // Flattening offsets
     for (std::size_t N = 0; N < dim-1; ++N)
     {
         m_offsets[N].reserve(offsets[N].size() + 1);
-        m_offsets[N].insert(m_offsets[N].begin(), offsets[N].cbegin(), offsets[N].cend());
+        std::copy(offsets[N].cbegin(), offsets[N].cend(), std::back_inserter(m_offsets[N]));
     }
 
     // Additionnal offset so that [m_offset[i], m_offset[i+1][ is always valid.
@@ -173,7 +175,7 @@ initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
 {
     // Along the X axis, simply copy the intervals in cells[0]
     auto const& interval_list = lcl[index];
-    cells[0].insert(cells[0].end(), interval_list.begin(), interval_list.end());
+    std::copy(interval_list.begin(), interval_list.end(), std::back_inserter(cells[0]));
 }
 
 template <class MRConfig>
