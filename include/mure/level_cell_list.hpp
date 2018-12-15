@@ -71,12 +71,12 @@ namespace mure
 
         list_interval_t const& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index) const
         {
-            return m_grid_yz[index - m_box_yz.min_corner()];
+            return m_grid_yz[xt::eval(index - m_box_yz.min_corner())];
         }
 
         list_interval_t& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index)
         {
-            return m_grid_yz[index - m_box_yz.min_corner()];
+            return m_grid_yz[xt::eval(index - m_box_yz.min_corner())];
         }
 
         void to_stream(std::ostream &os) const
