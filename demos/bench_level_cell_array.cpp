@@ -39,30 +39,33 @@ int main(int argc, char* argv[])
     const coord_index_t cross_tickness  = std::stoull(argv[2]);
     const coord_index_t box_size = cross_size + cross_tickness;
 
-    std::cout << "Creating level cell list..." << std::endl;
-    mure::Box<coord_index_t, dim> box{{0, 0, 0}, {box_size, box_size, box_size}};
-    mure::LevelCellList<Config> dcl;
-    dcl.extend(xt::view(box.min_corner(), xt::drop(0)), xt::view(box.max_corner(), xt::drop(0)));
-
-    Config::index_t cnt = 0;
-    for (Config::coord_index_t i = 0; i < cross_size; ++i)
-    {
-        if (i < (cross_size - cross_tickness)/2 || i >= (cross_size + cross_tickness)/2)
-        {
-            dcl[{i,i}].add_interval({i, i+cross_tickness+1, cnt++});
-            dcl[{i,i}].add_interval({cross_size-i-1, cross_size-i+cross_tickness, cnt++});
-            dcl[{cross_size-i-1,i}].add_interval({i, i+1+cross_tickness, cnt++});
-            dcl[{cross_size-i-1,i}].add_interval({cross_size-i-1, cross_size-i+cross_tickness, cnt++});
-        }
-    }
 
     for (std::size_t i = 0; i < N_run; ++i)
     {
         std::cout << "Run #" << i << std::endl;
 
         tic();
-        mure::LevelCellArray<Config> dca(dcl);
+        mure::Box<coord_index_t, dim> box{{0, 0, 0}, {box_size, box_size, box_size}};
+        mure::LevelCellList<Config> dcl;
+        dcl.extend(xt::view(box.min_corner(), xt::drop(0)), xt::view(box.max_corner(), xt::drop(0)));
+
+        Config::index_t cnt = 0;
+        for (Config::coord_index_t i = 0; i < cross_size; ++i)
+        {
+            if (i < (cross_size - cross_tickness)/2 || i >= (cross_size + cross_tickness)/2)
+            {
+                dcl[{i,i}].add_interval({i, i+cross_tickness+1, cnt++});
+                dcl[{i,i}].add_interval({cross_size-i-1, cross_size-i+cross_tickness, cnt++});
+                dcl[{cross_size-i-1,i}].add_interval({i, i+1+cross_tickness, cnt++});
+                dcl[{cross_size-i-1,i}].add_interval({cross_size-i-1, cross_size-i+cross_tickness, cnt++});
+            }
+        }
         auto duration = toc();
+        std::cout << "\tCreating level cell list in " << duration << "s" << std::endl;
+
+        tic();
+        mure::LevelCellArray<Config> dca(dcl);
+        duration = toc();
         std::cout << "\tConvertion in " << duration << "s" << std::endl;
 
         std::size_t interval_cnt = 0;
@@ -74,7 +77,7 @@ int main(int argc, char* argv[])
         tic();
         dca.for_each_interval_in_x(counter);
         duration = toc();
-        std::cout << "\tTraversal in " << duration << "s (" << interval_cnt << "," << coord_sum << "," << interval_sum << "," << index_sum << ")" << std::endl;
+        std::cout << "\tTraversal in " << duration << "s (#interval=" << interval_cnt << ", sum(yz)=" << coord_sum << ", sum([a,b[)=" << interval_sum << ", sum(index)=" << index_sum << ")" << std::endl;
     }
 
     return 0;
