@@ -65,20 +65,23 @@ namespace mure
 #else
                 auto size = end - start;
                 // we have data
-                if (dim != 1 && m_box_yz.isvalid())
+                if (dim != 1)
                 {
-                    grid_t new_grid;
-                    new_grid.resize(xt::eval(size));
-                    xt::xstrided_slice_vector sv;
-                    for(std::size_t i=0; i<dim-1; ++i)
-                        sv.push_back(xt::range(static_cast<std::size_t>(start[i]-m_box_yz.min_corner()[i]),
-                                               static_cast<std::size_t>(end[i]-m_box_yz.max_corner()[i])));
-                    auto view = xt::strided_view(new_grid, sv);
-                    xt::noalias(view) = m_grid_yz;
-                    std::swap(m_grid_yz, new_grid);
-                }
-                else{
-                    m_grid_yz.resize(xt::eval(size));
+                    if (m_box_yz.is_valid())
+                    {
+                        grid_t new_grid;
+                        new_grid.resize(xt::eval(size));
+                        xt::xstrided_slice_vector sv;
+                        for(std::size_t i=0; i<dim-1; ++i)
+                            sv.push_back(xt::range(static_cast<std::size_t>(start[i]-m_box_yz.min_corner()[i]),
+                                                static_cast<std::size_t>(end[i]-m_box_yz.max_corner()[i])));
+                        auto view = xt::strided_view(new_grid, sv);
+                        xt::noalias(view) = m_grid_yz;
+                        std::swap(m_grid_yz, new_grid);
+                    }
+                    else{
+                        m_grid_yz.resize(xt::eval(size));
+                    }
                 }
 #endif
 

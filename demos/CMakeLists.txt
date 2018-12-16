@@ -11,3 +11,6 @@ target_link_libraries(mesh mure)
 
 add_executable(bench_level_cell_array bench_level_cell_array.cpp ${MURE_HEADERS})
 target_link_libraries(bench_level_cell_array mure)
+
+add_executable(operator 1D_operator.cpp ${MURE_HEADERS})
+target_link_libraries(operator mure)

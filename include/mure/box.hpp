@@ -42,7 +42,7 @@ namespace mure
             return m_max_corner;
         }
 
-        inline bool isvalid() const
+        inline bool is_valid() const
         {
             return xt::all(m_min_corner < m_max_corner);
         }
