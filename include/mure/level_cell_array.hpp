@@ -209,13 +209,15 @@ namespace mure
     {
         for(index_t i = beg_index; i < end_index; ++i)
         {
-            for(coord_index_t c = m_cells[i].start; c < m_cells[i].end; ++c )
+            coord_index_t c;
+            index_t ic;
+            for(c = m_cells[i].start, ic=0; c < m_cells[i].end; ++c, ++ic)
             {
-                index_yz[d] = c;
+                index_yz[d - 1] = c;
                 for_each_interval_in_x_impl(std::forward<function_t>(f),
                                             index_yz,
-                                            m_offsets[m_cells[i].index + c],
-                                            m_offsets[m_cells[i].index + c + 1],
+                                            m_offsets[m_cells[i].index + ic],
+                                            m_offsets[m_cells[i].index + ic + 1],
                                             std::integral_constant<index_t, d-1>{});
             }
         }

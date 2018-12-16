@@ -147,28 +147,28 @@ namespace mure
 
         m_cells_and_ghosts = {cell_list};
 
-        // optionnal +/- w nodes in level - 1
-        if (MRConfig::need_pred_from_proj)
-        {
-            add_ghosts_for_level_m1(cell_list);
-        }
+        // // optionnal +/- w nodes in level - 1
+        // if (MRConfig::need_pred_from_proj)
+        // {
+        //     add_ghosts_for_level_m1(cell_list);
+        // }
 
-        // // get external (remote or replicated) cells needed to compute the ghosts.
-        // // Updates also _leaves_to_recv and _leaves_to_send (with leaf indices at this stage)
-        // std::vector<std::vector<Cell<Carac>>> needed_nodes( mpi->size() );
-        // _add_needed_or_replicated_cells( dcl, needed_nodes );
+        // // // get external (remote or replicated) cells needed to compute the ghosts.
+        // // // Updates also _leaves_to_recv and _leaves_to_send (with leaf indices at this stage)
+        // // std::vector<std::vector<Cell<Carac>>> needed_nodes( mpi->size() );
+        // // _add_needed_or_replicated_cells( dcl, needed_nodes );
 
-        // compaction
-        m_all_cells = {cell_list};
+        // // compaction
+        // m_all_cells = {cell_list};
 
-        // update of x0_indices, _leaf_to_ghost_indices, _nb_local_ghost_and_leaf_cells
-        update_x0_and_nb_ghosts(m_nb_local_cells_and_ghosts, m_cells_and_ghosts, m_cells);
+        // // update of x0_indices, _leaf_to_ghost_indices, _nb_local_ghost_and_leaf_cells
+        // update_x0_and_nb_ghosts(m_nb_local_cells_and_ghosts, m_cells_and_ghosts, m_cells);
 
-        // // update of _leaves_to_recv and _leaves_to_send (using needed_nodes)
-        // _update_leaves_to_send_and_recv( needed_nodes );
+        // // // update of _leaves_to_recv and _leaves_to_send (using needed_nodes)
+        // // _update_leaves_to_send_and_recv( needed_nodes );
 
-        // // update of _extended_leavesv (union of leaves + remote leaves + symmetry leaves, with correct ghost indices)
-        // _update_of_extended_leaves( needed_nodes );
+        // // // update of _extended_leavesv (union of leaves + remote leaves + symmetry leaves, with correct ghost indices)
+        // // _update_of_extended_leaves( needed_nodes );
     }
 
     template<class MRConfig>
@@ -176,22 +176,22 @@ namespace mure
     {
         // +/- w nodes in the current level
         m_nb_local_cells = 0;
-        for(int level = 0; level <= max_refinement_level; ++level)
+        for(std::size_t level = 0; level <= max_refinement_level; ++level)
         {
             const LevelCellArray<MRConfig> &level_cell_array = m_cells[level];
-            if (level_cell_array.empty() == false)
+            if (!level_cell_array.empty())
             {
                 LevelCellList<MRConfig> &level_cell_list = cell_list[level];
-                level_cell_list.extend(level_cell_array.min_corner_yz() - int(ghost_width),
-                                       level_cell_array.max_corner_yz() + int(ghost_width)) ;
+                level_cell_list.extend(level_cell_array.min_corner_yz() - static_cast<int>(ghost_width),
+                                       level_cell_array.max_corner_yz() + static_cast<int>(ghost_width));
                 level_cell_array.for_each_interval_in_x([&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index_yz,
                                                             interval_t const& interval)
                 {
                     static_nested_loop<dim-1, -ghost_width, ghost_width+1>([&](auto stencil)
                     {
-                        level_cell_list[index_yz + stencil].add_interval({interval.start - int(ghost_width),
-                                                            interval.end + int(ghost_width)}
-                                                     );
+                        auto index = xt::eval(index_yz + stencil);
+                        level_cell_list[index].add_interval({interval.start - static_cast<int>(ghost_width),
+                                                             interval.end + static_cast<int>(ghost_width)});
                     });
                     m_nb_local_cells += interval.size();
                 } );
