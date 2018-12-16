@@ -182,19 +182,18 @@ namespace mure
             if (!level_cell_array.empty())
             {
                 LevelCellList<MRConfig> &level_cell_list = cell_list[level];
-                level_cell_list.extend(xt::eval(level_cell_array.min_corner_yz() - static_cast<int>(ghost_width)),
-                                       xt::eval(level_cell_array.max_corner_yz() + static_cast<int>(ghost_width))) ;
+                level_cell_list.extend(level_cell_array.min_corner_yz() - static_cast<int>(ghost_width),
+                                       level_cell_array.max_corner_yz() + static_cast<int>(ghost_width));
                 level_cell_array.for_each_interval_in_x([&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index_yz,
                                                             interval_t const& interval)
                 {
-                    std::cout << "index " << index_yz << " " << m_nb_local_cells << "\n";
-                    // static_nested_loop<dim-1, -ghost_width, ghost_width+1>([&](auto stencil)
-                    // {
-                    //     level_cell_list[xt::eval(index_yz + stencil)].add_interval({interval.start - static_cast<int>(ghost_width),
-                    //                                         interval.end + static_cast<int>(ghost_width)}
-                    //                                  );
-                    // });
-                    // m_nb_local_cells += interval.size();
+                    static_nested_loop<dim-1, -ghost_width, ghost_width+1>([&](auto stencil)
+                    {
+                        auto index = xt::eval(index_yz + stencil);
+                        level_cell_list[index].add_interval({interval.start - static_cast<int>(ghost_width),
+                                                             interval.end + static_cast<int>(ghost_width)});
+                    });
+                    m_nb_local_cells += interval.size();
                 } );
             }
         }
