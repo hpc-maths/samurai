@@ -195,7 +195,8 @@ namespace mure
     {
         for(index_t i = beg_index; i < end_index; ++i)
         {
-            std::forward<function_t>(f)(index_yz, m_cells[i]);
+            std::forward<function_t>(f)(std::forward<xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>>(index_yz),
+                                        std::forward<const interval_t&>(m_cells[i]));
         }
     }
 

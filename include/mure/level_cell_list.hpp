@@ -27,6 +27,7 @@ namespace mure
         using coord_index_t = typename MRConfig::coord_index_t;
         using interval_t = typename MRConfig::interval_t;
         using list_interval_t = ListOfIntervals<coord_index_t, index_t>;
+        using m_grid_t = xt::xtensor<list_interval_t, dim-1, xt::layout_type::column_major>;
 
         void extend(xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> start,
                     xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> end)
@@ -37,7 +38,7 @@ namespace mure
                 // we have data
                 if (dim != 1 && m_box_yz.isvalid())
                 {
-                    xt::xtensor<list_interval_t, dim-1> new_grid;
+                    m_grid_t new_grid;
                     new_grid.resize(xt::eval(size));
                     xt::xstrided_slice_vector sv;
                     for(std::size_t i=0; i<dim-1; ++i)
@@ -87,7 +88,7 @@ namespace mure
             os << m_grid_yz << "\n";
         }
     private:
-        xt::xtensor<list_interval_t, dim-1> m_grid_yz;
+        m_grid_t m_grid_yz;
         Box<coord_index_t, dim-1> m_box_yz;
     };
 
