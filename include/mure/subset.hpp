@@ -130,10 +130,9 @@ namespace mure
                                                           std::array<std::size_t, size>& start,
                                                           std::array<std::size_t, size>& end) const
     {
-        expand{(generic_assign(start[I],
-                            std::get<I>(m_data).beg_ind_last_dim()), false)...};
+        expand{(generic_assign(start[I], 0), false)...};
         expand{(generic_assign(end[I],
-                            std::get<I>(m_data).size()), false)...};
+                            std::get<I>(m_data)[MRConfig::dim-1].size()), false)...};
     }
 
     template<class MRConfig, class Operator, class... T>
@@ -154,9 +153,9 @@ namespace mure
             std::array<std::size_t, size> new_start;
             std::array<std::size_t, size> new_end;
             expand{(generic_assign(new_start[I],
-                                   std::get<I>(m_data).offset(std::get<I>(m_data)[index[I]].index + i)), false)...};
+                                   std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i]), false)...};
             expand{(generic_assign(new_end[I],
-                                   std::get<I>(m_data).offset(std::get<I>(m_data)[index[I]].index + i + 1)), false)...};
+                                   std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i + 1]), false)...};
 
             apply_impl(iseq, new_start, new_end,
                        index_yz, interval_index, std::forward<Func>(func),
@@ -195,10 +194,10 @@ namespace mure
         std::array<coord_index_t, size> endpoints;
         std::array<coord_index_t, size> ends;
         expand{(generic_assign(endpoints[I],
-                               std::get<I>(m_data)[start[I]].start>>(m_data_level[I]-m_common_level)), false)...};
+                               std::get<I>(m_data)[d][start[I]].start>>(m_data_level[I]-m_common_level)), false)...};
         expand{(generic_assign(ends[I],
-                              (std::get<I>(m_data)[end[I] - 1].end>>(m_data_level[I]-m_common_level))
-                              + ((std::get<I>(m_data)[end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)), false)...};
+                              (std::get<I>(m_data)[d][end[I] - 1].end>>(m_data_level[I]-m_common_level))
+                              + ((std::get<I>(m_data)[d][end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)), false)...};
         
         auto scan = *std::min_element(endpoints.begin(), endpoints.end());
         auto sentinel = *std::max_element(ends.begin(), ends.end()) + 1;
@@ -238,7 +237,7 @@ namespace mure
                 }
             }
 
-            expand{(new_endpoint(scan, sentinel, std::get<I>(m_data), end[I],
+            expand{(new_endpoint(scan, sentinel, std::get<I>(m_data)[d], end[I],
                                  m_data_level[I] - m_common_level,
                                  index[I], endpoints_index[I], endpoints[I]), false)...};
             scan = *std::min_element(endpoints.begin(), endpoints.end());
