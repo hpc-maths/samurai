@@ -82,8 +82,12 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
         }
     });
 #else
-    for (auto const& l : lcl.m_grid_yz)
+    //for (auto const& l : lcl.m_grid_yz)
+    for (auto iter = lcl.m_grid_yz.template begin<xt::layout_type::column_major>();
+         iter != lcl.m_grid_yz.template end<xt::layout_type::column_major>();
+         ++iter)
     {
+        const auto& l = *iter;
         if (l.size() > 0)
         {
             cnt_x += l.size();
