@@ -81,6 +81,15 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
             ++cnt_yz;
         }
     });
+#elif defined(USE_MURE_TENSOR) || defined(USE_MURE_TENSORWITHOFFSET)
+    for (auto const& l : lcl.m_grid_yz)
+    {
+        if (l.size() > 0)
+        {
+            cnt_x += l.size();
+            ++cnt_yz;
+        }
+    }
 #else
     //for (auto const& l : lcl.m_grid_yz)
     for (auto iter = lcl.m_grid_yz.template begin<xt::layout_type::column_major>();
