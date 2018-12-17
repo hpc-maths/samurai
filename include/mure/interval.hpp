@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream>
 #include <list>
+#include <forward_list>
 #include <cstddef>
 
 #ifdef USE_FAST_POOL
@@ -54,17 +55,16 @@ namespace mure
     using Allocator = boost::fast_pool_allocator<
         T,
         boost::default_user_allocator_new_delete,
-        boost::details::pool::default_mutex,
-        1024, 0
+        boost::details::pool::default_mutex
     >;
 #endif
 
 #ifdef USE_FAST_POOL
     template<typename TValue, typename TIndex = std::size_t>
-    struct ListOfIntervals: private std::list<Interval<TValue, TIndex>, Allocator<Interval<TValue, TIndex>>>
+    struct ListOfIntervals: private std::forward_list<Interval<TValue, TIndex>, Allocator<Interval<TValue, TIndex>>>
 #else
     template<typename TValue, typename TIndex = std::size_t>
-    struct ListOfIntervals: private std::list<Interval<TValue, TIndex>>
+    struct ListOfIntervals: private std::forward_list<Interval<TValue, TIndex>>
 #endif
     {
         using value_t       = TValue;
@@ -72,31 +72,45 @@ namespace mure
         using interval_t    = Interval<value_t, index_t>;
 
 #ifdef USE_FAST_POOL
-        using list_t = std::list<Interval<TValue, TIndex>, Allocator<Interval<TValue, TIndex>>>;
+        using list_t = std::forward_list<Interval<TValue, TIndex>, Allocator<Interval<TValue, TIndex>>>;
 #else
-        using list_t = std::list<interval_t>;
+        using list_t = std::forward_list<interval_t>;
 #endif
 
-        using list_t::list;
+        using typename list_t::forward_list;
         using list_t::begin;
         using list_t::end;
-        using list_t::size;
 
-        using list_t::erase;
         using typename list_t::iterator;
         using typename list_t::const_iterator;
         using typename list_t::value_type;
 
+        // Divides performances by two if you uncomment following lines (even without updating m_size)
+        /*
+        std::size_t m_size = 0;
+
+        std::size_t size() const
+        {
+            return m_size;
+        }
+        */
+
         void add_interval(interval_t const& interval)
         {
             auto predicate = [&interval](auto const& value){return interval.start <= value.end;};
-            auto it = std::find_if(begin(), end(), predicate);
+            auto it_last = this->before_begin();
+            auto it = this->begin();
+            while (it != end() && ! predicate(*it))
+            {
+                it_last = it++;
+            }
 
             // if we are at the end just append the new interval or
             // if we are between two intervals, insert it
             if (it == end() || interval.end < (*it).start)
             {
-                this->insert(it, interval);
+                this->insert_after(it_last, interval);
+                //++m_size;
                 return;
             }
 
@@ -108,7 +122,8 @@ namespace mure
             while (it_end != end() && interval.end >= (*it_end).start)
             {
                  (*it).end = std::max((*it_end).end, interval.end);
-                 it_end = erase(it_end);
+                 it_end = this->erase_after(it);
+                 //--m_size;
             }
         }
     };
