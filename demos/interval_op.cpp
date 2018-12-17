@@ -33,12 +33,12 @@ int main()
                 {
                     std::cout << index_yz << " " << interval << "\n";
                     std::cout << interval_index << "\n";
-                    level_cell_array_1[interval_index[0, 0]].index = 42;
+                    level_cell_array_1[0][interval_index[0, 0]].index = 42;
                     // std::cout << intervals[0].get() << "\n";
                     // std::cout << intervals[1].get() << "\n";
                 });
     //set.apply([](auto& index_yz, auto& interval){std::cout << index_yz << " " << interval << "\n";});
-    std::cout << level_cell_array_1[1] << "\n";
+    std::cout << level_cell_array_1[0][1] << "\n";
 
     /////////////////////////////////////////
     //

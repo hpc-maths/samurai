@@ -13,6 +13,7 @@
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xio.hpp>
 
+#include "box.hpp"
 #include "list_of_intervals.hpp"
 
 namespace mure

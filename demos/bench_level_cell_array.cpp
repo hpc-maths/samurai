@@ -6,8 +6,6 @@
 #include <mure/box.hpp>
 #include <mure/mr_config.hpp>
 #include <mure/level_cell_list.hpp>
-//#include <mure/level_cell_array_other.hpp>
-//#include <mure/level_cell_array_other_nodeque.hpp>
 #include <mure/level_cell_array.hpp>
 
 #include <xtensor/xview.hpp>
