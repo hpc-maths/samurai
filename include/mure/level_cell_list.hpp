@@ -75,12 +75,12 @@ namespace mure
             return m_box_yz.max_corner();
         }
 
-        list_interval_t const& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index) const
+        list_interval_t const& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index) const
         {
             return m_grid_yz[xt::eval(index - m_box_yz.min_corner())];
         }
 
-        list_interval_t& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index)
+        list_interval_t& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index)
         {
             return m_grid_yz[xt::eval(index - m_box_yz.min_corner())];
         }
