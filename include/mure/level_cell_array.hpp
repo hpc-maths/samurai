@@ -97,6 +97,7 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
     std::size_t cnt_x = 0;
     std::size_t cnt_yz = 0;
 
+    /*
     for(auto iter = lcl.grid_yz().template begin<xt::layout_type::column_major>();
         iter != lcl.grid_yz().template end<xt::layout_type::column_major>();
         ++iter)
@@ -107,6 +108,7 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
             ++cnt_yz;
         }
     }
+    */
 
     // NOTE: the estimation above takes time, more than the time needed for reallocating the vectors...
     // Maybe 2 other solutions:
@@ -247,7 +249,7 @@ initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
                       std::integral_constant<std::size_t, N>)
 {
     // Working interval
-    interval_t curr_interval(0, 0, m_offsets[N-1].size());
+    interval_t curr_interval(0, 0, 0);
 
     // For each position along the Nth dimension
     for (coord_index_t i = lcl.min_corner_yz()[N-1]; i < lcl.max_corner_yz()[N-1]; ++i)
