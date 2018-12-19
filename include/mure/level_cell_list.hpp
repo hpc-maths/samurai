@@ -31,14 +31,14 @@ namespace mure
          * manage the constness of the context (avoid duplicated code).
          */
         template <typename GridYZ, typename Index>
-        decltype(auto) access_grid_yz(GridYZ & grid_yz, Index const&, std::integral_constant<std::size_t, 0>)
+        inline decltype(auto) access_grid_yz(GridYZ & grid_yz, Index const&, std::integral_constant<std::size_t, 0>)
         {
             // For the first dimension, we return the interval list
             return grid_yz;
         }
 
         template <typename GridYZ, typename Index, std::size_t dim>
-        decltype(auto) access_grid_yz(GridYZ & grid_yz, Index const& index, std::integral_constant<std::size_t, dim>)
+        inline decltype(auto) access_grid_yz(GridYZ & grid_yz, Index const& index, std::integral_constant<std::size_t, dim>)
         {
             // For other dimensions, we dive into the nested std::map
             return access_grid_yz(grid_yz[index[dim-1]], index, std::integral_constant<std::size_t, dim-1>{});
