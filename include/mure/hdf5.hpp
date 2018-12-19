@@ -63,10 +63,15 @@ namespace mure
             xdmf_file << "<?xml version=\"1.0\" ?>\n";
             xdmf_file << "<!DOCTYPE Xdmf SYSTEM \"Xdmf.dtd\" []>\n";
             xdmf_file << "<Xdmf>\n";
+            xdmf_file << "<Domain>\n";
+            xdmf_file << "<Grid>\n";
         }
 
         ~Hdf5()
         {
+            xdmf_file << "</Grid>\n";
+            xdmf_file << "</Domain>\n";
+            xdmf_file << "</Xdmf>\n";
             xdmf_file.close();
         }
 
@@ -93,32 +98,20 @@ namespace mure
             auto element = get_element(std::integral_constant<std::size_t, dim>{});
 
             std::size_t index = 0;
-            for(std::size_t level=0; level<std::size_t(Mesh<MRConfig>::max_refinement_level); ++level)
+            mesh.for_each_cell([&](auto cell)
             {
-                auto level_array = mesh.get_cells(level);
-                level_array.for_each_interval_in_x([&](auto& index_yz, auto& interval)
-                {
-                    for(int ix=interval.start; ix<interval.end; ++ix)
-                    {
-                        Cell<int, Mesh<MRConfig>::dim> cell{level,
-                                                            xt::concatenate(xt::xtuple(xt::xarray<int>{ix}, index_yz))};
-                        auto coords_view = xt::view(coords,
-                                                    xt::range(nb_points*index, nb_points*(index+1)),
-                                                    xt::range(0, dim));
-                        auto connectivity_view = xt::view(connectivity, index, xt::all());
+                auto coords_view = xt::view(coords,
+                                            xt::range(nb_points*index, nb_points*(index+1)),
+                                            xt::range(0, dim));
+                auto connectivity_view = xt::view(connectivity, index, xt::all());
 
-                        coords_view = xt::eval(cell.first_corner() + cell.length()*element);
-                        connectivity_view = xt::eval(nb_points*index + range);
-                        index++;
-                    }
-                }
-                );
-            }
+                coords_view = xt::eval(cell.first_corner() + cell.length()*element);
+                connectivity_view = xt::eval(nb_points*index + range);
+                index++;
+            });
             xt::dump(h5_file, "mesh/connectivity", connectivity);
             xt::dump(h5_file, "mesh/points", coords);
 
-            xdmf_file << "<Domain>\n";
-            xdmf_file << "<Grid>\n";
             xdmf_file << "<Topology TopologyType=\"" << element_type(dim) << "\" NumberOfElements=\"" << connectivity.shape()[0] << "\">\n";
             xdmf_file << "<DataItem Dimensions=\"" << connectivity.size() << "\" Format=\"HDF\">\n";
             xdmf_file << filename << ".h5:/mesh/connectivity\n";
@@ -129,9 +122,17 @@ namespace mure
             xdmf_file << filename << ".h5:/mesh/points\n";
             xdmf_file << "</DataItem>\n";
             xdmf_file << "</Geometry>\n";
-            xdmf_file << "</Grid>\n";
-            xdmf_file << "</Domain>\n";
-            xdmf_file << "</Xdmf>\n";
+        }
+
+        template<class MRConfig>
+        void add_field(Field<MRConfig> const& field)
+        {
+            xt::dump(h5_file, "fields/" + field.name(), field.data());
+            xdmf_file << "<Attribute Name='" << field.name() << "' Center='Cell'>\n";
+            xdmf_file << "<DataItem Format='HDF' Dimensions='" << field.nb_cells() << " 1'>\n";
+            xdmf_file << filename << ".h5:/fields/" << field.name() << "\n";
+            xdmf_file << "</DataItem>\n";
+            xdmf_file << "</Attribute>\n";
         }
     private:
         std::string filename;
