@@ -253,19 +253,21 @@ namespace mure
         // index_t cpt_leaf = 0;
         // m_cell_to_ghost_indices.resize(nb_local_cells());
         auto expr = intersection(_1, _2);
-        // for( int level = 0; level <= max_refinement_level; ++level )
+        for( int level = 0; level <= max_refinement_level; ++level )
         {
-            std::size_t level = 1;
-            auto set = mure::make_subset<MRConfig>(expr,
-                                                   target_cells_and_ghosts[level],
-                                                   target_cells[level]);
+            if (!target_cells[level].empty())
+            {
+                auto set = mure::make_subset<MRConfig>(expr,
+                                                    target_cells_and_ghosts[level],
+                                                    target_cells[level]);
 
-            set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
-                         {
-                            target_cells[level][0][interval_index[0, 1]].index = target_cells_and_ghosts[level][0][interval_index[0, 0]].index;
-                            // for(int pos_x=interval.start; pos_x<interval_end; ++pos_x )
-                            //     m_cell_to_ghost_indices[ cpt_leaf++ ] = std::get<0>(x0_index) + pos_x;
-                         });
+                set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
+                            {
+                                target_cells[level][0][interval_index[0, 1]].index = target_cells_and_ghosts[level][0][interval_index[0, 0]].index;
+                                // for(int pos_x=interval.start; pos_x<interval_end; ++pos_x )
+                                //     m_cell_to_ghost_indices[ cpt_leaf++ ] = std::get<0>(x0_index) + pos_x;
+                            });
+            }
         }
     }
 
