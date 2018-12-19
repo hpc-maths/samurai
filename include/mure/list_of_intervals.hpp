@@ -27,7 +27,7 @@ namespace mure
         using interval_t    = Interval<value_t, index_t>;
 
         using list_t = std::forward_list<interval_t>;
-        using list_t::forward_list;
+        using typename list_t::forward_list;
         using list_t::before_begin;
         using list_t::begin;
         using list_t::end;
@@ -76,3 +76,4 @@ namespace mure
         return out;
     }    
 }
+
