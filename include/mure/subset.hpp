@@ -194,10 +194,10 @@ namespace mure
         std::array<coord_index_t, size> endpoints;
         std::array<coord_index_t, size> ends;
         expand{(generic_assign(endpoints[I],
-                               std::get<I>(m_data)[d][start[I]].start>>(m_data_level[I]-m_common_level)), false)...};
+                               std::get<I>(m_data)[d-1][start[I]].start>>(m_data_level[I]-m_common_level)), false)...};
         expand{(generic_assign(ends[I],
-                              (std::get<I>(m_data)[d][end[I] - 1].end>>(m_data_level[I]-m_common_level))
-                              + ((std::get<I>(m_data)[d][end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)), false)...};
+                              (std::get<I>(m_data)[d-1][end[I] - 1].end>>(m_data_level[I]-m_common_level))
+                              + ((std::get<I>(m_data)[d-1][end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)), false)...};
         
         auto scan = *std::min_element(endpoints.begin(), endpoints.end());
         auto sentinel = *std::max_element(ends.begin(), ends.end()) + 1;
@@ -237,7 +237,7 @@ namespace mure
                 }
             }
 
-            expand{(new_endpoint(scan, sentinel, std::get<I>(m_data)[d], end[I],
+            expand{(new_endpoint(scan, sentinel, std::get<I>(m_data)[d-1], end[I],
                                  m_data_level[I] - m_common_level,
                                  index[I], endpoints_index[I], endpoints[I]), false)...};
             scan = *std::min_element(endpoints.begin(), endpoints.end());

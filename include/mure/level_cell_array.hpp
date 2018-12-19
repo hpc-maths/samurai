@@ -155,7 +155,7 @@ auto const&
 LevelCellArray<MRConfig>::
 offsets(index_t d) const
 {
-    assert(d > 1);
+    assert(d > 0);
     return m_offsets[d-1];
 }
 
@@ -164,7 +164,7 @@ auto&
 LevelCellArray<MRConfig>::
 offsets(index_t d)
 {
-    assert(d > 1);
+    assert(d > 0);
     return m_offsets[d-1];
 }
 
