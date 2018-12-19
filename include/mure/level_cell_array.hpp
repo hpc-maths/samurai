@@ -24,8 +24,16 @@ public:
     using interval_t    = Interval<coord_index_t, index_t>;
 
 public:
+    LevelCellArray(LevelCellArray&&) = default;
+    LevelCellArray& operator=(LevelCellArray&&) = default;
+
+    LevelCellArray(LevelCellArray const&) = default;
+    LevelCellArray& operator=(LevelCellArray const&) = default;
+
     /// Construct from a level cell list
     inline LevelCellArray(LevelCellList<MRConfig> const& lcl = {});
+
+    inline LevelCellArray(Box<coord_index_t, dim> box);
 
     /// Display to the given stream
     void to_stream(std::ostream& out) const;
@@ -111,6 +119,31 @@ LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
     // Additionnal offset so that [m_offset[i], m_offset[i+1][ is always valid.
     for (std::size_t N = 0; N < dim-1; ++N)
         m_offsets[N].push_back(m_cells[N].size());
+}
+
+template <class MRConfig>
+LevelCellArray<MRConfig>::LevelCellArray(Box<coord_index_t, dim> box)
+{
+    auto dimensions = box.length();
+    auto start = box.min_corner();
+    auto end = box.max_corner();
+
+    std::size_t size = 1;
+    for(std::size_t d=dim-1; d>0; --d)
+    {
+        m_offsets[d-1].resize((dimensions[d]*size)+1);
+        for(std::size_t i=0; i<(dimensions[d]*size)+1; ++i)
+            m_offsets[d-1][i] = i;
+        m_cells[d].resize(size);
+        for(std::size_t i=0; i<size; ++i)
+            m_cells[d][i] = {start[d], end[d], m_offsets[d-1][i*dimensions[d]] - start[d]};
+        size *= dimensions[d];
+    }
+
+    m_cells[0].resize(size);
+    for(std::size_t i=0; i<size; ++i)
+        m_cells[0][i] = {start[0], end[0], 0};
+        // m_cells[0][i] = {start[0], end[0], i*dimensions[0] - start[0]};
 }
 
 template <class MRConfig>

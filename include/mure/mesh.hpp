@@ -33,13 +33,16 @@ namespace mure
 
         Mesh(Box<double, dim> b, std::size_t init_level)
         {
+            using box_t = Box<coord_index_t, dim>;
             point_t start = b.min_corner()*std::pow(2, init_level);
             point_t end = b.max_corner()*std::pow(2, init_level);
 
-            CellList<MRConfig> dcl;
-            
-            m_cells = {dcl};
-            update_ghost_nodes();
+            m_cells[init_level] = {box_t{start, end}};
+            m_cells_and_ghosts[init_level] = {box_t{start - 1, end + 1}};
+            m_all_cells[init_level] = {box_t{start - 1 , end + 1}};
+            m_all_cells[init_level-1] = {box_t{(start>>1) - 1 , (end>>1) + 1}};
+            update_x0_and_nb_ghosts(m_nb_local_cells_and_ghosts, m_all_cells, m_cells);
+            // update_ghost_nodes();
         }
 
         Mesh(const CellList<MRConfig>& dcl)
