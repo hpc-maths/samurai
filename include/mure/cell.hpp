@@ -4,14 +4,16 @@
 
 namespace mure
 {
-    template<class TIndex, std::size_t dim_>
+    template<class TCoord_index, class TIndex, std::size_t dim_>
     struct Cell
     {
         using index_t = TIndex;
+        using coord_index_t = TCoord_index;
         static constexpr auto dim = dim_;
 
         std::size_t level;
-        xt::xtensor_fixed<index_t, xt::xshape<dim>> indices;
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> indices;
+        index_t index;
 
         inline double length() const
         {

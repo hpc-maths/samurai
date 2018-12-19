@@ -8,6 +8,8 @@
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xio.hpp>
 
+#include "mure/box.hpp"
+#include "mure/cell.hpp"
 #include "mure/interval.hpp"
 #include "mure/level_cell_list.hpp"
 
@@ -56,6 +58,9 @@ public:
     //// Gives the number of intervals in each dimension
     inline auto shape() const;
 
+    //// Gives the number of cells
+    inline auto nb_cells() const;
+
     auto const& operator[](index_t d) const;
     auto& operator[](index_t d);
 
@@ -66,6 +71,10 @@ public:
     //// Return a reference to the offsets array
     //// for dimension d
     auto& offsets(index_t d);
+
+    //// Apply a function on each cell
+    template<class TFunction>
+    void for_each_cell(TFunction&& func, std::size_t level) const;
 
 private:
     /// Recursive construction from a level cell list along dimension > 0
@@ -93,6 +102,20 @@ private:
                                             xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index,
                                             index_t start_index, index_t end_index,
                                             std::integral_constant<std::size_t, 0>) const;
+
+    /// Recursive apply of a function on each cell, for the dimension > 0
+    template <typename TFunction, std::size_t N>
+    inline void for_each_cell_impl(TFunction&& func, std::size_t level,
+                                   xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                                   index_t start_index, index_t end_index,
+                                   std::integral_constant<std::size_t, N>) const;
+
+    /// Recursive apply of a function on each cell, for the dimension 0
+    template <typename TFunction>
+    inline void for_each_cell_impl(TFunction&& func, std::size_t level,
+                                   xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                                   index_t start_index, index_t end_index,
+                                   std::integral_constant<std::size_t, 0>) const;
 
 private:
     std::array<std::vector<interval_t>, dim> m_cells;     ///< All intervals in every direction
@@ -165,6 +188,15 @@ shape() const
         output[i] = m_cells[i].size();
     }
     return output;
+}
+
+template <class MRConfig>
+inline auto
+LevelCellArray<MRConfig>::
+nb_cells() const
+{
+    auto op = [](auto&& init, auto const& interval){return std::move(init) + interval.size();};
+    return std::accumulate(m_cells[0].cbegin(), m_cells[0].cend(), 0, op);
 }
 
 template <class MRConfig>
@@ -348,6 +380,66 @@ for_each_interval_in_x_impl(TFunction && f,
     for (index_t i = start_index; i < end_index; ++i)
     {
         std::forward<TFunction>(f)(index, m_cells[0][i]);
+    }
+}
+
+template <typename MRConfig>
+template <typename TFunction>
+void
+LevelCellArray<MRConfig>::
+for_each_cell(TFunction && f, std::size_t level) const
+{
+    for_each_cell_impl(std::forward<TFunction>(f),
+                       level,
+                       {},
+                       0,
+                       m_cells[dim-1].size(),
+                       std::integral_constant<std::size_t, dim-1>{});
+}
+
+template <typename MRConfig>
+template <typename TFunction, std::size_t N>
+void
+LevelCellArray<MRConfig>::
+for_each_cell_impl(TFunction && f, std::size_t level,
+                            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                            index_t start_index, index_t end_index,
+                            std::integral_constant<std::size_t, N>) const
+{
+    for (index_t i = start_index; i < end_index; ++i)
+    {
+        auto const& interval = m_cells[N][i];
+        for (coord_index_t c = interval.start; c < interval.end; ++c)
+        {
+            index[N] = c;
+            for_each_cell_impl(std::forward<TFunction>(f),
+                                        level,
+                                        index,
+                                        m_offsets[N-1][interval.index + c],
+                                        m_offsets[N-1][interval.index + c + 1],
+                                        std::integral_constant<std::size_t, N-1>{});
+        }
+    }
+}
+
+template <typename MRConfig>
+template <typename TFunction>
+void
+LevelCellArray<MRConfig>::
+for_each_cell_impl(TFunction&& f, std::size_t level,
+                   xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                   index_t start_index, index_t end_index,
+                   std::integral_constant<std::size_t, 0>) const
+{
+    for (index_t i = start_index; i < end_index; ++i)
+    {
+        auto const& interval = m_cells[0][i];
+        for (coord_index_t c = interval.start; c < interval.end; ++c)
+        {
+            index[0] = c;
+            Cell<coord_index_t, index_t, dim> cell{level, index, interval.index + c};
+            std::forward<TFunction>(f)(cell);
+        }
     }
 }
 

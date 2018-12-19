@@ -108,7 +108,12 @@ namespace mure
 
         inline std::size_t nb_cells() const
         {
-            return m_nb_local_cells;
+            return m_cells.nb_cells();
+        }
+
+        inline std::size_t nb_total_cells() const
+        {
+            return m_all_cells.nb_cells();
         }
 
         auto const& get_cells(std::size_t i) const
@@ -126,6 +131,11 @@ namespace mure
             m_all_cells.to_stream(os);
         }
 
+        template<class Func>
+        inline void for_each_cell(Func&& func) const
+        {
+            m_cells.for_each_cell(std::forward<Func>(func));
+        }
 
     private:
         void update_ghost_nodes();

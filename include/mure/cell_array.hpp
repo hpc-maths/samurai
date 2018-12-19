@@ -32,13 +32,38 @@ namespace mure
             return m_cells[i];
         }
 
+        inline std::size_t nb_cells() const
+        {
+            std::size_t size = 0;
+            for(std::size_t level=0; level <= max_refinement_level; ++level)
+            {
+                size += m_cells[level].nb_cells();
+            }
+            return size;
+        }
+
+        template<class Func>
+        inline void for_each_cell(Func&& func) const
+        {
+            for(std::size_t level = 0; level <= max_refinement_level; ++level)
+            {
+                if (!m_cells[level].empty())
+                {
+                    m_cells[level].for_each_cell(std::forward<Func>(func), level);
+                }
+            }
+        }
+
         void to_stream(std::ostream &os) const
         {
             for(std::size_t level=0; level <= max_refinement_level; ++level)
             {
-                os << "level " << level << "\n";
-                m_cells[level].to_stream(os);
-                os << "\n";
+                if (!m_cells[level].empty())
+                {
+                    os << "level " << level << "\n";
+                    m_cells[level].to_stream(os);
+                    os << "\n";
+                }
             }
         }
 
