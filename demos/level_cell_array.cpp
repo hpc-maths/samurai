@@ -1,11 +1,8 @@
 #include <cstddef>
 #include <iostream>
 
-#include <mure/box.hpp>
 #include <mure/mr_config.hpp>
 #include <mure/level_cell_list.hpp>
-//#include <mure/level_cell_array_other.hpp>
-//#include <mure/level_cell_array_other_nodeque.hpp>
 #include <mure/level_cell_array.hpp>
 
 #include <xtensor/xview.hpp>
@@ -17,15 +14,8 @@ int main()
     using coord_index_t = Config::coord_index_t;
     const coord_index_t cross_size = 5;
 
-    // Creating the box
-    using box_t = mure::Box<coord_index_t, dim>;
-    box_t::point_t min_corner; min_corner.fill(0);
-    box_t::point_t max_corner; max_corner.fill(cross_size);
-    box_t box(min_corner, max_corner);
-
     // Creating the level cell list
     mure::LevelCellList<Config> dcl;
-    dcl.extend(xt::view(box.min_corner(), xt::drop(0)), xt::view(box.max_corner(), xt::drop(0)));
 
     Config::index_t cnt = 0;
     for (Config::coord_index_t i = 0; i < cross_size; ++i)

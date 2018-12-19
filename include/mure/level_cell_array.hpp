@@ -6,6 +6,7 @@
 #include <ostream>
 
 #include <xtensor/xfixed.hpp>
+#include <xtensor/xio.hpp>
 
 #include "mure/interval.hpp"
 #include "mure/level_cell_list.hpp"
@@ -60,13 +61,14 @@ public:
 
 private:
     /// Recursive construction from a level cell list along dimension > 0
-    template <std::size_t N>
-    inline void initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
+    template <typename TGrid, std::size_t N>
+    inline void initFromLevelCellList(TGrid const& grid,
                                       xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
                                       std::integral_constant<std::size_t, N>);
 
     /// Recursive construction from a level cell list for the dimension 0
-    inline void initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
+    template <typename TIntervalList>
+    inline void initFromLevelCellList(TIntervalList const& interval_list,
                                       xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index,
                                       std::integral_constant<std::size_t, 0>);
 
@@ -93,71 +95,22 @@ private:
 template <class MRConfig>
 LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
 {
-    // Estimating reservation size
-    std::size_t cnt_x = 0;
-    std::size_t cnt_yz = 0;
-
-    /*
-    for(auto iter = lcl.grid_yz().template begin<xt::layout_type::column_major>();
-        iter != lcl.grid_yz().template end<xt::layout_type::column_major>();
-        ++iter)
-    {
-        if (iter->size() > 0)
-        {
-            cnt_x += iter->size();
-            ++cnt_yz;
-        }
-    }
-    */
-
-    // NOTE: the estimation above takes time, more than the time needed for reallocating the vectors...
-    // Maybe 2 other solutions:
-    // - (highly) overestimating the needed size since the memory will be actually allocated only when touched (at least under Linux)
-    // - cnt_x and cnt_yz updated in LevelCellList during the filling process
-    //
-    // NOTE2: in fact, hard setting the optimal values for cnt_x and cnt_yz doesn't speedup things, strang...
-
-    std::size_t size = 1;
-    for (std::size_t N = dim-1; N >= 1; --N)
-    {
-        size *= lcl.max_corner_yz()[N-1] - lcl.min_corner_yz()[N-1];
-        m_cells[N].reserve(std::min(size/2, cnt_yz));
-        m_offsets[N-1].reserve(std::min(size, cnt_yz)+1);
-    }
-    m_cells[0].reserve(cnt_x);
-
-    // for (auto const& c : m_cells)
-    //     std::cout << c.capacity() << " ";
-    // std::cout << std::endl;
-    
-    // std::cout << "m_offsets capacity: ";
-    // for (auto const& c : m_offsets)
-    //     std::cout << c.capacity() << " ";
-    // std::cout << std::endl;
+    /* Estimating reservation size
+     *
+     * NOTE: the estimation takes time, more than the time needed for reallocating the vectors...
+     * Maybe 2 other solutions:
+     * - (highly) overestimating the needed size since the memory will be actually allocated only when touched (at least under Linux)
+     * - cnt_x and cnt_yz updated in LevelCellList during the filling process
+     *
+     * NOTE2: in fact, hard setting the optimal values for cnt_x and cnt_yz doesn't speedup things, strang...
+     */
 
     // Filling cells and offsets from the level cell list
-    initFromLevelCellList(lcl, {}, std::integral_constant<std::size_t, dim-1>{});
+    initFromLevelCellList(lcl.grid_yz(), {}, std::integral_constant<std::size_t, dim-1>{});
 
     // Additionnal offset so that [m_offset[i], m_offset[i+1][ is always valid.
     for (std::size_t N = 0; N < dim-1; ++N)
         m_offsets[N].push_back(m_cells[N].size());
-
-    // Adjusting capacity
-    for (auto& c : m_cells)
-        c.reserve(c.size());
-    
-    for (auto& c : m_offsets)
-        c.reserve(c.size());
-    
-    // std::cout << "m_cells size: ";
-    // for (auto const& c : m_cells)
-    //     std::cout << c.size() << " ";
-    // std::cout << std::endl;
-    
-    // std::cout << "m_offsets size: ";
-    // for (auto const& c : m_offsets)
-    //     std::cout << c.size() << " ";
-    // std::cout << std::endl;
 }
 
 template <class MRConfig>
@@ -166,31 +119,6 @@ LevelCellArray<MRConfig>::
 empty() const
 {
     return m_cells[0].empty();
-}
-
-template <class MRConfig>
-inline auto
-LevelCellArray<MRConfig>::
-min_corner_yz() const
-{
-    xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> output;
-    for(std::size_t i=0; i<dim-1; ++i)
-        output[i] = m_cells[i+1][0].start;
-    return output;
-}
-
-template <class MRConfig>
-inline auto
-LevelCellArray<MRConfig>::
-max_corner_yz() const
-{
-    xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> output;
-    for(std::size_t i=0; i<dim-1; ++i)
-    {
-        auto const& cells = m_cells[i+1];
-        output[i] = cells[cells.size() - 1].end;
-    }
-    return output;
 }
 
 template <class MRConfig>
@@ -241,10 +169,10 @@ offsets(index_t d)
 }
 
 template <class MRConfig>
-template <std::size_t N>
+template <typename TGrid, std::size_t N>
 void
 LevelCellArray<MRConfig>::
-initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
+initFromLevelCellList(TGrid const& grid,
                       xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
                       std::integral_constant<std::size_t, N>)
 {
@@ -252,34 +180,49 @@ initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
     interval_t curr_interval(0, 0, 0);
 
     // For each position along the Nth dimension
-    for (coord_index_t i = lcl.min_corner_yz()[N-1]; i < lcl.max_corner_yz()[N-1]; ++i)
+    for (auto const& point : grid)
     {
+        // Coordinate along the Nth dimension
+        const auto i = point.first;
+
         // Recursive call on the current position for the (N-1)th dimension
         index[N-1] = i;
         const std::size_t previous_offset = m_cells[N-1].size();
-        initFromLevelCellList(lcl, index, std::integral_constant<std::size_t, N-1>{});
+        initFromLevelCellList(point.second, index, std::integral_constant<std::size_t, N-1>{});
 
-        // If the co-dimensions are empty
-        if (m_cells[N-1].size() == previous_offset)
+        /* Since we move on a sparse storage, each coordinate have non-empty co-dimensions
+         * So the question is, are we continuing an existing interval or have we jump to another one.
+         *
+         * WARNING: we are supposing that the sparse array of dimension dim-1 has no empty entry.
+         *      Otherwise, we should check that the recursive call has do something by comparing
+         *      previous_offset with the size of m_cells[N-1].
+         */
+        if (curr_interval.is_valid())
         {
-            // Adding the working interval if valid
-            if (curr_interval.is_valid())
+            // If the coordinate has jump out of the current interval
+            if (i > curr_interval.end)
             {
+                // Adding the previous interval...
                 m_cells[N].push_back(curr_interval);
-                curr_interval = interval_t{0, 0, 0};
+                
+                // ... and creating a new one.
+                curr_interval = interval_t(i, i+1, m_offsets[N-1].size() - i);
+            }
+            else
+            {
+                // Otherwise, we are just continuing the current interval
+                ++curr_interval.end;
             }
         }
-        else // Co-dimensions are not empty
+        else
         {
-            // Creating or updating the current interval
-            if (curr_interval.is_valid())
-                curr_interval.end = i+1;
-            else
-                curr_interval = interval_t(i, i+1, m_offsets[N-1].size() - i);
-
-            // Updating m_offsets
-            m_offsets[N-1].push_back(previous_offset);
+            // If there is no current interval (at the beginning of the loop)
+            // we create a new one.
+            curr_interval = interval_t(i, i+1, m_offsets[N-1].size() - i);
         }
+        
+        // Updating m_offsets (at each iteration since we are always updating an interval)
+        m_offsets[N-1].push_back(previous_offset);
     }
 
     // Adding the working interval if valid
@@ -288,15 +231,14 @@ initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
 }
 
 template <class MRConfig>
+template <typename TIntervalList>
 void
 LevelCellArray<MRConfig>::
-initFromLevelCellList(LevelCellList<MRConfig> const& lcl,
+initFromLevelCellList(TIntervalList const& interval_list,
                       xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index,
                       std::integral_constant<std::size_t, 0>)
 {
     // Along the X axis, simply copy the intervals in cells[0]
-    auto const& interval_list = lcl[index];
-    //m_cells[0].insert(m_cells[0].end(), interval_list.begin(), interval_list.end());
     std::copy(interval_list.begin(), interval_list.end(), std::back_inserter(m_cells[0]));
 }
 

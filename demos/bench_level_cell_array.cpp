@@ -3,7 +3,6 @@
 #include <chrono>
 #include <string>
 
-#include <mure/box.hpp>
 #include <mure/mr_config.hpp>
 #include <mure/level_cell_list.hpp>
 #include <mure/level_cell_array.hpp>
@@ -35,17 +34,13 @@ int main(int argc, char* argv[])
     using coord_index_t = Config::coord_index_t;
     const coord_index_t cross_size      = std::stoull(argv[1]);
     const coord_index_t cross_tickness  = std::stoull(argv[2]);
-    const coord_index_t box_size = cross_size + cross_tickness;
-
 
     for (std::size_t i = 0; i < N_run; ++i)
     {
         std::cout << "Run #" << i << std::endl;
 
         tic();
-        mure::Box<coord_index_t, dim> box{{0, 0, 0}, {box_size, box_size, box_size}};
         mure::LevelCellList<Config> dcl;
-        dcl.extend(xt::view(box.min_corner(), xt::drop(0)), xt::view(box.max_corner(), xt::drop(0)));
 
         Config::index_t cnt = 0;
         for (Config::coord_index_t i = 0; i < cross_size; ++i)
