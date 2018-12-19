@@ -19,7 +19,7 @@ namespace mure
         // base types
         using coord_index_t = int;                  ///< integer for coordinates
         using coord_t = double;               ///< floating point type (notably for flt_... coordinates)
-        using index_t = std::size_t;          ///<
+        using index_t = long long int;          ///<
         using interval_t = Interval<coord_index_t, index_t>;
         // stencils
         static constexpr unsigned graduation_width            = _graduation_width;    ///< for graded tree

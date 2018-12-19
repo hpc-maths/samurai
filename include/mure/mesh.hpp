@@ -40,6 +40,7 @@ namespace mure
             dcl[init_level].extend(xt::view(start, xt::drop(0)), xt::view(end, xt::drop(0)));
             dcl[init_level].fill({start[0], end[0]});
 
+            m_nb_local_cells = 0;
             m_cells = {dcl};
             update_ghost_nodes();
         }
@@ -105,7 +106,12 @@ namespace mure
             }
         }
 
-        LevelCellArray<MRConfig>& get_cells(std::size_t i)
+        inline std::size_t nb_cells() const
+        {
+            return m_nb_local_cells;
+        }
+
+        auto const& get_cells(std::size_t i) const
         {
             return m_cells[i];
         }
@@ -116,6 +122,8 @@ namespace mure
             m_cells.to_stream(os);
             os << "\nCells and ghosts\n";
             m_cells_and_ghosts.to_stream(os);
+            os << "\nAll cells\n";
+            m_all_cells.to_stream(os);
         }
 
 
@@ -147,22 +155,22 @@ namespace mure
 
         m_cells_and_ghosts = {cell_list};
 
-        // // optionnal +/- w nodes in level - 1
-        // if (MRConfig::need_pred_from_proj)
-        // {
-        //     add_ghosts_for_level_m1(cell_list);
-        // }
+        // optionnal +/- w nodes in level - 1
+        if (MRConfig::need_pred_from_proj)
+        {
+            add_ghosts_for_level_m1(cell_list);
+        }
 
-        // // // get external (remote or replicated) cells needed to compute the ghosts.
-        // // // Updates also _leaves_to_recv and _leaves_to_send (with leaf indices at this stage)
-        // // std::vector<std::vector<Cell<Carac>>> needed_nodes( mpi->size() );
-        // // _add_needed_or_replicated_cells( dcl, needed_nodes );
+        // // // // get external (remote or replicated) cells needed to compute the ghosts.
+        // // // // Updates also _leaves_to_recv and _leaves_to_send (with leaf indices at this stage)
+        // // // std::vector<std::vector<Cell<Carac>>> needed_nodes( mpi->size() );
+        // // // _add_needed_or_replicated_cells( dcl, needed_nodes );
 
-        // // compaction
-        // m_all_cells = {cell_list};
+        // compaction
+        m_all_cells = {cell_list};
 
-        // // update of x0_indices, _leaf_to_ghost_indices, _nb_local_ghost_and_leaf_cells
-        // update_x0_and_nb_ghosts(m_nb_local_cells_and_ghosts, m_cells_and_ghosts, m_cells);
+        // update of x0_indices, _leaf_to_ghost_indices, _nb_local_ghost_and_leaf_cells
+        update_x0_and_nb_ghosts(m_nb_local_cells_and_ghosts, m_all_cells, m_cells);
 
         // // // update of _leaves_to_recv and _leaves_to_send (using needed_nodes)
         // // _update_leaves_to_send_and_recv( needed_nodes );
@@ -208,20 +216,18 @@ namespace mure
             if (level_cell_array.empty() == false)
             {
                 LevelCellList<MRConfig> &level_cell_list = cell_list[level - 1];
-                constexpr coord_index_t s = MRConfig::default_s_for_prediction;
+                constexpr index_t s = MRConfig::default_s_for_prediction;
                 
-                // level_cell_list.extend((level_cell_array.min_corner_yz() >> 1) - s,
-                //                        (level_cell_array.max_corner_yz() >> 1) + s);
+                level_cell_list.extend((level_cell_array.min_corner_yz() >> 1) - s,
+                                       (level_cell_array.max_corner_yz() >> 1) + s);
                 
                 level_cell_array.for_each_interval_in_x([&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index_yz,
                                                             interval_t const& interval)
                 {
                     static_nested_loop<dim-1, -s, s+1>([&](auto stencil)
                     {
-                        // level_cell_list[(index_yz >> 1) + stencil].add_interval({(interval.start >> 1) - s,
-                        //                                                          (interval.end >> 1) + s});
-                        level_cell_list[{}].add_interval({(interval.start >> 1) - s,
-                                                                                 (interval.end >> 1) + s});
+                        level_cell_list[(index_yz >> 1) + stencil].add_interval({(interval.start >> 1) - static_cast<int>(s),
+                                                                                 (interval.end >> 1) + static_cast<int>(s)});
                     });
                 });
             }
@@ -251,15 +257,16 @@ namespace mure
         // index_t cpt_leaf = 0;
         // m_cell_to_ghost_indices.resize(nb_local_cells());
         auto expr = intersection(_1, _2);
-        for( int level = 0; level <= max_refinement_level; ++level )
+        // for( int level = 0; level <= max_refinement_level; ++level )
         {
+            std::size_t level = 1;
             auto set = mure::make_subset<MRConfig>(expr,
                                                    target_cells_and_ghosts[level],
                                                    target_cells[level]);
 
             set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
                          {
-                            target_cells[level][interval_index[0, 1]].index = target_cells_and_ghosts[level][interval_index[0, 0]].index;
+                            target_cells[level][0][interval_index[0, 1]].index = target_cells_and_ghosts[level][0][interval_index[0, 0]].index;
                             // for(int pos_x=interval.start; pos_x<interval_end; ++pos_x )
                             //     m_cell_to_ghost_indices[ cpt_leaf++ ] = std::get<0>(x0_index) + pos_x;
                          });

@@ -1,22 +1,50 @@
 #pragma once
 
-#include <algorithm>
-#include <initializer_list>
 #include <iostream>
-#include <list>
 #include <type_traits>
-#include <vector>
+#include <map>
 
-#include <xtensor/xtensor.hpp>
-#include <xtensor/xstrided_view.hpp>
-#include <xtensor/xnoalias.hpp>
 #include <xtensor/xfixed.hpp>
-#include <xtensor/xio.hpp>
 
-#include "interval.hpp"
+#include "list_of_intervals.hpp"
 
 namespace mure
 {
+    namespace details
+    {
+        /// Type helper to create nested std::map with final interval list
+        template <typename TCoord, typename TIntervalList, std::size_t N>
+        struct PartialGrid
+        {
+            using type = std::map<TCoord, typename PartialGrid<TCoord, TIntervalList, N-1>::type>;
+        };
+
+        template <typename TCoord, typename TIntervalList>
+        struct PartialGrid<TCoord, TIntervalList, 0>
+        {
+            using type = TIntervalList;
+        };
+
+        /** Nested std::map accessor.
+         *
+         * It is separated from the LevelCellList in order to automatically
+         * manage the constness of the context (avoid duplicated code).
+         */
+        template <typename GridYZ, typename Index>
+        decltype(auto) access_grid_yz(GridYZ & grid_yz, Index const&, std::integral_constant<std::size_t, 0>)
+        {
+            // For the first dimension, we return the interval list
+            return grid_yz;
+        }
+
+        template <typename GridYZ, typename Index, std::size_t dim>
+        decltype(auto) access_grid_yz(GridYZ & grid_yz, Index const& index, std::integral_constant<std::size_t, dim>)
+        {
+            // For other dimensions, we dive into the nested std::map
+            return access_grid_yz(grid_yz[index[dim-1]], index, std::integral_constant<std::size_t, dim-1>{});
+        }
+    }
+
     template<typename MRConfig>
     class LevelCellList
     {
@@ -27,72 +55,37 @@ namespace mure
         using coord_index_t = typename MRConfig::coord_index_t;
         using interval_t = typename MRConfig::interval_t;
         using list_interval_t = ListOfIntervals<coord_index_t, index_t>;
-        using m_grid_t = xt::xtensor<list_interval_t, dim-1, xt::layout_type::column_major>;
 
-        void extend(xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> start,
-                    xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> end)
+        /// Sparse dim-1 array that points to the interval lists along the x axis.
+        using grid_t = typename details::PartialGrid<coord_index_t, list_interval_t, dim-1>::type;
+
+        /// Constant access to the interval list at given dim-1 coordinates
+        list_interval_t const& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index) const
         {
-            if (xt::all(start < end))
-            {
-                auto size = end - start;
-                // we have data
-                if (dim != 1)
-                {
-                    if (m_box_yz.isvalid())
-                    {
-                        m_grid_t new_grid;
-                        new_grid.resize(xt::eval(size));
-                        xt::xstrided_slice_vector sv;
-                        for(std::size_t i=0; i<dim-1; ++i)
-                            sv.push_back(xt::range(static_cast<std::size_t>(start[i]-m_box_yz.min_corner()[i]),
-                                                static_cast<std::size_t>(end[i]-m_box_yz.max_corner()[i])));
-                        auto view = xt::strided_view(new_grid, sv);
-                        xt::noalias(view) = m_grid_yz;
-                        std::swap(m_grid_yz, new_grid);
-                    }
-                    else{
-                        m_grid_yz.resize(xt::eval(size));
-                    }
-                }
-                m_box_yz = {start, end};
-            }
+            return details::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim-1>{});
         }
 
-        void fill(interval_t interval)
+        /// Mutable access to the interval list at given dim-1 coordinates
+        list_interval_t& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index)
         {
-            std::fill(m_grid_yz.begin(), m_grid_yz.end(), list_interval_t {interval});
+            return details::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim-1>{});
         }
 
-        inline typename Box<coord_index_t, dim-1>::point_t const& min_corner_yz() const
+        /// Underlying sparse array
+        grid_t const& grid_yz() const
         {
-            return m_box_yz.min_corner();
-        }
-
-        inline typename Box<coord_index_t, dim-1>::point_t const& max_corner_yz() const
-        {
-            return m_box_yz.max_corner();
-        }
-
-        list_interval_t const& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index) const
-        {
-            return m_grid_yz[xt::eval(index - m_box_yz.min_corner())];
-        }
-
-        list_interval_t& operator[](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index)
-        {
-            return m_grid_yz[xt::eval(index - m_box_yz.min_corner())];
+            return m_grid_yz;
         }
 
         void to_stream(std::ostream &os) const
         {
             os << "LevelCellList\n";
             os << "=============\n";
-            os << m_box_yz << "\n";
-            os << m_grid_yz << "\n";
+            os << "TODO\n"; // TODO
         }
+
     private:
-        m_grid_t m_grid_yz;
-        Box<coord_index_t, dim-1> m_box_yz;
+        grid_t m_grid_yz; ///< Sparse dim-1 array that points to the interval lists along the x axis.
     };
 
     template<class MRConfig>
