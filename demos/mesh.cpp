@@ -1,4 +1,5 @@
 #include <mure/box.hpp>
+#include <mure/field.hpp>
 #include <mure/hdf5.hpp>
 #include <mure/mesh.hpp>
 #include <mure/mr_config.hpp>
@@ -43,11 +44,9 @@ int main()
     cell_list[4][{9}].add_interval({10, 12});
     cell_list[4][{10}].add_interval({6, 10});
     cell_list[4][{11}].add_interval({6, 10});
-
     mure::Mesh<Config> mesh{cell_list};
 
-    // std::cout << mesh << "\n";
-    auto h5file = mure::Hdf5("test");
+    auto h5file = mure::Hdf5("mesh");
     h5file.add_mesh(mesh);
     return 0;
 }
