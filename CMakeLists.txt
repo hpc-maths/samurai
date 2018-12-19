@@ -5,7 +5,7 @@ project(mure)
 set(MURE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 find_package(xtensor REQUIRED)
-# find_package(xtensor-io REQUIRED)
+find_package(xtensor-io REQUIRED)
 
 set(MURE_HEADERS
     ${MURE_INCLUDE_DIR}/mure/box.hpp
@@ -29,8 +29,7 @@ set(MURE_HEADERS
 add_library(mure INTERFACE)
 target_include_directories(mure INTERFACE $<BUILD_INTERFACE:${MURE_INCLUDE_DIR}>
                                           $<INSTALL_INTERFACE:include>)
-#target_link_libraries(mure INTERFACE xtensor hdf5)
-target_link_libraries(mure INTERFACE xtensor)
+target_link_libraries(mure INTERFACE xtensor hdf5)
 
 OPTION(BUILD_TESTS "mure test suite" OFF)
 OPTION(DOWNLOAD_GTEST "build gtest from downloaded sources" OFF)

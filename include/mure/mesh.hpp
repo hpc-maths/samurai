@@ -37,10 +37,7 @@ namespace mure
             point_t end = b.max_corner()*std::pow(2, init_level);
 
             CellList<MRConfig> dcl;
-            dcl[init_level].extend(xt::view(start, xt::drop(0)), xt::view(end, xt::drop(0)));
-            dcl[init_level].fill({start[0], end[0]});
-
-            m_nb_local_cells = 0;
+            
             m_cells = {dcl};
             update_ghost_nodes();
         }
@@ -190,8 +187,7 @@ namespace mure
             if (!level_cell_array.empty())
             {
                 LevelCellList<MRConfig> &level_cell_list = cell_list[level];
-                level_cell_list.extend(level_cell_array.min_corner_yz() - static_cast<int>(ghost_width),
-                                       level_cell_array.max_corner_yz() + static_cast<int>(ghost_width));
+
                 level_cell_array.for_each_interval_in_x([&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index_yz,
                                                             interval_t const& interval)
                 {
@@ -217,10 +213,7 @@ namespace mure
             {
                 LevelCellList<MRConfig> &level_cell_list = cell_list[level - 1];
                 constexpr index_t s = MRConfig::default_s_for_prediction;
-                
-                level_cell_list.extend((level_cell_array.min_corner_yz() >> 1) - s,
-                                       (level_cell_array.max_corner_yz() >> 1) + s);
-                
+
                 level_cell_array.for_each_interval_in_x([&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index_yz,
                                                             interval_t const& interval)
                 {
