@@ -76,6 +76,14 @@ public:
     template<class TFunction>
     void for_each_cell(TFunction&& func, std::size_t level) const;
 
+    //// Find the interval in x for the indices (ix, iy, iz)
+    //// return -1 if not found
+    inline int find(xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord) const;
+
+    //// Apply a function on each cell
+    template<class TFunction>
+    void for_each_block(TFunction&& func) const;
+
 private:
     /// Recursive construction from a level cell list along dimension > 0
     template <typename TGrid, std::size_t N>
@@ -116,6 +124,27 @@ private:
                                    xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
                                    index_t start_index, index_t end_index,
                                    std::integral_constant<std::size_t, 0>) const;
+
+    template <std::size_t N>
+    inline int find_impl(index_t start_index, index_t end_index,
+                         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord,
+                         std::integral_constant<std::size_t, N>) const;
+
+    inline int find_impl(index_t start_index, index_t end_index,
+                         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord,
+                         std::integral_constant<std::size_t, 0>) const;
+
+    template <typename TFunction, std::size_t N>
+    inline void for_each_block_impl(TFunction&& func,
+                                    index_t start_index, index_t end_index,
+                                    xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                                    std::integral_constant<std::size_t, N>) const;
+
+    template <typename TFunction>
+    inline void for_each_block_impl(TFunction&& func,
+                                    index_t start_index, index_t end_index,
+                                    xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                                    std::integral_constant<std::size_t, 0>) const;
 
 private:
     std::array<std::vector<interval_t>, dim> m_cells;     ///< All intervals in every direction
@@ -165,8 +194,8 @@ LevelCellArray<MRConfig>::LevelCellArray(Box<coord_index_t, dim> box)
 
     m_cells[0].resize(size);
     for(std::size_t i=0; i<size; ++i)
-        m_cells[0][i] = {start[0], end[0], 0};
-        // m_cells[0][i] = {start[0], end[0], i*dimensions[0] - start[0]};
+        // m_cells[0][i] = {start[0], end[0], 0};
+        m_cells[0][i] = {start[0], end[0], i*dimensions[0] - start[0]};
 }
 
 template <class MRConfig>
@@ -439,6 +468,134 @@ for_each_cell_impl(TFunction&& f, std::size_t level,
             index[0] = c;
             Cell<coord_index_t, index_t, dim> cell{level, index, interval.index + c};
             std::forward<TFunction>(f)(cell);
+        }
+    }
+}
+
+template <typename MRConfig>
+int
+LevelCellArray<MRConfig>::
+find(xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord) const
+{
+    find_impl(0, m_cells[dim-1].size(), coord,
+              std::integral_constant<std::size_t, dim-1>{});
+}
+
+template <typename MRConfig>
+template <std::size_t N>
+int
+LevelCellArray<MRConfig>::
+find_impl(index_t start_index, index_t end_index,
+          xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord,
+          std::integral_constant<std::size_t, N>) const
+{
+    int find_index = -1;
+    for (index_t i = start_index; i < end_index; ++i)
+    {
+        auto const& interval = m_cells[N][i];
+        if (interval.contains(coord[N]))
+        {
+            find_index = find_impl(m_offsets[N-1][interval.index + coord[N]],
+                                   m_offsets[N-1][interval.index + coord[N] + 1],
+                                   coord,
+                                   std::integral_constant<std::size_t, N-1>{});
+        }
+    }
+    return find_index;
+}
+
+template <typename MRConfig>
+int
+LevelCellArray<MRConfig>::
+find_impl(index_t start_index, index_t end_index,
+          xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>  coord,
+          std::integral_constant<std::size_t, 0>) const
+{
+    for (index_t i = start_index; i < end_index; ++i)
+    {
+        auto const& interval = m_cells[0][i];
+        if (interval.contains(coord[0]))
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+template <typename MRConfig>
+template <typename TFunction>
+void
+LevelCellArray<MRConfig>::
+for_each_block(TFunction&& func) const
+{
+    for_each_block_impl(std::forward<TFunction>(func),
+                        0, m_cells[dim-1].size(), {},
+                        std::integral_constant<std::size_t, dim-1>{});
+}
+
+template <typename MRConfig>
+template <typename TFunction, std::size_t N>
+void
+LevelCellArray<MRConfig>::
+for_each_block_impl(TFunction&& func,
+                    index_t start_index, index_t end_index,
+                    xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                    std::integral_constant<std::size_t, N>) const
+{
+    for (index_t i = start_index; i < end_index; ++i)
+    {
+        auto const& interval = m_cells[N][i];
+        for (coord_index_t c = interval.start; c < interval.end; ++c)
+        {
+            index[N] = c;
+            for_each_block_impl(std::forward<TFunction>(func),
+                                m_offsets[N-1][interval.index + c],
+                                m_offsets[N-1][interval.index + c + 1],
+                                index,
+                                std::integral_constant<std::size_t, N-1>{});
+        }
+    }
+}
+
+template <typename MRConfig>
+template <typename TFunction>
+void
+LevelCellArray<MRConfig>::
+for_each_block_impl(TFunction&& func,
+                    index_t start_index, index_t end_index,
+                    xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                    std::integral_constant<std::size_t, 0>) const
+{
+    for (index_t i = start_index; i < end_index; ++i)
+    {
+        auto const& interval = m_cells[0][i];
+        index[0] = interval.start;
+        std::vector<xt::xtensor<int, 1>> stencil{{0, -1}, {0, 0}, {0, 1}};
+
+        xt::xtensor_fixed<int, xt::xshape<3>> rows{find(index+stencil[0]),
+                                                   find(index+stencil[1]),
+                                                   find(index+stencil[2])};
+        if (xt::all(rows > -1))
+        {   
+            auto load = [&](auto& array){
+                auto t = xt::xtensor<int, 2>::from_shape({3, interval.size()});
+                for(size_t i = 0; i < t.shape()[0]; ++i)
+                {
+                    auto const& interval_tmp = m_cells[0][rows[i]];
+                    xt::view(t, i, xt::all()) = xt::view(array, xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end));
+                }
+                return t;
+            };
+
+            auto restore = [&](auto& array, auto& array_tmp){
+                for(size_t i = 0; i < array_tmp.shape()[0]; ++i)
+                {
+                    auto const& interval_tmp = m_cells[0][rows[i]];
+                    xt::view(array, xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end)) += xt::view(array_tmp, i, xt::all());
+                }
+            };
+
+            std::forward<TFunction>(func)(load, restore);
         }
     }
 }
