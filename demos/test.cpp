@@ -1,5 +1,6 @@
 #include <iostream>
 #include <chrono>
+#include <vector>
 
 #include <xtensor/xarray.hpp>
 #include <xtensor/xtensor.hpp>
@@ -31,11 +32,11 @@ double toc()
 int main()
 {
     constexpr size_t dim = 2;
-    constexpr size_t level = 4;
-    constexpr size_t nrun = 100;
+    constexpr size_t level = 12;
+    constexpr size_t nrun = 10;
     constexpr size_t end = std::pow(2, level);
     using Config = mure::MRConfig<dim>;
-    mure::Box<int, dim> box({0, 0, 0}, {end, end, end});
+    mure::Box<int, dim> box({0, 0}, {end, end});
 
 
     mure::LevelCellArray<Config> lca = {box};
@@ -52,7 +53,7 @@ int main()
             auto tmp = xt::xtensor<double, 2>::from_shape(view.shape());
 
             xt::noalias(xt::view(tmp, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1))) = 
-                2*xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1));
+                2*xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1))
                 -   xt::view(view, xt::range(2, view.shape()[0]), xt::range(1, view.shape()[1]-1))
                 -   xt::view(view, xt::range(0, view.shape()[0]-2), xt::range(1, view.shape()[1]-1))
                 -   xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(2, view.shape()[1]))
@@ -63,7 +64,7 @@ int main()
     }
     auto duration = toc();
 
-    std::cout << duration << "\n";
+    std::cout << "MuRe: " << duration << "\n";
 
     auto view = xt::reshape_view(array_1, {end, end});
     auto array_3 = xt::xtensor<double, 1>::from_shape({lca.nb_cells()});
@@ -71,16 +72,43 @@ int main()
     tic();
     for(size_t n=0; n<nrun; ++n)
     {
-        xt::noalias(xt::view(array_3_, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1))) = 
-                2*xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1));
+        xt::noalias(xt::view(array_3_, xt::range(1, array_3_.shape()[0]-1), xt::range(1, array_3_.shape()[1]-1))) = 
+                2*xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1))
             -   xt::view(view, xt::range(2, view.shape()[0]), xt::range(1, view.shape()[1]-1))
             -   xt::view(view, xt::range(0, view.shape()[0]-2), xt::range(1, view.shape()[1]-1))
             -   xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(2, view.shape()[1]))
             -   xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(0, view.shape()[1]-2));
     }
     duration = toc();
-    std::cout << duration << "\n";
+    std::cout << "xtensor: " << duration << "\n";
 
+    std::vector<double> vector_1(lca.nb_cells(), 1.);
+    std::vector<double> vector_2(lca.nb_cells());
+
+    tic();
+    for(size_t n=0; n<nrun; ++n)
+    {
+        for(size_t j=1; j<end-1; ++j)
+            for(size_t i=1; i<end-1; ++i)
+                vector_2[i + j*end] = 2*vector_1[i + j*end]
+                                    -   vector_1[i+1 + j*end]
+                                    -   vector_1[i-1 + j*end]
+                                    -   vector_1[i + (j+1)*end]
+                                    -   vector_1[i + (j-1)*end];
+    }
+    duration = toc();
+    std::cout << "std::vector: " << duration << "\n";
+    std::cout << vector_2.size() << " " << array_2.size() << " " << array_3.size() << "\n";
+    // for(size_t j=0; j<end; ++j)
+    // {
+    //     for(size_t i=0; i<end; ++i)
+    //     {
+    //         std::cout << vector_2[i + j*end] << " ";
+    //     }
+    //     std::cout << "\n";
+    // }
+    // std::cout << array_3_ << "\n";
+    // std::cout << array_1 << "\n";
     // xt::xarray<double> a = {{1, 2, 3},
     //                         {4, 5, 6},
     //                         {7, 8, 9}};
