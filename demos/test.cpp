@@ -29,6 +29,7 @@ double toc()
     return time_span.count();
 }
 
+
 int main()
 {
     constexpr size_t dim = 2;
@@ -49,24 +50,22 @@ int main()
     for(size_t n=0; n<nrun; ++n)
     {
         tic();
-        lca.for_each_block([&](auto load, auto restore){
-            auto view = load(array_1);
-            auto tmp = xt::xtensor<double, 2>::from_shape(view.shape());
+        lca.for_each_block([&](auto & load_input, auto & load_output){
+            auto view = load_input(array_1);
 
-            xt::noalias(xt::view(tmp, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1))) = 
+            load_output(array_2) =
                 2*xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1))
                 -   xt::view(view, xt::range(2, view.shape()[0]), xt::range(1, view.shape()[1]-1))
                 -   xt::view(view, xt::range(0, view.shape()[0]-2), xt::range(1, view.shape()[1]-1))
                 -   xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(2, view.shape()[1]))
                 -   xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(0, view.shape()[1]-2));
 
-            restore(array_2, tmp);
         });
-
         auto duration = toc();
 
         std::cout << "\tRun #" << n << " in " << duration << "s (" << xt::sum(array_2) << ")\n";
     }
+
 
     auto view = xt::reshape_view(array_1, {end, end});
     auto array_3 = xt::xtensor<double, 1>::from_shape({lca.nb_cells()});
@@ -77,7 +76,7 @@ int main()
     {
         tic();
 
-        xt::noalias(xt::view(array_3_, xt::range(1, array_3_.shape()[0]-1), xt::range(1, array_3_.shape()[1]-1))) = 
+        xt::noalias(xt::view(array_3_, xt::range(1, array_3_.shape()[0]-1), xt::range(1, array_3_.shape()[1]-1))) =
                 2*xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1))
             -   xt::view(view, xt::range(2, view.shape()[0]), xt::range(1, view.shape()[1]-1))
             -   xt::view(view, xt::range(0, view.shape()[0]-2), xt::range(1, view.shape()[1]-1))
@@ -123,7 +122,7 @@ int main()
     // xt::xarray<double> a = {{1, 2, 3},
     //                         {4, 5, 6},
     //                         {7, 8, 9}};
-    
+
     // auto t = xt::xtensor<int, 2>::from_shape({3, 2});
     // for(size_t i = 0; i < t.shape()[0]; ++i)
     // {
