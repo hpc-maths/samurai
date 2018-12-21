@@ -65,7 +65,7 @@ int main()
 
         auto duration = toc();
 
-        std::cout << "\tRun #" << n << " in " << duration << "s (" << std::accumulate(array_2.begin(), array_2.end(), 0) << ")\n";
+        std::cout << "\tRun #" << n << " in " << duration << "s (" << xt::sum(array_2) << ")\n";
     }
 
     auto view = xt::reshape_view(array_1, {end, end});
@@ -85,7 +85,7 @@ int main()
             -   xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(0, view.shape()[1]-2));
 
         auto duration = toc();
-        std::cout << "\tRun #" << n << " in " << duration << "s (" << std::accumulate(array_3.begin(), array_3.end(), 0) << ")\n";
+        std::cout << "\tRun #" << n << " in " << duration << "s (" << xt::sum(array_3) << ")\n";
     }
 
     std::vector<double> vector_1(lca.nb_cells(), 1.);
@@ -108,7 +108,7 @@ int main()
         }
 
         auto duration = toc();
-        std::cout << "\tRun #" << n << " in " << duration << "s (" << std::accumulate(vector_2.begin(), vector_2.end(), 0) << ")\n";
+        std::cout << "\tRun #" << n << " in " << duration << "s (" << std::accumulate(vector_2.begin(), vector_2.end(), 0.) << ")\n";
     }
     // for(size_t j=0; j<end; ++j)
     // {
