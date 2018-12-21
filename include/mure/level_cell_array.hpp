@@ -44,7 +44,7 @@ public:
     template <typename TFunction>
     void for_each_interval_in_x(TFunction && f) const;
 
-    //// checks whether the container is empty 
+    //// checks whether the container is empty
     inline bool empty() const;
 
     //// Get the minimum corner in [y, z] where
@@ -298,7 +298,7 @@ initFromLevelCellList(TGrid const& grid,
             {
                 // Adding the previous interval...
                 m_cells[N].push_back(curr_interval);
-                
+
                 // ... and creating a new one.
                 curr_interval = interval_t(i, i+1, m_offsets[N-1].size() - i);
             }
@@ -314,7 +314,7 @@ initFromLevelCellList(TGrid const& grid,
             // we create a new one.
             curr_interval = interval_t(i, i+1, m_offsets[N-1].size() - i);
         }
-        
+
         // Updating m_offsets (at each iteration since we are always updating an interval)
         m_offsets[N-1].push_back(previous_offset);
     }
@@ -577,8 +577,9 @@ for_each_block_impl(TFunction&& func,
                                                    find(index+stencil[2])};
 
         if (xt::all(rows > -1))
-        {   
-            auto load = [&](auto& array){
+        {
+            auto load_input = [&](auto & array)
+            {
                 auto t = xt::xtensor<int, 2>::from_shape({3, interval.size()});
                 for(size_t i = 0; i < t.shape()[0]; ++i)
                 {
@@ -588,12 +589,13 @@ for_each_block_impl(TFunction&& func,
                 return t;
             };
 
-            auto restore = [&](auto& array, auto& array_tmp){
+            auto load_output = [&](auto & array) -> decltype(auto)
+            {
                 auto const& interval_tmp = m_cells[0][rows[1]];
-                xt::view(array, xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end)) = xt::view(array_tmp, 1, xt::all());
+                return xt::view(array, xt::newaxis(), xt::range(interval_tmp.index + interval.start+1, interval_tmp.index + interval.end-1));
             };
 
-            std::forward<TFunction>(func)(load, restore);
+            func(load_input, load_output);
         }
     }
 }
