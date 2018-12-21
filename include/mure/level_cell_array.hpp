@@ -477,8 +477,8 @@ int
 LevelCellArray<MRConfig>::
 find(xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord) const
 {
-    find_impl(0, m_cells[dim-1].size(), coord,
-              std::integral_constant<std::size_t, dim-1>{});
+    return find_impl(0, m_cells[dim-1].size(), coord,
+                     std::integral_constant<std::size_t, dim-1>{});
 }
 
 template <typename MRConfig>
@@ -575,6 +575,7 @@ for_each_block_impl(TFunction&& func,
         xt::xtensor_fixed<int, xt::xshape<3>> rows{find(index+stencil[0]),
                                                    find(index+stencil[1]),
                                                    find(index+stencil[2])};
+
         if (xt::all(rows > -1))
         {   
             auto load = [&](auto& array){
@@ -588,11 +589,8 @@ for_each_block_impl(TFunction&& func,
             };
 
             auto restore = [&](auto& array, auto& array_tmp){
-                for(size_t i = 0; i < array_tmp.shape()[0]; ++i)
-                {
-                    auto const& interval_tmp = m_cells[0][rows[i]];
-                    xt::view(array, xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end)) += xt::view(array_tmp, i, xt::all());
-                }
+                auto const& interval_tmp = m_cells[0][rows[1]];
+                xt::view(array, xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end)) = xt::view(array_tmp, 1, xt::all());
             };
 
             std::forward<TFunction>(func)(load, restore);
