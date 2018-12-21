@@ -53,7 +53,7 @@ int main()
         lca.for_each_block([&](auto & load_input, auto & load_output){
             auto view = load_input(array_1);
 
-            load_output(array_2) =
+            xt::noalias(load_output(array_2)) =
                 2*xt::view(view, xt::range(1, view.shape()[0]-1), xt::range(1, view.shape()[1]-1))
                 -   xt::view(view, xt::range(2, view.shape()[0]), xt::range(1, view.shape()[1]-1))
                 -   xt::view(view, xt::range(0, view.shape()[0]-2), xt::range(1, view.shape()[1]-1))
