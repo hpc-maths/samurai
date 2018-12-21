@@ -578,7 +578,7 @@ for_each_block_impl(TFunction&& func,
 
         if (xt::all(rows > -1))
         {
-            auto load_input = [&](auto & array)
+            auto load_input = [&](auto const& array)
             {
                 auto t = xt::xtensor<int, 2>::from_shape({3, interval.size()});
                 for(size_t i = 0; i < t.shape()[0]; ++i)
