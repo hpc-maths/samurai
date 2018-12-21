@@ -1,5 +1,9 @@
-add_executable(test test.cpp ${MURE_HEADERS})
-target_link_libraries(test mure)
+add_executable(bench_laplacian_2d bench_laplacian_2d.cpp ${MURE_HEADERS})
+target_link_libraries(bench_laplacian_2d mure)
+
+add_executable(bench_laplacian_3d bench_laplacian_3d.cpp ${MURE_HEADERS})
+target_link_libraries(bench_laplacian_3d mure)
+
 
 # add_executable(box box.cpp ${MURE_HEADERS})
 # target_link_libraries(box mure)

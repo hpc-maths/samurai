@@ -33,7 +33,7 @@ double toc()
 int main()
 {
     constexpr size_t dim = 2;
-    constexpr size_t level = 12;
+    constexpr size_t level = 12 ;
     constexpr size_t nrun = 10;
     constexpr size_t end = std::pow(2, level);
     using Config = mure::MRConfig<dim>;
@@ -109,25 +109,4 @@ int main()
         auto duration = toc();
         std::cout << "\tRun #" << n << " in " << duration << "s (" << std::accumulate(vector_2.begin(), vector_2.end(), 0.) << ")\n";
     }
-    // for(size_t j=0; j<end; ++j)
-    // {
-    //     for(size_t i=0; i<end; ++i)
-    //     {
-    //         std::cout << vector_2[i + j*end] << " ";
-    //     }
-    //     std::cout << "\n";
-    // }
-    // std::cout << array_3_ << "\n";
-    // std::cout << array_1 << "\n";
-    // xt::xarray<double> a = {{1, 2, 3},
-    //                         {4, 5, 6},
-    //                         {7, 8, 9}};
-
-    // auto t = xt::xtensor<int, 2>::from_shape({3, 2});
-    // for(size_t i = 0; i < t.shape()[0]; ++i)
-    // {
-    //     xt::view(t, i, xt::all()) = xt::view(a, i, xt::range(1, 2));
-    // }
-    // t[{0, 1}] = 1000;
-    // std::cout << a << "\n";
 }

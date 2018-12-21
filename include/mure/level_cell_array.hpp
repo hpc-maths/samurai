@@ -570,32 +570,69 @@ for_each_block_impl(TFunction&& func,
     {
         auto const& interval = m_cells[0][i];
         index[0] = interval.start;
-        std::vector<xt::xtensor<int, 1>> stencil{{0, -1}, {0, 0}, {0, 1}};
-
-        xt::xtensor_fixed<int, xt::xshape<3>> rows{find(index+stencil[0]),
-                                                   find(index+stencil[1]),
-                                                   find(index+stencil[2])};
+        std::vector<xt::xtensor<int, 1>> stencil;
+        if (dim == 2)
+        {
+            stencil = {{0, -1}, {0, 0}, {0, 1}};
+        }
+        if (dim == 3)
+        {
+            stencil = {{0, -1, -1}, {0, 0, -1}, {0, 1, -1},
+                       {0, -1,  0}, {0, 0,  0}, {0, 1,  0},
+                       {0, -1,  1}, {0, 0,  1}, {0, 1,  1}};
+        }
+        
+        xt::xtensor_fixed<int, xt::xshape<static_cast<size_t>(std::pow(3, dim-1))>> rows;
+        for(size_t i=0; i<stencil.size(); ++i)
+        {
+            rows[i] = find(index+stencil[i]);
+        }
 
         if (xt::all(rows > -1))
         {
-            auto load_input = [&](auto const& array)
-            {
-                auto t = xt::xtensor<int, 2>::from_shape({3, interval.size()});
-                for(size_t i = 0; i < t.shape()[0]; ++i)
+            if (dim == 2)
+            {   
+                auto load_input = [&](auto const& array)
                 {
-                    auto const& interval_tmp = m_cells[0][rows[i]];
-                    xt::view(t, i, xt::all()) = xt::view(array, xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end));
-                }
-                return t;
-            };
+                    auto t = xt::xtensor<int, 2>::from_shape({3, interval.size()});
+                    for(size_t i = 0; i < t.shape()[0]; ++i)
+                    {
+                        auto const& interval_tmp = m_cells[0][rows[i]];
+                        xt::view(t, i, xt::all()) = xt::view(array, xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end));
+                    }
+                    return t;
+                };
 
-            auto load_output = [&](auto & array) -> decltype(auto)
-            {
-                auto const& interval_tmp = m_cells[0][rows[1]];
-                return xt::view(array, xt::newaxis(), xt::range(interval_tmp.index + interval.start+1, interval_tmp.index + interval.end-1));
-            };
+                auto load_output = [&](auto & array) -> decltype(auto)
+                {
+                    auto const& interval_tmp = m_cells[0][rows[1]];
+                    return xt::view(array, xt::newaxis(), xt::range(interval_tmp.index + interval.start+1, interval_tmp.index + interval.end-1));
+                };
+                func(load_input, load_output);
+            }
+            if (dim == 3)
+            {   
+                auto load_input = [&](auto const& array)
+                {
+                    auto t = xt::xtensor<int, 3>::from_shape({3, 3, interval.size()});
+                    for(size_t j = 0; j < t.shape()[1]; ++j)
+                    {
+                        for(size_t i = 0; i < t.shape()[0]; ++i)
+                        {
+                            auto const& interval_tmp = m_cells[0][rows[i + 3*j]];
+                            xt::view(t, i, j, xt::all()) = xt::view(array, xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end));
+                        }
+                    }
+                    return t;
+                };
 
-            func(load_input, load_output);
+                auto load_output = [&](auto & array) -> decltype(auto)
+                {
+                    auto const& interval_tmp = m_cells[0][rows[4]];
+                    return xt::view(array, xt::newaxis(), xt::newaxis(), xt::range(interval_tmp.index + interval.start+1, interval_tmp.index + interval.end-1));
+                };
+                func(load_input, load_output);
+            }
         }
     }
 }
