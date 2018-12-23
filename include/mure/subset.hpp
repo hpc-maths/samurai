@@ -34,7 +34,6 @@ namespace mure
             else
             {
                 endpoints = (array[it].end>>shift) + ((array[it].end&1 && shift)?1:0);
-                // endpoints = (array[it].end+1)>>shift;
                 index = 1;
             }
         }
@@ -44,6 +43,17 @@ namespace mure
      * SubSet definition *
      *********************/
 
+    /**
+     * @class SubSet
+     * @brief Create a subset from a tuple of list of intervals.
+     *
+     * The SubSet class implements an operator to apply to a tuple of
+     * list of intervals.
+     *
+     * @tparam MRConfig The MuRe config class.
+     * @tparam Operator The operator type applied to the tuple of list of intervals.
+     * @tparam T The type of each element of the tuple.
+     */
     template<class MRConfig, class Operator, class... T>
     class SubSet
     {
@@ -59,19 +69,11 @@ namespace mure
         using operator_type = Operator;
         constexpr static std::size_t size = sizeof...(T);
 
-        SubSet(Operator&& op, const tuple_type& level_cell_arrays)
-               : m_op(std::forward<Operator>(op)), m_data(level_cell_arrays),
-                 m_common_level(0)
-        {
-            m_data_level.fill(0);
-        }
+        SubSet(Operator&& op, const tuple_type& level_cell_arrays);
 
         SubSet(Operator&& op, const std::size_t common_level,
                const std::array<std::size_t, size> data_level,
-               tuple_type& level_cell_arrays)
-               : m_op(std::forward<Operator>(op)), m_data(level_cell_arrays),
-                 m_common_level(common_level), m_data_level(data_level)
-        {}
+               tuple_type& level_cell_arrays);
 
         template<class Func>
         void apply(Func&& func) const;
@@ -125,6 +127,22 @@ namespace mure
      *************************/
 
     template<class MRConfig, class Operator, class... T>
+    SubSet<MRConfig, Operator, T...>::SubSet(Operator&& op, const tuple_type& level_cell_arrays)
+        : m_op(std::forward<Operator>(op)), m_data(level_cell_arrays),
+          m_common_level(0)
+    {
+        m_data_level.fill(0);
+    }
+
+    template<class MRConfig, class Operator, class... T>
+    SubSet<MRConfig, Operator, T...>::SubSet(Operator&& op, const std::size_t common_level,
+                                             const std::array<std::size_t, size> data_level,
+                                             tuple_type& level_cell_arrays)
+        : m_op(std::forward<Operator>(op)), m_data(level_cell_arrays),
+          m_common_level(common_level), m_data_level(data_level)
+    {}
+
+    template<class MRConfig, class Operator, class... T>
     template <std::size_t... I>
     void SubSet<MRConfig, Operator, T...>::init_start_end(std::index_sequence<I...>,
                                                           std::array<std::size_t, size>& start,
@@ -153,9 +171,13 @@ namespace mure
             std::array<std::size_t, size> new_start;
             std::array<std::size_t, size> new_end;
             expand{(generic_assign(new_start[I],
-                                   std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i]), false)...};
+                                   (index[I] != -1)?
+                                       std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i]
+                                      :0), false)...};
             expand{(generic_assign(new_end[I],
-                                   std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i + 1]), false)...};
+                                   (index[I] != -1)?
+                                       std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i + 1]
+                                      :0), false)...};
 
             apply_impl(iseq, new_start, new_end,
                        index_yz, interval_index, std::forward<Func>(func),
@@ -193,12 +215,20 @@ namespace mure
     {
         std::array<coord_index_t, size> endpoints;
         std::array<coord_index_t, size> ends;
+        std::array<bool, size> is_valid;
+
         expand{(generic_assign(endpoints[I],
-                               std::get<I>(m_data)[d-1][start[I]].start>>(m_data_level[I]-m_common_level)), false)...};
+                               (end[I] != start[I])?
+                                   std::get<I>(m_data)[d-1][start[I]].start>>(m_data_level[I]-m_common_level)
+                                 : std::numeric_limits<coord_index_t>::max()), false)...};
         expand{(generic_assign(ends[I],
-                              (std::get<I>(m_data)[d-1][end[I] - 1].end>>(m_data_level[I]-m_common_level))
-                              + ((std::get<I>(m_data)[d-1][end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)), false)...};
-        
+                               (end[I] != start[I])?
+                                   (std::get<I>(m_data)[d-1][end[I] - 1].end>>(m_data_level[I]-m_common_level))
+                                   + ((std::get<I>(m_data)[d-1][end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)
+                                 : std::numeric_limits<coord_index_t>::min()), false)...};
+
+        expand{(generic_assign(is_valid[I], (end[I] == start[I])?false:true), false)...};
+
         auto scan = *std::min_element(endpoints.begin(), endpoints.end());
         auto sentinel = *std::max_element(ends.begin(), ends.end()) + 1;
 
@@ -214,7 +244,7 @@ namespace mure
         auto in_ = repeat_as_tuple_t<size, bool>();
         while (scan < sentinel)
         {
-            expand{(generic_assign(std::get<I>(in_), !((scan < endpoints[I]) ^ endpoints_index[I])), false)...};
+            expand{(generic_assign(std::get<I>(in_), !((scan < endpoints[I]) ^ endpoints_index[I])&is_valid[I]), false)...};
             auto in_res = m_op(std::get<I>(in_)...);
 
             if (in_res ^ (r_index & 1))
