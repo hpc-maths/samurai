@@ -43,7 +43,7 @@ namespace mure
         }
 
         /// Returns the size (number of discrete coordinates) of the interval.
-        inline value_t size() const
+        inline std::size_t size() const
         {
             return (end - start);
         }
