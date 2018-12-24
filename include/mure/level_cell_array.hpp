@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <utility>
 #include <ostream>
+#include <vector>
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xio.hpp>
@@ -12,6 +13,7 @@
 #include "mure/cell.hpp"
 #include "mure/interval.hpp"
 #include "mure/level_cell_list.hpp"
+#include "mure/math.hpp"
 
 namespace mure
 {
@@ -195,7 +197,7 @@ LevelCellArray<MRConfig>::LevelCellArray(Box<coord_index_t, dim> box)
     m_cells[0].resize(size);
     for(std::size_t i=0; i<size; ++i)
         // m_cells[0][i] = {start[0], end[0], 0};
-        m_cells[0][i] = {start[0], end[0], i*dimensions[0] - start[0]};
+        m_cells[0][i] = {start[0], end[0], static_cast<index_t>(i)*dimensions[0] - start[0]};
 }
 
 template <class MRConfig>
@@ -225,7 +227,7 @@ LevelCellArray<MRConfig>::
 nb_cells() const
 {
     auto op = [](auto&& init, auto const& interval){return std::move(init) + interval.size();};
-    return std::accumulate(m_cells[0].cbegin(), m_cells[0].cend(), 0, op);
+    return std::accumulate(m_cells[0].cbegin(), m_cells[0].cend(), std::size_t(0), op);
 }
 
 template <class MRConfig>
@@ -329,7 +331,7 @@ template <typename TIntervalList>
 void
 LevelCellArray<MRConfig>::
 initFromLevelCellList(TIntervalList const& interval_list,
-                      xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index,
+                      xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& /* index */,
                       std::integral_constant<std::size_t, 0>)
 {
     // Along the X axis, simply copy the intervals in cells[0]
@@ -581,8 +583,8 @@ for_each_block_impl(TFunction&& func,
                        {0, -1,  0}, {0, 0,  0}, {0, 1,  0},
                        {0, -1,  1}, {0, 0,  1}, {0, 1,  1}};
         }
-        
-        xt::xtensor_fixed<int, xt::xshape<static_cast<size_t>(std::pow(3, dim-1))>> rows;
+
+        xt::xtensor_fixed<int, xt::xshape<static_cast<size_t>(mure::ipow(3, dim-1))>> rows;
         for(size_t i=0; i<stencil.size(); ++i)
         {
             rows[i] = find(index+stencil[i]);
@@ -591,7 +593,7 @@ for_each_block_impl(TFunction&& func,
         if (xt::all(rows > -1))
         {
             if (dim == 2)
-            {   
+            {
                 auto load_input = [&](auto const& array)
                 {
                     auto t = xt::xtensor<int, 2>::from_shape({3, interval.size()});
@@ -611,7 +613,7 @@ for_each_block_impl(TFunction&& func,
                 func(load_input, load_output);
             }
             if (dim == 3)
-            {   
+            {
                 auto load_input = [&](auto const& array)
                 {
                     auto t = xt::xtensor<int, 3>::from_shape({3, 3, interval.size()});
