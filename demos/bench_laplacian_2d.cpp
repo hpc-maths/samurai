@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include <vector>
+#include <string>
 
 #include <xtensor/xarray.hpp>
 #include <xtensor/xtensor.hpp>
@@ -30,11 +31,20 @@ double toc()
 }
 
 
-int main()
+int main(int argc, char* argv[])
 {
-    constexpr size_t dim = 2;
-    constexpr size_t level = 12 ;
-    constexpr size_t nrun = 10;
+    // Default parameters
+    constexpr std::size_t dim = 2;
+    std::size_t level = 12;
+    std::size_t nrun = 10;
+
+    // Command-line parameters
+    if (argc > 1)
+        level = std::stoull(argv[1]);
+
+    if (argc > 2)
+        nrun = std::stoull(argv[2]);
+
     const size_t end = std::pow(2, level);
     using Config = mure::MRConfig<dim>;
     mure::Box<int, dim> box({0, 0}, {(int) end, (int) end});
