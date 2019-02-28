@@ -42,6 +42,16 @@ namespace mure
             return size;
         }
 
+        inline std::size_t max_level() const
+        {           
+            for(std::size_t level=max_refinement_level; level >= 0; --level)
+            {
+                if (!m_cells[level].empty())
+                    return level;
+            }
+            return 0;
+        }
+
         template<class Func>
         inline void for_each_cell(Func&& func) const
         {
