@@ -42,6 +42,11 @@ namespace mure
             return std::distance(begin(), end());
         }
 
+        void add_point(value_t point)
+        {
+            add_interval({point, point+1});
+        }
+
         void add_interval(interval_t&& interval)
         {
             auto predicate = [interval](auto const& value){return interval.start <= value.end;};
