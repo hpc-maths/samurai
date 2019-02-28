@@ -13,7 +13,6 @@
 #include "cell_array.hpp"
 #include "intervals_operator.hpp"
 #include "static_algorithm.hpp"
-#include "stencil.hpp"
 #include "subset.hpp"
 
 namespace mure

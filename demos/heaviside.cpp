@@ -5,7 +5,6 @@
 #include <mure/hdf5.hpp>
 #include <mure/mesh.hpp>
 #include <mure/mr_config.hpp>
-#include <mure/stencil.hpp>
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
