@@ -90,7 +90,7 @@ namespace mure
         void sub_apply(std::index_sequence<I...> iseq,
                         const interval_t& result,
                         const std::array<std::size_t, size>& index,
-                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>& index_yz,
+                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
                         xt::xtensor_fixed<index_t,
                                           xt::xshape<dim, size>>& interval_index,
                         Func&& func,
@@ -100,7 +100,7 @@ namespace mure
         void sub_apply(std::index_sequence<I...>,
                        const interval_t& result,
                        const std::array<std::size_t, size>& index,
-                       xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>& index_yz,
+                       xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
                        xt::xtensor_fixed<index_t,
                                          xt::xshape<dim, size>>& interval_index,
                        Func&& func,
@@ -110,7 +110,7 @@ namespace mure
         void apply_impl(std::index_sequence<I...> iseq,
                         const std::array<std::size_t, size>& start,
                         const std::array<std::size_t, size>& end,
-                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>& index_yz,
+                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
                         xt::xtensor_fixed<index_t,
                                           xt::xshape<dim, size>>& interval_index,
                         Func&& func,
@@ -158,7 +158,7 @@ namespace mure
     void SubSet<MRConfig, Operator, T...>::sub_apply(std::index_sequence<I...> iseq,
                                                      const interval_t& result,
                                                      const std::array<std::size_t, size>& index,
-                                                     xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>& index_yz,
+                                                     xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
                                                      xt::xtensor_fixed<index_t,
                                                                        xt::xshape<dim, size>>& interval_index,
                                                      Func&& func,
@@ -166,7 +166,7 @@ namespace mure
     {
         for(int i=result.start; i<result.end; ++i)
         {
-            index_yz[d-1] = i;
+            index_yz[d] = i;
 
             std::array<std::size_t, size> new_start;
             std::array<std::size_t, size> new_end;
@@ -191,7 +191,7 @@ namespace mure
                                                      const interval_t& result,
                                                      const std::array<std::size_t, size>& index,
                                                      xt::xtensor_fixed<coord_index_t,
-                                                                       xt::xshape<dim-1>>& index_yz,
+                                                                       xt::xshape<dim>>& index_yz,
                                                       xt::xtensor_fixed<index_t,
                                                                         xt::xshape<dim, size>>& interval_index,
                                                      Func&& func,
@@ -207,7 +207,7 @@ namespace mure
                                                       const std::array<std::size_t, size>& start,
                                                       const std::array<std::size_t, size>& end,
                                                       xt::xtensor_fixed<coord_index_t,
-                                                                        xt::xshape<dim-1>>& index_yz,
+                                                                        xt::xshape<dim>>& index_yz,
                                                       xt::xtensor_fixed<index_t,
                                                                         xt::xshape<dim, size>>& interval_index,
                                                       Func&& func,
@@ -283,7 +283,7 @@ namespace mure
 
         init_start_end(std::make_index_sequence<sizeof...(T)>(), start, end);
 
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index_yz;
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index_yz;
         xt::xtensor_fixed<index_t, xt::xshape<dim, size>> interval_index;
 
         apply_impl(std::make_index_sequence<sizeof...(T)>(),
