@@ -35,9 +35,9 @@ int main()
     constexpr size_t dim = 3;
     constexpr size_t level = 8 ;
     constexpr size_t nrun = 10;
-    constexpr size_t end = std::pow(2, level);
+    const size_t end = std::pow(2, level);
     using Config = mure::MRConfig<dim>;
-    mure::Box<int, dim> box({0, 0, 0}, {end, end, end});
+    mure::Box<int, dim> box({0, 0, 0}, {(int) end, (int) end, (int) end});
 
 
     mure::LevelCellArray<Config> lca = {box};
