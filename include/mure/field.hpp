@@ -11,11 +11,12 @@
 
 namespace mure
 {
-    template<class MRConfig>
+    template<class MRConfig, class value_t>
     class Field
     {
     public:
         static constexpr auto dim = MRConfig::dim;
+        using value_type = value_t;
         using coord_index_t = typename MRConfig::coord_index_t;
         using index_t = typename MRConfig::index_t;
         using interval_t = typename MRConfig::interval_t;
@@ -31,12 +32,12 @@ namespace mure
             m_data.fill(0);
         }
 
-        double const operator[](Cell<coord_index_t, index_t, dim> cell) const
+        value_type const operator[](Cell<coord_index_t, index_t, dim> cell) const
         {
             return m_data[cell.index];
         }
 
-        double& operator[](Cell<coord_index_t, index_t, dim> cell)
+        value_type& operator[](Cell<coord_index_t, index_t, dim> cell)
         {
             return m_data[cell.index];
         }
@@ -106,8 +107,8 @@ namespace mure
         Mesh<MRConfig> *mesh;
     private:
         std::string name_;
-        xt::xtensor<double, 1> m_data;
-        xt::xtensor<double, 1> m_work;
+        xt::xtensor<value_type, 1> m_data;
+        xt::xtensor<value_type, 1> m_work;
     };
 
     template<class MRConfig>
