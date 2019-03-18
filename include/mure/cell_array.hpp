@@ -64,6 +64,16 @@ namespace mure
             }
         }
 
+        template<class Func>
+        inline void for_each_cell_on_level(std::size_t level, Func&& func) const
+        {
+            assert(level <= max_refinement_level and level >= 0);
+            if (!m_cells[level].empty())
+            {
+                m_cells[level].for_each_cell(std::forward<Func>(func), level);
+            }
+        }
+
         void to_stream(std::ostream &os) const
         {
             for(std::size_t level=0; level <= max_refinement_level; ++level)
