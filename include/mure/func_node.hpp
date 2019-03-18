@@ -51,6 +51,11 @@ namespace mure
     picker<2u> _3;
     picker<3u> _4;
     picker<4u> _5;
+    picker<5u> _6;
+    picker<6u> _7;
+    picker<7u> _8;
+    picker<8u> _9;
+    picker<9u> _10;
 
     template <class Func, class... F>
     struct func_node
