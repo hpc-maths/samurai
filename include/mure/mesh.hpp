@@ -12,12 +12,15 @@
 #include "cell_list.hpp"
 #include "cell_array.hpp"
 #include "intervals_operator.hpp"
+#include "operators.hpp"
 #include "static_algorithm.hpp"
 #include "subset.hpp"
 
+#include "hdf5.hpp"
+
 namespace mure
 {
-    template<class MRConfig>
+    template<class MRConfig, class value_t>
     class Field;
 
     template<class MRConfig>
@@ -48,6 +51,7 @@ namespace mure
             m_cells_and_ghosts[init_level] = {box_t{start - 1, end + 1}};
             m_all_cells[init_level] = {box_t{start - 1 , end + 1}};
             m_all_cells[init_level-1] = {box_t{(start>>1) - 1 , (end>>1) + 1}};
+            m_proj_cells[init_level-1] = {box_t{(start>>1), (end>>1)}};
             update_x0_and_nb_ghosts(m_nb_local_cells_and_ghosts, m_all_cells, m_cells_and_ghosts, m_cells);
             // update_ghost_nodes();
         }
@@ -61,29 +65,32 @@ namespace mure
         void projection(Field<MRConfig> &field) const
         {
             // auto expr = intersection(difference(_1, _2), _3);
-            auto expr = intersection(difference(_1, _2), difference(_3, difference(_4, _5)));
-            for(std::size_t level = max_refinement_level; level >=1; --level)
+
+            for(std::size_t level = max_refinement_level-1; level >=1; --level)
             {
-                auto set = mure::make_subset<MRConfig>(expr,
-                                                       level-1,
-                                                       {level-1, level-1, level, level, level},
-                                                       m_all_cells[level-1],
-                                                       m_cells[level-1],
-                                                       m_all_cells[level],
-                                                       m_cells_and_ghosts[level],
-                                                       m_cells[level]);
-
-
-                set.apply([&](auto& index, auto& interval, auto& interval_index)
+                if (!m_proj_cells[level-1].empty())
                 {
-                    index[0] = interval.start;
+                    auto expr = intersection(_1, _2);
+                    auto set = make_subset<MRConfig>(expr,
+                                                    level-1,
+                                                    {level, level-1},
+                                                    m_all_cells[level],
+                                                    m_proj_cells[level-1]);
 
-                    // auto op = op_projection(index, interval, interval_index, level);
-                    // op.apply(field);
+                    // auto expr = union_(intersection(_1, _2), _3);
+                    // auto set = make_subset<MRConfig>(expr,
+                    //                                         level-1,
+                    //                                         {level, level+1, level},
+                    //                                         m_all_cells[level],
+                    //                                         m_all_cells[level+1],
+                    //                                         m_cells[level]);
 
-                    auto i = interval;
-                    field(level - 1, i) = .5*(field(level, 2*i) + field(level, 2*i + 1));
-                });
+                    set.apply([&](auto& index, auto& interval, auto& interval_index)
+                    {
+                        auto op = Projection<MRConfig>(level-1, index, interval[0]);
+                        op.apply(field);
+                    });
+                }
             }
         }
 
@@ -99,130 +106,126 @@ namespace mure
 
                 set.apply([&](auto& index, auto& interval, auto& interval_index)
                 {
-                    auto i = interval;
+                    auto i = interval[0];
                     field(level + 1, 2*i) = field(level, i) - 1./8*(field(level, i + 1) - field(level, i - 1));
                     field(level + 1, 2*i + 1) = field(level, i) + 1./8*(field(level, i + 1) - field(level, i - 1));
                 });
             }
         }
 
-        void detail(Field<MRConfig> &detail, Field<MRConfig> &field)
+        void detail(Field<MRConfig> &detail, Field<MRConfig> &field, std::size_t ite)
         {
-            auto expr = intersection(_1, _2);
 
-            Field<MRConfig> keep{"keep", *this};
-            keep.array().fill(1);
+            Field<MRConfig, bool> keep{"keep", *this};
+            xt::xtensor_fixed<double, xt::xshape<max_refinement_level+1>> max_detail;
+            max_detail.fill(std::numeric_limits<double>::min());
+            keep.array().fill(false);
 
+            for_each_cell([&](auto& cell){
+                keep[cell] = true;
+            });
+
+            // std::cout << *this << "\n";
             for(std::size_t level = 0; level < max_refinement_level; ++level)
             {
+                auto expr = intersection(_1, _2);
                 auto set = mure::make_subset<MRConfig>(expr,
                                                        level, {level, level+1},
                                                        m_all_cells[level],
                                                        m_cells[level+1]);
 
-                double eps = 1e-4;
-                int exponent = level + 1 - m_cells.max_level();
+                double eps = 1e-2;
+                int exponent = dim*(level + 1 - m_cells.max_level());
                 auto eps_l = std::pow(2, exponent)*eps;
             
                 set.apply([&](auto& index, auto& interval, auto& interval_index)
                 {
-                    auto i = interval;
-                    detail(level + 1, 2*i) = field(level + 1, 2*i) - (field(level, i) - 1./8*(field(level, i + 1) - field(level, i - 1)));
-                    detail(level + 1, 2*i + 1) = field(level + 1, 2*i + 1) - (field(level, i) + 1./8*(field(level, i + 1) - field(level, i - 1)));
-
-                    auto ii = 2*interval;
-                    ii.step = 1;
-                    auto mask = xt::abs(detail(level + 1, ii)) < eps_l;
-                    xt::masked_view(keep(level + 1, ii), mask) = 0;
+                    // std::cout << "detail: level " << level << " " <<  interval << " " << index[1] << "\n";
+                    auto op = Detail_op<MRConfig>(level, index, interval[0]);
+                    op.compute_detail(detail, field);
+                    op.compute_max_detail(max_detail, detail);
                 });
-            }
-
-            for(std::size_t level = max_refinement_level; level > 0; --level)
-            {
-                auto keep_expr = intersection(difference(_1, _2), _3);
-                auto set_keep = mure::make_subset<MRConfig>(keep_expr,
-                                                            level-1,
-                                                            {level-1, level-1, level},
-                                                            m_all_cells[level-1],
-                                                            m_cells_and_ghosts[level-1],
-                                                            m_all_cells[level]);
-
-                set_keep.apply([&](auto& index, auto& interval, auto& interval_index)
-                {
-                    auto i = interval;
-                    if (i.start&1)
-                        i.start+=1;
-                    if (i.end&1)
-                        i.end-=1;
-                    auto ii = 2*i;
-                    keep(level - 1, i) = xt::maximum(keep(level, 2*i), keep(level, 2*i + 1));
-                });
-
-                // graded tree
-                auto graded_expr_1 = intersection(difference(_1, _2), _3);
-                auto graded_expr_2 = intersection(difference(_3, _4), _2);
-                auto graded_expr = union_(graded_expr_1, graded_expr_2);
-
-                auto set = mure::make_subset<MRConfig>(graded_expr,
-                                                       level-1, {level, level, level-1, level-1},
-                                                       m_cells_and_ghosts[level],
-                                                       m_cells[level],
-                                                       m_cells_and_ghosts[level-1],
-                                                       m_cells[level-1]);
 
                 set.apply([&](auto& index, auto& interval, auto& interval_index)
                 {
-                    auto i = interval;
-                    if (interval.size() == 2)
-                        if (xt::any(keep(level-1, i) < 1))
-                            keep(level-1, i) = 1;
+                    auto op = Detail_op<MRConfig>(level, index, interval[0]);
+                    op.to_coarsen(keep, detail, max_detail, eps_l);
+                });
+            }
+            // std::cout << "\n";
+            // for(std::size_t level = max_refinement_level; level > 0; --level)
+            // {
+            //     auto keep_expr = intersection(_1, _2);
+            //     auto keep_set = make_subset<MRConfig>(keep_expr,
+            //                                     level-1,
+            //                                     {level, level-1},
+            //                                     m_cells[level],
+            //                                     m_all_cells[level-1]);
+
+            //     keep_set.apply([&](auto& index, auto& interval, auto& interval_index)
+            //     {
+            //         auto op = Maximum<MRConfig>(level-1, index, interval[0]);
+            //         op.apply(keep);
+            //         auto op_graded = Graded_op<MRConfig>(level-1, index, interval);
+            //         op_graded.apply(keep);
+            //     });
+            // // }
+
+            // // for(std::size_t level = max_refinement_level; level > 0; --level)
+            // // {
+            //     auto clean_expr = difference(_1, _2);
+            //     auto clean_set = mure::make_subset<MRConfig>(clean_expr,
+            //                                                 level-1,
+            //                                                 {level-1, level-1},
+            //                                                 m_all_cells[level-1],
+            //                                                 m_cells[level-1]);
+
+            //     clean_set.apply([&](auto& index, auto& interval, auto& interval_index)
+            //     {
+            //         auto op = Clean<MRConfig>(level-1, index, interval[0]);
+            //         op.apply(keep);
+            //     });
+            // }
+
+            for(std::size_t level = max_refinement_level; level > 0; --level)
+            {
+                auto keep_expr = intersection(_1, _2);
+                auto keep_set = make_subset<MRConfig>(keep_expr,
+                                                level-1,
+                                                {level-1, level},
+                                                m_all_cells[level-1],
+                                                m_cells[level]);
+
+                keep_set.apply([&](auto& index, auto& interval, auto& interval_index)
+                {
+                    auto op = Test<MRConfig>(level, index, interval[0]);
+                    op.apply(keep);
                 });
             }
 
             CellList<MRConfig> cell_list;
 
+
             for(std::size_t level = 0; level <= max_refinement_level; ++level)
             {
-                const LevelCellArray<MRConfig> &level_cell_array = m_cells[level];
+                const LevelCellArray<MRConfig> &level_cell_array = m_all_cells[level];
 
                 if (!level_cell_array.empty())
                 {
                     level_cell_array.for_each_interval_in_x([&](auto const& index_yz, auto const& interval)
                     {
-                        if (interval.start&1)
+                        for (int i = interval.start; i < interval.end; ++i)
                         {
-                            cell_list[level][index_yz].add_point(interval.start);
-                        }
-
-                        if (interval.end&1)
-                        {
-                            cell_list[level][index_yz].add_point(interval.end - 1);
-                        }
-
-                        auto start = (interval.start&1)? interval.start + 1: interval.start;
-                        auto end = (interval.end&1)? interval.end - 1: interval.end;
-                        for (int i = start; i < end; i+=2)
-                        {
-                            if ((keep.array()[i + interval.index] == 0) and (keep.array()[i + 1 + interval.index] == 0))
-                            {
-                                cell_list[level-1][index_yz/2].add_point(i >> 1);
-                            }
-                            else
-                            {
+                            if (keep.array()[i + interval.index])
                                 cell_list[level][index_yz].add_point(i);
-                                cell_list[level][index_yz].add_point(i+1);
-                            }
                         }
                    });
                 }
             }
 
             Mesh<MRConfig> new_mesh{cell_list};
-            // std::cout << m_all_cells << "\n";
-            // std::cout << field.array() << "\n";
-            // std::cout << new_mesh.m_all_cells << "\n";
-            // std::cout << new_mesh.m_cells << "\n";
             Field<MRConfig> new_field(field.name(), new_mesh);
+            new_field.array().fill(0);
             auto expr_update = intersection(_1, _2);
 
             for(std::size_t level = 0; level <= max_refinement_level; ++level)
@@ -234,14 +237,25 @@ namespace mure
 
                 set.apply([&](auto& index, auto& interval, auto& interval_index)
                 {
-                    auto i = interval;
-                    new_field(level, i) = field(level, i);
+                    auto op = Copy<MRConfig>(level, index, interval[0]);
+                    op.apply(new_field, field);
                 });
             }
 
-            // std::cout << new_mesh << "\n";
-            m_cells = {cell_list};
-            update_ghost_nodes();
+            // std::stringstream ss1;
+            // ss1 << "demo_all_" << ite;
+            // auto h5file = Hdf5(ss1.str().data(), 1);
+            // h5file.add_field_by_level(*this, {detail, field});
+            // std::stringstream ss2;
+            // ss2 << "demo_cells_" << ite;
+            // auto h5file2 = Hdf5(ss2.str().data());
+            // h5file2.add_field_by_level(*this, {detail, field});
+
+            m_cells = std::move(new_mesh.m_cells);
+            m_all_cells = std::move(new_mesh.m_all_cells);
+            m_cells_and_ghosts = std::move(new_mesh.m_cells_and_ghosts);
+            m_proj_cells = std::move(new_mesh.m_proj_cells);
+            // std::cout << *this << "\n";
             field.array() = new_field.array();
         }
 
@@ -260,14 +274,29 @@ namespace mure
 
                 set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
                          {
-                            std::cout << level << " " << interval << "\n";
+                            std::cout << level << " " << interval[0] << "\n";
                          });
             }
         }
 
-        inline std::size_t nb_cells() const
+        inline std::size_t nb_cells(std::size_t type=0) const
         {
-            return m_cells.nb_cells();
+            if (type == 0)
+                return m_cells.nb_cells();
+            if (type == 1)
+                return m_all_cells.nb_cells();
+            if (type == 2)
+                return m_proj_cells.nb_cells();
+        }
+
+        inline std::size_t nb_cells_for_level(std::size_t level, std::size_t type=0) const
+        {
+            if (type == 0)
+                return m_cells[level].nb_cells();
+            if (type == 1)
+                return m_all_cells[level].nb_cells();
+            if (type == 2)
+                return m_proj_cells[level].nb_cells();
         }
 
         inline std::size_t nb_total_cells() const
@@ -294,14 +323,32 @@ namespace mure
             m_cells.to_stream(os);
             os << "\nCells and ghosts\n";
             m_cells_and_ghosts.to_stream(os);
+            os << "\nProjection cells\n";
+            m_proj_cells.to_stream(os);
             os << "\nAll cells\n";
             m_all_cells.to_stream(os);
         }
 
         template<class Func>
-        inline void for_each_cell(Func&& func) const
+        inline void for_each_cell(Func&& func, std::size_t type=0) const
         {
-            m_cells.for_each_cell(std::forward<Func>(func));
+            if (type == 0)
+                m_cells.for_each_cell(std::forward<Func>(func));
+            if (type == 1)
+                m_all_cells.for_each_cell(std::forward<Func>(func));
+            if (type == 2)
+                m_proj_cells.for_each_cell(std::forward<Func>(func));
+        }
+
+        template<class Func>
+        inline void for_each_cell_on_level(std::size_t level, Func&& func, std::size_t type=0) const
+        {
+            if (type == 0)
+                m_cells[level].for_each_cell(std::forward<Func>(func), level);
+            if (type == 1)
+                m_all_cells[level].for_each_cell(std::forward<Func>(func), level);
+            if (type == 2)
+                m_proj_cells[level].for_each_cell(std::forward<Func>(func), level);
         }
 
     private:
@@ -316,6 +363,7 @@ namespace mure
         CellArray<MRConfig> m_cells;
         CellArray<MRConfig> m_cells_and_ghosts;
         CellArray<MRConfig> m_all_cells;
+        CellArray<MRConfig> m_proj_cells;
         index_t m_nb_local_cells;
         index_t m_nb_local_cells_and_ghosts;
     };
@@ -346,6 +394,29 @@ namespace mure
 
         // compaction
         m_all_cells = {cell_list};
+
+        CellList<MRConfig> cell_list_1;
+        for(std::size_t level = max_refinement_level-1; level > 0; --level)
+        {
+            if (!m_all_cells[level-1].empty())
+            {
+                auto expr = intersection(union_(intersection(_1, _2), _3), union_(intersection(_4, _5), _6));
+                auto set = make_subset<MRConfig>(expr,
+                                                level-1,
+                                                {level, level+1, level, level-1, level, level-1},
+                                                m_all_cells[level],
+                                                m_all_cells[level+1],
+                                                m_cells[level],
+                                                m_all_cells[level-1],
+                                                m_all_cells[level],
+                                                m_cells[level-1]);
+                set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
+                {
+                    cell_list_1[level-1][xt::eval(xt::view(index_yz, xt::range(1, dim)))].add_interval({interval[0].start, interval[0].end});
+                });
+            }
+        }
+        m_proj_cells = {cell_list_1};
 
         // update of x0_indices, _leaf_to_ghost_indices, _nb_local_ghost_and_leaf_cells
         update_x0_and_nb_ghosts(m_nb_local_cells_and_ghosts, m_all_cells, m_cells_and_ghosts, m_cells);
@@ -432,29 +503,47 @@ namespace mure
         // index_t cpt_leaf = 0;
         // m_cell_to_ghost_indices.resize(nb_local_cells());
         auto expr = intersection(_1, _2);
-        for( int level = 0; level <= max_refinement_level; ++level )
+        for(std::size_t level = 0; level <= max_refinement_level; ++level )
         {
             if (!target_cells[level].empty())
             {
                 auto set = mure::make_subset<MRConfig>(expr,
-                                                    target_all_cells[level],
-                                                    target_cells[level]);
+                                                    level,
+                                                    {level, level},
+                                                    m_all_cells[level],
+                                                    m_cells[level]);
 
                 set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
-                {
-                    target_cells[level][0][interval_index[0, 1]].index = target_all_cells[level][0][interval_index[0, 0]].index;
+                {   
+                    m_cells[level][0][interval_index(0, 1)].index = m_all_cells[level][0][interval_index(0, 0)].index;
                 });
             }
 
             if (!target_cells_and_ghosts[level].empty())
             {
                 auto set = mure::make_subset<MRConfig>(expr,
+                                                    level,
+                                                    {level, level},
                                                     target_all_cells[level],
                                                     target_cells_and_ghosts[level]);
 
                 set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
                 {
-                    target_cells_and_ghosts[level][0][interval_index[0, 1]].index = target_all_cells[level][0][interval_index[0, 0]].index;
+                    target_cells_and_ghosts[level][0][interval_index(0, 1)].index = target_all_cells[level][0][interval_index(0, 0)].index;
+                });
+            }
+
+            if (!m_proj_cells[level].empty())
+            {
+                auto set = mure::make_subset<MRConfig>(expr,
+                                                    level,
+                                                    {level, level},
+                                                       target_all_cells[level],
+                                                       m_proj_cells[level]);
+
+                set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
+                {
+                    m_proj_cells[level][0][interval_index(0, 1)].index = target_all_cells[level][0][interval_index(0, 0)].index;
                 });
             }
         }
