@@ -20,7 +20,7 @@ namespace mure
 
     template<class coord_index_t, class levelcellarray>
     void new_endpoint(coord_index_t scan, coord_index_t sentinel,
-                      const levelcellarray& array, std::size_t end, std::size_t shift,
+                      const levelcellarray& array, std::size_t end, int shift,
                       std::size_t& it, std::size_t& index, coord_index_t& endpoints)
     {
         if (scan == endpoints)
@@ -28,12 +28,26 @@ namespace mure
             if (index == 1)
             {
                 it += 1;
-                endpoints = (it == end)?sentinel:(array[it].start>>shift);
+                if (shift < 0)
+                {
+                    endpoints = (it == end)?sentinel:(array[it].start<<-shift);
+                }
+                else
+                {
+                    endpoints = (it == end)?sentinel:(array[it].start>>shift);
+                }
                 index = 0;
             }
             else
             {
-                endpoints = (array[it].end>>shift) + ((array[it].end&1 && shift)?1:0);
+                if (shift < 0)
+                {
+                    endpoints = (array[it].end<<-shift);
+                }
+                else
+                {
+                    endpoints = (array[it].end>>shift) + ((array[it].end&1 && shift)?1:0);
+                }
                 index = 1;
             }
         }
@@ -88,17 +102,17 @@ namespace mure
 
         template<size_t... I, std::size_t d, class Func>
         void sub_apply(std::index_sequence<I...> iseq,
-                        const interval_t& result,
-                        const std::array<std::size_t, size>& index,
-                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
-                        xt::xtensor_fixed<index_t,
-                                          xt::xshape<dim, size>>& interval_index,
-                        Func&& func,
-                        std::integral_constant<std::size_t, d>) const;
+                       xt::xtensor_fixed<interval_t, xt::xshape<dim>>& result,
+                       const std::array<std::size_t, size>& index,
+                       xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
+                       xt::xtensor_fixed<index_t,
+                                         xt::xshape<dim, size>>& interval_index,
+                       Func&& func,
+                       std::integral_constant<std::size_t, d>) const;
 
         template<size_t... I, class Func>
         void sub_apply(std::index_sequence<I...>,
-                       const interval_t& result,
+                       xt::xtensor_fixed<interval_t, xt::xshape<dim>>& result,
                        const std::array<std::size_t, size>& index,
                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
                        xt::xtensor_fixed<index_t,
@@ -108,6 +122,7 @@ namespace mure
 
         template <std::size_t... I, std::size_t d, class Func>
         void apply_impl(std::index_sequence<I...> iseq,
+                        xt::xtensor_fixed<interval_t, xt::xshape<dim>>& result,
                         const std::array<std::size_t, size>& start,
                         const std::array<std::size_t, size>& end,
                         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
@@ -156,30 +171,36 @@ namespace mure
     template<class MRConfig, class Operator, class... T>
     template<size_t... I, std::size_t d, class Func>
     void SubSet<MRConfig, Operator, T...>::sub_apply(std::index_sequence<I...> iseq,
-                                                     const interval_t& result,
-                                                     const std::array<std::size_t, size>& index,
+                                                     xt::xtensor_fixed<interval_t,
+                                                                       xt::xshape<dim>>& result,
+                                                    const std::array<std::size_t, size>& index,
                                                      xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
                                                      xt::xtensor_fixed<index_t,
                                                                        xt::xshape<dim, size>>& interval_index,
                                                      Func&& func,
                                                      std::integral_constant<std::size_t, d>) const
     {
-        for(int i=result.start; i<result.end; ++i)
+        std::array<int, size> ii;
+        for(int i=result[d].start; i<result[d].end; ++i)
         {
             index_yz[d] = i;
+            expand{(generic_assign(ii[I],
+                                   (static_cast<int>(m_data_level[I]-m_common_level)<0)?
+                                        i>>static_cast<int>(m_common_level-m_data_level[I])
+                                       :i<<(m_data_level[I])-m_common_level), false)...};
 
             std::array<std::size_t, size> new_start;
             std::array<std::size_t, size> new_end;
             expand{(generic_assign(new_start[I],
-                                   (index[I] != -1)?
-                                       std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i]
+                                   (index[I] != -1 and (std::get<I>(m_data)[d][index[I]].index + ii[I]) < std::get<I>(m_data).offsets(d).size())?
+                                       std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + ii[I]]
                                       :0), false)...};
             expand{(generic_assign(new_end[I],
-                                   (index[I] != -1)?
-                                       std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i + 1]
+                                   (index[I] != -1 and (std::get<I>(m_data)[d][index[I]].index + ii[I] + 1) < std::get<I>(m_data).offsets(d).size())?
+                                        std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + ii[I] + 1]
                                       :0), false)...};
 
-            apply_impl(iseq, new_start, new_end,
+            apply_impl(iseq, result, new_start, new_end,
                        index_yz, interval_index, std::forward<Func>(func),
                        std::integral_constant<std::size_t, d>{});
         }
@@ -188,7 +209,8 @@ namespace mure
     template<class MRConfig, class Operator, class... T>
     template<size_t... I, class Func>
     void SubSet<MRConfig, Operator, T...>::sub_apply(std::index_sequence<I...>,
-                                                     const interval_t& result,
+                                                     xt::xtensor_fixed<interval_t,
+                                                                       xt::xshape<dim>>& result,
                                                      const std::array<std::size_t, size>& index,
                                                      xt::xtensor_fixed<coord_index_t,
                                                                        xt::xshape<dim>>& index_yz,
@@ -197,6 +219,7 @@ namespace mure
                                                      Func&& func,
                                                      std::integral_constant<std::size_t, 0>) const
     {
+        // xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index_yz_ = xt::view(index_yz, xt::range(1, dim));
         func(index_yz, result, interval_index);
         // func(index_yz, result);
     }
@@ -204,6 +227,8 @@ namespace mure
     template<class MRConfig, class Operator, class... T>
     template <std::size_t... I, std::size_t d, class Func>
     void SubSet<MRConfig, Operator, T...>::apply_impl(std::index_sequence<I...> iseq,
+                                                      xt::xtensor_fixed<interval_t,
+                                                                        xt::xshape<dim>>& result_array,
                                                       const std::array<std::size_t, size>& start,
                                                       const std::array<std::size_t, size>& end,
                                                       xt::xtensor_fixed<coord_index_t,
@@ -219,12 +244,16 @@ namespace mure
 
         expand{(generic_assign(endpoints[I],
                                (end[I] != start[I])?
-                                   std::get<I>(m_data)[d-1][start[I]].start>>(m_data_level[I]-m_common_level)
+                                   ((static_cast<int>(m_data_level[I]-m_common_level)<0)?
+                                         std::get<I>(m_data)[d-1][start[I]].start<<static_cast<int>(m_common_level-m_data_level[I])
+                                        :std::get<I>(m_data)[d-1][start[I]].start>>(m_data_level[I]-m_common_level))
                                  : std::numeric_limits<coord_index_t>::max()), false)...};
         expand{(generic_assign(ends[I],
                                (end[I] != start[I])?
-                                   (std::get<I>(m_data)[d-1][end[I] - 1].end>>(m_data_level[I]-m_common_level))
-                                   + ((std::get<I>(m_data)[d-1][end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)
+                                   ((static_cast<int>(m_data_level[I]-m_common_level)<0)?
+                                         (std::get<I>(m_data)[d-1][end[I] - 1].end<<static_cast<int>(m_common_level-m_data_level[I]))
+                                        :((std::get<I>(m_data)[d-1][end[I] - 1].end>>(m_data_level[I]-m_common_level))
+                                         + ((std::get<I>(m_data)[d-1][end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)))
                                  : std::numeric_limits<coord_index_t>::min()), false)...};
 
         expand{(generic_assign(is_valid[I], (end[I] == start[I])?false:true), false)...};
@@ -261,9 +290,14 @@ namespace mure
                     std::array<std::size_t, size> new_index;
                     expand{(generic_assign(new_index[I], index[I] + (endpoints_index[I] - 1)), false)...};
                     expand{(generic_assign(interval_index(d-1, I), new_index[I]), false)...};
-                    sub_apply(iseq, result, new_index, index_yz, interval_index,
-                              std::forward<Func>(func),
-                              std::integral_constant<std::size_t, d-1>{});
+
+                    if (result.is_valid())
+                    {
+                        result_array[d-1] = result;
+                        sub_apply(iseq, result_array, new_index, index_yz, interval_index,
+                                std::forward<Func>(func),
+                                std::integral_constant<std::size_t, d-1>{});
+                    }
                 }
             }
 
@@ -284,9 +318,12 @@ namespace mure
         init_start_end(std::make_index_sequence<sizeof...(T)>(), start, end);
 
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index_yz;
+        xt::xtensor_fixed<interval_t, xt::xshape<dim>> result;
+
         xt::xtensor_fixed<index_t, xt::xshape<dim, size>> interval_index;
 
         apply_impl(std::make_index_sequence<sizeof...(T)>(),
+                   result,
                     start, end, index_yz, interval_index, std::forward<Func>(func),
                     std::integral_constant<std::size_t, dim>{});
     }
