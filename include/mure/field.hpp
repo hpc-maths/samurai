@@ -64,15 +64,35 @@ namespace mure
                                               interval_tmp.index + interval.end, interval.step));
         }
 
-        auto data() const
+        template<typename... T>
+        auto const operator()(std::size_t level, interval_t interval, T... index) const
         {
-            std::array<std::size_t, 1> shape = {mesh->nb_cells()};
+            auto interval_tmp = mesh->get_interval(level, interval, index...);
+            return xt::view(m_data, xt::range(interval_tmp.index + interval.start,
+                                              interval_tmp.index + interval.end, interval.step));
+        }
+
+        auto data(std::size_t type=0) const
+        {
+            std::array<std::size_t, 1> shape = {mesh->nb_cells(type)};
             xt::xtensor<double, 1> output(shape);
             std::size_t index = 0;
             mesh->for_each_cell([&](auto cell)
             {
                 output[index++] = m_data[cell.index];
-            });
+            }, type);
+            return output;
+        }
+
+        auto data_on_level(std::size_t level, std::size_t type=0) const
+        {
+            std::array<std::size_t, 1> shape = {mesh->nb_cells_for_level(level, type)};
+            xt::xtensor<double, 1> output(shape);
+            std::size_t index = 0;
+            mesh->for_each_cell_on_level(level, [&](auto cell)
+            {
+                output[index++] = m_data[cell.index];
+            }, type);
             return output;
         }
 
@@ -86,9 +106,14 @@ namespace mure
             return m_data;
         }
 
-        inline std::size_t nb_cells() const
+        inline std::size_t nb_cells(std::size_t type=0) const
         {
-            return mesh->nb_cells();
+            return mesh->nb_cells(type);
+        }
+
+        inline std::size_t nb_cells_on_level(std::size_t level, std::size_t type=0) const
+        {
+            return mesh->nb_cells_for_level(level, type);
         }
 
         auto const& name() const
