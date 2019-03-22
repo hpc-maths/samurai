@@ -196,8 +196,8 @@ namespace mure
             xdmf_file << "</Attribute>\n";
         }
 
-        template<class MRConfig>
-        void add_field_by_level(Mesh<MRConfig> const& mesh, Field<MRConfig> const& field)
+        template<class MRConfig, class value_t>
+        void add_field_by_level(Mesh<MRConfig> const& mesh, Field<MRConfig, value_t> const& field)
         {
             std::size_t nb_points = std::pow(2, Mesh<MRConfig>::dim);
             constexpr std::size_t dim =  Mesh<MRConfig>::dim;
@@ -262,8 +262,8 @@ namespace mure
             }
         }
 
-        template<class MRConfig>
-        void add_field_by_level(Mesh<MRConfig> const& mesh, std::vector<Field<MRConfig>> const& fields)
+        template<class MRConfig, class value_t>
+        void add_field_by_level(Mesh<MRConfig> const& mesh, std::vector<Field<MRConfig, value_t>> const& fields)
         {
             std::size_t nb_points = std::pow(2, Mesh<MRConfig>::dim);
             constexpr std::size_t dim =  Mesh<MRConfig>::dim;

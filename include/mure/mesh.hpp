@@ -125,7 +125,6 @@ namespace mure
                 keep[cell] = true;
             });
 
-            // std::cout << *this << "\n";
             for(std::size_t level = 0; level < max_refinement_level; ++level)
             {
                 auto expr = intersection(_1, _2);
@@ -140,7 +139,6 @@ namespace mure
             
                 set.apply([&](auto& index, auto& interval, auto& interval_index)
                 {
-                    // std::cout << "detail: level " << level << " " <<  interval << " " << index[1] << "\n";
                     auto op = Detail_op<MRConfig>(level, index, interval[0]);
                     op.compute_detail(detail, field);
                     op.compute_max_detail(max_detail, detail);
@@ -152,39 +150,77 @@ namespace mure
                     op.to_coarsen(keep, detail, max_detail, eps_l);
                 });
             }
-            // std::cout << "\n";
-            // for(std::size_t level = max_refinement_level; level > 0; --level)
+
             // {
-            //     auto keep_expr = intersection(_1, _2);
-            //     auto keep_set = make_subset<MRConfig>(keep_expr,
-            //                                     level-1,
-            //                                     {level, level-1},
-            //                                     m_cells[level],
-            //                                     m_all_cells[level-1]);
+            //     std::stringstream ss1;
+            //     ss1 << "demo_to_coarsen_all_" << ite;
+            //     auto h5file = Hdf5(ss1.str().data(), 1);
+            //     h5file.add_field_by_level(*this, keep);
+            //     std::stringstream ss2;
+            //     ss2 << "demo_to_coarsen_" << ite;
+            //     auto h5file2 = Hdf5(ss2.str().data());
+            //     h5file2.add_field_by_level(*this, keep);
+            // }
 
-            //     keep_set.apply([&](auto& index, auto& interval, auto& interval_index)
-            //     {
-            //         auto op = Maximum<MRConfig>(level-1, index, interval[0]);
-            //         op.apply(keep);
-            //         auto op_graded = Graded_op<MRConfig>(level-1, index, interval);
-            //         op_graded.apply(keep);
-            //     });
-            // // }
+            for(std::size_t level = max_refinement_level; level > 0; --level)
+            {
+                auto keep_expr = intersection(_1, _2);
+                auto keep_set = make_subset<MRConfig>(keep_expr,
+                                                level-1,
+                                                {level, level-1},
+                                                m_cells[level],
+                                                m_all_cells[level-1]);
 
-            // // for(std::size_t level = max_refinement_level; level > 0; --level)
-            // // {
-            //     auto clean_expr = difference(_1, _2);
-            //     auto clean_set = mure::make_subset<MRConfig>(clean_expr,
-            //                                                 level-1,
-            //                                                 {level-1, level-1},
-            //                                                 m_all_cells[level-1],
-            //                                                 m_cells[level-1]);
+                keep_set.apply([&](auto& index, auto& interval, auto& interval_index)
+                {
+                    auto op = Maximum<MRConfig>(level-1, index, interval[0]);
+                    op.apply(keep);
+                    auto op_graded = Graded_op<MRConfig>(level-1, index, interval);
+                    op_graded.apply(keep);
+                });
+            }
 
-            //     clean_set.apply([&](auto& index, auto& interval, auto& interval_index)
-            //     {
-            //         auto op = Clean<MRConfig>(level-1, index, interval[0]);
-            //         op.apply(keep);
-            //     });
+            // {
+            //     std::stringstream ss1;
+            //     ss1 << "demo_graded_all_" << ite;
+            //     auto h5file = Hdf5(ss1.str().data(), 1);
+            //     h5file.add_field_by_level(*this, keep);
+            //     std::stringstream ss2;
+            //     ss2 << "demo_graded_" << ite;
+            //     auto h5file2 = Hdf5(ss2.str().data());
+            //     h5file2.add_field_by_level(*this, keep);
+            // }
+
+            for(std::size_t level = 0; level <= max_refinement_level; ++level)
+            {
+                const LevelCellArray<MRConfig> &level_cell_array = m_all_cells[level];
+
+                if (!level_cell_array.empty())
+                {
+                    auto clean_expr = difference(_1, _2);
+                    auto clean_set = mure::make_subset<MRConfig>(clean_expr,
+                                                                level,
+                                                                {level, level},
+                                                                m_all_cells[level],
+                                                                m_cells[level]);
+
+                    clean_set.apply([&](auto& index, auto& interval, auto& interval_index)
+                    {
+                        auto op = Clean<MRConfig>(level, index, interval[0]);
+                        op.apply(keep);
+                    });
+                }
+            }
+
+            // {
+            //     std::stringstream ss1;
+            //     ss1 << "demo_clean_all_" << ite;
+            //     auto h5file = Hdf5(ss1.str().data(), 1);
+            //     h5file.add_field_by_level(*this, keep);
+            //     std::stringstream ss2;
+            //     ss2 << "demo_clean_" << ite;
+            //     auto h5file2 = Hdf5(ss2.str().data());
+            //     h5file2.add_field_by_level(*this, keep);
             // }
 
             for(std::size_t level = max_refinement_level; level > 0; --level)
@@ -203,8 +239,18 @@ namespace mure
                 });
             }
 
-            CellList<MRConfig> cell_list;
+            // {
+            //     std::stringstream ss1;
+            //     ss1 << "demo_to_keep_all_" << ite;
+            //     auto h5file = Hdf5(ss1.str().data(), 1);
+            //     h5file.add_field_by_level(*this, keep);
+            //     std::stringstream ss2;
+            //     ss2 << "demo_to_keep_" << ite;
+            //     auto h5file2 = Hdf5(ss2.str().data());
+            //     h5file2.add_field_by_level(*this, keep);
+            // }
 
+            CellList<MRConfig> cell_list;
 
             for(std::size_t level = 0; level <= max_refinement_level; ++level)
             {

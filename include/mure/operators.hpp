@@ -98,15 +98,15 @@ namespace mure
 
         void apply_impl(Field<MRConfig, bool>& field, std::integral_constant<std::size_t, 2>) const
         {
-            // xt::xtensor<bool, 1> mask = field(level+1, 2*i    , 2*j    ) |
-            //                             field(level+1, 2*i + 1, 2*j    ) |
-            //                             field(level+1, 2*i    , 2*j + 1) |
-            //                             field(level+1, 2*i + 1, 2*j + 1);
+            xt::xtensor<bool, 1> mask = field(level+1, 2*i    , 2*j    ) |
+                                        field(level+1, 2*i + 1, 2*j    ) |
+                                        field(level+1, 2*i    , 2*j + 1) |
+                                        field(level+1, 2*i + 1, 2*j + 1);
 
-            // xt::masked_view(field(level+1, 2*i    , 2*j    ), mask) = true;
-            // xt::masked_view(field(level+1, 2*i + 1, 2*j    ), mask) = true;
-            // xt::masked_view(field(level+1, 2*i    , 2*j + 1), mask) = true;
-            // xt::masked_view(field(level+1, 2*i + 1, 2*j + 1), mask) = true;
+            xt::masked_view(field(level+1, 2*i    , 2*j    ), mask) = true;
+            xt::masked_view(field(level+1, 2*i + 1, 2*j    ), mask) = true;
+            xt::masked_view(field(level+1, 2*i    , 2*j + 1), mask) = true;
+            xt::masked_view(field(level+1, 2*i + 1, 2*j + 1), mask) = true;
 
             field(level, i, j) = field(level+1, 2*i    , 2*j    ) |
                                  field(level+1, 2*i + 1, 2*j    ) |
