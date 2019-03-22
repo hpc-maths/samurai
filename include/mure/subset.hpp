@@ -198,7 +198,7 @@ namespace mure
             expand{(generic_assign(new_end[I],
                                    (index[I] != -1 and (std::get<I>(m_data)[d][index[I]].index + ii[I] + 1) < std::get<I>(m_data).offsets(d).size())?
                                         std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + ii[I] + 1]
-                                      :0), false)...};
+                                      :new_start[I]), false)...};
 
             apply_impl(iseq, result, new_start, new_end,
                        index_yz, interval_index, std::forward<Func>(func),
@@ -274,7 +274,7 @@ namespace mure
         while (scan < sentinel)
         {
             expand{(generic_assign(std::get<I>(in_), !((scan < endpoints[I]) ^ endpoints_index[I])&is_valid[I]), false)...};
-            auto in_res = m_op(std::get<I>(in_)...);
+            auto in_res = m_op(d-1, std::get<I>(in_)...);
 
             if (in_res ^ (r_index & 1))
             {
