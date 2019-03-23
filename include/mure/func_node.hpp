@@ -40,7 +40,7 @@ namespace mure
     struct picker
     {
         template <class... Args>
-        constexpr decltype(auto) operator()(std::size_t dim, Args&&... args) const
+        constexpr decltype(auto) operator()(std::size_t, Args&&... args) const
         {
             return argument<I>(std::forward<Args>(args)...);
         }

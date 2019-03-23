@@ -55,13 +55,13 @@ namespace mure
     template <class... T>
     auto intersection(T&&... args)
     {
-        return make_func_node([](auto dim, auto... a) { return detail::intersection(a...); }, std::forward<T>(args)...);
+        return make_func_node([](auto, auto... a) { return detail::intersection(a...); }, std::forward<T>(args)...);
     }
 
     template <class... T>
     auto union_(T&&... args)
     {
-        return make_func_node([](auto dim, auto... a) { return detail::union_(a...); }, std::forward<T>(args)...);
+        return make_func_node([](auto, auto... a) { return detail::union_(a...); }, std::forward<T>(args)...);
     }
 
     template <class... T>

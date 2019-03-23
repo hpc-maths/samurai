@@ -129,9 +129,9 @@ namespace mure
             });
         }
 
-        Mesh<MRConfig> *mesh;
     private:
         std::string name_;
+        Mesh<MRConfig> *mesh;
         xt::xtensor<value_type, 1> m_data;
         xt::xtensor<value_type, 1> m_work;
     };

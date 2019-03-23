@@ -30,9 +30,9 @@ namespace mure
 
         static constexpr auto dim = MRConfig::dim;
         static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
-        static constexpr auto ghost_width = std::max(std::max(2*(int)MRConfig::graduation_width - 1,
-                                                     (int)MRConfig::max_stencil_width),
-                                                     (int)MRConfig::default_s_for_prediction);
+        static constexpr auto ghost_width = std::max(std::max(2*static_cast<int>(MRConfig::graduation_width) - 1,
+                                                     static_cast<int>(MRConfig::max_stencil_width)),
+                                                     static_cast<int>(MRConfig::default_s_for_prediction));
         using index_t = typename MRConfig::index_t;
         using coord_index_t = typename MRConfig::coord_index_t;
         using point_t = typename Box<int, dim>::point_t;
@@ -85,7 +85,7 @@ namespace mure
                     //                                         m_all_cells[level+1],
                     //                                         m_cells[level]);
 
-                    set.apply([&](auto& index, auto& interval, auto& interval_index)
+                    set.apply([&](auto& index, auto& interval, auto&)
                     {
                         auto op = Projection<MRConfig>(level-1, index, interval[0]);
                         op.apply(field);
@@ -113,7 +113,7 @@ namespace mure
             }
         }
 
-        void detail(Field<MRConfig> &detail, Field<MRConfig> &field, std::size_t ite)
+        void detail(Field<MRConfig> &detail, Field<MRConfig> &field, std::size_t /*ite*/)
         {
 
             Field<MRConfig, bool> keep{"keep", *this};
@@ -134,17 +134,17 @@ namespace mure
                                                        m_cells[level+1]);
 
                 double eps = 1e-2;
-                int exponent = dim*(level + 1 - m_cells.max_level());
-                auto eps_l = std::pow(2, exponent)*eps;
+                std::size_t exponent = dim*(m_cells.max_level() - level - 1 );
+                auto eps_l = std::pow(2, -exponent)*eps;
             
-                set.apply([&](auto& index, auto& interval, auto& interval_index)
+                set.apply([&](auto& index, auto& interval, auto& /*interval_index*/)
                 {
                     auto op = Detail_op<MRConfig>(level, index, interval[0]);
                     op.compute_detail(detail, field);
                     op.compute_max_detail(max_detail, detail);
                 });
 
-                set.apply([&](auto& index, auto& interval, auto& interval_index)
+                set.apply([&](auto& index, auto& interval, auto& /*interval_index*/)
                 {
                     auto op = Detail_op<MRConfig>(level, index, interval[0]);
                     op.to_coarsen(keep, detail, max_detail, eps_l);
@@ -171,7 +171,7 @@ namespace mure
                                                 m_cells[level],
                                                 m_all_cells[level-1]);
 
-                keep_set.apply([&](auto& index, auto& interval, auto& interval_index)
+                keep_set.apply([&](auto& index, auto& interval, auto& /*interval_index*/)
                 {
                     auto op = Maximum<MRConfig>(level-1, index, interval[0]);
                     op.apply(keep);
@@ -204,7 +204,7 @@ namespace mure
                                                                 m_all_cells[level],
                                                                 m_cells[level]);
 
-                    clean_set.apply([&](auto& index, auto& interval, auto& interval_index)
+                    clean_set.apply([&](auto& index, auto& interval, auto& /*interval_index*/)
                     {
                         auto op = Clean<MRConfig>(level, index, interval[0]);
                         op.apply(keep);
@@ -232,7 +232,7 @@ namespace mure
                                                 m_all_cells[level-1],
                                                 m_cells[level]);
 
-                keep_set.apply([&](auto& index, auto& interval, auto& interval_index)
+                keep_set.apply([&](auto& index, auto& interval, auto& /*interval_index*/)
                 {
                     auto op = Test<MRConfig>(level, index, interval[0]);
                     op.apply(keep);
@@ -262,7 +262,7 @@ namespace mure
                     {
                         for (int i = interval.start; i < interval.end; ++i)
                         {
-                            if (keep.array()[i + interval.index])
+                            if (keep.array()[static_cast<std::size_t>(i + interval.index)])
                                 cell_list[level][index_yz].add_point(i);
                         }
                    });
@@ -281,7 +281,7 @@ namespace mure
                                                        m_all_cells[level],
                                                        new_mesh.m_cells[level]);
 
-                set.apply([&](auto& index, auto& interval, auto& interval_index)
+                set.apply([&](auto& index, auto& interval, auto& /*interval_index*/)
                 {
                     auto op = Copy<MRConfig>(level, index, interval[0]);
                     op.apply(new_field, field);
@@ -318,10 +318,10 @@ namespace mure
                                                        m_cells_and_ghosts[level+1],
                                                        m_cells[level+1]);
 
-                set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
-                         {
-                            std::cout << level << " " << interval[0] << "\n";
-                         });
+                // set.apply([&](auto& index_yz, auto& interval, auto& /*interval_index*/)
+                //          {
+                //             std::cout << level << " " << interval[0] << "\n";
+                //          });
             }
         }
 
@@ -360,7 +360,7 @@ namespace mure
         {
             auto lca = m_all_cells[level];
             auto row = lca.find({interval.start, index... });
-            return lca[0][row];
+            return lca[0][static_cast<std::size_t>(row)];
         }
 
         void to_stream(std::ostream &os) const
@@ -401,7 +401,7 @@ namespace mure
         void update_ghost_nodes();
         void add_ng_ghosts_and_get_nb_leaves(CellList<MRConfig>& cell_list);
         void add_ghosts_for_level_m1(CellList<MRConfig>& cell_list);
-        void update_x0_and_nb_ghosts(index_t& target_nb_local_cells_and_ghosts,
+        void update_x0_and_nb_ghosts(std::size_t& target_nb_local_cells_and_ghosts,
                                      CellArray<MRConfig>& target_all_cells,
                                      CellArray<MRConfig>& target_cells_and_ghosts,
                                      CellArray<MRConfig>& target_cells);
@@ -410,8 +410,8 @@ namespace mure
         CellArray<MRConfig> m_cells_and_ghosts;
         CellArray<MRConfig> m_all_cells;
         CellArray<MRConfig> m_proj_cells;
-        index_t m_nb_local_cells;
-        index_t m_nb_local_cells_and_ghosts;
+        std::size_t m_nb_local_cells;
+        std::size_t m_nb_local_cells_and_ghosts;
     };
 
 
@@ -456,7 +456,7 @@ namespace mure
                                                 m_all_cells[level-1],
                                                 m_all_cells[level],
                                                 m_cells[level-1]);
-                set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
+                set.apply([&](auto& index_yz, auto& interval, auto& /*interval_index*/)
                 {
                     cell_list_1[level-1][xt::eval(xt::view(index_yz, xt::range(1, dim)))].add_interval({interval[0].start, interval[0].end});
                 });
@@ -504,7 +504,7 @@ namespace mure
     template<class MRConfig>
     void Mesh<MRConfig>::add_ghosts_for_level_m1(CellList<MRConfig>& cell_list)
     {
-        for(int level = 1; level <= max_refinement_level; ++level)
+        for(std::size_t level = 1; level <= max_refinement_level; ++level)
         {
             const LevelCellArray<MRConfig> &level_cell_array = m_cells[level];
             if (level_cell_array.empty() == false)
@@ -526,19 +526,19 @@ namespace mure
     }
 
     template<class MRConfig>
-    void Mesh<MRConfig>::update_x0_and_nb_ghosts(index_t& target_nb_local_cells_and_ghosts,
+    void Mesh<MRConfig>::update_x0_and_nb_ghosts(std::size_t& target_nb_local_cells_and_ghosts,
                                                  CellArray<MRConfig>& target_all_cells,
                                                  CellArray<MRConfig>& target_cells_and_ghosts,
                                                  CellArray<MRConfig>& target_cells)
     {
         // get x0_index for each ghost_and_leaf node
-        index_t ghost_index = 0;
-        for(int level = 0; level <= max_refinement_level; ++level )
+        std::size_t ghost_index = 0;
+        for(std::size_t level = 0; level <= max_refinement_level; ++level )
         {
-            target_all_cells[level].for_each_interval_in_x([&](auto& pos_yz, const interval_t& interval)
+            target_all_cells[level].for_each_interval_in_x([&](auto&, const interval_t& interval)
             {
                 // FIXME: remove this const_cast !!
-                const_cast<interval_t&>(interval).index = ghost_index - interval.start;
+                const_cast<interval_t&>(interval).index = static_cast<index_t>(ghost_index) - interval.start;
                 // interval.index = ghost_index - interval.start;
                 ghost_index += interval.size();
             } );
@@ -559,9 +559,9 @@ namespace mure
                                                     m_all_cells[level],
                                                     m_cells[level]);
 
-                set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
+                set.apply([&](auto& /*index_yz*/, auto& /*interval*/, auto& interval_index)
                 {   
-                    m_cells[level][0][interval_index(0, 1)].index = m_all_cells[level][0][interval_index(0, 0)].index;
+                    m_cells[level][0][static_cast<std::size_t>(interval_index(0, 1))].index = m_all_cells[level][0][static_cast<std::size_t>(interval_index(0, 0))].index;
                 });
             }
 
@@ -573,9 +573,9 @@ namespace mure
                                                     target_all_cells[level],
                                                     target_cells_and_ghosts[level]);
 
-                set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
+                set.apply([&](auto& /*index_yz*/, auto& /*interval*/, auto& interval_index)
                 {
-                    target_cells_and_ghosts[level][0][interval_index(0, 1)].index = target_all_cells[level][0][interval_index(0, 0)].index;
+                    target_cells_and_ghosts[level][0][static_cast<std::size_t>(interval_index(0, 1))].index = target_all_cells[level][0][static_cast<std::size_t>(interval_index(0, 0))].index;
                 });
             }
 
@@ -587,9 +587,9 @@ namespace mure
                                                        target_all_cells[level],
                                                        m_proj_cells[level]);
 
-                set.apply([&](auto& index_yz, auto& interval, auto& interval_index)
+                set.apply([&](auto& /*index_yz*/, auto& /*interval*/, auto& interval_index)
                 {
-                    m_proj_cells[level][0][interval_index(0, 1)].index = target_all_cells[level][0][interval_index(0, 0)].index;
+                    m_proj_cells[level][0][static_cast<std::size_t>(interval_index(0, 1))].index = target_all_cells[level][0][static_cast<std::size_t>(interval_index(0, 0))].index;
                 });
             }
         }

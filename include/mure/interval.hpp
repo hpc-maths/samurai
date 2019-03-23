@@ -32,6 +32,10 @@ namespace mure
         index_t index = 0;  ///< Storage index so that interval's content start at @a index + @a start
 
         Interval() = default;
+        Interval(Interval const &) = default;
+        Interval(Interval&&) = default;
+        Interval& operator=(Interval const &) = default;
+        Interval& operator=(Interval&&) = default;
 
         Interval(value_t start, value_t end, index_t index = 0)
             : start{start}, end{end}, index{index}
@@ -44,9 +48,9 @@ namespace mure
         }
 
         /// Returns the size (number of discrete coordinates) of the interval.
-        inline std::size_t size() const
+        inline auto size() const
         {
-            return (end - start);
+            return static_cast<std::size_t>(end - start);
         }
 
         /// Returns if the interval has a valid state (i.e. not empty).
@@ -55,7 +59,7 @@ namespace mure
             return (start < end);
         }
 
-        Interval<value_t, index_t>& operator*=(std::size_t i)
+        Interval<value_t, index_t>& operator*=(value_t i)
         {
             start *= i;
             end *= i;
@@ -63,14 +67,14 @@ namespace mure
             return *this;
         }
 
-        Interval<value_t, index_t>& operator+=(std::size_t i)
+        Interval<value_t, index_t>& operator+=(value_t i)
         {
             start += i;
             end += i;
             return *this;
         }
 
-        Interval<value_t, index_t>& operator-=(std::size_t i)
+        Interval<value_t, index_t>& operator-=(value_t i)
         {
             start -= i;
             end -= i;
@@ -87,7 +91,7 @@ namespace mure
     }
 
     template<typename value_t, typename index_t>
-    Interval<value_t, index_t> operator*(std::size_t i, const Interval<value_t, index_t>& interval)
+    Interval<value_t, index_t> operator*(value_t i, const Interval<value_t, index_t>& interval)
     {
         auto that{interval};
         that *= i;
@@ -95,7 +99,7 @@ namespace mure
     }
 
     template<typename value_t, typename index_t>
-    Interval<value_t, index_t> operator*(const Interval<value_t, index_t>& interval, std::size_t i)
+    Interval<value_t, index_t> operator*(const Interval<value_t, index_t>& interval, value_t i)
     {
         auto that{interval};
         that *= i;
@@ -103,7 +107,7 @@ namespace mure
     }
 
     template<typename value_t, typename index_t>
-    Interval<value_t, index_t> operator+(std::size_t i, const Interval<value_t, index_t>& interval)
+    Interval<value_t, index_t> operator+(value_t i, const Interval<value_t, index_t>& interval)
     {
         auto that{interval};
         that += i;
@@ -111,7 +115,7 @@ namespace mure
     }
 
     template<typename value_t, typename index_t>
-    Interval<value_t, index_t> operator+(const Interval<value_t, index_t>& interval, std::size_t i)
+    Interval<value_t, index_t> operator+(const Interval<value_t, index_t>& interval, value_t i)
     {
         auto that{interval};
         that += i;
@@ -119,7 +123,7 @@ namespace mure
     }
 
     template<typename value_t, typename index_t>
-    Interval<value_t, index_t> operator-(std::size_t i, const Interval<value_t, index_t>& interval)
+    Interval<value_t, index_t> operator-(value_t i, const Interval<value_t, index_t>& interval)
     {
         auto that{interval};
         that -= i;
@@ -127,7 +131,7 @@ namespace mure
     }
 
     template<typename value_t, typename index_t>
-    Interval<value_t, index_t> operator-(const Interval<value_t, index_t>& interval, std::size_t i)
+    Interval<value_t, index_t> operator-(const Interval<value_t, index_t>& interval, value_t i)
     {
         auto that{interval};
         that -= i;

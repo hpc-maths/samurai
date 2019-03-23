@@ -332,8 +332,8 @@ namespace mure
         }
 
     private:
-        std::string filename;
         HighFive::File h5_file;
+        std::string filename;
         std::ofstream xdmf_file;
         std::size_t mesh_type;
     };

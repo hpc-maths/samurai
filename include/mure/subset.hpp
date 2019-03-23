@@ -15,7 +15,8 @@ namespace mure
     template <class T, class U>
     void generic_assign(T& t, U&& u)
     {
-        t = std::forward<U>(u);
+        // t = std::forward<U>(u);
+        t = static_cast<T>(u);
     }
 
     template<class coord_index_t, class levelcellarray>
@@ -103,7 +104,7 @@ namespace mure
         template<size_t... I, std::size_t d, class Func>
         void sub_apply(std::index_sequence<I...> iseq,
                        xt::xtensor_fixed<interval_t, xt::xshape<dim>>& result,
-                       const std::array<std::size_t, size>& index,
+                       const std::array<index_t, size>& index,
                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
                        xt::xtensor_fixed<index_t,
                                          xt::xshape<dim, size>>& interval_index,
@@ -113,7 +114,7 @@ namespace mure
         template<size_t... I, class Func>
         void sub_apply(std::index_sequence<I...>,
                        xt::xtensor_fixed<interval_t, xt::xshape<dim>>& result,
-                       const std::array<std::size_t, size>& index,
+                       const std::array<index_t, size>& index,
                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
                        xt::xtensor_fixed<index_t,
                                          xt::xshape<dim, size>>& interval_index,
@@ -131,8 +132,8 @@ namespace mure
                         Func&& func,
                         std::integral_constant<std::size_t, d>) const;
 
-        tuple_type m_data;
         operator_type m_op;
+        tuple_type m_data;
         const std::size_t m_common_level;
         std::array<std::size_t, size> m_data_level;
     };
@@ -173,7 +174,7 @@ namespace mure
     void SubSet<MRConfig, Operator, T...>::sub_apply(std::index_sequence<I...> iseq,
                                                      xt::xtensor_fixed<interval_t,
                                                                        xt::xshape<dim>>& result,
-                                                    const std::array<std::size_t, size>& index,
+                                                    const std::array<index_t, size>& index,
                                                      xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index_yz,
                                                      xt::xtensor_fixed<index_t,
                                                                        xt::xshape<dim, size>>& interval_index,
@@ -191,13 +192,19 @@ namespace mure
 
             std::array<std::size_t, size> new_start;
             std::array<std::size_t, size> new_end;
+            std::array<std::size_t, size> off_ind;
+            expand{(generic_assign(off_ind[I],
+                                   (index[I] != -1)?
+                                       static_cast<std::size_t>(std::get<I>(m_data)[d][static_cast<std::size_t>(index[I])].index + ii[I]): std::numeric_limits<std::size_t>::max())
+                                   , false)...};
+
             expand{(generic_assign(new_start[I],
-                                   (index[I] != -1 and (std::get<I>(m_data)[d][index[I]].index + ii[I]) < std::get<I>(m_data).offsets(d).size())?
-                                       std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + ii[I]]
+                                   (index[I] != -1 and off_ind[I] < std::get<I>(m_data).offsets(d).size())?
+                                       std::get<I>(m_data).offsets(d)[off_ind[I]]
                                       :0), false)...};
             expand{(generic_assign(new_end[I],
-                                   (index[I] != -1 and (std::get<I>(m_data)[d][index[I]].index + ii[I] + 1) < std::get<I>(m_data).offsets(d).size())?
-                                        std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + ii[I] + 1]
+                                   (index[I] != -1 and (off_ind[I] + 1) < std::get<I>(m_data).offsets(d).size())?
+                                        std::get<I>(m_data).offsets(d)[off_ind[I] + 1]
                                       :new_start[I]), false)...};
 
             apply_impl(iseq, result, new_start, new_end,
@@ -211,7 +218,7 @@ namespace mure
     void SubSet<MRConfig, Operator, T...>::sub_apply(std::index_sequence<I...>,
                                                      xt::xtensor_fixed<interval_t,
                                                                        xt::xshape<dim>>& result,
-                                                     const std::array<std::size_t, size>& index,
+                                                     const std::array<index_t, size>&, //index
                                                      xt::xtensor_fixed<coord_index_t,
                                                                        xt::xshape<dim>>& index_yz,
                                                       xt::xtensor_fixed<index_t,
@@ -287,7 +294,7 @@ namespace mure
                 {
                     result.end = scan;
                     r_index = 0;
-                    std::array<std::size_t, size> new_index;
+                    std::array<index_t, size> new_index;
                     expand{(generic_assign(new_index[I], index[I] + (endpoints_index[I] - 1)), false)...};
                     expand{(generic_assign(interval_index(d-1, I), new_index[I]), false)...};
 
@@ -302,7 +309,7 @@ namespace mure
             }
 
             expand{(new_endpoint(scan, sentinel, std::get<I>(m_data)[d-1], end[I],
-                                 m_data_level[I] - m_common_level,
+                                 static_cast<int>(m_data_level[I] - m_common_level),
                                  index[I], endpoints_index[I], endpoints[I]), false)...};
             scan = *std::min_element(endpoints.begin(), endpoints.end());
         }

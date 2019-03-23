@@ -360,15 +360,15 @@ namespace mure
         void apply_impl(Field<MRConfig, bool>& field,
                         std::integral_constant<std::size_t, 2>) const
         {
-            int ii_start = -1, ii_end = 1;
-            int jj_start = -1, jj_end = 1;
+            coord_index_t ii_start = -1, ii_end = 1;
+            coord_index_t jj_start = -1, jj_end = 1;
             // if (!(i.start&1)) ii_start--;
             // if (!(i.end&1)) ii_end++;
             // if (!(interval[1].start&1) and j == interval[1].start) jj_start--;
             // if (!(interval[1].end&1)  and j == interval[1].end-1) jj_end++;
 
-            for(int jj=jj_start; jj<=jj_end; ++jj)
-                for(int ii=ii_start; ii<=ii_end; ++ii)
+            for(coord_index_t jj=jj_start; jj<=jj_end; ++jj)
+                for(coord_index_t ii=ii_start; ii<=ii_end; ++ii)
                     field(level, i + ii, j + jj) |= field(level, i, j);
             // field(level, i+1, j) |= field(level, i, j);
             // field(level, i-1, j) |= field(level, i, j);

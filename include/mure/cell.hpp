@@ -13,7 +13,7 @@ namespace mure
 
         std::size_t level;
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> indices;
-        index_t index;
+        std::size_t index;
 
         inline double length() const
         {

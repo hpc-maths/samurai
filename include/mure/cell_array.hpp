@@ -16,18 +16,18 @@ namespace mure
 
         CellArray(const CellList<MRConfig>& dcl = {})
         {
-            for(int level = 0; level <= max_refinement_level; ++level)
+            for(std::size_t level = 0; level <= max_refinement_level; ++level)
             {
                 m_cells[level] = dcl[level];
             }
         }
 
-        LevelCellArray<MRConfig> const& operator[](int i) const
+        LevelCellArray<MRConfig> const& operator[](std::size_t i) const
         {
             return m_cells[i];
         }
 
-        LevelCellArray<MRConfig>& operator[](int i)
+        LevelCellArray<MRConfig>& operator[](std::size_t i)
         {
             return m_cells[i];
         }
