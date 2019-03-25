@@ -93,6 +93,11 @@ namespace mure
 
         void apply_impl(Field<MRConfig, bool>& field, std::integral_constant<std::size_t, 1>) const
         {
+            xt::xtensor<bool, 1> mask = field(level+1, 2*i) | field(level+1, 2*i + 1);
+
+            xt::masked_view(field(level+1, 2*i    ), mask) = true;
+            xt::masked_view(field(level+1, 2*i + 1), mask) = true;
+
             field(level, i) = field(level+1, 2*i) | field(level+1, 2*i + 1);
         }
 
@@ -351,10 +356,6 @@ namespace mure
         {
             field(level, i+1) |= field(level, i);
             field(level, i-1) |= field(level, i);
-            if (!(i.start&1))
-                field(level, i-2) |= field(level, i);
-            if (!(i.end&1))
-                field(level, i+2) |= field(level, i);
         }
 
         void apply_impl(Field<MRConfig, bool>& field,
