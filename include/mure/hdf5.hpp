@@ -19,11 +19,12 @@ namespace mure
     std::string element_type(std::size_t dim)
     {
         switch ( dim ) {
-        case 1: return "Polyline";
-        case 2: return "Quadrilateral";
-        case 3: return "Hexahedron";
-        default: break;
+            case 1: return "Polyline";
+            case 2: return "Quadrilateral";
+            case 3: return "Hexahedron";
+            default: break;
         }
+        return "Unknown Element Type";
     }
 
     template<std::size_t dim>

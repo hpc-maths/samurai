@@ -104,7 +104,7 @@ namespace mure
                                                        m_all_cells[level],
                                                        m_cells[level+1]);
 
-                set.apply([&](auto& index, auto& interval, auto& interval_index)
+                set.apply([&](auto& /*index*/, auto& interval, auto& /*interval_index*/)
                 {
                     auto i = interval[0];
                     field(level + 1, 2*i) = field(level, i) - 1./8*(field(level, i + 1) - field(level, i - 1));
@@ -309,7 +309,7 @@ namespace mure
         {
             auto expr = union_(intersection(difference(_1, _2), _4),
                                intersection(difference(_3, _4), _2));
-            for(std::size_t level = max_refinement_level - 1; level >= 0; --level)
+            for(int level = max_refinement_level - 1; level >= 0; --level)
             {
                 auto set = mure::make_subset<MRConfig>(expr,
                                                        level, {level, level, level+1, level+1},
@@ -331,8 +331,8 @@ namespace mure
                 return m_cells.nb_cells();
             if (type == 1)
                 return m_all_cells.nb_cells();
-            if (type == 2)
-                return m_proj_cells.nb_cells();
+            // if (type == 2)
+            return m_proj_cells.nb_cells();
         }
 
         inline std::size_t nb_cells_for_level(std::size_t level, std::size_t type=0) const

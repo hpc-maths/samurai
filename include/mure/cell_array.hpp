@@ -44,7 +44,7 @@ namespace mure
 
         inline std::size_t max_level() const
         {           
-            for(std::size_t level=max_refinement_level; level >= 0; --level)
+            for(int level=max_refinement_level; level >= 0; --level)
             {
                 if (!m_cells[level].empty())
                     return level;

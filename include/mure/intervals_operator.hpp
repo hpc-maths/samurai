@@ -16,7 +16,7 @@ namespace mure
         inline bool intersection(const T& a, const CT&... b)
         {
             return (a && intersection(b...));
-        };
+        }
 
         template <class T>
         inline bool union_(const T& a)
@@ -28,7 +28,7 @@ namespace mure
         inline bool union_(const T& a, const CT&... b)
         {
             return (a || union_(b...));
-        };
+        }
 
         template <class T>
         inline bool not_(const T& a)
@@ -49,7 +49,7 @@ namespace mure
                 return (a || union_(b...));
             else
                 return (a && not_(b...));
-        };
+        }
     }
 
     template <class... T>

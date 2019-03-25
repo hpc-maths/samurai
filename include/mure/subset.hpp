@@ -52,7 +52,7 @@ namespace mure
                 index = 1;
             }
         }
-    };
+    }
 
     /*********************
      * SubSet definition *
@@ -164,8 +164,8 @@ namespace mure
                                                           std::array<std::size_t, size>& start,
                                                           std::array<std::size_t, size>& end) const
     {
-        expand{(generic_assign(start[I], 0), false)...};
-        expand{(generic_assign(end[I],
+        (void)expand{(generic_assign(start[I], 0), false)...};
+        (void)expand{(generic_assign(end[I],
                             std::get<I>(m_data)[MRConfig::dim-1].size()), false)...};
     }
 
@@ -185,24 +185,24 @@ namespace mure
         for(int i=result[d].start; i<result[d].end; ++i)
         {
             index_yz[d] = i;
-            expand{(generic_assign(ii[I],
+            (void)expand{(generic_assign(ii[I],
                                    (static_cast<int>(m_data_level[I]-m_common_level)<0)?
                                         i>>static_cast<int>(m_common_level-m_data_level[I])
-                                       :i<<(m_data_level[I])-m_common_level), false)...};
+                                       :i<<(m_data_level[I]-m_common_level)), false)...};
 
             std::array<std::size_t, size> new_start;
             std::array<std::size_t, size> new_end;
             std::array<std::size_t, size> off_ind;
-            expand{(generic_assign(off_ind[I],
+            (void)expand{(generic_assign(off_ind[I],
                                    (index[I] != -1)?
                                        static_cast<std::size_t>(std::get<I>(m_data)[d][static_cast<std::size_t>(index[I])].index + ii[I]): std::numeric_limits<std::size_t>::max())
                                    , false)...};
 
-            expand{(generic_assign(new_start[I],
+            (void)expand{(generic_assign(new_start[I],
                                    (index[I] != -1 and off_ind[I] < std::get<I>(m_data).offsets(d).size())?
                                        std::get<I>(m_data).offsets(d)[off_ind[I]]
                                       :0), false)...};
-            expand{(generic_assign(new_end[I],
+            (void)expand{(generic_assign(new_end[I],
                                    (index[I] != -1 and (off_ind[I] + 1) < std::get<I>(m_data).offsets(d).size())?
                                         std::get<I>(m_data).offsets(d)[off_ind[I] + 1]
                                       :new_start[I]), false)...};
@@ -249,13 +249,13 @@ namespace mure
         std::array<coord_index_t, size> ends;
         std::array<bool, size> is_valid;
 
-        expand{(generic_assign(endpoints[I],
+        (void)expand{(generic_assign(endpoints[I],
                                (end[I] != start[I])?
                                    ((static_cast<int>(m_data_level[I]-m_common_level)<0)?
                                          std::get<I>(m_data)[d-1][start[I]].start<<static_cast<int>(m_common_level-m_data_level[I])
                                         :std::get<I>(m_data)[d-1][start[I]].start>>(m_data_level[I]-m_common_level))
                                  : std::numeric_limits<coord_index_t>::max()), false)...};
-        expand{(generic_assign(ends[I],
+        (void)expand{(generic_assign(ends[I],
                                (end[I] != start[I])?
                                    ((static_cast<int>(m_data_level[I]-m_common_level)<0)?
                                          (std::get<I>(m_data)[d-1][end[I] - 1].end<<static_cast<int>(m_common_level-m_data_level[I]))
@@ -263,13 +263,13 @@ namespace mure
                                          + ((std::get<I>(m_data)[d-1][end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)))
                                  : std::numeric_limits<coord_index_t>::min()), false)...};
 
-        expand{(generic_assign(is_valid[I], (end[I] == start[I])?false:true), false)...};
+        (void)expand{(generic_assign(is_valid[I], (end[I] == start[I])?false:true), false)...};
 
         auto scan = *std::min_element(endpoints.begin(), endpoints.end());
         auto sentinel = *std::max_element(ends.begin(), ends.end()) + 1;
 
         std::array<std::size_t, size> index;
-        expand{(generic_assign(index[I], start[I]), false)...};
+        (void)expand{(generic_assign(index[I], start[I]), false)...};
 
         std::array<std::size_t, size> endpoints_index;
         endpoints_index.fill(0);
@@ -280,7 +280,7 @@ namespace mure
         auto in_ = repeat_as_tuple_t<size, bool>();
         while (scan < sentinel)
         {
-            expand{(generic_assign(std::get<I>(in_), !((scan < endpoints[I]) ^ endpoints_index[I])&is_valid[I]), false)...};
+            (void)expand{(generic_assign(std::get<I>(in_), !((scan < endpoints[I]) ^ endpoints_index[I])&is_valid[I]), false)...} ;
             auto in_res = m_op(d-1, std::get<I>(in_)...);
 
             if (in_res ^ (r_index & 1))
@@ -295,8 +295,8 @@ namespace mure
                     result.end = scan;
                     r_index = 0;
                     std::array<index_t, size> new_index;
-                    expand{(generic_assign(new_index[I], index[I] + (endpoints_index[I] - 1)), false)...};
-                    expand{(generic_assign(interval_index(d-1, I), new_index[I]), false)...};
+                    (void)expand{(generic_assign(new_index[I], index[I] + (endpoints_index[I] - 1)), false)...};
+                    (void)expand{(generic_assign(interval_index(d-1, I), new_index[I]), false)...};
 
                     if (result.is_valid())
                     {
@@ -308,7 +308,7 @@ namespace mure
                 }
             }
 
-            expand{(new_endpoint(scan, sentinel, std::get<I>(m_data)[d-1], end[I],
+            (void)expand{(new_endpoint(scan, sentinel, std::get<I>(m_data)[d-1], end[I],
                                  static_cast<int>(m_data_level[I] - m_common_level),
                                  index[I], endpoints_index[I], endpoints[I]), false)...};
             scan = *std::min_element(endpoints.begin(), endpoints.end());
