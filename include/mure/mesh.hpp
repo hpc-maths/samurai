@@ -515,10 +515,10 @@ namespace mure
                 level_cell_array.for_each_interval_in_x([&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> const& index_yz,
                                                             interval_t const& interval)
                 {
-                    static_nested_loop<dim-1, -s, s+1>([&](auto stencil)
+                    static_nested_loop<dim-1, -2*s, 2*s+1>([&](auto stencil)
                     {
-                        level_cell_list[(index_yz >> 1) + stencil].add_interval({(interval.start >> 1) - static_cast<int>(s),
-                                                                                 ((interval.end + 1) >> 1) + static_cast<int>(s)});
+                        level_cell_list[(index_yz >> 1) + stencil].add_interval({(interval.start >> 1) - 2*static_cast<int>(s),
+                                                                                 ((interval.end + 1) >> 1) + 2*static_cast<int>(s)});
                     });
                 });
             }
