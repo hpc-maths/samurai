@@ -11,7 +11,6 @@
 #include <xtensor/xio.hpp>
 
 #include "cell.hpp"
-#include "hash.hpp"
 #include "mesh.hpp"
 #include "mesh_type.hpp"
 
