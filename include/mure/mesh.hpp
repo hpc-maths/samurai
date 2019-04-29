@@ -60,6 +60,7 @@ namespace mure
         Mesh &operator=(Mesh const &) = default;
 
         Mesh(Box<double, dim> b, std::size_t init_level)
+        : m_init_level{init_level}
         {
             using box_t = Box<coord_index_t, dim>;
             point_t start = b.min_corner() * std::pow(2, init_level);
@@ -74,6 +75,7 @@ namespace mure
                 box_t{(start >> 1) - 1, (end >> 1) + 1}};
             m_cells[MeshType::proj_cells][init_level - 1] = {
                 box_t{(start >> 1), (end >> 1)}};
+            m_init_cells = {box_t{start, end}};
             update_x0_and_nb_ghosts();
             // update_ghost_nodes();
         }
@@ -521,6 +523,8 @@ namespace mure
         void update_x0_and_nb_ghosts();
 
         MeshCellsArray<MRConfig, 4> m_cells;
+        LevelCellArray<MRConfig> m_init_cells;
+        std::size_t m_init_level;
     };
 
     template<class MRConfig>
@@ -546,18 +550,19 @@ namespace mure
         {
             if (!m_cells[MeshType::all_cells][level - 1].empty())
             {
-                std::array<LevelCellArray<MRConfig>, 6> set_array{
+                std::array<LevelCellArray<MRConfig>, 7> set_array{
                     m_cells[MeshType::all_cells][level],
                     m_cells[MeshType::all_cells][level + 1],
                     m_cells[MeshType::cells][level],
                     m_cells[MeshType::all_cells][level - 1],
                     m_cells[MeshType::all_cells][level],
-                    m_cells[MeshType::cells][level - 1]};
-                auto expr = intersection(union_(intersection(_1, _2), _3),
-                                         union_(intersection(_4, _5), _6));
+                    m_cells[MeshType::cells][level - 1],
+                    m_init_cells};
+                auto expr = intersection(intersection(union_(intersection(_1, _2), _3),
+                                                      union_(intersection(_4, _5), _6)), _7);
                 auto set = make_subset<MRConfig>(
                     expr, level - 1,
-                    {level, level + 1, level, level - 1, level, level - 1},
+                    {level, level + 1, level, level - 1, level, level - 1, m_init_level},
                     set_array);
                 set.apply([&](auto &index_yz, auto &interval,
                               auto & /*interval_index*/) {
