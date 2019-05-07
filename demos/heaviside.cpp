@@ -136,7 +136,7 @@ int main()
     // // std::cout << mesh << "\n";
 
     tic();
-    for (std::size_t i = 0; i < 10; ++i)
+    for (std::size_t i = 0; i < 20; ++i)
     {
         mure::Field<Config> detail{"detail", mesh};
         detail.array().fill(0);
@@ -150,6 +150,7 @@ int main()
         //     h5file.add_field_by_level(mesh, u);
         // }
         mesh.coarsening(detail, u, i);
+        // std::cout << mesh << "\n";
     }
     std::cout << toc() << "\n";
 

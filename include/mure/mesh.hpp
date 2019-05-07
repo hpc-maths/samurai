@@ -60,7 +60,7 @@ namespace mure
         Mesh &operator=(Mesh const &) = default;
 
         Mesh(Box<double, dim> b, std::size_t init_level)
-        : m_init_level{init_level}
+            : m_init_level{init_level}
         {
             using box_t = Box<coord_index_t, dim>;
             point_t start = b.min_corner() * std::pow(2, init_level);
@@ -80,7 +80,9 @@ namespace mure
             // update_ghost_nodes();
         }
 
-        Mesh(const CellList<MRConfig> &dcl)
+        Mesh(const CellList<MRConfig> &dcl,
+             const LevelCellArray<MRConfig> &init_cells, std::size_t init_level)
+            : m_init_cells{init_cells}, m_init_level{init_level}
         {
             m_cells[MeshType::cells] = {dcl};
             update_ghost_nodes();
@@ -388,7 +390,7 @@ namespace mure
                 }
             }
 
-            Mesh<MRConfig> new_mesh{cell_list};
+            Mesh<MRConfig> new_mesh{cell_list, m_init_cells, m_init_level};
             Field<MRConfig> new_field(field.name(), new_mesh);
             new_field.array().fill(0);
             auto expr_update = intersection(_1, _2);
@@ -550,6 +552,20 @@ namespace mure
         {
             if (!m_cells[MeshType::all_cells][level - 1].empty())
             {
+                // std::array<LevelCellArray<MRConfig>, 6> set_array{
+                //     m_cells[MeshType::all_cells][level],
+                //     m_cells[MeshType::all_cells][level + 1],
+                //     m_cells[MeshType::cells][level],
+                //     m_cells[MeshType::all_cells][level - 1],
+                //     m_cells[MeshType::all_cells][level],
+                //     m_cells[MeshType::cells][level - 1]};
+                // auto expr = intersection(union_(intersection(_1, _2), _3),
+                //                          union_(intersection(_4, _5), _6));
+                // auto set = make_subset<MRConfig>(
+                //     expr, level - 1,
+                //     {level, level + 1, level, level - 1, level, level - 1},
+                //     set_array);
+
                 std::array<LevelCellArray<MRConfig>, 7> set_array{
                     m_cells[MeshType::all_cells][level],
                     m_cells[MeshType::all_cells][level + 1],
@@ -558,12 +574,16 @@ namespace mure
                     m_cells[MeshType::all_cells][level],
                     m_cells[MeshType::cells][level - 1],
                     m_init_cells};
-                auto expr = intersection(intersection(union_(intersection(_1, _2), _3),
-                                                      union_(intersection(_4, _5), _6)), _7);
-                auto set = make_subset<MRConfig>(
-                    expr, level - 1,
-                    {level, level + 1, level, level - 1, level, level - 1, m_init_level},
-                    set_array);
+                auto expr =
+                    intersection(intersection(union_(intersection(_1, _2), _3),
+                                              union_(intersection(_4, _5), _6)),
+                                 _7);
+                auto set =
+                    make_subset<MRConfig>(expr, level - 1,
+                                          {level, level + 1, level, level - 1,
+                                           level, level - 1, m_init_level},
+                                          set_array);
+
                 set.apply([&](auto &index_yz, auto &interval,
                               auto & /*interval_index*/) {
                     cell_list_1[level - 1]
