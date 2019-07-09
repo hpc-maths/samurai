@@ -12,32 +12,33 @@
 
 namespace mure
 {
-    template <class T, class U>
-    void generic_assign(T& t, U&& u)
+    template<class T, class U>
+    void generic_assign(T &t, U &&u)
     {
         t = std::forward<U>(u);
     }
 
     template<class coord_index_t, class levelcellarray>
     void new_endpoint(coord_index_t scan, coord_index_t sentinel,
-                      const levelcellarray& array, std::size_t end, std::size_t shift,
-                      std::size_t& it, std::size_t& index, coord_index_t& endpoints)
+                      const levelcellarray &array, std::size_t end,
+                      std::size_t &it, std::size_t &index,
+                      coord_index_t &endpoints)
     {
         if (scan == endpoints)
         {
             if (index == 1)
             {
                 it += 1;
-                endpoints = (it == end)?sentinel:(array[it].start>>shift);
+                endpoints = (it == end) ? sentinel : array[it].start;
                 index = 0;
             }
             else
             {
-                endpoints = (array[it].end>>shift) + ((array[it].end&1 && shift)?1:0);
+                endpoints = array[it].end;
                 index = 1;
             }
         }
-    };
+    }
 
     /*********************
      * SubSet definition *
@@ -51,201 +52,255 @@ namespace mure
      * list of intervals.
      *
      * @tparam MRConfig The MuRe config class.
-     * @tparam Operator The operator type applied to the tuple of list of intervals.
-     * @tparam T The type of each element of the tuple.
+     * @tparam Operator The operator type applied to the tuple of list of
+     * intervals.
      */
-    template<class MRConfig, class Operator, class... T>
-    class SubSet
-    {
+    template<class MRConfig, class Operator, std::size_t Size>
+    class SubSet {
         using expand = bool[];
         using index_t = typename MRConfig::index_t;
         using coord_index_t = typename MRConfig::coord_index_t;
         using interval_t = typename MRConfig::interval_t;
         constexpr static auto dim = MRConfig::dim;
 
-    public:
-
-        using tuple_type = std::tuple<T...>;
+      public:
         using operator_type = Operator;
-        constexpr static std::size_t size = sizeof...(T);
+        using set_type = typename std::array<LevelCellArray<MRConfig>, Size>;
 
-        SubSet(Operator&& op, const tuple_type& level_cell_arrays);
+        SubSet(Operator &&op, const set_type &level_cell_arrays);
 
-        SubSet(Operator&& op, const std::size_t common_level,
-               const std::array<std::size_t, size> data_level,
-               tuple_type& level_cell_arrays);
+        SubSet(Operator &&op, const std::size_t common_level,
+               const std::array<std::size_t, Size> data_level,
+               const set_type &level_cell_arrays);
 
         template<class Func>
-        void apply(Func&& func) const;
+        void apply(Func &&func) const;
 
-    private:
+      private:
+        auto projection(const set_type &array);
 
-        template <std::size_t... I>
-        void init_start_end(std::index_sequence<I...>,
-                            std::array<std::size_t, size>& start,
-                            std::array<std::size_t, size>& end
-                            ) const;
+        void init_start_end(std::array<std::size_t, Size> &start,
+                            std::array<std::size_t, Size> &end) const;
 
         template<size_t... I, std::size_t d, class Func>
-        void sub_apply(std::index_sequence<I...> iseq,
-                        const interval_t& result,
-                        const std::array<std::size_t, size>& index,
-                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>& index_yz,
-                        xt::xtensor_fixed<index_t,
-                                          xt::xshape<dim, size>>& interval_index,
-                        Func&& func,
-                        std::integral_constant<std::size_t, d>) const;
+        void sub_apply(
+            std::index_sequence<I...> iseq,
+            xt::xtensor_fixed<interval_t, xt::xshape<dim>> &result,
+            const std::array<index_t, Size> &index,
+            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> &index_yz,
+            xt::xtensor_fixed<index_t, xt::xshape<dim, Size>> &interval_index,
+            Func &&func, std::integral_constant<std::size_t, d>) const;
 
         template<size_t... I, class Func>
-        void sub_apply(std::index_sequence<I...>,
-                       const interval_t& result,
-                       const std::array<std::size_t, size>& index,
-                       xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>& index_yz,
-                       xt::xtensor_fixed<index_t,
-                                         xt::xshape<dim, size>>& interval_index,
-                       Func&& func,
-                       std::integral_constant<std::size_t, 0>) const;
+        void sub_apply(
+            std::index_sequence<I...>,
+            xt::xtensor_fixed<interval_t, xt::xshape<dim>> &result,
+            const std::array<index_t, Size> &index,
+            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> &index_yz,
+            xt::xtensor_fixed<index_t, xt::xshape<dim, Size>> &interval_index,
+            Func &&func, std::integral_constant<std::size_t, 0>) const;
 
-        template <std::size_t... I, std::size_t d, class Func>
-        void apply_impl(std::index_sequence<I...> iseq,
-                        const std::array<std::size_t, size>& start,
-                        const std::array<std::size_t, size>& end,
-                        xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>& index_yz,
-                        xt::xtensor_fixed<index_t,
-                                          xt::xshape<dim, size>>& interval_index,
-                        Func&& func,
-                        std::integral_constant<std::size_t, d>) const;
+        template<std::size_t... I, std::size_t d, class Func>
+        void apply_impl(
+            std::index_sequence<I...> iseq,
+            xt::xtensor_fixed<interval_t, xt::xshape<dim>> &result,
+            const std::array<std::size_t, Size> &start,
+            const std::array<std::size_t, Size> &end,
+            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> &index_yz,
+            xt::xtensor_fixed<index_t, xt::xshape<dim, Size>> &interval_index,
+            Func &&func, std::integral_constant<std::size_t, d>) const;
 
-        tuple_type m_data;
         operator_type m_op;
+        set_type m_data;
         const std::size_t m_common_level;
-        std::array<std::size_t, size> m_data_level;
+        std::size_t m_max_level;
+        std::array<std::size_t, Size> m_data_level;
     };
 
     /*************************
      * SubSet implementation *
      *************************/
 
-    template<class MRConfig, class Operator, class... T>
-    SubSet<MRConfig, Operator, T...>::SubSet(Operator&& op, const tuple_type& level_cell_arrays)
+    template<class MRConfig, class Operator, std::size_t Size>
+    SubSet<MRConfig, Operator, Size>::SubSet(Operator &&op,
+                                             const set_type &level_cell_arrays)
         : m_op(std::forward<Operator>(op)), m_data(level_cell_arrays),
-          m_common_level(0)
+          m_common_level(0), m_max_level(0)
     {
         m_data_level.fill(0);
     }
 
-    template<class MRConfig, class Operator, class... T>
-    SubSet<MRConfig, Operator, T...>::SubSet(Operator&& op, const std::size_t common_level,
-                                             const std::array<std::size_t, size> data_level,
-                                             tuple_type& level_cell_arrays)
-        : m_op(std::forward<Operator>(op)), m_data(level_cell_arrays),
-          m_common_level(common_level), m_data_level(data_level)
-    {}
-
-    template<class MRConfig, class Operator, class... T>
-    template <std::size_t... I>
-    void SubSet<MRConfig, Operator, T...>::init_start_end(std::index_sequence<I...>,
-                                                          std::array<std::size_t, size>& start,
-                                                          std::array<std::size_t, size>& end) const
+    template<class MRConfig, class Operator, std::size_t Size>
+    auto SubSet<MRConfig, Operator, Size>::projection(
+        const set_type &level_cell_arrays)
     {
-        expand{(generic_assign(start[I], 0), false)...};
-        expand{(generic_assign(end[I],
-                            std::get<I>(m_data)[MRConfig::dim-1].size()), false)...};
+        set_type data;
+        for (std::size_t i = 0; i < Size; ++i)
+        {
+            auto lca = level_cell_arrays[i];
+            if (m_data_level[i] > m_common_level)
+            {
+                LevelCellList<MRConfig> lcl;
+                std::size_t shift = m_data_level[i] - m_common_level;
+                lca.for_each_interval_in_x([&](auto const &index_yz,
+                                               auto const &interval) {
+                    auto new_start = interval.start >> shift;
+                    auto new_end = interval.end >> shift;
+                    if (new_start == new_end)
+                    {
+                        new_end++;
+                    }
+                    lcl[index_yz >> shift].add_interval({new_start, new_end});
+                });
+                data[i] = {lcl};
+            }
+            else if (m_data_level[i] < m_common_level)
+            {
+                LevelCellList<MRConfig> lcl;
+                std::size_t shift = m_common_level - m_data_level[i];
+                lca.for_each_interval_in_x([&](auto const &index_yz,
+                                               auto const &interval) {
+                    // TODO: fix for 3D
+                    for (int j = 0; j < 2 * shift; ++j)
+                    {
+                        lcl[xt::eval((index_yz << shift) + j)].add_interval(
+                            {interval.start << shift, interval.end << shift});
+                    }
+                });
+                data[i] = {lcl};
+            }
+            else
+            {
+                data[i] = {lca};
+            }
+        }
+        return data;
     }
 
-    template<class MRConfig, class Operator, class... T>
-    template<size_t... I, std::size_t d, class Func>
-    void SubSet<MRConfig, Operator, T...>::sub_apply(std::index_sequence<I...> iseq,
-                                                     const interval_t& result,
-                                                     const std::array<std::size_t, size>& index,
-                                                     xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>& index_yz,
-                                                     xt::xtensor_fixed<index_t,
-                                                                       xt::xshape<dim, size>>& interval_index,
-                                                     Func&& func,
-                                                     std::integral_constant<std::size_t, d>) const
+    template<class MRConfig, class Operator, std::size_t Size>
+    SubSet<MRConfig, Operator, Size>::SubSet(
+        Operator &&op, const std::size_t common_level,
+        const std::array<std::size_t, Size> data_level,
+        const set_type &level_cell_arrays)
+        : m_op(std::forward<Operator>(op)), m_common_level(common_level),
+          m_data_level(data_level)
     {
-        for(int i=result.start; i<result.end; ++i)
+        m_data = projection(level_cell_arrays);
+    }
+
+    template<class MRConfig, class Operator, std::size_t Size>
+    void SubSet<MRConfig, Operator, Size>::init_start_end(
+        std::array<std::size_t, Size> &start,
+        std::array<std::size_t, Size> &end) const
+    {
+        start.fill(0);
+        for (std::size_t i = 0; i < Size; ++i)
         {
-            index_yz[d-1] = i;
+            end[i] = m_data[i][MRConfig::dim - 1].size();
+        }
+    }
 
-            std::array<std::size_t, size> new_start;
-            std::array<std::size_t, size> new_end;
-            expand{(generic_assign(new_start[I],
-                                   (index[I] != -1)?
-                                       std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i]
-                                      :0), false)...};
-            expand{(generic_assign(new_end[I],
-                                   (index[I] != -1)?
-                                       std::get<I>(m_data).offsets(d)[std::get<I>(m_data)[d][index[I]].index + i + 1]
-                                      :0), false)...};
+    template<class MRConfig, class Operator, std::size_t Size>
+    template<std::size_t... I, std::size_t d, class Func>
+    void SubSet<MRConfig, Operator, Size>::sub_apply(
+        std::index_sequence<I...> iseq,
+        xt::xtensor_fixed<interval_t, xt::xshape<dim>> &result,
+        const std::array<index_t, Size> &index,
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> &index_yz,
+        xt::xtensor_fixed<index_t, xt::xshape<dim, Size>> &interval_index,
+        Func &&func, std::integral_constant<std::size_t, d>) const
+    {
+        for (int i = result[d].start; i < result[d].end; ++i)
+        {
+            index_yz[d] = i;
 
-            apply_impl(iseq, new_start, new_end,
-                       index_yz, interval_index, std::forward<Func>(func),
+            std::array<std::size_t, Size> new_start;
+            std::array<std::size_t, Size> new_end;
+            std::array<std::size_t, Size> off_ind;
+
+            for (std::size_t j = 0; j < Size; ++j)
+            {
+                off_ind[j] =
+                    (index[j] != -1)
+                        ? static_cast<std::size_t>(
+                              m_data[j][d][static_cast<std::size_t>(index[j])]
+                                  .index +
+                              i)
+                        : std::numeric_limits<std::size_t>::max();
+                new_start[j] = (index[j] != -1 and
+                                off_ind[j] < m_data[j].offsets(d).size())
+                                   ? m_data[j].offsets(d)[off_ind[j]]
+                                   : 0;
+                new_end[j] = (index[j] != -1 and
+                              (off_ind[j] + 1) < m_data[j].offsets(d).size())
+                                 ? m_data[j].offsets(d)[off_ind[j] + 1]
+                                 : new_start[j];
+            }
+
+            apply_impl(iseq, result, new_start, new_end, index_yz,
+                       interval_index, std::forward<Func>(func),
                        std::integral_constant<std::size_t, d>{});
         }
     }
 
-    template<class MRConfig, class Operator, class... T>
-    template<size_t... I, class Func>
-    void SubSet<MRConfig, Operator, T...>::sub_apply(std::index_sequence<I...>,
-                                                     const interval_t& result,
-                                                     const std::array<std::size_t, size>& index,
-                                                     xt::xtensor_fixed<coord_index_t,
-                                                                       xt::xshape<dim-1>>& index_yz,
-                                                      xt::xtensor_fixed<index_t,
-                                                                        xt::xshape<dim, size>>& interval_index,
-                                                     Func&& func,
-                                                     std::integral_constant<std::size_t, 0>) const
+    template<class MRConfig, class Operator, std::size_t Size>
+    template<std::size_t... I, class Func>
+    void SubSet<MRConfig, Operator, Size>::sub_apply(
+        std::index_sequence<I...>,
+        xt::xtensor_fixed<interval_t, xt::xshape<dim>> &result,
+        const std::array<index_t, Size> &, // index
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> &index_yz,
+        xt::xtensor_fixed<index_t, xt::xshape<dim, Size>> &interval_index,
+        Func &&func, std::integral_constant<std::size_t, 0>) const
     {
         func(index_yz, result, interval_index);
-        // func(index_yz, result);
     }
 
-    template<class MRConfig, class Operator, class... T>
-    template <std::size_t... I, std::size_t d, class Func>
-    void SubSet<MRConfig, Operator, T...>::apply_impl(std::index_sequence<I...> iseq,
-                                                      const std::array<std::size_t, size>& start,
-                                                      const std::array<std::size_t, size>& end,
-                                                      xt::xtensor_fixed<coord_index_t,
-                                                                        xt::xshape<dim-1>>& index_yz,
-                                                      xt::xtensor_fixed<index_t,
-                                                                        xt::xshape<dim, size>>& interval_index,
-                                                      Func&& func,
-                                                      std::integral_constant<std::size_t, d>) const
+    template<class MRConfig, class Operator, std::size_t Size>
+    template<std::size_t... I, std::size_t d, class Func>
+    void SubSet<MRConfig, Operator, Size>::apply_impl(
+        std::index_sequence<I...> iseq,
+        xt::xtensor_fixed<interval_t, xt::xshape<dim>> &result_array,
+        const std::array<std::size_t, Size> &start,
+        const std::array<std::size_t, Size> &end,
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> &index_yz,
+        xt::xtensor_fixed<index_t, xt::xshape<dim, Size>> &interval_index,
+        Func &&func, std::integral_constant<std::size_t, d>) const
     {
-        std::array<coord_index_t, size> endpoints;
-        std::array<coord_index_t, size> ends;
-        std::array<bool, size> is_valid;
+        std::array<coord_index_t, Size> endpoints;
+        std::array<coord_index_t, Size> ends;
+        std::array<bool, Size> is_valid;
+        std::array<std::size_t, Size> index;
+        std::array<std::size_t, Size> endpoints_index;
 
-        expand{(generic_assign(endpoints[I],
-                               (end[I] != start[I])?
-                                   std::get<I>(m_data)[d-1][start[I]].start>>(m_data_level[I]-m_common_level)
-                                 : std::numeric_limits<coord_index_t>::max()), false)...};
-        expand{(generic_assign(ends[I],
-                               (end[I] != start[I])?
-                                   (std::get<I>(m_data)[d-1][end[I] - 1].end>>(m_data_level[I]-m_common_level))
-                                   + ((std::get<I>(m_data)[d-1][end[I] - 1].end&1 && (m_data_level[I]-m_common_level))?1:0)
-                                 : std::numeric_limits<coord_index_t>::min()), false)...};
-
-        expand{(generic_assign(is_valid[I], (end[I] == start[I])?false:true), false)...};
+        for (std::size_t i = 0; i < Size; ++i)
+        {
+            endpoints[i] = (end[i] != start[i])
+                               ? m_data[i][d - 1][start[i]].start
+                               : std::numeric_limits<coord_index_t>::max();
+            ends[i] = (end[i] != start[i])
+                          ? m_data[i][d - 1][end[i] - 1].end
+                          : std::numeric_limits<coord_index_t>::min();
+            is_valid[i] = (end[i] == start[i]) ? false : true;
+            index[i] = start[i];
+        }
+        endpoints_index.fill(0);
 
         auto scan = *std::min_element(endpoints.begin(), endpoints.end());
         auto sentinel = *std::max_element(ends.begin(), ends.end()) + 1;
 
-        std::array<std::size_t, size> index;
-        expand{(generic_assign(index[I], start[I]), false)...};
-
-        std::array<std::size_t, size> endpoints_index;
-        endpoints_index.fill(0);
-
         std::size_t r_index = 0;
         typename MRConfig::interval_t result;
 
-        auto in_ = repeat_as_tuple_t<size, bool>();
+        auto in_ = repeat_as_tuple_t<Size, bool>();
         while (scan < sentinel)
         {
-            expand{(generic_assign(std::get<I>(in_), !((scan < endpoints[I]) ^ endpoints_index[I])&is_valid[I]), false)...};
-            auto in_res = m_op(std::get<I>(in_)...);
+            (void)expand{
+                (generic_assign(std::get<I>(in_),
+                                !((scan < endpoints[I]) ^ endpoints_index[I]) &
+                                    is_valid[I]),
+                 false)...};
+            auto in_res = m_op(d - 1, std::get<I>(in_)...);
 
             if (in_res ^ (r_index & 1))
             {
@@ -258,54 +313,66 @@ namespace mure
                 {
                     result.end = scan;
                     r_index = 0;
-                    std::array<std::size_t, size> new_index;
-                    expand{(generic_assign(new_index[I], index[I] + (endpoints_index[I] - 1)), false)...};
-                    expand{(generic_assign(interval_index(d-1, I), new_index[I]), false)...};
-                    sub_apply(iseq, result, new_index, index_yz, interval_index,
-                              std::forward<Func>(func),
-                              std::integral_constant<std::size_t, d-1>{});
+                    std::array<index_t, Size> new_index;
+                    for (std::size_t i = 0; i < Size; ++i)
+                    {
+                        new_index[i] = index[i] + (endpoints_index[i] - 1);
+                        interval_index(d - 1, i) = new_index[i];
+                    }
+
+                    if (result.is_valid())
+                    {
+                        result_array[d - 1] = result;
+                        sub_apply(iseq, result_array, new_index, index_yz,
+                                  interval_index, std::forward<Func>(func),
+                                  std::integral_constant<std::size_t, d - 1>{});
+                    }
                 }
             }
 
-            expand{(new_endpoint(scan, sentinel, std::get<I>(m_data)[d-1], end[I],
-                                 m_data_level[I] - m_common_level,
-                                 index[I], endpoints_index[I], endpoints[I]), false)...};
+            for (std::size_t i = 0; i < Size; ++i)
+            {
+                new_endpoint(scan, sentinel, m_data[i][d - 1], end[i], index[i],
+                             endpoints_index[i], endpoints[i]);
+            }
             scan = *std::min_element(endpoints.begin(), endpoints.end());
         }
     }
 
-    template<class MRConfig, class Operator, class... T>
+    template<class MRConfig, class Operator, std::size_t Size>
     template<class Func>
-    void SubSet<MRConfig, Operator, T...>::apply(Func&& func) const
+    void SubSet<MRConfig, Operator, Size>::apply(Func &&func) const
     {
-        std::array<std::size_t, size> start;
-        std::array<std::size_t, size> end;
+        std::array<std::size_t, Size> start;
+        std::array<std::size_t, Size> end;
 
-        init_start_end(std::make_index_sequence<sizeof...(T)>(), start, end);
+        init_start_end(start, end);
 
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index_yz;
-        xt::xtensor_fixed<index_t, xt::xshape<dim, size>> interval_index;
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index_yz;
+        xt::xtensor_fixed<interval_t, xt::xshape<dim>> result;
 
-        apply_impl(std::make_index_sequence<sizeof...(T)>(),
-                    start, end, index_yz, interval_index, std::forward<Func>(func),
-                    std::integral_constant<std::size_t, dim>{});
+        xt::xtensor_fixed<index_t, xt::xshape<dim, Size>> interval_index;
+
+        apply_impl(std::make_index_sequence<Size>(), result, start, end,
+                   index_yz, interval_index, std::forward<Func>(func),
+                   std::integral_constant<std::size_t, dim>{});
     }
 
-    template <class MRConfig, class Operator, class... Args>
-    auto make_subset(Operator&& op, Args&&... args)
+    template<class MRConfig, class Operator, std::size_t Size>
+    auto make_subset(Operator &&op,
+                     std::array<LevelCellArray<MRConfig>, Size> &args)
     {
-        using subset_type = SubSet<MRConfig, Operator, Args...>;
-        auto tuple_value = std::tie(std::forward<Args>(args)...);
-        return subset_type(std::forward<Operator>(op), tuple_value);
+        using subset_type = SubSet<MRConfig, Operator, Size>;
+        return subset_type(std::forward<Operator>(op), args);
     }
 
-    template <class MRConfig, class Operator, class... Args>
-    auto make_subset(Operator&& op, std::size_t common_level,
-                     std::array<std::size_t, sizeof...(Args)> data_level, Args&&... args)
+    template<class MRConfig, class Operator, std::size_t Size>
+    auto make_subset(Operator &&op, std::size_t common_level,
+                     std::array<std::size_t, Size> data_level,
+                     std::array<LevelCellArray<MRConfig>, Size> &args)
     {
-        using subset_type = SubSet<MRConfig, Operator, Args...>;
-        auto tuple_value = std::tie(std::forward<Args>(args)...);
-        return subset_type(std::forward<Operator>(op), common_level,
-                           data_level, tuple_value);
+        using subset_type = SubSet<MRConfig, Operator, Size>;
+        return subset_type(std::forward<Operator>(op), common_level, data_level,
+                           args);
     }
 }

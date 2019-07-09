@@ -40,7 +40,7 @@ namespace mure
     struct picker
     {
         template <class... Args>
-        constexpr decltype(auto) operator()(Args&&... args) const
+        constexpr decltype(auto) operator()(std::size_t, Args&&... args) const
         {
             return argument<I>(std::forward<Args>(args)...);
         }
@@ -51,6 +51,11 @@ namespace mure
     picker<2u> _3;
     picker<3u> _4;
     picker<4u> _5;
+    picker<5u> _6;
+    picker<6u> _7;
+    picker<7u> _8;
+    picker<8u> _9;
+    picker<9u> _10;
 
     template <class Func, class... F>
     struct func_node
@@ -65,15 +70,15 @@ namespace mure
         }
 
         template <class... Args>
-        decltype(auto) operator()(Args&&... args) const
+        decltype(auto) operator()(std::size_t dim, Args&&... args) const
         {
-            return access_impl(std::make_index_sequence<sizeof...(F)>(), std::forward<Args>(args)...);
+            return access_impl(std::make_index_sequence<sizeof...(F)>(), dim, std::forward<Args>(args)...);
         }
 
         template <std::size_t... I, class... Args>
-        decltype(auto) access_impl(std::index_sequence<I...>, Args&&... args) const
+        decltype(auto) access_impl(std::index_sequence<I...>, std::size_t dim, Args&&... args) const
         {
-            return m_f(std::get<I>(m_op)(std::forward<Args>(args)...)...);
+            return m_f(dim, std::get<I>(m_op)(dim, std::forward<Args>(args)...)...);
         }
 
         tuple_type m_op;

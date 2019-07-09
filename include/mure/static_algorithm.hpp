@@ -1,12 +1,19 @@
 #pragma once
 
-#include <array>
-#include <functional>
+#include <type_traits>
 
 #include <xtensor/xfixed.hpp>
 
 namespace mure
 {
+    template<std::size_t nloops, int start, int end, int step, typename function_t>
+    inline void static_nested_loop_impl(function_t&& f,
+                        xt::xtensor_fixed<int, xt::xshape<nloops>>& index,
+                        std::integral_constant<std::size_t, nloops>)
+    {
+        f(index);
+    }
+
     template<std::size_t nloops, int start, int end, int step, typename function_t, std::size_t iloop>
     inline void static_nested_loop_impl(function_t&& f,
                         xt::xtensor_fixed<int, xt::xshape<nloops>>& index,
@@ -14,19 +21,11 @@ namespace mure
     {
         for(int i=start; i<end; i+=step)
         {
-            index[iloop] = i;
+            index[nloops - 1 - iloop] = i;
             static_nested_loop_impl<nloops, start, end, step>(std::forward<function_t>(f),
                                                               index,
                                                               std::integral_constant<std::size_t, iloop+1>{});
         }
-    }
-
-    template<std::size_t nloops, int start, int end, int step, typename function_t>
-    inline void static_nested_loop_impl(function_t&& f,
-                        xt::xtensor_fixed<int, xt::xshape<nloops>>& index,
-                        std::integral_constant<std::size_t, nloops>)
-    {
-        std::forward<function_t>(f)(index);
     }
 
     template<std::size_t nloops, int start, int end, int step=1, typename function_t>
