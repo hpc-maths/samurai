@@ -28,6 +28,7 @@ namespace mure
 
         using value_t = TValue;
         using index_t = TIndex;
+        using coord_index_t = TValue;
 
         value_t start = 0; ///< Interval start.
         value_t end = 0;   ///< Interval end + 1.

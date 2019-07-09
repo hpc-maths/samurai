@@ -20,15 +20,16 @@
 namespace mure
 {
 
-    template<class MRConfig>
+    template<std::size_t Dim, std::size_t Level = 0,
+             class TInterval = Interval<int>>
     class LevelCellArray {
       public:
-        constexpr static auto dim = MRConfig::dim;
-        using index_t = typename MRConfig::index_t;
-        using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = Interval<coord_index_t, index_t>;
+        constexpr static auto dim = Dim;
+        constexpr static auto level = Level;
+        using interval_t = TInterval;
+        using index_t = typename interval_t::index_t;
+        using coord_index_t = typename interval_t::value_t;
 
-      public:
         LevelCellArray(LevelCellArray &&) = default;
         LevelCellArray &operator=(LevelCellArray &&) = default;
 
@@ -36,7 +37,8 @@ namespace mure
         LevelCellArray &operator=(LevelCellArray const &) = default;
 
         /// Construct from a level cell list
-        inline LevelCellArray(LevelCellList<MRConfig> const &lcl = {});
+        inline LevelCellArray(
+            LevelCellList<Dim, Level, TInterval> const &lcl = {});
 
         inline LevelCellArray(Box<coord_index_t, dim> box);
 
@@ -167,8 +169,9 @@ namespace mure
             m_offsets; ///< Offsets in interval list for each dim > 1
     };
 
-    template<class MRConfig>
-    LevelCellArray<MRConfig>::LevelCellArray(LevelCellList<MRConfig> const &lcl)
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    LevelCellArray<Dim, Level, TInterval>::LevelCellArray(
+        LevelCellList<Dim, Level, TInterval> const &lcl)
     {
         /* Estimating reservation size
          *
@@ -193,8 +196,9 @@ namespace mure
             m_offsets[N].push_back(m_cells[N].size());
     }
 
-    template<class MRConfig>
-    LevelCellArray<MRConfig>::LevelCellArray(Box<coord_index_t, dim> box)
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    LevelCellArray<Dim, Level, TInterval>::LevelCellArray(
+        Box<coord_index_t, dim> box)
     {
         auto dimensions =
             static_cast<xt::xtensor_fixed<std::size_t, xt::xshape<dim>>>(
@@ -225,14 +229,14 @@ namespace mure
                                  start[0]};
     }
 
-    template<class MRConfig>
-    inline bool LevelCellArray<MRConfig>::empty() const
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    inline bool LevelCellArray<Dim, Level, TInterval>::empty() const
     {
         return m_cells[0].empty();
     }
 
-    template<class MRConfig>
-    inline auto LevelCellArray<MRConfig>::shape() const
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    inline auto LevelCellArray<Dim, Level, TInterval>::shape() const
     {
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> output;
         for (std::size_t i = 0; i < dim; ++i)
@@ -242,8 +246,8 @@ namespace mure
         return output;
     }
 
-    template<class MRConfig>
-    inline auto LevelCellArray<MRConfig>::nb_cells() const
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    inline auto LevelCellArray<Dim, Level, TInterval>::nb_cells() const
     {
         auto op = [](auto &&init, auto const &interval) {
             return std::move(init) + interval.size();
@@ -252,35 +256,37 @@ namespace mure
                                std::size_t(0), op);
     }
 
-    template<class MRConfig>
-    auto const &LevelCellArray<MRConfig>::operator[](std::size_t d) const
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    auto const &LevelCellArray<Dim, Level, TInterval>::
+    operator[](std::size_t d) const
     {
         return m_cells[d];
     }
 
-    template<class MRConfig>
-    auto &LevelCellArray<MRConfig>::operator[](std::size_t d)
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    auto &LevelCellArray<Dim, Level, TInterval>::operator[](std::size_t d)
     {
         return m_cells[d];
     }
 
-    template<class MRConfig>
-    auto const &LevelCellArray<MRConfig>::offsets(std::size_t d) const
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    auto const &
+    LevelCellArray<Dim, Level, TInterval>::offsets(std::size_t d) const
     {
         assert(d > 0);
         return m_offsets[d - 1];
     }
 
-    template<class MRConfig>
-    auto &LevelCellArray<MRConfig>::offsets(std::size_t d)
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    auto &LevelCellArray<Dim, Level, TInterval>::offsets(std::size_t d)
     {
         assert(d > 0);
         return m_offsets[d - 1];
     }
 
-    template<class MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TGrid, std::size_t N>
-    void LevelCellArray<MRConfig>::initFromLevelCellList(
+    void LevelCellArray<Dim, Level, TInterval>::initFromLevelCellList(
         TGrid const &grid,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> index,
         std::integral_constant<std::size_t, N>)
@@ -347,9 +353,9 @@ namespace mure
             m_cells[N].push_back(curr_interval);
     }
 
-    template<class MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TIntervalList>
-    void LevelCellArray<MRConfig>::initFromLevelCellList(
+    void LevelCellArray<Dim, Level, TInterval>::initFromLevelCellList(
         TIntervalList const &interval_list,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const
             & /* index */,
@@ -360,8 +366,9 @@ namespace mure
                   std::back_inserter(m_cells[0]));
     }
 
-    template<class MRConfig>
-    void LevelCellArray<MRConfig>::to_stream(std::ostream &out) const
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    void
+    LevelCellArray<Dim, Level, TInterval>::to_stream(std::ostream &out) const
     {
         for (std::size_t d = 0; d < dim; ++d)
         {
@@ -382,18 +389,19 @@ namespace mure
         }
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TFunction>
-    void LevelCellArray<MRConfig>::for_each_interval_in_x(TFunction &&f) const
+    void LevelCellArray<Dim, Level, TInterval>::for_each_interval_in_x(
+        TFunction &&f) const
     {
         for_each_interval_in_x_impl(
             std::forward<TFunction>(f), {}, 0, m_cells[dim - 1].size(),
             std::integral_constant<std::size_t, dim - 1>{});
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TFunction, std::size_t N>
-    void LevelCellArray<MRConfig>::for_each_interval_in_x_impl(
+    void LevelCellArray<Dim, Level, TInterval>::for_each_interval_in_x_impl(
         TFunction &&f,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> index,
         std::size_t start_index, std::size_t end_index,
@@ -414,9 +422,9 @@ namespace mure
         }
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TFunction>
-    void LevelCellArray<MRConfig>::for_each_interval_in_x_impl(
+    void LevelCellArray<Dim, Level, TInterval>::for_each_interval_in_x_impl(
         TFunction &&f,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index,
         std::size_t start_index, std::size_t end_index,
@@ -428,19 +436,20 @@ namespace mure
         }
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TFunction>
-    void LevelCellArray<MRConfig>::for_each_cell(std::size_t level,
-                                                 TFunction &&f) const
+    void
+    LevelCellArray<Dim, Level, TInterval>::for_each_cell(std::size_t level,
+                                                         TFunction &&f) const
     {
         for_each_cell_impl(std::forward<TFunction>(f), level, {}, 0,
                            m_cells[dim - 1].size(),
                            std::integral_constant<std::size_t, dim - 1>{});
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TFunction, std::size_t N>
-    void LevelCellArray<MRConfig>::for_each_cell_impl(
+    void LevelCellArray<Dim, Level, TInterval>::for_each_cell_impl(
         TFunction &&f, std::size_t level,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
         std::size_t start_index, std::size_t end_index,
@@ -461,9 +470,9 @@ namespace mure
         }
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TFunction>
-    void LevelCellArray<MRConfig>::for_each_cell_impl(
+    void LevelCellArray<Dim, Level, TInterval>::for_each_cell_impl(
         TFunction &&f, std::size_t level,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
         std::size_t start_index, std::size_t end_index,
@@ -482,18 +491,19 @@ namespace mure
         }
     }
 
-    template<typename MRConfig>
-    typename LevelCellArray<MRConfig>::index_t LevelCellArray<MRConfig>::find(
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    typename LevelCellArray<Dim, Level, TInterval>::index_t
+    LevelCellArray<Dim, Level, TInterval>::find(
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord) const
     {
         return find_impl(0, m_cells[dim - 1].size(), coord,
                          std::integral_constant<std::size_t, dim - 1>{});
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<std::size_t N>
-    typename LevelCellArray<MRConfig>::index_t
-    LevelCellArray<MRConfig>::find_impl(
+    typename LevelCellArray<Dim, Level, TInterval>::index_t
+    LevelCellArray<Dim, Level, TInterval>::find_impl(
         std::size_t start_index, std::size_t end_index,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord,
         std::integral_constant<std::size_t, N>) const
@@ -514,9 +524,9 @@ namespace mure
         return find_index;
     }
 
-    template<typename MRConfig>
-    typename LevelCellArray<MRConfig>::index_t
-    LevelCellArray<MRConfig>::find_impl(
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    typename LevelCellArray<Dim, Level, TInterval>::index_t
+    LevelCellArray<Dim, Level, TInterval>::find_impl(
         std::size_t start_index, std::size_t end_index,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord,
         std::integral_constant<std::size_t, 0>) const
@@ -532,18 +542,19 @@ namespace mure
         return -1;
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TFunction>
-    void LevelCellArray<MRConfig>::for_each_block(TFunction &&func) const
+    void LevelCellArray<Dim, Level, TInterval>::for_each_block(
+        TFunction &&func) const
     {
         for_each_block_impl(std::forward<TFunction>(func), 0,
                             m_cells[dim - 1].size(), {},
                             std::integral_constant<std::size_t, dim - 1>{});
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TFunction, std::size_t N>
-    void LevelCellArray<MRConfig>::for_each_block_impl(
+    void LevelCellArray<Dim, Level, TInterval>::for_each_block_impl(
         TFunction &&func, index_t start_index, index_t end_index,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
         std::integral_constant<std::size_t, N>) const
@@ -563,9 +574,9 @@ namespace mure
         }
     }
 
-    template<typename MRConfig>
+    template<std::size_t Dim, std::size_t Level, class TInterval>
     template<typename TFunction>
-    void LevelCellArray<MRConfig>::for_each_block_impl(
+    void LevelCellArray<Dim, Level, TInterval>::for_each_block_impl(
         TFunction &&func, index_t start_index, index_t end_index,
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
         std::integral_constant<std::size_t, 0>) const
@@ -655,9 +666,10 @@ namespace mure
         }
     }
 
-    template<class MRConfig>
-    std::ostream &operator<<(std::ostream &out,
-                             LevelCellArray<MRConfig> const &level_cell_array)
+    template<std::size_t Dim, std::size_t Level, class TInterval>
+    std::ostream &
+    operator<<(std::ostream &out,
+               LevelCellArray<Dim, Level, TInterval> const &level_cell_array)
     {
         level_cell_array.to_stream(out);
         return out;
