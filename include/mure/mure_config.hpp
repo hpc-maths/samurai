@@ -1,0 +1,5 @@
+#pragma once
+
+#define MURE_VERSION_MAJOR 0
+#define MURE_VERSION_MINOR 1
+#define MURE_VERSION_PATCH 0

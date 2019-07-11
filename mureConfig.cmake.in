@@ -1,0 +1,16 @@
+# mure cmake module
+# This module sets the following variables in your project::
+#
+#   mure_FOUND - true if mure found on the system
+#   mure_INCLUDE_DIRS - the directory containing mure headers
+#   mure_LIBRARY - empty
+
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(xtensor @xtensor_REQUIRED_VERSION@)
+
+if(NOT TARGET @PROJECT_NAME@)
+  include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
+  get_target_property(@PROJECT_NAME@_INCLUDE_DIRS mure INTERFACE_INCLUDE_DIRECTORIES)
+endif()

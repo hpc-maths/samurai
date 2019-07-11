@@ -1,0 +1,8 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/include
+
+Name: mure
+Description: mure is a C++ library for multiresolution mesh problems.
+Version: @mure_VERSION@
+Cflags: -I${includedir}
