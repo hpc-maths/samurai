@@ -49,6 +49,11 @@ target_link_libraries(mure INTERFACE xtensor pugixml hdf5)
 # target_link_libraries(mure INTERFACE xtensor)
 
 OPTION(BUILD_TESTS "mure test suite" OFF)
+OPTION(DOWNLOAD_GTEST "build gtest from downloaded sources" OFF)
+
+if(DOWNLOAD_GTEST)
+    set(BUILD_TESTS ON)
+endif()
 
 if(BUILD_TESTS)
     add_subdirectory(test)
