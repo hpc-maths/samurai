@@ -53,12 +53,10 @@ namespace mure
         }
     }
 
-    template<std::size_t Dim, std::size_t Level = 0,
-             class TInterval = Interval<int>>
+    template<std::size_t Dim, class TInterval = Interval<int>>
     class LevelCellList {
       public:
         constexpr static auto dim = Dim;
-        constexpr static auto level = Level;
         using interval_t = TInterval;
         using index_t = typename interval_t::index_t;
         using coord_index_t = typename interval_t::value_t;
@@ -69,6 +67,11 @@ namespace mure
         using grid_t =
             typename details::PartialGrid<coord_index_t, list_interval_t,
                                           dim - 1>::type;
+
+        LevelCellList(std::size_t level) : m_level{level}
+        {}
+
+        LevelCellList() = default;
 
         /// Constant access to the interval list at given dim-1 coordinates
         list_interval_t const &operator[](
@@ -95,6 +98,16 @@ namespace mure
             return m_grid_yz;
         }
 
+        std::size_t get_level() const
+        {
+            return m_level;
+        }
+
+        void set_level(std::size_t level)
+        {
+            m_level = level;
+        }
+
         void to_stream(std::ostream &os) const
         {
             os << "LevelCellList\n";
@@ -105,12 +118,13 @@ namespace mure
       private:
         grid_t m_grid_yz; ///< Sparse dim-1 array that points to the interval
                           ///< lists along the x axis.
+        std::size_t m_level;
     };
 
-    template<std::size_t Dim, std::size_t Level, class TInterval>
+    template<std::size_t Dim, class TInterval>
     std::ostream &
     operator<<(std::ostream &out,
-               const LevelCellList<Dim, Level, TInterval> &level_cell_list)
+               const LevelCellList<Dim, TInterval> &level_cell_list)
     {
         level_cell_list.to_stream(out);
         return out;

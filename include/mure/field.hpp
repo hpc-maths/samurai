@@ -133,7 +133,7 @@ namespace mure
             mesh->for_each_cell([&](auto &cell) {
                 os << cell.level << "[" << cell.center()
                    << "]:" << m_data[cell.index] << "\n";
-            });
+            }, MeshType::all_cells);
         }
 
       private:
@@ -143,8 +143,8 @@ namespace mure
         xt::xtensor<value_type, 1> m_work;
     };
 
-    template<class MRConfig>
-    std::ostream &operator<<(std::ostream &out, const Field<MRConfig> &field)
+    template<class MRConfig, class T>
+    std::ostream &operator<<(std::ostream &out, const Field<MRConfig, T> &field)
     {
         field.to_stream(out);
         return out;

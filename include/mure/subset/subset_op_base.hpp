@@ -86,49 +86,50 @@ namespace mure
     template<class F, class... CT>
     class subset_operator;
 
-    template<std::size_t ref_level, class CT>
+    template<class CT>
     struct make_projection
     {
     };
 
-    template<std::size_t ref_level, class Func, class... CT>
-    struct make_projection<ref_level, subset_operator<Func, CT...>>
+    template<class Func, class... CT>
+    struct make_projection<subset_operator<Func, CT...>>
     {
         using type = subset_operator<
-            Func,
-            typename make_projection<ref_level, std::decay_t<CT>>::type...>;
+            Func, typename make_projection<std::decay_t<CT>>::type...>;
 
         template<std::size_t... I>
-        static type apply_impl(const subset_operator<Func, CT...> &t,
+        static type apply_impl(std::size_t ref_level,
+                               const subset_operator<Func, CT...> &t,
                                std::index_sequence<I...>)
         {
             return type(
                 Func(),
-                make_projection<ref_level,
-                                std::decay_t<typename std::tuple_element<
-                                    I, std::tuple<CT...>>::type>>::
-                    apply(std::get<I>(t.get_tuple()))...);
+                make_projection<std::decay_t<
+                    typename std::tuple_element<I, std::tuple<CT...>>::type>>::
+                    apply(ref_level, std::get<I>(t.get_tuple()))...);
         }
 
-        static type apply(const subset_operator<Func, CT...> &t)
+        static type apply(std::size_t ref_level,
+                          const subset_operator<Func, CT...> &t)
         {
-            return apply_impl(t, std::make_index_sequence<sizeof...(CT)>());
+            return apply_impl(ref_level, t,
+                              std::make_index_sequence<sizeof...(CT)>());
         }
     };
 
-    template<std::size_t ref_level, class T>
-    struct make_projection<ref_level, subset_node<T>>
+    template<class T>
+    struct make_projection<subset_node<T>>
     {
-        using type = subset_node<projection_op<ref_level, T>>;
+        using type = subset_node<projection_op<T>>;
 
-        static type apply(const subset_node<T> &t)
+        static type apply(std::size_t ref_level, const subset_node<T> &t)
         {
-            return {t.get_node()};
+            return projection_op<T>(ref_level, t.get_node());
         }
     };
 
-    template<std::size_t ref_level, class CT>
-    using make_projection_t = typename make_projection<ref_level, CT>::type;
+    template<class CT>
+    using make_projection_t = typename make_projection<CT>::type;
 
     /******************************
      * subset_operator definition *
@@ -160,11 +161,10 @@ namespace mure
         template<class Func>
         void operator()(Func &&func);
 
-        template<std::size_t ref_level, std::size_t... I>
-        auto on_impl(std::index_sequence<I...>) const;
+        template<std::size_t... I>
+        auto on_impl(std::size_t ref_level, std::index_sequence<I...>) const;
 
-        template<std::size_t ref_level>
-        auto on() const;
+        auto on(std::size_t ref_level) const;
 
         bool eval(int scan, std::size_t dim) const;
         void update(int scan, int sentinel);
@@ -175,6 +175,17 @@ namespace mure
         int max() const;
         const tuple_type &get_tuple() const;
 
+        template<std::size_t... I>
+        void get_interval_index_impl(std::vector<std::size_t> &index, std::index_sequence<I...>)
+        {
+            (void)std::initializer_list<int>{
+            (std::get<I>(m_e).get_interval_index(index), 0)...};
+        }
+
+        void get_interval_index(std::vector<std::size_t> &index){
+            return get_interval_index_impl(index,
+                           std::make_index_sequence<sizeof...(CT)>());
+        }
       private:
         template<std::size_t... I, class... Args>
         bool eval_impl(int scan, std::size_t dim,
@@ -227,26 +238,24 @@ namespace mure
     }
 
     template<class F, class... CT>
-    template<std::size_t ref_level, std::size_t... I>
+    template<std::size_t... I>
     inline auto
-    subset_operator<F, CT...>::on_impl(std::index_sequence<I...>) const
+    subset_operator<F, CT...>::on_impl(std::size_t ref_level,
+                                       std::index_sequence<I...>) const
     {
         using new_op_type =
-            subset_operator<F,
-                            make_projection_t<ref_level, std::decay_t<CT>>...>;
+            subset_operator<F, make_projection_t<std::decay_t<CT>>...>;
 
         return new_op_type(
             F(),
-            make_projection<ref_level, std::decay_t<typename std::tuple_element<
-                                           I, tuple_type>::type>>::
-                apply(std::get<I>(m_e))...);
+            make_projection<std::decay_t<typename std::tuple_element<
+                I, tuple_type>::type>>::apply(ref_level, std::get<I>(m_e))...);
     }
 
     template<class F, class... CT>
-    template<std::size_t ref_level>
-    inline auto subset_operator<F, CT...>::on() const
+    inline auto subset_operator<F, CT...>::on(std::size_t ref_level) const
     {
-        return on_impl<ref_level>(std::make_index_sequence<sizeof...(CT)>());
+        return on_impl(ref_level, std::make_index_sequence<sizeof...(CT)>());
     }
 
     template<class F, class... CT>
@@ -383,7 +392,9 @@ namespace mure
     subset_operator<F, CT...>::sub_apply(Func &&func,
                                          std::integral_constant<std::size_t, 0>)
     {
-        func(m_index_yz, m_result);
+        std::vector<std::size_t> index;
+        get_interval_index(index);
+        func(m_index_yz, m_result, index);
     }
 
     template<class F, class... CT>
@@ -451,10 +462,10 @@ namespace mure
         };
 
         template<>
-        template<std::size_t Dim, std::size_t Level, class TInterval>
-        struct get_arg_impl<LevelCellArray<Dim, Level, TInterval>>
+        template<std::size_t Dim, class TInterval>
+        struct get_arg_impl<LevelCellArray<Dim, TInterval>>
         {
-            using mesh_t = LevelCellArray<Dim, Level, TInterval>;
+            using mesh_t = LevelCellArray<Dim, TInterval>;
 
             template<class R>
             decltype(auto) operator()(R &&r)
@@ -462,6 +473,7 @@ namespace mure
                 return subset_node<mesh_node<mesh_t>>(
                     std::forward<mesh_node<mesh_t>>(r));
             }
+
         };
     }
 

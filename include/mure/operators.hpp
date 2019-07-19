@@ -18,14 +18,14 @@ namespace mure
 
       public:
         Projection(std::size_t level,
-                   xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                   xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
                    interval_t interval)
             : level{level}, i{interval}
         {
             if (dim > 1)
-                j = index[1];
+                j = index[0];
             if (dim > 2)
-                k = index[2];
+                k = index[1];
         }
 
         void apply(Field<MRConfig> &field) const
@@ -76,14 +76,14 @@ namespace mure
 
       public:
         Maximum(std::size_t level,
-                xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
                 interval_t interval)
             : level{level}, i{interval}
         {
             if (dim > 1)
-                j = index[1];
+                j = index[0];
             if (dim > 2)
-                k = index[2];
+                k = index[1];
         }
 
         void apply(Field<MRConfig, bool> &field) const
@@ -232,14 +232,14 @@ namespace mure
 
       public:
         Test(std::size_t level,
-             xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+             xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
              interval_t interval)
             : level{level}, i{interval}
         {
             if (dim > 1)
-                j = index[1];
+                j = index[0];
             if (dim > 2)
-                k = index[2];
+                k = index[1];
         }
 
         void apply(Field<MRConfig, bool> &field) const
@@ -304,14 +304,14 @@ namespace mure
 
       public:
         Clean(std::size_t level,
-              xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+              xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
               interval_t interval)
             : level{level}, i{interval}
         {
             if (dim > 1)
-                j = index[1];
+                j = index[0];
             if (dim > 2)
-                k = index[2];
+                k = index[1];
         }
 
         void apply(Field<MRConfig, bool> &field) const
@@ -360,14 +360,14 @@ namespace mure
 
       public:
         Graded_op(std::size_t level,
-                  xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                  xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
                   xt::xtensor_fixed<interval_t, xt::xshape<dim>> interval)
             : level{level}, i{interval[0]}, interval{interval}
         {
             if (dim > 1)
-                j = index[1];
+                j = index[0];
             if (dim > 2)
-                k = index[2];
+                k = index[1];
         }
 
         void apply(Field<MRConfig, bool> &field_dest,
@@ -435,14 +435,14 @@ namespace mure
 
       public:
         Copy(std::size_t level,
-             xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+             xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
              interval_t interval)
             : level{level}, i{interval}
         {
             if (dim > 1)
-                j = index[1];
+                j = index[0];
             if (dim > 2)
-                k = index[2];
+                k = index[1];
         }
 
         void apply(Field<MRConfig> &dest, Field<MRConfig> const &src) const
@@ -485,14 +485,14 @@ namespace mure
 
       public:
         Detail_op(std::size_t level,
-                  xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+                  xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
                   interval_t interval)
             : level{level}, i{interval}
         {
             if (dim > 1)
-                j = index[1];
+                j = index[0];
             if (dim > 2)
-                k = index[2];
+                k = index[1];
         }
 
         void compute_detail(Field<MRConfig> &detail,
