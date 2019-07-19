@@ -22,12 +22,12 @@ namespace mure
             }
         }
 
-        LevelCellArray<MRConfig> const &operator[](std::size_t i) const
+        LevelCellArray<dim> const &operator[](std::size_t i) const
         {
             return m_cells[i];
         }
 
-        LevelCellArray<MRConfig> &operator[](std::size_t i)
+        LevelCellArray<dim> &operator[](std::size_t i)
         {
             return m_cells[i];
         }
@@ -89,7 +89,7 @@ namespace mure
         }
 
       private:
-        xt::xtensor_fixed<LevelCellArray<MRConfig>,
+        xt::xtensor_fixed<LevelCellArray<dim>,
                           xt::xshape<max_refinement_level + 1>>
             m_cells;
     };
