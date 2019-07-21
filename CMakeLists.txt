@@ -29,17 +29,13 @@ set(MURE_HEADERS
     ${MURE_INCLUDE_DIR}/mure/cell_array.hpp
     ${MURE_INCLUDE_DIR}/mure/cell_list.hpp
     ${MURE_INCLUDE_DIR}/mure/field.hpp
-    ${MURE_INCLUDE_DIR}/mure/func_node.hpp
     ${MURE_INCLUDE_DIR}/mure/hdf5.hpp
     ${MURE_INCLUDE_DIR}/mure/interval.hpp
-    ${MURE_INCLUDE_DIR}/mure/intervals_operator.hpp
     ${MURE_INCLUDE_DIR}/mure/level_cell_array.hpp
     ${MURE_INCLUDE_DIR}/mure/level_cell_list.hpp
     ${MURE_INCLUDE_DIR}/mure/mesh.hpp
     ${MURE_INCLUDE_DIR}/mure/mr_config.hpp
     ${MURE_INCLUDE_DIR}/mure/static_algorithm.hpp
-    ${MURE_INCLUDE_DIR}/mure/subset.hpp
-    ${MURE_INCLUDE_DIR}/mure/tuple.hpp
 )
 
 add_library(mure INTERFACE)
