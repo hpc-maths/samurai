@@ -111,23 +111,6 @@ namespace mure
 
         void prediction(Field<MRConfig> &field) const
         {
-            for (std::size_t level = 0; level < max_refinement_level; ++level)
-            {
-                auto expr = intersection(m_cells[MeshType::all_cells][level],
-                                         m_cells[MeshType::cells][level + 1])
-                                .on(level);
-
-                expr([&](auto & /*index*/, auto &interval,
-                         auto & /*interval_index*/) {
-                    auto i = interval[0];
-                    field(level + 1, 2 * i) =
-                        field(level, i) -
-                        1. / 8 * (field(level, i + 1) - field(level, i - 1));
-                    field(level + 1, 2 * i + 1) =
-                        field(level, i) +
-                        1. / 8 * (field(level, i + 1) - field(level, i - 1));
-                });
-            }
         }
 
         void refinment(Field<MRConfig> &detail, Field<MRConfig> &field,
@@ -139,7 +122,6 @@ namespace mure
         {
 
             Field<MRConfig, bool> keep{"keep", *this};
-            Field<MRConfig, bool> keep_old{"keep_old", *this};
             xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>
                 max_detail;
             max_detail.fill(std::numeric_limits<double>::min());
@@ -161,7 +143,6 @@ namespace mure
                 subset([&](auto &index, auto &interval,
                            auto & /*interval_index*/) {
                     auto op = Detail_op<MRConfig>(level, index, interval[0]);
-                    // std::cout << index[0] << " " << interval[0] << "\n";
                     op.compute_detail(detail, field);
                     op.compute_max_detail(max_detail, detail);
                 });
@@ -173,48 +154,12 @@ namespace mure
                 });
             }
 
-            // std::cout << "keep with detail\n";
-            // std::cout << keep << "\n";
-
-            // {
-            //     std::stringstream ss1;
-            //     ss1 << "detail_" << ite;
-            //     auto h5file = Hdf5(ss1.str().data());
-            //     h5file.add_mesh(*this);
-            //     h5file.add_field(detail);
-            // }
-
-            // {
-            //     std::stringstream ss1;
-            //     ss1 << "demo_to_coarsen_all_" << ite;
-            //     auto h5file = Hdf5(ss1.str().data(), MeshType::all_cells);
-            //     h5file.add_field_by_level(*this, keep);
-            //     std::stringstream ss2;
-            //     ss2 << "demo_to_coarsen_" << ite;
-            //     auto h5file2 = Hdf5(ss2.str().data());
-            //     h5file2.add_field_by_level(*this, keep);
-            //     std::stringstream ss3;
-            //     ss3 << "demo_to_coarsen_proj" << ite;
-            //     auto h5file3 = Hdf5(ss3.str().data(), MeshType::proj_cells);
-            //     h5file3.add_field_by_level(*this, keep);
-            // }
-
             for (std::size_t level = max_refinement_level; level > 0; --level)
             {
                 auto keep_subset =
                     intersection(m_cells[MeshType::cells][level],
                                  m_cells[MeshType::all_cells][level - 1])
                         .on(level - 1);
-
-                // if (!m_cells[MeshType::all_cells][level].empty())
-                // {
-                //     std::stringstream ss1;
-                //     ss1 << "demo_before_graded_" << ite << "_level_"
-                //         << level - 1;
-                //     auto h5file = Hdf5(ss1.str().data(),
-                //     MeshType::all_cells); h5file.add_field_by_level(*this,
-                //     keep);
-                // }
 
                 keep_subset([&](auto &index, auto &interval,
                                 auto & /*interval_index*/) {
@@ -225,110 +170,16 @@ namespace mure
                     op_graded.apply(keep);
                 });
 
-                // if (!m_cells[MeshType::all_cells][level].empty())
-                // {
-                //     std::stringstream ss1;
-                //     ss1 << "demo_maximum_graded_" << ite << "_level_"
-                //         << level - 1;
-                //     auto h5file = Hdf5(ss1.str().data(),
-                //     MeshType::all_cells); h5file.add_field_by_level(*this,
-                //     keep);
-                // }
-
-                // keep_old = keep;
-                // keep_set.apply([&](auto &index, auto &interval,
-                //                    auto & /*interval_index*/) {
-                //     auto op_graded =
-                //         Graded_op<MRConfig>(level - 1, index, interval);
-                //     // op_graded.apply(keep, keep_old);
-                //     op_graded.apply(keep);
-                // });
-
-                // if (!m_cells[MeshType::all_cells][level].empty())
-                // {
-                //     std::stringstream ss1;
-                //     ss1 << "demo_graded_" << ite << "_level_" << level - 1;
-                //     auto h5file = Hdf5(ss1.str().data(),
-                //     MeshType::all_cells); h5file.add_field_by_level(*this,
-                //     keep);
-                // }
-
                 auto clean_subset =
                     difference(m_cells[MeshType::all_cells][level - 1],
                                m_cells[MeshType::cells][level - 1]);
 
                 clean_subset([&](auto &index, auto &interval,
                                  auto & /*interval_index*/) {
-                    // std::cout << "clean " << level-1 << " " << index[0] << " " << interval[0] << "\n";
                     auto op = Clean<MRConfig>(level - 1, index, interval[0]);
                     op.apply(keep);
                 });
-
-                // if (!m_cells[MeshType::all_cells][level].empty())
-                // {
-                //     std::stringstream ss1;
-                //     ss1 << "demo_clean_" << ite << "_level_" << level - 1;
-                //     auto h5file = Hdf5(ss1.str().data(),
-                //     MeshType::all_cells); h5file.add_field_by_level(*this,
-                //     keep);
-                // }
             }
-
-            // std::cout << "keep with graded\n";
-            // std::cout << keep << "\n";
-
-            // {
-            //     std::stringstream ss1;
-            //     ss1 << "demo_graded_all_" << ite;
-            //     auto h5file = Hdf5(ss1.str().data(), MeshType::all_cells);
-            //     h5file.add_field_by_level(*this, keep);
-            //     std::stringstream ss2;
-            //     ss2 << "demo_graded_" << ite;
-            //     auto h5file2 = Hdf5(ss2.str().data());
-            //     h5file2.add_field_by_level(*this, keep);
-            //     std::stringstream ss3;
-            //     ss3 << "demo_to_graded_proj" << ite;
-            //     auto h5file3 = Hdf5(ss3.str().data(), MeshType::proj_cells);
-            //     h5file3.add_field_by_level(*this, keep);
-            // }
-
-            // for (std::size_t level = 0; level <= max_refinement_level;
-            // ++level)
-            // {
-            //     const LevelCellArray<MRConfig> &level_cell_array =
-            //         m_cells[MeshType::all_cells][level];
-
-            //     if (!level_cell_array.empty())
-            //     {
-            //         auto clean_expr = difference(_1, _2);
-            //         std::array<LevelCellArray<MRConfig>, 2> set_array{
-            //             m_cells[MeshType::all_cells][level],
-            //             m_cells[MeshType::cells][level]};
-            //         auto clean_set = mure::make_subset<MRConfig>(
-            //             clean_expr, level, {level, level}, set_array);
-
-            //         clean_set.apply([&](auto &index, auto &interval,
-            //                             auto & /*interval_index*/) {
-            //             auto op = Clean<MRConfig>(level, index, interval[0]);
-            //             op.apply(keep);
-            //         });
-            //     }
-            // }
-
-            // {
-            //     std::stringstream ss1;
-            //     ss1 << "demo_clean_all_" << ite;
-            //     auto h5file = Hdf5(ss1.str().data(), 1);
-            //     h5file.add_field_by_level(*this, keep);
-            //     std::stringstream ss2;
-            //     ss2 << "demo_clean_" << ite;
-            //     auto h5file2 = Hdf5(ss2.str().data());
-            //     h5file2.add_field_by_level(*this, keep);
-            //     std::stringstream ss3;
-            //     ss3 << "demo_clean_proj" << ite;
-            //     auto h5file3 = Hdf5(ss3.str().data(), 2);
-            //     h5file3.add_field_by_level(*this, keep);
-            // }
 
             for (std::size_t level = max_refinement_level; level > 0; --level)
             {
@@ -344,26 +195,7 @@ namespace mure
                 });
             }
 
-            // std::cout << "keep with test\n";
-            // std::cout << keep << "\n";
-
-            // {
-            //     std::stringstream ss1;
-            //     ss1 << "demo_to_keep_all_" << ite;
-            //     auto h5file = Hdf5(ss1.str().data(), MeshType::all_cells);
-            //     h5file.add_field_by_level(*this, keep);
-            //     std::stringstream ss2;
-            //     ss2 << "demo_to_keep_" << ite;
-            //     auto h5file2 = Hdf5(ss2.str().data());
-            //     h5file2.add_field_by_level(*this, keep);
-            //     std::stringstream ss3;
-            //     ss3 << "demo_to_keep_proj" << ite;
-            //     auto h5file3 = Hdf5(ss3.str().data(), MeshType::proj_cells);
-            //     h5file3.add_field_by_level(*this, keep);
-            // }
-
             CellList<MRConfig> cell_list;
-
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
                 const LevelCellArray<dim> &level_cell_array =
@@ -377,7 +209,6 @@ namespace mure
                             {
                                 if (keep.array()[i + interval.index])
                                 {
-                                    // std::cout << "keep on level " << level << "->" << i << " " << index_yz[0] << " " << interval.index << "\n";
                                     cell_list[level][index_yz].add_point(i);
                                 }
                             }
@@ -402,61 +233,12 @@ namespace mure
                 });
             }
 
-            // std::stringstream ss1;
-            // ss1 << "demo_all_" << ite;
-            // auto h5file = Hdf5(ss1.str().data(), 1);
-            // h5file.add_field_by_level(*this, {detail, field});
-            // std::stringstream ss2;
-            // ss2 << "demo_cells_" << ite;
-            // auto h5file2 = Hdf5(ss2.str().data());
-            // h5file2.add_field_by_level(*this, {detail, field});
-
-            // std::cout << field << "\n";
-            // std::cout << detail << "\n";
-            // std::cout << new_field << "\n";
-
             m_cells = std::move(new_mesh.m_cells);
-            // m_all_cells = std::move(new_mesh.m_all_cells);
-            // m_cells_and_ghosts = std::move(new_mesh.m_cells_and_ghosts);
-            // m_proj_cells = std::move(new_mesh.m_proj_cells);
-            // std::cout << *this << "\n";
             field.array() = new_field.array();
-            // {
-            //     std::stringstream ss1;
-            //     ss1 << "demo_new_mesh_all_" << ite;
-            //     auto h5file = Hdf5(ss1.str().data(), MeshType::all_cells);
-            //     h5file.add_field_by_level(*this, field);
-            //     std::stringstream ss2;
-            //     ss2 << "demo_new_mesh_" << ite;
-            //     auto h5file2 = Hdf5(ss2.str().data());
-            //     h5file2.add_field_by_level(*this, field);
-            //     std::stringstream ss3;
-            //     ss3 << "demo_new_mesh_proj" << ite;
-            //     auto h5file3 = Hdf5(ss3.str().data(), MeshType::proj_cells);
-            //     h5file3.add_field_by_level(*this, field);
-            // }
         }
 
         void coarsening() const
         {
-            // auto expr = union_(intersection(difference(_1, _2), _4),
-            //                    intersection(difference(_3, _4), _2));
-            // for (int level = max_refinement_level - 1; level >= 0; --level)
-            // {
-            //     // auto set = mure::make_subset<MRConfig>(
-            //     //     expr, level, {level, level, level + 1, level + 1},
-            //     //     m_cells[MeshType::cells_and_ghosts][level],
-            //     //     m_cells[MeshType::cells][level],
-            //     //     m_cells[MeshType::cells_and_ghosts][level + 1],
-            //     //     m_cells[MeshType::cells][level + 1]);
-
-            //     // set.apply([&](auto& index_yz, auto& interval, auto&
-            //     // /*interval_index*/)
-            //     //          {
-            //     //             std::cout << level << " " << interval[0] <<
-            //     "\n";
-            //     //          });
-            // }
         }
 
         inline std::size_t nb_cells(MeshType mesh_type) const
@@ -544,34 +326,10 @@ namespace mure
         // compaction
         m_cells[MeshType::all_cells] = {cell_list};
 
-        // CellList<MRConfig> cell_list_1;
-        // for (std::size_t level = 0; level <= max_refinement_level-1; ++level)
-        // {
-        //     if (!m_cells[MeshType::cells][level+1].empty())
-        //     {
-        //     auto expr = difference(contraction(m_cells[MeshType::all_cells][level]),
-        //     m_cells[MeshType::cells][level]);
-
-        //     expr([&](auto &index_yz, auto &interval,
-        //                 auto & /*interval_index*/) {
-        //         cell_list_1[level]
-        //                     [index_yz]
-        //                         .add_interval(
-        //                             {interval[0].start, interval[0].end});
-        //     });
-        //     }
-        // }
-        // m_cells[MeshType::proj_cells] = {cell_list_1};
-
         CellList<MRConfig> cell_list_1;
         for (std::size_t level = max_refinement_level - 1; level > 0; --level)
         {
-            if (!m_cells[MeshType::all_cells][level - 1].empty()
-            // &&  !m_cells[MeshType::all_cells][level].empty()
-            // &&  !m_cells[MeshType::all_cells][level + 1].empty()
-            // &&  !m_cells[MeshType::cells][level].empty()
-            // &&  !m_cells[MeshType::cells][level - 1].empty()
-            )
+            if (!m_cells[MeshType::all_cells][level - 1].empty())
             {
                 auto expr =
                     intersection(
@@ -599,7 +357,6 @@ namespace mure
         m_cells[MeshType::proj_cells] = {cell_list_1};
 
         // update of x0_indices, _leaf_to_ghost_indices,
-        // _nb_local_ghost_and_leaf_cells
         update_x0_and_nb_ghosts();
     }
 
@@ -664,7 +421,6 @@ namespace mure
     template<class MRConfig>
     void Mesh<MRConfig>::update_x0_and_nb_ghosts()
     {
-        // get x0_index for each ghost_and_leaf node
         std::size_t ghost_index = 0;
         for (std::size_t level = 0; level <= max_refinement_level; ++level)
         {
@@ -673,14 +429,10 @@ namespace mure
                     // FIXME: remove this const_cast !!
                     const_cast<interval_t &>(interval).index =
                         static_cast<index_t>(ghost_index) - interval.start;
-                    // interval.index = ghost_index - interval.start;
                     ghost_index += interval.size();
                 });
         }
 
-        // get x0_index for each leaf node (ranges are not the same than in
-        // target) index_t cpt_leaf = 0;
-        // m_cell_to_ghost_indices.resize(nb_local_cells());
         for (std::size_t level = 0; level <= max_refinement_level; ++level)
         {
             if (!m_cells[MeshType::cells][level].empty())

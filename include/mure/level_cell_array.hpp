@@ -31,11 +31,11 @@ namespace mure
         LevelCellArray(LevelCellArray &&) = default;
         LevelCellArray &operator=(LevelCellArray &&) = default;
 
-        LevelCellArray(LevelCellArray const &) = default;
-        LevelCellArray &operator=(LevelCellArray const &) = default;
+        LevelCellArray(const LevelCellArray &) = default;
+        LevelCellArray &operator=(const LevelCellArray &) = default;
 
         /// Construct from a level cell list
-        inline LevelCellArray(LevelCellList<Dim, TInterval> const &lcl = {});
+        inline LevelCellArray(const LevelCellList<Dim, TInterval> &lcl = {});
 
         inline LevelCellArray(std::size_t level, Box<coord_index_t, dim> box);
 
@@ -82,10 +82,6 @@ namespace mure
         //// return -1 if not found
         inline index_t
         find(xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord) const;
-
-        //// Apply a function on each cell
-        template<class TFunction>
-        void for_each_block(TFunction &&func) const;
 
         std::size_t get_level() const
         {
@@ -151,18 +147,6 @@ namespace mure
         find_impl(std::size_t start_index, std::size_t end_index,
                   xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord,
                   std::integral_constant<std::size_t, 0>) const;
-
-        template<typename TFunction, std::size_t N>
-        inline void for_each_block_impl(
-            TFunction &&func, index_t start_index, index_t end_index,
-            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
-            std::integral_constant<std::size_t, N>) const;
-
-        template<typename TFunction>
-        inline void for_each_block_impl(
-            TFunction &&func, index_t start_index, index_t end_index,
-            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
-            std::integral_constant<std::size_t, 0>) const;
 
       private:
         std::array<std::vector<interval_t>, dim>
@@ -539,129 +523,6 @@ namespace mure
             }
         }
         return -1;
-    }
-
-    template<std::size_t Dim, class TInterval>
-    template<typename TFunction>
-    void LevelCellArray<Dim, TInterval>::for_each_block(TFunction &&func) const
-    {
-        for_each_block_impl(std::forward<TFunction>(func), 0,
-                            m_cells[dim - 1].size(), {},
-                            std::integral_constant<std::size_t, dim - 1>{});
-    }
-
-    template<std::size_t Dim, class TInterval>
-    template<typename TFunction, std::size_t N>
-    void LevelCellArray<Dim, TInterval>::for_each_block_impl(
-        TFunction &&func, index_t start_index, index_t end_index,
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
-        std::integral_constant<std::size_t, N>) const
-    {
-        for (index_t i = start_index; i < end_index; ++i)
-        {
-            auto const &interval = m_cells[N][i];
-            for (coord_index_t c = interval.start; c < interval.end; ++c)
-            {
-                index[N] = c;
-                for_each_block_impl(
-                    std::forward<TFunction>(func),
-                    m_offsets[N - 1][interval.index + c],
-                    m_offsets[N - 1][interval.index + c + 1], index,
-                    std::integral_constant<std::size_t, N - 1>{});
-            }
-        }
-    }
-
-    template<std::size_t Dim, class TInterval>
-    template<typename TFunction>
-    void LevelCellArray<Dim, TInterval>::for_each_block_impl(
-        TFunction &&func, index_t start_index, index_t end_index,
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
-        std::integral_constant<std::size_t, 0>) const
-    {
-        for (index_t i = start_index; i < end_index; ++i)
-        {
-            auto const &interval = m_cells[0][i];
-            index[0] = interval.start;
-            std::vector<xt::xtensor<int, 1>> stencil;
-            if (dim == 2)
-            {
-                stencil = {{0, -1}, {0, 0}, {0, 1}};
-            }
-            if (dim == 3)
-            {
-                stencil = {{0, -1, -1}, {0, 0, -1}, {0, 1, -1},
-                           {0, -1, 0},  {0, 0, 0},  {0, 1, 0},
-                           {0, -1, 1},  {0, 0, 1},  {0, 1, 1}};
-            }
-
-            xt::xtensor_fixed<
-                int, xt::xshape<static_cast<size_t>(mure::ipow(3, dim - 1))>>
-                rows;
-            for (size_t i = 0; i < stencil.size(); ++i)
-            {
-                rows[i] = find(index + stencil[i]);
-            }
-
-            if (xt::all(rows > -1))
-            {
-                if (dim == 2)
-                {
-                    auto load_input = [&](auto const &array) {
-                        auto t = xt::xtensor<int, 2>::from_shape(
-                            {3, interval.size()});
-                        for (size_t i = 0; i < t.shape()[0]; ++i)
-                        {
-                            auto const &interval_tmp = m_cells[0][rows[i]];
-                            xt::view(t, i, xt::all()) = xt::view(
-                                array,
-                                xt::range(interval_tmp.index + interval.start,
-                                          interval_tmp.index + interval.end));
-                        }
-                        return t;
-                    };
-
-                    auto load_output = [&](auto &array) -> decltype(auto) {
-                        auto const &interval_tmp = m_cells[0][rows[1]];
-                        return xt::view(
-                            array, xt::newaxis(),
-                            xt::range(interval_tmp.index + interval.start + 1,
-                                      interval_tmp.index + interval.end - 1));
-                    };
-                    func(load_input, load_output);
-                }
-                if (dim == 3)
-                {
-                    auto load_input = [&](auto const &array) {
-                        auto t = xt::xtensor<int, 3>::from_shape(
-                            {3, 3, interval.size()});
-                        for (size_t j = 0; j < t.shape()[1]; ++j)
-                        {
-                            for (size_t i = 0; i < t.shape()[0]; ++i)
-                            {
-                                auto const &interval_tmp =
-                                    m_cells[0][rows[i + 3 * j]];
-                                xt::view(t, i, j, xt::all()) = xt::view(
-                                    array,
-                                    xt::range(
-                                        interval_tmp.index + interval.start,
-                                        interval_tmp.index + interval.end));
-                            }
-                        }
-                        return t;
-                    };
-
-                    auto load_output = [&](auto &array) -> decltype(auto) {
-                        auto const &interval_tmp = m_cells[0][rows[4]];
-                        return xt::view(
-                            array, xt::newaxis(), xt::newaxis(),
-                            xt::range(interval_tmp.index + interval.start + 1,
-                                      interval_tmp.index + interval.end - 1));
-                    };
-                    func(load_input, load_output);
-                }
-            }
-        }
     }
 
     template<std::size_t Dim, class TInterval>
