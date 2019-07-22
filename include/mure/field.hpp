@@ -7,13 +7,14 @@
 #include <xtensor/xview.hpp>
 
 #include "cell.hpp"
+#include "field_expression.hpp"
 #include "mesh.hpp"
 #include "mesh_type.hpp"
 
 namespace mure
 {
     template<class MRConfig, class value_t>
-    class Field {
+    class Field : public field_expression<Field<MRConfig, value_t>> {
       public:
         static constexpr auto dim = MRConfig::dim;
         using value_type = value_t;
@@ -21,15 +22,35 @@ namespace mure
         using index_t = typename MRConfig::index_t;
         using interval_t = typename MRConfig::interval_t;
 
-        // Field(){};
         Field(Field const &) = default;
         Field &operator=(Field const &) = default;
+
+        Field(Field &&) = default;
+        Field &operator=(Field &&) = default;
 
         Field(std::string name, Mesh<MRConfig> &mesh)
             : name_(name), mesh(&mesh),
               m_data(std::array<std::size_t, 1>{mesh.nb_total_cells()})
         {
             m_data.fill(0);
+        }
+
+        template<class E>
+        Field &operator=(const field_expression<E> &e)
+        {
+            mesh->for_each_cell(
+                [&](auto &cell) { (*this)[cell] = e.derived_cast()(cell); });
+            return *this;
+        }
+
+        value_type const operator()(Cell<coord_index_t, dim> cell) const
+        {
+            return m_data[cell.index];
+        }
+
+        value_type &operator()(Cell<coord_index_t, dim> cell)
+        {
+            return m_data[cell.index];
         }
 
         value_type const operator[](Cell<coord_index_t, dim> cell) const
@@ -130,10 +151,12 @@ namespace mure
         void to_stream(std::ostream &os) const
         {
             os << "Field " << name_ << "\n";
-            mesh->for_each_cell([&](auto &cell) {
-                os << cell.level << "[" << cell.center()
-                   << "]:" << m_data[cell.index] << "\n";
-            }, MeshType::all_cells);
+            mesh->for_each_cell(
+                [&](auto &cell) {
+                    os << cell.level << "[" << cell.center()
+                       << "]:" << m_data[cell.index] << "\n";
+                },
+                MeshType::all_cells);
         }
 
       private:
