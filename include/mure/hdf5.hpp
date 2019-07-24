@@ -11,13 +11,15 @@
 #include <xtensor/xio.hpp>
 
 #include "cell.hpp"
-#include "mesh.hpp"
 #include "mesh_type.hpp"
 
 namespace mure
 {
     template<class MRConfig>
     class Mesh;
+
+    template<class MRConfig, class value_t = double>
+    class Field;
 
     std::string element_type(std::size_t dim)
     {

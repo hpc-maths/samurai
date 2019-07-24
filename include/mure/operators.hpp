@@ -2,51 +2,107 @@
 
 #include <xtensor/xfixed.hpp>
 
-#include "cell_list.hpp"
+#include "utils.hpp"
 
 namespace mure
 {
-    template<class MRConfig, class value_t = double>
-    class Field;
-
-    template<class MRConfig>
-    class Projection {
-        using index_t = typename MRConfig::index_t;
-        using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = typename MRConfig::interval_t;
-        constexpr static auto dim = MRConfig::dim;
-
+    template<template<class T> class OP, class... CT>
+    class field_operator_function {
       public:
-        Projection(std::size_t level,
-                   xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
-                   interval_t interval)
-            : level{level}, i{interval}
-        {
-            if (dim > 1)
-                j = index[0];
-            if (dim > 2)
-                k = index[1];
-        }
+        static constexpr std::size_t dim = detail::compute_dim<CT...>();
 
-        void apply(Field<MRConfig> &field) const
+        field_operator_function(CT &&... e) : m_e{std::forward<CT>(e)...}
+        {}
+
+        template<class interval_t, class index_t>
+        void operator()(std::size_t level, index_t index, interval_t i)
         {
-            apply_impl(field, std::integral_constant<std::size_t, dim>{});
+            OP<interval_t> op(level, index, i);
+            apply(op);
         }
 
       private:
+        template<class interval_t>
+        void apply(OP<interval_t> &op) const
+        {
+            apply_impl(std::make_index_sequence<sizeof...(CT)>(), op);
+        }
+
+        template<std::size_t... I, class interval_t>
+        void apply_impl(std::index_sequence<I...>, OP<interval_t> &op) const
+        {
+            op(std::get<I>(m_e)..., std::integral_constant<std::size_t, dim>{});
+        }
+
+        std::tuple<CT...> m_e;
+    };
+
+    template<template<class T> class OP, class... CT>
+    auto make_field_operator_function(CT &&... e)
+    {
+        return field_operator_function<OP, CT...>(std::forward<CT>(e)...);
+    }
+
+    template<class TInterval>
+    class field_operator_base {
+      public:
+        using interval_t = TInterval;
+        using coord_index_t = typename interval_t::coord_index_t;
+
         std::size_t level;
         interval_t i;
         coord_index_t j, k;
 
-        void apply_impl(Field<MRConfig> &field,
-                        std::integral_constant<std::size_t, 1>) const
+      protected:
+        template<std::size_t dim>
+        field_operator_base(
+            std::size_t level,
+            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
+            interval_t interval)
+            : level{level}, i{interval}
+        {
+            if (dim > 0)
+                j = index[0];
+            if (dim > 1)
+                k = index[1];
+        }
+    };
+
+#define INIT_OPERATOR(NAME)                                                    \
+    using interval_t = TInterval;                                              \
+    using coord_index_t = typename interval_t::coord_index_t;                  \
+                                                                               \
+    using base = field_operator_base<interval_t>;                              \
+    using base::i;                                                             \
+    using base::j;                                                             \
+    using base::k;                                                             \
+    using base::level;                                                         \
+                                                                               \
+    template<std::size_t dim>                                                  \
+    NAME(std::size_t level,                                                    \
+         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,              \
+         interval_t interval)                                                  \
+        : base(level, index, interval)                                         \
+    {}
+
+    /***********************
+     * projection operator *
+     ***********************/
+
+    template<class TInterval>
+    class projection_op_ : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(projection_op_)
+
+        template<class T>
+        void operator()(T &field, Dim<1>) const
         {
             field(level, i) =
                 .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
         }
 
-        void apply_impl(Field<MRConfig> &field,
-                        std::integral_constant<std::size_t, 2>) const
+        template<class T>
+        void operator()(T &field, Dim<2>) const
         {
             field(level, i, j) = .25 * (field(level + 1, 2 * i, 2 * j) +
                                         field(level + 1, 2 * i, 2 * j + 1) +
@@ -54,8 +110,8 @@ namespace mure
                                         field(level + 1, 2 * i + 1, 2 * j + 1));
         }
 
-        void apply_impl(Field<MRConfig> &field,
-                        std::integral_constant<std::size_t, 3>) const
+        template<class T>
+        void operator()(T &field, Dim<3>) const
         {
             field(level - 1, i, j, k) =
                 .125 * (field(level, 2 * i, 2 * j, 2 * k) +
@@ -67,37 +123,24 @@ namespace mure
         }
     };
 
-    template<class MRConfig>
-    class Maximum {
-        using index_t = typename MRConfig::index_t;
-        using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = typename MRConfig::interval_t;
-        constexpr static auto dim = MRConfig::dim;
+    template<class T>
+    auto projection(T &&field)
+    {
+        return make_field_operator_function<projection_op_>(
+            std::forward<T>(field));
+    }
 
+    /********************
+     * maximum operator *
+     ********************/
+
+    template<class TInterval>
+    class maximum_op : public field_operator_base<TInterval> {
       public:
-        Maximum(std::size_t level,
-                xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
-                interval_t interval)
-            : level{level}, i{interval}
-        {
-            if (dim > 1)
-                j = index[0];
-            if (dim > 2)
-                k = index[1];
-        }
+        INIT_OPERATOR(maximum_op)
 
-        void apply(Field<MRConfig, bool> &field) const
-        {
-            apply_impl(field, std::integral_constant<std::size_t, dim>{});
-        }
-
-      private:
-        std::size_t level;
-        interval_t i;
-        coord_index_t j, k;
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 1>) const
+        template<class T>
+        void operator()(T &field, Dim<1>) const
         {
             xt::xtensor<bool, 1> mask =
                 field(level + 1, 2 * i) | field(level + 1, 2 * i + 1);
@@ -109,8 +152,8 @@ namespace mure
                 field(level + 1, 2 * i) | field(level + 1, 2 * i + 1);
         }
 
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 2>) const
+        template<class T>
+        void operator()(T &field, Dim<2>) const
         {
             xt::xtensor<bool, 1> mask = field(level + 1, 2 * i, 2 * j) |
                                         field(level + 1, 2 * i + 1, 2 * j) |
@@ -128,287 +171,32 @@ namespace mure
                                  field(level + 1, 2 * i, 2 * j + 1) |
                                  field(level + 1, 2 * i + 1, 2 * j + 1);
         }
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 3>) const
-        {
-            field(level - 1, i, j, k) =
-                field(level, 2 * i, 2 * j, 2 * k) |
-                field(level, 2 * i + 1, 2 * j, 2 * k) |
-                field(level, 2 * i, 2 * j + 1, 2 * k) |
-                field(level, 2 * i + 1, 2 * j + 1, 2 * k) |
-                field(level, 2 * i, 2 * j, 2 * k + 1) |
-                field(level, 2 * i + 1, 2 * j, 2 * k + 1) |
-                field(level, 2 * i, 2 * j + 1, 2 * k + 1) |
-                field(level, 2 * i + 1, 2 * j + 1, 2 * k + 1);
-        }
     };
 
-    // template<class MRConfig>
-    // class Coarsen
-    // {
-    //     using index_t = typename MRConfig::index_t;
-    //     using coord_index_t = typename MRConfig::coord_index_t;
-    //     using interval_t = typename MRConfig::interval_t;
-    //     constexpr static auto dim = MRConfig::dim;
+    template<class T>
+    auto maximum(T &&field)
+    {
+        return make_field_operator_function<maximum_op>(std::forward<T>(field));
+    }
 
-    // public:
-    //     Coarsen(std::size_t level,
-    //               xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
-    //               interval_t interval)
-    //         : level{level}, i{interval}
-    //     {
-    //         if (dim > 1)
-    //             j = index[1];
-    //         if (dim > 2)
-    //             k = index[2];
-    //     }
+    /*******************
+     * graded operator *
+     *******************/
 
-    //     void apply(CellList<MRConfig>& cell_list, Field<MRConfig, bool>
-    //     const& keep) const
-    //     {
-    //         apply_impl(cell_list, keep, std::integral_constant<std::size_t,
-    //         dim>{});
-    //     }
-
-    // private:
-    //     std::size_t level;
-    //     interval_t i;
-    //     coord_index_t j, k;
-
-    //     void apply_impl(CellList<MRConfig>& cell_list, Field<MRConfig, bool>
-    //     const& field, std::integral_constant<std::size_t, 1>) const
-    //     {
-    //         xt::xtensor<bool, 1> mask = field(level, 2*i) | field(level, 2*i
-    //         + 1);
-
-    //         xt::masked_view(field(level-1, i), !mask) = true;
-    //         // xt::masked_view(field(level, 2*i), mask) = true;
-    //         // xt::masked_view(field(level, 2*i + 1), mask) = true;
-    //     }
-
-    //     void apply_impl(Field<MRConfig, bool>& field,
-    //     std::integral_constant<std::size_t, 2>) const
-    //     {
-    //         xt::xtensor<bool, 1> mask = field(level, 2*i    , 2*j    ) |
-    //                                     field(level, 2*i + 1, 2*j    ) |
-    //                                     field(level, 2*i    , 2*j + 1) |
-    //                                     field(level, 2*i + 1, 2*j + 1);
-
-    //         xt::masked_view(field(level-1, i, j), !mask) = true;
-
-    //         // xt::masked_view(field(level, 2*i    , 2*j    ), mask) = true;
-    //         // xt::masked_view(field(level, 2*i + 1, 2*j    ), mask) = true;
-    //         // xt::masked_view(field(level, 2*i    , 2*j + 1), mask) = true;
-    //         // xt::masked_view(field(level, 2*i + 1, 2*j + 1), mask) = true;
-    //     }
-
-    //     void apply_impl(Field<MRConfig, bool>& field,
-    //     std::integral_constant<std::size_t, 3>) const
-    //     {
-    //         field(level - 1, i, j, k) = xt::maximum(field(level, 2*i    , 2*j
-    //         , 2*k    ),
-    //                                                 field(level, 2*i + 1, 2*j
-    //                                                 , 2*k    ), field(level,
-    //                                                 2*i    , 2*j + 1, 2*k ),
-    //                                                 field(level, 2*i + 1, 2*j
-    //                                                 + 1, 2*k    ),
-    //                                                 field(level, 2*i    , 2*j
-    //                                                 , 2*k + 1), field(level,
-    //                                                 2*i + 1, 2*j    , 2*k +
-    //                                                 1), field(level, 2*i    ,
-    //                                                 2*j + 1, 2*k + 1),
-    //                                                 field(level, 2*i + 1, 2*j
-    //                                                 + 1, 2*k + 1));
-    //     }
-    // };
-
-    template<class MRConfig>
-    class Test {
-        using index_t = typename MRConfig::index_t;
-        using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = typename MRConfig::interval_t;
-        constexpr static auto dim = MRConfig::dim;
-
+    template<class TInterval>
+    class graded_op : public field_operator_base<TInterval> {
       public:
-        Test(std::size_t level,
-             xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
-             interval_t interval)
-            : level{level}, i{interval}
-        {
-            if (dim > 1)
-                j = index[0];
-            if (dim > 2)
-                k = index[1];
-        }
+        INIT_OPERATOR(graded_op)
 
-        void apply(Field<MRConfig, bool> &field) const
-        {
-            apply_impl(field, std::integral_constant<std::size_t, dim>{});
-        }
-
-      private:
-        std::size_t level;
-        interval_t i;
-        coord_index_t j, k;
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 1>) const
-        {
-            xt::xtensor<bool, 1> mask =
-                field(level, 2 * i) | field(level, 2 * i + 1);
-
-            xt::masked_view(field(level - 1, i), !mask) = true;
-            // xt::masked_view(field(level, 2*i), mask) = true;
-            // xt::masked_view(field(level, 2*i + 1), mask) = true;
-        }
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 2>) const
-        {
-            xt::xtensor<bool, 1> mask = field(level, 2 * i, 2 * j) |
-                                        field(level, 2 * i + 1, 2 * j) |
-                                        field(level, 2 * i, 2 * j + 1) |
-                                        field(level, 2 * i + 1, 2 * j + 1);
-
-            xt::masked_view(field(level - 1, i, j), !mask) = true;
-
-            // xt::masked_view(field(level-1, i, j), mask) = false;
-            // xt::masked_view(field(level, 2*i    , 2*j    ), mask) = true;
-            // xt::masked_view(field(level, 2*i + 1, 2*j    ), mask) = true;
-            // xt::masked_view(field(level, 2*i    , 2*j + 1), mask) = true;
-            // xt::masked_view(field(level, 2*i + 1, 2*j + 1), mask) = true;
-        }
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 3>) const
-        {
-            field(level - 1, i, j, k) =
-                xt::maximum(field(level, 2 * i, 2 * j, 2 * k),
-                            field(level, 2 * i + 1, 2 * j, 2 * k),
-                            field(level, 2 * i, 2 * j + 1, 2 * k),
-                            field(level, 2 * i + 1, 2 * j + 1, 2 * k),
-                            field(level, 2 * i, 2 * j, 2 * k + 1),
-                            field(level, 2 * i + 1, 2 * j, 2 * k + 1),
-                            field(level, 2 * i, 2 * j + 1, 2 * k + 1),
-                            field(level, 2 * i + 1, 2 * j + 1, 2 * k + 1));
-        }
-    };
-
-    template<class MRConfig>
-    class Clean {
-        using index_t = typename MRConfig::index_t;
-        using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = typename MRConfig::interval_t;
-        constexpr static auto dim = MRConfig::dim;
-
-      public:
-        Clean(std::size_t level,
-              xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
-              interval_t interval)
-            : level{level}, i{interval}
-        {
-            if (dim > 1)
-                j = index[0];
-            if (dim > 2)
-                k = index[1];
-        }
-
-        void apply(Field<MRConfig, bool> &field) const
-        {
-            apply_impl(field, std::integral_constant<std::size_t, dim>{});
-        }
-
-      private:
-        std::size_t level;
-        interval_t i;
-        coord_index_t j, k;
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 1>) const
-        {
-            field(level, i) = false;
-        }
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 2>) const
-        {
-            field(level, i, j) = false;
-        }
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 3>) const
-        {
-            field(level - 1, i, j, k) =
-                xt::maximum(field(level, 2 * i, 2 * j, 2 * k),
-                            field(level, 2 * i + 1, 2 * j, 2 * k),
-                            field(level, 2 * i, 2 * j + 1, 2 * k),
-                            field(level, 2 * i + 1, 2 * j + 1, 2 * k),
-                            field(level, 2 * i, 2 * j, 2 * k + 1),
-                            field(level, 2 * i + 1, 2 * j, 2 * k + 1),
-                            field(level, 2 * i, 2 * j + 1, 2 * k + 1),
-                            field(level, 2 * i + 1, 2 * j + 1, 2 * k + 1));
-        }
-    };
-
-    template<class MRConfig>
-    class Graded_op {
-        using index_t = typename MRConfig::index_t;
-        using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = typename MRConfig::interval_t;
-        constexpr static auto dim = MRConfig::dim;
-
-      public:
-        Graded_op(std::size_t level,
-                  xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
-                  xt::xtensor_fixed<interval_t, xt::xshape<dim>> interval)
-            : level{level}, i{interval[0]}, interval{interval}
-        {
-            if (dim > 1)
-                j = index[0];
-            if (dim > 2)
-                k = index[1];
-        }
-
-        void apply(Field<MRConfig, bool> &field_dest,
-                   const Field<MRConfig, bool> &field_src) const
-        {
-            apply_impl(field_dest, field_src,
-                       std::integral_constant<std::size_t, dim>{});
-        }
-
-        void apply(Field<MRConfig, bool> &field) const
-        {
-            apply_impl(field, std::integral_constant<std::size_t, dim>{});
-        }
-
-      private:
-        std::size_t level;
-        interval_t i;
-        coord_index_t j, k;
-        xt::xtensor_fixed<interval_t, xt::xshape<dim>> interval;
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 1>) const
+        template<class T>
+        void operator()(T &field, Dim<1>) const
         {
             field(level, i + 1) |= field(level, i);
             field(level, i - 1) |= field(level, i);
         }
 
-        void apply_impl(Field<MRConfig, bool> &field_dest,
-                        const Field<MRConfig, bool> &field_src,
-                        std::integral_constant<std::size_t, 2>) const
-        {
-            coord_index_t ii_start = -1, ii_end = 1;
-            coord_index_t jj_start = -1, jj_end = 1;
-
-            for (coord_index_t jj = jj_start; jj <= jj_end; ++jj)
-                for (coord_index_t ii = ii_start; ii <= ii_end; ++ii)
-                    field_dest(level, i + ii, j + jj) |= field_src(level, i, j);
-        }
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 2>) const
+        template<class T>
+        void operator()(T &field, Dim<2>) const
         {
             coord_index_t ii_start = -1, ii_end = 1;
             coord_index_t jj_start = -1, jj_end = 1;
@@ -417,118 +205,60 @@ namespace mure
                 for (coord_index_t ii = ii_start; ii <= ii_end; ++ii)
                     field(level, i + ii, j + jj) |= field(level, i, j);
         }
-
-        void apply_impl(Field<MRConfig, bool> &field,
-                        std::integral_constant<std::size_t, 3>) const
-        {
-            if (xt::any(field(level, i, j, k) < 1))
-                field(level, i, j, k) = true;
-        }
     };
 
-    template<class MRConfig>
-    class Copy {
-        using index_t = typename MRConfig::index_t;
-        using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = typename MRConfig::interval_t;
-        constexpr static auto dim = MRConfig::dim;
+    template<class T>
+    auto graded(T &&field)
+    {
+        return make_field_operator_function<graded_op>(std::forward<T>(field));
+    }
 
+    /*****************
+     * copy operator *
+     *****************/
+
+    template<class TInterval>
+    class copy_op : public field_operator_base<TInterval> {
       public:
-        Copy(std::size_t level,
-             xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
-             interval_t interval)
-            : level{level}, i{interval}
-        {
-            if (dim > 1)
-                j = index[0];
-            if (dim > 2)
-                k = index[1];
-        }
+        INIT_OPERATOR(copy_op)
 
-        void apply(Field<MRConfig> &dest, Field<MRConfig> const &src) const
-        {
-            apply_impl(dest, src, std::integral_constant<std::size_t, dim>{});
-        }
-
-      private:
-        std::size_t level;
-        interval_t i;
-        coord_index_t j, k;
-
-        void apply_impl(Field<MRConfig> &dest, Field<MRConfig> const &src,
-                        std::integral_constant<std::size_t, 1>) const
+        template<class T>
+        void operator()(T &dest, const T &src, Dim<1>) const
         {
             dest(level, i) = src(level, i);
         }
 
-        void apply_impl(Field<MRConfig> &dest, Field<MRConfig> const &src,
-                        std::integral_constant<std::size_t, 2>) const
+        template<class T>
+        void operator()(T &dest, const T &src, Dim<2>) const
         {
             dest(level, i, j) = src(level, i, j);
         }
 
-        void apply_impl(Field<MRConfig> &dest, Field<MRConfig> const &src,
-                        std::integral_constant<std::size_t, 3>) const
+        template<class T>
+        void operator()(T &dest, const T &src, Dim<3>) const
         {
             dest(level, i, j, k) = src(level, i, j, k);
         }
     };
 
-    template<class MRConfig>
-    class Detail_op {
-        using index_t = typename MRConfig::index_t;
-        using coord_index_t = typename MRConfig::coord_index_t;
-        using interval_t = typename MRConfig::interval_t;
-        constexpr static auto dim = MRConfig::dim;
-        constexpr static auto max_refinement_level =
-            MRConfig::max_refinement_level;
+    template<class T>
+    auto copy(T &&dest, T &&src)
+    {
+        return make_field_operator_function<copy_op>(std::forward<T>(dest),
+                                                     std::forward<T>(src));
+    }
 
+    /***************************
+     * compute detail operator *
+     ***************************/
+
+    template<class TInterval>
+    class compute_detail_op : public field_operator_base<TInterval> {
       public:
-        Detail_op(std::size_t level,
-                  xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>> index,
-                  interval_t interval)
-            : level{level}, i{interval}
-        {
-            if (dim > 1)
-                j = index[0];
-            if (dim > 2)
-                k = index[1];
-        }
+        INIT_OPERATOR(compute_detail_op)
 
-        void compute_detail(Field<MRConfig> &detail,
-                            Field<MRConfig> const &field) const
-        {
-            compute_detail_impl(detail, field,
-                                std::integral_constant<std::size_t, dim>{});
-        }
-
-        void compute_max_detail(
-            xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>
-                &max_detail,
-            Field<MRConfig> const &detail) const
-        {
-            compute_max_detail_impl(max_detail, detail,
-                                    std::integral_constant<std::size_t, dim>{});
-        }
-
-        void to_coarsen(
-            Field<MRConfig, bool> &keep, Field<MRConfig> const &detail,
-            xt::xtensor_fixed<
-                double, xt::xshape<max_refinement_level + 1>> const &max_detail,
-            double eps) const
-        {
-            to_coarsen_impl(keep, detail, max_detail, eps,
-                            std::integral_constant<std::size_t, dim>{});
-        }
-
-      private:
-        std::size_t level;
-        interval_t i;
-        coord_index_t j, k;
-
-        void compute_detail_impl(Field<MRConfig> &detail,
-                                 Field<MRConfig> const &field,
-                                 std::integral_constant<std::size_t, 1>) const
+        template<class T>
+        void operator()(T &detail, const T &field, Dim<1>) const
         {
             detail(level + 1, 2 * i) =
                 field(level + 1, 2 * i) -
@@ -540,9 +270,8 @@ namespace mure
                  1. / 8 * (field(level, i + 1) - field(level, i - 1)));
         }
 
-        void compute_detail_impl(Field<MRConfig> &detail,
-                                 Field<MRConfig> const &field,
-                                 std::integral_constant<std::size_t, 2>) const
+        template<class T>
+        void operator()(T &detail, const T &field, Dim<2>) const
         {
             detail(level + 1, 2 * i, 2 * j) =
                 field(level + 1, 2 * i, 2 * j) -
@@ -580,12 +309,26 @@ namespace mure
                      (field(level, i + 1, j + 1) - field(level, i - 1, j + 1) +
                       field(level, i - 1, j - 1) - field(level, i + 1, j - 1)));
         }
+    };
 
-        void compute_max_detail_impl(
-            xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>
-                &max_detail,
-            Field<MRConfig> const &detail,
-            std::integral_constant<std::size_t, 1>) const
+    template<class T>
+    auto compute_detail(T &&detail, T &&field)
+    {
+        return make_field_operator_function<compute_detail_op>(
+            std::forward<T>(detail), std::forward<T>(field));
+    }
+
+    /*******************************
+     * compute max detail operator *
+     *******************************/
+
+    template<class TInterval>
+    class compute_max_detail_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(compute_max_detail_op)
+
+        template<class T, class U>
+        void operator()(const U &detail, T &max_detail, Dim<1>) const
         {
             auto ii = 2 * i;
             ii.step = 1;
@@ -594,11 +337,8 @@ namespace mure
                          xt::amax(xt::abs(detail(level + 1, ii)))[0]);
         }
 
-        void compute_max_detail_impl(
-            xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>
-                &max_detail,
-            Field<MRConfig> const &detail,
-            std::integral_constant<std::size_t, 2>) const
+        template<class T, class U>
+        void operator()(const U &detail, T &max_detail, Dim<2>) const
         {
             auto ii = 2 * i;
             ii.step = 1;
@@ -608,12 +348,27 @@ namespace mure
                              xt::abs(detail(level + 1, ii, 2 * j)),
                              xt::abs(detail(level + 1, ii, 2 * j + 1))))[0]);
         }
+    };
 
-        void to_coarsen_impl(
-            Field<MRConfig, bool> &keep, Field<MRConfig> const &detail,
-            xt::xtensor_fixed<
-                double, xt::xshape<max_refinement_level + 1>> const &max_detail,
-            double eps, std::integral_constant<std::size_t, 1>) const
+    template<class T, class U>
+    auto compute_max_detail(U &&detail, T &&max_detail)
+    {
+        return make_field_operator_function<compute_max_detail_op>(
+            std::forward<U>(detail), std::forward<T>(max_detail));
+    }
+
+    /***********************
+     * to_coarsen operator *
+     ***********************/
+
+    template<class TInterval>
+    class to_coarsen_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(to_coarsen_op)
+
+        template<class T, class U, class V>
+        void operator()(T &keep, const U &detail, const V &max_detail,
+                        double eps, Dim<1>) const
         {
             auto mask = (.5 *
                          (xt::abs(detail(level + 1, 2 * i)) +
@@ -623,11 +378,9 @@ namespace mure
             xt::masked_view(keep(level + 1, 2 * i + 1), mask) = false;
         }
 
-        void to_coarsen_impl(
-            Field<MRConfig, bool> &keep, Field<MRConfig> const &detail,
-            xt::xtensor_fixed<
-                double, xt::xshape<max_refinement_level + 1>> const &max_detail,
-            double eps, std::integral_constant<std::size_t, 2>) const
+        template<class T, class U, class V>
+        void operator()(T &keep, const U &detail, const V &max_detail,
+                        double eps, Dim<2>) const
         {
             auto mask = (0.25 *
                          (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
@@ -642,4 +395,81 @@ namespace mure
                 false;
         }
     };
+
+    template<class... CT>
+    auto to_coarsen(CT &&... e)
+    {
+        return make_field_operator_function<to_coarsen_op>(
+            std::forward<CT>(e)...);
+    }
+
+    /******************
+     * clean operator *
+     ******************/
+
+    template<class TInterval>
+    class clean_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(clean_op)
+
+        template<class T>
+        void operator()(T &field, Dim<1>) const
+        {
+            field(level, i) = false;
+        }
+
+        template<class T>
+        void operator()(T &field, Dim<2>) const
+        {
+            field(level, i, j) = false;
+        }
+
+        template<class T>
+        void operator()(T &field, Dim<3>) const
+        {
+            field(level, i, j, k) = false;
+        }
+    };
+
+    template<class... CT>
+    auto clean(CT &&... e)
+    {
+        return make_field_operator_function<clean_op>(std::forward<CT>(e)...);
+    }
+
+    /********************
+     * to_keep operator *
+     ********************/
+
+    template<class TInterval>
+    class to_keep_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(to_keep_op)
+
+        template<class T>
+        void operator()(T &field, Dim<1>) const
+        {
+            xt::xtensor<bool, 1> mask =
+                field(level, 2 * i) | field(level, 2 * i + 1);
+
+            xt::masked_view(field(level - 1, i), !mask) = true;
+        }
+
+        template<class T>
+        void operator()(T &field, Dim<2>) const
+        {
+            xt::xtensor<bool, 1> mask = field(level, 2 * i, 2 * j) |
+                                        field(level, 2 * i + 1, 2 * j) |
+                                        field(level, 2 * i, 2 * j + 1) |
+                                        field(level, 2 * i + 1, 2 * j + 1);
+
+            xt::masked_view(field(level - 1, i, j), !mask) = true;
+        }
+    };
+
+    template<class... CT>
+    auto to_keep(CT &&... e)
+    {
+        return make_field_operator_function<to_keep_op>(std::forward<CT>(e)...);
+    }
 }

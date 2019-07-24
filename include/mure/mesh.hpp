@@ -88,30 +88,22 @@ namespace mure
             update_ghost_nodes();
         }
 
-        void projection(Field<MRConfig> &field) const
+        void make_projection(Field<MRConfig> &field) const
         {
 
             for (std::size_t level = max_refinement_level - 1; level >= 1;
                  --level)
             {
-                if (!m_cells[MeshType::proj_cells][level - 1].empty())
-                {
-                    auto expr =
-                        intersection(m_cells[MeshType::all_cells][level],
-                                     m_cells[MeshType::proj_cells][level - 1])
-                            .on(level - 1);
-                    expr([&](auto &index, auto &interval, auto &) {
-                        auto op =
-                            Projection<MRConfig>(level - 1, index, interval[0]);
-                        op.apply(field);
-                    });
-                }
+                auto expr =
+                    intersection(m_cells[MeshType::all_cells][level],
+                                 m_cells[MeshType::proj_cells][level - 1])
+                        .on(level - 1);
+                expr.apply_op(level - 1, projection(field));
             }
         }
 
         void prediction(Field<MRConfig> &field) const
-        {
-        }
+        {}
 
         void refinment(Field<MRConfig> &detail, Field<MRConfig> &field,
                        std::size_t /*ite*/)
@@ -140,18 +132,11 @@ namespace mure
                     dim * (m_cells[MeshType::cells].max_level() - level - 1);
                 auto eps_l = std::pow(2, -exponent) * eps;
 
-                subset([&](auto &index, auto &interval,
-                           auto & /*interval_index*/) {
-                    auto op = Detail_op<MRConfig>(level, index, interval[0]);
-                    op.compute_detail(detail, field);
-                    op.compute_max_detail(max_detail, detail);
-                });
+                subset.apply_op(level, compute_detail(detail, field),
+                                compute_max_detail(detail, max_detail));
 
-                subset([&](auto &index, auto &interval,
-                           auto & /*interval_index*/) {
-                    auto op = Detail_op<MRConfig>(level, index, interval[0]);
-                    op.to_coarsen(keep, detail, max_detail, eps_l);
-                });
+                subset.apply_op(level,
+                                to_coarsen(keep, detail, max_detail, eps_l));
             }
 
             for (std::size_t level = max_refinement_level; level > 0; --level)
@@ -161,24 +146,13 @@ namespace mure
                                  m_cells[MeshType::all_cells][level - 1])
                         .on(level - 1);
 
-                keep_subset([&](auto &index, auto &interval,
-                                auto & /*interval_index*/) {
-                    auto op = Maximum<MRConfig>(level - 1, index, interval[0]);
-                    op.apply(keep);
-                    auto op_graded =
-                        Graded_op<MRConfig>(level - 1, index, interval);
-                    op_graded.apply(keep);
-                });
+                keep_subset.apply_op(level - 1, maximum(keep), graded(keep));
 
                 auto clean_subset =
                     difference(m_cells[MeshType::all_cells][level - 1],
                                m_cells[MeshType::cells][level - 1]);
 
-                clean_subset([&](auto &index, auto &interval,
-                                 auto & /*interval_index*/) {
-                    auto op = Clean<MRConfig>(level - 1, index, interval[0]);
-                    op.apply(keep);
-                });
+                clean_subset.apply_op(level - 1, clean(keep));
             }
 
             for (std::size_t level = max_refinement_level; level > 0; --level)
@@ -188,11 +162,7 @@ namespace mure
                                  m_cells[MeshType::cells][level])
                         .on(level - 1);
 
-                keep_subset([&](auto &index, auto &interval,
-                                auto & /*interval_index*/) {
-                    auto op = Test<MRConfig>(level, index, interval[0]);
-                    op.apply(keep);
-                });
+                keep_subset.apply_op(level, to_keep(keep));
             }
 
             CellList<MRConfig> cell_list;
@@ -226,11 +196,7 @@ namespace mure
                     intersection(m_cells[MeshType::all_cells][level],
                                  new_mesh.m_cells[MeshType::cells][level]);
 
-                subset([&](auto &index, auto &interval,
-                           auto & /*interval_index*/) {
-                    auto op = Copy<MRConfig>(level, index, interval[0]);
-                    op.apply(new_field, field);
-                });
+                subset.apply_op(level, copy(new_field, field));
             }
 
             m_cells = std::move(new_mesh.m_cells);
@@ -238,8 +204,7 @@ namespace mure
         }
 
         void coarsening() const
-        {
-        }
+        {}
 
         inline std::size_t nb_cells(MeshType mesh_type) const
         {
@@ -259,6 +224,11 @@ namespace mure
         auto const &get_cells(std::size_t i) const
         {
             return m_cells[i];
+        }
+
+        auto operator[](MeshType mesh_type) const
+        {
+            return m_cells[mesh_type];
         }
 
         template<typename... T>
@@ -347,10 +317,8 @@ namespace mure
 
                 expr([&](auto &index_yz, auto &interval,
                          auto & /*interval_index*/) {
-                    cell_list_1[level - 1]
-                               [index_yz]
-                                   .add_interval(
-                                       {interval[0].start, interval[0].end});
+                    cell_list_1[level - 1][index_yz].add_interval(
+                        {interval[0].start, interval[0].end});
                 });
             }
         }

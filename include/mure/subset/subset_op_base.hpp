@@ -5,84 +5,11 @@
 #include <type_traits>
 
 #include "../level_cell_array.hpp"
+#include "../utils.hpp"
 #include "subset_node.hpp"
 
 namespace mure
 {
-    namespace detail
-    {
-        template<std::size_t S1, size_t S2>
-        struct check_dim : std::false_type
-        {
-        };
-
-        template<std::size_t S>
-        struct check_dim<S, S> : std::true_type
-        {
-        };
-
-        template<std::size_t, class... CT>
-        struct compute_dim_impl;
-
-        template<std::size_t S>
-        struct compute_dim_impl<S>
-        {
-            static constexpr std::size_t dim = S;
-        };
-
-        template<size_t S, class C1, class... CT>
-        struct compute_dim_impl<S, C1, CT...>
-        {
-            static_assert(
-                check_dim<S, std::remove_reference<C1>::type::dim>::value,
-                "dim must be the same for all nodes");
-            static constexpr std::size_t dim = compute_dim_impl<S, CT...>::dim;
-        };
-
-        template<class C0, class... CT>
-        constexpr std::size_t compute_dim()
-        {
-            return compute_dim_impl<std::remove_reference<C0>::type::dim,
-                                    CT...>::dim;
-        }
-
-        template<class T>
-        constexpr T const &do_max(T const &v)
-        {
-            return v;
-        }
-
-        template<class C0, class... CT>
-        struct interval_type
-        {
-            using check = std::is_same<
-                typename std::remove_reference<C0>::type::interval_t,
-                typename std::remove_reference<CT>::type::interval_t...>;
-            static_assert(check::value, "interval type must be the same");
-            using type = typename std::remove_reference<C0>::type::interval_t;
-        };
-
-        template<class T1, class T2, class... Rest>
-        constexpr typename std::common_type<T1, T2, Rest...>::type const &
-        do_max(T1 const &v0, T2 const &v1, Rest const &... rest)
-        {
-            return do_max(v0 < v1 ? v1 : v0, rest...);
-        }
-
-        template<class T>
-        constexpr T const &do_min(T const &v)
-        {
-            return v;
-        }
-
-        template<class T1, class T2, class... Rest>
-        constexpr typename std::common_type<T1, T2, Rest...>::type const &
-        do_min(T1 const &v0, T2 const &v1, Rest const &... rest)
-        {
-            return do_min(v0 < v1 ? v0 : v1, rest...);
-        }
-    }
-
     template<class F, class... CT>
     class subset_operator;
 
@@ -161,6 +88,9 @@ namespace mure
         template<class Func>
         void operator()(Func &&func);
 
+        template<class... Op>
+        void apply_op(std::size_t level, Op &&... op);
+
         template<std::size_t... I>
         auto on_impl(std::size_t ref_level, std::index_sequence<I...>) const;
 
@@ -176,16 +106,19 @@ namespace mure
         const tuple_type &get_tuple() const;
 
         template<std::size_t... I>
-        void get_interval_index_impl(std::vector<std::size_t> &index, std::index_sequence<I...>)
+        void get_interval_index_impl(std::vector<std::size_t> &index,
+                                     std::index_sequence<I...>)
         {
             (void)std::initializer_list<int>{
-            (std::get<I>(m_e).get_interval_index(index), 0)...};
+                (std::get<I>(m_e).get_interval_index(index), 0)...};
         }
 
-        void get_interval_index(std::vector<std::size_t> &index){
-            return get_interval_index_impl(index,
-                           std::make_index_sequence<sizeof...(CT)>());
+        void get_interval_index(std::vector<std::size_t> &index)
+        {
+            return get_interval_index_impl(
+                index, std::make_index_sequence<sizeof...(CT)>());
         }
+
       private:
         template<std::size_t... I, class... Args>
         bool eval_impl(int scan, std::size_t dim,
@@ -235,6 +168,19 @@ namespace mure
         reset();
         apply(std::forward<Func>(func),
               std::integral_constant<std::size_t, dim - 1>{});
+    }
+
+    template<class F, class... CT>
+    template<class... Op>
+    inline void subset_operator<F, CT...>::apply_op(std::size_t level,
+                                                    Op &&... op)
+    {
+        reset();
+        auto func = [&](auto &index, auto &interval, auto &) {
+            (void)std::initializer_list<int>{
+                (op(level, index, interval[0]), 0)...};
+        };
+        apply(func, std::integral_constant<std::size_t, dim - 1>{});
     }
 
     template<class F, class... CT>
@@ -473,7 +419,6 @@ namespace mure
                 return subset_node<mesh_node<mesh_t>>(
                     std::forward<mesh_node<mesh_t>>(r));
             }
-
         };
     }
 
