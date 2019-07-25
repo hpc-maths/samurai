@@ -2,6 +2,7 @@
 
 #include <xtensor/xfixed.hpp>
 
+#include "field_expression.hpp"
 #include "utils.hpp"
 
 namespace mure
@@ -471,5 +472,41 @@ namespace mure
     auto to_keep(CT &&... e)
     {
         return make_field_operator_function<to_keep_op>(std::forward<CT>(e)...);
+    }
+
+    /***********************
+     * apply_expr operator *
+     ***********************/
+
+    template<class TInterval>
+    class apply_expr_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(apply_expr_op)
+
+        template<class T, class E>
+        void operator()(T &field, const field_expression<E> &e, Dim<1>) const
+        {
+            field(level, i) = e.derived_cast()(level, i);
+        }
+
+        template<class T, class E>
+        void operator()(T &field, const field_expression<E> &e, Dim<2>) const
+        {
+            std::cout << xt::eval(e.derived_cast()(level, i, j)) << "\n";
+            field(level, i, j) = e.derived_cast()(level, i, j);
+        }
+
+        template<class T, class E>
+        void operator()(T &field, const field_expression<E> &e, Dim<3>) const
+        {
+            field(level, i, j, k) = e.derived_cast()(level, i, j, k);
+        }
+    };
+
+    template<class... CT>
+    auto apply_expr(CT &&... e)
+    {
+        return make_field_operator_function<apply_expr_op>(
+            std::forward<CT>(e)...);
     }
 }

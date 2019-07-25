@@ -16,18 +16,18 @@
 
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast -Wunused-variable")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Weverything -Wno-c++98-compat")
 set(CMAKE_CXX_STANDARD 14)
 
 # add_executable(heaviside heaviside.cpp ${MURE_HEADERS})
 # target_link_libraries(heaviside mure)
 
-# add_executable(advection_old advection_old.cpp ${MURE_HEADERS})
-# target_link_libraries(advection_old mure)
+add_executable(advection advection.cpp ${MURE_HEADERS})
+target_link_libraries(advection mure)
 
-add_executable(subset subset.cpp ${MURE_HEADERS})
-target_link_libraries(subset mure)
+#add_executable(subset subset.cpp ${MURE_HEADERS})
+#target_link_libraries(subset mure)
 
 # add_executable(bench_level_cell_array bench_level_cell_array.cpp ${MURE_HEADERS})
 # target_link_libraries(bench_level_cell_array mure)

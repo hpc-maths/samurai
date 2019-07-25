@@ -7,6 +7,7 @@
 
 #include "cell.hpp"
 #include "interval.hpp"
+#include "utils.hpp"
 
 namespace mure
 {
@@ -31,18 +32,36 @@ namespace mure
         using expression_tag = field_expression_tag;
     };
 
-    template<class F, class R, class... CT>
-    class field_function
-        : public field_expression<field_function<F, R, CT...>> {
+    namespace detail
+    {
+        template<class E, class enable = void>
+        struct xview_type_impl
+        {
+            using type = E;
+        };
+
+        template<class E>
+        struct xview_type_impl<E,
+                               std::enable_if_t<is_field_expression<E>::value>>
+        {
+            using type = typename E::view_type;
+        };
+    }
+
+    template<class E>
+    using xview_type = detail::xview_type_impl<E>;
+
+    template<class E>
+    using xview_type_t = typename xview_type<E>::type;
+
+    template<class F, class... CT>
+    class field_function : public field_expression<field_function<F, CT...>> {
       public:
-        using self_type = field_function<F, R, CT...>;
+        using self_type = field_function<F, CT...>;
         using functor_type = std::remove_reference_t<F>;
 
-        using value_type = R;
-        using reference = value_type;
-        using const_reference = value_type;
-        using pointer = value_type *;
-        using const_pointer = const value_type *;
+        static constexpr std::size_t dim = detail::compute_dim<CT...>();
+
         using interval_t = Interval<int>;
 
         using expression_tag = field_expression_tag;
@@ -53,22 +72,25 @@ namespace mure
         field_function(Func &&f, CTA &&... e) noexcept;
 
         template<class... T>
-        auto const operator()(interval_t interval, T... index) const
+        auto operator()(const std::size_t &level, const interval_t &interval,
+                        const T &... index) const
         {
-            return evaluate(std::make_index_sequence<sizeof...(CT)>(), interval,
-                            index...);
+            auto expr = evaluate(std::make_index_sequence<sizeof...(CT)>(),
+                                 level, interval, index...);
+            return expr;
         }
 
         template<class coord_index_t, std::size_t dim>
-        auto const operator()(Cell<coord_index_t, dim> cell) const
+        auto operator()(const Cell<coord_index_t, dim> &cell) const
         {
             return evaluate(std::make_index_sequence<sizeof...(CT)>(), cell);
         }
 
         template<std::size_t... I, class... T>
-        const_reference evaluate(std::index_sequence<I...>, T... t) const
+        auto evaluate(std::index_sequence<I...>, T &&... t) const
         {
-            return m_f(std::get<I>(m_e).template operator()(t...)...);
+            return m_f(
+                std::get<I>(m_e).template operator()(std::forward<T>(t)...)...);
         }
 
       private:
@@ -76,12 +98,19 @@ namespace mure
         functor_type m_f;
     };
 
-    template<class F, class R, class... CT>
+    template<class F, class... CT>
     template<class Func, class... CTA, class>
-    inline field_function<F, R, CT...>::field_function(Func &&f,
-                                                       CTA &&... e) noexcept
+    inline field_function<F, CT...>::field_function(Func &&f,
+                                                    CTA &&... e) noexcept
         : m_e(std::forward<CTA>(e)...), m_f(std::forward<Func>(f))
     {}
+
+    template<class F, class... E>
+    inline auto make_field_function(E &&... e) noexcept
+    {
+        using type = field_function<F, E...>;
+        return type(F(), std::forward<E>(e)...);
+    }
 }
 
 namespace xt
@@ -91,9 +120,7 @@ namespace xt
         template<class F, class... E>
         struct select_xfunction_expression<mure::field_expression_tag, F, E...>
         {
-            using result_type = decltype(std::declval<F>()(
-                std::declval<xvalue_type_t<std::decay_t<E>>>()...));
-            using type = mure::field_function<F, result_type, E...>;
+            using type = mure::field_function<F, E...>;
         };
     }
 }

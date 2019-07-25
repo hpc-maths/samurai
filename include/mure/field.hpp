@@ -17,16 +17,23 @@ namespace mure
     class Field : public field_expression<Field<MRConfig, value_t>> {
       public:
         static constexpr auto dim = MRConfig::dim;
+        static constexpr auto max_refinement_level =
+            MRConfig::max_refinement_level;
+
         using value_type = value_t;
+        using data_type = xt::xtensor<value_type, 1>;
+        using view_type =
+            decltype(xt::view(std::declval<data_type &>(), xt::range(0, 1, 1)));
+
         using coord_index_t = typename MRConfig::coord_index_t;
         using index_t = typename MRConfig::index_t;
         using interval_t = typename MRConfig::interval_t;
 
-        Field(Field const &) = default;
-        Field &operator=(Field const &) = default;
+        // Field(Field const &) = default;
+        // Field &operator=(Field const &) = default;
 
-        Field(Field &&) = default;
-        Field &operator=(Field &&) = default;
+        // Field(Field &&) = default;
+        // Field &operator=(Field &&) = default;
 
         Field(std::string name, Mesh<MRConfig> &mesh)
             : name_(name), mesh(&mesh),
@@ -38,49 +45,54 @@ namespace mure
         template<class E>
         Field &operator=(const field_expression<E> &e)
         {
-            mesh->for_each_cell(
-                [&](auto &cell) { (*this)[cell] = e.derived_cast()(cell); });
+            // mesh->for_each_cell(
+            //     [&](auto &cell) { (*this)[cell] = e.derived_cast()(cell); });
+
+            for (std::size_t level = 0; level <= max_refinement_level; ++level)
+            {
+                auto subset = intersection((*mesh)[MeshType::cells][level],
+                                           (*mesh)[MeshType::cells][level]);
+
+                subset.apply_op(level, apply_expr(*this, e));
+            }
             return *this;
         }
 
-        value_type const operator()(Cell<coord_index_t, dim> cell) const
+        value_type const operator()(const Cell<coord_index_t, dim> &cell) const
         {
             return m_data[cell.index];
         }
 
-        value_type &operator()(Cell<coord_index_t, dim> cell)
+        value_type &operator()(const Cell<coord_index_t, dim> &cell)
         {
             return m_data[cell.index];
         }
 
-        value_type const operator[](Cell<coord_index_t, dim> cell) const
+        value_type const operator[](const Cell<coord_index_t, dim> &cell) const
         {
             return m_data[cell.index];
         }
 
-        value_type &operator[](Cell<coord_index_t, dim> cell)
+        value_type &operator[](const Cell<coord_index_t, dim> &cell)
         {
             return m_data[cell.index];
         }
 
         template<class... T>
-        auto const operator()(interval_t interval, T... index) const
+        auto operator()(interval_t interval, T... index) const
         {
             return xt::view(m_data, xt::range(interval.start, interval.end));
-            // return xt::view(data, xt::range(interval.begin, interval.end),
-            // index...);
         }
 
         template<class... T>
         auto operator()(interval_t interval, T... index)
         {
             return xt::view(m_data, xt::range(interval.start, interval.end));
-            // return xt::view(data, xt::range(interval.begin, interval.end),
-            // index...);
         }
 
         template<class... T>
-        auto operator()(std::size_t level, interval_t interval, T... index)
+        auto operator()(const std::size_t level, const interval_t &interval,
+                        const T... index)
         {
             auto interval_tmp = mesh->get_interval(level, interval, index...);
             return xt::view(m_data,
@@ -90,8 +102,8 @@ namespace mure
         }
 
         template<class... T>
-        auto const operator()(std::size_t level, interval_t interval,
-                              T... index) const
+        auto operator()(const std::size_t level, const interval_t &interval,
+                        const T... index) const
         {
             auto interval_tmp = mesh->get_interval(level, interval, index...);
             return xt::view(m_data,
@@ -162,8 +174,7 @@ namespace mure
       private:
         std::string name_;
         Mesh<MRConfig> *mesh;
-        xt::xtensor<value_type, 1> m_data;
-        xt::xtensor<value_type, 1> m_work;
+        data_type m_data;
     };
 
     template<class MRConfig, class T>
