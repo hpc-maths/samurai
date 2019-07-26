@@ -178,7 +178,7 @@ namespace mure
         reset();
         auto func = [&](auto &index, auto &interval, auto &) {
             (void)std::initializer_list<int>{
-                (op(level, index, interval[0]), 0)...};
+                (op(level, interval[0], index), 0)...};
         };
         apply(func, std::integral_constant<std::size_t, dim - 1>{});
     }

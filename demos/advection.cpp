@@ -1,5 +1,7 @@
 #include <chrono>
 
+#include <array>
+
 #include <mure/box.hpp>
 #include <mure/field.hpp>
 #include <mure/hdf5.hpp>
@@ -50,14 +52,15 @@ int main()
     constexpr size_t dim = 2;
     using Config = mure::MRConfig<dim>;
 
-    double dt = .01, a = -1;
+    double dt = .01;
+    std::array<double, dim> a{1, -1};
 
     mure::Box<double, dim> box({-1, -1}, {1, 1});
-    mure::Mesh<Config> mesh{box, 2};
+    mure::Mesh<Config> mesh{box, 5};
 
     // Initialization
     auto u = init_u(mesh);
-    u = 2 * u;
+
     // tic();
     // for (std::size_t i = 0; i < 20; ++i)
     // {
@@ -68,16 +71,16 @@ int main()
     // }
     // std::cout << toc() << "\n";
 
-    // tic();
-    // for (std::size_t ite = 0; ite < 50; ++ite)
-    // {
-    //     // std::cout << "ite " << ite << "\n";
-    //     u = u - dt * mure::upwind(a, u);
-    // }
-    // std::cout << toc() << "\n";
+    tic();
+    for (std::size_t ite = 0; ite < 50; ++ite)
+    {
+        // std::cout << "ite " << ite << "\n";
+        u = u - dt * mure::upwind(a, u);
+    }
+    std::cout << toc() << "\n";
 
-    // auto h5file = mure::Hdf5("advection");
-    // h5file.add_mesh(mesh);
-    // h5file.add_field(u);
+    auto h5file = mure::Hdf5("advection");
+    h5file.add_mesh(mesh);
+    h5file.add_field(u);
     return 0;
 }

@@ -4,6 +4,7 @@
 
 #include "cell.hpp"
 #include "field_expression.hpp"
+#include "operators.hpp"
 
 namespace mure
 {
@@ -30,49 +31,50 @@ namespace mure
     //     return make_field_function<stencil_field>(std::forward<E>(e));
     // }
 
-    template<class E>
-    class stencil_field : public field_expression<stencil_field<E>> {
-      public:
-        using stencil = std::true_type;
+    // template<class E>
+    // class stencil_field : public field_expression<stencil_field<E>> {
+    //   public:
+    //     using stencil = std::true_type;
 
-        stencil_field(double a, field_expression<E> &e) : m_a{a}, m_e{e}
-        {}
+    //     stencil_field(double a, field_expression<E> &e) : m_a{a}, m_e{e}
+    //     {}
 
-        template<class coord_index_t, std::size_t dim>
-        auto operator()(const Cell<coord_index_t, dim> cell) const
-        {
-            return m_e.derived_cast()(cell);
-        }
+    //     template<class coord_index_t, std::size_t dim>
+    //     auto operator()(const Cell<coord_index_t, dim> cell) const
+    //     {
+    //         return m_e.derived_cast()(cell);
+    //     }
 
-        template<class interval_t, class... Index>
-        auto operator()(const std::size_t &level, const interval_t &interval,
-                        const Index &... index) const
-        {
-            auto dx = 1. / (1 << level);
-            return m_a / dx *
-                   (m_e.derived_cast()(level, interval + 1, index...) -
-                    m_e.derived_cast()(level, interval, index...));
-        }
+    //     template<class interval_t, class... Index>
+    //     auto operator()(const std::size_t &level, const interval_t &interval,
+    //                     const Index &... index) const
+    //     {
+    //         auto dx = 1. / (1 << level);
+    //         return m_a / dx *
+    //                (m_e.derived_cast()(level, interval + 1, index...) -
+    //                 m_e.derived_cast()(level, interval, index...));
+    //     }
 
-      private:
-        double m_a;
-        field_expression<E> &m_e;
-    };
+    //   private:
+    //     double m_a;
+    //     field_expression<E> &m_e;
+    // };
 
-    template<class E>
-    inline auto upwind(double a, E &&e)
-    {
-        return stencil_field<std::decay_t<E>>(a, std::forward<E>(e));
-    }
+    // template<class E>
+    // inline auto upwind(double a, E &&e)
+    // {
+    //     return stencil_field<std::decay_t<E>>(a, std::forward<E>(e));
+    // }
 
-    // using left = std::integral_constant<std::size_t, 0>;
-    // using right = std::integral_constant<std::size_t, 1>;
-    // using down = std::integral_constant<std::size_t, 2>;
-    // using back = std::integral_constant<std::size_t, 3>;
-    // using front = std::integral_constant<std::size_t, 4>;
+    using left = std::integral_constant<std::size_t, 0>;
+    using right = std::integral_constant<std::size_t, 1>;
+    using down = std::integral_constant<std::size_t, 2>;
+    using back = std::integral_constant<std::size_t, 3>;
+    using front = std::integral_constant<std::size_t, 4>;
 
     // template<template<std::size_t Dim, class T> class OP, class... CT>
-    // class finite_volume_scheme : public field_expression<OP> {
+    // class finite_volume_scheme
+    //     : public field_expression<finite_volume_scheme<OP, CT...>> {
     //   public:
     //     static constexpr std::size_t dim = detail::compute_dim<CT...>();
 
@@ -157,54 +159,115 @@ namespace mure
     //     }
     // };
 
-    // template<std::size_t Dim, class TInterval>
-    // class upwind_op : public finite_volume_scheme<upwind_op<Dim, TInterval>>
-    // {
-    //   public:
-    //     using interval_t = TInterval;
-    //     using coord_index_t = typename interval_t::coord_index_t;
+    template<class D>
+    class finite_volume : public field_expression<D> {
+      public:
+        using derived_type = D;
+        static constexpr std::size_t dim = D::dim;
 
-    //     upwind_op(const std::size_t &level, const interval_t &interval,
-    //               const coord_index_t &j)
-    //         : level{level}, i{interval}, j{j}, m_a{-1}, m_dx{1. / (1 <<
-    //         level)}
-    //     {}
+        derived_type &derived_cast() & noexcept;
+        const derived_type &derived_cast() const &noexcept;
+        derived_type derived_cast() && noexcept;
 
-    //     template<class T>
-    //     auto operator()(T &u)
-    //     {
-    //         return u;
-    //     }
+        template<class... CT>
+        auto operator()(Dim<1> d, CT &&... e) const
+        {
+            return derived_cast().left_flux(d, std::forward<CT>(e)...) +
+                   derived_cast().right_flux(d, std::forward<CT>(e)...);
+        }
 
-    //     //     // template<std::size_t direction, class T>
-    //     //     // auto flux(const T &U);
+        template<class... CT>
+        auto operator()(Dim<2> d, CT &&... e) const
+        {
+            return derived_cast().left_flux(d, std::forward<CT>(e)...) +
+                   derived_cast().right_flux(d, std::forward<CT>(e)...) +
+                   derived_cast().down_flux(d, std::forward<CT>(e)...) +
+                   derived_cast().up_flux(d, std::forward<CT>(e)...);
+        }
 
-    //     //     template<class T>
-    //     //     auto operator()(const T &u) const
-    //     //     {
-    //     //         // return flux<left>(u);
-    //     //         return u(level, i, j);
-    //     //     }
+      protected:
+        finite_volume(){};
+        ~finite_volume() = default;
 
-    //   private:
-    //     double m_a;
-    //     double m_dx;
-    //     interval_t i;
-    //     coord_index_t j;
-    //     std::size_t level;
-    // };
+        finite_volume(const finite_volume &) = default;
+        finite_volume &operator=(const finite_volume &) = default;
 
-    // template<class TInterval>
-    // template<class T>
-    // auto upwind_op<2, TInterval>::flux<0>(const T &u)
-    // {
-    //     return m_a / m_dx * (u(level, i + 1, j) - u(level, i, j));
-    // }
+        finite_volume(finite_volume &&) = default;
+        finite_volume &operator=(finite_volume &&) = default;
+    };
 
-    // template<class... T>
-    // auto upwind(T &&... field)
-    // {
-    //     return
-    //     make_finite_volume_scheme<upwind_op>(std::forward<T>(field)...);
-    // }
+    template<class D>
+        inline auto finite_volume<D>::derived_cast() &
+        noexcept -> derived_type &
+    {
+        return *static_cast<derived_type *>(this);
+    }
+
+    template<class D>
+        inline auto finite_volume<D>::derived_cast() const &
+        noexcept -> const derived_type &
+    {
+        return *static_cast<const derived_type *>(this);
+    }
+
+    template<class D>
+        inline auto finite_volume<D>::derived_cast() && noexcept -> derived_type
+    {
+        return *static_cast<derived_type *>(this);
+    }
+
+    template<class TInterval>
+    class upwind_op : public field_operator_base<TInterval>,
+                      public finite_volume<upwind_op<TInterval>> {
+      public:
+        INIT_OPERATOR(upwind_op)
+
+        // 1D
+        template<class T>
+        auto left_flux(Dim<1>, double a, const T &u) const
+        {
+            return ((a < 0) ? a : 0) / dx * (u(level, i + 1) - u(level, i));
+        }
+
+        template<class T>
+        auto right_flux(Dim<1>, double a, const T &u) const
+        {
+            return ((a > 0) ? a : 0) / dx * (u(level, i) - u(level, i - 1));
+        }
+
+        // 2D
+        template<class T>
+        auto left_flux(Dim<2>, std::array<double, 2> a, const T &u) const
+        {
+            return ((a[0] < 0) ? a[0] : 0) / dx *
+                   (u(level, i + 1, j) - u(level, i, j));
+        }
+
+        template<class T>
+        auto right_flux(Dim<2>, std::array<double, 2> a, const T &u) const
+        {
+            return ((a[0] > 0) ? a[0] : 0) / dx *
+                   (u(level, i, j) - u(level, i - 1, j));
+        }
+
+        template<class T>
+        auto down_flux(Dim<2>, std::array<double, 2> a, const T &u) const
+        {
+            return ((a[1] < 0) ? a[1] : 0) / dx *
+                   (u(level, i, j + 1) - u(level, i, j));
+        }
+
+        template<class T>
+        auto up_flux(Dim<2>, std::array<double, 2> a, const T &u) const
+        {
+            return ((a[1] > 0) ? a[1] : 0) / dx *
+                   (u(level, i, j) - u(level, i, j - 1));
+        }
+    };
+
+    template<class... CT>
+    auto upwind(CT &&... e)
+    {
+        return make_field_operator_function<upwind_op>(std::forward<CT>(e)...);
+    }
 }

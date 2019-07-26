@@ -8,31 +8,42 @@
 namespace mure
 {
     template<template<class T> class OP, class... CT>
-    class field_operator_function {
+    class field_operator_function
+        : public field_expression<field_operator_function<OP, CT...>> {
       public:
         static constexpr std::size_t dim = detail::compute_dim<CT...>();
 
         field_operator_function(CT &&... e) : m_e{std::forward<CT>(e)...}
         {}
 
-        template<class interval_t, class index_t>
-        void operator()(std::size_t level, index_t index, interval_t i)
+        template<class interval_t, class... index_t>
+        auto operator()(std::size_t level, interval_t i, index_t... index) const
         {
-            OP<interval_t> op(level, index, i);
-            apply(op);
+            OP<interval_t> op(level, i, index...);
+            return apply(op);
+        }
+
+        template<class interval_t, class coord_index_t>
+        auto operator()(
+            std::size_t level, interval_t i,
+            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index) const
+        {
+            OP<interval_t> op(level, i, index);
+            return apply(op);
         }
 
       private:
         template<class interval_t>
-        void apply(OP<interval_t> &op) const
+        auto apply(OP<interval_t> &op) const
         {
-            apply_impl(std::make_index_sequence<sizeof...(CT)>(), op);
+            return apply_impl(std::make_index_sequence<sizeof...(CT)>(), op);
         }
 
         template<std::size_t... I, class interval_t>
-        void apply_impl(std::index_sequence<I...>, OP<interval_t> &op) const
+        auto apply_impl(std::index_sequence<I...>, OP<interval_t> &op) const
         {
-            op(std::get<I>(m_e)..., std::integral_constant<std::size_t, dim>{});
+            return op(std::integral_constant<std::size_t, dim>{},
+                      std::get<I>(m_e)...);
         }
 
         std::tuple<CT...> m_e;
@@ -53,20 +64,34 @@ namespace mure
         std::size_t level;
         interval_t i;
         coord_index_t j, k;
+        double dx;
 
       protected:
         template<std::size_t dim>
         field_operator_base(
-            std::size_t level,
-            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,
-            interval_t interval)
-            : level{level}, i{interval}
+            std::size_t level, interval_t interval,
+            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
+            : level{level}, i{interval}, dx{1. / (1 << level)}
         {
             if (dim > 0)
                 j = index[0];
             if (dim > 1)
                 k = index[1];
         }
+
+        field_operator_base(std::size_t level, interval_t interval)
+            : level{level}, i{interval}, dx{1. / (1 << level)}
+        {}
+
+        field_operator_base(std::size_t level, interval_t interval,
+                            coord_index_t j_)
+            : level{level}, dx{1. / (1 << level)}, i{interval}, j{j_}
+        {}
+
+        field_operator_base(std::size_t level, interval_t interval,
+                            coord_index_t j_, coord_index_t k_)
+            : level{level}, dx{1. / (1 << level)}, i{interval}, j{j_}, k{k_}
+        {}
     };
 
 #define INIT_OPERATOR(NAME)                                                    \
@@ -78,12 +103,16 @@ namespace mure
     using base::j;                                                             \
     using base::k;                                                             \
     using base::level;                                                         \
+    using base::dx;                                                            \
                                                                                \
     template<std::size_t dim>                                                  \
-    NAME(std::size_t level,                                                    \
-         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index,              \
-         interval_t interval)                                                  \
-        : base(level, index, interval)                                         \
+    NAME(std::size_t level, interval_t interval,                               \
+         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)              \
+        : base(level, interval, index)                                         \
+    {}                                                                         \
+    template<class... index_t>                                                 \
+    NAME(std::size_t level, interval_t interval, index_t... index)             \
+        : base(level, interval, index...)                                      \
     {}
 
     /***********************
@@ -96,14 +125,14 @@ namespace mure
         INIT_OPERATOR(projection_op_)
 
         template<class T>
-        void operator()(T &field, Dim<1>) const
+        void operator()(Dim<1>, T &field) const
         {
             field(level, i) =
                 .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
         }
 
         template<class T>
-        void operator()(T &field, Dim<2>) const
+        void operator()(Dim<2>, T &field) const
         {
             field(level, i, j) = .25 * (field(level + 1, 2 * i, 2 * j) +
                                         field(level + 1, 2 * i, 2 * j + 1) +
@@ -141,7 +170,7 @@ namespace mure
         INIT_OPERATOR(maximum_op)
 
         template<class T>
-        void operator()(T &field, Dim<1>) const
+        void operator()(Dim<1>, T &field) const
         {
             xt::xtensor<bool, 1> mask =
                 field(level + 1, 2 * i) | field(level + 1, 2 * i + 1);
@@ -154,7 +183,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(T &field, Dim<2>) const
+        void operator()(Dim<2>, T &field) const
         {
             xt::xtensor<bool, 1> mask = field(level + 1, 2 * i, 2 * j) |
                                         field(level + 1, 2 * i + 1, 2 * j) |
@@ -190,14 +219,14 @@ namespace mure
         INIT_OPERATOR(graded_op)
 
         template<class T>
-        void operator()(T &field, Dim<1>) const
+        void operator()(Dim<1>, T &field) const
         {
             field(level, i + 1) |= field(level, i);
             field(level, i - 1) |= field(level, i);
         }
 
         template<class T>
-        void operator()(T &field, Dim<2>) const
+        void operator()(Dim<2>, T &field) const
         {
             coord_index_t ii_start = -1, ii_end = 1;
             coord_index_t jj_start = -1, jj_end = 1;
@@ -224,19 +253,19 @@ namespace mure
         INIT_OPERATOR(copy_op)
 
         template<class T>
-        void operator()(T &dest, const T &src, Dim<1>) const
+        void operator()(Dim<1>, T &dest, const T &src) const
         {
             dest(level, i) = src(level, i);
         }
 
         template<class T>
-        void operator()(T &dest, const T &src, Dim<2>) const
+        void operator()(Dim<2>, T &dest, const T &src) const
         {
             dest(level, i, j) = src(level, i, j);
         }
 
         template<class T>
-        void operator()(T &dest, const T &src, Dim<3>) const
+        void operator()(Dim<3>, T &dest, const T &src) const
         {
             dest(level, i, j, k) = src(level, i, j, k);
         }
@@ -259,7 +288,7 @@ namespace mure
         INIT_OPERATOR(compute_detail_op)
 
         template<class T>
-        void operator()(T &detail, const T &field, Dim<1>) const
+        void operator()(Dim<1>, T &detail, const T &field) const
         {
             detail(level + 1, 2 * i) =
                 field(level + 1, 2 * i) -
@@ -272,7 +301,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(T &detail, const T &field, Dim<2>) const
+        void operator()(Dim<2>, T &detail, const T &field) const
         {
             detail(level + 1, 2 * i, 2 * j) =
                 field(level + 1, 2 * i, 2 * j) -
@@ -329,7 +358,7 @@ namespace mure
         INIT_OPERATOR(compute_max_detail_op)
 
         template<class T, class U>
-        void operator()(const U &detail, T &max_detail, Dim<1>) const
+        void operator()(Dim<1>, const U &detail, T &max_detail) const
         {
             auto ii = 2 * i;
             ii.step = 1;
@@ -339,7 +368,7 @@ namespace mure
         }
 
         template<class T, class U>
-        void operator()(const U &detail, T &max_detail, Dim<2>) const
+        void operator()(Dim<2>, const U &detail, T &max_detail) const
         {
             auto ii = 2 * i;
             ii.step = 1;
@@ -368,8 +397,8 @@ namespace mure
         INIT_OPERATOR(to_coarsen_op)
 
         template<class T, class U, class V>
-        void operator()(T &keep, const U &detail, const V &max_detail,
-                        double eps, Dim<1>) const
+        void operator()(Dim<1>, T &keep, const U &detail, const V &max_detail,
+                        double eps) const
         {
             auto mask = (.5 *
                          (xt::abs(detail(level + 1, 2 * i)) +
@@ -380,8 +409,8 @@ namespace mure
         }
 
         template<class T, class U, class V>
-        void operator()(T &keep, const U &detail, const V &max_detail,
-                        double eps, Dim<2>) const
+        void operator()(Dim<2>, T &keep, const U &detail, const V &max_detail,
+                        double eps) const
         {
             auto mask = (0.25 *
                          (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
@@ -414,13 +443,13 @@ namespace mure
         INIT_OPERATOR(clean_op)
 
         template<class T>
-        void operator()(T &field, Dim<1>) const
+        void operator()(Dim<1>, T &field) const
         {
             field(level, i) = false;
         }
 
         template<class T>
-        void operator()(T &field, Dim<2>) const
+        void operator()(Dim<2>, T &field) const
         {
             field(level, i, j) = false;
         }
@@ -448,7 +477,7 @@ namespace mure
         INIT_OPERATOR(to_keep_op)
 
         template<class T>
-        void operator()(T &field, Dim<1>) const
+        void operator()(Dim<1>, T &field) const
         {
             xt::xtensor<bool, 1> mask =
                 field(level, 2 * i) | field(level, 2 * i + 1);
@@ -457,7 +486,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(T &field, Dim<2>) const
+        void operator()(Dim<2>, T &field) const
         {
             xt::xtensor<bool, 1> mask = field(level, 2 * i, 2 * j) |
                                         field(level, 2 * i + 1, 2 * j) |
@@ -484,20 +513,19 @@ namespace mure
         INIT_OPERATOR(apply_expr_op)
 
         template<class T, class E>
-        void operator()(T &field, const field_expression<E> &e, Dim<1>) const
+        void operator()(Dim<1>, T &field, const field_expression<E> &e) const
         {
             field(level, i) = e.derived_cast()(level, i);
         }
 
         template<class T, class E>
-        void operator()(T &field, const field_expression<E> &e, Dim<2>) const
+        void operator()(Dim<2>, T &field, const field_expression<E> &e) const
         {
-            std::cout << xt::eval(e.derived_cast()(level, i, j)) << "\n";
             field(level, i, j) = e.derived_cast()(level, i, j);
         }
 
         template<class T, class E>
-        void operator()(T &field, const field_expression<E> &e, Dim<3>) const
+        void operator()(Dim<3>, T &field, const field_expression<E> &e) const
         {
             field(level, i, j, k) = e.derived_cast()(level, i, j, k);
         }
