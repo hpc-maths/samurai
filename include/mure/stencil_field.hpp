@@ -12,7 +12,6 @@ namespace mure
     class finite_volume : public field_expression<D> {
       public:
         using derived_type = D;
-        static constexpr std::size_t dim = D::dim;
 
         derived_type &derived_cast() & noexcept;
         const derived_type &derived_cast() const &noexcept;

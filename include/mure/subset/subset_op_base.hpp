@@ -407,7 +407,6 @@ namespace mure
             }
         };
 
-        template<>
         template<std::size_t Dim, class TInterval>
         struct get_arg_impl<LevelCellArray<Dim, TInterval>>
         {

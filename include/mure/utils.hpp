@@ -14,6 +14,9 @@ namespace mure
     template<std::size_t d>
     using Dim = std::integral_constant<std::size_t, d>;
 
+    template<class... T>
+    using void_t = void;
+
     namespace detail
     {
 
@@ -38,7 +41,7 @@ namespace mure
         };
 
         template<typename T>
-        struct has_dim<T, std::void_t<decltype(T::dim)>> : std::true_type
+        struct has_dim<T, void_t<decltype(T::dim)>> : std::true_type
         {
         };
 
