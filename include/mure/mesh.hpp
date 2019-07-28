@@ -102,8 +102,26 @@ namespace mure
             }
         }
 
-        void prediction(Field<MRConfig> &field) const
-        {}
+        void make_prediction(Field<MRConfig> &field) const
+        {
+            for (std::size_t level = 1; level < max_refinement_level; ++level)
+            {
+
+                if (!m_cells[MeshType::cells][level].empty())
+                {
+                    auto expr =
+                        intersection(
+                            difference(
+                                m_cells[MeshType::all_cells][level],
+                                union_(m_cells[MeshType::cells][level],
+                                       m_cells[MeshType::proj_cells][level])),
+                            m_init_cells)
+                            .on(level);
+
+                    expr.apply_op(level, prediction(field));
+                }
+            }
+        }
 
         void refinment(Field<MRConfig> &detail, Field<MRConfig> &field,
                        std::size_t /*ite*/)
@@ -239,21 +257,114 @@ namespace mure
             m_cells = std::move(new_mesh.m_cells);
             field.array() = new_field.array();
         }
+
+        void refinement(Field<MRConfig> &detail, Field<MRConfig> &field,
+                        std::size_t ite)
+        {
+
+            Field<MRConfig, bool> refine{"refine", *this};
+            xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>
+                max_detail;
+            max_detail.fill(std::numeric_limits<double>::min());
+            refine.array().fill(false);
+
+            for (std::size_t level = 0; level < max_refinement_level; ++level)
+            {
+                auto subset = intersection(m_cells[MeshType::all_cells][level],
+                                           m_cells[MeshType::cells][level + 1])
+                                  .on(level);
+
+                double eps = 1e-2;
+                std::size_t exponent =
+                    dim * (m_cells[MeshType::cells].max_level() - level - 1);
+                auto eps_l = std::pow(2, -exponent) * eps;
+
+                subset.apply_op(level, compute_detail(detail, field),
+                                compute_max_detail(detail, max_detail));
+
+                auto subset_ref =
+                    intersection(m_cells[MeshType::cells][level + 1],
+                                 m_cells[MeshType::cells][level + 1]);
+
+                subset_ref.apply_op(
+                    level + 1, to_refine(refine, detail, max_detail, eps_l));
+            }
+
             for (std::size_t level = max_refinement_level; level > 0; --level)
             {
-                auto keep_subset =
-                    intersection(m_cells[MeshType::all_cells][level - 1],
-                                 m_cells[MeshType::cells][level])
+                // auto refine_subset =
+                //     intersection(m_cells[MeshType::cells][level],
+                //                  m_cells[MeshType::all_cells][level - 1])
+                //         .on(level - 1);
+
+                // refine_subset.apply_op(level - 1, maximum_ref(refine));
+
+                auto subset_right =
+                    intersection(
+                        m_cells[MeshType::cells][level],
+                        translate_in_x<-1>(m_cells[MeshType::cells][level - 1]))
                         .on(level - 1);
 
-                keep_subset.apply_op(level, to_keep(keep));
+                subset_right([&](auto &index_yz, auto &interval, auto &) {
+                    auto i = interval[0];
+                    auto j = index_yz[0];
+                    // refine(level - 1, i - 1, j) |= refine(level - 1, i, j);
+                    refine(level - 1, i + 1, j) |=
+                        refine(level, 2 * i + 1, 2 * j) |
+                        refine(level, 2 * i + 1, 2 * j + 1);
+                });
+
+                auto subset_left =
+                    intersection(
+                        translate_in_x<-1>(m_cells[MeshType::cells][level]),
+                        m_cells[MeshType::cells][level - 1])
+                        .on(level - 1);
+
+                subset_left([&](auto &index_yz, auto &interval, auto &) {
+                    auto i = interval[0];
+                    auto j = index_yz[0];
+                    // refine(level - 1, i + 1, j) |= refine(level - 1, i,j);
+                    refine(level - 1, i, j) |=
+                        refine(level, 2 * (i + 1), 2 * j) |
+                        refine(level, 2 * (i + 1), 2 * j + 1);
+                });
+
+                auto subset_down =
+                    intersection(
+                        translate_in_y<-1>(m_cells[MeshType::cells][level]),
+                        m_cells[MeshType::cells][level - 1])
+                        .on(level - 1);
+
+                subset_down([&](auto &index_yz, auto &interval, auto &) {
+                    auto i = interval[0];
+                    auto j = index_yz[0];
+                    // refine(level - 1, i, j) |= refine(level - 1, i, j +1);
+                    refine(level - 1, i, j) |=
+                        refine(level, 2 * i, 2 * (j + 1)) |
+                        refine(level, 2 * i + 1, 2 * (j + 1));
+                });
+
+                auto subset_up =
+                    intersection(
+                        translate_in_y<1>(m_cells[MeshType::cells][level]),
+                        m_cells[MeshType::cells][level - 1])
+                        .on(level - 1);
+
+                subset_up([&](auto &index_yz, auto &interval, auto &) {
+                    auto i = interval[0];
+                    auto j = index_yz[0];
+                    // refine(level - 1, i, j) |= refine(level - 1, i, j - 1);
+                    refine(level - 1, i, j) |=
+                        refine(level, 2 * i, 2 * j - 1) |
+                        refine(level, 2 * i + 1, 2 * j - 1);
+                });
             }
 
             CellList<MRConfig> cell_list;
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
                 const LevelCellArray<dim> &level_cell_array =
-                    m_cells[MeshType::all_cells][level];
+                    m_cells[MeshType::cells][level];
 
                 if (!level_cell_array.empty())
                 {
@@ -261,7 +372,18 @@ namespace mure
                         [&](auto const &index_yz, auto const &interval) {
                             for (int i = interval.start; i < interval.end; ++i)
                             {
-                                if (keep.array()[i + interval.index])
+                                if (refine.array()[i + interval.index])
+                                {
+                                    cell_list[level + 1][2 * index_yz]
+                                        .add_point(2 * i);
+                                    cell_list[level + 1][2 * index_yz]
+                                        .add_point(2 * i + 1);
+                                    cell_list[level + 1][2 * index_yz + 1]
+                                        .add_point(2 * i);
+                                    cell_list[level + 1][2 * index_yz + 1]
+                                        .add_point(2 * i + 1);
+                                }
+                                else
                                 {
                                     cell_list[level][index_yz].add_point(i);
                                 }
@@ -283,12 +405,92 @@ namespace mure
                 subset.apply_op(level, copy(new_field, field));
             }
 
+            for (std::size_t level = 0; level <= max_refinement_level; ++level)
+            {
+                const LevelCellArray<dim> &level_cell_array =
+                    m_cells[MeshType::cells][level];
+
+                if (!level_cell_array.empty())
+                {
+                    level_cell_array.for_each_interval_in_x(
+                        [&](auto const &index_yz, auto const &interval) {
+                            for (int i = interval.start; i < interval.end; ++i)
+                            {
+                                if (refine.array()[i + interval.index])
+                                {
+                                    interval_t ii{i, i + 1};
+                                    interval_t iv = 2 * ii;
+                                    auto jj = index_yz[0];
+                                    auto j = index_yz[0];
+                                    new_field(level + 1, iv, 2 * j) =
+                                        detail(level, ii, jj) / 2 +
+                                        field(level, ii, jj) -
+                                        1. / 8 *
+                                            (field(level, ii + 1, jj) -
+                                             field(level, ii - 1, jj)) -
+                                        1. / 8 *
+                                            (field(level, ii, jj + 1) -
+                                             field(level, ii, jj - 1)) -
+                                        1. / 64 *
+                                            (field(level, ii + 1, jj + 1) -
+                                             field(level, ii - 1, jj + 1) +
+                                             field(level, ii - 1, jj - 1) -
+                                             field(level, ii + 1, jj - 1));
+
+                                    new_field(level + 1, iv, 2 * j + 1) =
+                                        detail(level, ii, jj) / 2 +
+                                        field(level, ii, jj) -
+                                        1. / 8 *
+                                            (field(level, ii + 1, jj) -
+                                             field(level, ii - 1, jj)) +
+                                        1. / 8 *
+                                            (field(level, ii, jj + 1) -
+                                             field(level, ii, jj - 1)) +
+                                        1. / 64 *
+                                            (field(level, ii + 1, jj + 1) -
+                                             field(level, ii - 1, jj + 1) +
+                                             field(level, ii - 1, jj - 1) -
+                                             field(level, ii + 1, jj - 1));
+
+                                    iv = 2 * ii + 1;
+                                    new_field(level + 1, iv, 2 * j) =
+                                        detail(level, ii, jj) / 2 +
+                                        (field(level, ii, jj) +
+                                         1. / 8 *
+                                             (field(level, ii + 1, jj) -
+                                              field(level, ii - 1, jj)) -
+                                         1. / 8 *
+                                             (field(level, ii, jj + 1) -
+                                              field(level, ii, jj - 1)) +
+                                         1. / 64 *
+                                             (field(level, ii + 1, jj + 1) -
+                                              field(level, ii - 1, jj + 1) +
+                                              field(level, ii - 1, jj - 1) -
+                                              field(level, ii + 1, jj - 1)));
+
+                                    new_field(level + 1, iv, 2 * j + 1) =
+                                        detail(level, ii, jj) / 2 +
+                                        (field(level, ii, jj) +
+                                         1. / 8 *
+                                             (field(level, ii + 1, jj) -
+                                              field(level, ii - 1, jj)) +
+                                         1. / 8 *
+                                             (field(level, ii, jj + 1) -
+                                              field(level, ii, jj - 1)) -
+                                         1. / 64 *
+                                             (field(level, ii + 1, jj + 1) -
+                                              field(level, ii - 1, jj + 1) +
+                                              field(level, ii - 1, jj - 1) -
+                                              field(level, ii + 1, jj - 1)));
+                                }
+                            }
+                        });
+                }
+            }
+
             m_cells = std::move(new_mesh.m_cells);
             field.array() = new_field.array();
         }
-
-        void coarsening() const
-        {}
 
         inline std::size_t nb_cells(MeshType mesh_type) const
         {
