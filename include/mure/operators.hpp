@@ -160,6 +160,99 @@ namespace mure
             std::forward<T>(field));
     }
 
+    /***********************
+     * prediction operator *
+     ***********************/
+
+    template<class TInterval>
+    class prediction_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(prediction_op)
+
+        template<class T>
+        void operator()(Dim<2>, T &field) const
+        {
+            for (coord_index_t iii = i.start; iii < i.end; ++iii)
+            {
+                auto tmp = iii >> 1;
+                auto jj = j >> 1;
+                interval_t ii{tmp, tmp + 1};
+                interval_t iv{iii, iii + 1};
+                if (!(iii & 1) and !(j & 1))
+                {
+                    field(level, iv, j) =
+                        field(level - 1, ii, jj) -
+                        1. / 8 *
+                            (field(level - 1, ii + 1, jj) -
+                             field(level - 1, ii - 1, jj)) -
+                        1. / 8 *
+                            (field(level - 1, ii, jj + 1) -
+                             field(level - 1, ii, jj - 1)) -
+                        1. / 64 *
+                            (field(level - 1, ii + 1, jj + 1) -
+                             field(level - 1, ii - 1, jj + 1) +
+                             field(level - 1, ii - 1, jj - 1) -
+                             field(level - 1, ii + 1, jj - 1));
+                }
+                if (!(iii & 1) and (j & 1))
+                {
+                    field(level, iv, j) =
+                        field(level - 1, ii, jj) -
+                        1. / 8 *
+                            (field(level - 1, ii + 1, jj) -
+                             field(level - 1, ii - 1, jj)) +
+                        1. / 8 *
+                            (field(level - 1, ii, jj + 1) -
+                             field(level - 1, ii, jj - 1)) +
+                        1. / 64 *
+                            (field(level - 1, ii + 1, jj + 1) -
+                             field(level - 1, ii - 1, jj + 1) +
+                             field(level - 1, ii - 1, jj - 1) -
+                             field(level - 1, ii + 1, jj - 1));
+                }
+                if ((iii & 1) and !(j & 1))
+                {
+                    field(level, iv, j) =
+                        (field(level - 1, ii, jj) +
+                         1. / 8 *
+                             (field(level - 1, ii + 1, jj) -
+                              field(level - 1, ii - 1, jj)) -
+                         1. / 8 *
+                             (field(level - 1, ii, jj + 1) -
+                              field(level - 1, ii, jj - 1)) +
+                         1. / 64 *
+                             (field(level - 1, ii + 1, jj + 1) -
+                              field(level - 1, ii - 1, jj + 1) +
+                              field(level - 1, ii - 1, jj - 1) -
+                              field(level - 1, ii + 1, jj - 1)));
+                }
+                if ((iii & 1) and (j & 1))
+                {
+                    field(level, iv, j) =
+                        (field(level - 1, ii, jj) +
+                         1. / 8 *
+                             (field(level - 1, ii + 1, jj) -
+                              field(level - 1, ii - 1, jj)) +
+                         1. / 8 *
+                             (field(level - 1, ii, jj + 1) -
+                              field(level - 1, ii, jj - 1)) -
+                         1. / 64 *
+                             (field(level - 1, ii + 1, jj + 1) -
+                              field(level - 1, ii - 1, jj + 1) +
+                              field(level - 1, ii - 1, jj - 1) -
+                              field(level - 1, ii + 1, jj - 1)));
+                }
+            }
+        }
+    };
+
+    template<class T>
+    auto prediction(T &&field)
+    {
+        return make_field_operator_function<prediction_op>(
+            std::forward<T>(field));
+    }
+
     /********************
      * maximum operator *
      ********************/
@@ -178,8 +271,7 @@ namespace mure
             xt::masked_view(field(level + 1, 2 * i), mask) = true;
             xt::masked_view(field(level + 1, 2 * i + 1), mask) = true;
 
-            field(level, i) =
-                field(level + 1, 2 * i) | field(level + 1, 2 * i + 1);
+            xt::masked_view(field(level, i), mask) = true;
         }
 
         template<class T>
@@ -196,10 +288,7 @@ namespace mure
             xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1), mask) =
                 true;
 
-            field(level, i, j) = field(level + 1, 2 * i, 2 * j) |
-                                 field(level + 1, 2 * i + 1, 2 * j) |
-                                 field(level + 1, 2 * i, 2 * j + 1) |
-                                 field(level + 1, 2 * i + 1, 2 * j + 1);
+            xt::masked_view(field(level, i, j), mask) = true;
         }
     };
 
@@ -207,40 +296,6 @@ namespace mure
     auto maximum(T &&field)
     {
         return make_field_operator_function<maximum_op>(std::forward<T>(field));
-    }
-
-    /*******************
-     * graded operator *
-     *******************/
-
-    template<class TInterval>
-    class graded_op : public field_operator_base<TInterval> {
-      public:
-        INIT_OPERATOR(graded_op)
-
-        template<class T>
-        void operator()(Dim<1>, T &field) const
-        {
-            field(level, i + 1) |= field(level, i);
-            field(level, i - 1) |= field(level, i);
-        }
-
-        template<class T>
-        void operator()(Dim<2>, T &field) const
-        {
-            coord_index_t ii_start = -1, ii_end = 1;
-            coord_index_t jj_start = -1, jj_end = 1;
-
-            for (coord_index_t jj = jj_start; jj <= jj_end; ++jj)
-                for (coord_index_t ii = ii_start; ii <= ii_end; ++ii)
-                    field(level, i + ii, j + jj) |= field(level, i, j);
-        }
-    };
-
-    template<class T>
-    auto graded(T &&field)
-    {
-        return make_field_operator_function<graded_op>(std::forward<T>(field));
     }
 
     /*****************
@@ -433,74 +488,42 @@ namespace mure
             std::forward<CT>(e)...);
     }
 
-    /******************
-     * clean operator *
-     ******************/
+    /***********************
+     * to_refine operator *
+     ***********************/
 
     template<class TInterval>
-    class clean_op : public field_operator_base<TInterval> {
+    class to_refine_op : public field_operator_base<TInterval> {
       public:
-        INIT_OPERATOR(clean_op)
+        INIT_OPERATOR(to_refine_op)
 
-        template<class T>
-        void operator()(Dim<1>, T &field) const
+        template<class T, class U, class V>
+        void operator()(Dim<1>, T &refine, const U &detail, const V &max_detail,
+                        double eps) const
         {
-            field(level, i) = false;
+            auto mask = (.5 *
+                         (xt::abs(detail(level + 1, 2 * i)) +
+                          xt::abs(detail(level + 1, 2 * i + 1))) /
+                         max_detail[level + 1]) >= 2 * eps;
+            xt::masked_view(refine(level + 1, 2 * i), mask) = true;
+            xt::masked_view(refine(level + 1, 2 * i + 1), mask) = true;
         }
 
-        template<class T>
-        void operator()(Dim<2>, T &field) const
+        template<class T, class U, class V>
+        void operator()(Dim<2>, T &refine, const U &detail, const V &max_detail,
+                        double eps) const
         {
-            field(level, i, j) = false;
-        }
-
-        template<class T>
-        void operator()(T &field, Dim<3>) const
-        {
-            field(level, i, j, k) = false;
+            auto mask =
+                (xt::abs(detail(level, i, j)) / max_detail[level]) >= 2 * eps;
+            xt::masked_view(refine(level, i, j), mask) = true;
         }
     };
 
     template<class... CT>
-    auto clean(CT &&... e)
+    auto to_refine(CT &&... e)
     {
-        return make_field_operator_function<clean_op>(std::forward<CT>(e)...);
-    }
-
-    /********************
-     * to_keep operator *
-     ********************/
-
-    template<class TInterval>
-    class to_keep_op : public field_operator_base<TInterval> {
-      public:
-        INIT_OPERATOR(to_keep_op)
-
-        template<class T>
-        void operator()(Dim<1>, T &field) const
-        {
-            xt::xtensor<bool, 1> mask =
-                field(level, 2 * i) | field(level, 2 * i + 1);
-
-            xt::masked_view(field(level - 1, i), !mask) = true;
-        }
-
-        template<class T>
-        void operator()(Dim<2>, T &field) const
-        {
-            xt::xtensor<bool, 1> mask = field(level, 2 * i, 2 * j) |
-                                        field(level, 2 * i + 1, 2 * j) |
-                                        field(level, 2 * i, 2 * j + 1) |
-                                        field(level, 2 * i + 1, 2 * j + 1);
-
-            xt::masked_view(field(level - 1, i, j), !mask) = true;
-        }
-    };
-
-    template<class... CT>
-    auto to_keep(CT &&... e)
-    {
-        return make_field_operator_function<to_keep_op>(std::forward<CT>(e)...);
+        return make_field_operator_function<to_refine_op>(
+            std::forward<CT>(e)...);
     }
 
     /***********************
