@@ -627,92 +627,103 @@ namespace mure
             m_mesh = {lcl};
             m_node = {m_mesh};
         }
+        else
+        {
+            LevelCellList<dim, interval_t> lcl{m_ref_level};
+            m_data.for_each_interval_in_x(
+                [&](auto const &index_yz, auto const &interval) {
+                    lcl[index_yz >> m_shift].add_interval(
+                        {interval.start, interval.end});
+                });
+            m_mesh = {lcl};
+            m_node = {m_mesh};
+        }
         // std::cout << m_shift << " " << m_mesh << m_data.data() << "\n";
     }
 
     template<class T>
     inline auto projection_op<T>::index(int i) const noexcept
     {
-        if (m_shift == 0)
-            return m_data.index(i);
-        else
-            return m_node.index(i);
+        // if (m_shift == 0)
+        //     return m_data.index(i);
+        // else
+        return m_node.index(i);
     }
 
     template<class T>
     inline auto projection_op<T>::size(std::size_t dim) const noexcept
     {
-        if (m_shift == 0)
-            return m_data.size(dim);
-        else
-            return m_node.size(dim);
+        // if (m_shift == 0)
+        //     return m_data.size(dim);
+        // else
+        return m_node.size(dim);
     }
 
     template<class T>
     inline auto projection_op<T>::start(std::size_t dim,
                                         std::size_t index) const noexcept
     {
-        if (m_shift == 0)
-            return m_data.start(dim, index);
-        else
-            return m_node.start(dim, index);
+        // if (m_shift == 0)
+        //     return m_data.start(dim, index);
+        // else
+        return m_node.start(dim, index);
     }
 
     template<class T>
     inline auto projection_op<T>::end(std::size_t dim, std::size_t index) const
         noexcept
     {
-        if (m_shift == 0)
-            return m_data.end(dim, index);
-        else
-            return m_node.end(dim, index);
+        // if (m_shift == 0)
+        //     return m_data.end(dim, index);
+        // else
+        return m_node.end(dim, index);
     }
 
     template<class T>
     inline auto projection_op<T>::offset(std::size_t dim,
                                          std::size_t off_ind) const noexcept
     {
-        if (m_shift == 0)
-            return m_data.offset(dim, off_ind);
-        else
-            return m_node.offset(dim, off_ind);
+        // if (m_shift == 0)
+        //     return m_data.offset(dim, off_ind);
+        // else
+        return m_node.offset(dim, off_ind);
     }
 
     template<class T>
     inline auto projection_op<T>::offsets_size(std::size_t dim) const noexcept
     {
-        if (m_shift == 0)
-            return m_data.offsets_size(dim);
-        else
-            return m_node.offsets_size(dim);
+        // if (m_shift == 0)
+        //     return m_data.offsets_size(dim);
+        // else
+        return m_node.offsets_size(dim);
     }
 
     template<class T>
     inline auto projection_op<T>::interval(std::size_t dim,
                                            std::size_t index) const noexcept
     {
-        if (m_shift == 0)
-            return m_data.interval(dim, index);
-        else
-            return m_node.interval(dim, index);
+        // if (m_shift == 0)
+        //     return m_data.interval(dim, index);
+        // else
+        return m_node.interval(dim, index);
     }
 
     template<class T>
     inline auto projection_op<T>::data() const noexcept -> const mesh_type &
     {
-        if (m_shift == 0)
-            return m_data.data();
-        else
-            return m_node.data();
+        // if (m_shift == 0)
+        //     return m_data.data();
+        // else
+        return m_node.data();
     }
 
     template<class T>
     inline std::size_t projection_op<T>::level() const noexcept
     {
-        if (m_shift == 0)
-            return m_data.level();
-        else
-            return m_node.level();
+        // if (m_shift == 0)
+        //     return m_data.level();
+        // else
+        return m_node.level();
     }
 
     namespace detail
@@ -732,7 +743,7 @@ namespace mure
         {
             using mesh_t = LevelCellArray<Dim, TInterval>;
 
-            decltype(auto) operator()(LevelCellArray<Dim, TInterval> &r)
+            decltype(auto) operator()(const LevelCellArray<Dim, TInterval> &r)
             {
                 return mesh_node<mesh_t>(r);
             }
