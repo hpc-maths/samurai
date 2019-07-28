@@ -146,15 +146,99 @@ namespace mure
                                  m_cells[MeshType::all_cells][level - 1])
                         .on(level - 1);
 
-                keep_subset.apply_op(level - 1, maximum(keep), graded(keep));
+                keep_subset.apply_op(level - 1, maximum(keep));
 
-                auto clean_subset =
-                    difference(m_cells[MeshType::all_cells][level - 1],
-                               m_cells[MeshType::cells][level - 1]);
+                auto subset_right =
+                    intersection(
+                        m_cells[MeshType::cells][level],
+                        translate_in_x<1>(m_cells[MeshType::cells][level - 1]))
+                        .on(level - 1);
 
-                clean_subset.apply_op(level - 1, clean(keep));
+                subset_right([&](auto &index_yz, auto &interval, auto &) {
+                    auto i = interval[0];
+                    auto j = index_yz[0];
+                    keep(level - 1, i - 1, j) |= keep(level - 1, i, j);
+                });
+
+                auto subset_left =
+                    intersection(
+                        m_cells[MeshType::cells][level],
+                        translate_in_x<-1>(m_cells[MeshType::cells][level - 1]))
+                        .on(level - 1);
+
+                subset_left([&](auto &index_yz, auto &interval, auto &) {
+                    auto i = interval[0];
+                    auto j = index_yz[0];
+                    keep(level - 1, i + 1, j) |= keep(level - 1, i, j);
+                });
+
+                auto subset_down =
+                    intersection(
+                        translate_in_y<-1>(m_cells[MeshType::cells][level]),
+                        m_cells[MeshType::cells][level - 1])
+                        .on(level - 1);
+
+                subset_down([&](auto &index_yz, auto &interval, auto &) {
+                    auto i = interval[0];
+                    auto j = index_yz[0];
+                    keep(level - 1, i, j) |= keep(level - 1, i, j + 1);
+                });
+
+                auto subset_up =
+                    intersection(
+                        translate_in_y<1>(m_cells[MeshType::cells][level]),
+                        m_cells[MeshType::cells][level - 1])
+                        .on(level - 1);
+
+                subset_up([&](auto &index_yz, auto &interval, auto &) {
+                    auto i = interval[0];
+                    auto j = index_yz[0];
+                    keep(level - 1, i, j) |= keep(level - 1, i, j - 1);
+                });
             }
 
+            CellList<MRConfig> cell_list;
+            for (std::size_t level = 0; level <= max_refinement_level; ++level)
+            {
+                const LevelCellArray<dim> &level_cell_array =
+                    m_cells[MeshType::cells][level];
+
+                if (!level_cell_array.empty())
+                {
+                    level_cell_array.for_each_interval_in_x(
+                        [&](auto const &index_yz, auto const &interval) {
+                            for (int i = interval.start; i < interval.end; ++i)
+                            {
+                                if (keep.array()[i + interval.index])
+                                {
+                                    cell_list[level][index_yz].add_point(i);
+                                }
+                                else
+                                {
+                                    cell_list[level - 1][index_yz >> 1]
+                                        .add_point(i >> 1);
+                                }
+                            }
+                        });
+                }
+            }
+
+            Mesh<MRConfig> new_mesh{cell_list, m_init_cells, m_init_level};
+            Field<MRConfig> new_field(field.name(), new_mesh);
+            new_field.array().fill(0);
+
+            for (std::size_t level = 0; level <= max_refinement_level; ++level)
+            {
+                auto subset =
+                    intersection(m_cells[MeshType::all_cells][level],
+                                 new_mesh.m_cells[MeshType::cells][level]);
+
+                subset.apply_op(level, copy(new_field, field));
+            }
+
+            m_cells = std::move(new_mesh.m_cells);
+            field.array() = new_field.array();
+        }
             for (std::size_t level = max_refinement_level; level > 0; --level)
             {
                 auto keep_subset =
