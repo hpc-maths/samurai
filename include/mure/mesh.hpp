@@ -296,33 +296,25 @@ namespace mure
         // compaction
         m_cells[MeshType::all_cells] = {cell_list};
 
-        CellList<MRConfig> cell_list_1;
-        for (std::size_t level = max_refinement_level - 1; level > 0; --level)
+        for (std::size_t level = max_refinement_level; level > 0; --level)
         {
-            if (!m_cells[MeshType::all_cells][level - 1].empty())
+            if (!m_cells[MeshType::cells][level].empty())
             {
+                LevelCellList<dim, interval_t> lcl{level - 1};
                 auto expr =
-                    intersection(
-                        intersection(
-                            union_(intersection(
-                                       m_cells[MeshType::all_cells][level],
-                                       m_cells[MeshType::all_cells][level + 1]),
-                                   m_cells[MeshType::cells][level]),
-                            union_(intersection(
-                                       m_cells[MeshType::all_cells][level - 1],
-                                       m_cells[MeshType::all_cells][level]),
-                                   m_cells[MeshType::cells][level - 1])),
-                        m_init_cells)
+                    intersection(m_cells[MeshType::all_cells][level - 1],
+                                 union_(m_cells[MeshType::cells][level],
+                                        m_cells[MeshType::proj_cells][level]))
                         .on(level - 1);
 
                 expr([&](auto &index_yz, auto &interval,
                          auto & /*interval_index*/) {
-                    cell_list_1[level - 1][index_yz].add_interval(
+                    lcl[index_yz].add_interval(
                         {interval[0].start, interval[0].end});
                 });
+                m_cells[MeshType::proj_cells][level - 1] = {lcl};
             }
         }
-        m_cells[MeshType::proj_cells] = {cell_list_1};
 
         // update of x0_indices, _leaf_to_ghost_indices,
         update_x0_and_nb_ghosts();
