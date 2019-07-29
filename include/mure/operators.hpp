@@ -144,13 +144,13 @@ namespace mure
         template<class T>
         void operator()(T &field, Dim<3>) const
         {
-            field(level - 1, i, j, k) =
-                .125 * (field(level, 2 * i, 2 * j, 2 * k) +
-                        field(level, 2 * i + 1, 2 * j, 2 * k) +
-                        field(level, 2 * i, 2 * j + 1, 2 * k) +
-                        field(level, 2 * i + 1, 2 * j + 1, 2 * k) +
-                        field(level, 2 * i, 2 * j + 1, 2 * k + 1) +
-                        field(level, 2 * i + 1, 2 * j + 1, 2 * k + 1));
+            field(level, i, j, k) =
+                .125 * (field(level - 1, 2 * i, 2 * j, 2 * k) +
+                        field(level - 1, 2 * i + 1, 2 * j, 2 * k) +
+                        field(level - 1, 2 * i, 2 * j + 1, 2 * k) +
+                        field(level - 1, 2 * i + 1, 2 * j + 1, 2 * k) +
+                        field(level - 1, 2 * i, 2 * j + 1, 2 * k + 1) +
+                        field(level - 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
         }
     };
 
