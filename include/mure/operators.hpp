@@ -3,6 +3,7 @@
 #include <xtensor/xfixed.hpp>
 
 #include "field_expression.hpp"
+#include "prediction.hpp"
 #include "utils.hpp"
 
 namespace mure
@@ -178,69 +179,30 @@ namespace mure
                 auto jj = j >> 1;
                 interval_t ii{tmp, tmp + 1};
                 interval_t iv{iii, iii + 1};
+
+                auto qs_i = xt::eval(Qs_i<1>(field, level - 1, ii, jj));
+                auto qs_j = xt::eval(Qs_j<1>(field, level - 1, ii, jj));
+                auto qs_ij = xt::eval(Qs_ij<1>(field, level - 1, ii, jj));
+
                 if (!(iii & 1) and !(j & 1))
                 {
                     field(level, iv, j) =
-                        field(level - 1, ii, jj) -
-                        1. / 8 *
-                            (field(level - 1, ii + 1, jj) -
-                             field(level - 1, ii - 1, jj)) -
-                        1. / 8 *
-                            (field(level - 1, ii, jj + 1) -
-                             field(level - 1, ii, jj - 1)) -
-                        1. / 64 *
-                            (field(level - 1, ii + 1, jj + 1) -
-                             field(level - 1, ii - 1, jj + 1) +
-                             field(level - 1, ii - 1, jj - 1) -
-                             field(level - 1, ii + 1, jj - 1));
+                        field(level - 1, ii, jj) + qs_i + qs_j - qs_ij;
                 }
                 if (!(iii & 1) and (j & 1))
                 {
                     field(level, iv, j) =
-                        field(level - 1, ii, jj) -
-                        1. / 8 *
-                            (field(level - 1, ii + 1, jj) -
-                             field(level - 1, ii - 1, jj)) +
-                        1. / 8 *
-                            (field(level - 1, ii, jj + 1) -
-                             field(level - 1, ii, jj - 1)) +
-                        1. / 64 *
-                            (field(level - 1, ii + 1, jj + 1) -
-                             field(level - 1, ii - 1, jj + 1) +
-                             field(level - 1, ii - 1, jj - 1) -
-                             field(level - 1, ii + 1, jj - 1));
+                        field(level - 1, ii, jj) + qs_i - qs_j + qs_ij;
                 }
                 if ((iii & 1) and !(j & 1))
                 {
                     field(level, iv, j) =
-                        (field(level - 1, ii, jj) +
-                         1. / 8 *
-                             (field(level - 1, ii + 1, jj) -
-                              field(level - 1, ii - 1, jj)) -
-                         1. / 8 *
-                             (field(level - 1, ii, jj + 1) -
-                              field(level - 1, ii, jj - 1)) +
-                         1. / 64 *
-                             (field(level - 1, ii + 1, jj + 1) -
-                              field(level - 1, ii - 1, jj + 1) +
-                              field(level - 1, ii - 1, jj - 1) -
-                              field(level - 1, ii + 1, jj - 1)));
+                        field(level - 1, ii, jj) - qs_i + qs_j + qs_ij;
                 }
                 if ((iii & 1) and (j & 1))
                 {
                     field(level, iv, j) =
-                        (field(level - 1, ii, jj) +
-                         1. / 8 *
-                             (field(level - 1, ii + 1, jj) -
-                              field(level - 1, ii - 1, jj)) +
-                         1. / 8 *
-                             (field(level - 1, ii, jj + 1) -
-                              field(level - 1, ii, jj - 1)) -
-                         1. / 64 *
-                             (field(level - 1, ii + 1, jj + 1) -
-                              field(level - 1, ii - 1, jj + 1) +
-                              field(level - 1, ii - 1, jj - 1) -
-                              field(level - 1, ii + 1, jj - 1)));
+                        field(level - 1, ii, jj) - qs_i - qs_j - qs_ij;
                 }
             }
         }
@@ -345,54 +307,37 @@ namespace mure
         template<class T>
         void operator()(Dim<1>, T &detail, const T &field) const
         {
+            auto qs_i = xt::eval(Qs_i<1>(field, level, i, j));
+
             detail(level + 1, 2 * i) =
-                field(level + 1, 2 * i) -
-                (field(level, i) -
-                 1. / 8 * (field(level, i + 1) - field(level, i - 1)));
+                field(level + 1, 2 * i) - (field(level, i) + qs_i);
+
             detail(level + 1, 2 * i + 1) =
-                field(level + 1, 2 * i + 1) -
-                (field(level, i) +
-                 1. / 8 * (field(level, i + 1) - field(level, i - 1)));
+                field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
         }
 
         template<class T>
         void operator()(Dim<2>, T &detail, const T &field) const
         {
+            auto qs_i = xt::eval(Qs_i<1>(field, level, i, j));
+            auto qs_j = xt::eval(Qs_j<1>(field, level, i, j));
+            auto qs_ij = xt::eval(Qs_ij<1>(field, level, i, j));
+
             detail(level + 1, 2 * i, 2 * j) =
                 field(level + 1, 2 * i, 2 * j) -
-                (field(level, i, j) -
-                 1. / 8 * (field(level, i + 1, j) - field(level, i - 1, j)) -
-                 1. / 8 * (field(level, i, j + 1) - field(level, i, j - 1)) -
-                 1. / 64 *
-                     (field(level, i + 1, j + 1) - field(level, i - 1, j + 1) +
-                      field(level, i - 1, j - 1) - field(level, i + 1, j - 1)));
-
-            detail(level + 1, 2 * i, 2 * j + 1) =
-                field(level + 1, 2 * i, 2 * j + 1) -
-                (field(level, i, j) -
-                 1. / 8 * (field(level, i + 1, j) - field(level, i - 1, j)) +
-                 1. / 8 * (field(level, i, j + 1) - field(level, i, j - 1)) +
-                 1. / 64 *
-                     (field(level, i + 1, j + 1) - field(level, i - 1, j + 1) +
-                      field(level, i - 1, j - 1) - field(level, i + 1, j - 1)));
+                (field(level, i, j) + qs_i + qs_j - qs_ij);
 
             detail(level + 1, 2 * i + 1, 2 * j) =
                 field(level + 1, 2 * i + 1, 2 * j) -
-                (field(level, i, j) +
-                 1. / 8 * (field(level, i + 1, j) - field(level, i - 1, j)) -
-                 1. / 8 * (field(level, i, j + 1) - field(level, i, j - 1)) +
-                 1. / 64 *
-                     (field(level, i + 1, j + 1) - field(level, i - 1, j + 1) +
-                      field(level, i - 1, j - 1) - field(level, i + 1, j - 1)));
+                (field(level, i, j) - qs_i + qs_j + qs_ij);
+
+            detail(level + 1, 2 * i, 2 * j + 1) =
+                field(level + 1, 2 * i, 2 * j + 1) -
+                (field(level, i, j) + qs_i - qs_j + qs_ij);
 
             detail(level + 1, 2 * i + 1, 2 * j + 1) =
                 field(level + 1, 2 * i + 1, 2 * j + 1) -
-                (field(level, i, j) +
-                 1. / 8 * (field(level, i + 1, j) - field(level, i - 1, j)) +
-                 1. / 8 * (field(level, i, j + 1) - field(level, i, j - 1)) -
-                 1. / 64 *
-                     (field(level, i + 1, j + 1) - field(level, i - 1, j + 1) +
-                      field(level, i - 1, j - 1) - field(level, i + 1, j - 1)));
+                (field(level, i, j) - qs_i - qs_j - qs_ij);
         }
     };
 

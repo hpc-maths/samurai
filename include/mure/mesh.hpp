@@ -421,67 +421,33 @@ namespace mure
                                     interval_t ii{i, i + 1};
                                     interval_t iv = 2 * ii;
                                     auto jj = index_yz[0];
-                                    auto j = index_yz[0];
-                                    new_field(level + 1, iv, 2 * j) =
-                                        detail(level, ii, jj) / 2 +
-                                        field(level, ii, jj) -
-                                        1. / 8 *
-                                            (field(level, ii + 1, jj) -
-                                             field(level, ii - 1, jj)) -
-                                        1. / 8 *
-                                            (field(level, ii, jj + 1) -
-                                             field(level, ii, jj - 1)) -
-                                        1. / 64 *
-                                            (field(level, ii + 1, jj + 1) -
-                                             field(level, ii - 1, jj + 1) +
-                                             field(level, ii - 1, jj - 1) -
-                                             field(level, ii + 1, jj - 1));
+                                    auto j = 2 * index_yz[0];
+                                    auto qs_i =
+                                        xt::eval(Qs_i<1>(field, level, ii, jj));
+                                    auto qs_j =
+                                        xt::eval(Qs_j<1>(field, level, ii, jj));
+                                    auto qs_ij = xt::eval(
+                                        Qs_ij<1>(field, level, ii, jj));
 
-                                    new_field(level + 1, iv, 2 * j + 1) =
-                                        detail(level, ii, jj) / 2 +
-                                        field(level, ii, jj) -
-                                        1. / 8 *
-                                            (field(level, ii + 1, jj) -
-                                             field(level, ii - 1, jj)) +
-                                        1. / 8 *
-                                            (field(level, ii, jj + 1) -
-                                             field(level, ii, jj - 1)) +
-                                        1. / 64 *
-                                            (field(level, ii + 1, jj + 1) -
-                                             field(level, ii - 1, jj + 1) +
-                                             field(level, ii - 1, jj - 1) -
-                                             field(level, ii + 1, jj - 1));
+                                    new_field(level + 1, iv, j) =
+                                        // detail(level, ii, jj) / 2 +
+                                        (field(level, ii, jj) + qs_i + qs_j -
+                                         qs_ij);
 
-                                    iv = 2 * ii + 1;
-                                    new_field(level + 1, iv, 2 * j) =
-                                        detail(level, ii, jj) / 2 +
-                                        (field(level, ii, jj) +
-                                         1. / 8 *
-                                             (field(level, ii + 1, jj) -
-                                              field(level, ii - 1, jj)) -
-                                         1. / 8 *
-                                             (field(level, ii, jj + 1) -
-                                              field(level, ii, jj - 1)) +
-                                         1. / 64 *
-                                             (field(level, ii + 1, jj + 1) -
-                                              field(level, ii - 1, jj + 1) +
-                                              field(level, ii - 1, jj - 1) -
-                                              field(level, ii + 1, jj - 1)));
+                                    new_field(level + 1, iv + 1, j) =
+                                        // detail(level, ii, jj) / 2 +
+                                        (field(level, ii, jj) - qs_i + qs_j +
+                                         qs_ij);
 
-                                    new_field(level + 1, iv, 2 * j + 1) =
-                                        detail(level, ii, jj) / 2 +
-                                        (field(level, ii, jj) +
-                                         1. / 8 *
-                                             (field(level, ii + 1, jj) -
-                                              field(level, ii - 1, jj)) +
-                                         1. / 8 *
-                                             (field(level, ii, jj + 1) -
-                                              field(level, ii, jj - 1)) -
-                                         1. / 64 *
-                                             (field(level, ii + 1, jj + 1) -
-                                              field(level, ii - 1, jj + 1) +
-                                              field(level, ii - 1, jj - 1) -
-                                              field(level, ii + 1, jj - 1)));
+                                    new_field(level + 1, iv, j + 1) =
+                                        // detail(level, ii, jj) / 2 +
+                                        (field(level, ii, jj) + qs_i - qs_j +
+                                         qs_ij);
+
+                                    new_field(level + 1, iv + 1, j + 1) =
+                                        // detail(level, ii, jj) / 2 +
+                                        (field(level, ii, jj) - qs_i - qs_j -
+                                         qs_ij);
                                 }
                             }
                         });
