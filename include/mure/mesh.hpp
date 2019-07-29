@@ -91,8 +91,7 @@ namespace mure
         void make_projection(Field<MRConfig> &field) const
         {
 
-            for (std::size_t level = max_refinement_level - 1; level >= 1;
-                 --level)
+            for (std::size_t level = max_refinement_level; level >= 1; --level)
             {
                 auto expr =
                     intersection(m_cells[MeshType::all_cells][level],
@@ -104,7 +103,7 @@ namespace mure
 
         void make_prediction(Field<MRConfig> &field) const
         {
-            for (std::size_t level = 1; level < max_refinement_level; ++level)
+            for (std::size_t level = 1; level <= max_refinement_level; ++level)
             {
 
                 if (!m_cells[MeshType::cells][level].empty())
@@ -146,9 +145,9 @@ namespace mure
                                   .on(level);
 
                 double eps = 1e-2;
-                std::size_t exponent =
-                    dim * (m_cells[MeshType::cells].max_level() - level - 1);
-                auto eps_l = std::pow(2, -exponent) * eps;
+                int exponent =
+                    dim * (level - m_cells[MeshType::cells].max_level() - 1);
+                auto eps_l = std::pow(2, exponent) * eps;
 
                 subset.apply_op(level, compute_detail(detail, field),
                                 compute_max_detail(detail, max_detail));
@@ -268,16 +267,17 @@ namespace mure
             max_detail.fill(std::numeric_limits<double>::min());
             refine.array().fill(false);
 
-            for (std::size_t level = 0; level < max_refinement_level; ++level)
+            for (std::size_t level = 0; level < max_refinement_level - 1;
+                 ++level)
             {
                 auto subset = intersection(m_cells[MeshType::all_cells][level],
                                            m_cells[MeshType::cells][level + 1])
                                   .on(level);
 
                 double eps = 1e-2;
-                std::size_t exponent =
-                    dim * (m_cells[MeshType::cells].max_level() - level - 1);
-                auto eps_l = std::pow(2, -exponent) * eps;
+                int exponent =
+                    dim * (level - m_cells[MeshType::cells].max_level() - 1);
+                auto eps_l = std::pow(2, exponent) * eps;
 
                 subset.apply_op(level, compute_detail(detail, field),
                                 compute_max_detail(detail, max_detail));
@@ -308,7 +308,6 @@ namespace mure
                 subset_right([&](auto &index_yz, auto &interval, auto &) {
                     auto i = interval[0];
                     auto j = index_yz[0];
-                    // refine(level - 1, i - 1, j) |= refine(level - 1, i, j);
                     refine(level - 1, i + 1, j) |=
                         refine(level, 2 * i + 1, 2 * j) |
                         refine(level, 2 * i + 1, 2 * j + 1);
@@ -323,7 +322,6 @@ namespace mure
                 subset_left([&](auto &index_yz, auto &interval, auto &) {
                     auto i = interval[0];
                     auto j = index_yz[0];
-                    // refine(level - 1, i + 1, j) |= refine(level - 1, i,j);
                     refine(level - 1, i, j) |=
                         refine(level, 2 * (i + 1), 2 * j) |
                         refine(level, 2 * (i + 1), 2 * j + 1);
@@ -338,7 +336,6 @@ namespace mure
                 subset_down([&](auto &index_yz, auto &interval, auto &) {
                     auto i = interval[0];
                     auto j = index_yz[0];
-                    // refine(level - 1, i, j) |= refine(level - 1, i, j +1);
                     refine(level - 1, i, j) |=
                         refine(level, 2 * i, 2 * (j + 1)) |
                         refine(level, 2 * i + 1, 2 * (j + 1));
@@ -353,7 +350,6 @@ namespace mure
                 subset_up([&](auto &index_yz, auto &interval, auto &) {
                     auto i = interval[0];
                     auto j = index_yz[0];
-                    // refine(level - 1, i, j) |= refine(level - 1, i, j - 1);
                     refine(level - 1, i, j) |=
                         refine(level, 2 * i, 2 * j - 1) |
                         refine(level, 2 * i + 1, 2 * j - 1);
