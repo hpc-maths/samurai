@@ -5,8 +5,11 @@
 #include <mure/box.hpp>
 #include <mure/field.hpp>
 #include <mure/hdf5.hpp>
-#include <mure/mesh.hpp>
-#include <mure/mr_config.hpp>
+#include <mure/mr/coarsening.hpp>
+#include <mure/mr/mesh.hpp>
+#include <mure/mr/mr_config.hpp>
+#include <mure/mr/pred_and_proj.hpp>
+#include <mure/mr/refinement.hpp>
 #include <mure/stencil_field.hpp>
 
 /// Timer used in tic & toc
@@ -32,6 +35,20 @@ mure::Field<Config> init_u(mure::Mesh<Config> &mesh)
     mure::Field<Config> u("u", mesh);
     u.array().fill(0);
 
+    // mesh.for_each_cell([&](auto &cell) {
+    //     auto center = cell.center();
+    //     double radius = .2;
+    //     double x_center = .65, y_center = -.5;
+    //     // bug pour le cas du dessous avec 10 niveaux (entre ite 8 et 9)
+    //     if (((center[0] - x_center) * (center[0] - x_center) +
+    //          (center[1] - y_center) * (center[1] - y_center)) <=
+    //         radius * radius)
+    //         // if ((center[0]*center[0] + center[1]*center[1]) <= 0.25*0.25)
+    //         u[cell] = 1;
+    //     else
+    //         u[cell] = 0;
+    // });
+
     mesh.for_each_cell([&](auto &cell) {
         auto center = cell.center();
         double radius = .2;
@@ -50,10 +67,10 @@ mure::Field<Config> init_u(mure::Mesh<Config> &mesh)
 int main()
 {
     constexpr size_t dim = 2;
-    using Config = mure::MRConfig<dim>;
+    using Config = mure::MRConfig<dim, 1, 1, 8>;
 
-    double dt = .01;
-    std::array<double, dim> a{1, -1};
+    double dt = .001;
+    std::array<double, dim> a{1, 0};
 
     mure::Box<double, dim> box({-1, -1}, {1, 1});
     mure::Mesh<Config> mesh{box, 5};
@@ -61,26 +78,78 @@ int main()
     // Initialization
     auto u = init_u(mesh);
 
-    // tic();
-    // for (std::size_t i = 0; i < 20; ++i)
-    // {
-    //     mure::Field<Config> detail{"detail", mesh};
-    //     detail.array().fill(0);
-    //     mesh.make_projection(u);
-    //     mesh.coarsening(detail, u, i);
-    // }
-    // std::cout << toc() << "\n";
+    double eps = 1e-2;
 
     tic();
-    for (std::size_t ite = 0; ite < 50; ++ite)
+    for (std::size_t i = 0; i < 2; ++i)
     {
-        // std::cout << "ite " << ite << "\n";
-        u = u - dt * mure::upwind(a, u);
+        mure::Field<Config> detail{"detail", mesh};
+        detail.array().fill(0);
+        mure::mr_projection(u);
+        mure::mr_prediction(u);
+        mure::coarsening(detail, u, eps, i);
     }
-    std::cout << toc() << "\n";
+    std::cout << "coarsening " << toc() << "\n";
 
-    auto h5file = mure::Hdf5("advection");
+    mure::mr_projection(u);
+    mure::mr_prediction(u);
+
+    auto h5file = mure::Hdf5("advection_coarsening");
     h5file.add_mesh(mesh);
+    mure::Field<Config> level_{"level", mesh};
+    mesh.for_each_cell(
+        [&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
     h5file.add_field(u);
+    h5file.add_field(level_);
+
+    // h5file.add_field_by_level(mesh, u);
+
+    tic();
+    for (std::size_t i = 0; i < 1; ++i)
+    {
+        mure::Field<Config> detail{"detail", mesh};
+        detail.array().fill(0);
+        mure::mr_projection(u);
+        mure::mr_prediction(u);
+        mure::refinement(detail, u, eps);
+    }
+    std::cout << "refinement " << toc() << "\n";
+
+    auto h5file_1 = mure::Hdf5("advection_refinement");
+    h5file_1.add_mesh(mesh);
+    h5file_1.add_field(u);
+
+    // // h5file_1.add_field_by_level(mesh, u);
+
+    // // tic();
+    // // for (std::size_t ite = 0; ite < 200; ++ite)
+    // // {
+    // //     mesh.make_projection(u);
+    // //     mesh.make_prediction(u);
+    // //     u = u - dt * mure::upwind(a, u);
+
+    // //     for (std::size_t i = 0; i < 10; ++i)
+    // //     {
+    // //         mure::Field<Config> detail{"detail", mesh};
+    // //         detail.array().fill(0);
+    // //         mesh.make_projection(u);
+    // //         mesh.make_prediction(u);
+    // //         mesh.coarsening(detail, u, ite);
+    // //     }
+
+    // //     for (std::size_t i = 0; i < 1; ++i)
+    // //     {
+    // //         mure::Field<Config> detail{"detail", mesh};
+    // //         detail.array().fill(0);
+    // //         mesh.make_projection(u);
+    // //         mesh.make_prediction(u);
+    // //         mesh.refinement(detail, u, ite);
+    // //     }
+    // // }
+    // // std::cout << toc() << "\n";
+
+    // // auto h5file_final = mure::Hdf5("advection");
+    // // h5file_final.add_mesh(mesh);
+    // // h5file_final.add_field(u);
     return 0;
 }
