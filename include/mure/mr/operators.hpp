@@ -1,121 +1,13 @@
 #pragma once
 
-#include <xtensor/xfixed.hpp>
+#include <xtensor/xtensor.hpp>
+#include <xtensor/xview.hpp>
 
-#include "field_expression.hpp"
+#include "../operators_base.hpp"
 #include "prediction.hpp"
-#include "utils.hpp"
 
 namespace mure
 {
-    template<template<class T> class OP, class... CT>
-    class field_operator_function
-        : public field_expression<field_operator_function<OP, CT...>> {
-      public:
-        static constexpr std::size_t dim = detail::compute_dim<CT...>();
-
-        field_operator_function(CT &&... e) : m_e{std::forward<CT>(e)...}
-        {}
-
-        template<class interval_t, class... index_t>
-        auto operator()(std::size_t level, interval_t i, index_t... index) const
-        {
-            OP<interval_t> op(level, i, index...);
-            return apply(op);
-        }
-
-        template<class interval_t, class coord_index_t>
-        auto operator()(
-            std::size_t level, interval_t i,
-            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index) const
-        {
-            OP<interval_t> op(level, i, index);
-            return apply(op);
-        }
-
-      private:
-        template<class interval_t>
-        auto apply(OP<interval_t> &op) const
-        {
-            return apply_impl(std::make_index_sequence<sizeof...(CT)>(), op);
-        }
-
-        template<std::size_t... I, class interval_t>
-        auto apply_impl(std::index_sequence<I...>, OP<interval_t> &op) const
-        {
-            return op(std::integral_constant<std::size_t, dim>{},
-                      std::get<I>(m_e)...);
-        }
-
-        std::tuple<CT...> m_e;
-    };
-
-    template<template<class T> class OP, class... CT>
-    auto make_field_operator_function(CT &&... e)
-    {
-        return field_operator_function<OP, CT...>(std::forward<CT>(e)...);
-    }
-
-    template<class TInterval>
-    class field_operator_base {
-      public:
-        using interval_t = TInterval;
-        using coord_index_t = typename interval_t::coord_index_t;
-
-        std::size_t level;
-        interval_t i;
-        coord_index_t j, k;
-        double dx;
-
-      protected:
-        template<std::size_t dim>
-        field_operator_base(
-            std::size_t level, interval_t interval,
-            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
-            : level{level}, i{interval}, dx{1. / (1 << level)}
-        {
-            if (dim > 0)
-                j = index[0];
-            if (dim > 1)
-                k = index[1];
-        }
-
-        field_operator_base(std::size_t level, interval_t interval)
-            : level{level}, i{interval}, dx{1. / (1 << level)}
-        {}
-
-        field_operator_base(std::size_t level, interval_t interval,
-                            coord_index_t j_)
-            : level{level}, dx{1. / (1 << level)}, i{interval}, j{j_}
-        {}
-
-        field_operator_base(std::size_t level, interval_t interval,
-                            coord_index_t j_, coord_index_t k_)
-            : level{level}, dx{1. / (1 << level)}, i{interval}, j{j_}, k{k_}
-        {}
-    };
-
-#define INIT_OPERATOR(NAME)                                                    \
-    using interval_t = TInterval;                                              \
-    using coord_index_t = typename interval_t::coord_index_t;                  \
-                                                                               \
-    using base = field_operator_base<interval_t>;                              \
-    using base::i;                                                             \
-    using base::j;                                                             \
-    using base::k;                                                             \
-    using base::level;                                                         \
-    using base::dx;                                                            \
-                                                                               \
-    template<std::size_t dim>                                                  \
-    NAME(std::size_t level, interval_t interval,                               \
-         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)              \
-        : base(level, interval, index)                                         \
-    {}                                                                         \
-    template<class... index_t>                                                 \
-    NAME(std::size_t level, interval_t interval, index_t... index)             \
-        : base(level, interval, index...)                                      \
-    {}
-
     /***********************
      * projection operator *
      ***********************/
@@ -180,9 +72,9 @@ namespace mure
                 interval_t ii{tmp, tmp + 1};
                 interval_t iv{iii, iii + 1};
 
-                auto qs_i = xt::eval(Qs_i<1>(field, level - 1, ii, jj));
-                auto qs_j = xt::eval(Qs_j<1>(field, level - 1, ii, jj));
-                auto qs_ij = xt::eval(Qs_ij<1>(field, level - 1, ii, jj));
+                auto qs_i = Qs_i<1>(field, level - 1, ii, jj);
+                auto qs_j = Qs_j<1>(field, level - 1, ii, jj);
+                auto qs_ij = Qs_ij<1>(field, level - 1, ii, jj);
 
                 if (!(iii & 1) and !(j & 1))
                 {
@@ -319,9 +211,9 @@ namespace mure
         template<class T>
         void operator()(Dim<2>, T &detail, const T &field) const
         {
-            auto qs_i = xt::eval(Qs_i<1>(field, level, i, j));
-            auto qs_j = xt::eval(Qs_j<1>(field, level, i, j));
-            auto qs_ij = xt::eval(Qs_ij<1>(field, level, i, j));
+            auto qs_i = Qs_i<1>(field, level, i, j);
+            auto qs_j = Qs_j<1>(field, level, i, j);
+            auto qs_ij = Qs_ij<1>(field, level, i, j);
 
             detail(level + 1, 2 * i, 2 * j) =
                 field(level + 1, 2 * i, 2 * j) -
@@ -338,6 +230,16 @@ namespace mure
             detail(level + 1, 2 * i + 1, 2 * j + 1) =
                 field(level + 1, 2 * i + 1, 2 * j + 1) -
                 (field(level, i, j) - qs_i - qs_j - qs_ij);
+
+            std::cout << "##################################\n";
+            std::cout << level + 1 << " " << 2 * i << " " << 2 * j << "\n";
+            std::cout << field(level + 1, 2 * i, 2 * j) << "\n";
+            std::cout << field(level, i, j) << "\n";
+            std::cout << detail(level + 1, 2 * i, 2 * j) << "\n";
+            std::cout << qs_i << "\n";
+            std::cout << qs_j << "\n";
+            std::cout << qs_ij << "\n";
+            std::cout << "##################################\n";
         }
     };
 
@@ -345,6 +247,69 @@ namespace mure
     auto compute_detail(T &&detail, T &&field)
     {
         return make_field_operator_function<compute_detail_op>(
+            std::forward<T>(detail), std::forward<T>(field));
+    }
+
+    /***************************
+     * compute detail operator *
+     ***************************/
+
+    template<class TInterval>
+    class compute_detail_op_ : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(compute_detail_op_)
+
+        template<class T>
+        void operator()(Dim<2>, T &detail, const T &field) const
+        {
+            for (int ii = i.start; ii < i.end; ++ii)
+            {
+                auto i_level = interval_t{ii, ii + 1};
+                auto j_level = j;
+                auto i_levelm1 = i_level / 2;
+                auto j_levelm1 = j >> 1;
+
+                auto qs_i = Qs_i<1>(field, level - 1, i_levelm1, j_levelm1);
+                auto qs_j = Qs_j<1>(field, level - 1, i_levelm1, j_levelm1);
+                auto qs_ij = Qs_ij<1>(field, level - 1, i_levelm1, j_levelm1);
+
+                if (!(ii & 1) and !(j & 1))
+                {
+                    detail(level, i_level, j_level) =
+                        field(level, i_level, j_level) -
+                        (field(level - 1, i_levelm1, j_levelm1) + qs_i + qs_j -
+                         qs_ij);
+                }
+
+                if ((ii & 1) and !(j & 1))
+                {
+                    detail(level, i_level, j_level) =
+                        field(level, i_level, j_level) -
+                        (field(level - 1, i_levelm1, j_levelm1) - qs_i + qs_j +
+                         qs_ij);
+                }
+                if (!(ii & 1) and (j & 1))
+                {
+                    detail(level, i_level, j_level) =
+                        field(level, i_level, j_level) -
+                        (field(level - 1, i_levelm1, j_levelm1) + qs_i - qs_j +
+                         qs_ij);
+                }
+                if ((ii & 1) and (j & 1))
+                {
+                    detail(level, i_level, j_level) =
+                        field(level, i_level, j_level) -
+                        (field(level - 1, i_levelm1, j_levelm1) - qs_i - qs_j -
+                         qs_ij);
+                }
+            }
+        }
+    };
+
+    template<class T>
+    auto compute_detail_(T &&detail, T &&field)
+    {
+        return make_field_operator_function<compute_detail_op_>(
             std::forward<T>(detail), std::forward<T>(field));
     }
 
@@ -387,6 +352,30 @@ namespace mure
             std::forward<U>(detail), std::forward<T>(max_detail));
     }
 
+    /*******************************
+     * compute max detail operator *
+     *******************************/
+
+    template<class TInterval>
+    class compute_max_detail_op_ : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(compute_max_detail_op_)
+
+        template<class T, class U>
+        void operator()(Dim<2>, const U &detail, T &max_detail) const
+        {
+            max_detail[level] = std::max(
+                max_detail[level], xt::amax(xt::abs(detail(level, i, j)))[0]);
+        }
+    };
+
+    template<class T, class U>
+    auto compute_max_detail_(U &&detail, T &&max_detail)
+    {
+        return make_field_operator_function<compute_max_detail_op_>(
+            std::forward<U>(detail), std::forward<T>(max_detail));
+    }
+
     /***********************
      * to_coarsen operator *
      ***********************/
@@ -412,12 +401,18 @@ namespace mure
         void operator()(Dim<2>, T &keep, const U &detail, const V &max_detail,
                         double eps) const
         {
-            auto mask = (0.25 *
-                         (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
-                          xt::abs(detail(level + 1, 2 * i + 1, 2 * j)) +
-                          xt::abs(detail(level + 1, 2 * i, 2 * j + 1)) +
-                          xt::abs(detail(level + 1, 2 * i + 1, 2 * j + 1))) /
-                         max_detail[level + 1]) < eps;
+            // auto mask = (0.25 *
+            //              (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
+            //               xt::abs(detail(level + 1, 2 * i + 1, 2 * j)) +
+            //               xt::abs(detail(level + 1, 2 * i, 2 * j + 1)) +
+            //               xt::abs(detail(level + 1, 2 * i + 1, 2 * j + 1))) /
+            //              max_detail[level + 1]) < eps;
+            auto mask =
+                (0.25 * (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
+                         xt::abs(detail(level + 1, 2 * i + 1, 2 * j)) +
+                         xt::abs(detail(level + 1, 2 * i, 2 * j + 1)) +
+                         xt::abs(detail(level + 1, 2 * i + 1, 2 * j + 1)))) <
+                eps;
             xt::masked_view(keep(level + 1, 2 * i, 2 * j), mask) = false;
             xt::masked_view(keep(level + 1, 2 * i + 1, 2 * j), mask) = false;
             xt::masked_view(keep(level + 1, 2 * i, 2 * j + 1), mask) = false;
@@ -458,8 +453,11 @@ namespace mure
         void operator()(Dim<2>, T &refine, const U &detail, const V &max_detail,
                         double eps) const
         {
-            auto mask =
-                (xt::abs(detail(level, i, j)) / max_detail[level]) >= 2 * eps;
+            // auto mask =
+            //     (xt::abs(detail(level, i, j)) / max_detail[level]) >= 2 *
+            //     eps;
+            std::cout << eps << " " << xt::abs(detail(level, i, j)) << "\n";
+            auto mask = xt::abs(detail(level, i, j)) >= 4 * eps;
             xt::masked_view(refine(level, i, j), mask) = true;
         }
     };
