@@ -8,8 +8,8 @@
 
 #include "cell.hpp"
 #include "field_expression.hpp"
-#include "mesh.hpp"
-#include "mesh_type.hpp"
+#include "mr/mesh.hpp"
+#include "mr/mesh_type.hpp"
 
 namespace mure
 {
@@ -36,7 +36,7 @@ namespace mure
         // Field &operator=(Field &&) = default;
 
         Field(std::string name, Mesh<MRConfig> &mesh)
-            : name_(name), mesh(&mesh),
+            : name_(name), m_mesh(&mesh),
               m_data(std::array<std::size_t, 1>{mesh.nb_total_cells()})
         {
             m_data.fill(0);
@@ -50,8 +50,8 @@ namespace mure
 
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
-                auto subset = intersection((*mesh)[MeshType::cells][level],
-                                           (*mesh)[MeshType::cells][level]);
+                auto subset = intersection((*m_mesh)[MeshType::cells][level],
+                                           (*m_mesh)[MeshType::cells][level]);
 
                 subset.apply_op(level, apply_expr(*this, e));
             }
@@ -94,7 +94,7 @@ namespace mure
         auto operator()(const std::size_t level, const interval_t &interval,
                         const T... index)
         {
-            auto interval_tmp = mesh->get_interval(level, interval, index...);
+            auto interval_tmp = m_mesh->get_interval(level, interval, index...);
             return xt::view(m_data,
                             xt::range(interval_tmp.index + interval.start,
                                       interval_tmp.index + interval.end,
@@ -105,7 +105,7 @@ namespace mure
         auto operator()(const std::size_t level, const interval_t &interval,
                         const T... index) const
         {
-            auto interval_tmp = mesh->get_interval(level, interval, index...);
+            auto interval_tmp = m_mesh->get_interval(level, interval, index...);
             return xt::view(m_data,
                             xt::range(interval_tmp.index + interval.start,
                                       interval_tmp.index + interval.end,
@@ -114,10 +114,10 @@ namespace mure
 
         auto data(MeshType mesh_type) const
         {
-            std::array<std::size_t, 1> shape = {mesh->nb_cells(mesh_type)};
+            std::array<std::size_t, 1> shape = {m_mesh->nb_cells(mesh_type)};
             xt::xtensor<double, 1> output(shape);
             std::size_t index = 0;
-            mesh->for_each_cell(
+            m_mesh->for_each_cell(
                 [&](auto cell) { output[index++] = m_data[cell.index]; },
                 mesh_type);
             return output;
@@ -126,10 +126,10 @@ namespace mure
         auto data_on_level(std::size_t level, MeshType mesh_type) const
         {
             std::array<std::size_t, 1> shape = {
-                mesh->nb_cells(level, mesh_type)};
+                m_mesh->nb_cells(level, mesh_type)};
             xt::xtensor<double, 1> output(shape);
             std::size_t index = 0;
-            mesh->for_each_cell(
+            m_mesh->for_each_cell(
                 level, [&](auto cell) { output[index++] = m_data[cell.index]; },
                 mesh_type);
             return output;
@@ -147,12 +147,12 @@ namespace mure
 
         inline std::size_t nb_cells(MeshType mesh_type) const
         {
-            return mesh->nb_cells(mesh_type);
+            return m_mesh->nb_cells(mesh_type);
         }
 
         inline std::size_t nb_cells(std::size_t level, MeshType mesh_type) const
         {
-            return mesh->nb_cells(level, mesh_type);
+            return m_mesh->nb_cells(level, mesh_type);
         }
 
         auto const &name() const
@@ -160,10 +160,20 @@ namespace mure
             return name_;
         }
 
+        auto mesh()
+        {
+            return *m_mesh;
+        }
+
+        auto mesh_ptr()
+        {
+            return m_mesh;
+        }
+
         void to_stream(std::ostream &os) const
         {
             os << "Field " << name_ << "\n";
-            mesh->for_each_cell(
+            m_mesh->for_each_cell(
                 [&](auto &cell) {
                     os << cell.level << "[" << cell.center()
                        << "]:" << m_data[cell.index] << "\n";
@@ -173,7 +183,7 @@ namespace mure
 
       private:
         std::string name_;
-        Mesh<MRConfig> *mesh;
+        Mesh<MRConfig> *m_mesh;
         data_type m_data;
     };
 
