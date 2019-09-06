@@ -4,7 +4,7 @@
 
 #include "cell.hpp"
 #include "field_expression.hpp"
-#include "operators.hpp"
+#include "operators_base.hpp"
 
 namespace mure
 {

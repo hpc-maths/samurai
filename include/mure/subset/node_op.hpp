@@ -459,6 +459,10 @@ namespace mure
         auto start(std::size_t dim, std::size_t index) const noexcept;
         auto end(std::size_t dim, std::size_t index) const noexcept;
 
+        auto create_interval(coord_index_t start, coord_index_t end) const
+            noexcept;
+        auto create_index_yz() const noexcept;
+
       private:
         T m_data;
 
@@ -481,14 +485,28 @@ namespace mure
     inline auto contraction_op<T>::start(std::size_t dim,
                                          std::size_t index) const noexcept
     {
-        return m_data.start(dim, index) + 1;
+        return m_data.start(dim, index) - 1;
     }
 
     template<class T>
     inline auto contraction_op<T>::end(std::size_t dim, std::size_t index) const
         noexcept
     {
-        return m_data.end(dim, index) - 1;
+        return m_data.end(dim, index) + 1;
+    }
+
+    template<class T>
+    inline auto contraction_op<T>::create_interval(coord_index_t start,
+                                                   coord_index_t end) const
+        noexcept
+    {
+        return interval_t{start, end};
+    }
+
+    template<class T>
+    inline auto contraction_op<T>::create_index_yz() const noexcept
+    {
+        return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
     }
 
     /****************************
