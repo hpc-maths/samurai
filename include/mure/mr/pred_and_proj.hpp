@@ -15,6 +15,21 @@ namespace mure
             auto expr = intersection(mesh[MeshType::all_cells][level],
                                      mesh[MeshType::proj_cells][level - 1])
                             .on(level - 1);
+            // auto expr =
+            //     // intersection(
+            //     intersection(
+            //         mesh[MeshType::all_cells][level],
+            //         difference(
+            //             contraction(mesh[MeshType::all_cells][level - 1]),
+            //             mesh[MeshType::cells][level - 1])) //,
+            //         // mesh.initial_mesh())
+            //         .on(level - 1);
+
+            // std::cout << "intial mesh" << mesh.initial_mesh() << "\n";
+
+            // expr([&](auto &, auto &interval, auto &) {
+            //     std::cout << level << " " << interval << "\n";
+            // });
             expr.apply_op(level - 1, projection(field));
         }
     }

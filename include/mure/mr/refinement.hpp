@@ -41,72 +41,99 @@ namespace mure
                                 to_refine(refine, detail, max_detail, eps_l));
         }
 
-        {
-            auto h5file = mure::Hdf5("to_refine");
-            h5file.add_mesh(mesh);
-            h5file.add_field(refine);
-            h5file.add_field(detail);
-            h5file.add_field(field);
-            // h5file.add_field_by_level(mesh, field);
-            auto h5file_d = mure::Hdf5("to_refine_u");
-            h5file_d.add_field_by_level(mesh, field);
-        }
-
-        // for (std::size_t level = max_refinement_level; level > 0; --level)
         // {
-        //     auto subset_right =
-        //         intersection(
-        //             mesh[MeshType::cells][level],
-        //             translate_in_x<-1>(mesh[MeshType::cells][level - 1]))
-        //             .on(level - 1);
-
-        //     subset_right([&](auto &index_yz, auto &interval, auto &) {
-        //         auto i = interval[0];
-        //         auto j = index_yz[0];
-        //         refine(level - 1, i + 1, j) |=
-        //             refine(level, 2 * i + 1, 2 * j) |
-        //             refine(level, 2 * i + 1, 2 * j + 1);
-        //     });
-
-        //     auto subset_left =
-        //         intersection(translate_in_x<-1>(mesh[MeshType::cells][level]),
-        //                      mesh[MeshType::cells][level - 1])
-        //             .on(level - 1);
-
-        //     subset_left([&](auto &index_yz, auto &interval, auto &) {
-        //         auto i = interval[0];
-        //         auto j = index_yz[0];
-        //         refine(level - 1, i, j) |=
-        //             refine(level, 2 * (i + 1), 2 * j) |
-        //             refine(level, 2 * (i + 1), 2 * j + 1);
-        //     });
-
-        //     auto subset_down =
-        //         intersection(translate_in_y<-1>(mesh[MeshType::cells][level]),
-        //                      mesh[MeshType::cells][level - 1])
-        //             .on(level - 1);
-
-        //     subset_down([&](auto &index_yz, auto &interval, auto &) {
-        //         auto i = interval[0];
-        //         auto j = index_yz[0];
-        //         refine(level - 1, i, j) |=
-        //             refine(level, 2 * i, 2 * (j + 1)) |
-        //             refine(level, 2 * i + 1, 2 * (j + 1));
-        //     });
-
-        //     auto subset_up =
-        //         intersection(translate_in_y<1>(mesh[MeshType::cells][level]),
-        //                      mesh[MeshType::cells][level - 1])
-        //             .on(level - 1);
-
-        //     subset_up([&](auto &index_yz, auto &interval, auto &) {
-        //         auto i = interval[0];
-        //         auto j = index_yz[0];
-        //         refine(level - 1, i, j) |= refine(level, 2 * i, 2 * j - 1) |
-        //                                    refine(level, 2 * i + 1, 2 * j -
-        //                                    1);
-        //     });
+        //     auto h5file = mure::Hdf5("to_refine");
+        //     h5file.add_mesh(mesh);
+        //     h5file.add_field(refine);
+        //     h5file.add_field(detail);
+        //     h5file.add_field(field);
+        //     // h5file.add_field_by_level(mesh, field);
+        //     auto h5file_d = mure::Hdf5("to_refine_u");
+        //     h5file_d.add_field_by_level(mesh, field);
         // }
+
+        // 1D
+        for (std::size_t level = max_refinement_level; level > 0; --level)
+        {
+            auto subset_right =
+                intersection(
+                    mesh[MeshType::cells][level],
+                    translate_in_x<-1>(mesh[MeshType::cells][level - 1]))
+                    .on(level - 1);
+
+            subset_right([&](auto &index_yz, auto &interval, auto &) {
+                auto i = interval[0];
+                refine(level - 1, i + 1) |= refine(level, 2 * i + 1);
+            });
+
+            auto subset_left =
+                intersection(translate_in_x<-1>(mesh[MeshType::cells][level]),
+                             mesh[MeshType::cells][level - 1])
+                    .on(level - 1);
+
+            subset_left([&](auto &index_yz, auto &interval, auto &) {
+                auto i = interval[0];
+                refine(level - 1, i) |= refine(level, 2 * (i + 1));
+            });
+
+            // 2D
+            // for (std::size_t level = max_refinement_level; level > 0;
+            // --level)
+            // {
+            //     auto subset_right =
+            //         intersection(
+            //             mesh[MeshType::cells][level],
+            //             translate_in_x<-1>(mesh[MeshType::cells][level - 1]))
+            //             .on(level - 1);
+
+            //     subset_right([&](auto &index_yz, auto &interval, auto &) {
+            //         auto i = interval[0];
+            //         auto j = index_yz[0];
+            //         refine(level - 1, i + 1, j) |=
+            //             refine(level, 2 * i + 1, 2 * j) |
+            //             refine(level, 2 * i + 1, 2 * j + 1);
+            //     });
+
+            //     auto subset_left =
+            //         intersection(translate_in_x<-1>(mesh[MeshType::cells][level]),
+            //                      mesh[MeshType::cells][level - 1])
+            //             .on(level - 1);
+
+            //     subset_left([&](auto &index_yz, auto &interval, auto &) {
+            //         auto i = interval[0];
+            //         auto j = index_yz[0];
+            //         refine(level - 1, i, j) |=
+            //             refine(level, 2 * (i + 1), 2 * j) |
+            //             refine(level, 2 * (i + 1), 2 * j + 1);
+            //     });
+
+            //     auto subset_down =
+            //         intersection(translate_in_y<-1>(mesh[MeshType::cells][level]),
+            //                      mesh[MeshType::cells][level - 1])
+            //             .on(level - 1);
+
+            //     subset_down([&](auto &index_yz, auto &interval, auto &) {
+            //         auto i = interval[0];
+            //         auto j = index_yz[0];
+            //         refine(level - 1, i, j) |=
+            //             refine(level, 2 * i, 2 * (j + 1)) |
+            //             refine(level, 2 * i + 1, 2 * (j + 1));
+            //     });
+
+            //     auto subset_up =
+            //         intersection(translate_in_y<1>(mesh[MeshType::cells][level]),
+            //                      mesh[MeshType::cells][level - 1])
+            //             .on(level - 1);
+
+            //     subset_up([&](auto &index_yz, auto &interval, auto &) {
+            //         auto i = interval[0];
+            //         auto j = index_yz[0];
+            //         refine(level - 1, i, j) |= refine(level, 2 * i, 2 * j -
+            //         1) |
+            //                                    refine(level, 2 * i + 1, 2 * j
+            //                                    - 1);
+            //     });
+        }
 
         CellList<MRConfig> cell_list;
         for (std::size_t level = 0; level < max_refinement_level; ++level)
@@ -121,19 +148,30 @@ namespace mure
                         {
                             if (refine.array()[i + interval.index])
                             {
-                                cell_list[level + 1][2 * index_yz].add_point(2 *
-                                                                             i);
-                                cell_list[level + 1][2 * index_yz].add_point(
-                                    2 * i + 1);
-                                cell_list[level + 1][2 * index_yz + 1]
-                                    .add_point(2 * i);
-                                cell_list[level + 1][2 * index_yz + 1]
-                                    .add_point(2 * i + 1);
+                                cell_list[level + 1][{}].add_point(2 * i);
+                                cell_list[level + 1][{}].add_point(2 * i + 1);
                             }
                             else
                             {
                                 cell_list[level][index_yz].add_point(i);
                             }
+
+                            // if (refine.array()[i + interval.index])
+                            // {
+                            //     cell_list[level + 1][2 *
+                            //     index_yz].add_point(2 *
+                            //                                                  i);
+                            //     cell_list[level + 1][2 * index_yz].add_point(
+                            //         2 * i + 1);
+                            //     cell_list[level + 1][2 * index_yz + 1]
+                            //         .add_point(2 * i);
+                            //     cell_list[level + 1][2 * index_yz + 1]
+                            //         .add_point(2 * i + 1);
+                            // }
+                            // else
+                            // {
+                            //     cell_list[level][index_yz].add_point(i);
+                            // }
                         }
                     });
             }
@@ -165,37 +203,51 @@ namespace mure
                             if (refine.array()[i + interval.index])
                             {
                                 auto ii = i << 1;
-                                auto jj = index_yz[0] << 1;
                                 interval_t i_levelp1 = {ii, ii + 1};
-                                auto j_levelp1 = jj;
-
-                                auto j = index_yz[0];
                                 interval_t i_level{i, i + 1};
-                                auto j_level = j;
 
-                                auto qs_i =
-                                    Qs_i<1>(field, level, i_level, j_level);
-                                auto qs_j =
-                                    Qs_j<1>(field, level, i_level, j_level);
-                                auto qs_ij =
-                                    Qs_ij<1>(field, level, i_level, j_level);
+                                auto qs_i = Qs_i<1>(field, level, i_level);
 
-                                new_field(level + 1, i_levelp1, j_levelp1) =
-                                    (field(level, i_level, j_level) + qs_i +
-                                     qs_j - qs_ij);
+                                new_field(level + 1, i_levelp1) =
+                                    (field(level, i_level) + qs_i);
 
-                                new_field(level + 1, i_levelp1 + 1, j_levelp1) =
-                                    (field(level, i_level, j_level) - qs_i +
-                                     qs_j + qs_ij);
+                                new_field(level + 1, i_levelp1 + 1) =
+                                    (field(level, i_level) - qs_i);
 
-                                new_field(level + 1, i_levelp1, j_levelp1 + 1) =
-                                    (field(level, i_level, j_level) + qs_i -
-                                     qs_j + qs_ij);
+                                // auto ii = i << 1;
+                                // auto jj = index_yz[0] << 1;
+                                // interval_t i_levelp1 = {ii, ii + 1};
+                                // auto j_levelp1 = jj;
 
-                                new_field(level + 1, i_levelp1 + 1,
-                                          j_levelp1 + 1) =
-                                    (field(level, i_level, j_level) - qs_i -
-                                     qs_j - qs_ij);
+                                // auto j = index_yz[0];
+                                // interval_t i_level{i, i + 1};
+                                // auto j_level = j;
+
+                                // auto qs_i =
+                                //     Qs_i<1>(field, level, i_level, j_level);
+                                // auto qs_j =
+                                //     Qs_j<1>(field, level, i_level, j_level);
+                                // auto qs_ij =
+                                //     Qs_ij<1>(field, level, i_level, j_level);
+
+                                // new_field(level + 1, i_levelp1, j_levelp1) =
+                                //     (field(level, i_level, j_level) + qs_i +
+                                //      qs_j - qs_ij);
+
+                                // new_field(level + 1, i_levelp1 + 1,
+                                // j_levelp1) =
+                                //     (field(level, i_level, j_level) - qs_i +
+                                //      qs_j + qs_ij);
+
+                                // new_field(level + 1, i_levelp1, j_levelp1 +
+                                // 1) =
+                                //     (field(level, i_level, j_level) + qs_i -
+                                //      qs_j + qs_ij);
+
+                                // new_field(level + 1, i_levelp1 + 1,
+                                //           j_levelp1 + 1) =
+                                //     (field(level, i_level, j_level) - qs_i -
+                                //      qs_j - qs_ij);
                             }
                         }
                     });

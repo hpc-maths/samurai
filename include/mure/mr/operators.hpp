@@ -63,6 +63,28 @@ namespace mure
         INIT_OPERATOR(prediction_op)
 
         template<class T>
+        void operator()(Dim<1>, T &field) const
+        {
+            for (coord_index_t iii = i.start; iii < i.end; ++iii)
+            {
+                auto tmp = iii >> 1;
+                interval_t ii{tmp, tmp + 1};
+                interval_t iv{iii, iii + 1};
+
+                auto qs_i = Qs_i<1>(field, level - 1, ii);
+
+                if (!(iii & 1))
+                {
+                    field(level, iv) = field(level - 1, ii) + qs_i;
+                }
+                if ((iii & 1))
+                {
+                    field(level, iv) = field(level - 1, ii) - qs_i;
+                }
+            }
+        }
+
+        template<class T>
         void operator()(Dim<2>, T &field) const
         {
             for (coord_index_t iii = i.start; iii < i.end; ++iii)
@@ -199,7 +221,7 @@ namespace mure
         template<class T>
         void operator()(Dim<1>, T &detail, const T &field) const
         {
-            auto qs_i = xt::eval(Qs_i<1>(field, level, i, j));
+            auto qs_i = xt::eval(Qs_i<1>(field, level, i));
 
             detail(level + 1, 2 * i) =
                 field(level + 1, 2 * i) - (field(level, i) + qs_i);
@@ -258,6 +280,32 @@ namespace mure
     class compute_detail_op_ : public field_operator_base<TInterval> {
       public:
         INIT_OPERATOR(compute_detail_op_)
+
+        template<class T>
+        void operator()(Dim<1>, T &detail, const T &field) const
+        {
+            for (int ii = i.start; ii < i.end; ++ii)
+            {
+                auto i_level = interval_t{ii, ii + 1};
+                auto i_levelm1 = i_level / 2;
+
+                auto qs_i = Qs_i<1>(field, level - 1, i_levelm1);
+
+                if (!(ii & 1))
+                {
+                    detail(level, i_level) =
+                        field(level, i_level) -
+                        (field(level - 1, i_levelm1) + qs_i);
+                }
+
+                if ((ii & 1))
+                {
+                    detail(level, i_level) =
+                        field(level, i_level) -
+                        (field(level - 1, i_levelm1) - qs_i);
+                }
+            }
+        }
 
         template<class T>
         void operator()(Dim<2>, T &detail, const T &field) const
@@ -362,6 +410,13 @@ namespace mure
         INIT_OPERATOR(compute_max_detail_op_)
 
         template<class T, class U>
+        void operator()(Dim<1>, const U &detail, T &max_detail) const
+        {
+            max_detail[level] = std::max(
+                max_detail[level], xt::amax(xt::abs(detail(level, i)))[0]);
+        }
+
+        template<class T, class U>
         void operator()(Dim<2>, const U &detail, T &max_detail) const
         {
             max_detail[level] = std::max(
@@ -389,10 +444,12 @@ namespace mure
         void operator()(Dim<1>, T &keep, const U &detail, const V &max_detail,
                         double eps) const
         {
-            auto mask = (.5 *
-                         (xt::abs(detail(level + 1, 2 * i)) +
-                          xt::abs(detail(level + 1, 2 * i + 1))) /
-                         max_detail[level + 1]) < eps;
+            // auto mask = (.5 *
+            //              (xt::abs(detail(level + 1, 2 * i)) +
+            //               xt::abs(detail(level + 1, 2 * i + 1))) /
+            //              max_detail[level + 1]) < eps;
+            auto mask = (.5 * (xt::abs(detail(level + 1, 2 * i)) +
+                               xt::abs(detail(level + 1, 2 * i + 1)))) < eps;
             xt::masked_view(keep(level + 1, 2 * i), mask) = false;
             xt::masked_view(keep(level + 1, 2 * i + 1), mask) = false;
         }
@@ -441,12 +498,8 @@ namespace mure
         void operator()(Dim<1>, T &refine, const U &detail, const V &max_detail,
                         double eps) const
         {
-            auto mask = (.5 *
-                         (xt::abs(detail(level + 1, 2 * i)) +
-                          xt::abs(detail(level + 1, 2 * i + 1))) /
-                         max_detail[level + 1]) >= 2 * eps;
-            xt::masked_view(refine(level + 1, 2 * i), mask) = true;
-            xt::masked_view(refine(level + 1, 2 * i + 1), mask) = true;
+            auto mask = xt::abs(detail(level, i)) >= 2 * eps;
+            xt::masked_view(refine(level, i), mask) = true;
         }
 
         template<class T, class U, class V>

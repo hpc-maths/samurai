@@ -25,9 +25,9 @@ namespace mure
                                        mesh[MeshType::cells][level + 1])
                               .on(level);
 
-            int exponent =
-                dim * (level - mesh[MeshType::cells].max_level() - 1);
-            // int exponent = dim * (level - max_refinement_level);
+            // int exponent =
+            //     dim * (level - mesh[MeshType::cells].max_level() - 1);
+            int exponent = dim * (level - max_refinement_level);
 
             auto eps_l = std::pow(2, exponent) * eps;
 
@@ -46,6 +46,7 @@ namespace mure
 
             keep_subset.apply_op(level - 1, maximum(keep));
 
+            // 1D
             auto subset_right =
                 intersection(
                     mesh[MeshType::cells][level],
@@ -54,8 +55,7 @@ namespace mure
 
             subset_right([&](auto &index_yz, auto &interval, auto &) {
                 auto i = interval[0];
-                auto j = index_yz[0];
-                keep(level - 1, i - 1, j) |= keep(level - 1, i, j);
+                keep(level - 1, i - 1) |= keep(level - 1, i);
             });
 
             auto subset_left =
@@ -66,31 +66,55 @@ namespace mure
 
             subset_left([&](auto &index_yz, auto &interval, auto &) {
                 auto i = interval[0];
-                auto j = index_yz[0];
-                keep(level - 1, i + 1, j) |= keep(level - 1, i, j);
+                keep(level - 1, i + 1) |= keep(level - 1, i);
             });
 
-            auto subset_down =
-                intersection(translate_in_y<-1>(mesh[MeshType::cells][level]),
-                             mesh[MeshType::cells][level - 1])
-                    .on(level - 1);
+            // 2D
+            // auto subset_right =
+            //     intersection(
+            //         mesh[MeshType::cells][level],
+            //         translate_in_x<1>(mesh[MeshType::cells][level - 1]))
+            //         .on(level - 1);
 
-            subset_down([&](auto &index_yz, auto &interval, auto &) {
-                auto i = interval[0];
-                auto j = index_yz[0];
-                keep(level - 1, i, j) |= keep(level - 1, i, j + 1);
-            });
+            // subset_right([&](auto &index_yz, auto &interval, auto &) {
+            //     auto i = interval[0];
+            //     auto j = index_yz[0];
+            //     keep(level - 1, i - 1, j) |= keep(level - 1, i, j);
+            // });
 
-            auto subset_up =
-                intersection(translate_in_y<1>(mesh[MeshType::cells][level]),
-                             mesh[MeshType::cells][level - 1])
-                    .on(level - 1);
+            // auto subset_left =
+            //     intersection(
+            //         mesh[MeshType::cells][level],
+            //         translate_in_x<-1>(mesh[MeshType::cells][level - 1]))
+            //         .on(level - 1);
 
-            subset_up([&](auto &index_yz, auto &interval, auto &) {
-                auto i = interval[0];
-                auto j = index_yz[0];
-                keep(level - 1, i, j) |= keep(level - 1, i, j - 1);
-            });
+            // subset_left([&](auto &index_yz, auto &interval, auto &) {
+            //     auto i = interval[0];
+            //     auto j = index_yz[0];
+            //     keep(level - 1, i + 1, j) |= keep(level - 1, i, j);
+            // });
+
+            // auto subset_down =
+            //     intersection(translate_in_y<-1>(mesh[MeshType::cells][level]),
+            //                  mesh[MeshType::cells][level - 1])
+            //         .on(level - 1);
+
+            // subset_down([&](auto &index_yz, auto &interval, auto &) {
+            //     auto i = interval[0];
+            //     auto j = index_yz[0];
+            //     keep(level - 1, i, j) |= keep(level - 1, i, j + 1);
+            // });
+
+            // auto subset_up =
+            //     intersection(translate_in_y<1>(mesh[MeshType::cells][level]),
+            //                  mesh[MeshType::cells][level - 1])
+            //         .on(level - 1);
+
+            // subset_up([&](auto &index_yz, auto &interval, auto &) {
+            //     auto i = interval[0];
+            //     auto j = index_yz[0];
+            //     keep(level - 1, i, j) |= keep(level - 1, i, j - 1);
+            // });
         }
 
         CellList<MRConfig> cell_list;
@@ -106,13 +130,22 @@ namespace mure
                         {
                             if (keep.array()[i + interval.index])
                             {
-                                cell_list[level][index_yz].add_point(i);
+                                cell_list[level][{}].add_point(i);
                             }
                             else
                             {
-                                cell_list[level - 1][index_yz >> 1].add_point(
-                                    i >> 1);
+                                cell_list[level - 1][{}].add_point(i >> 1);
                             }
+                            // if (keep.array()[i + interval.index])
+                            // {
+                            //     cell_list[level][index_yz].add_point(i);
+                            // }
+                            // else
+                            // {
+                            //     cell_list[level - 1][index_yz >>
+                            //     1].add_point(
+                            //         i >> 1);
+                            // }
                         }
                     });
             }

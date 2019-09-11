@@ -485,14 +485,14 @@ namespace mure
     inline auto contraction_op<T>::start(std::size_t dim,
                                          std::size_t index) const noexcept
     {
-        return m_data.start(dim, index) - 1;
+        return m_data.start(dim, index) + 1;
     }
 
     template<class T>
     inline auto contraction_op<T>::end(std::size_t dim, std::size_t index) const
         noexcept
     {
-        return m_data.end(dim, index) + 1;
+        return m_data.end(dim, index) - 1;
     }
 
     template<class T>
