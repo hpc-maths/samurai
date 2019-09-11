@@ -12,24 +12,23 @@ namespace mure
         auto mesh = field.mesh();
         for (std::size_t level = max_refinement_level; level >= 1; --level)
         {
-            auto expr = intersection(mesh[MeshType::all_cells][level],
-                                     mesh[MeshType::proj_cells][level - 1])
-                            .on(level - 1);
-            // auto expr =
-            //     // intersection(
-            //     intersection(
-            //         mesh[MeshType::all_cells][level],
-            //         difference(
-            //             contraction(mesh[MeshType::all_cells][level - 1]),
-            //             mesh[MeshType::cells][level - 1])) //,
-            //         // mesh.initial_mesh())
-            //         .on(level - 1);
+            // auto expr = intersection(
+            //                 intersection(mesh[MeshType::all_cells][level],
+            //                              mesh[MeshType::proj_cells][level -
+            //                              1]),
+            //                 mesh.initial_mesh())
+            //                 .on(level - 1);
 
-            // std::cout << "intial mesh" << mesh.initial_mesh() << "\n";
+            auto expr =
+                intersection(
+                    intersection(
+                        mesh[MeshType::all_cells][level],
+                        difference(
+                            contraction(mesh[MeshType::all_cells][level - 1]),
+                            mesh[MeshType::cells][level - 1])),
+                    mesh.initial_mesh())
+                    .on(level - 1);
 
-            // expr([&](auto &, auto &interval, auto &) {
-            //     std::cout << level << " " << interval << "\n";
-            // });
             expr.apply_op(level - 1, projection(field));
         }
     }
@@ -53,14 +52,6 @@ namespace mure
                         mesh.initial_mesh())
                         .on(level);
                 expr.apply_op(level, prediction(field));
-                if (level == 2)
-                {
-                    expr([&](auto &index_yz, auto &interval, auto &) {
-                        std::cout << interval[0] << " " << index_yz[0] << "\n";
-                        std::cout << field(level, interval[0], index_yz[0])
-                                  << "\n";
-                    });
-                }
             }
         }
     }

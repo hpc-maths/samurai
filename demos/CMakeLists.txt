@@ -23,8 +23,14 @@ set(CMAKE_CXX_STANDARD 14)
 # add_executable(heaviside heaviside.cpp ${MURE_HEADERS})
 # target_link_libraries(heaviside mure)
 
-add_executable(advection advection.cpp ${MURE_HEADERS})
-target_link_libraries(advection mure)
+add_executable(advection_1d advection_1d.cpp ${MURE_HEADERS})
+target_link_libraries(advection_1d mure)
+
+add_executable(test_1d test_1d.cpp ${MURE_HEADERS})
+target_link_libraries(test_1d mure)
+
+# add_executable(test_proj test_projection.cpp ${MURE_HEADERS})
+# target_link_libraries(test_proj mure)
 
 #add_executable(subset subset.cpp ${MURE_HEADERS})
 #target_link_libraries(subset mure)

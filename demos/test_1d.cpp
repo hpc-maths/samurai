@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
         mure::mr_projection(u);
         mure::coarsening(detail, u, eps, i);
     }
-
+    
     // Error computation
     auto error = compute_error(mesh, u, atoi(argv[1]));
 
