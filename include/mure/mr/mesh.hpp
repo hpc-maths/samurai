@@ -273,10 +273,11 @@ namespace mure
                         static_nested_loop<dim - 1, -s, s + 1>(
                             [&](auto stencil) {
                                 level_cell_list[(index_yz >> 1) + stencil]
-                                    .add_interval({(interval.start >> 1) -
-                                                       static_cast<int>(s),
-                                                   ((interval.end + 1) >> 1) +
-                                                       static_cast<int>(s)});
+                                    .add_interval(
+                                        {(interval.start >> 1) -
+                                             static_cast<int>(2 * s),
+                                         ((interval.end + 1) >> 1) +
+                                             static_cast<int>(2 * s)});
                             });
                     });
             }
