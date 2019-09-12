@@ -272,12 +272,14 @@ namespace mure
                         interval_t const &interval) {
                         static_nested_loop<dim - 1, -s, s + 1>(
                             [&](auto stencil) {
+                                int beg =
+                                    (interval.start >> 1) - static_cast<int>(s);
+                                int end = (interval.end + 1 >> 1) +
+                                          static_cast<int>(s);
+
                                 level_cell_list[(index_yz >> 1) + stencil]
                                     .add_interval(
-                                        {(interval.start >> 1) -
-                                             static_cast<int>(2 * s),
-                                         ((interval.end + 1) >> 1) +
-                                             static_cast<int>(2 * s)});
+                                        {beg - (beg & 1), end + (end & 1)});
                             });
                     });
             }
