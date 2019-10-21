@@ -252,16 +252,6 @@ namespace mure
             detail(level + 1, 2 * i + 1, 2 * j + 1) =
                 field(level + 1, 2 * i + 1, 2 * j + 1) -
                 (field(level, i, j) - qs_i - qs_j - qs_ij);
-
-            std::cout << "##################################\n";
-            std::cout << level + 1 << " " << 2 * i << " " << 2 * j << "\n";
-            std::cout << field(level + 1, 2 * i, 2 * j) << "\n";
-            std::cout << field(level, i, j) << "\n";
-            std::cout << detail(level + 1, 2 * i, 2 * j) << "\n";
-            std::cout << qs_i << "\n";
-            std::cout << qs_j << "\n";
-            std::cout << qs_ij << "\n";
-            std::cout << "##################################\n";
         }
     };
 
@@ -448,8 +438,8 @@ namespace mure
             //              (xt::abs(detail(level + 1, 2 * i)) +
             //               xt::abs(detail(level + 1, 2 * i + 1))) /
             //              max_detail[level + 1]) < eps;
-            auto mask = (.5 * (xt::abs(detail(level + 1, 2 * i)) +
-                               xt::abs(detail(level + 1, 2 * i + 1)))) < eps;
+            auto mask = (xt::abs(detail(level + 1, 2 * i)) /
+                         max_detail[level + 1]) < eps;
             xt::masked_view(keep(level + 1, 2 * i), mask) = false;
             xt::masked_view(keep(level + 1, 2 * i + 1), mask) = false;
         }
@@ -458,18 +448,12 @@ namespace mure
         void operator()(Dim<2>, T &keep, const U &detail, const V &max_detail,
                         double eps) const
         {
-            // auto mask = (0.25 *
-            //              (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
-            //               xt::abs(detail(level + 1, 2 * i + 1, 2 * j)) +
-            //               xt::abs(detail(level + 1, 2 * i, 2 * j + 1)) +
-            //               xt::abs(detail(level + 1, 2 * i + 1, 2 * j + 1))) /
-            //              max_detail[level + 1]) < eps;
-            auto mask =
-                (0.25 * (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
-                         xt::abs(detail(level + 1, 2 * i + 1, 2 * j)) +
-                         xt::abs(detail(level + 1, 2 * i, 2 * j + 1)) +
-                         xt::abs(detail(level + 1, 2 * i + 1, 2 * j + 1)))) <
-                eps;
+            auto mask = (0.25 *
+                         (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
+                          xt::abs(detail(level + 1, 2 * i + 1, 2 * j)) +
+                          xt::abs(detail(level + 1, 2 * i, 2 * j + 1)) +
+                          xt::abs(detail(level + 1, 2 * i + 1, 2 * j + 1))) /
+                         max_detail[level + 1]) < eps;
             xt::masked_view(keep(level + 1, 2 * i, 2 * j), mask) = false;
             xt::masked_view(keep(level + 1, 2 * i + 1, 2 * j), mask) = false;
             xt::masked_view(keep(level + 1, 2 * i, 2 * j + 1), mask) = false;
@@ -498,7 +482,7 @@ namespace mure
         void operator()(Dim<1>, T &refine, const U &detail, const V &max_detail,
                         double eps) const
         {
-            auto mask = xt::abs(detail(level, i)) >= 2 * eps;
+            auto mask = xt::abs(detail(level, i)) >= eps;
             xt::masked_view(refine(level, i), mask) = true;
         }
 

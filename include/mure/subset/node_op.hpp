@@ -31,6 +31,11 @@ namespace mure
         auto end(std::size_t dim, std::size_t index) const noexcept;
         auto offset(std::size_t dim, std::size_t index) const noexcept;
         auto interval(std::size_t dim, std::size_t index) const noexcept;
+
+        template<class T>
+        auto find(std::size_t dim, std::size_t start, std::size_t end,
+                  T coord) const noexcept;
+
         auto offsets_size(std::size_t dim) const noexcept;
         auto data() const noexcept;
 
@@ -130,6 +135,14 @@ namespace mure
         noexcept
     {
         return this->derived_cast().m_data.interval(dim, index);
+    }
+
+    template<class D>
+    template<class T>
+    inline auto node_op<D>::find(std::size_t dim, std::size_t start,
+                                 std::size_t end, T coord) const noexcept
+    {
+        return this->derived_cast().m_data.find(dim, start, end, coord);
     }
 
     template<class D>
@@ -252,6 +265,8 @@ namespace mure
         auto offset(std::size_t dim, std::size_t off_ind) const noexcept;
         auto offsets_size(std::size_t dim) const noexcept;
         auto interval(std::size_t dim, std::size_t index) const noexcept;
+        auto find(std::size_t dim, std::size_t start, std::size_t end,
+                  coord_index_t coord) const noexcept;
         const Mesh &data() const noexcept;
         void data(Mesh &mesh) noexcept;
         std::size_t level() const noexcept;
@@ -327,6 +342,14 @@ namespace mure
                                           std::size_t index) const noexcept
     {
         return (*m_data)[dim][index];
+    }
+
+    template<class Mesh>
+    inline auto mesh_node<Mesh>::find(std::size_t dim, std::size_t start,
+                                      std::size_t end,
+                                      coord_index_t coord) const noexcept
+    {
+        return m_data->find_on_dim(dim, start, end, coord);
     }
 
     template<class Mesh>
@@ -531,6 +554,8 @@ namespace mure
         auto offset(std::size_t dim, std::size_t off_ind) const noexcept;
         auto offsets_size(std::size_t dim) const noexcept;
         auto interval(std::size_t dim, std::size_t index) const noexcept;
+        auto find(std::size_t dim, std::size_t start, std::size_t end,
+                  coord_index_t coord) const noexcept;
         const mesh_type &data() const noexcept;
         std::size_t level() const noexcept;
 
@@ -724,6 +749,14 @@ namespace mure
         //     return m_data.interval(dim, index);
         // else
         return m_node.interval(dim, index);
+    }
+
+    template<class T>
+    inline auto projection_op<T>::find(std::size_t dim, std::size_t start,
+                                       std::size_t end,
+                                       coord_index_t coord) const noexcept
+    {
+        return m_node.find(dim, start, end, coord);
     }
 
     template<class T>

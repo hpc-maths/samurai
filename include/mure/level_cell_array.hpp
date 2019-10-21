@@ -83,6 +83,20 @@ namespace mure
         inline index_t
         find(xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord) const;
 
+        inline std::size_t find_on_dim(std::size_t d, std::size_t start_index,
+                                       std::size_t end_index,
+                                       coord_index_t coord) const
+        {
+            for (std::size_t i = start_index; i < end_index; ++i)
+            {
+                if (m_cells[d][i].contains(coord))
+                {
+                    return i;
+                }
+            }
+            return std::numeric_limits<std::size_t>::max();
+        }
+
         std::size_t get_level() const
         {
             return m_level;
@@ -361,14 +375,14 @@ namespace mure
 
             out << "\tcells = ";
             for (auto const &interval : m_cells[d])
-                std::cout << interval << " ";
+                out << interval << " ";
             out << std::endl;
 
             if (d > 0)
             {
                 out << "\toffsets = ";
                 for (auto const &v : m_offsets[d - 1])
-                    std::cout << v << " ";
+                    out << v << " ";
                 out << std::endl;
             }
         }
@@ -523,6 +537,30 @@ namespace mure
             }
         }
         return -1;
+    }
+
+    template<std::size_t Dim, class TInterval>
+    bool operator==(const LevelCellArray<Dim, TInterval> &lca_1,
+                    const LevelCellArray<Dim, TInterval> &lca_2)
+    {
+        if (lca_1.get_level() != lca_2.get_level())
+            return false;
+
+        if (lca_1.shape() != lca_2.shape())
+            return false;
+
+        for (std::size_t i = 0; i < Dim; ++i)
+        {
+            if (lca_1[i] != lca_2[i])
+                return false;
+        }
+
+        for (std::size_t i = 0; i < Dim - 1; ++i)
+        {
+            if (lca_1.offsets(i) != lca_2.offsets(i))
+                return false;
+        }
+        return true;
     }
 
     template<std::size_t Dim, class TInterval>

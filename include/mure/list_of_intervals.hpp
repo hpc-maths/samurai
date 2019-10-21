@@ -61,8 +61,42 @@ namespace mure
         }
 
         /// Add an interval inside the list.
+        void add_interval(interval_t &interval)
+        {
+            if (!interval.is_valid())
+                return;
+
+            auto predicate = [interval](auto const &value) {
+                return interval.start <= value.end;
+            };
+            auto it = forward_find_if(before_begin(), end(), predicate);
+
+            // if we are at the end just append the new interval or
+            // if we are between two intervals, insert it
+            if (it.second == end() || interval.end < it.second->start)
+            {
+                this->insert_after(it.first, interval);
+                return;
+            }
+
+            // else there is an overlap
+            it.second->start = std::min(it.second->start, interval.start);
+            it.second->end = std::max(it.second->end, interval.end);
+
+            auto it_end = std::next(it.second);
+            while (it_end != end() && interval.end >= it_end->start)
+            {
+                it.second->end = std::max(it_end->end, interval.end);
+                it_end = erase_after(it.second);
+            }
+        }
+
+        /// Add an interval inside the list.
         void add_interval(interval_t &&interval)
         {
+            if (!interval.is_valid())
+                return;
+
             auto predicate = [interval](auto const &value) {
                 return interval.start <= value.end;
             };

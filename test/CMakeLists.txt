@@ -15,8 +15,8 @@ include(CheckCXXCompilerFlag)
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR (CMAKE_CXX_COMPILER_ID MATCHES "Intel" AND NOT WIN32))
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast -Wunused-variable")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast -Wunused-variable")
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion")
     CHECK_CXX_COMPILER_FLAG("-std=c++14" HAS_CPP14_FLAG)
     CHECK_CXX_COMPILER_FLAG("-std=c++17" HAS_CPP17_FLAG)
@@ -84,18 +84,25 @@ set(COMMON_BASE
 set(MURE_TESTS
     test_box.cpp
     test_cell.cpp
+    test_cell_list.cpp
+    test_coarsening.cpp
     test_interval.cpp
     test_level_cell_list.cpp
     test_list_of_intervals.cpp
+    test_param.cpp
+    test_operator_set.cpp
+    test_projection.cpp
 )
 
 include(GoogleTest)
+
+find_package(rapidcheck)
 
 foreach(filename IN LISTS MURE_TESTS)
     string(REPLACE ".cpp" "" targetname ${filename})
     add_executable(${targetname} ${COMMON_BASE} ${filename} ${MURE_HEADERS})
     target_include_directories(${targetname} PRIVATE ${MURE_INCLUDE_DIR})
-    target_link_libraries(${targetname} mure ${GTEST_BOTH_LIBRARIES})
+    target_link_libraries(${targetname} mure ${GTEST_BOTH_LIBRARIES} rapidcheck)
     # target_link_libraries(${targetname} mure ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
     # if(DOWNLOAD_GTEST OR GTEST_SRC_DIR)
     #     add_dependencies(${targetname} gtest_main)
@@ -112,7 +119,7 @@ target_include_directories(test_mure_lib PRIVATE ${MURE_INCLUDE_DIR})
 if(DOWNLOAD_GTEST OR GTEST_SRC_DIR)
     add_dependencies(test_mure_lib gtest_main)
 endif()
-target_link_libraries(test_mure_lib mure ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(test_mure_lib mure ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} rapidcheck)
 
 # # add_custom_target(mure_test COMMAND test_mure_lib DEPENDS test_mure_lib)
 # add_test(NAME mure_test COMMAND test_mure_lib DEPENDS test_mure_lib)

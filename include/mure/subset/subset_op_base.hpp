@@ -13,6 +13,10 @@ namespace mure
     template<class F, class... CT>
     class subset_operator;
 
+    /**
+     * @brief apply the projection operator if the node of
+     * the expression is a subset_node (keep unchanged otherwise).
+     */
     template<class CT>
     struct make_projection
     {
@@ -62,6 +66,13 @@ namespace mure
      * subset_operator definition *
      ******************************/
 
+    /**
+     * @class subset_operator
+     * @brief Define a subset of different intervals.
+     *
+     * @tparam F the function type (intersection, union, difference,...)
+     * @tparam CT the closure types for arguments of the function
+     */
     template<class F, class... CT>
     class subset_operator {
       public:
@@ -321,10 +332,12 @@ namespace mure
     subset_operator<F, CT...>::sub_apply(Func &&func,
                                          std::integral_constant<std::size_t, d>)
     {
+        // std::cout << "result " << m_result[d] << "\n";
         for (int i = m_result[d].start; i < m_result[d].end; ++i)
         {
             m_index_yz[d - 1] = i;
 
+            // std::cout << "i " << i << "\n";
             decrement_dim(i);
             apply(std::forward<Func>(func),
                   std::integral_constant<std::size_t, d - 1>{});

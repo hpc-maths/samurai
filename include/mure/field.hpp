@@ -95,6 +95,13 @@ namespace mure
                         const T... index)
         {
             auto interval_tmp = m_mesh->get_interval(level, interval, index...);
+            if ((interval_tmp.end - interval_tmp.step <
+                 interval.end - interval.step) or
+                (interval_tmp.start > interval.start))
+            {
+                std::cout << "WRITE FIELD ERROR on level " << level << " "
+                          << interval_tmp << " " << interval << " !!!!!!\n";
+            }
             return xt::view(m_data,
                             xt::range(interval_tmp.index + interval.start,
                                       interval_tmp.index + interval.end,
@@ -106,6 +113,13 @@ namespace mure
                         const T... index) const
         {
             auto interval_tmp = m_mesh->get_interval(level, interval, index...);
+            if ((interval_tmp.end - interval_tmp.step <
+                 interval.end - interval.step) or
+                (interval_tmp.start > interval.start))
+            {
+                std::cout << "READ FIELD ERROR on level " << level << " "
+                          << interval_tmp << " " << interval << " !!!!!!\n";
+            }
             return xt::view(m_data,
                             xt::range(interval_tmp.index + interval.start,
                                       interval_tmp.index + interval.end,

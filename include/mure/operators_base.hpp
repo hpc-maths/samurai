@@ -98,7 +98,7 @@ namespace mure
     using interval_t = TInterval;                                              \
     using coord_index_t = typename interval_t::coord_index_t;                  \
                                                                                \
-    using base = field_operator_base<interval_t>;                              \
+    using base = ::mure::field_operator_base<interval_t>;                      \
     using base::i;                                                             \
     using base::j;                                                             \
     using base::k;                                                             \

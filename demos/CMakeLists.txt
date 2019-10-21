@@ -23,17 +23,23 @@ set(CMAKE_CXX_STANDARD 14)
 # add_executable(heaviside heaviside.cpp ${MURE_HEADERS})
 # target_link_libraries(heaviside mure)
 
-add_executable(advection_1d advection_1d.cpp ${MURE_HEADERS})
-target_link_libraries(advection_1d mure)
+# add_executable(advection_1d advection_1d.cpp ${MURE_HEADERS})
+# target_link_libraries(advection_1d mure)
 
-add_executable(test_1d test_1d.cpp ${MURE_HEADERS})
-target_link_libraries(test_1d mure)
+# add_executable(test_1d test_1d.cpp ${MURE_HEADERS})
+# target_link_libraries(test_1d mure)
+
+add_executable(lbm_d1q2 LBM/D1Q2.cpp ${MURE_HEADERS})
+target_link_libraries(lbm_d1q2 mure)
+
+#add_executable(test_2d test_2d.cpp ${MURE_HEADERS})
+#target_link_libraries(test_2d mure)
 
 # add_executable(test_proj test_projection.cpp ${MURE_HEADERS})
 # target_link_libraries(test_proj mure)
 
-#add_executable(subset subset.cpp ${MURE_HEADERS})
-#target_link_libraries(subset mure)
+# add_executable(subset subset.cpp ${MURE_HEADERS})
+# target_link_libraries(subset mure)
 
 # add_executable(bench_level_cell_array bench_level_cell_array.cpp ${MURE_HEADERS})
 # target_link_libraries(bench_level_cell_array mure)

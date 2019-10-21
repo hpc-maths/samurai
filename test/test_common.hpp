@@ -2,6 +2,8 @@
 
 #include <xtensor/xarray.hpp>
 
+#include <rapidcheck.h>
+
 #include <mure/interval.hpp>
 #include <mure/list_of_intervals.hpp>
 
@@ -26,3 +28,23 @@ namespace mure
             return false;
     }
 }
+
+// NOTE: Must be in rc namespace!
+namespace rc
+{
+
+    template<>
+    template<class TValue>
+    struct Arbitrary<mure::Interval<TValue>>
+    {
+        static Gen<mure::Interval<TValue>> arbitrary()
+        {
+            auto start = gen::inRange(-100, 100);
+            auto end = gen::inRange(-100, 100);
+            return gen::build<mure::Interval<TValue>>(
+                gen::set(&mure::Interval<TValue>::start, start),
+                gen::set(&mure::Interval<TValue>::end, end));
+        }
+    };
+
+} // namespace rc
