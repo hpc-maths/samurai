@@ -4,8 +4,8 @@
 #include <xtensor/xview.hpp>
 
 #include "../operators_base.hpp"
+#include "cell_flag.hpp"
 #include "prediction.hpp"
-
 namespace mure
 {
     /***********************
@@ -141,13 +141,38 @@ namespace mure
         template<class T>
         void operator()(Dim<1>, T &field) const
         {
+            // xt::xtensor<bool, 1> mask =
+            //     field(level + 1, 2 * i) | field(level + 1, 2 * i + 1);
+
+            // xt::masked_view(field(level + 1, 2 * i), mask) = true;
+            // xt::masked_view(field(level + 1, 2 * i + 1), mask) = true;
+
+            // xt::masked_view(field(level, i), mask) = true;
+
             xt::xtensor<bool, 1> mask =
-                field(level + 1, 2 * i) | field(level + 1, 2 * i + 1);
+                (field(level + 1, 2 * i) & static_cast<int>(CellFlag::keep)) |
+                (field(level + 1, 2 * i + 1) &
+                 static_cast<int>(CellFlag::keep));
 
-            xt::masked_view(field(level + 1, 2 * i), mask) = true;
-            xt::masked_view(field(level + 1, 2 * i + 1), mask) = true;
+            xt::masked_view(field(level + 1, 2 * i), mask) |=
+                static_cast<int>(CellFlag::keep);
+            xt::masked_view(field(level + 1, 2 * i + 1), mask) |=
+                static_cast<int>(CellFlag::keep);
 
-            xt::masked_view(field(level, i), mask) = true;
+            xt::masked_view(field(level, i), mask) |=
+                static_cast<int>(CellFlag::keep);
+
+            mask = (field(level + 1, 2 * i) &
+                    static_cast<int>(CellFlag::coarsen)) &
+                   (field(level + 1, 2 * i + 1) &
+                    static_cast<int>(CellFlag::coarsen));
+
+            xt::masked_view(field(level + 1, 2 * i), !mask) &=
+                ~static_cast<int>(CellFlag::coarsen);
+            xt::masked_view(field(level + 1, 2 * i + 1), !mask) &=
+                ~static_cast<int>(CellFlag::coarsen);
+            // xt::masked_view(field(level, i), !mask) &=
+            //     ~static_cast<int>(CellFlag::coarsen);
         }
 
         template<class T>
@@ -438,10 +463,16 @@ namespace mure
             //              (xt::abs(detail(level + 1, 2 * i)) +
             //               xt::abs(detail(level + 1, 2 * i + 1))) /
             //              max_detail[level + 1]) < eps;
-            auto mask = (xt::abs(detail(level + 1, 2 * i)) /
-                         max_detail[level + 1]) < eps;
-            xt::masked_view(keep(level + 1, 2 * i), mask) = false;
-            xt::masked_view(keep(level + 1, 2 * i + 1), mask) = false;
+            // auto mask = (xt::abs(detail(level + 1, 2 * i)) /
+            //              max_detail[level + 1]) < eps;
+            auto mask = xt::abs(detail(level + 1, 2 * i)) < eps;
+
+            // xt::masked_view(keep(level + 1, 2 * i), mask) = false;
+            // xt::masked_view(keep(level + 1, 2 * i + 1), mask) = false;
+            xt::masked_view(keep(level + 1, 2 * i), mask) =
+                static_cast<int>(CellFlag::coarsen);
+            xt::masked_view(keep(level + 1, 2 * i + 1), mask) =
+                static_cast<int>(CellFlag::coarsen);
         }
 
         template<class T, class U, class V>
@@ -469,6 +500,34 @@ namespace mure
             std::forward<CT>(e)...);
     }
 
+    /********************
+     * enlarge operator *
+     ********************/
+
+    template<class TInterval>
+    class enlarge_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(enlarge_op)
+
+        template<class T>
+        void operator()(Dim<1>, T &keep, CellFlag flag) const
+        {
+            keep(level, i + 1) |= keep(level, i) & static_cast<int>(flag);
+            keep(level, i - 1) |= keep(level, i) & static_cast<int>(flag);
+            auto mask = keep(level, i) & static_cast<int>(CellFlag::refine);
+            xt::masked_view(keep(level, i + 1), mask) |=
+                static_cast<int>(CellFlag::keep);
+            xt::masked_view(keep(level, i - 1), mask) |=
+                static_cast<int>(CellFlag::keep);
+        }
+    };
+
+    template<class... CT>
+    auto enlarge(CT &&... e)
+    {
+        return make_field_operator_function<enlarge_op>(std::forward<CT>(e)...);
+    }
+
     /***********************
      * to_refine operator *
      ***********************/
@@ -480,10 +539,14 @@ namespace mure
 
         template<class T, class U, class V>
         void operator()(Dim<1>, T &refine, const U &detail, const V &max_detail,
-                        double eps) const
+                        std::size_t max_level, double eps) const
         {
-            auto mask = xt::abs(detail(level, i)) >= eps;
-            xt::masked_view(refine(level, i), mask) = true;
+            if (level < max_level)
+            {
+                auto mask = xt::abs(detail(level, i)) > eps;
+                xt::masked_view(refine(level, i), mask) =
+                    static_cast<int>(CellFlag::refine);
+            }
         }
 
         template<class T, class U, class V>

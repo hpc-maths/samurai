@@ -647,16 +647,16 @@ namespace mure
         if (m_shift > 0)
         {
             LevelCellList<dim, interval_t> lcl{m_ref_level};
-            m_data.for_each_interval_in_x(
-                [&](auto const &index_yz, auto const &interval) {
-                    auto new_start = interval.start >> m_shift;
-                    auto new_end = interval.end >> m_shift;
-                    if (new_start == new_end)
-                    {
-                        new_end++;
-                    }
-                    lcl[index_yz >> m_shift].add_interval({new_start, new_end});
-                });
+            m_data.for_each_interval_in_x([&](auto const &index_yz,
+                                              auto const &interval) {
+                auto new_start = interval.start >> m_shift;
+                auto new_end = (interval.end + (interval.end & 1)) >> m_shift;
+                if (new_start == new_end)
+                {
+                    new_end++;
+                }
+                lcl[index_yz >> m_shift].add_interval({new_start, new_end});
+            });
             m_mesh = {lcl};
             m_node = {m_mesh};
         }
