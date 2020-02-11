@@ -358,23 +358,22 @@ namespace mure
 
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
-                if (mesh.nb_cells_for_level(level, mesh_type) != 0)
+                if (mesh.nb_cells(level, mesh_type) != 0)
                 {
                     xt::xtensor<std::size_t, 2> connectivity;
                     connectivity.resize(
-                        {mesh.nb_cells_for_level(level, mesh_type), nb_points});
+                        {mesh.nb_cells(level, mesh_type), nb_points});
 
                     xt::xtensor<double, 2> coords;
                     coords.resize(
-                        {nb_points * mesh.nb_cells_for_level(level, mesh_type),
-                         3});
+                        {nb_points * mesh.nb_cells(level, mesh_type), 3});
                     coords.fill(0);
 
                     auto element =
                         get_element(std::integral_constant<std::size_t, dim>{});
 
                     std::size_t index = 0;
-                    mesh.for_each_cell_on_level(
+                    mesh.for_each_cell(
                         level,
                         [&](auto cell) {
                             auto coords_view =
