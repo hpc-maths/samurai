@@ -6,6 +6,7 @@ namespace mure
     {
         keep = 1,
         coarsen = 2,
-        refine = 4
+        refine = 4,
+        enlarge = 8
     };
 }
