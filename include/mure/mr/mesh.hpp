@@ -44,12 +44,10 @@ namespace mure
     class Mesh {
       public:
         static constexpr auto dim = MRConfig::dim;
-        static constexpr auto max_refinement_level =
-            MRConfig::max_refinement_level;
-        static constexpr auto ghost_width = std::max(
-            std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
-                     static_cast<int>(MRConfig::max_stencil_width)),
-            static_cast<int>(MRConfig::default_s_for_prediction));
+        static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
+        static constexpr auto ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
+                                                              static_cast<int>(MRConfig::max_stencil_width)),
+                                                     static_cast<int>(MRConfig::default_s_for_prediction));
         using index_t = typename MRConfig::index_t;
         using coord_index_t = typename MRConfig::coord_index_t;
         using point_t = typename Box<int, dim>::point_t;
@@ -58,32 +56,24 @@ namespace mure
         Mesh(Mesh const &) = default;
         Mesh &operator=(Mesh const &) = default;
 
-        Mesh(Box<double, dim> b, std::size_t init_level)
-            : m_init_level{init_level}
+        Mesh(Box<double, dim> b, std::size_t init_level) : m_init_level{init_level}
         {
             using box_t = Box<coord_index_t, dim>;
             point_t start = b.min_corner() * std::pow(2, init_level);
             point_t end = b.max_corner() * std::pow(2, init_level);
 
-            m_cells[MeshType::cells][init_level] = {init_level,
-                                                    box_t{start, end}};
-            m_cells[MeshType::cells_and_ghosts][init_level] = {
-                init_level, box_t{start - 1, end + 1}};
-            m_cells[MeshType::all_cells][init_level] = {
-                init_level, box_t{start - 1, end + 1}};
-            m_cells[MeshType::all_cells][init_level - 1] = {
-                init_level - 1, box_t{(start >> 1) - 1, (end >> 1) + 1}};
-            m_cells[MeshType::proj_cells][init_level - 1] = {
-                init_level - 1, box_t{(start >> 1), (end >> 1)}};
-            m_cells[MeshType::union_cells][init_level - 1] = {
-                init_level - 1, box_t{(start >> 1), (end >> 1)}};
+            m_cells[MeshType::cells][init_level] = {init_level, box_t{start, end}};
+            m_cells[MeshType::cells_and_ghosts][init_level] = {init_level, box_t{start - 1, end + 1}};
+            m_cells[MeshType::all_cells][init_level] = {init_level, box_t{start - 1, end + 1}};
+            m_cells[MeshType::all_cells][init_level - 1] = {init_level - 1, box_t{(start >> 1) - 1, (end >> 1) + 1}};
+            m_cells[MeshType::proj_cells][init_level - 1] = {init_level - 1, box_t{(start >> 1), (end >> 1)}};
+            m_cells[MeshType::union_cells][init_level - 1] = {init_level - 1, box_t{(start >> 1), (end >> 1)}};
             m_init_cells = {init_level, box_t{start, end}};
             update_x0_and_nb_ghosts();
             // update_ghost_nodes();
         }
 
-        Mesh(const CellList<MRConfig> &dcl,
-             const LevelCellArray<dim> &init_cells, std::size_t init_level)
+        Mesh(const CellList<MRConfig> &dcl, const LevelCellArray<dim> &init_cells, std::size_t init_level)
             : m_init_cells{init_cells}, m_init_level{init_level}
         {
             m_cells[MeshType::cells] = {dcl};
@@ -139,8 +129,7 @@ namespace mure
         }
 
         template<typename... T>
-        auto get_interval(std::size_t level, interval_t interval,
-                          T... index) const
+        auto get_interval(std::size_t level, interval_t interval, T... index) const
         {
             auto lca = m_cells[MeshType::all_cells][level];
             auto row = lca.find({interval.start, index...});
@@ -162,18 +151,15 @@ namespace mure
         }
 
         template<class Func>
-        inline void for_each_cell(Func &&func,
-                                  MeshType mesh_type = MeshType::cells) const
+        inline void for_each_cell(Func &&func, MeshType mesh_type = MeshType::cells) const
         {
             m_cells[mesh_type].for_each_cell(std::forward<Func>(func));
         }
 
         template<class Func>
-        inline void for_each_cell(std::size_t level, Func &&func,
-                                  MeshType mesh_type = MeshType::cells) const
+        inline void for_each_cell(std::size_t level, Func &&func, MeshType mesh_type = MeshType::cells) const
         {
-            m_cells[mesh_type][level].for_each_cell(level,
-                                                    std::forward<Func>(func));
+            m_cells[mesh_type][level].for_each_cell(level, std::forward<Func>(func));
         }
 
       private:
@@ -194,18 +180,15 @@ namespace mure
             auto max_level = m_cells[MeshType::cells].max_level();
             auto min_level = m_cells[MeshType::cells].min_level();
             m_cells[MeshType::union_cells][max_level] = {max_level};
-            for (std::size_t level = max_level; level >= ((min_level==0)?1:min_level); --level)
+            for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
             {
                 LevelCellList<dim, interval_t> lcl{level - 1};
-                auto expr = union_(m_cells[MeshType::cells][level],
-                                   m_cells[MeshType::union_cells][level])
-                                .on(level - 1);
+                auto expr =
+                    union_(m_cells[MeshType::cells][level], m_cells[MeshType::union_cells][level]).on(level - 1);
 
-                expr([&](auto &index_yz, auto &interval,
-                         auto & /*interval_index*/) {
+                expr([&](auto &index_yz, auto &interval, auto & /*interval_index*/) {
 
-                    lcl[index_yz].add_interval(
-                        {interval[0].start, interval[0].end});
+                    lcl[index_yz].add_interval({interval[0].start, interval[0].end});
                 });
                 m_cells[MeshType::union_cells][level - 1] = {lcl};
             }
@@ -233,15 +216,13 @@ namespace mure
             {
                 auto expr =
                     intersection(m_cells[MeshType::union_cells][level],
-                                 difference(m_cells[MeshType::all_cells][level],
-                                            m_cells[MeshType::cells][level]))
+                                 difference(m_cells[MeshType::all_cells][level], m_cells[MeshType::cells][level]))
                         .on(level - 1);
 
                 expr([&](auto &index_yz, auto &interval, auto &
                          /*interval_index*/) {
                     static_nested_loop<dim - 1, 0, 2>([&](auto stencil) {
-                        lcl[(index_yz << 1) + stencil].add_interval(
-                            {interval[0].start << 1, interval[0].end << 1});
+                        lcl[(index_yz << 1) + stencil].add_interval({interval[0].start << 1, interval[0].end << 1});
                     });
                 });
             }
@@ -251,18 +232,15 @@ namespace mure
         {
             auto max_level = m_cells[MeshType::cells].max_level();
             auto min_level = m_cells[MeshType::cells].min_level();
-            for (std::size_t level = max_level; level >= ((min_level==0)?1:min_level); --level)
+            for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
             {
                 LevelCellList<dim, interval_t> lcl{level - 1};
                 auto expr =
-                    intersection(m_cells[MeshType::all_cells][level - 1],
-                                 m_cells[MeshType::union_cells][level - 1]);
+                    intersection(m_cells[MeshType::all_cells][level - 1], m_cells[MeshType::union_cells][level - 1]);
 
-                expr([&](auto &index_yz, auto &interval,
-                         auto & /*interval_index*/) {
+                expr([&](auto &index_yz, auto &interval, auto & /*interval_index*/) {
 
-                    lcl[index_yz].add_interval(
-                        {interval[0].start, interval[0].end});
+                    lcl[index_yz].add_interval({interval[0].start, interval[0].end});
                 });
                 m_cells[MeshType::proj_cells][level - 1] = {lcl};
             }
@@ -294,28 +272,23 @@ namespace mure
     }
 
     template<class MRConfig>
-    void Mesh<MRConfig>::add_ng_ghosts_and_get_nb_leaves(
-        CellList<MRConfig> &cell_list)
+    void Mesh<MRConfig>::add_ng_ghosts_and_get_nb_leaves(CellList<MRConfig> &cell_list)
     {
         // +/- w nodes in the current level
         for (std::size_t level = 0; level <= max_refinement_level; ++level)
         {
-            const LevelCellArray<dim> &level_cell_array =
-                m_cells[MeshType::cells][level];
+            const LevelCellArray<dim> &level_cell_array = m_cells[MeshType::cells][level];
             if (!level_cell_array.empty())
             {
                 LevelCellList<dim> &level_cell_list = cell_list[level];
 
                 level_cell_array.for_each_interval_in_x(
-                    [&](xt::xtensor_fixed<coord_index_t,
-                                          xt::xshape<dim - 1>> const &index_yz,
+                    [&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index_yz,
                         interval_t const &interval) {
-                        static_nested_loop<dim - 1, -ghost_width,
-                                           ghost_width + 1>([&](auto stencil) {
+                        static_nested_loop<dim - 1, -ghost_width, ghost_width + 1>([&](auto stencil) {
                             auto index = xt::eval(index_yz + stencil);
-                            level_cell_list[index].add_interval(
-                                {interval.start - static_cast<int>(ghost_width),
-                                 interval.end + static_cast<int>(ghost_width)});
+                            level_cell_list[index].add_interval({interval.start - static_cast<int>(ghost_width),
+                                                                 interval.end + static_cast<int>(ghost_width)});
                         });
                     });
             }
@@ -327,36 +300,21 @@ namespace mure
     {
         for (std::size_t level = 1; level <= max_refinement_level; ++level)
         {
-            const LevelCellArray<dim> &level_cell_array =
-                m_cells[MeshType::cells][level];
+            const LevelCellArray<dim> &level_cell_array = m_cells[MeshType::cells][level];
             if (level_cell_array.empty() == false)
             {
                 LevelCellList<dim> &level_cell_list = cell_list[level - 1];
                 constexpr index_t s = MRConfig::default_s_for_prediction;
 
                 level_cell_array.for_each_interval_in_x(
-                    [&](xt::xtensor_fixed<coord_index_t,
-                                          xt::xshape<dim - 1>> const &index_yz,
+                    [&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index_yz,
                         interval_t const &interval) {
-                        static_nested_loop<dim - 1, -s, s + 1>(
-                            [&](auto stencil) {
-                                int beg =
-                                    (interval.start >> 1) - static_cast<int>(s);
-                                int end = ((interval.end + 1) >> 1) +
-                                          static_cast<int>(s);
+                        static_nested_loop<dim - 1, -ghost_width - s, ghost_width + s + 1>([&](auto stencil) {
+                            int beg = (interval.start >> 1) - static_cast<int>(s + ghost_width);
+                            int end = ((interval.end + 1) >> 1) + static_cast<int>(s + ghost_width);
 
-                                level_cell_list[(index_yz >> 1) + stencil]
-                                    .add_interval({beg, end});
-                                // int beg =
-                                //     (interval.start >> 1) -
-                                //     static_cast<int>(s);
-                                // int end = (interval.end + 1 >> 1) +
-                                //           static_cast<int>(s);
-
-                                // level_cell_list[(index_yz >> 1) + stencil]
-                                //     .add_interval(
-                                //         {beg - (beg & 1), end + (end & 1)});
-                            });
+                            level_cell_list[(index_yz >> 1) + stencil].add_interval({beg, end});
+                        });
                     });
             }
         }
@@ -368,79 +326,53 @@ namespace mure
         std::size_t ghost_index = 0;
         for (std::size_t level = 0; level <= max_refinement_level; ++level)
         {
-            m_cells[MeshType::all_cells][level].for_each_interval_in_x(
-                [&](auto &, const interval_t &interval) {
-                    // FIXME: remove this const_cast !!
-                    const_cast<interval_t &>(interval).index =
-                        static_cast<index_t>(ghost_index) - interval.start;
-                    ghost_index += interval.size();
-                });
+            m_cells[MeshType::all_cells][level].for_each_interval_in_x([&](auto &, const interval_t &interval) {
+                // FIXME: remove this const_cast !!
+                const_cast<interval_t &>(interval).index = static_cast<index_t>(ghost_index) - interval.start;
+                ghost_index += interval.size();
+            });
         }
 
         for (std::size_t level = 0; level <= max_refinement_level; ++level)
         {
             if (!m_cells[MeshType::cells][level].empty())
             {
-                auto expr = intersection(m_cells[MeshType::all_cells][level],
-                                         m_cells[MeshType::cells][level]);
+                auto expr = intersection(m_cells[MeshType::all_cells][level], m_cells[MeshType::cells][level]);
 
-                expr([&](auto & /*index_yz*/, auto & /*interval*/,
-                         auto &interval_index) {
-                    m_cells[MeshType::cells][level][0]
-                           [static_cast<std::size_t>(interval_index[1])]
-                               .index =
-                        m_cells[MeshType::all_cells][level][0]
-                               [static_cast<std::size_t>(interval_index[0])]
-                                   .index;
+                expr([&](auto & /*index_yz*/, auto & /*interval*/, auto &interval_index) {
+                    m_cells[MeshType::cells][level][0][static_cast<std::size_t>(interval_index[1])].index =
+                        m_cells[MeshType::all_cells][level][0][static_cast<std::size_t>(interval_index[0])].index;
                 });
             }
 
             if (!m_cells[MeshType::cells_and_ghosts][level].empty())
             {
                 auto expr =
-                    intersection(m_cells[MeshType::all_cells][level],
-                                 m_cells[MeshType::cells_and_ghosts][level]);
+                    intersection(m_cells[MeshType::all_cells][level], m_cells[MeshType::cells_and_ghosts][level]);
 
-                expr([&](auto & /*index_yz*/, auto & /*interval*/,
-                         auto &interval_index) {
-                    m_cells[MeshType::cells_and_ghosts][level][0]
-                           [static_cast<std::size_t>(interval_index[1])]
-                               .index =
-                        m_cells[MeshType::all_cells][level][0]
-                               [static_cast<std::size_t>(interval_index[0])]
-                                   .index;
+                expr([&](auto & /*index_yz*/, auto & /*interval*/, auto &interval_index) {
+                    m_cells[MeshType::cells_and_ghosts][level][0][static_cast<std::size_t>(interval_index[1])].index =
+                        m_cells[MeshType::all_cells][level][0][static_cast<std::size_t>(interval_index[0])].index;
                 });
             }
 
             if (!m_cells[MeshType::proj_cells][level].empty())
             {
-                auto expr = intersection(m_cells[MeshType::all_cells][level],
-                                         m_cells[MeshType::proj_cells][level]);
+                auto expr = intersection(m_cells[MeshType::all_cells][level], m_cells[MeshType::proj_cells][level]);
 
-                expr([&](auto & /*index_yz*/, auto & /*interval*/,
-                         auto &interval_index) {
-                    m_cells[MeshType::proj_cells][level][0]
-                           [static_cast<std::size_t>(interval_index[1])]
-                               .index =
-                        m_cells[MeshType::all_cells][level][0]
-                               [static_cast<std::size_t>(interval_index[0])]
-                                   .index;
+                expr([&](auto & /*index_yz*/, auto & /*interval*/, auto &interval_index) {
+                    m_cells[MeshType::proj_cells][level][0][static_cast<std::size_t>(interval_index[1])].index =
+                        m_cells[MeshType::all_cells][level][0][static_cast<std::size_t>(interval_index[0])].index;
                 });
             }
 
             if (!m_cells[MeshType::union_cells][level].empty())
             {
-                auto expr = intersection(m_cells[MeshType::all_cells][level],
-                                         m_cells[MeshType::union_cells][level]);
+                auto expr = intersection(m_cells[MeshType::all_cells][level], m_cells[MeshType::union_cells][level]);
 
-                expr([&](auto & /*index_yz*/, auto & /*interval*/,
-                         auto &interval_index) {
-                    m_cells[MeshType::union_cells][level][0]
-                           [static_cast<std::size_t>(interval_index[1])]
-                               .index =
-                        m_cells[MeshType::all_cells][level][0]
-                               [static_cast<std::size_t>(interval_index[0])]
-                                   .index;
+                expr([&](auto & /*index_yz*/, auto & /*interval*/, auto &interval_index) {
+                    m_cells[MeshType::union_cells][level][0][static_cast<std::size_t>(interval_index[1])].index =
+                        m_cells[MeshType::all_cells][level][0][static_cast<std::size_t>(interval_index[0])].index;
                 });
             }
         }
@@ -457,8 +389,7 @@ namespace mure
 namespace std
 {
     template<class MRConfig>
-    inline void swap(mure::Mesh<MRConfig> &lhs,
-                     mure::Mesh<MRConfig> &rhs) noexcept
+    inline void swap(mure::Mesh<MRConfig> &lhs, mure::Mesh<MRConfig> &rhs) noexcept
     {
         lhs.swap(rhs);
     }
