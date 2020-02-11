@@ -65,60 +65,162 @@ namespace mure
         template<class T>
         void operator()(Dim<1>, T &field) const
         {
-            for (coord_index_t iii = i.start; iii < i.end; ++iii)
+            auto qs_i = Qs_i<1>(field, level - 1, i >> 1);
+
+            auto dec = (i.start & 1) ? 1 : 0;
+
+            auto even_i = i;
+            even_i.start += dec;
+            even_i.step = 2;
+
+            auto coarse_even_i = i >> 1;
+            coarse_even_i.start += dec;
+
+            if (even_i.is_valid())
             {
-                auto tmp = iii >> 1;
-                interval_t ii{tmp, tmp + 1};
-                interval_t iv{iii, iii + 1};
-
-                auto qs_i = Qs_i<1>(field, level - 1, ii);
-
-                if (!(iii & 1))
-                {
-                    field(level, iv) = field(level - 1, ii) + qs_i;
-                }
-                if ((iii & 1))
-                {
-                    field(level, iv) = field(level - 1, ii) - qs_i;
-                }
+                field(level, even_i) =
+                    field(level - 1, coarse_even_i) +
+                    xt::view(qs_i, xt::range(dec, qs_i.size()));
             }
+
+            dec = (i.end & 1) ? 1 : 0;
+            auto odd_i = i;
+            odd_i.start += (i.start & 1) ? 0 : 1;
+            odd_i.step = 2;
+
+            auto coarse_odd_i = i >> 1;
+            coarse_odd_i.end -= dec;
+
+            if (odd_i.is_valid())
+            {
+                field(level, odd_i) =
+                    field(level - 1, coarse_odd_i) -
+                    xt::view(qs_i, xt::range(0, qs_i.size() - dec));
+            }
+            // if (i.start & 1)
+            // {
+            //     field(level, new_i) = field(level - 1, i >> 1) - qs_i;
+            // }
+            // else
+            // {
+            //     field(level, new_i) = field(level - 1, i >> 1) + qs_i;
+            // }
+
+            // for (coord_index_t iii = i.start; iii < i.end; ++iii)
+            // {
+            //     auto tmp = iii >> 1;
+            //     interval_t ii{tmp, tmp + 1};
+            //     interval_t iv{iii, iii + 1};
+
+            //     auto qs_i = Qs_i<1>(field, level - 1, ii);
+
+            //     if (!(iii & 1))
+            //     {
+            //         field(level, iv) = field(level - 1, ii) + qs_i;
+            //     }
+            //     if ((iii & 1))
+            //     {
+            //         field(level, iv) = field(level - 1, ii) - qs_i;
+            //     }
+            // }
         }
 
         template<class T>
         void operator()(Dim<2>, T &field) const
         {
-            for (coord_index_t iii = i.start; iii < i.end; ++iii)
+            auto qs_i = Qs_i<1>(field, level - 1, i >> 1, j >> 1);
+            auto qs_j = Qs_j<1>(field, level - 1, i >> 1, j >> 1);
+            auto qs_ij = Qs_ij<1>(field, level - 1, i >> 1, j >> 1);
+
+            auto dec_even = (i.start & 1) ? 1 : 0;
+            auto even_i = i;
+            even_i.start += dec_even;
+            even_i.step = 2;
+
+            auto coarse_even_i = i >> 1;
+            coarse_even_i.start += dec_even;
+
+            auto dec_odd = (i.end & 1) ? 1 : 0;
+            auto odd_i = i;
+            odd_i.start += (i.start & 1) ? 0 : 1;
+            odd_i.step = 2;
+
+            auto coarse_odd_i = i >> 1;
+            coarse_odd_i.end -= dec_odd;
+
+            if (j & 1)
             {
-                auto tmp = iii >> 1;
-                auto jj = j >> 1;
-                interval_t ii{tmp, tmp + 1};
-                interval_t iv{iii, iii + 1};
+                if (even_i.is_valid())
+                {
+                    field(level, even_i, j) =
+                        field(level - 1, coarse_even_i, j >> 1) +
+                        xt::view(qs_i, xt::range(dec_even, qs_i.size())) -
+                        xt::view(qs_j, xt::range(dec_even, qs_j.size())) +
+                        xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+                }
 
-                auto qs_i = Qs_i<1>(field, level - 1, ii, jj);
-                auto qs_j = Qs_j<1>(field, level - 1, ii, jj);
-                auto qs_ij = Qs_ij<1>(field, level - 1, ii, jj);
-
-                if (!(iii & 1) and !(j & 1))
+                if (odd_i.is_valid())
                 {
-                    field(level, iv, j) =
-                        field(level - 1, ii, jj) + qs_i + qs_j - qs_ij;
-                }
-                if (!(iii & 1) and (j & 1))
-                {
-                    field(level, iv, j) =
-                        field(level - 1, ii, jj) + qs_i - qs_j + qs_ij;
-                }
-                if ((iii & 1) and !(j & 1))
-                {
-                    field(level, iv, j) =
-                        field(level - 1, ii, jj) - qs_i + qs_j + qs_ij;
-                }
-                if ((iii & 1) and (j & 1))
-                {
-                    field(level, iv, j) =
-                        field(level - 1, ii, jj) - qs_i - qs_j - qs_ij;
+                    field(level, odd_i, j) =
+                        field(level - 1, coarse_odd_i, j >> 1) -
+                        xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) -
+                        xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) -
+                        xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
                 }
             }
+            else
+            {
+                if (even_i.is_valid())
+                {
+                    field(level, even_i, j) =
+                        field(level - 1, coarse_even_i, j >> 1) +
+                        xt::view(qs_i, xt::range(dec_even, qs_i.size())) +
+                        xt::view(qs_j, xt::range(dec_even, qs_j.size())) -
+                        xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+                }
+
+                if (odd_i.is_valid())
+                {
+                    field(level, odd_i, j) =
+                        field(level - 1, coarse_odd_i, j >> 1) -
+                        xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) +
+                        xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) +
+                        xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
+                }
+            }
+
+            // for (coord_index_t iii = i.start; iii < i.end; ++iii)
+            // {
+            //     auto tmp = iii >> 1;
+            //     auto jj = j >> 1;
+            //     interval_t ii{tmp, tmp + 1};
+            //     interval_t iv{iii, iii + 1};
+
+            //     auto qs_i = Qs_i<1>(field, level - 1, ii, jj);
+            //     auto qs_j = Qs_j<1>(field, level - 1, ii, jj);
+            //     auto qs_ij = Qs_ij<1>(field, level - 1, ii, jj);
+
+            //     if (!(iii & 1) and !(j & 1))
+            //     {
+            //         field(level, iv, j) =
+            //             field(level - 1, ii, jj) + qs_i + qs_j - qs_ij;
+            //     }
+            //     if (!(iii & 1) and (j & 1))
+            //     {
+            //         field(level, iv, j) =
+            //             field(level - 1, ii, jj) + qs_i - qs_j + qs_ij;
+            //     }
+            //     if ((iii & 1) and !(j & 1))
+            //     {
+            //         field(level, iv, j) =
+            //             field(level - 1, ii, jj) - qs_i + qs_j + qs_ij;
+            //     }
+            //     if ((iii & 1) and (j & 1))
+            //     {
+            //         field(level, iv, j) =
+            //             field(level - 1, ii, jj) - qs_i - qs_j - qs_ij;
+            //     }
+            // }
         }
     };
 
@@ -129,6 +231,63 @@ namespace mure
             std::forward<T>(field));
     }
 
+    template<class interval_t, class coord_index_t, class field_t>
+    void compute_prediction_impl(
+        const std::size_t level, const interval_t i,
+        const xt::xtensor_fixed<coord_index_t, xt::xshape<0>> &index_yz,
+        const field_t &field, field_t &new_field)
+    {
+        auto ii = i << 1;
+        ii.step = 2;
+
+        for (std::size_t i_f = 0; i_f < field.size(); ++i_f)
+        {
+            auto qs_i = Qs_i<1>(field[i_f], level, i);
+
+            new_field[i_f](level + 1, ii) = (field[i_f](level, i) + qs_i);
+
+            new_field[i_f](level + 1, ii + 1) = (field[i_f](level, i) - qs_i);
+        }
+    }
+
+    template<class interval_t, class coord_index_t, class field_t>
+    void compute_prediction_impl(
+        const std::size_t level, const interval_t i,
+        const xt::xtensor_fixed<coord_index_t, xt::xshape<1>> &index_yz,
+        const field_t &field, field_t &new_field)
+    {
+        auto ii = i << 1;
+        ii.step = 2;
+
+        auto j = index_yz[0];
+        auto jj = j << 1;
+
+        for (std::size_t i_f = 0; i_f < field.size(); ++i_f)
+        {
+            auto qs_i = Qs_i<1>(field[i_f], level, i, j);
+            auto qs_j = Qs_j<1>(field[i_f], level, i, j);
+            auto qs_ij = Qs_ij<1>(field[i_f], level, i, j);
+
+            new_field[i_f](level + 1, ii, jj) =
+                (field[i_f](level, i, j) + qs_i + qs_j - qs_ij);
+            new_field[i_f](level + 1, ii + 1, jj) =
+                (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
+            new_field[i_f](level + 1, ii, jj + 1) =
+                (field[i_f](level, i, j) + qs_i - qs_j + qs_ij);
+            new_field[i_f](level + 1, ii + 1, jj + 1) =
+                (field[i_f](level, i, j) - qs_i - qs_j - qs_ij);
+        }
+    }
+
+    template<class interval_t, class coord_index_t, class field_t,
+             std::size_t dim>
+    void compute_prediction(
+        const std::size_t level, const interval_t i,
+        const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> &index_yz,
+        const field_t &field, field_t &new_field)
+    {
+        compute_prediction_impl(level, i, index_yz, field, new_field);
+    }
     /********************
      * maximum operator *
      ********************/
@@ -171,25 +330,79 @@ namespace mure
                 ~static_cast<int>(CellFlag::coarsen);
             xt::masked_view(field(level + 1, 2 * i + 1), !mask) &=
                 ~static_cast<int>(CellFlag::coarsen);
-            // xt::masked_view(field(level, i), !mask) &=
-            //     ~static_cast<int>(CellFlag::coarsen);
+            xt::masked_view(field(level, i), mask) |=
+                static_cast<int>(CellFlag::keep);
         }
 
         template<class T>
         void operator()(Dim<2>, T &field) const
         {
-            xt::xtensor<bool, 1> mask = field(level + 1, 2 * i, 2 * j) |
-                                        field(level + 1, 2 * i + 1, 2 * j) |
-                                        field(level + 1, 2 * i, 2 * j + 1) |
-                                        field(level + 1, 2 * i + 1, 2 * j + 1);
+            xt::xtensor<bool, 1> mask =
+                (field(level + 1, 2 * i, 2 * j) &
+                 static_cast<int>(CellFlag::keep)) |
+                (field(level + 1, 2 * i + 1, 2 * j) &
+                 static_cast<int>(CellFlag::keep)) |
+                (field(level + 1, 2 * i, 2 * j + 1) &
+                 static_cast<int>(CellFlag::keep)) |
+                (field(level + 1, 2 * i + 1, 2 * j + 1) &
+                 static_cast<int>(CellFlag::keep));
 
-            xt::masked_view(field(level + 1, 2 * i, 2 * j), mask) = true;
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j), mask) = true;
-            xt::masked_view(field(level + 1, 2 * i, 2 * j + 1), mask) = true;
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1), mask) =
-                true;
+            xt::masked_view(field(level + 1, 2 * i, 2 * j), mask) |=
+                static_cast<int>(CellFlag::keep);
+            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j), mask) |=
+                static_cast<int>(CellFlag::keep);
+            xt::masked_view(field(level + 1, 2 * i, 2 * j + 1), mask) |=
+                static_cast<int>(CellFlag::keep);
+            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1), mask) |=
+                static_cast<int>(CellFlag::keep);
 
-            xt::masked_view(field(level, i, j), mask) = true;
+            xt::masked_view(field(level, i, j), mask) |=
+                static_cast<int>(CellFlag::keep);
+
+            mask = (field(level + 1, 2 * i, 2 * j) &
+                    static_cast<int>(CellFlag::coarsen)) &
+                   (field(level + 1, 2 * i + 1, 2 * j) &
+                    static_cast<int>(CellFlag::coarsen)) &
+                   (field(level + 1, 2 * i, 2 * j + 1) &
+                    static_cast<int>(CellFlag::coarsen)) &
+                   (field(level + 1, 2 * i + 1, 2 * j + 1) &
+                    static_cast<int>(CellFlag::coarsen));
+
+            xt::masked_view(field(level + 1, 2 * i, 2 * j), !mask) &=
+                ~static_cast<int>(CellFlag::coarsen);
+            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j), !mask) &=
+                ~static_cast<int>(CellFlag::coarsen);
+            xt::masked_view(field(level + 1, 2 * i, 2 * j + 1), !mask) &=
+                ~static_cast<int>(CellFlag::coarsen);
+            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1), !mask) &=
+                ~static_cast<int>(CellFlag::coarsen);
+            xt::masked_view(field(level, i, j), mask) |=
+                static_cast<int>(CellFlag::keep);
+
+            // mask = (field(level + 1, 2 * i, 2 * j) &
+            //         static_cast<int>(CellFlag::refine)) |
+            //        (field(level + 1, 2 * i + 1, 2 * j) &
+            //         static_cast<int>(CellFlag::refine)) |
+            //        (field(level + 1, 2 * i, 2 * j + 1) &
+            //         static_cast<int>(CellFlag::refine)) |
+            //        (field(level + 1, 2 * i + 1, 2 * j + 1) &
+            //         static_cast<int>(CellFlag::refine));
+            // xt::masked_view(field(level, i, j), mask) |=
+            //     static_cast<int>(CellFlag::refine);
+
+            // xt::xtensor<bool, 1> mask = field(level + 1, 2 * i, 2 * j) |
+            //                             field(level + 1, 2 * i + 1, 2 * j) |
+            //                             field(level + 1, 2 * i, 2 * j + 1) |
+            //                             field(level + 1, 2 * i + 1, 2 * j +
+            //                             1);
+
+            // xt::masked_view(field(level + 1, 2 * i, 2 * j), mask) = true;
+            // xt::masked_view(field(level + 1, 2 * i + 1, 2 * j), mask) = true;
+            // xt::masked_view(field(level + 1, 2 * i, 2 * j + 1), mask) = true;
+            // xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1), mask) =
+            //     true;
+
+            // xt::masked_view(field(level, i, j), mask) = true;
         }
     };
 
@@ -232,6 +445,43 @@ namespace mure
     {
         return make_field_operator_function<copy_op>(std::forward<T>(dest),
                                                      std::forward<T>(src));
+    }
+
+    /*****************
+     * copy operator *
+     *****************/
+
+    template<class TInterval>
+    class balance_2to1_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(balance_2to1_op)
+
+        template<class T, class stencil_t>
+        void operator()(Dim<1>, T &cell_flag, const stencil_t &stencil) const
+        {
+            cell_flag(level, i - stencil[0]) |= cell_flag(level, i);
+        }
+
+        template<class T, class stencil_t>
+        void operator()(Dim<2>, T &cell_flag, const stencil_t &stencil) const
+        {
+            cell_flag(level, i - stencil[0], j - stencil[1]) |=
+                cell_flag(level, i, j);
+        }
+
+        template<class T, class stencil_t>
+        void operator()(Dim<3>, T &cell_flag, const stencil_t &stencil) const
+        {
+            cell_flag(level, i - stencil[0], j - stencil[1], k - stencil[2]) |=
+                cell_flag(level, i, j, k);
+        }
+    };
+
+    template<class T, class stencil_t>
+    auto balance_2to1(T &&cell_flag, stencil_t &&stencil)
+    {
+        return make_field_operator_function<balance_2to1_op>(
+            std::forward<T>(cell_flag), std::forward<stencil_t>(stencil));
     }
 
     /***************************
@@ -284,95 +534,6 @@ namespace mure
     auto compute_detail(T &&detail, T &&field)
     {
         return make_field_operator_function<compute_detail_op>(
-            std::forward<T>(detail), std::forward<T>(field));
-    }
-
-    /***************************
-     * compute detail operator *
-     ***************************/
-
-    template<class TInterval>
-    class compute_detail_op_ : public field_operator_base<TInterval> {
-      public:
-        INIT_OPERATOR(compute_detail_op_)
-
-        template<class T>
-        void operator()(Dim<1>, T &detail, const T &field) const
-        {
-            for (int ii = i.start; ii < i.end; ++ii)
-            {
-                auto i_level = interval_t{ii, ii + 1};
-                auto i_levelm1 = i_level / 2;
-
-                auto qs_i = Qs_i<1>(field, level - 1, i_levelm1);
-
-                if (!(ii & 1))
-                {
-                    detail(level, i_level) =
-                        field(level, i_level) -
-                        (field(level - 1, i_levelm1) + qs_i);
-                }
-
-                if ((ii & 1))
-                {
-                    detail(level, i_level) =
-                        field(level, i_level) -
-                        (field(level - 1, i_levelm1) - qs_i);
-                }
-            }
-        }
-
-        template<class T>
-        void operator()(Dim<2>, T &detail, const T &field) const
-        {
-            for (int ii = i.start; ii < i.end; ++ii)
-            {
-                auto i_level = interval_t{ii, ii + 1};
-                auto j_level = j;
-                auto i_levelm1 = i_level / 2;
-                auto j_levelm1 = j >> 1;
-
-                auto qs_i = Qs_i<1>(field, level - 1, i_levelm1, j_levelm1);
-                auto qs_j = Qs_j<1>(field, level - 1, i_levelm1, j_levelm1);
-                auto qs_ij = Qs_ij<1>(field, level - 1, i_levelm1, j_levelm1);
-
-                if (!(ii & 1) and !(j & 1))
-                {
-                    detail(level, i_level, j_level) =
-                        field(level, i_level, j_level) -
-                        (field(level - 1, i_levelm1, j_levelm1) + qs_i + qs_j -
-                         qs_ij);
-                }
-
-                if ((ii & 1) and !(j & 1))
-                {
-                    detail(level, i_level, j_level) =
-                        field(level, i_level, j_level) -
-                        (field(level - 1, i_levelm1, j_levelm1) - qs_i + qs_j +
-                         qs_ij);
-                }
-                if (!(ii & 1) and (j & 1))
-                {
-                    detail(level, i_level, j_level) =
-                        field(level, i_level, j_level) -
-                        (field(level - 1, i_levelm1, j_levelm1) + qs_i - qs_j +
-                         qs_ij);
-                }
-                if ((ii & 1) and (j & 1))
-                {
-                    detail(level, i_level, j_level) =
-                        field(level, i_level, j_level) -
-                        (field(level - 1, i_levelm1, j_levelm1) - qs_i - qs_j -
-                         qs_ij);
-                }
-            }
-        }
-    };
-
-    template<class T>
-    auto compute_detail_(T &&detail, T &&field)
-    {
-        return make_field_operator_function<compute_detail_op_>(
             std::forward<T>(detail), std::forward<T>(field));
     }
 
@@ -459,37 +620,40 @@ namespace mure
         void operator()(Dim<1>, T &keep, const U &detail, const V &max_detail,
                         double eps) const
         {
+            auto mask = xt::abs(detail(level + 1, 2 * i)) < eps;
             // auto mask = (.5 *
             //              (xt::abs(detail(level + 1, 2 * i)) +
             //               xt::abs(detail(level + 1, 2 * i + 1))) /
             //              max_detail[level + 1]) < eps;
-            // auto mask = (xt::abs(detail(level + 1, 2 * i)) /
-            //              max_detail[level + 1]) < eps;
-            auto mask = xt::abs(detail(level + 1, 2 * i)) < eps;
 
-            // xt::masked_view(keep(level + 1, 2 * i), mask) = false;
-            // xt::masked_view(keep(level + 1, 2 * i + 1), mask) = false;
-            xt::masked_view(keep(level + 1, 2 * i), mask) =
-                static_cast<int>(CellFlag::coarsen);
-            xt::masked_view(keep(level + 1, 2 * i + 1), mask) =
-                static_cast<int>(CellFlag::coarsen);
+            for (coord_index_t ii = 0; ii < 2; ++ii)
+            {
+                xt::masked_view(keep(level + 1, 2 * i + ii), mask) =
+                    static_cast<int>(CellFlag::coarsen);
+            }
         }
 
         template<class T, class U, class V>
         void operator()(Dim<2>, T &keep, const U &detail, const V &max_detail,
                         double eps) const
         {
-            auto mask = (0.25 *
-                         (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
-                          xt::abs(detail(level + 1, 2 * i + 1, 2 * j)) +
-                          xt::abs(detail(level + 1, 2 * i, 2 * j + 1)) +
-                          xt::abs(detail(level + 1, 2 * i + 1, 2 * j + 1))) /
-                         max_detail[level + 1]) < eps;
-            xt::masked_view(keep(level + 1, 2 * i, 2 * j), mask) = false;
-            xt::masked_view(keep(level + 1, 2 * i + 1, 2 * j), mask) = false;
-            xt::masked_view(keep(level + 1, 2 * i, 2 * j + 1), mask) = false;
-            xt::masked_view(keep(level + 1, 2 * i + 1, 2 * j + 1), mask) =
-                false;
+            auto mask = xt::abs(detail(level + 1, 2 * i, 2 * j)) < eps;
+
+            // auto mask = (0.25 *
+            //              (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
+            //               xt::abs(detail(level + 1, 2 * i + 1, 2 * j)) +
+            //               xt::abs(detail(level + 1, 2 * i, 2 * j + 1)) +
+            //               xt::abs(detail(level + 1, 2 * i + 1, 2 * j + 1))) /
+            //              max_detail[level + 1]) < eps;
+
+            for (coord_index_t jj = 0; jj < 2; ++jj)
+            {
+                for (coord_index_t ii = 0; ii < 2; ++ii)
+                {
+                    xt::masked_view(keep(level + 1, 2 * i + ii, 2 * j + jj),
+                                    mask) = static_cast<int>(CellFlag::coarsen);
+                }
+            }
         }
     };
 
@@ -497,6 +661,49 @@ namespace mure
     auto to_coarsen(CT &&... e)
     {
         return make_field_operator_function<to_coarsen_op>(
+            std::forward<CT>(e)...);
+    }
+
+    /*************************
+     * refine_ghost operator *
+     *************************/
+
+    template<class TInterval>
+    class refine_ghost_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(refine_ghost_op)
+
+        template<class T>
+        void operator()(Dim<1>, T &flag) const
+        {
+            auto mask = flag(level + 1, i) & static_cast<int>(CellFlag::keep);
+            xt::masked_view(flag(level, i / 2), mask) =
+                static_cast<int>(CellFlag::refine);
+        }
+
+        template<class T>
+        void operator()(Dim<2>, T &flag) const
+        {
+            auto mask =
+                flag(level + 1, i, j) & static_cast<int>(CellFlag::keep);
+            xt::masked_view(flag(level, i / 2, j / 2), mask) =
+                static_cast<int>(CellFlag::refine);
+        }
+
+        template<class T>
+        void operator()(Dim<3>, T &flag) const
+        {
+            auto mask =
+                flag(level + 1, i, j, k) & static_cast<int>(CellFlag::keep);
+            xt::masked_view(flag(level, i / 2, j / 2, k / 2), mask) =
+                static_cast<int>(CellFlag::refine);
+        }
+    };
+
+    template<class... CT>
+    auto refine_ghost(CT &&... e)
+    {
+        return make_field_operator_function<refine_ghost_op>(
             std::forward<CT>(e)...);
     }
 
@@ -510,15 +717,40 @@ namespace mure
         INIT_OPERATOR(enlarge_op)
 
         template<class T>
-        void operator()(Dim<1>, T &keep, CellFlag flag) const
+        void operator()(Dim<1>, T &cell_flag, CellFlag flag) const
         {
-            keep(level, i + 1) |= keep(level, i) & static_cast<int>(flag);
-            keep(level, i - 1) |= keep(level, i) & static_cast<int>(flag);
-            auto mask = keep(level, i) & static_cast<int>(CellFlag::refine);
-            xt::masked_view(keep(level, i + 1), mask) |=
+            cell_flag(level, i + 1) |=
+                cell_flag(level, i) & static_cast<int>(flag);
+            cell_flag(level, i - 1) |=
+                cell_flag(level, i) & static_cast<int>(flag);
+            auto mask =
+                cell_flag(level, i) & static_cast<int>(CellFlag::refine);
+            xt::masked_view(cell_flag(level, i + 1), mask) |=
                 static_cast<int>(CellFlag::keep);
-            xt::masked_view(keep(level, i - 1), mask) |=
+            xt::masked_view(cell_flag(level, i - 1), mask) |=
                 static_cast<int>(CellFlag::keep);
+        }
+
+        template<class T>
+        void operator()(Dim<2>, T &cell_flag, CellFlag flag) const
+        {
+            auto keep_mask =
+                cell_flag(level, i, j) & static_cast<int>(CellFlag::keep);
+            auto refine_mask =
+                cell_flag(level, i, j) & static_cast<int>(CellFlag::refine);
+
+            for (int jj = -1; jj < 2; ++jj)
+            {
+                for (int ii = -1; ii < 2; ++ii)
+                {
+                    xt::masked_view(cell_flag(level, i + ii, j + jj),
+                                    keep_mask) |=
+                        static_cast<int>(CellFlag::enlarge);
+                    xt::masked_view(cell_flag(level, i + ii, j + jj),
+                                    refine_mask) |=
+                        static_cast<int>(CellFlag::keep);
+                }
+            }
         }
     };
 
@@ -551,14 +783,14 @@ namespace mure
 
         template<class T, class U, class V>
         void operator()(Dim<2>, T &refine, const U &detail, const V &max_detail,
-                        double eps) const
+                        std::size_t max_level, double eps) const
         {
-            // auto mask =
-            //     (xt::abs(detail(level, i, j)) / max_detail[level]) >= 2 *
-            //     eps;
-            std::cout << eps << " " << xt::abs(detail(level, i, j)) << "\n";
-            auto mask = xt::abs(detail(level, i, j)) >= 4 * eps;
-            xt::masked_view(refine(level, i, j), mask) = true;
+            if (level < max_level)
+            {
+                auto mask = xt::abs(detail(level, i, j)) > eps;
+                xt::masked_view(refine(level, i, j), mask) =
+                    static_cast<int>(CellFlag::refine);
+            }
         }
     };
 
@@ -566,6 +798,41 @@ namespace mure
     auto to_refine(CT &&... e)
     {
         return make_field_operator_function<to_refine_op>(
+            std::forward<CT>(e)...);
+    }
+
+    /***********************
+     * tag_to_keep operator *
+     ***********************/
+
+    template<class TInterval>
+    class tag_to_keep_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(tag_to_keep_op)
+
+        template<class T>
+        void operator()(Dim<1>, T &cell_flag) const
+        {
+            auto mask =
+                cell_flag(level, i) & static_cast<int>(CellFlag::enlarge);
+            xt::masked_view(cell_flag(level, i), mask) |=
+                static_cast<int>(CellFlag::keep);
+        }
+
+        template<class T>
+        void operator()(Dim<2>, T &cell_flag) const
+        {
+            auto mask =
+                cell_flag(level, i, j) & static_cast<int>(CellFlag::enlarge);
+            xt::masked_view(cell_flag(level, i, j), mask) |=
+                static_cast<int>(CellFlag::keep);
+        }
+    };
+
+    template<class... CT>
+    auto tag_to_keep(CT &&... e)
+    {
+        return make_field_operator_function<tag_to_keep_op>(
             std::forward<CT>(e)...);
     }
 
