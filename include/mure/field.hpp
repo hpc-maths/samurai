@@ -3,6 +3,8 @@
 #include <array>
 #include <memory>
 
+#include <spdlog/spdlog.h>
+
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xview.hpp>
 
@@ -99,8 +101,9 @@ namespace mure
                  interval.end - interval.step) or
                 (interval_tmp.start > interval.start))
             {
-                std::cout << "WRITE FIELD ERROR on level " << level << " "
-                          << interval_tmp << " " << interval << " !!!!!!\n";
+                spdlog::critical("WRITE FIELD ERROR on level {} for "
+                                 "interval_tmp {} and interval {}",
+                                 level, interval_tmp, interval);
             }
             return xt::view(m_data,
                             xt::range(interval_tmp.index + interval.start,
@@ -117,8 +120,9 @@ namespace mure
                  interval.end - interval.step) or
                 (interval_tmp.start > interval.start))
             {
-                std::cout << "READ FIELD ERROR on level " << level << " "
-                          << interval_tmp << " " << interval << " !!!!!!\n";
+                spdlog::critical("READ FIELD ERROR on level {} for "
+                                 "interval_tmp {} and interval {}",
+                                 level, interval_tmp, interval);
             }
             return xt::view(m_data,
                             xt::range(interval_tmp.index + interval.start,
@@ -192,7 +196,8 @@ namespace mure
                     os << cell.level << "[" << cell.center()
                        << "]:" << m_data[cell.index] << "\n";
                 },
-                MeshType::all_cells);
+                // MeshType::all_cells);
+                MeshType::cells);
         }
 
       private:

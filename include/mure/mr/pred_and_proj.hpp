@@ -1,5 +1,7 @@
 #pragma once
 
+#include <spdlog/spdlog.h>
+
 #include "../field.hpp"
 
 namespace mure
@@ -9,6 +11,7 @@ namespace mure
     {
         constexpr auto max_refinement_level = MRConfig::max_refinement_level;
 
+        spdlog::info("Make projection");
         auto mesh = field.mesh();
         for (std::size_t level = max_refinement_level; level >= 1; --level)
         {
@@ -41,6 +44,8 @@ namespace mure
     void mr_prediction(Field<MRConfig> &field)
     {
         constexpr auto max_refinement_level = MRConfig::max_refinement_level;
+
+        spdlog::info("Make prediction");
 
         auto mesh = field.mesh();
         for (std::size_t level = 1; level <= max_refinement_level; ++level)

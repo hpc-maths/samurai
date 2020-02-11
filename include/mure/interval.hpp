@@ -2,6 +2,8 @@
 
 #include <ostream>
 
+#include <spdlog/fmt/ostr.h>
+
 namespace mure
 {
     /** @class Interval
