@@ -4,6 +4,7 @@
 #include <type_traits>
 
 #include <xtensor/xexpression.hpp>
+#include <xtensor/xfixed.hpp>
 #include <xtl/xtype_traits.hpp>
 
 #include "../level_cell_array.hpp"
@@ -464,6 +465,82 @@ namespace mure
         return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
     }
 
+    /***********************************
+     * translate_stencil_op definition *
+     ***********************************/
+
+    template<class T>
+    struct translate_stencil_op : public node_op<translate_stencil_op<T>>
+    {
+        using mesh_type = typename T::mesh_type;
+        static constexpr std::size_t dim = mesh_type::dim;
+        using interval_t = typename mesh_type::interval_t;
+        using coord_index_t = typename mesh_type::coord_index_t;
+        using stencil_t =
+            typename xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>;
+
+        translate_stencil_op(T &&v, stencil_t &&stencil);
+        translate_stencil_op(const T &v, const stencil_t &stencil);
+
+        auto start(std::size_t dim, std::size_t index) const noexcept;
+        auto end(std::size_t dim, std::size_t index) const noexcept;
+
+        auto create_interval(coord_index_t start, coord_index_t end) const
+            noexcept;
+        auto create_index_yz() const noexcept;
+
+      private:
+        T m_data;
+        stencil_t m_stencil;
+
+        friend class node_op<translate_stencil_op<T>>;
+    };
+
+    /*******************************
+     * translate_op implementation *
+     *******************************/
+
+    template<class T>
+    inline translate_stencil_op<T>::translate_stencil_op(T &&v,
+                                                         stencil_t &&stencil)
+        : m_data{std::forward<T>(v)}, m_stencil{
+                                          std::forward<stencil_t>(stencil)}
+    {}
+
+    template<class T>
+    inline translate_stencil_op<T>::translate_stencil_op(
+        const T &v, const stencil_t &stencil)
+        : m_data{v}, m_stencil{stencil}
+    {}
+
+    template<class T>
+    inline auto translate_stencil_op<T>::start(std::size_t dim,
+                                               std::size_t index) const noexcept
+    {
+        return m_data.start(dim, index) + m_stencil[dim];
+    }
+
+    template<class T>
+    inline auto translate_stencil_op<T>::end(std::size_t dim,
+                                             std::size_t index) const noexcept
+    {
+        return m_data.end(dim, index) + m_stencil[dim];
+    }
+
+    template<class T>
+    inline auto
+    translate_stencil_op<T>::create_interval(coord_index_t start,
+                                             coord_index_t end) const noexcept
+    {
+        return interval_t{start, end};
+    }
+
+    template<class T>
+    inline auto translate_stencil_op<T>::create_index_yz() const noexcept
+    {
+        return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
+    }
+
     /*****************************
      * contraction_op definition *
      *****************************/
@@ -528,6 +605,73 @@ namespace mure
 
     template<class T>
     inline auto contraction_op<T>::create_index_yz() const noexcept
+    {
+        return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
+    }
+
+    /*****************************
+     * expand_op definition *
+     *****************************/
+
+    template<class T>
+    struct expand_op : public node_op<expand_op<T>>
+    {
+        using mesh_type = typename T::mesh_type;
+        static constexpr std::size_t dim = mesh_type::dim;
+        using interval_t = typename mesh_type::interval_t;
+        using coord_index_t = typename mesh_type::coord_index_t;
+
+        expand_op(T &&v);
+        expand_op(const T &v);
+
+        auto start(std::size_t dim, std::size_t index) const noexcept;
+        auto end(std::size_t dim, std::size_t index) const noexcept;
+
+        auto create_interval(coord_index_t start, coord_index_t end) const
+            noexcept;
+        auto create_index_yz() const noexcept;
+
+      private:
+        T m_data;
+
+        friend class node_op<expand_op<T>>;
+    };
+
+    /****************************
+     * expand_op implementation *
+     ****************************/
+
+    template<class T>
+    inline expand_op<T>::expand_op(T &&v) : m_data{std::forward<T>(v)}
+    {}
+
+    template<class T>
+    inline expand_op<T>::expand_op(const T &v) : m_data{v}
+    {}
+
+    template<class T>
+    inline auto expand_op<T>::start(std::size_t dim, std::size_t index) const
+        noexcept
+    {
+        return m_data.start(dim, index) - 1;
+    }
+
+    template<class T>
+    inline auto expand_op<T>::end(std::size_t dim, std::size_t index) const
+        noexcept
+    {
+        return m_data.end(dim, index) + 1;
+    }
+
+    template<class T>
+    inline auto expand_op<T>::create_interval(coord_index_t start,
+                                              coord_index_t end) const noexcept
+    {
+        return interval_t{start, end};
+    }
+
+    template<class T>
+    inline auto expand_op<T>::create_index_yz() const noexcept
     {
         return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
     }
@@ -816,6 +960,15 @@ namespace mure
         return translate_op<x, y, z, arg_t>{std::forward<arg_t>(arg)};
     }
 
+    template<class T1, class T2>
+    inline auto translate_stencil(T1 &&t, T2 &&stencil)
+    {
+        auto arg = get_arg_node(std::forward<T1>(t));
+        using arg_t = decltype(arg);
+        return translate_stencil_op<arg_t>{std::forward<arg_t>(arg),
+                                           std::forward<T2>(stencil)};
+    }
+
     template<int x, class T>
     inline auto translate_in_x(T &&t)
     {
@@ -846,6 +999,14 @@ namespace mure
         auto arg = get_arg_node(std::forward<T>(t));
         using arg_t = decltype(arg);
         return contraction_op<arg_t>{std::forward<arg_t>(arg)};
+    }
+
+    template<class T>
+    inline auto expand(T &&t)
+    {
+        auto arg = get_arg_node(std::forward<T>(t));
+        using arg_t = decltype(arg);
+        return expand_op<arg_t>{std::forward<arg_t>(arg)};
     }
 
     template<class T>
