@@ -27,7 +27,8 @@ namespace mure
 
         template<std::size_t s, class interval_t, class... index_t>
         auto operator()(std::integral_constant<std::size_t, s>,
-                        std::size_t level, const interval_t &i,
+                        std::size_t level,
+                        const interval_t &i,
                         const index_t... index)
         {
             return m_e(level, i, index...);
@@ -52,33 +53,29 @@ namespace mure
 
         template<std::size_t s, class interval_t, class... index_t>
         auto operator()(std::integral_constant<std::size_t, s>,
-                        std::size_t level, const interval_t &i,
+                        std::size_t level,
+                        const interval_t &i,
                         const index_t... index)
         {
             using coord_index_t = typename interval_t::coord_index_t;
-
-            return xt::eval(
-                m_c[s - 1] *
-                    (m_e(std::integral_constant<std::size_t, s + 1>{}, level,
-                         i + static_cast<coord_index_t>(s), index...) -
-                     m_e(std::integral_constant<std::size_t, s + 1>{}, level,
-                         i - static_cast<coord_index_t>(s), index...)) +
-                operator()(std::integral_constant<std::size_t, s + 1>{}, level,
-                           i, index...));
+            return xt::eval(m_c[s - 1] * (m_e(std::integral_constant<std::size_t, s + 1>{}, level,
+                                              i + static_cast<coord_index_t>(s), index...) -
+                                          m_e(std::integral_constant<std::size_t, s + 1>{}, level,
+                                              i - static_cast<coord_index_t>(s), index...)) +
+                            operator()(std::integral_constant<std::size_t, s + 1>{}, level, i, index...));
         }
 
         template<class interval_t, class... index_t>
         auto operator()(std::integral_constant<std::size_t, slim>,
-                        std::size_t level, const interval_t &i,
+                        std::size_t level,
+                        const interval_t &i,
                         const index_t... index)
         {
             using coord_index_t = typename interval_t::coord_index_t;
-            return xt::eval(
-                m_c[slim - 1] *
-                (m_e(std::integral_constant<std::size_t, slim>{}, level,
-                     i + static_cast<coord_index_t>(slim), index...) -
-                 m_e(std::integral_constant<std::size_t, slim>{}, level,
-                     i - static_cast<coord_index_t>(slim), index...)));
+            return xt::eval(m_c[slim - 1] * (m_e(std::integral_constant<std::size_t, slim>{}, level,
+                                                 i + static_cast<coord_index_t>(slim), index...) -
+                                             m_e(std::integral_constant<std::size_t, slim>{}, level,
+                                                 i - static_cast<coord_index_t>(slim), index...)));
         }
 
         T m_e;
@@ -92,8 +89,7 @@ namespace mure
     }
 
     template<std::size_t s, class Field, class interval_t, class... index_t>
-    auto Qs_i(const Field &field, std::size_t level, const interval_t &i,
-              const index_t... index)
+    auto Qs_i(const Field &field, std::size_t level, const interval_t &i, const index_t... index)
     {
         auto c = coeffs<s>();
         auto qs = make_Qs_i<s>(make_field_hack(field), c);
@@ -108,37 +104,34 @@ namespace mure
         Qs_j_impl(T &&e, C &c) : m_e{std::forward<T>(e)}, m_c{c}
         {}
 
-        template<std::size_t s, class interval_t,
+        template<std::size_t s,
+                 class interval_t,
                  class coord_index_t = typename interval_t::coord_index_t,
                  class... index_t>
         auto operator()(std::integral_constant<std::size_t, s>,
-                        std::size_t level, const interval_t &i,
-                        const coord_index_t j, const index_t... index)
+                        std::size_t level,
+                        const interval_t &i,
+                        const coord_index_t j,
+                        const index_t... index)
         {
-
-            return xt::eval(
-                m_c[s - 1] *
-                    (m_e(std::integral_constant<std::size_t, s + 1>{}, level, i,
-                         j + static_cast<coord_index_t>(s), index...) -
-                     m_e(std::integral_constant<std::size_t, s + 1>{}, level, i,
-                         j - static_cast<coord_index_t>(s), index...)) +
-                operator()(std::integral_constant<std::size_t, s + 1>{}, level,
-                           i, j, index...));
+            return xt::eval(m_c[s - 1] * (m_e(std::integral_constant<std::size_t, s + 1>{}, level, i,
+                                              j + static_cast<coord_index_t>(s), index...) -
+                                          m_e(std::integral_constant<std::size_t, s + 1>{}, level, i,
+                                              j - static_cast<coord_index_t>(s), index...)) +
+                            operator()(std::integral_constant<std::size_t, s + 1>{}, level, i, j, index...));
         }
 
-        template<class interval_t,
-                 class coord_index_t = typename interval_t::coord_index_t,
-                 class... index_t>
+        template<class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
         auto operator()(std::integral_constant<std::size_t, slim>,
-                        std::size_t level, const interval_t &i,
-                        const coord_index_t j, const index_t... index)
+                        std::size_t level,
+                        const interval_t &i,
+                        const coord_index_t j,
+                        const index_t... index)
         {
-            return xt::eval(
-                m_c[slim - 1] *
-                (m_e(std::integral_constant<std::size_t, slim>{}, level, i,
-                     j + static_cast<coord_index_t>(slim), index...) -
-                 m_e(std::integral_constant<std::size_t, slim>{}, level, i,
-                     j - static_cast<coord_index_t>(slim), index...)));
+            return xt::eval(m_c[slim - 1] * (m_e(std::integral_constant<std::size_t, slim>{}, level, i,
+                                                 j + static_cast<coord_index_t>(slim), index...) -
+                                             m_e(std::integral_constant<std::size_t, slim>{}, level, i,
+                                                 j - static_cast<coord_index_t>(slim), index...)));
         }
 
         T m_e;
@@ -151,16 +144,16 @@ namespace mure
         return Qs_j_impl<S, T, C>(std::forward<T>(t), std::forward<C>(c));
     }
 
-    template<std::size_t s, class Field, class interval_t,
+    template<std::size_t s,
+             class Field,
+             class interval_t,
              class coord_index_t = typename interval_t::coord_index_t,
              class... index_t>
-    auto Qs_j(const Field &field, std::size_t level, const interval_t &i,
-              const coord_index_t j, const index_t... index)
+    auto Qs_j(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const index_t... index)
     {
         auto c = coeffs<s>();
         auto qs = make_Qs_j<s>(make_field_hack(field), c);
-        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j,
-                  index...);
+        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
     }
 
     template<std::size_t S, class T, class C>
@@ -171,35 +164,32 @@ namespace mure
         Qs_k_impl(T &&e, C &c) : m_e{std::forward<T>(e)}, m_c{c}
         {}
 
-        template<std::size_t s, class interval_t,
-                 class coord_index_t = typename interval_t::coord_index_t>
+        template<std::size_t s, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
         auto operator()(std::integral_constant<std::size_t, s>,
-                        std::size_t level, const interval_t &i,
-                        const coord_index_t j, const coord_index_t k)
+                        std::size_t level,
+                        const interval_t &i,
+                        const coord_index_t j,
+                        const coord_index_t k)
         {
 
-            return xt::eval(
-                m_c[s - 1] *
-                    (m_e(std::integral_constant<std::size_t, s + 1>{}, level, i,
-                         j, k + static_cast<coord_index_t>(s)) -
-                     m_e(std::integral_constant<std::size_t, s + 1>{}, level, i,
-                         j, k - static_cast<coord_index_t>(s))) +
-                operator()(std::integral_constant<std::size_t, s + 1>{}, level,
-                           i, j, k));
+            return xt::eval(m_c[s - 1] * (m_e(std::integral_constant<std::size_t, s + 1>{}, level, i, j,
+                                              k + static_cast<coord_index_t>(s)) -
+                                          m_e(std::integral_constant<std::size_t, s + 1>{}, level, i, j,
+                                              k - static_cast<coord_index_t>(s))) +
+                            operator()(std::integral_constant<std::size_t, s + 1>{}, level, i, j, k));
         }
 
-        template<class interval_t,
-                 class coord_index_t = typename interval_t::coord_index_t>
+        template<class interval_t, class coord_index_t = typename interval_t::coord_index_t>
         auto operator()(std::integral_constant<std::size_t, slim>,
-                        std::size_t level, const interval_t &i,
-                        const coord_index_t j, const coord_index_t k)
+                        std::size_t level,
+                        const interval_t &i,
+                        const coord_index_t j,
+                        const coord_index_t k)
         {
             return xt::eval(
                 m_c[slim - 1] *
-                (m_e(std::integral_constant<std::size_t, slim>{}, level, i, j,
-                     k + static_cast<coord_index_t>(slim)) -
-                 m_e(std::integral_constant<std::size_t, slim>{}, level, i, j,
-                     k - static_cast<coord_index_t>(slim))));
+                (m_e(std::integral_constant<std::size_t, slim>{}, level, i, j, k + static_cast<coord_index_t>(slim)) -
+                 m_e(std::integral_constant<std::size_t, slim>{}, level, i, j, k - static_cast<coord_index_t>(slim))));
         }
 
         T m_e;
@@ -212,36 +202,33 @@ namespace mure
         return Qs_k_impl<S, T, C>(std::forward<T>(t), std::forward<C>(c));
     }
 
-    template<std::size_t s, class Field, class interval_t,
-             class coord_index_t = typename interval_t::coord_index_t>
-    auto Qs_k(const Field &field, std::size_t level, const interval_t &i,
-              const coord_index_t j, const coord_index_t k)
+    template<std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
+    auto Qs_k(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const coord_index_t k)
     {
         auto c = coeffs<s>();
         auto qs = make_Qs_k<s>(make_field_hack(field), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, k);
     }
 
-    template<std::size_t s, class Field, class interval_t,
+    template<std::size_t s,
+             class Field,
+             class interval_t,
              class coord_index_t = typename interval_t::coord_index_t,
              class... index_t>
-    auto Qs_ij(const Field &field, std::size_t level, const interval_t &i,
-               const coord_index_t j, const index_t... index)
+    auto
+    Qs_ij(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const index_t... index)
     {
         auto c = coeffs<s>();
         auto qs = make_Qs_i<s>(make_Qs_j<s>(make_field_hack(field), c), c);
-        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j,
-                  index...);
+        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
     }
 
-    template<std::size_t s, class Field, class interval_t,
-             class coord_index_t = typename interval_t::coord_index_t>
-    auto Qs_ijk(const Field &field, std::size_t level, const interval_t &i,
-                const coord_index_t j, const coord_index_t k)
+    template<std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
+    auto
+    Qs_ijk(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const coord_index_t k)
     {
         auto c = coeffs<s>();
-        auto qs = make_Qs_i<s>(
-            make_Qs_j<s>(make_Qs_k<s>(make_field_hack(field), c), c), c);
+        auto qs = make_Qs_i<s>(make_Qs_j<s>(make_Qs_k<s>(make_field_hack(field), c), c), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, k);
     }
 }
