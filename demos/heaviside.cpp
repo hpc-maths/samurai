@@ -5,6 +5,7 @@
 #include <mure/hdf5.hpp>
 #include <mure/mesh.hpp>
 #include <mure/mr_config.hpp>
+#include <mure/stencil_field.hpp>
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -30,10 +31,12 @@ int main()
 
     mure::Box<double, dim> box({-1, -1, -1}, {1, 1, 1});
 
-    mure::Mesh<Config> mesh{box, 10};
+    mure::Mesh<Config> mesh{box, 5};
     // mure::Mesh<Config> mesh{box, 5};
     mure::Field<Config> u{"u", mesh};
+    mure::Field<Config> v{"v", mesh};
     u.array().fill(0);
+    v.array().fill(0);
 
     // mesh.for_each_cell([&](auto &cell) {
     //     auto center = cell.center();
@@ -141,7 +144,9 @@ int main()
         mure::Field<Config> detail{"detail", mesh};
         detail.array().fill(0);
 
-        mesh.projection(u);
+        // std::cout << "iteration -> " << i << "\n";
+        // std::cout << mesh << "\n";
+        mesh.make_projection(u);
         // {
         //     std::stringstream ss1;
         //     ss1 << "solution_" << i;
@@ -152,6 +157,9 @@ int main()
         mesh.coarsening(detail, u, i);
         // std::cout << mesh << "\n";
     }
+    // std::cout << "FIN !!\n";
+    // std::cout << mesh << "\n";
+
     std::cout << toc() << "\n";
 
     mure::Field<Config> level_{"level", mesh};
@@ -159,9 +167,9 @@ int main()
         [&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
     // std::cout << u << "\n";
 
-    auto h5file = mure::Hdf5("heaviside");
-    h5file.add_mesh(mesh);
-    h5file.add_field(u);
-    h5file.add_field(level_);
+    // auto h5file = mure::Hdf5("heaviside");
+    // h5file.add_mesh(mesh);
+    // h5file.add_field(u);
+    // h5file.add_field(level_);
     return 0;
 }

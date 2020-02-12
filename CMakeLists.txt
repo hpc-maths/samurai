@@ -20,8 +20,10 @@ message(STATUS "Building mure v${${PROJECT_NAME}_VERSION}")
 
 
 find_package(xtensor REQUIRED)
+find_package(HighFive REQUIRED)
 find_package(xtensor-io REQUIRED)
 find_package(pugixml REQUIRED)
+find_package(spdlog REQUIRED)
 
 set(MURE_HEADERS
     ${MURE_INCLUDE_DIR}/mure/box.hpp
@@ -33,15 +35,15 @@ set(MURE_HEADERS
     ${MURE_INCLUDE_DIR}/mure/interval.hpp
     ${MURE_INCLUDE_DIR}/mure/level_cell_array.hpp
     ${MURE_INCLUDE_DIR}/mure/level_cell_list.hpp
-    ${MURE_INCLUDE_DIR}/mure/mesh.hpp
-    ${MURE_INCLUDE_DIR}/mure/mr_config.hpp
     ${MURE_INCLUDE_DIR}/mure/static_algorithm.hpp
 )
 
 add_library(mure INTERFACE)
 target_include_directories(mure INTERFACE $<BUILD_INTERFACE:${MURE_INCLUDE_DIR}>
                                           $<INSTALL_INTERFACE:include>)
-target_link_libraries(mure INTERFACE xtensor pugixml hdf5)
+# target_link_libraries(mure INTERFACE xtensor pugixml hdf5)
+target_link_libraries(mure INTERFACE xtensor pugixml spdlog
+INTERFACE $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
 # target_link_libraries(mure INTERFACE xtensor)
 
 OPTION(BUILD_TESTS "mure test suite" OFF)

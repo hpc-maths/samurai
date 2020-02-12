@@ -32,7 +32,7 @@ namespace mure
         int max() const;
         const node_type &get_node() const;
 
-        void get_interval_index(std::vector<std::size_t>& index)
+        void get_interval_index(std::vector<std::size_t> &index)
         {
             index.push_back(m_index[m_d] + m_ipos[m_d] - 1);
         }
@@ -71,7 +71,14 @@ namespace mure
         m_end[m_d] = m_node.size(m_d);
         m_index[m_d] = m_start[m_d];
         m_ipos[m_d] = 0;
-        m_current_value[m_d] = m_node.start(m_d, 0);
+        if (m_start[m_d] != m_end[m_d])
+        {
+            m_current_value[m_d] = m_node.start(m_d, 0);
+        }
+        else
+        {
+            m_current_value[m_d] = std::numeric_limits<coord_index_t>::max();
+        }
     }
 
     template<class T>
@@ -89,33 +96,27 @@ namespace mure
     template<class T>
     inline void subset_node<T>::decrement_dim(int i)
     {
-        int index = m_index[m_d] + m_ipos[m_d] - 1;
-        auto interval = m_node.interval(m_d, index);
-        std::size_t off_ind = (index != -1) ? interval.index + m_node.index(i)
-                                    : std::numeric_limits<std::size_t>::max();
+        std::size_t index = m_node.find(m_d, m_start[m_d], m_end[m_d], i);
 
-        m_start[m_d - 1] =
-            (index != -1 and
-             off_ind < m_node.offsets_size(m_d))
-                ? m_node.offset(m_d, off_ind)
-                : 0;
-
-        m_end[m_d - 1] =
-            (index != -1 and
-             (off_ind + 1) < m_node.offsets_size(m_d))
-                ? m_node.offset(m_d, off_ind + 1)
-                : m_start[m_d - 1];
-
-        m_index[m_d - 1] = m_start[m_d - 1];
-
-        if (m_start[m_d-1] != m_end[m_d-1])
+        if (index != std::numeric_limits<std::size_t>::max())
         {
+            auto interval = m_node.interval(m_d, index);
+            std::size_t off_ind = interval.index + i;
+            m_start[m_d - 1] = m_node.offset(m_d, off_ind);
+            m_end[m_d - 1] = m_node.offset(m_d, off_ind + 1);
             m_current_value[m_d - 1] = m_node.start(m_d - 1, m_start[m_d - 1]);
+            m_index[m_d - 1] = m_start[m_d - 1];
         }
         else
         {
-            m_current_value[m_d - 1] = std::numeric_limits<coord_index_t>::max();
+            m_start[m_d - 1] = 0;
+            m_end[m_d - 1] = 0;
+
+            m_current_value[m_d - 1] =
+                std::numeric_limits<coord_index_t>::max();
+            m_index[m_d - 1] = std::numeric_limits<std::size_t>::max();
         }
+
         m_ipos[m_d - 1] = 0;
         m_d--;
     }
@@ -136,7 +137,7 @@ namespace mure
             {
                 m_index[m_d] += 1;
                 m_ipos[m_d] = 0;
-                m_current_value[m_d] = (m_index[m_d] == m_end[m_d]
+                m_current_value[m_d] = (m_index[m_d] >= m_end[m_d]
                                             ? sentinel
                                             : m_node.start(m_d, m_index[m_d]));
             }

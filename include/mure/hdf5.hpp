@@ -9,15 +9,18 @@
 #include <xtensor-io/xhighfive.hpp>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xio.hpp>
+#include <xtensor/xview.hpp>
 
 #include "cell.hpp"
-#include "mesh.hpp"
-#include "mesh_type.hpp"
+#include "mr/mesh_type.hpp"
 
 namespace mure
 {
     template<class MRConfig>
     class Mesh;
+
+    template<class MRConfig, class value_t = double>
+    class Field;
 
     std::string element_type(std::size_t dim)
     {
@@ -146,23 +149,22 @@ namespace mure
 
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
-                if (mesh.nb_cells_for_level(level, mesh_type) != 0)
+                if (mesh.nb_cells(level, mesh_type) != 0)
                 {
                     xt::xtensor<std::size_t, 2> connectivity;
                     connectivity.resize(
-                        {mesh.nb_cells_for_level(level, mesh_type), nb_points});
+                        {mesh.nb_cells(level, mesh_type), nb_points});
 
                     xt::xtensor<double, 2> coords;
                     coords.resize(
-                        {nb_points * mesh.nb_cells_for_level(level, mesh_type),
-                         3});
+                        {nb_points * mesh.nb_cells(level, mesh_type), 3});
                     coords.fill(0);
 
                     auto element =
                         get_element(std::integral_constant<std::size_t, dim>{});
 
                     std::size_t index = 0;
-                    mesh.for_each_cell_on_level(
+                    mesh.for_each_cell(
                         level,
                         [&](auto cell) {
                             auto coords_view =
@@ -206,8 +208,8 @@ namespace mure
             }
         }
 
-        template<class MRConfig>
-        void add_field(Field<MRConfig> const &field)
+        template<class MRConfig, class value_t>
+        void add_field(Field<MRConfig, value_t> const &field)
         {
             xt::dump(h5_file, "fields/" + field.name(), field.data(mesh_type));
             auto grid = domain.child("Grid");
@@ -242,8 +244,8 @@ namespace mure
             std::size_t nb_points = std::pow(2, Mesh<MRConfig>::dim);
             constexpr std::size_t dim = Mesh<MRConfig>::dim;
 
-            std::array<std::string, 4> mesh_name{"cells", "cells_and_ghosts",
-                                                 "proj", "all"};
+            std::array<std::string, 5> mesh_name{"cells", "cells_and_ghosts",
+                                                 "proj", "all", "union"};
 
             auto range = xt::arange(nb_points);
 
@@ -252,7 +254,7 @@ namespace mure
                 ("level " + std::to_string(level)).c_str();
             grid_parent.append_attribute("GridType") = "Collection";
 
-            for (std::size_t mesh_type = 0; mesh_type < 4; ++mesh_type)
+            for (std::size_t mesh_type = 0; mesh_type < 5; ++mesh_type)
             {
                 if (mesh.nb_cells(level, static_cast<MeshType>(mesh_type)) != 0)
                 {
@@ -356,23 +358,22 @@ namespace mure
 
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
-                if (mesh.nb_cells_for_level(level, mesh_type) != 0)
+                if (mesh.nb_cells(level, mesh_type) != 0)
                 {
                     xt::xtensor<std::size_t, 2> connectivity;
                     connectivity.resize(
-                        {mesh.nb_cells_for_level(level, mesh_type), nb_points});
+                        {mesh.nb_cells(level, mesh_type), nb_points});
 
                     xt::xtensor<double, 2> coords;
                     coords.resize(
-                        {nb_points * mesh.nb_cells_for_level(level, mesh_type),
-                         3});
+                        {nb_points * mesh.nb_cells(level, mesh_type), 3});
                     coords.fill(0);
 
                     auto element =
                         get_element(std::integral_constant<std::size_t, dim>{});
 
                     std::size_t index = 0;
-                    mesh.for_each_cell_on_level(
+                    mesh.for_each_cell(
                         level,
                         [&](auto cell) {
                             auto coords_view =

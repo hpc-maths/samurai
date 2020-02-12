@@ -118,7 +118,7 @@ namespace mure
       private:
         grid_t m_grid_yz; ///< Sparse dim-1 array that points to the interval
                           ///< lists along the x axis.
-        std::size_t m_level;
+        std::size_t m_level{0};
     };
 
     template<std::size_t Dim, class TInterval>

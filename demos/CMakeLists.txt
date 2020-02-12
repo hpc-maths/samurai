@@ -1,3 +1,5 @@
+find_package(cxxopts)
+
 # add_executable(bench_laplacian_2d bench_laplacian_2d.cpp ${MURE_HEADERS})
 # target_link_libraries(bench_laplacian_2d mure)
 
@@ -16,18 +18,37 @@
 
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast -Wunused-variable")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Weverything -Wno-c++98-compat")
 set(CMAKE_CXX_STANDARD 14)
 
 # add_executable(heaviside heaviside.cpp ${MURE_HEADERS})
 # target_link_libraries(heaviside mure)
 
-# add_executable(advection_old advection_old.cpp ${MURE_HEADERS})
-# target_link_libraries(advection_old mure)
+# add_executable(advection_1d advection_1d.cpp ${MURE_HEADERS})
+# target_link_libraries(advection_1d mure)
 
-add_executable(subset subset.cpp ${MURE_HEADERS})
-target_link_libraries(subset mure)
+# add_executable(test_1d test_1d.cpp ${MURE_HEADERS})
+# target_link_libraries(test_1d mure)
+
+add_executable(lbm_d1q2_burgers LBM/D1Q2_Burgers.cpp ${MURE_HEADERS})
+target_link_libraries(lbm_d1q2_burgers mure)
+
+
+add_executable(adv_ana_2d LBM/test_analytic_advection_2d.cpp ${MURE_HEADERS})
+target_link_libraries(adv_ana_2d mure)
+
+# add_executable(lbm_d1q2_foo LBM/D1Q2_foo.cpp ${MURE_HEADERS})
+# target_link_libraries(lbm_d1q2_foo mure)
+
+#add_executable(test_2d test_2d.cpp ${MURE_HEADERS})
+#target_link_libraries(test_2d mure)
+
+# add_executable(test_proj test_projection.cpp ${MURE_HEADERS})
+# target_link_libraries(test_proj mure)
+
+# add_executable(subset subset.cpp ${MURE_HEADERS})
+# target_link_libraries(subset mure)
 
 # add_executable(bench_level_cell_array bench_level_cell_array.cpp ${MURE_HEADERS})
 # target_link_libraries(bench_level_cell_array mure)

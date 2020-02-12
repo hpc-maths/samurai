@@ -2,6 +2,8 @@
 
 #include <ostream>
 
+#include <spdlog/fmt/ostr.h>
+
 namespace mure
 {
     /** @class Interval
@@ -72,6 +74,38 @@ namespace mure
             return *this;
         }
 
+        Interval<value_t, index_t> &operator/=(value_t i)
+        {
+            start /= i;
+            end /= i;
+            if (start == end)
+            {
+                end++;
+            }
+            step = 1;
+            return *this;
+        }
+
+        Interval<value_t, index_t> &operator>>=(std::size_t i)
+        {
+            bool add_one = (start == end) ? false : true;
+            bool end_odd = (end & 1) ? true : false;
+            start >>= i;
+            end >>= i;
+            if (end_odd or (start == end and add_one))
+                end++;
+            step = 1;
+            return *this;
+        }
+
+        Interval<value_t, index_t> &operator<<=(std::size_t i)
+        {
+            start <<= i;
+            end <<= i;
+            step = 1;
+            return *this;
+        }
+
         Interval<value_t, index_t> &operator+=(value_t i)
         {
             start += i;
@@ -112,6 +146,42 @@ namespace mure
     {
         auto that{interval};
         that *= i;
+        return that;
+    }
+
+    template<class value_t, class index_t>
+    Interval<value_t, index_t>
+    operator>>(const Interval<value_t, index_t> &interval, std::size_t i)
+    {
+        auto that{interval};
+        that >>= i;
+        return that;
+    }
+
+    template<class value_t, class index_t>
+    Interval<value_t, index_t>
+    operator<<(const Interval<value_t, index_t> &interval, std::size_t i)
+    {
+        auto that{interval};
+        that <<= i;
+        return that;
+    }
+
+    template<class value_t, class index_t>
+    Interval<value_t, index_t>
+    operator/(value_t i, const Interval<value_t, index_t> &interval)
+    {
+        auto that{interval};
+        that /= i;
+        return that;
+    }
+
+    template<class value_t, class index_t>
+    Interval<value_t, index_t>
+    operator/(const Interval<value_t, index_t> &interval, value_t i)
+    {
+        auto that{interval};
+        that /= i;
         return that;
     }
 
