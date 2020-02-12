@@ -1,3 +1,5 @@
+find_package(cxxopts)
+
 # add_executable(bench_laplacian_2d bench_laplacian_2d.cpp ${MURE_HEADERS})
 # target_link_libraries(bench_laplacian_2d mure)
 
@@ -29,10 +31,9 @@ set(CMAKE_CXX_STANDARD 14)
 # add_executable(test_1d test_1d.cpp ${MURE_HEADERS})
 # target_link_libraries(test_1d mure)
 
-# add_executable(lbm_d1q2_burgers LBM/D1Q2_Burgers.cpp ${MURE_HEADERS})
-# target_link_libraries(lbm_d1q2_burgers mure)
+add_executable(lbm_d1q2_burgers LBM/D1Q2_Burgers.cpp ${MURE_HEADERS})
+target_link_libraries(lbm_d1q2_burgers mure)
 
-find_package(cxxopts)
 
 add_executable(adv_ana_2d LBM/test_analytic_advection_2d.cpp ${MURE_HEADERS})
 target_link_libraries(adv_ana_2d mure)
