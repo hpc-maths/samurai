@@ -31,12 +31,6 @@ namespace mure
         using index_t = typename MRConfig::index_t;
         using interval_t = typename MRConfig::interval_t;
 
-        // Field(Field const &) = default;
-        // Field &operator=(Field const &) = default;
-
-        // Field(Field &&) = default;
-        // Field &operator=(Field &&) = default;
-
         Field(std::string name, Mesh<MRConfig> &mesh)
             : name_(name), m_mesh(&mesh),
               m_data(std::array<std::size_t, 1>{mesh.nb_total_cells()})

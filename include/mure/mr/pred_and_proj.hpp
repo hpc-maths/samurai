@@ -19,23 +19,6 @@ namespace mure
                                      mesh[MeshType::proj_cells][level - 1])
                             .on(level - 1);
 
-            // auto expr = intersection(
-            //                 intersection(mesh[MeshType::all_cells][level],
-            //                              mesh[MeshType::proj_cells][level -
-            //                              1]),
-            //                 mesh.initial_mesh())
-            //                 .on(level - 1);
-
-            // auto expr =
-            //     intersection(
-            //         intersection(
-            //             mesh[MeshType::all_cells][level],
-            //             difference(
-            //                 contraction(mesh[MeshType::all_cells][level -
-            //                 1]), mesh[MeshType::cells][level - 1])),
-            //         mesh.initial_mesh())
-            //         .on(level - 1);
-
             expr.apply_op(level - 1, projection(field));
         }
     }
@@ -60,11 +43,6 @@ namespace mure
                                           mesh[MeshType::proj_cells][level])),
                         mesh.initial_mesh())
                         .on(level);
-
-                // auto expr =
-                //     intersection(mesh[MeshType::all_cells][level],
-                //                  mesh[MeshType::cells][level - 1])
-                //         .on(level);
 
                 expr.apply_op(level, prediction(field));
             }

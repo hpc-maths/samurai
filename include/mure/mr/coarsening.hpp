@@ -10,7 +10,7 @@ namespace mure
         constexpr auto dim = MRConfig::dim;
 
         auto mesh = field.mesh();
-        std::size_t max_level = mesh[MeshType::cells].max_level();
+        std::size_t max_level = 9; // mesh[MeshType::cells].max_level();
 
         xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>
             max_detail;
@@ -27,7 +27,7 @@ namespace mure
                                        mesh[MeshType::cells][level + 1])
                               .on(level);
 
-            int exponent = dim * (level - max_level + 1);
+            int exponent = dim * (level - max_level + 2);
 
             auto eps_l = std::pow(2, exponent) * eps;
 

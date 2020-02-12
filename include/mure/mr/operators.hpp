@@ -97,32 +97,6 @@ namespace mure
                     field(level - 1, coarse_odd_i) -
                     xt::view(qs_i, xt::range(0, qs_i.size() - dec));
             }
-            // if (i.start & 1)
-            // {
-            //     field(level, new_i) = field(level - 1, i >> 1) - qs_i;
-            // }
-            // else
-            // {
-            //     field(level, new_i) = field(level - 1, i >> 1) + qs_i;
-            // }
-
-            // for (coord_index_t iii = i.start; iii < i.end; ++iii)
-            // {
-            //     auto tmp = iii >> 1;
-            //     interval_t ii{tmp, tmp + 1};
-            //     interval_t iv{iii, iii + 1};
-
-            //     auto qs_i = Qs_i<1>(field, level - 1, ii);
-
-            //     if (!(iii & 1))
-            //     {
-            //         field(level, iv) = field(level - 1, ii) + qs_i;
-            //     }
-            //     if ((iii & 1))
-            //     {
-            //         field(level, iv) = field(level - 1, ii) - qs_i;
-            //     }
-            // }
         }
 
         template<class T>
@@ -188,39 +162,6 @@ namespace mure
                         xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
                 }
             }
-
-            // for (coord_index_t iii = i.start; iii < i.end; ++iii)
-            // {
-            //     auto tmp = iii >> 1;
-            //     auto jj = j >> 1;
-            //     interval_t ii{tmp, tmp + 1};
-            //     interval_t iv{iii, iii + 1};
-
-            //     auto qs_i = Qs_i<1>(field, level - 1, ii, jj);
-            //     auto qs_j = Qs_j<1>(field, level - 1, ii, jj);
-            //     auto qs_ij = Qs_ij<1>(field, level - 1, ii, jj);
-
-            //     if (!(iii & 1) and !(j & 1))
-            //     {
-            //         field(level, iv, j) =
-            //             field(level - 1, ii, jj) + qs_i + qs_j - qs_ij;
-            //     }
-            //     if (!(iii & 1) and (j & 1))
-            //     {
-            //         field(level, iv, j) =
-            //             field(level - 1, ii, jj) + qs_i - qs_j + qs_ij;
-            //     }
-            //     if ((iii & 1) and !(j & 1))
-            //     {
-            //         field(level, iv, j) =
-            //             field(level - 1, ii, jj) - qs_i + qs_j + qs_ij;
-            //     }
-            //     if ((iii & 1) and (j & 1))
-            //     {
-            //         field(level, iv, j) =
-            //             field(level - 1, ii, jj) - qs_i - qs_j - qs_ij;
-            //     }
-            // }
         }
     };
 
@@ -300,14 +241,6 @@ namespace mure
         template<class T>
         void operator()(Dim<1>, T &field) const
         {
-            // xt::xtensor<bool, 1> mask =
-            //     field(level + 1, 2 * i) | field(level + 1, 2 * i + 1);
-
-            // xt::masked_view(field(level + 1, 2 * i), mask) = true;
-            // xt::masked_view(field(level + 1, 2 * i + 1), mask) = true;
-
-            // xt::masked_view(field(level, i), mask) = true;
-
             xt::xtensor<bool, 1> mask =
                 (field(level + 1, 2 * i) & static_cast<int>(CellFlag::keep)) |
                 (field(level + 1, 2 * i + 1) &
@@ -378,31 +311,6 @@ namespace mure
                 ~static_cast<int>(CellFlag::coarsen);
             xt::masked_view(field(level, i, j), mask) |=
                 static_cast<int>(CellFlag::keep);
-
-            // mask = (field(level + 1, 2 * i, 2 * j) &
-            //         static_cast<int>(CellFlag::refine)) |
-            //        (field(level + 1, 2 * i + 1, 2 * j) &
-            //         static_cast<int>(CellFlag::refine)) |
-            //        (field(level + 1, 2 * i, 2 * j + 1) &
-            //         static_cast<int>(CellFlag::refine)) |
-            //        (field(level + 1, 2 * i + 1, 2 * j + 1) &
-            //         static_cast<int>(CellFlag::refine));
-            // xt::masked_view(field(level, i, j), mask) |=
-            //     static_cast<int>(CellFlag::refine);
-
-            // xt::xtensor<bool, 1> mask = field(level + 1, 2 * i, 2 * j) |
-            //                             field(level + 1, 2 * i + 1, 2 * j) |
-            //                             field(level + 1, 2 * i, 2 * j + 1) |
-            //                             field(level + 1, 2 * i + 1, 2 * j +
-            //                             1);
-
-            // xt::masked_view(field(level + 1, 2 * i, 2 * j), mask) = true;
-            // xt::masked_view(field(level + 1, 2 * i + 1, 2 * j), mask) = true;
-            // xt::masked_view(field(level + 1, 2 * i, 2 * j + 1), mask) = true;
-            // xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1), mask) =
-            //     true;
-
-            // xt::masked_view(field(level, i, j), mask) = true;
         }
     };
 

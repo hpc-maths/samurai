@@ -21,7 +21,7 @@ namespace mure
 
         auto mesh = field[0].mesh();
         std::size_t max_level =
-            mesh.initial_level(); // mesh[MeshType::cells].max_level();
+            mesh.initial_level();
 
         std::size_t field_size = field.size();
 
@@ -111,23 +111,6 @@ namespace mure
             }
         }
 
-        // {
-        //     std::stringstream s;
-        //     s << "cell_flag_1_" << ite;
-        //     auto h5file = mure::Hdf5(s.str().data());
-        //     h5file.add_mesh(mesh);
-        //     h5file.add_field(cell_flag[0]);
-        //     h5file.add_field(detail[0]);
-
-        //     std::stringstream sd, sf;
-        //     sd << "cell_flag_1_detail_" << ite;
-        //     auto h5file_d = mure::Hdf5(sd.str().data());
-        //     h5file_d.add_field_by_level(mesh, detail[0]);
-        //     // sf << "cell_flag_1_field_" << ite;
-        //     // auto h5file_f = mure::Hdf5(sf.str().data());
-        //     // h5file_f.add_field_by_level(mesh, field[0]);
-        // }
-
         spdlog::info("Make 2 to 1 balance");
         for (std::size_t level = max_level; level > 0; --level)
         {
@@ -168,14 +151,6 @@ namespace mure
                 }
             }
         }
-
-        // {
-        //     std::stringstream s;
-        //     s << "cell_flag_2_" << ite;
-        //     auto h5file = mure::Hdf5(s.str().data());
-        //     h5file.add_mesh(mesh);
-        //     h5file.add_field(cell_flag[0]);
-        // }
 
         for (std::size_t i = 0; i < field.size(); ++i)
         {

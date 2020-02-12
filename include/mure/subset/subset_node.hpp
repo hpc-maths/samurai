@@ -97,10 +97,7 @@ namespace mure
     inline void subset_node<T>::decrement_dim(int i)
     {
         std::size_t index = m_node.find(m_d, m_start[m_d], m_end[m_d], i);
-        // std::cout << "find i : " << i << " " << index << "\n";
-        // std::cout << "start " << m_d << " " << m_start[m_d] << " " <<
-        // m_end[m_d]
-        //           << "\n";
+
         if (index != std::numeric_limits<std::size_t>::max())
         {
             auto interval = m_node.interval(m_d, index);
@@ -109,11 +106,6 @@ namespace mure
             m_end[m_d - 1] = m_node.offset(m_d, off_ind + 1);
             m_current_value[m_d - 1] = m_node.start(m_d - 1, m_start[m_d - 1]);
             m_index[m_d - 1] = m_start[m_d - 1];
-
-            // std::cout << i << " " << m_d << " " << index << " " << interval
-            //           << " "
-            //           << " " << off_ind << " " << m_start[m_d - 1] << " "
-            //           << m_end[m_d - 1] << "\n";
         }
         else
         {
@@ -125,36 +117,6 @@ namespace mure
             m_index[m_d - 1] = std::numeric_limits<std::size_t>::max();
         }
 
-        // int index = m_index[m_d] + m_ipos[m_d] - 1;
-        // std::size_t off_ind = std::numeric_limits<std::size_t>::max();
-        // if (index != -1)
-        // {
-        //     auto interval = m_node.interval(m_d, index);
-        //     off_ind = interval.index + m_node.index(i);
-        // }
-
-        // m_start[m_d - 1] = (index != -1 and off_ind <
-        // m_node.offsets_size(m_d))
-        //                        ? m_node.offset(m_d, off_ind)
-        //                        : 0;
-
-        // m_end[m_d - 1] =
-        //     (index != -1 and (off_ind + 1) < m_node.offsets_size(m_d))
-        //         ? m_node.offset(m_d, off_ind + 1)
-        //         : m_start[m_d - 1];
-
-        // m_index[m_d - 1] = m_start[m_d - 1];
-
-        // if (m_start[m_d - 1] != m_end[m_d - 1])
-        // {
-        //     m_current_value[m_d - 1] = m_node.start(m_d - 1, m_start[m_d -
-        //     1]);
-        // }
-        // else
-        // {
-        //     m_current_value[m_d - 1] =
-        //         std::numeric_limits<coord_index_t>::max();
-        // }
         m_ipos[m_d - 1] = 0;
         m_d--;
     }

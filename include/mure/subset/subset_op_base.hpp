@@ -332,12 +332,10 @@ namespace mure
     subset_operator<F, CT...>::sub_apply(Func &&func,
                                          std::integral_constant<std::size_t, d>)
     {
-        // std::cout << "result " << m_result[d] << "\n";
         for (int i = m_result[d].start; i < m_result[d].end; ++i)
         {
             m_index_yz[d - 1] = i;
 
-            // std::cout << "i " << i << "\n";
             decrement_dim(i);
             apply(std::forward<Func>(func),
                   std::integral_constant<std::size_t, d - 1>{});

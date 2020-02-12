@@ -70,7 +70,6 @@ namespace mure
             m_cells[MeshType::union_cells][init_level - 1] = {init_level - 1, box_t{(start >> 1), (end >> 1)}};
             m_init_cells = {init_level, box_t{start, end}};
             update_x0_and_nb_ghosts();
-            // update_ghost_nodes();
         }
 
         Mesh(const CellList<MRConfig> &dcl, const LevelCellArray<dim> &init_cells, std::size_t init_level)
@@ -245,27 +244,6 @@ namespace mure
                 m_cells[MeshType::proj_cells][level - 1] = {lcl};
             }
         }
-
-        // for (std::size_t level = max_refinement_level; level > 0; --level)
-        // {
-        //     if (!m_cells[MeshType::cells][level].empty())
-        //     {
-        //         LevelCellList<dim, interval_t> lcl{level - 1};
-        //         auto expr =
-        //             intersection(m_cells[MeshType::all_cells][level - 1],
-        //                          union_(m_cells[MeshType::cells][level],
-        //                                 m_cells[MeshType::proj_cells][level]))
-        //                 .on(level - 1);
-
-        //         expr([&](auto &index_yz, auto &interval,
-        //                  auto & /*interval_index*/) {
-
-        //             lcl[index_yz].add_interval(
-        //                 {interval[0].start, interval[0].end});
-        //         });
-        //         m_cells[MeshType::proj_cells][level - 1] = {lcl};
-        //     }
-        // }
 
         // update of x0_indices, _leaf_to_ghost_indices,
         update_x0_and_nb_ghosts();
