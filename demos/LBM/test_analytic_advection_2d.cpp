@@ -6,10 +6,9 @@
 #include <mure/box.hpp>
 #include <mure/field.hpp>
 #include <mure/hdf5.hpp>
-#include <mure/mr/harten_multi.hpp>
+#include <mure/mr/adapt.hpp>
 #include <mure/mr/mesh.hpp>
 #include <mure/mr/mr_config.hpp>
-#include <mure/mr/pred_and_proj.hpp>
 
 template <class Config>
 auto init_u(mure::Mesh<Config> &mesh,
@@ -101,19 +100,13 @@ int main(int argc, char *argv[])
             std::cout << "dx = " << dx << "\n";
 
             mure::Box<double, dim> box({-2, -2}, {2, 2});
-            mure::Mesh<Config> mesh{box, max_level};
+            mure::Mesh<Config> mesh{box, min_level, max_level};
 
             for (std::size_t ite = 0; ite < 100; ++ite)
             {
                 std::cout << "iteration: " << ite << "\n";
                 auto u = init_u(mesh, ite * dx, test_case);
-
-                for (std::size_t i = 0; i < max_level - min_level; ++i)
-                {
-                    mure::mr_projection(u[0]);
-                    mure::mr_prediction(u[0]);
-                    mure::harten_multi(u, eps, i, min_level);
-                }
+                mure::adapt(u, eps);
 
                 std::stringstream s;
                 s << "advection_" << ite;

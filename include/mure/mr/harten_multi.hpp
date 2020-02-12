@@ -11,7 +11,7 @@ namespace mure
 {
     template<class MRConfig>
     void harten_multi(std::vector<Field<MRConfig>> &field, double eps,
-                      std::size_t ite, std::size_t min_level)
+                      std::size_t ite)
     {
         constexpr auto max_refinement_level = MRConfig::max_refinement_level;
         constexpr auto dim = MRConfig::dim;
@@ -20,8 +20,8 @@ namespace mure
         spdlog::info("Enter in Harten function");
 
         auto mesh = field[0].mesh();
-        std::size_t max_level =
-            mesh.initial_level();
+        std::size_t max_level = mesh.max_level();
+        std::size_t min_level = mesh.min_level();
 
         std::size_t field_size = field.size();
 
@@ -208,7 +208,7 @@ namespace mure
         }
 
         Mesh<MRConfig> new_mesh{cell_list, mesh.initial_mesh(),
-                                mesh.initial_level()};
+                                min_level, max_level};
 
         std::vector<Field<MRConfig>> new_field;
 

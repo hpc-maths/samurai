@@ -56,24 +56,25 @@ namespace mure
         Mesh(Mesh const &) = default;
         Mesh &operator=(Mesh const &) = default;
 
-        Mesh(Box<double, dim> b, std::size_t init_level) : m_init_level{init_level}
+        Mesh(Box<double, dim> b, std::size_t min_level, std::size_t max_level)
+          : m_min_level{min_level}, m_max_level{max_level}
         {
             using box_t = Box<coord_index_t, dim>;
-            point_t start = b.min_corner() * std::pow(2, init_level);
-            point_t end = b.max_corner() * std::pow(2, init_level);
+            point_t start = b.min_corner() * std::pow(2, max_level);
+            point_t end = b.max_corner() * std::pow(2, max_level);
 
-            m_cells[MeshType::cells][init_level] = {init_level, box_t{start, end}};
-            m_cells[MeshType::cells_and_ghosts][init_level] = {init_level, box_t{start - 1, end + 1}};
-            m_cells[MeshType::all_cells][init_level] = {init_level, box_t{start - 1, end + 1}};
-            m_cells[MeshType::all_cells][init_level - 1] = {init_level - 1, box_t{(start >> 1) - 1, (end >> 1) + 1}};
-            m_cells[MeshType::proj_cells][init_level - 1] = {init_level - 1, box_t{(start >> 1), (end >> 1)}};
-            m_cells[MeshType::union_cells][init_level - 1] = {init_level - 1, box_t{(start >> 1), (end >> 1)}};
-            m_init_cells = {init_level, box_t{start, end}};
+            m_cells[MeshType::cells][max_level] = {max_level, box_t{start, end}};
+            m_cells[MeshType::cells_and_ghosts][max_level] = {max_level, box_t{start - 1, end + 1}};
+            m_cells[MeshType::all_cells][max_level] = {max_level, box_t{start - 1, end + 1}};
+            m_cells[MeshType::all_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1) - 1, (end >> 1) + 1}};
+            m_cells[MeshType::proj_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
+            m_cells[MeshType::union_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
+            m_init_cells = {max_level, box_t{start, end}};
             update_x0_and_nb_ghosts();
         }
 
-        Mesh(const CellList<MRConfig> &dcl, const LevelCellArray<dim> &init_cells, std::size_t init_level)
-            : m_init_cells{init_cells}, m_init_level{init_level}
+        Mesh(const CellList<MRConfig> &dcl, const LevelCellArray<dim> &init_cells, std::size_t min_level, std::size_t max_level)
+            : m_init_cells{init_cells}, m_min_level{min_level}, m_max_level{max_level}
         {
             m_cells[MeshType::cells] = {dcl};
             update_ghost_nodes();
@@ -115,16 +116,21 @@ namespace mure
             return m_init_cells;
         }
 
-        auto initial_level() const
+        auto max_level() const
         {
-            return m_init_level;
+            return m_max_level;
+        }
+
+        auto min_level() const
+        {
+            return m_min_level;
         }
 
         inline void swap(Mesh<MRConfig> &mesh) noexcept
         {
             m_cells = std::move(mesh.m_cells);
             // swap(m_init_cells, mesh.m_init_cells);
-            // swap(m_init_level, mesh.m_init_level);
+            // swap(m_max_level, mesh.m_max_level);
         }
 
         template<typename... T>
@@ -169,7 +175,8 @@ namespace mure
 
         MeshCellsArray<MRConfig, 5> m_cells;
         LevelCellArray<dim> m_init_cells;
-        std::size_t m_init_level;
+        std::size_t m_max_level;
+        std::size_t m_min_level;
     };
 
     template<class MRConfig>
