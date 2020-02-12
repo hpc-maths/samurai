@@ -176,8 +176,7 @@ namespace mure
                         {
                             static_nested_loop<dim - 1, 0, 2>(
                                 [&](auto stencil) {
-                                    auto index =
-                                        xt::eval(2 * index_yz + stencil);
+                                    auto index = 2 * index_yz + stencil;
                                     cell_list[level + 1][index].add_point(2 *
                                                                           i);
                                     cell_list[level + 1][index].add_point(
