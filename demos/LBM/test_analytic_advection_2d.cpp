@@ -10,11 +10,11 @@
 #include <mure/mr/mesh.hpp>
 #include <mure/mr/mr_config.hpp>
 #include <mure/mr/pred_and_proj.hpp>
-#include <mure/mr/refinement.hpp>
-#include <mure/stencil_field.hpp>
 
 template <class Config>
-auto init_u(mure::Mesh<Config> &mesh, double dx, std::size_t test_case)
+auto init_u(mure::Mesh<Config> &mesh,
+            double dx,
+            std::size_t test_case)
 {
     std::vector<mure::Field<Config>> u;
     u.push_back({"u", mesh});
@@ -22,7 +22,7 @@ auto init_u(mure::Mesh<Config> &mesh, double dx, std::size_t test_case)
 
     switch (test_case)
     {
-    case 1:
+    case 1: //gaussian
         mesh.for_each_cell([&](auto &cell) {
             auto center = cell.center();
             auto x = center[0] - dx;
@@ -30,7 +30,7 @@ auto init_u(mure::Mesh<Config> &mesh, double dx, std::size_t test_case)
             u[0][cell] = exp(-20 * (x * x + y * y));
         });
         break;
-    case 2:
+    case 2: //diamond
         mesh.for_each_cell([&](auto &cell) {
             auto center = cell.center();
             double theta = M_PI / 4;
@@ -47,7 +47,7 @@ auto init_u(mure::Mesh<Config> &mesh, double dx, std::size_t test_case)
                 u[0][cell] = 0;
         });
         break;
-    case 3:
+    case 3: //circle
         mesh.for_each_cell([&](auto &cell) {
             auto center = cell.center();
             double radius = .2;
@@ -105,7 +105,6 @@ int main(int argc, char *argv[])
 
             for (std::size_t ite = 0; ite < 100; ++ite)
             {
-                // Initialization
                 std::cout << "iteration: " << ite << "\n";
                 auto u = init_u(mesh, ite * dx, test_case);
 
