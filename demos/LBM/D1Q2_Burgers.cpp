@@ -4,13 +4,7 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <mure/box.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
-#include <mure/mr/adapt.hpp>
-#include <mure/mr/mesh.hpp>
-#include <mure/mr/mr_config.hpp>
-#include <mure/mr/pred_and_proj.hpp>
+#include <mure/mure.hpp>
 
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
@@ -147,6 +141,88 @@ void one_time_step(std::vector<mure::Field<Config>> &f)
     }
 }
 
+template<class Config, class interval_t>
+auto prediction(mure::Field<Config>& f, std::size_t level_g, std::size_t level, const interval_t &i)
+{
+    auto step = i.step;
+    auto ig = i / 2;
+    ig.step = step >> 1;
+
+    xt::xtensor<double, 1> d = xt::empty<double>({i.size()/i.step});
+    for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
+    {
+        d[iii] = (ii & 1)? -1.: 1.;
+    }
+
+    if (level == 1)
+    {
+        return xt::eval(f(level_g, ig) - 1./8  * d * (f(level_g, ig+1) - f(level_g, ig-1)));
+    }
+    return xt::eval(prediction(f, level_g, level-1, ig) - 1./8 * d * (prediction(f, level_g, level-1, ig+1) 
+                                                                    - prediction(f, level_g, level-1, ig-1)));
+}
+
+template<class Config>
+void one_time_step_new(std::vector<mure::Field<Config>> &f)
+{
+    double lambda = 1., s = 1.;
+    auto mesh = f[0].mesh();
+    std::size_t nvel = f.size();
+    auto max_level = mesh[mure::MeshType::cells].max_level();
+
+    for (std::size_t nv = 0; nv < nvel; ++nv)
+    {
+        mure::mr_projection(f[nv]);
+        mure::mr_prediction(f[nv]);
+    }
+
+    std::vector<mure::Field<Config>> new_f;
+    for (std::size_t i = 0; i < nvel; ++i)
+    {
+        std::stringstream str;
+        str << "newf_" << i;
+        new_f.push_back({str.str().data(), mesh});
+        new_f[i].array().fill(0);
+    }
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
+                                      mesh[mure::MeshType::cells][level]);
+        exp([&](auto, auto &interval, auto) {
+            auto i = interval[0];
+
+            auto fp = f[0](level, i - 1);
+            auto fm = f[1](level, i + 1);
+
+            if (level != max_level)
+            {
+                std::size_t j = max_level - level;
+                double coeff = 1. / (1 << j);
+
+                fp = f[0](level, i) + coeff * (prediction(f[0], level, j, i*(1<<j)-1)
+                                             - prediction(f[0], level, j, (i+1)*(1<<j)-1));
+
+                fm = f[1](level, i) + coeff * (prediction(f[1], level, j, (i+1)*(1<<j))
+                                             - prediction(f[1], level, j, i*(1<<j)));
+            }
+
+            auto uu = xt::eval(fp + fm);
+            auto vv = xt::eval(lambda * (fp - fm));
+
+            vv = (1 - s) * vv + s * .5 * uu * uu;
+
+            new_f[0](level, i) = .5 * (uu + 1. / lambda * vv);
+            new_f[1](level, i) = .5 * (uu - 1. / lambda * vv);
+        });
+    }
+
+    for (std::size_t i = 0; i < nvel; ++i)
+    {
+        f[i].array() = new_f[i].array();
+    }
+}
+
 template<class Config>
 void save_solution(std::vector<mure::Field<Config>> &f, double eps, std::size_t ite)
 {
@@ -208,7 +284,7 @@ int main(int argc, char *argv[])
             // Initialization
             auto f = init_f(mesh, 0);
 
-            for (std::size_t nb_ite = 0; nb_ite < 1000; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < 100; ++nb_ite)
             {
                 std::cout << nb_ite << "\n";
                 mure::adapt(f, eps);
