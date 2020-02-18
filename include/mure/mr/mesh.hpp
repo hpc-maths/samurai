@@ -29,12 +29,12 @@ namespace mure
         using base = std::array<CellArray<MRConfig>, dim>;
         using base::operator[];
 
-        CellArray<MRConfig> const &operator[](MeshType mesh_type) const
+        inline CellArray<MRConfig> const &operator[](MeshType mesh_type) const
         {
             return operator[](static_cast<std::size_t>(mesh_type));
         }
 
-        CellArray<MRConfig> &operator[](MeshType mesh_type)
+        inline CellArray<MRConfig> &operator[](MeshType mesh_type)
         {
             return operator[](static_cast<std::size_t>(mesh_type));
         }
@@ -56,7 +56,7 @@ namespace mure
         Mesh(Mesh const &) = default;
         Mesh &operator=(Mesh const &) = default;
 
-        Mesh(Box<double, dim> b, std::size_t min_level, std::size_t max_level)
+        inline Mesh(Box<double, dim> b, std::size_t min_level, std::size_t max_level)
           : m_min_level{min_level}, m_max_level{max_level}
         {
             using box_t = Box<coord_index_t, dim>;
@@ -73,14 +73,14 @@ namespace mure
             update_x0_and_nb_ghosts();
         }
 
-        Mesh(const CellList<MRConfig> &dcl, const LevelCellArray<dim> &init_cells, std::size_t min_level, std::size_t max_level)
+        inline Mesh(const CellList<MRConfig> &dcl, const LevelCellArray<dim> &init_cells, std::size_t min_level, std::size_t max_level)
             : m_init_cells{init_cells}, m_min_level{min_level}, m_max_level{max_level}
         {
             m_cells[MeshType::cells] = {dcl};
             update_ghost_nodes();
         }
 
-        Mesh(const CellList<MRConfig> &dcl)
+        inline Mesh(const CellList<MRConfig> &dcl)
         {
             m_cells[MeshType::cells] = {dcl};
             update_ghost_nodes();
@@ -101,27 +101,27 @@ namespace mure
             return m_cells[MeshType::all_cells].nb_cells();
         }
 
-        auto const &get_cells(std::size_t i) const
+        inline auto const &get_cells(std::size_t i) const
         {
             return m_cells[i];
         }
 
-        auto operator[](MeshType mesh_type) const
+        inline auto operator[](MeshType mesh_type) const
         {
             return m_cells[mesh_type];
         }
 
-        auto initial_mesh() const
+        inline auto initial_mesh() const
         {
             return m_init_cells;
         }
 
-        auto max_level() const
+        inline auto max_level() const
         {
             return m_max_level;
         }
 
-        auto min_level() const
+        inline auto min_level() const
         {
             return m_min_level;
         }
@@ -134,14 +134,14 @@ namespace mure
         }
 
         template<typename... T>
-        auto get_interval(std::size_t level, interval_t interval, T... index) const
+        inline auto get_interval(std::size_t level, interval_t interval, T... index) const
         {
             auto lca = m_cells[MeshType::all_cells][level];
             auto row = lca.find({interval.start, index...});
             return lca[0][static_cast<std::size_t>(row)];
         }
 
-        void to_stream(std::ostream &os) const
+        inline void to_stream(std::ostream &os) const
         {
             os << "Cells\n";
             m_cells[MeshType::cells].to_stream(os);
@@ -180,7 +180,7 @@ namespace mure
     };
 
     template<class MRConfig>
-    void Mesh<MRConfig>::update_ghost_nodes()
+    inline void Mesh<MRConfig>::update_ghost_nodes()
     {
         {
             auto max_level = m_cells[MeshType::cells].max_level();
@@ -257,7 +257,7 @@ namespace mure
     }
 
     template<class MRConfig>
-    void Mesh<MRConfig>::add_ng_ghosts_and_get_nb_leaves(CellList<MRConfig> &cell_list)
+    inline void Mesh<MRConfig>::add_ng_ghosts_and_get_nb_leaves(CellList<MRConfig> &cell_list)
     {
         // +/- w nodes in the current level
         for (std::size_t level = 0; level <= max_refinement_level; ++level)
@@ -281,7 +281,7 @@ namespace mure
     }
 
     template<class MRConfig>
-    void Mesh<MRConfig>::add_ghosts_for_level_m1(CellList<MRConfig> &cell_list)
+    inline void Mesh<MRConfig>::add_ghosts_for_level_m1(CellList<MRConfig> &cell_list)
     {
         for (std::size_t level = 1; level <= max_refinement_level; ++level)
         {
@@ -306,7 +306,7 @@ namespace mure
     }
 
     template<class MRConfig>
-    void Mesh<MRConfig>::update_x0_and_nb_ghosts()
+    inline void Mesh<MRConfig>::update_x0_and_nb_ghosts()
     {
         std::size_t ghost_index = 0;
         for (std::size_t level = 0; level <= max_refinement_level; ++level)
@@ -364,7 +364,7 @@ namespace mure
     }
 
     template<class MRConfig>
-    std::ostream &operator<<(std::ostream &out, const Mesh<MRConfig> &mesh)
+    inline std::ostream &operator<<(std::ostream &out, const Mesh<MRConfig> &mesh)
     {
         mesh.to_stream(out);
         return out;

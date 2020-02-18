@@ -31,7 +31,7 @@ namespace mure
         using index_t = typename MRConfig::index_t;
         using interval_t = typename MRConfig::interval_t;
 
-        Field(std::string name, Mesh<MRConfig> &mesh)
+        inline Field(std::string name, Mesh<MRConfig> &mesh)
             : name_(name), m_mesh(&mesh),
               m_data(std::array<std::size_t, 1>{mesh.nb_total_cells()})
         {
@@ -39,7 +39,7 @@ namespace mure
         }
 
         template<class E>
-        Field &operator=(const field_expression<E> &e)
+        inline Field &operator=(const field_expression<E> &e)
         {
             // mesh->for_each_cell(
             //     [&](auto &cell) { (*this)[cell] = e.derived_cast()(cell); });
@@ -54,40 +54,40 @@ namespace mure
             return *this;
         }
 
-        value_type const operator()(const Cell<coord_index_t, dim> &cell) const
+        inline value_type const operator()(const Cell<coord_index_t, dim> &cell) const
         {
             return m_data[cell.index];
         }
 
-        value_type &operator()(const Cell<coord_index_t, dim> &cell)
+        inline value_type &operator()(const Cell<coord_index_t, dim> &cell)
         {
             return m_data[cell.index];
         }
 
-        value_type const operator[](const Cell<coord_index_t, dim> &cell) const
+        inline value_type const operator[](const Cell<coord_index_t, dim> &cell) const
         {
             return m_data[cell.index];
         }
 
-        value_type &operator[](const Cell<coord_index_t, dim> &cell)
+        inline value_type &operator[](const Cell<coord_index_t, dim> &cell)
         {
             return m_data[cell.index];
         }
 
         template<class... T>
-        auto operator()(interval_t interval, T... index) const
+        inline auto operator()(interval_t interval, T... index) const
         {
             return xt::view(m_data, xt::range(interval.start, interval.end));
         }
 
         template<class... T>
-        auto operator()(interval_t interval, T... index)
+        inline auto operator()(interval_t interval, T... index)
         {
             return xt::view(m_data, xt::range(interval.start, interval.end));
         }
 
         template<class... T>
-        auto operator()(const std::size_t level, const interval_t &interval,
+        inline auto operator()(const std::size_t level, const interval_t &interval,
                         const T... index)
         {
             auto interval_tmp = m_mesh->get_interval(level, interval, index...);
@@ -106,7 +106,7 @@ namespace mure
         }
 
         template<class... T>
-        auto operator()(const std::size_t level, const interval_t &interval,
+        inline auto operator()(const std::size_t level, const interval_t &interval,
                         const T... index) const
         {
             auto interval_tmp = m_mesh->get_interval(level, interval, index...);
@@ -124,7 +124,7 @@ namespace mure
                                       interval.step));
         }
 
-        auto data(MeshType mesh_type) const
+        inline auto data(MeshType mesh_type) const
         {
             std::array<std::size_t, 1> shape = {m_mesh->nb_cells(mesh_type)};
             xt::xtensor<double, 1> output(shape);
@@ -135,7 +135,7 @@ namespace mure
             return output;
         }
 
-        auto data_on_level(std::size_t level, MeshType mesh_type) const
+        inline auto data_on_level(std::size_t level, MeshType mesh_type) const
         {
             std::array<std::size_t, 1> shape = {
                 m_mesh->nb_cells(level, mesh_type)};
@@ -167,22 +167,22 @@ namespace mure
             return m_mesh->nb_cells(level, mesh_type);
         }
 
-        auto const &name() const
+        inline auto const &name() const
         {
             return name_;
         }
 
-        auto mesh()
+        inline auto mesh()
         {
             return *m_mesh;
         }
 
-        auto mesh_ptr()
+        inline auto mesh_ptr()
         {
             return m_mesh;
         }
 
-        void to_stream(std::ostream &os) const
+        inline void to_stream(std::ostream &os) const
         {
             os << "Field " << name_ << "\n";
             m_mesh->for_each_cell(
@@ -201,7 +201,7 @@ namespace mure
     };
 
     template<class MRConfig, class T>
-    std::ostream &operator<<(std::ostream &out, const Field<MRConfig, T> &field)
+    inline std::ostream &operator<<(std::ostream &out, const Field<MRConfig, T> &field)
     {
         field.to_stream(out);
         return out;

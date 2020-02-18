@@ -8,7 +8,7 @@
 namespace mure
 {
     template<class InputIt, class UnaryPredicate>
-    constexpr std::pair<InputIt, InputIt>
+    inline constexpr std::pair<InputIt, InputIt>
     forward_find_if(InputIt first, InputIt last, UnaryPredicate p)
     {
         auto previous = first++;
@@ -49,19 +49,19 @@ namespace mure
         using typename list_t::value_type;
 
         /// Number of intervals stored in the list.
-        std::size_t size() const
+        inline std::size_t size() const
         {
             return static_cast<std::size_t>(std::distance(begin(), end()));
         }
 
         /// Add a point inside the list.
-        void add_point(value_t point)
+        inline void add_point(value_t point)
         {
             add_interval({point, point + 1});
         }
 
         /// Add an interval inside the list.
-        void add_interval(interval_t &interval)
+        inline void add_interval(interval_t &interval)
         {
             if (!interval.is_valid())
                 return;
@@ -92,7 +92,7 @@ namespace mure
         }
 
         /// Add an interval inside the list.
-        void add_interval(interval_t &&interval)
+        inline void add_interval(interval_t &&interval)
         {
             if (!interval.is_valid())
                 return;
@@ -124,7 +124,7 @@ namespace mure
     };
 
     template<typename value_t, typename index_t>
-    std::ostream &operator<<(std::ostream &out,
+    inline std::ostream &operator<<(std::ostream &out,
                              ListOfIntervals<value_t, index_t> interval_list)
     {
         for (auto &interval : interval_list)

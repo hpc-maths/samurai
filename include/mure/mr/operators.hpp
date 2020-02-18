@@ -18,14 +18,14 @@ namespace mure
         INIT_OPERATOR(projection_op_)
 
         template<class T>
-        void operator()(Dim<1>, T &field) const
+        inline void operator()(Dim<1>, T &field) const
         {
             field(level, i) =
                 .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
         }
 
         template<class T>
-        void operator()(Dim<2>, T &field) const
+        inline void operator()(Dim<2>, T &field) const
         {
             field(level, i, j) = .25 * (field(level + 1, 2 * i, 2 * j) +
                                         field(level + 1, 2 * i, 2 * j + 1) +
@@ -34,7 +34,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(T &field, Dim<3>) const
+        inline void operator()(T &field, Dim<3>) const
         {
             field(level, i, j, k) =
                 .125 * (field(level - 1, 2 * i, 2 * j, 2 * k) +
@@ -47,7 +47,7 @@ namespace mure
     };
 
     template<class T>
-    auto projection(T &&field)
+    inline auto projection(T &&field)
     {
         return make_field_operator_function<projection_op_>(
             std::forward<T>(field));
@@ -63,7 +63,7 @@ namespace mure
         INIT_OPERATOR(prediction_op)
 
         template<class T>
-        void operator()(Dim<1>, T &field) const
+        inline void operator()(Dim<1>, T &field) const
         {
             auto qs_i = Qs_i<1>(field, level - 1, i >> 1);
 
@@ -100,7 +100,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(Dim<2>, T &field) const
+        inline void operator()(Dim<2>, T &field) const
         {
             auto qs_i = Qs_i<1>(field, level - 1, i >> 1, j >> 1);
             auto qs_j = Qs_j<1>(field, level - 1, i >> 1, j >> 1);
@@ -166,14 +166,14 @@ namespace mure
     };
 
     template<class T>
-    auto prediction(T &&field)
+    inline auto prediction(T &&field)
     {
         return make_field_operator_function<prediction_op>(
             std::forward<T>(field));
     }
 
     template<class interval_t, class coord_index_t, class field_t>
-    void compute_prediction_impl(
+    inline void compute_prediction_impl(
         const std::size_t level, const interval_t i,
         const xt::xtensor_fixed<coord_index_t, xt::xshape<0>> &index_yz,
         const field_t &field, field_t &new_field)
@@ -192,7 +192,7 @@ namespace mure
     }
 
     template<class interval_t, class coord_index_t, class field_t>
-    void compute_prediction_impl(
+    inline void compute_prediction_impl(
         const std::size_t level, const interval_t i,
         const xt::xtensor_fixed<coord_index_t, xt::xshape<1>> &index_yz,
         const field_t &field, field_t &new_field)
@@ -222,7 +222,7 @@ namespace mure
 
     template<class interval_t, class coord_index_t, class field_t,
              std::size_t dim>
-    void compute_prediction(
+    inline void compute_prediction(
         const std::size_t level, const interval_t i,
         const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> &index_yz,
         const field_t &field, field_t &new_field)
@@ -239,7 +239,7 @@ namespace mure
         INIT_OPERATOR(maximum_op)
 
         template<class T>
-        void operator()(Dim<1>, T &field) const
+        inline void operator()(Dim<1>, T &field) const
         {
             xt::xtensor<bool, 1> mask =
                 (field(level + 1, 2 * i) & static_cast<int>(CellFlag::keep)) |
@@ -268,7 +268,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(Dim<2>, T &field) const
+        inline void operator()(Dim<2>, T &field) const
         {
             xt::xtensor<bool, 1> mask =
                 (field(level + 1, 2 * i, 2 * j) &
@@ -315,7 +315,7 @@ namespace mure
     };
 
     template<class T>
-    auto maximum(T &&field)
+    inline auto maximum(T &&field)
     {
         return make_field_operator_function<maximum_op>(std::forward<T>(field));
     }
@@ -330,26 +330,26 @@ namespace mure
         INIT_OPERATOR(copy_op)
 
         template<class T>
-        void operator()(Dim<1>, T &dest, const T &src) const
+        inline void operator()(Dim<1>, T &dest, const T &src) const
         {
             dest(level, i) = src(level, i);
         }
 
         template<class T>
-        void operator()(Dim<2>, T &dest, const T &src) const
+        inline void operator()(Dim<2>, T &dest, const T &src) const
         {
             dest(level, i, j) = src(level, i, j);
         }
 
         template<class T>
-        void operator()(Dim<3>, T &dest, const T &src) const
+        inline void operator()(Dim<3>, T &dest, const T &src) const
         {
             dest(level, i, j, k) = src(level, i, j, k);
         }
     };
 
     template<class T>
-    auto copy(T &&dest, T &&src)
+    inline auto copy(T &&dest, T &&src)
     {
         return make_field_operator_function<copy_op>(std::forward<T>(dest),
                                                      std::forward<T>(src));
@@ -365,20 +365,20 @@ namespace mure
         INIT_OPERATOR(balance_2to1_op)
 
         template<class T, class stencil_t>
-        void operator()(Dim<1>, T &cell_flag, const stencil_t &stencil) const
+        inline void operator()(Dim<1>, T &cell_flag, const stencil_t &stencil) const
         {
             cell_flag(level, i - stencil[0]) |= cell_flag(level, i);
         }
 
         template<class T, class stencil_t>
-        void operator()(Dim<2>, T &cell_flag, const stencil_t &stencil) const
+        inline void operator()(Dim<2>, T &cell_flag, const stencil_t &stencil) const
         {
             cell_flag(level, i - stencil[0], j - stencil[1]) |=
                 cell_flag(level, i, j);
         }
 
         template<class T, class stencil_t>
-        void operator()(Dim<3>, T &cell_flag, const stencil_t &stencil) const
+        inline void operator()(Dim<3>, T &cell_flag, const stencil_t &stencil) const
         {
             cell_flag(level, i - stencil[0], j - stencil[1], k - stencil[2]) |=
                 cell_flag(level, i, j, k);
@@ -386,7 +386,7 @@ namespace mure
     };
 
     template<class T, class stencil_t>
-    auto balance_2to1(T &&cell_flag, stencil_t &&stencil)
+    inline auto balance_2to1(T &&cell_flag, stencil_t &&stencil)
     {
         return make_field_operator_function<balance_2to1_op>(
             std::forward<T>(cell_flag), std::forward<stencil_t>(stencil));
@@ -402,7 +402,7 @@ namespace mure
         INIT_OPERATOR(compute_detail_op)
 
         template<class T>
-        void operator()(Dim<1>, T &detail, const T &field) const
+        inline void operator()(Dim<1>, T &detail, const T &field) const
         {
             auto qs_i = xt::eval(Qs_i<1>(field, level, i));
 
@@ -414,7 +414,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(Dim<2>, T &detail, const T &field) const
+        inline void operator()(Dim<2>, T &detail, const T &field) const
         {
             auto qs_i = Qs_i<1>(field, level, i, j);
             auto qs_j = Qs_j<1>(field, level, i, j);
@@ -439,7 +439,7 @@ namespace mure
     };
 
     template<class T>
-    auto compute_detail(T &&detail, T &&field)
+    inline auto compute_detail(T &&detail, T &&field)
     {
         return make_field_operator_function<compute_detail_op>(
             std::forward<T>(detail), std::forward<T>(field));
@@ -455,7 +455,7 @@ namespace mure
         INIT_OPERATOR(compute_max_detail_op)
 
         template<class T, class U>
-        void operator()(Dim<1>, const U &detail, T &max_detail) const
+        inline void operator()(Dim<1>, const U &detail, T &max_detail) const
         {
             auto ii = 2 * i;
             ii.step = 1;
@@ -465,7 +465,7 @@ namespace mure
         }
 
         template<class T, class U>
-        void operator()(Dim<2>, const U &detail, T &max_detail) const
+        inline void operator()(Dim<2>, const U &detail, T &max_detail) const
         {
             auto ii = 2 * i;
             ii.step = 1;
@@ -478,7 +478,7 @@ namespace mure
     };
 
     template<class T, class U>
-    auto compute_max_detail(U &&detail, T &&max_detail)
+    inline auto compute_max_detail(U &&detail, T &&max_detail)
     {
         return make_field_operator_function<compute_max_detail_op>(
             std::forward<U>(detail), std::forward<T>(max_detail));
@@ -494,14 +494,14 @@ namespace mure
         INIT_OPERATOR(compute_max_detail_op_)
 
         template<class T, class U>
-        void operator()(Dim<1>, const U &detail, T &max_detail) const
+        inline void operator()(Dim<1>, const U &detail, T &max_detail) const
         {
             max_detail[level] = std::max(
                 max_detail[level], xt::amax(xt::abs(detail(level, i)))[0]);
         }
 
         template<class T, class U>
-        void operator()(Dim<2>, const U &detail, T &max_detail) const
+        inline void operator()(Dim<2>, const U &detail, T &max_detail) const
         {
             max_detail[level] = std::max(
                 max_detail[level], xt::amax(xt::abs(detail(level, i, j)))[0]);
@@ -509,7 +509,7 @@ namespace mure
     };
 
     template<class T, class U>
-    auto compute_max_detail_(U &&detail, T &&max_detail)
+    inline auto compute_max_detail_(U &&detail, T &&max_detail)
     {
         return make_field_operator_function<compute_max_detail_op_>(
             std::forward<U>(detail), std::forward<T>(max_detail));
@@ -525,7 +525,7 @@ namespace mure
         INIT_OPERATOR(to_coarsen_op)
 
         template<class T, class U, class V>
-        void operator()(Dim<1>, T &keep, const U &detail, const V &max_detail,
+        inline void operator()(Dim<1>, T &keep, const U &detail, const V &max_detail,
                         double eps) const
         {
             auto mask = xt::abs(detail(level + 1, 2 * i)) < eps;
@@ -542,7 +542,7 @@ namespace mure
         }
 
         template<class T, class U, class V>
-        void operator()(Dim<2>, T &keep, const U &detail, const V &max_detail,
+        inline void operator()(Dim<2>, T &keep, const U &detail, const V &max_detail,
                         double eps) const
         {
             auto mask = xt::abs(detail(level + 1, 2 * i, 2 * j)) < eps;
@@ -566,7 +566,7 @@ namespace mure
     };
 
     template<class... CT>
-    auto to_coarsen(CT &&... e)
+    inline auto to_coarsen(CT &&... e)
     {
         return make_field_operator_function<to_coarsen_op>(
             std::forward<CT>(e)...);
@@ -582,7 +582,7 @@ namespace mure
         INIT_OPERATOR(refine_ghost_op)
 
         template<class T>
-        void operator()(Dim<1>, T &flag) const
+        inline void operator()(Dim<1>, T &flag) const
         {
             auto mask = flag(level + 1, i) & static_cast<int>(CellFlag::keep);
             xt::masked_view(flag(level, i / 2), mask) =
@@ -590,7 +590,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(Dim<2>, T &flag) const
+        inline void operator()(Dim<2>, T &flag) const
         {
             auto mask =
                 flag(level + 1, i, j) & static_cast<int>(CellFlag::keep);
@@ -599,7 +599,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(Dim<3>, T &flag) const
+        inline void operator()(Dim<3>, T &flag) const
         {
             auto mask =
                 flag(level + 1, i, j, k) & static_cast<int>(CellFlag::keep);
@@ -609,7 +609,7 @@ namespace mure
     };
 
     template<class... CT>
-    auto refine_ghost(CT &&... e)
+    inline auto refine_ghost(CT &&... e)
     {
         return make_field_operator_function<refine_ghost_op>(
             std::forward<CT>(e)...);
@@ -625,7 +625,7 @@ namespace mure
         INIT_OPERATOR(enlarge_op)
 
         template<class T>
-        void operator()(Dim<1>, T &cell_flag, CellFlag flag) const
+        inline void operator()(Dim<1>, T &cell_flag, CellFlag flag) const
         {
             cell_flag(level, i + 1) |=
                 cell_flag(level, i) & static_cast<int>(flag);
@@ -640,7 +640,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(Dim<2>, T &cell_flag, CellFlag flag) const
+        inline void operator()(Dim<2>, T &cell_flag, CellFlag flag) const
         {
             auto keep_mask =
                 cell_flag(level, i, j) & static_cast<int>(CellFlag::keep);
@@ -663,7 +663,7 @@ namespace mure
     };
 
     template<class... CT>
-    auto enlarge(CT &&... e)
+    inline auto enlarge(CT &&... e)
     {
         return make_field_operator_function<enlarge_op>(std::forward<CT>(e)...);
     }
@@ -678,7 +678,7 @@ namespace mure
         INIT_OPERATOR(to_refine_op)
 
         template<class T, class U, class V>
-        void operator()(Dim<1>, T &refine, const U &detail, const V &max_detail,
+        inline void operator()(Dim<1>, T &refine, const U &detail, const V &max_detail,
                         std::size_t max_level, double eps) const
         {
             if (level < max_level)
@@ -690,7 +690,7 @@ namespace mure
         }
 
         template<class T, class U, class V>
-        void operator()(Dim<2>, T &refine, const U &detail, const V &max_detail,
+        inline void operator()(Dim<2>, T &refine, const U &detail, const V &max_detail,
                         std::size_t max_level, double eps) const
         {
             if (level < max_level)
@@ -703,7 +703,7 @@ namespace mure
     };
 
     template<class... CT>
-    auto to_refine(CT &&... e)
+    inline auto to_refine(CT &&... e)
     {
         return make_field_operator_function<to_refine_op>(
             std::forward<CT>(e)...);
@@ -719,7 +719,7 @@ namespace mure
         INIT_OPERATOR(tag_to_keep_op)
 
         template<class T>
-        void operator()(Dim<1>, T &cell_flag) const
+        inline void operator()(Dim<1>, T &cell_flag) const
         {
             auto mask =
                 cell_flag(level, i) & static_cast<int>(CellFlag::enlarge);
@@ -728,7 +728,7 @@ namespace mure
         }
 
         template<class T>
-        void operator()(Dim<2>, T &cell_flag) const
+        inline void operator()(Dim<2>, T &cell_flag) const
         {
             auto mask =
                 cell_flag(level, i, j) & static_cast<int>(CellFlag::enlarge);
@@ -738,7 +738,7 @@ namespace mure
     };
 
     template<class... CT>
-    auto tag_to_keep(CT &&... e)
+    inline auto tag_to_keep(CT &&... e)
     {
         return make_field_operator_function<tag_to_keep_op>(
             std::forward<CT>(e)...);
@@ -754,26 +754,26 @@ namespace mure
         INIT_OPERATOR(apply_expr_op)
 
         template<class T, class E>
-        void operator()(Dim<1>, T &field, const field_expression<E> &e) const
+        inline void operator()(Dim<1>, T &field, const field_expression<E> &e) const
         {
             field(level, i) = e.derived_cast()(level, i);
         }
 
         template<class T, class E>
-        void operator()(Dim<2>, T &field, const field_expression<E> &e) const
+        inline void operator()(Dim<2>, T &field, const field_expression<E> &e) const
         {
             field(level, i, j) = e.derived_cast()(level, i, j);
         }
 
         template<class T, class E>
-        void operator()(Dim<3>, T &field, const field_expression<E> &e) const
+        inline void operator()(Dim<3>, T &field, const field_expression<E> &e) const
         {
             field(level, i, j, k) = e.derived_cast()(level, i, j, k);
         }
     };
 
     template<class... CT>
-    auto apply_expr(CT &&... e)
+    inline auto apply_expr(CT &&... e)
     {
         return make_field_operator_function<apply_expr_op>(
             std::forward<CT>(e)...);

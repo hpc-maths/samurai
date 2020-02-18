@@ -10,7 +10,7 @@
 namespace mure
 {
     template<class MRConfig>
-    void harten_multi(std::vector<Field<MRConfig>> &field, double eps,
+    inline void harten_multi(std::vector<Field<MRConfig>> &field, double eps,
                       std::size_t ite)
     {
         constexpr auto max_refinement_level = MRConfig::max_refinement_level;
@@ -138,7 +138,7 @@ namespace mure
                         auto subset =
                             intersection(
                                 mesh[MeshType::cells][level],
-                                translate_stencil(
+                                translate(
                                     mesh[MeshType::cells][level - 1], stencil))
                                 .on(level - 1);
 

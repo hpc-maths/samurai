@@ -7,7 +7,7 @@
 namespace mure
 {
     template<class MRConfig>
-    void mr_projection(Field<MRConfig> &field)
+    inline void mr_projection(Field<MRConfig> &field)
     {
         constexpr auto max_refinement_level = MRConfig::max_refinement_level;
 
@@ -24,7 +24,7 @@ namespace mure
     }
 
     template<class MRConfig>
-    void mr_prediction(Field<MRConfig> &field)
+    inline void mr_prediction(Field<MRConfig> &field)
     {
         constexpr auto max_refinement_level = MRConfig::max_refinement_level;
 

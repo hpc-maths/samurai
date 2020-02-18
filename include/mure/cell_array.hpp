@@ -11,10 +11,9 @@ namespace mure
     class CellArray {
       public:
         static constexpr auto dim = MRConfig::dim;
-        static constexpr auto max_refinement_level =
-            MRConfig::max_refinement_level;
+        static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
 
-        CellArray(const CellList<MRConfig> &dcl = {})
+        inline CellArray(const CellList<MRConfig> &dcl = {})
         {
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
@@ -22,12 +21,12 @@ namespace mure
             }
         }
 
-        LevelCellArray<dim> const &operator[](std::size_t i) const
+        inline LevelCellArray<dim> const &operator[](std::size_t i) const
         {
             return m_cells[i];
         }
 
-        LevelCellArray<dim> &operator[](std::size_t i)
+        inline LevelCellArray<dim> &operator[](std::size_t i)
         {
             return m_cells[i];
         }
@@ -85,7 +84,7 @@ namespace mure
             }
         }
 
-        void to_stream(std::ostream &os) const
+        inline void to_stream(std::ostream &os) const
         {
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
@@ -105,7 +104,7 @@ namespace mure
     };
 
     template<class MRConfig>
-    std::ostream &operator<<(std::ostream &out,
+    inline std::ostream &operator<<(std::ostream &out,
                              const CellArray<MRConfig> &cell_array)
     {
         cell_array.to_stream(out);

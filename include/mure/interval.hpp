@@ -44,7 +44,7 @@ namespace mure
         Interval &operator=(Interval const &) = default;
         Interval &operator=(Interval &&) = default;
 
-        Interval(value_t start, value_t end, index_t index = 0)
+        inline Interval(value_t start, value_t end, index_t index = 0)
             : start{start}, end{end}, index{index}
         {}
 
@@ -66,7 +66,7 @@ namespace mure
             return (start < end);
         }
 
-        Interval<value_t, index_t> &operator*=(value_t i)
+        inline Interval<value_t, index_t> &operator*=(value_t i)
         {
             start *= i;
             end *= i;
@@ -74,10 +74,10 @@ namespace mure
             return *this;
         }
 
-        Interval<value_t, index_t> &operator/=(value_t i)
+        inline Interval<value_t, index_t> &operator/=(value_t i)
         {
-            start /= i;
-            end /= i;
+            start = std::floor(start/static_cast<double>(i));
+            end = std::floor(end/static_cast<double>(i));
             if (start == end)
             {
                 end++;
@@ -86,7 +86,7 @@ namespace mure
             return *this;
         }
 
-        Interval<value_t, index_t> &operator>>=(std::size_t i)
+        inline Interval<value_t, index_t> &operator>>=(std::size_t i)
         {
             bool add_one = (start == end) ? false : true;
             bool end_odd = (end & 1) ? true : false;
@@ -98,7 +98,7 @@ namespace mure
             return *this;
         }
 
-        Interval<value_t, index_t> &operator<<=(std::size_t i)
+        inline Interval<value_t, index_t> &operator<<=(std::size_t i)
         {
             start <<= i;
             end <<= i;
@@ -106,14 +106,14 @@ namespace mure
             return *this;
         }
 
-        Interval<value_t, index_t> &operator+=(value_t i)
+        inline Interval<value_t, index_t> &operator+=(value_t i)
         {
             start += i;
             end += i;
             return *this;
         }
 
-        Interval<value_t, index_t> &operator-=(value_t i)
+        inline Interval<value_t, index_t> &operator-=(value_t i)
         {
             start -= i;
             end -= i;
@@ -123,7 +123,7 @@ namespace mure
 
     /// Display of an interval.
     template<class value_t, class index_t>
-    std::ostream &operator<<(std::ostream &out,
+    inline std::ostream &operator<<(std::ostream &out,
                              const Interval<value_t, index_t> &interval)
     {
         out << "[" << interval.start << "," << interval.end << "[@"
@@ -132,7 +132,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator*(value_t i, const Interval<value_t, index_t> &interval)
     {
         auto that{interval};
@@ -141,7 +141,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator*(const Interval<value_t, index_t> &interval, value_t i)
     {
         auto that{interval};
@@ -150,7 +150,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator>>(const Interval<value_t, index_t> &interval, std::size_t i)
     {
         auto that{interval};
@@ -159,7 +159,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator<<(const Interval<value_t, index_t> &interval, std::size_t i)
     {
         auto that{interval};
@@ -168,7 +168,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator/(value_t i, const Interval<value_t, index_t> &interval)
     {
         auto that{interval};
@@ -177,7 +177,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator/(const Interval<value_t, index_t> &interval, value_t i)
     {
         auto that{interval};
@@ -186,7 +186,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator+(value_t i, const Interval<value_t, index_t> &interval)
     {
         auto that{interval};
@@ -195,7 +195,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator+(const Interval<value_t, index_t> &interval, value_t i)
     {
         auto that{interval};
@@ -204,7 +204,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator-(value_t i, const Interval<value_t, index_t> &interval)
     {
         auto that{interval};
@@ -213,7 +213,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    Interval<value_t, index_t>
+    inline Interval<value_t, index_t>
     operator-(const Interval<value_t, index_t> &interval, value_t i)
     {
         auto that{interval};
@@ -222,7 +222,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    bool operator==(const Interval<value_t, index_t> &i1,
+    inline bool operator==(const Interval<value_t, index_t> &i1,
                     const Interval<value_t, index_t> &i2)
     {
         if (i1.start != i2.start or i1.end != i2.end or i1.step != i2.step or
@@ -232,7 +232,7 @@ namespace mure
     }
 
     template<class value_t, class index_t>
-    bool operator!=(const Interval<value_t, index_t> &i1,
+    inline bool operator!=(const Interval<value_t, index_t> &i1,
                     const Interval<value_t, index_t> &i2)
     {
         if (i1.start != i2.start or i1.end != i2.end or i1.step != i2.step or

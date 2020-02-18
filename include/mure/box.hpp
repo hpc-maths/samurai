@@ -29,16 +29,16 @@ namespace mure
 
         Box(point_t const& min_corner, point_t const& max_corner);
 
-        inline auto const& min_corner() const;
-        inline auto& min_corner();
+        auto const& min_corner() const;
+        auto& min_corner();
 
-        inline auto const& max_corner() const;
-        inline auto& max_corner();
+        auto const& max_corner() const;
+        auto& max_corner();
 
-        inline auto length() const;
-        inline bool is_valid() const;
+        auto length() const;
+        bool is_valid() const;
 
-        inline Box& operator*=(value_t v);
+        Box& operator*=(value_t v);
 
     private:
 
@@ -51,7 +51,7 @@ namespace mure
      **********************/
 
     template<class value_t, std::size_t dim_> 
-    Box<value_t, dim_>::
+    inline Box<value_t, dim_>::
     Box(point_t const& min_corner, point_t const& max_corner):
         m_min_corner{min_corner}, m_max_corner{max_corner}{}
 
@@ -132,7 +132,7 @@ namespace mure
     }
 
     template<class value_t, std::size_t dim>
-    std::ostream& operator<<(std::ostream& out, Box<value_t, dim> const& box)
+    inline std::ostream& operator<<(std::ostream& out, Box<value_t, dim> const& box)
     {
         out << "Box(" << box.min_corner() << ", " << box.max_corner() << ")";
         return out;

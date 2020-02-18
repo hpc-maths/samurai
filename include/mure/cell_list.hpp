@@ -13,7 +13,7 @@ namespace mure
         static constexpr auto max_refinement_level =
             MRConfig::max_refinement_level;
 
-        CellList()
+        inline CellList()
         {
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
@@ -21,17 +21,17 @@ namespace mure
             }
         }
 
-        LevelCellList<dim> const &operator[](std::size_t i) const
+        inline LevelCellList<dim> const &operator[](std::size_t i) const
         {
             return m_cells[i];
         }
 
-        LevelCellList<dim> &operator[](std::size_t i)
+        inline LevelCellList<dim> &operator[](std::size_t i)
         {
             return m_cells[i];
         }
 
-        void to_stream(std::ostream &os) const
+        inline void to_stream(std::ostream &os) const
         {
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
@@ -48,7 +48,7 @@ namespace mure
     };
 
     template<class MRConfig>
-    std::ostream &operator<<(std::ostream &out,
+    inline std::ostream &operator<<(std::ostream &out,
                              const CellList<MRConfig> &cell_list)
     {
         cell_list.to_stream(out);

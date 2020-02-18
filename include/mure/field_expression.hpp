@@ -72,7 +72,7 @@ namespace mure
         field_function(Func &&f, CTA &&... e) noexcept;
 
         template<class... T>
-        auto operator()(const std::size_t &level, const interval_t &interval,
+        inline auto operator()(const std::size_t &level, const interval_t &interval,
                         const T &... index) const
         {
             auto expr = evaluate(std::make_index_sequence<sizeof...(CT)>(),
@@ -81,13 +81,13 @@ namespace mure
         }
 
         template<class coord_index_t, std::size_t dim>
-        auto operator()(const Cell<coord_index_t, dim> &cell) const
+        inline auto operator()(const Cell<coord_index_t, dim> &cell) const
         {
             return evaluate(std::make_index_sequence<sizeof...(CT)>(), cell);
         }
 
         template<std::size_t... I, class... T>
-        auto evaluate(std::index_sequence<I...>, T &&... t) const
+        inline auto evaluate(std::index_sequence<I...>, T &&... t) const
         {
             return m_f(
                 std::get<I>(m_e).template operator()(std::forward<T>(t)...)...);

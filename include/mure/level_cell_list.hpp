@@ -68,13 +68,13 @@ namespace mure
             typename details::PartialGrid<coord_index_t, list_interval_t,
                                           dim - 1>::type;
 
-        LevelCellList(std::size_t level) : m_level{level}
+        inline LevelCellList(std::size_t level) : m_level{level}
         {}
 
         LevelCellList() = default;
 
         /// Constant access to the interval list at given dim-1 coordinates
-        list_interval_t const &operator[](
+        inline list_interval_t const &operator[](
             xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index)
             const
         {
@@ -84,7 +84,7 @@ namespace mure
         }
 
         /// Mutable access to the interval list at given dim-1 coordinates
-        list_interval_t &operator[](
+        inline list_interval_t &operator[](
             xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index)
         {
             return details::access_grid_yz(
@@ -93,22 +93,22 @@ namespace mure
         }
 
         /// Underlying sparse array
-        grid_t const &grid_yz() const
+        inline grid_t const &grid_yz() const
         {
             return m_grid_yz;
         }
 
-        std::size_t get_level() const
+        inline std::size_t level() const
         {
             return m_level;
         }
 
-        void set_level(std::size_t level)
+        inline void set_level(std::size_t level)
         {
             m_level = level;
         }
 
-        void to_stream(std::ostream &os) const
+        inline void to_stream(std::ostream &os) const
         {
             os << "LevelCellList\n";
             os << "=============\n";
@@ -122,7 +122,7 @@ namespace mure
     };
 
     template<std::size_t Dim, class TInterval>
-    std::ostream &
+    inline std::ostream &
     operator<<(std::ostream &out,
                const LevelCellList<Dim, TInterval> &level_cell_list)
     {

@@ -26,7 +26,7 @@ namespace mure
         {}
 
         template<std::size_t s, class interval_t, class... index_t>
-        auto operator()(std::integral_constant<std::size_t, s>,
+        inline auto operator()(std::integral_constant<std::size_t, s>,
                         std::size_t level,
                         const interval_t &i,
                         const index_t... index)
@@ -38,7 +38,7 @@ namespace mure
     };
 
     template<class T>
-    auto make_field_hack(T &&t)
+    inline auto make_field_hack(T &&t)
     {
         return field_hack<T>(std::forward<T>(t));
     }
@@ -48,11 +48,11 @@ namespace mure
     {
         static constexpr std::size_t slim = S;
 
-        Qs_i_impl(T &&e, C &c) : m_e{std::forward<T>(e)}, m_c{c}
+        inline Qs_i_impl(T &&e, C &c) : m_e{std::forward<T>(e)}, m_c{c}
         {}
 
         template<std::size_t s, class interval_t, class... index_t>
-        auto operator()(std::integral_constant<std::size_t, s>,
+        inline auto operator()(std::integral_constant<std::size_t, s>,
                         std::size_t level,
                         const interval_t &i,
                         const index_t... index)
@@ -66,7 +66,7 @@ namespace mure
         }
 
         template<class interval_t, class... index_t>
-        auto operator()(std::integral_constant<std::size_t, slim>,
+        inline auto operator()(std::integral_constant<std::size_t, slim>,
                         std::size_t level,
                         const interval_t &i,
                         const index_t... index)
@@ -83,13 +83,13 @@ namespace mure
     };
 
     template<std::size_t S, class T, class C>
-    auto make_Qs_i(T &&t, C &&c)
+    inline auto make_Qs_i(T &&t, C &&c)
     {
         return Qs_i_impl<S, T, C>(std::forward<T>(t), std::forward<C>(c));
     }
 
     template<std::size_t s, class Field, class interval_t, class... index_t>
-    auto Qs_i(const Field &field, std::size_t level, const interval_t &i, const index_t... index)
+    inline auto Qs_i(const Field &field, std::size_t level, const interval_t &i, const index_t... index)
     {
         auto c = coeffs<s>();
         auto qs = make_Qs_i<s>(make_field_hack(field), c);
@@ -101,14 +101,14 @@ namespace mure
     {
         static constexpr std::size_t slim = S;
 
-        Qs_j_impl(T &&e, C &c) : m_e{std::forward<T>(e)}, m_c{c}
+        inline Qs_j_impl(T &&e, C &c) : m_e{std::forward<T>(e)}, m_c{c}
         {}
 
         template<std::size_t s,
                  class interval_t,
                  class coord_index_t = typename interval_t::coord_index_t,
                  class... index_t>
-        auto operator()(std::integral_constant<std::size_t, s>,
+        inline auto operator()(std::integral_constant<std::size_t, s>,
                         std::size_t level,
                         const interval_t &i,
                         const coord_index_t j,
@@ -122,7 +122,7 @@ namespace mure
         }
 
         template<class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
-        auto operator()(std::integral_constant<std::size_t, slim>,
+        inline auto operator()(std::integral_constant<std::size_t, slim>,
                         std::size_t level,
                         const interval_t &i,
                         const coord_index_t j,
@@ -139,7 +139,7 @@ namespace mure
     };
 
     template<std::size_t S, class T, class C>
-    auto make_Qs_j(T &&t, C &&c)
+    inline auto make_Qs_j(T &&t, C &&c)
     {
         return Qs_j_impl<S, T, C>(std::forward<T>(t), std::forward<C>(c));
     }
@@ -149,7 +149,7 @@ namespace mure
              class interval_t,
              class coord_index_t = typename interval_t::coord_index_t,
              class... index_t>
-    auto Qs_j(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const index_t... index)
+    inline auto Qs_j(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const index_t... index)
     {
         auto c = coeffs<s>();
         auto qs = make_Qs_j<s>(make_field_hack(field), c);
@@ -161,11 +161,11 @@ namespace mure
     {
         static constexpr std::size_t slim = S;
 
-        Qs_k_impl(T &&e, C &c) : m_e{std::forward<T>(e)}, m_c{c}
+        inline Qs_k_impl(T &&e, C &c) : m_e{std::forward<T>(e)}, m_c{c}
         {}
 
         template<std::size_t s, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
-        auto operator()(std::integral_constant<std::size_t, s>,
+        inline auto operator()(std::integral_constant<std::size_t, s>,
                         std::size_t level,
                         const interval_t &i,
                         const coord_index_t j,
@@ -180,7 +180,7 @@ namespace mure
         }
 
         template<class interval_t, class coord_index_t = typename interval_t::coord_index_t>
-        auto operator()(std::integral_constant<std::size_t, slim>,
+        inline auto operator()(std::integral_constant<std::size_t, slim>,
                         std::size_t level,
                         const interval_t &i,
                         const coord_index_t j,
@@ -197,13 +197,13 @@ namespace mure
     };
 
     template<std::size_t S, class T, class C>
-    auto make_Qs_k(T &&t, C &&c)
+    inline auto make_Qs_k(T &&t, C &&c)
     {
         return Qs_k_impl<S, T, C>(std::forward<T>(t), std::forward<C>(c));
     }
 
     template<std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
-    auto Qs_k(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const coord_index_t k)
+    inline auto Qs_k(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const coord_index_t k)
     {
         auto c = coeffs<s>();
         auto qs = make_Qs_k<s>(make_field_hack(field), c);
@@ -215,7 +215,7 @@ namespace mure
              class interval_t,
              class coord_index_t = typename interval_t::coord_index_t,
              class... index_t>
-    auto
+    inline auto
     Qs_ij(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const index_t... index)
     {
         auto c = coeffs<s>();
@@ -224,7 +224,7 @@ namespace mure
     }
 
     template<std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
-    auto
+    inline auto
     Qs_ijk(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const coord_index_t k)
     {
         auto c = coeffs<s>();

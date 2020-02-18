@@ -22,7 +22,7 @@ namespace mure
     template<class MRConfig, class value_t = double>
     class Field;
 
-    std::string element_type(std::size_t dim)
+    inline std::string element_type(std::size_t dim)
     {
         switch (dim)
         {
@@ -41,17 +41,17 @@ namespace mure
     template<std::size_t dim>
     auto get_element(std::integral_constant<std::size_t, dim>);
 
-    auto get_element(std::integral_constant<std::size_t, 1>)
+    inline auto get_element(std::integral_constant<std::size_t, 1>)
     {
         return xt::xtensor<double, 1>{0, 1};
     }
 
-    auto get_element(std::integral_constant<std::size_t, 2>)
+    inline auto get_element(std::integral_constant<std::size_t, 2>)
     {
         return xt::xtensor<double, 2>{{0, 0}, {1, 0}, {1, 1}, {0, 1}};
     }
 
-    auto get_element(std::integral_constant<std::size_t, 3>)
+    inline auto get_element(std::integral_constant<std::size_t, 3>)
     {
         return xt::xtensor<double, 2>{{0, 0, 0}, {1, 0, 0}, {1, 1, 0},
                                       {0, 1, 0}, {0, 0, 1}, {1, 0, 1},
@@ -60,7 +60,7 @@ namespace mure
 
     class Hdf5 {
       public:
-        Hdf5(std::string filename, MeshType mesh_type = MeshType::cells)
+        inline Hdf5(std::string filename, MeshType mesh_type = MeshType::cells)
             : h5_file(filename + ".h5", HighFive::File::Overwrite),
               filename(filename), mesh_type{mesh_type}
         {
@@ -70,7 +70,7 @@ namespace mure
             domain = xdmf.append_child("Domain");
         }
 
-        ~Hdf5()
+        inline ~Hdf5()
         {
             std::stringstream xdmf_str;
             xdmf_str << filename << ".xdmf";
@@ -84,7 +84,7 @@ namespace mure
         Hdf5 &operator=(Hdf5 &&) = default;
 
         template<class MRConfig>
-        void add_mesh(Mesh<MRConfig> const &mesh)
+        inline void add_mesh(Mesh<MRConfig> const &mesh)
         {
             std::size_t nb_points = std::pow(2, Mesh<MRConfig>::dim);
             constexpr std::size_t dim = Mesh<MRConfig>::dim;
@@ -138,7 +138,7 @@ namespace mure
         }
 
         template<class MRConfig>
-        void add_mesh_by_level(Mesh<MRConfig> const &mesh)
+        inline void add_mesh_by_level(Mesh<MRConfig> const &mesh)
         {
             std::size_t nb_points = std::pow(2, Mesh<MRConfig>::dim);
             constexpr std::size_t dim = Mesh<MRConfig>::dim;
@@ -209,7 +209,7 @@ namespace mure
         }
 
         template<class MRConfig, class value_t>
-        void add_field(Field<MRConfig, value_t> const &field)
+        inline void add_field(Field<MRConfig, value_t> const &field)
         {
             xt::dump(h5_file, "fields/" + field.name(), field.data(mesh_type));
             auto grid = domain.child("Grid");
@@ -224,7 +224,7 @@ namespace mure
         }
 
         template<class MRConfig, class value_t>
-        void add_field_by_level(Mesh<MRConfig> const &mesh,
+        inline void add_field_by_level(Mesh<MRConfig> const &mesh,
                                 Field<MRConfig, value_t> const &field)
         {
             constexpr std::size_t max_refinement_level =
@@ -237,7 +237,7 @@ namespace mure
         }
 
         template<class MRConfig, class value_t>
-        void _add_on_level(Mesh<MRConfig> const &mesh,
+        inline void _add_on_level(Mesh<MRConfig> const &mesh,
                            Field<MRConfig, value_t> const &field,
                            std::size_t level)
         {
@@ -345,7 +345,7 @@ namespace mure
             }
         }
         template<class MRConfig, class value_t>
-        void
+        inline void
         add_field_by_level(Mesh<MRConfig> const &mesh,
                            std::vector<Field<MRConfig, value_t>> const &fields)
         {
