@@ -66,6 +66,26 @@ namespace mure
             return (start < end);
         }
 
+        inline Interval<value_t, index_t> even_elements()
+        {
+            Interval<value_t, index_t> out{*this};
+
+            out.start += (out.start&1)?1: 0;
+            out.end -= (out.end&1)?0: 1;
+            out.step = 2;
+            return out;
+        }
+
+        inline Interval<value_t, index_t> odd_elements()
+        {
+            Interval<value_t, index_t> out{*this};
+
+            out.start += (out.start&1)?0: 1;
+            out.end -= (out.end&1)?1: 0;
+            out.step = 2;
+            return out;
+        }
+
         inline Interval<value_t, index_t> &operator*=(value_t i)
         {
             start *= i;
