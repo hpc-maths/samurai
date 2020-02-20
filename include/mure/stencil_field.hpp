@@ -20,17 +20,17 @@ namespace mure
         template<class... CT>
         inline auto operator()(Dim<1> d, CT &&... e) const
         {
-            return derived_cast().left_flux(d, std::forward<CT>(e)...) +
-                   derived_cast().right_flux(d, std::forward<CT>(e)...);
+            return derived_cast().left_flux(std::forward<CT>(e)...) +
+                   derived_cast().right_flux(std::forward<CT>(e)...);
         }
 
         template<class... CT>
         inline auto operator()(Dim<2> d, CT &&... e) const
         {
-            return derived_cast().left_flux(d, std::forward<CT>(e)...) +
-                   derived_cast().right_flux(d, std::forward<CT>(e)...) +
-                   derived_cast().down_flux(d, std::forward<CT>(e)...) +
-                   derived_cast().up_flux(d, std::forward<CT>(e)...);
+            return (-derived_cast().left_flux(std::forward<CT>(e)...) +
+                    derived_cast().right_flux(std::forward<CT>(e)...) +
+                    -derived_cast().down_flux(std::forward<CT>(e)...) +
+                    derived_cast().up_flux(std::forward<CT>(e)...))/derived_cast().dx;
         }
 
       protected:
@@ -76,44 +76,47 @@ namespace mure
 
         // 1D
         template<class T>
-        inline auto left_flux(Dim<1>, double a, const T &u) const
-        {
-            return ((a < 0) ? a : 0) / dx * (u(level, i + 1) - u(level, i));
-        }
-
-        template<class T>
-        inline auto right_flux(Dim<1>, double a, const T &u) const
+        inline auto left_flux(double a, const T &u) const
         {
             return ((a > 0) ? a : 0) / dx * (u(level, i) - u(level, i - 1));
         }
 
+        template<class T>
+        inline auto right_flux(double a, const T &u) const
+        {
+            return ((a < 0) ? a : 0) / dx * (u(level, i + 1) - u(level, i));
+        }
+
+        template<class T1, class T2>
+        inline auto flux(double a, T1&& ul, T2&& ur) const
+        {
+            return .5*a*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
+                   .5*std::abs(a)*(std::forward<T1>(ul) - std::forward<T2>(ur));
+        }
+
         // 2D
         template<class T>
-        inline auto left_flux(Dim<2>, std::array<double, 2> a, const T &u) const
+        inline auto left_flux(std::array<double, 2> a, const T &u) const
         {
-            return ((a[0] < 0) ? a[0] : 0) / dx *
-                   (u(level, i + 1, j) - u(level, i, j));
+            return flux(a[0], u(level, i-1, j), u(level, i, j));
         }
 
         template<class T>
-        inline auto right_flux(Dim<2>, std::array<double, 2> a, const T &u) const
+        inline auto right_flux(std::array<double, 2> a, const T &u) const
         {
-            return ((a[0] > 0) ? a[0] : 0) / dx *
-                   (u(level, i, j) - u(level, i - 1, j));
+            return flux(a[0], u(level, i, j), u(level, i+1, j));
         }
 
         template<class T>
-        inline auto down_flux(Dim<2>, std::array<double, 2> a, const T &u) const
+        inline auto down_flux(std::array<double, 2> a, const T &u) const
         {
-            return ((a[1] < 0) ? a[1] : 0) / dx *
-                   (u(level, i, j + 1) - u(level, i, j));
+            return flux(a[1], u(level, i, j-1), u(level, i, j));
         }
 
         template<class T>
-        inline auto up_flux(Dim<2>, std::array<double, 2> a, const T &u) const
+        inline auto up_flux(std::array<double, 2> a, const T &u) const
         {
-            return ((a[1] > 0) ? a[1] : 0) / dx *
-                   (u(level, i, j) - u(level, i, j - 1));
+            return flux(a[1], u(level, i, j), u(level, i, j+1));
         }
     };
 
