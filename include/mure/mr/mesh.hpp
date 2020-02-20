@@ -369,6 +369,23 @@ namespace mure
         mesh.to_stream(out);
         return out;
     }
+
+    template<class MRConfig>
+    inline bool operator==(const Mesh<MRConfig> &mesh1, const Mesh<MRConfig> &mesh2)
+    {
+        if (mesh1.max_level() != mesh2.max_level() or
+            mesh1.min_level() != mesh2.min_level())
+            return false;
+
+        for(std::size_t level=mesh1.max_level(); level >= mesh1.min_level(); --level)
+        {
+            if (!(mesh1[MeshType::cells][level] == mesh2[MeshType::cells][level]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 }
 
 namespace std
