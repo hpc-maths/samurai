@@ -20,8 +20,8 @@ namespace mure
         template<class... CT>
         inline auto operator()(Dim<1> d, CT &&... e) const
         {
-            return derived_cast().left_flux(std::forward<CT>(e)...) +
-                   derived_cast().right_flux(std::forward<CT>(e)...);
+            return (derived_cast().right_flux(std::forward<CT>(e)...)
+                   -derived_cast().left_flux(std::forward<CT>(e)...))/derived_cast().dx;
         }
 
         template<class... CT>
@@ -74,24 +74,26 @@ namespace mure
       public:
         INIT_OPERATOR(upwind_op)
 
+        template<class T1, class T2>
+        inline auto flux(double a, T1&& ul, T2&& ur) const
+        {
+            // TODO: rmeove the xt::eval (bug without, see VF_advection_1d)
+            return (.5*a*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
+                            .5*std::abs(a)*(std::forward<T1>(ul) - std::forward<T2>(ur)));
+        }
+
         // 1D
         template<class T>
         inline auto left_flux(double a, const T &u) const
         {
-            return ((a > 0) ? a : 0) / dx * (u(level, i) - u(level, i - 1));
+            return flux(a, u(level, i-1), u(level, i));
+
         }
 
         template<class T>
         inline auto right_flux(double a, const T &u) const
         {
-            return ((a < 0) ? a : 0) / dx * (u(level, i + 1) - u(level, i));
-        }
-
-        template<class T1, class T2>
-        inline auto flux(double a, T1&& ul, T2&& ur) const
-        {
-            return .5*a*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
-                   .5*std::abs(a)*(std::forward<T1>(ul) - std::forward<T2>(ur));
+            return flux(a, u(level, i), u(level, i+1));
         }
 
         // 2D
