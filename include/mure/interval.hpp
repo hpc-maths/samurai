@@ -66,7 +66,7 @@ namespace mure
             return (start < end);
         }
 
-        inline Interval<value_t, index_t> even_elements()
+        inline Interval<value_t, index_t> even_elements() const
         {
             Interval<value_t, index_t> out{*this};
 
@@ -76,7 +76,7 @@ namespace mure
             return out;
         }
 
-        inline Interval<value_t, index_t> odd_elements()
+        inline Interval<value_t, index_t> odd_elements() const
         {
             Interval<value_t, index_t> out{*this};
 
