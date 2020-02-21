@@ -37,8 +37,8 @@ set(CMAKE_CXX_STANDARD 14)
 # target_link_libraries(lbm_d1q2_burgers mure)
 
 
-add_executable(adv_ana_2d LBM/test_analytic_advection_2d.cpp ${MURE_HEADERS})
-target_link_libraries(adv_ana_2d mure)
+# add_executable(adv_ana_2d LBM/test_analytic_advection_2d.cpp ${MURE_HEADERS})
+# target_link_libraries(adv_ana_2d mure)
 
 # add_executable(lbm_d1q2_foo LBM/D1Q2_foo.cpp ${MURE_HEADERS})
 # target_link_libraries(lbm_d1q2_foo mure)
@@ -62,4 +62,5 @@ target_link_libraries(adv_ana_2d mure)
 # target_link_libraries(operator mure)
 
 add_subdirectory(LBM)
+add_subdirectory(FiniteVolume)
 add_subdirectory(p4est)
