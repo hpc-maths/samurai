@@ -1,6 +1,7 @@
 #pragma once
 
 #include "box.hpp"
+#include "bc.hpp"
 #include "field.hpp"
 #include "hdf5.hpp"
 #include "mr/adapt.hpp"
