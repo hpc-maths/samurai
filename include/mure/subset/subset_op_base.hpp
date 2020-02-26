@@ -426,8 +426,7 @@ namespace mure
             template<class R>
             decltype(auto) operator()(R &&r)
             {
-                return subset_node<mesh_node<mesh_t>>(
-                    std::forward<mesh_node<mesh_t>>(r));
+                return subset_node<mesh_node<mesh_t>>(r);
             }
         };
     }
