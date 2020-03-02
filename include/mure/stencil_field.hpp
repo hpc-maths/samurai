@@ -21,7 +21,7 @@ namespace mure
         inline auto operator()(Dim<1> d, CT &&... e) const
         {
             return (derived_cast().right_flux(std::forward<CT>(e)...)
-                   -derived_cast().left_flux(std::forward<CT>(e)...))/derived_cast().dx;
+                   -derived_cast().left_flux(std::forward<CT>(e)...))/derived_cast().dx();
         }
 
         template<class... CT>
@@ -30,7 +30,7 @@ namespace mure
             return (-derived_cast().left_flux(std::forward<CT>(e)...) +
                     derived_cast().right_flux(std::forward<CT>(e)...) +
                     -derived_cast().down_flux(std::forward<CT>(e)...) +
-                    derived_cast().up_flux(std::forward<CT>(e)...))/derived_cast().dx;
+                    derived_cast().up_flux(std::forward<CT>(e)...))/derived_cast().dx();
         }
 
       protected:
@@ -79,7 +79,7 @@ namespace mure
         {
             // TODO: rmeove the xt::eval (bug without, see VF_advection_1d)
             return (.5*a*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
-                            .5*std::abs(a)*(std::forward<T1>(ul) - std::forward<T2>(ur)));
+                    .5*std::abs(a)*(std::forward<T1>(ul) - std::forward<T2>(ur)));
         }
 
         // 1D

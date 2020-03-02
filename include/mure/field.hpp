@@ -53,7 +53,7 @@ namespace mure
                 case mure::BCType::neumann:
                 {
                     int n = stencil[0] + stencil[1];
-                    field(level, i, j) = n*dx*bc.second + field(level, i - stencil[0], j - stencil[1]);
+                    field(level, i, j) = n*dx()*bc.second + field(level, i - stencil[0], j - stencil[1]);
                     break;
                 }
             }

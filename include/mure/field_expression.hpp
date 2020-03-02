@@ -89,8 +89,7 @@ namespace mure
         template<std::size_t... I, class... T>
         inline auto evaluate(std::index_sequence<I...>, T &&... t) const
         {
-            return m_f(
-                std::get<I>(m_e).template operator()(std::forward<T>(t)...)...);
+            return m_f(std::get<I>(m_e).operator()(std::forward<T>(t)...)...);
         }
 
       private:
