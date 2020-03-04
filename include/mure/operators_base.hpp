@@ -64,14 +64,18 @@ namespace mure
         std::size_t level;
         interval_t i;
         coord_index_t j, k;
-        double dx;
+
+        double dx() const
+        {
+            return m_dx;
+        }
 
       protected:
         template<std::size_t dim>
         inline field_operator_base(
             std::size_t level, interval_t interval,
             xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
-            : level{level}, i{interval}, dx{1. / (1 << level)}
+            : level{level}, i{interval}, m_dx{1. / (1 << level)}
         {
             if (dim > 0)
                 j = index[0];
@@ -80,18 +84,21 @@ namespace mure
         }
 
         inline field_operator_base(std::size_t level, interval_t interval)
-            : level{level}, i{interval}, dx{1. / (1 << level)}
+            : level{level}, i{interval}, m_dx{1. / (1 << level)}
         {}
 
         inline field_operator_base(std::size_t level, interval_t interval,
                             coord_index_t j_)
-            : level{level}, dx{1. / (1 << level)}, i{interval}, j{j_}
+            : level{level}, m_dx{1. / (1 << level)}, i{interval}, j{j_}
         {}
 
         inline field_operator_base(std::size_t level, interval_t interval,
                             coord_index_t j_, coord_index_t k_)
-            : level{level}, dx{1. / (1 << level)}, i{interval}, j{j_}, k{k_}
+            : level{level}, m_dx{1. / (1 << level)}, i{interval}, j{j_}, k{k_}
         {}
+
+      private:
+        double m_dx;
     };
 
 #define INIT_OPERATOR(NAME)                                                    \

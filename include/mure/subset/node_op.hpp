@@ -29,7 +29,6 @@ namespace mure
     class node_op {
       public:
         using derived_type = D;
-        static constexpr std::size_t dim = derived_type::dim;
 
         derived_type &derived_cast() & noexcept;
         const derived_type &derived_cast() const &noexcept;
@@ -192,6 +191,7 @@ namespace mure
     template<class Func>
     void node_op<D>::for_each_interval_in_x(Func &&f) const
     {
+        constexpr std::size_t dim = derived_type::dim;
         auto index_yz = this->derived_cast().create_index_yz();
         for_each_interval_in_x_impl(
             std::forward<Func>(f), index_yz, 0,
