@@ -555,7 +555,7 @@ namespace mure
                 return false;
         }
 
-        for (std::size_t i = 0; i < Dim - 1; ++i)
+        for (std::size_t i = 1; i < Dim; ++i)
         {
             if (lca_1.offsets(i) != lca_2.offsets(i))
                 return false;
