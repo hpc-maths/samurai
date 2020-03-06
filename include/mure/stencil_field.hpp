@@ -127,4 +127,90 @@ namespace mure
     {
         return make_field_operator_function<upwind_op>(std::forward<CT>(e)...);
     }
+
+
+
+
+    /*******************
+     * upwind operator for the scalar Burgers equation *
+     *******************/
+
+    template<class TInterval>
+    class upwind_scalar_burgers_op : public field_operator_base<TInterval>,
+                      public finite_volume<upwind_scalar_burgers_op<TInterval>> {
+      public:
+        INIT_OPERATOR(upwind_scalar_burgers_op)
+
+        template<class T1, class T2>
+        inline auto flux(double a, T1&& ul, T2&& ur) const
+        {
+            // TODO: rmeove the xt::eval (bug without, see VF_advection_1d)
+            //return (.5*a*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
+            //        .5*std::abs(a)*(std::forward<T1>(ul) - std::forward<T2>(ur)));
+
+
+            // We assume that the function is positive and the unit vector goes upright towards the right
+            //return 0.5 * a * std::forward<T1>(ul) * std::forward<T1>(ul);
+
+            auto phi = [] (auto & x)
+            {
+                return 0.5 * x * x;
+            };
+
+
+            /*
+            
+
+            auto pseudo_velocity = [&] ()
+            {
+                return 0.5 * (std::forward<T1>(ul) + std::forward<T2>(ur)) * a;
+            };
+
+            // This is not what we finally do but just to compile and test
+            return (.5*pseudo_velocity()*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
+                    .5*xt::abs(pseudo_velocity())*(std::forward<T1>(ul) - std::forward<T2>(ur)));
+
+            */
+
+            
+            auto mask1 = (a * std::forward<T1>(ul) < a*std::forward<T2>(ur));
+            auto mask2 = ((std::forward<T1>(ul) * std::forward<T2>(ur)) > 0.0);
+
+            return a * (xt::masked_view(phi(xt::minimum(xt::abs(std::forward<T1>(ul)), xt::abs(std::forward<T2>(ur)))), mask1 and mask2)
+                      + xt::masked_view(phi(xt::maximum(xt::abs(std::forward<T1>(ul)), xt::abs(std::forward<T2>(ur)))), !mask1));
+            
+
+        }
+
+        // 2D
+        template<class T>
+        inline auto left_flux(std::array<double, 2> k, const T &u) const
+        {
+            return flux(k[0], u(level, i-1, j), u(level, i, j));
+        }
+
+        template<class T>
+        inline auto right_flux(std::array<double, 2> k, const T &u) const
+        {
+            return flux(k[0], u(level, i, j), u(level, i+1, j));
+        }
+
+        template<class T>
+        inline auto down_flux(std::array<double, 2> k, const T &u) const
+        {
+            return flux(k[1], u(level, i, j-1), u(level, i, j));
+        }
+
+        template<class T>
+        inline auto up_flux(std::array<double, 2> k, const T &u) const
+        {
+            return flux(k[1], u(level, i, j), u(level, i, j+1));
+        }
+    };
+
+    template<class... CT>
+    inline auto upwind_scalar_burgers(CT &&... e)
+    {
+        return make_field_operator_function<upwind_scalar_burgers_op>(std::forward<CT>(e)...);
+    }
 }

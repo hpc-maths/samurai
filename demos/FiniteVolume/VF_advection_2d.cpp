@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     using Config = mure::MRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
-    std::size_t min_level = 2, max_level = 9;
+    std::size_t min_level = 2, max_level = 8;
     // mure::Box<double, dim> box({-2, -2}, {2, 2});
     mure::Box<double, dim> box({0, 0}, {1, 1});
     mure::Mesh<Config> mesh{box, min_level, max_level};
