@@ -150,8 +150,6 @@ int main(int argc, char *argv[])
         {
             xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
 
-          
-
             stencil = {{-1, 0}};
 
             auto subset_right = intersection(translate(mesh[mure::MeshType::cells][level+1], stencil),
@@ -168,7 +166,7 @@ int main(int argc, char *argv[])
                                                                 - .5*mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j).right_flux(k, u)
                                                                 - .5*mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j+1).right_flux(k, u));
             });
-  /*
+  
             stencil = {{1, 0}};
 
             auto subset_left = intersection(translate(mesh[mure::MeshType::cells][level+1], stencil),
@@ -185,10 +183,7 @@ int main(int argc, char *argv[])
                                                               - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j).left_flux(k, u)
                                                               - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j+1).left_flux(k, u));
             });
-
-            */
-
-            
+         
             stencil = {{0, -1}};
 
             auto subset_up = intersection(translate(mesh[mure::MeshType::cells][level+1], stencil),
@@ -205,9 +200,6 @@ int main(int argc, char *argv[])
                                                               - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j+1).up_flux(k, u)
                                                               - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j+1).up_flux(k, u));
             });
-    
-    
-    /*
 
             stencil = {{0, 1}};
 
@@ -226,10 +218,7 @@ int main(int argc, char *argv[])
                                                                 - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j).down_flux(k, u));
             });
 
-
-            */            
         }
-
 
         std::swap(u.array(), unp1.array());
 
