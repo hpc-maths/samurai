@@ -1,6 +1,7 @@
 #pragma once
 
 #include <xtensor/xfunction.hpp>
+#include <xtensor/xadapt.hpp>
 
 #include "cell.hpp"
 #include "field_expression.hpp"
@@ -134,7 +135,6 @@ namespace mure
     /*******************
      * upwind operator for the scalar Burgers equation *
      *******************/
-
     template<class TInterval>
     class upwind_scalar_burgers_op : public field_operator_base<TInterval>,
                       public finite_volume<upwind_scalar_burgers_op<TInterval>> {
@@ -142,44 +142,25 @@ namespace mure
         INIT_OPERATOR(upwind_scalar_burgers_op)
 
         template<class T1, class T2>
-        inline auto flux(double a, T1&& ul, T2&& ur) const
+        inline auto flux(double a, const T1& ul, const T2& ur) const
         {
-            // TODO: rmeove the xt::eval (bug without, see VF_advection_1d)
-            //return (.5*a*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
-            //        .5*std::abs(a)*(std::forward<T1>(ul) - std::forward<T2>(ur)));
+            xt::xtensor<double, 1>::shape_type shape = ul.shape();
+            xt::xtensor<double, 1> out(shape);
+            out.fill(0);
 
+            auto mask1 = (a*ul < a*ur);
+            auto mask2 = (ul*ur > 0.0);
 
-            // We assume that the function is positive and the unit vector goes upright towards the right
-            //return 0.5 * a * std::forward<T1>(ul) * std::forward<T1>(ul);
+            xt::xtensor<double , 1> min = xt::minimum(xt::abs(ul), xt::abs(ur));
+            xt::xtensor<double , 1> max = xt::maximum(xt::abs(ul), xt::abs(ur));
 
-            auto phi = [] (auto & x)
-            {
-                return 0.5 * x * x;
-            };
+            auto res1 = xt::eval(xt::masked_view(min, mask1 and mask2));
+            xt::masked_view(out, mask1 and mask2) = .5*res1*res1;
 
+            auto res2 = xt::eval(xt::masked_view(max, !mask1));
+            xt::masked_view(out, !mask1) = .5*res2*res2;
 
-            /*
-            
-
-            auto pseudo_velocity = [&] ()
-            {
-                return 0.5 * (std::forward<T1>(ul) + std::forward<T2>(ur)) * a;
-            };
-
-            // This is not what we finally do but just to compile and test
-            return (.5*pseudo_velocity()*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
-                    .5*xt::abs(pseudo_velocity())*(std::forward<T1>(ul) - std::forward<T2>(ur)));
-
-            */
-
-            
-            auto mask1 = (a * std::forward<T1>(ul) < a*std::forward<T2>(ur));
-            auto mask2 = ((std::forward<T1>(ul) * std::forward<T2>(ur)) > 0.0);
-
-            return a * (xt::masked_view(phi(xt::minimum(xt::abs(std::forward<T1>(ul)), xt::abs(std::forward<T2>(ur)))), mask1 and mask2)
-                      + xt::masked_view(phi(xt::maximum(xt::abs(std::forward<T1>(ul)), xt::abs(std::forward<T2>(ur)))), !mask1));
-            
-
+            return out;
         }
 
         // 2D
