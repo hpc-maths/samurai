@@ -1,0 +1,2 @@
+add_executable(VF_advection_mr_2d VF_advection_mr_2d.cpp)
+target_link_libraries(VF_advection_mr_2d mure)
