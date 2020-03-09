@@ -136,7 +136,7 @@ namespace mure
         template<typename... T>
         inline auto get_interval(std::size_t level, interval_t interval, T... index) const
         {
-            auto lca = m_cells[MeshType::all_cells][level];
+            const auto& lca = m_cells[MeshType::all_cells][level];
             auto row = lca.find({interval.start, index...});
             return lca[0][static_cast<std::size_t>(row)];
         }
