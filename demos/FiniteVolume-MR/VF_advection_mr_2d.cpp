@@ -33,13 +33,14 @@ auto init(mure::Mesh<Config> &mesh)
                     }} };
     mure::Field<Config> u{"u", mesh, bc};
     u.array().fill(0);
-
+    
     mesh.for_each_cell([&](auto &cell) {
         auto center = cell.center();
         auto x = center[0] - 0.5;
         auto y = center[1] - 0.5;
-        u[cell] = exp(-150.0 * (x * x + y * y));
+        u[cell] = exp(-500.0 * (x * x + y * y));
     });
+    
     /*
     mesh.for_each_cell([&](auto &cell) {
         auto center = cell.center();
@@ -78,7 +79,7 @@ int main(int argc, char *argv[])
     using Config = mure::MRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
-    std::size_t min_level = 2, max_level = 9;
+    std::size_t min_level = 2, max_level = 10;
     // mure::Box<double, dim> box({-2, -2}, {2, 2});
     mure::Box<double, dim> box({0, 0}, {1, 1});
     mure::Mesh<Config> mesh{box, min_level, max_level};
@@ -97,7 +98,12 @@ int main(int argc, char *argv[])
 
     // A faire demain
 
-    coarsening(u);
+    //compute_and_save_details(u);
+
+    for (std::size_t i = 0; i < max_level - min_level; ++i)
+    {
+        coarsening(u, 5.0e-2, i);
+    }
 
     std::stringstream s;
     s << "VF-advection_mr_2d";
