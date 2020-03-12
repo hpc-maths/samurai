@@ -180,4 +180,4 @@ void coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
     u.mesh_ptr()->swap(new_mesh);
     std::swap(u.array(), new_u.array());
 
-}
+ }
