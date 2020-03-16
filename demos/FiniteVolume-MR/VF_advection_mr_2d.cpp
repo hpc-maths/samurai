@@ -2,6 +2,7 @@
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
+#include "evolve_mesh.hpp"
 
 #include <chrono>
 
@@ -27,9 +28,9 @@ double toc()
 template <class Config>
 auto init(mure::Mesh<Config> &mesh)
 {
-    mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
+    mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 1},
+                       {mure::BCType::neumann, 0},
+                       {mure::BCType::neumann, 0},
                        {mure::BCType::neumann, 0}
                     }} };
     mure::Field<Config> u{"u", mesh, bc};
@@ -79,7 +80,7 @@ int main(int argc, char *argv[])
     using Config = mure::MRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
-    std::size_t min_level = 7, max_level = 8;
+    std::size_t min_level = 2, max_level = 8;
     // mure::Box<double, dim> box({-2, -2}, {2, 2});
     mure::Box<double, dim> box({0, 0}, {1, 1});
     mure::Mesh<Config> mesh{box, min_level, max_level};
@@ -95,6 +96,7 @@ int main(int argc, char *argv[])
     {
         std::cout << "iteration " << nt << "\n";
         tic();
+
         for (std::size_t i=0; i<max_level-min_level; ++i)
         {
             if (coarsening(u, eps, i))
@@ -109,7 +111,13 @@ int main(int argc, char *argv[])
             if (refinement(u, eps, i))
                 break;
         }
-        duration = toc();
+
+        // for (std::size_t i = 0; i < max_level - min_level; ++i) {
+        //     if(evolve_mesh(u, eps, i))
+        //         break;
+        // }
+
+        //auto duration = toc();
         std::cout << "refinement: " << duration << "s\n";
 
         mure::mr_projection(u);

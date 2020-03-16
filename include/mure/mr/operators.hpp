@@ -209,14 +209,25 @@ namespace mure
             auto qs_j = Qs_j<1>(field[i_f], level, i, j);
             auto qs_ij = Qs_ij<1>(field[i_f], level, i, j);
 
+            // new_field[i_f](level + 1, ii, jj) =
+            //     (field[i_f](level, i, j) + qs_i + qs_j - qs_ij);
+            // new_field[i_f](level + 1, ii + 1, jj) =
+            //     (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
+            // new_field[i_f](level + 1, ii, jj + 1) =
+            //     (field[i_f](level, i, j) + qs_i - qs_j + qs_ij);
+            // new_field[i_f](level + 1, ii + 1, jj + 1) =
+            //     (field[i_f](level, i, j) - qs_i - qs_j - qs_ij);
+
+
+            // This is what is done by Bihari and Harten 1999
             new_field[i_f](level + 1, ii, jj) =
-                (field[i_f](level, i, j) + qs_i + qs_j - qs_ij);
+                (field[i_f](level, i, j) - qs_i - qs_j + qs_ij);
             new_field[i_f](level + 1, ii + 1, jj) =
-                (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
+                (field[i_f](level, i, j) + qs_i - qs_j - qs_ij);
             new_field[i_f](level + 1, ii, jj + 1) =
-                (field[i_f](level, i, j) + qs_i - qs_j + qs_ij);
+                (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
             new_field[i_f](level + 1, ii + 1, jj + 1) =
-                (field[i_f](level, i, j) - qs_i - qs_j - qs_ij);
+                (field[i_f](level, i, j) + qs_i + qs_j + qs_ij);
         }
     }
 
@@ -420,41 +431,41 @@ namespace mure
             auto qs_j = Qs_j<1>(field, level, i, j);
             auto qs_ij = Qs_ij<1>(field, level, i, j);
 
+            // detail(level + 1, 2 * i, 2 * j) =
+            //     field(level + 1, 2 * i, 2 * j) -
+            //     (field(level, i, j) + qs_i + qs_j - qs_ij);
+
+            // detail(level + 1, 2 * i + 1, 2 * j) =
+            //     field(level + 1, 2 * i + 1, 2 * j) -
+            //     (field(level, i, j) - qs_i + qs_j + qs_ij);
+
+            // detail(level + 1, 2 * i, 2 * j + 1) =
+            //     field(level + 1, 2 * i, 2 * j + 1) -
+            //     (field(level, i, j) + qs_i - qs_j + qs_ij);
+
+            // detail(level + 1, 2 * i + 1, 2 * j + 1) =
+            //     field(level + 1, 2 * i + 1, 2 * j + 1) -
+            //     (field(level, i, j) - qs_i - qs_j - qs_ij);
+
+
+
+            // This is what is done by Bihari and Harten 1999
             detail(level + 1, 2 * i, 2 * j) =
                 field(level + 1, 2 * i, 2 * j) -
-                (field(level, i, j) + qs_i + qs_j - qs_ij);
+                (field(level, i, j) - qs_i - qs_j + qs_ij);
 
             detail(level + 1, 2 * i + 1, 2 * j) =
                 field(level + 1, 2 * i + 1, 2 * j) -
-                (field(level, i, j) - qs_i + qs_j + qs_ij);
+                (field(level, i, j) + qs_i - qs_j - qs_ij);
 
             detail(level + 1, 2 * i, 2 * j + 1) =
                 field(level + 1, 2 * i, 2 * j + 1) -
-                (field(level, i, j) + qs_i - qs_j + qs_ij);
+                (field(level, i, j) - qs_i + qs_j - qs_ij);
 
             detail(level + 1, 2 * i + 1, 2 * j + 1) =
                 field(level + 1, 2 * i + 1, 2 * j + 1) -
-                (field(level, i, j) - qs_i - qs_j - qs_ij);
+                (field(level, i, j) + qs_i + qs_j + qs_ij);
 
-
-            // The easiest prediction we can think of.
-            /*
-            detail(level + 1, 2 * i, 2 * j) =
-                field(level + 1, 2 * i, 2 * j) -
-                (field(level, i, j));
-
-            detail(level + 1, 2 * i + 1, 2 * j) =
-                field(level + 1, 2 * i + 1, 2 * j) -
-                (field(level, i, j));
-
-            detail(level + 1, 2 * i, 2 * j + 1) =
-                field(level + 1, 2 * i, 2 * j + 1) -
-                (field(level, i, j));
-
-            detail(level + 1, 2 * i + 1, 2 * j + 1) =
-                field(level + 1, 2 * i + 1, 2 * j + 1) -
-                (field(level, i, j));
-            */
 
         }
     };
