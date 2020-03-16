@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include <mure/operators_base.hpp>
 
 namespace mure
@@ -10,14 +11,14 @@ namespace mure
         public:
         INIT_OPERATOR(to_coarsen_mr_op)
 
-        template<class T1, class T2>
-        inline void operator()(Dim<2>, const T1& detail, double max_det, T2 &tag, double eps) const
+        template<class T1, class T2, class T3>
+        inline void operator()(Dim<2>, const T1& detail, const T3&  max_detail, T2 &tag, double eps) const
         {
             
-            auto mask = (xt::abs(detail(level, 2*i  ,   2*j))/max_det < eps) and
-                        (xt::abs(detail(level, 2*i+1,   2*j))/max_det < eps) and
-                        (xt::abs(detail(level, 2*i  , 2*j+1))/max_det < eps) and
-                        (xt::abs(detail(level, 2*i+1, 2*j+1))/max_det < eps);
+            auto mask = (xt::abs(detail(level, 2*i  ,   2*j))/max_detail[level] < eps) and
+                        (xt::abs(detail(level, 2*i+1,   2*j))/max_detail[level] < eps) and
+                        (xt::abs(detail(level, 2*i  , 2*j+1))/max_detail[level] < eps) and
+                        (xt::abs(detail(level, 2*i+1, 2*j+1))/max_detail[level] < eps);
             /*
             auto mask = 0.25 * (xt::abs(detail(level, 2*i  ,   2*j)) +
                         xt::abs(detail(level, 2*i+1,   2*j)) +
@@ -50,24 +51,28 @@ namespace mure
         public:
         INIT_OPERATOR(to_refine_mr_op)
 
-        template<class T1, class T2>
-        inline void operator()(Dim<2>, const T1& detail, double max_det, 
+        template<class T1, class T2, class T3>
+        inline void operator()(Dim<2>, const T1& detail, const T3& max_detail, 
                                T2 &tag, double eps, std::size_t max_level) const
         {
-
             if (level < max_level)  {
-                // One with true is sufficient.
-                auto mask = (xt::abs(detail(level, 2*i  ,   2*j))/max_det > eps) or
-                            (xt::abs(detail(level, 2*i+1,   2*j))/max_det > eps) or
-                            (xt::abs(detail(level, 2*i  , 2*j+1))/max_det > eps) or
-                            (xt::abs(detail(level, 2*i+1, 2*j+1))/max_det > eps);
-                             
-                xt::masked_view(tag(level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::refine);
-                xt::masked_view(tag(level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::refine);
-                xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
-                xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                auto mask = ((xt::abs(detail(level, i, j))/max_detail[level]) > eps);
+                xt::masked_view(tag(level, i, j), mask) = static_cast<int>(mure::CellFlag::refine);
+            }
+            /*if (level < max_level)  {
+
+                auto mask1 = (xt::abs(detail(level, 2*i  ,   2*j))/max_det > eps);
+                auto mask2 = (xt::abs(detail(level, 2*i+1,   2*j))/max_det > eps);
+                auto mask3 = (xt::abs(detail(level, 2*i  , 2*j+1))/max_det > eps);
+                auto mask4 = (xt::abs(detail(level, 2*i+1, 2*j+1))/max_det > eps);
+
+                xt::masked_view(tag(level, 2*i  ,   2*j), mask1) = static_cast<int>(mure::CellFlag::refine);
+                xt::masked_view(tag(level, 2*i+1,   2*j), mask2) = static_cast<int>(mure::CellFlag::refine);
+                xt::masked_view(tag(level, 2*i  , 2*j+1), mask3) = static_cast<int>(mure::CellFlag::refine);
+                xt::masked_view(tag(level, 2*i+1, 2*j+1), mask4) = static_cast<int>(mure::CellFlag::refine);
         
             }
+            */
         
         }
     };
@@ -106,7 +111,6 @@ namespace mure
         return make_field_operator_function<max_detail_mr_op>(
             std::forward<CT>(e)...);
     }
-
 
 
 }

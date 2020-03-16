@@ -4,44 +4,8 @@
 #include <mure/mr/mesh.hpp>
 #include "criteria.hpp"
 
-
-
 template <class Config>
-void compute_and_save_details(mure::Field<Config> &u)
-{
-    constexpr auto dim = Config::dim;
-    using interval_t = typename Config::interval_t;
-
-    auto mesh = u.mesh();
-    std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
-    mure::Field<Config> detail{"detail", mesh};
-
-
-    mure::mr_projection(u);
-    mure::mr_prediction(u); // These have to be verified with LOIC .... not sure:::
-    
-    u.update_bc();
-
-    for (std::size_t level = min_level - 1; level < max_level; ++level)   {
-        auto subset = intersection(mesh[mure::MeshType::all_cells][level],
-                               mesh[mure::MeshType::cells][level + 1])
-                          .on(level);
-        subset.apply_op(level, compute_detail(detail, u));
-
-    }
-
-
-    std::stringstream s;
-    s << "details";
-    auto h5file = mure::Hdf5(s.str().data());
-    h5file.add_mesh(mesh);
-    h5file.add_field(detail);
-    h5file.add_field(u);
-
-}
-
-template <class Config>
-void coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
+double max_detail(mure::Field<Config> &u)
 {
     constexpr auto dim = Config::dim;
     using interval_t = typename Config::interval_t;
@@ -60,29 +24,73 @@ void coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
     double max_detail = 0.0;
 
 
-    for (std::size_t level = min_level - 1; level < max_level - ite; ++level)   {
+    for (std::size_t level = min_level - 1; level < max_level; ++level)   {
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
                                    mesh[mure::MeshType::cells][level + 1])
                                 .on(level);
         subset.apply_op(level, compute_detail(detail, u), max_detail_mr(detail, max_detail));
     }
 
+    return max_detail;
+}
+
+
+template <class Config>
+bool coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
+{
+    constexpr auto dim = Config::dim;
+    constexpr auto max_refinement_level = Config::max_refinement_level;
+
+    using interval_t = typename Config::interval_t;
+    auto mesh = u.mesh();
+    std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
+    mure::Field<Config> detail{"detail", mesh};
+    mure::Field<Config, int> tag{"tag", mesh};
+
+    tag.array().fill(0);
+    
+    mesh.for_each_cell([&](auto &cell) {
+        tag[cell] = static_cast<int>(mure::CellFlag::keep);
+    });
+
+    // ARE WE SURE THEY DO EXACTLY WHAT WE WANT???
+    mure::mr_projection(u);
+    mure::mr_prediction(u); 
+
+    u.update_bc();
+
+
+    xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>max_detail;
+    max_detail.fill(std::numeric_limits<double>::min());
+
+
+
+    // What are the data it uses at min_level - 1 ???
+    for (std::size_t level = min_level - 1; level < max_level - ite; ++level)   {
+        auto subset = intersection(mesh[mure::MeshType::all_cells][level],
+                                   mesh[mure::MeshType::cells][level + 1])
+                                .on(level);
+        subset.apply_op(level, compute_detail(detail, u),
+                               compute_max_detail(detail, max_detail));
+    }
+
     
 
-    std::stringstream s;
-    s << "details_"<<ite;
-    auto h5file = mure::Hdf5(s.str().data());
-    h5file.add_mesh(mesh);
-    h5file.add_field(detail);
-    h5file.add_field(u);
-    mure::Field<Config> detail_normalized{"detail normalized", mesh};
-    detail_normalized = detail / max_detail;
-    h5file.add_field(detail_normalized);
+    // std::stringstream s;
+    // s << "coarsening_"<<ite;
+    // auto h5file = mure::Hdf5(s.str().data());
+    // h5file.add_mesh(mesh);
+    // h5file.add_field(detail);
+    // h5file.add_field(u);
 
-    // Look carefully at how much of this we have to do...
+
+    // AGAIN I DONT KNOW WHAT min_level - 1 is
     for (std::size_t level = min_level; level <= max_level - ite; ++level)
     {
-        int exponent = dim * (level - max_level + 1);
+        //int exponent = dim * (level - max_level + 1);
+
+        int exponent = dim * (level - max_level);
+
         auto eps_l = std::pow(2, exponent) * eps;
 
         // COMPRESSION
@@ -91,27 +99,23 @@ void coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
                                          mesh[mure::MeshType::all_cells][level-1])
                                         .on(level-1);
 
+
         // This operations flags the cells to coarsen
         subset_1.apply_op(level, to_coarsen_mr(detail, max_detail, tag, eps_l));
 
-        
-        // HARTEN HEURISTICS
         auto subset_2 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);
-
-        subset_1.apply_op(level, to_refine_mr(detail, max_detail, tag, 4.0 * eps_l, max_level));
-        //subset_2.apply_op(level, enlarge_mr(tag));
-
-
-        /*
         auto subset_3 = intersection(mesh[mure::MeshType::cells_and_ghosts][level],
                                      mesh[mure::MeshType::cells_and_ghosts][level]);
 
-        */
+        subset_2.apply_op(level, mure::enlarge(tag, mure::CellFlag::keep));
+        subset_3.apply_op(level, mure::tag_to_keep(tag));
     }
 
-    h5file.add_field(tag);
+    //h5file.add_field(tag);
 
+
+    // FROM NOW ON LOIC HAS TO EXPLAIN
 
     for (std::size_t level = max_level; level > 0; --level)
     {
@@ -168,6 +172,10 @@ void coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
                             min_level, max_level};
 
 
+    if (new_mesh == mesh)
+        return true;
+
+
     mure::Field<Config> new_u{u.name(), new_mesh, u.bc()};
 
     for (std::size_t level = min_level; level <= max_level; ++level)
@@ -179,5 +187,8 @@ void coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
 
     u.mesh_ptr()->swap(new_mesh);
     std::swap(u.array(), new_u.array());
+
+
+    return false;
 
  }

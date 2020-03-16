@@ -435,6 +435,27 @@ namespace mure
             detail(level + 1, 2 * i + 1, 2 * j + 1) =
                 field(level + 1, 2 * i + 1, 2 * j + 1) -
                 (field(level, i, j) - qs_i - qs_j - qs_ij);
+
+
+            // The easiest prediction we can think of.
+            /*
+            detail(level + 1, 2 * i, 2 * j) =
+                field(level + 1, 2 * i, 2 * j) -
+                (field(level, i, j));
+
+            detail(level + 1, 2 * i + 1, 2 * j) =
+                field(level + 1, 2 * i + 1, 2 * j) -
+                (field(level, i, j));
+
+            detail(level + 1, 2 * i, 2 * j + 1) =
+                field(level + 1, 2 * i, 2 * j + 1) -
+                (field(level, i, j));
+
+            detail(level + 1, 2 * i + 1, 2 * j + 1) =
+                field(level + 1, 2 * i + 1, 2 * j + 1) -
+                (field(level, i, j));
+            */
+
         }
     };
 
