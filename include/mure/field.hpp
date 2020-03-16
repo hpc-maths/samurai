@@ -268,10 +268,12 @@ namespace mure
                         for (std::size_t level = 0; level <= m_mesh->max_level(); ++level)
                         {
                             double dx = 1./(1<<level);
-                            if (!(*m_mesh)[mure::MeshType::cells][level].empty())
+                            if (!(*m_mesh)[mure::MeshType::all_cells][level].empty())
                             {
-                                auto subset = difference(translate((*m_mesh)[mure::MeshType::cells][level], stencil),
-                                                         m_mesh->initial_mesh())
+                                // TODO: use union mesh instead
+                                auto subset = intersection(difference(translate(m_mesh->initial_mesh(), stencil),
+                                                                      m_mesh->initial_mesh()),
+                                                           (*m_mesh)[mure::MeshType::all_cells][level])
                                             .on(level);
 
                                 subset.apply_op(level, update_boundary(*this, m_bc.type[index_bc], stencil));
