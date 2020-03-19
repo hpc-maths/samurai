@@ -48,4 +48,22 @@ namespace mure
             }
         }
     }
+
+
+    template<class MRConfig>
+    inline void mr_prediction_for_debug(Field<MRConfig> &field, std::size_t mx_lev)
+    {
+        constexpr auto max_refinement_level = MRConfig::max_refinement_level;
+
+        std::cout<<"\n\nThe level is = "<<mx_lev<<std::endl;
+
+        spdlog::info("Make prediction");
+
+        auto mesh = field.mesh();
+
+        auto set = intersection(mesh[MeshType::cells][mx_lev],
+                                mesh[MeshType::cells][mx_lev]);
+
+        set.apply_op(mx_lev, prediction(field));
+    }
 }

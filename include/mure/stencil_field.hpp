@@ -1,6 +1,7 @@
 #pragma once
 
 #include <xtensor/xfunction.hpp>
+#include <xtensor/xadapt.hpp>
 
 #include "cell.hpp"
 #include "field_expression.hpp"
@@ -126,5 +127,71 @@ namespace mure
     inline auto upwind(CT &&... e)
     {
         return make_field_operator_function<upwind_op>(std::forward<CT>(e)...);
+    }
+
+
+
+
+    /*******************
+     * upwind operator for the scalar Burgers equation *
+     *******************/
+    template<class TInterval>
+    class upwind_scalar_burgers_op : public field_operator_base<TInterval>,
+                      public finite_volume<upwind_scalar_burgers_op<TInterval>> {
+      public:
+        INIT_OPERATOR(upwind_scalar_burgers_op)
+
+        template<class T1, class T2>
+        inline auto flux(double a, const T1& ul, const T2& ur) const
+        {
+            xt::xtensor<double, 1>::shape_type shape = ul.shape();
+            xt::xtensor<double, 1> out(shape);
+            out.fill(0);
+
+            auto mask1 = (a*ul < a*ur);
+            auto mask2 = (ul*ur > 0.0);
+
+            xt::xtensor<double , 1> min = xt::minimum(xt::abs(ul), xt::abs(ur));
+            xt::xtensor<double , 1> max = xt::maximum(xt::abs(ul), xt::abs(ur));
+
+            auto res1 = xt::eval(xt::masked_view(min, mask1 and mask2));
+            xt::masked_view(out, mask1 and mask2) = .5*res1*res1;
+
+            auto res2 = xt::eval(xt::masked_view(max, !mask1));
+            xt::masked_view(out, !mask1) = .5*res2*res2;
+
+            return out;
+        }
+
+        // 2D
+        template<class T>
+        inline auto left_flux(std::array<double, 2> k, const T &u) const
+        {
+            return flux(k[0], u(level, i-1, j), u(level, i, j));
+        }
+
+        template<class T>
+        inline auto right_flux(std::array<double, 2> k, const T &u) const
+        {
+            return flux(k[0], u(level, i, j), u(level, i+1, j));
+        }
+
+        template<class T>
+        inline auto down_flux(std::array<double, 2> k, const T &u) const
+        {
+            return flux(k[1], u(level, i, j-1), u(level, i, j));
+        }
+
+        template<class T>
+        inline auto up_flux(std::array<double, 2> k, const T &u) const
+        {
+            return flux(k[1], u(level, i, j), u(level, i, j+1));
+        }
+    };
+
+    template<class... CT>
+    inline auto upwind_scalar_burgers(CT &&... e)
+    {
+        return make_field_operator_function<upwind_scalar_burgers_op>(std::forward<CT>(e)...);
     }
 }

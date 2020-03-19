@@ -5,7 +5,8 @@
 
 #include <chrono>
 
-double eps_g = 5.e-5, eps_f = 1e-1;
+double eps = 0.1;
+
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -29,8 +30,8 @@ auto init(mure::Mesh<Config> &mesh)
 {
     mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 0},
                        {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0}
+                       {mure::BCType::neumann, 0},
+                       {mure::BCType::neumann, 0}
                     }} };
     mure::Field<Config> u{"u", mesh, bc};
     u.array().fill(0);
@@ -52,6 +53,14 @@ auto init(mure::Mesh<Config> &mesh)
             u[cell] = 1;
         else
             u[cell] = 0;
+
+
+        double x_center2 = 0.2, y_center2 = 0.2;
+        if (((center[0] - x_center2) * (center[0] - x_center2) + 
+                (center[1] - y_center2) * (center[1] - y_center2))
+                <= radius * radius)
+            u[cell] = -1;
+
     });
 
     // mesh.for_each_cell([&](auto &cell) {
@@ -79,47 +88,65 @@ int main(int argc, char *argv[])
     using Config = mure::MRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
-    std::size_t min_level = 5, max_level = 8;
+    std::size_t min_level = 2, max_level = 8; // For the moment, we do not adapt the mesh.
     // mure::Box<double, dim> box({-2, -2}, {2, 2});
     mure::Box<double, dim> box({0, 0}, {1, 1});
     mure::Mesh<Config> mesh{box, min_level, max_level};
 
-    std::array<double, 2> a{{1, 1}};
-    double dt = .5/(1<<max_level);
+    // For this, we take a unit vector
+    std::array<double, 2> k{{sqrt(2.0)/2.0, sqrt(2.0)/2.0}};
+    double dt = .05/(1<<max_level);
 
     auto u = init(mesh);
 
     spdlog::set_level(spdlog::level::warn);
 
-    for (std::size_t nt=0; nt<500; ++nt)
+    for (std::size_t nt=0; nt<1500; ++nt)
     {
+
+
+        tic();
+        std::stringstream s;
+        s << "VF_burgers_MR_2d_ite_" << nt;
+        auto h5file = mure::Hdf5(s.str().data());
+        h5file.add_mesh(mesh);
+        mure::Field<Config> level_{"level", mesh};
+        mesh.for_each_cell([&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
+        h5file.add_field(u);
+        h5file.add_field(level_);
+        auto duration = toc();
+        std::cout << "save: " << duration << "s\n";
         std::cout << "iteration " << nt << "\n";
         tic();
+
+
         for (std::size_t i=0; i<max_level-min_level; ++i)
         {
-            if (coarsening(u, i, nt))
+            if (coarsening(u, eps, i))
                 break;
         }
-        auto duration = toc();
+        duration = toc();
         std::cout << "coarsening: " << duration << "s\n";
 
         tic();
         for (std::size_t i=0; i<max_level-min_level; ++i)
         {
-            if (refinement(u, i, nt))
+            if (refinement(u, eps, i))
                 break;
         }
         duration = toc();
         std::cout << "refinement: " << duration << "s\n";
 
         mure::mr_projection(u);
-        mure::amr_prediction(u);
+        mure::mr_prediction(u);
         u.update_bc();
 
         tic();
         mure::Field<Config> unp1{"u", mesh};
-        unp1 = u - dt * mure::upwind(a, u);
-  
+
+        //unp1 = u - dt * mure::upwind_scalar_burgers(k, u);
+        unp1 = u - dt * mure::upwind_scalar_burgers(k, u);
+
         for (std::size_t level = mesh.min_level(); level < mesh.max_level(); ++level)
         {
             xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
@@ -136,11 +163,11 @@ int main(int argc, char *argv[])
                 auto j = index[0];
                 double dx = 1./(1<<level);
 
-                unp1(level, i, j) = unp1(level, i, j) + dt/dx * (mure::upwind_op<interval_t>(level, i, j).right_flux(a, u)
-                                                                - .5*mure::upwind_op<interval_t>(level+1, 2*i+1, 2*j).right_flux(a, u)
-                                                                - .5*mure::upwind_op<interval_t>(level+1, 2*i+1, 2*j+1).right_flux(a, u));
+                unp1(level, i, j) = unp1(level, i, j) + dt/dx * (mure::upwind_scalar_burgers_op<interval_t>(level, i, j).right_flux(k, u)
+                                                                - .5*mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j).right_flux(k, u)
+                                                                - .5*mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j+1).right_flux(k, u));
             });
-
+  
             stencil = {{1, 0}};
 
             auto subset_left = intersection(translate(mesh[mure::MeshType::cells][level+1], stencil),
@@ -153,11 +180,11 @@ int main(int argc, char *argv[])
                 auto j = index[0];
                 double dx = 1./(1<<level);
 
-                unp1(level, i, j) = unp1(level, i, j) - dt/dx * (mure::upwind_op<interval_t>(level, i, j).left_flux(a, u)
-                                                              - .5 * mure::upwind_op<interval_t>(level+1, 2*i, 2*j).left_flux(a, u)
-                                                              - .5 * mure::upwind_op<interval_t>(level+1, 2*i, 2*j+1).left_flux(a, u));
+                unp1(level, i, j) = unp1(level, i, j) - dt/dx * (mure::upwind_scalar_burgers_op<interval_t>(level, i, j).left_flux(k, u)
+                                                              - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j).left_flux(k, u)
+                                                              - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j+1).left_flux(k, u));
             });
-
+         
             stencil = {{0, -1}};
 
             auto subset_up = intersection(translate(mesh[mure::MeshType::cells][level+1], stencil),
@@ -170,9 +197,9 @@ int main(int argc, char *argv[])
                 auto j = index[0];
                 double dx = 1./(1<<level);
 
-                unp1(level, i, j) = unp1(level, i, j) + dt/dx * (mure::upwind_op<interval_t>(level, i, j).up_flux(a, u)
-                                                              - .5 * mure::upwind_op<interval_t>(level+1, 2*i, 2*j+1).up_flux(a, u)
-                                                              - .5 * mure::upwind_op<interval_t>(level+1, 2*i+1, 2*j+1).up_flux(a, u));
+                unp1(level, i, j) = unp1(level, i, j) + dt/dx * (mure::upwind_scalar_burgers_op<interval_t>(level, i, j).up_flux(k, u)
+                                                              - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j+1).up_flux(k, u)
+                                                              - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j+1).up_flux(k, u));
             });
 
             stencil = {{0, 1}};
@@ -187,10 +214,11 @@ int main(int argc, char *argv[])
                 auto j = index[0];
                 double dx = 1./(1<<level);
 
-                unp1(level, i, j) = unp1(level, i, j) - dt/dx * (mure::upwind_op<interval_t>(level, i, j).down_flux(a, u)
-                                                                - .5 * mure::upwind_op<interval_t>(level+1, 2*i, 2*j).down_flux(a, u)
-                                                                - .5 * mure::upwind_op<interval_t>(level+1, 2*i+1, 2*j).down_flux(a, u));
+                unp1(level, i, j) = unp1(level, i, j) - dt/dx * (mure::upwind_scalar_burgers_op<interval_t>(level, i, j).down_flux(k, u)
+                                                                - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j).down_flux(k, u)
+                                                                - .5 * mure::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j).down_flux(k, u));
             });
+
         }
 
         std::swap(u.array(), unp1.array());
@@ -198,17 +226,7 @@ int main(int argc, char *argv[])
         duration = toc();
         std::cout << "upwind: " << duration << "s\n";
 
-        tic();
-        std::stringstream s;
-        s << "VFadvection_ite_" << nt;
-        auto h5file = mure::Hdf5(s.str().data());
-        h5file.add_mesh(mesh);
-        mure::Field<Config> level_{"level", mesh};
-        mesh.for_each_cell([&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
-        h5file.add_field(u);
-        h5file.add_field(level_);
-        duration = toc();
-        std::cout << "save: " << duration << "s\n";
+      
     }
     return 0;
 }

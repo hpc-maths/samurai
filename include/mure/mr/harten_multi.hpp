@@ -91,6 +91,8 @@ namespace mure
                 subset_1.apply_op(level, to_coarsen(cell_flag[i], detail[i],
                                                     max_detail[i], eps_l));
 
+                
+
                 subset_2.apply_op(level + 1, to_refine(cell_flag[i], detail[i],
                                                        max_detail[i], max_level,
                                                        4 * eps_l));
@@ -99,6 +101,8 @@ namespace mure
                                   enlarge(cell_flag[i], CellFlag::keep));
 
                 subset_3.apply_op(level + 1, tag_to_keep(cell_flag[i]));
+
+                
             }
 
             auto subset = intersection(mesh[MeshType::cells][level],

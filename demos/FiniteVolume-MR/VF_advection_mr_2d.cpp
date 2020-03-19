@@ -2,10 +2,11 @@
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
+#include "evolve_mesh.hpp"
 
 #include <chrono>
 
-double eps_g = 5.e-5, eps_f = 1e-1;
+double eps = 0.1;
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -27,10 +28,10 @@ double toc()
 template <class Config>
 auto init(mure::Mesh<Config> &mesh)
 {
-    mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0}
+    mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 1},
+                       {mure::BCType::neumann, 0},
+                       {mure::BCType::neumann, 0},
+                       {mure::BCType::neumann, 0}
                     }} };
     mure::Field<Config> u{"u", mesh, bc};
     u.array().fill(0);
@@ -79,7 +80,7 @@ int main(int argc, char *argv[])
     using Config = mure::MRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
-    std::size_t min_level = 5, max_level = 8;
+    std::size_t min_level = 2, max_level = 8;
     // mure::Box<double, dim> box({-2, -2}, {2, 2});
     mure::Box<double, dim> box({0, 0}, {1, 1});
     mure::Mesh<Config> mesh{box, min_level, max_level};
@@ -92,12 +93,15 @@ int main(int argc, char *argv[])
     spdlog::set_level(spdlog::level::warn);
 
     for (std::size_t nt=0; nt<500; ++nt)
+    // TO debug the refinement and derefinement properly
+    //for (std::size_t nt = 0; nt < 1; ++nt)
     {
         std::cout << "iteration " << nt << "\n";
         tic();
+
         for (std::size_t i=0; i<max_level-min_level; ++i)
         {
-            if (coarsening(u, i, nt))
+            if (coarsening(u, eps, i))
                 break;
         }
         auto duration = toc();
@@ -106,14 +110,20 @@ int main(int argc, char *argv[])
         tic();
         for (std::size_t i=0; i<max_level-min_level; ++i)
         {
-            if (refinement(u, i, nt))
+            if (refinement(u, eps, i))
                 break;
         }
-        duration = toc();
+
+        // for (std::size_t i = 0; i < max_level - min_level; ++i) {
+        //     if(evolve_mesh(u, eps, i))
+        //         break;
+        // }
+
+        //auto duration = toc();
         std::cout << "refinement: " << duration << "s\n";
 
         mure::mr_projection(u);
-        mure::amr_prediction(u);
+        mure::mr_prediction(u);
         u.update_bc();
 
         tic();
@@ -200,7 +210,7 @@ int main(int argc, char *argv[])
 
         tic();
         std::stringstream s;
-        s << "VFadvection_ite_" << nt;
+        s << "VFadvection_MR_ite_" << nt;
         auto h5file = mure::Hdf5(s.str().data());
         h5file.add_mesh(mesh);
         mure::Field<Config> level_{"level", mesh};
