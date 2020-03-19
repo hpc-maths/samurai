@@ -131,6 +131,14 @@ namespace mure
                         xt::view(qs_i, xt::range(dec_even, qs_i.size())) -
                         xt::view(qs_j, xt::range(dec_even, qs_j.size())) +
                         xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+
+                    // field(level, even_i, j) =
+                    //     field(level - 1, coarse_even_i, j >> 1) -
+                    //     xt::view(qs_i, xt::range(dec_even, qs_i.size())) +
+                    //     xt::view(qs_j, xt::range(dec_even, qs_j.size())) -
+                    //     xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+
+    
                 }
 
                 if (odd_i.is_valid())
@@ -140,6 +148,14 @@ namespace mure
                         xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) -
                         xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) -
                         xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
+                    
+                    // field(level, odd_i, j) =
+                    //     field(level - 1, coarse_odd_i, j >> 1) +
+                    //     xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) +
+                    //     xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) +
+                    //     xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
+
+
                 }
             }
             else
@@ -151,6 +167,14 @@ namespace mure
                         xt::view(qs_i, xt::range(dec_even, qs_i.size())) +
                         xt::view(qs_j, xt::range(dec_even, qs_j.size())) -
                         xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+
+                    // field(level, even_i, j) =
+                    //     field(level - 1, coarse_even_i, j >> 1) -
+                    //     xt::view(qs_i, xt::range(dec_even, qs_i.size())) -
+                    //     xt::view(qs_j, xt::range(dec_even, qs_j.size())) +
+                    //     xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+
+
                 }
 
                 if (odd_i.is_valid())
@@ -160,6 +184,13 @@ namespace mure
                         xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) +
                         xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) +
                         xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
+
+                    // field(level, odd_i, j) =
+                    //     field(level - 1, coarse_odd_i, j >> 1) +
+                    //     xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) -
+                    //     xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) -
+                    //     xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
+
                 }
             }
         }
@@ -209,25 +240,25 @@ namespace mure
             auto qs_j = Qs_j<1>(field[i_f], level, i, j);
             auto qs_ij = Qs_ij<1>(field[i_f], level, i, j);
 
-            // new_field[i_f](level + 1, ii, jj) =
-            //     (field[i_f](level, i, j) + qs_i + qs_j - qs_ij);
-            // new_field[i_f](level + 1, ii + 1, jj) =
-            //     (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
-            // new_field[i_f](level + 1, ii, jj + 1) =
-            //     (field[i_f](level, i, j) + qs_i - qs_j + qs_ij);
-            // new_field[i_f](level + 1, ii + 1, jj + 1) =
-            //     (field[i_f](level, i, j) - qs_i - qs_j - qs_ij);
+            new_field[i_f](level + 1, ii, jj) =
+                (field[i_f](level, i, j) + qs_i + qs_j - qs_ij);
+            new_field[i_f](level + 1, ii + 1, jj) =
+                (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
+            new_field[i_f](level + 1, ii, jj + 1) =
+                (field[i_f](level, i, j) + qs_i - qs_j + qs_ij);
+            new_field[i_f](level + 1, ii + 1, jj + 1) =
+                (field[i_f](level, i, j) - qs_i - qs_j - qs_ij);
 
 
             // This is what is done by Bihari and Harten 1999
-            new_field[i_f](level + 1, ii, jj) =
-                (field[i_f](level, i, j) - qs_i - qs_j + qs_ij);
-            new_field[i_f](level + 1, ii + 1, jj) =
-                (field[i_f](level, i, j) + qs_i - qs_j - qs_ij);
-            new_field[i_f](level + 1, ii, jj + 1) =
-                (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
-            new_field[i_f](level + 1, ii + 1, jj + 1) =
-                (field[i_f](level, i, j) + qs_i + qs_j + qs_ij);
+            // new_field[i_f](level + 1, ii, jj) =
+            //     (field[i_f](level, i, j) - qs_i - qs_j + qs_ij);
+            // new_field[i_f](level + 1, ii + 1, jj) =
+            //     (field[i_f](level, i, j) + qs_i - qs_j - qs_ij);
+            // new_field[i_f](level + 1, ii, jj + 1) =
+            //     (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
+            // new_field[i_f](level + 1, ii + 1, jj + 1) =
+            //     (field[i_f](level, i, j) + qs_i + qs_j + qs_ij);
         }
     }
 
@@ -431,40 +462,41 @@ namespace mure
             auto qs_j = Qs_j<1>(field, level, i, j);
             auto qs_ij = Qs_ij<1>(field, level, i, j);
 
-            // detail(level + 1, 2 * i, 2 * j) =
-            //     field(level + 1, 2 * i, 2 * j) -
-            //     (field(level, i, j) + qs_i + qs_j - qs_ij);
+            detail(level + 1, 2 * i, 2 * j) =
+                field(level + 1, 2 * i, 2 * j) -
+                (field(level, i, j) + qs_i + qs_j - qs_ij);
 
-            // detail(level + 1, 2 * i + 1, 2 * j) =
-            //     field(level + 1, 2 * i + 1, 2 * j) -
-            //     (field(level, i, j) - qs_i + qs_j + qs_ij);
+            detail(level + 1, 2 * i + 1, 2 * j) =
+                field(level + 1, 2 * i + 1, 2 * j) -
+                (field(level, i, j) - qs_i + qs_j + qs_ij);
 
-            // detail(level + 1, 2 * i, 2 * j + 1) =
-            //     field(level + 1, 2 * i, 2 * j + 1) -
-            //     (field(level, i, j) + qs_i - qs_j + qs_ij);
+            detail(level + 1, 2 * i, 2 * j + 1) =
+                field(level + 1, 2 * i, 2 * j + 1) -
+                (field(level, i, j) + qs_i - qs_j + qs_ij);
 
-            // detail(level + 1, 2 * i + 1, 2 * j + 1) =
-            //     field(level + 1, 2 * i + 1, 2 * j + 1) -
-            //     (field(level, i, j) - qs_i - qs_j - qs_ij);
+            detail(level + 1, 2 * i + 1, 2 * j + 1) =
+                field(level + 1, 2 * i + 1, 2 * j + 1) -
+                (field(level, i, j) - qs_i - qs_j - qs_ij);
 
 
 
             // This is what is done by Bihari and Harten 1999
-            detail(level + 1, 2 * i, 2 * j) =
-                field(level + 1, 2 * i, 2 * j) -
-                (field(level, i, j) - qs_i - qs_j + qs_ij);
+            // // It seems the good choice.
+            // detail(level + 1, 2 * i, 2 * j) =
+            //     field(level + 1, 2 * i, 2 * j) -
+            //     (field(level, i, j) - qs_i - qs_j + qs_ij);
 
-            detail(level + 1, 2 * i + 1, 2 * j) =
-                field(level + 1, 2 * i + 1, 2 * j) -
-                (field(level, i, j) + qs_i - qs_j - qs_ij);
+            // detail(level + 1, 2 * i + 1, 2 * j) =
+            //     field(level + 1, 2 * i + 1, 2 * j) -
+            //     (field(level, i, j) + qs_i - qs_j - qs_ij);
 
-            detail(level + 1, 2 * i, 2 * j + 1) =
-                field(level + 1, 2 * i, 2 * j + 1) -
-                (field(level, i, j) - qs_i + qs_j - qs_ij);
+            // detail(level + 1, 2 * i, 2 * j + 1) =
+            //     field(level + 1, 2 * i, 2 * j + 1) -
+            //     (field(level, i, j) - qs_i + qs_j - qs_ij);
 
-            detail(level + 1, 2 * i + 1, 2 * j + 1) =
-                field(level + 1, 2 * i + 1, 2 * j + 1) -
-                (field(level, i, j) + qs_i + qs_j + qs_ij);
+            // detail(level + 1, 2 * i + 1, 2 * j + 1) =
+            //     field(level + 1, 2 * i + 1, 2 * j + 1) -
+            //     (field(level, i, j) + qs_i + qs_j + qs_ij);
 
 
         }

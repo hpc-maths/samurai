@@ -54,8 +54,9 @@ bool coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
     });
 
     mure::mr_projection(u);
-    mure::mr_prediction(u); 
+    mure::mr_prediction(u);
     u.update_bc();
+ 
 
     xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>max_detail;
     max_detail.fill(std::numeric_limits<double>::min());
@@ -97,6 +98,8 @@ bool coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
 
         // This operations flags the cells to coarsen
         subset_1.apply_op(level, to_coarsen_mr(detail, max_detail, tag, eps_l, min_level));
+        //subset_1.apply_op(level, to_coarsen_mr_BH(detail, max_detail, tag, eps_l, min_level));
+
 
         auto subset_2 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);

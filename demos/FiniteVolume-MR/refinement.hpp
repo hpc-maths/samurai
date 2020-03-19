@@ -76,6 +76,7 @@ bool refinement(mure::Field<Config> &u, double eps, std::size_t ite)
                        .on(level-1);
         
         subset.apply_op(level, to_refine_mr(detail, max_detail, tag, 32 * eps_l, max_level));
+        //subset.apply_op(level, to_refine_mr_BH(detail, max_detail, tag, 32 * eps_l, max_level));
 
 
     }
