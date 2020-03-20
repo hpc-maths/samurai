@@ -144,15 +144,14 @@ namespace mure
         template<class T1, class T2>
         inline auto flux(double a, const T1& ul, const T2& ur) const
         {
-            xt::xtensor<double, 1>::shape_type shape = ul.shape();
-            xt::xtensor<double, 1> out(shape);
+            auto out = xt::xarray<double>::from_shape(ul.shape());
             out.fill(0);
 
             auto mask1 = (a*ul < a*ur);
             auto mask2 = (ul*ur > 0.0);
 
-            xt::xtensor<double , 1> min = xt::minimum(xt::abs(ul), xt::abs(ur));
-            xt::xtensor<double , 1> max = xt::maximum(xt::abs(ul), xt::abs(ur));
+            auto min = xt::eval(xt::minimum(xt::abs(ul), xt::abs(ur)));
+            auto max = xt::eval(xt::maximum(xt::abs(ul), xt::abs(ur)));
 
             auto res1 = xt::eval(xt::masked_view(min, mask1 and mask2));
             xt::masked_view(out, mask1 and mask2) = .5*res1*res1;

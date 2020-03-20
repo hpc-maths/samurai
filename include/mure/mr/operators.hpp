@@ -80,7 +80,7 @@ namespace mure
             {
                 field(level, even_i) =
                     field(level - 1, coarse_even_i) +
-                    xt::view(qs_i, xt::range(dec, qs_i.size()));
+                    xt::view(qs_i, xt::range(dec, qs_i.shape()[0]));
             }
 
             dec = (i.end & 1) ? 1 : 0;
@@ -95,7 +95,7 @@ namespace mure
             {
                 field(level, odd_i) =
                     field(level - 1, coarse_odd_i) -
-                    xt::view(qs_i, xt::range(0, qs_i.size() - dec));
+                    xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec));
             }
         }
 
@@ -128,9 +128,9 @@ namespace mure
                 {
                     field(level, even_i, j) =
                         field(level - 1, coarse_even_i, j >> 1) +
-                        xt::view(qs_i, xt::range(dec_even, qs_i.size())) -
-                        xt::view(qs_j, xt::range(dec_even, qs_j.size())) +
-                        xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+                        xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0])) -
+                        xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0])) +
+                        xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
 
                     // field(level, even_i, j) =
                     //     field(level - 1, coarse_even_i, j >> 1) -
@@ -145,9 +145,9 @@ namespace mure
                 {
                     field(level, odd_i, j) =
                         field(level - 1, coarse_odd_i, j >> 1) -
-                        xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) -
-                        xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) -
-                        xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
+                        xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd)) -
+                        xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd)) -
+                        xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
                     
                     // field(level, odd_i, j) =
                     //     field(level - 1, coarse_odd_i, j >> 1) +
@@ -164,9 +164,9 @@ namespace mure
                 {
                     field(level, even_i, j) =
                         field(level - 1, coarse_even_i, j >> 1) +
-                        xt::view(qs_i, xt::range(dec_even, qs_i.size())) +
-                        xt::view(qs_j, xt::range(dec_even, qs_j.size())) -
-                        xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+                        xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0])) +
+                        xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0])) -
+                        xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
 
                     // field(level, even_i, j) =
                     //     field(level - 1, coarse_even_i, j >> 1) -
@@ -181,9 +181,9 @@ namespace mure
                 {
                     field(level, odd_i, j) =
                         field(level - 1, coarse_odd_i, j >> 1) -
-                        xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) +
-                        xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) +
-                        xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
+                        xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd)) +
+                        xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd)) +
+                        xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
 
                     // field(level, odd_i, j) =
                     //     field(level - 1, coarse_odd_i, j >> 1) +
@@ -523,9 +523,12 @@ namespace mure
         {
             auto ii = 2 * i;
             ii.step = 1;
-            max_detail[level + 1] =
-                std::max(max_detail[level + 1],
-                         xt::amax(xt::abs(detail(level + 1, ii)))[0]);
+            auto max_view = xt::view(max_detail, level + 1);
+
+            max_view = xt::maximum(max_view,
+                                   xt::amax(xt::abs(detail(level + 1, ii)),
+                                            {0})
+                                  );
         }
 
         template<class T, class U>
@@ -533,11 +536,13 @@ namespace mure
         {
             auto ii = 2 * i;
             ii.step = 1;
-            max_detail[level + 1] =
-                std::max(max_detail[level + 1],
-                         xt::amax(xt::maximum(
-                             xt::abs(detail(level + 1, ii, 2 * j)),
-                             xt::abs(detail(level + 1, ii, 2 * j + 1))))[0]);
+            auto max_view = xt::view(max_detail, level + 1);
+
+            max_view = xt::maximum(max_view,
+                                   xt::amax(xt::maximum(xt::abs(detail(level + 1, ii, 2 * j)),
+                                                        xt::abs(detail(level + 1, ii, 2 * j + 1))),
+                                            {0})
+                                  );
         }
     };
 

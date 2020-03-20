@@ -67,34 +67,55 @@ namespace mure
             std::forward<T>(field), std::forward<BC>(bc), std::forward<stencil_t>(stencil));
     }
 
-    template<class MRConfig, class value_t>
-    class Field : public field_expression<Field<MRConfig, value_t>> {
+    template<std::size_t size>
+    struct is_scalar_field: std::false_type
+    {};
+
+    template<>
+    struct is_scalar_field<1>: std::true_type
+    {};
+
+    template<class MRConfig, class value_t=double, std::size_t size_=1>
+    class Field : public field_expression<Field<MRConfig, value_t, size_>>
+    {
       public:
+
+        using Config = MRConfig;
         static constexpr auto dim = MRConfig::dim;
-        static constexpr auto max_refinement_level =
-            MRConfig::max_refinement_level;
-
-        using value_type = value_t;
-        using data_type = xt::xtensor<value_type, 1>;
-        using view_type =
-            decltype(xt::view(std::declval<data_type &>(), xt::range(0, 1, 1)));
-
+        static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
         using coord_index_t = typename MRConfig::coord_index_t;
         using index_t = typename MRConfig::index_t;
         using interval_t = typename MRConfig::interval_t;
 
-        inline Field(std::string name, Mesh<MRConfig> &mesh, BC<dim> &bc)
-            : name_(name), m_mesh(&mesh), m_bc(bc),
-              m_data(std::array<std::size_t, 1>{mesh.nb_total_cells()})
+        using value_type = value_t;
+        static constexpr auto size = size_;
+        using data_type = typename std::conditional<is_scalar_field<size>::value,
+                                                    xt::xtensor<value_type, 1>,
+                                                    xt::xtensor<value_type, 2>>::type;
+
+        template<std::size_t n>
+        void init_data(std::integral_constant<std::size_t, n>)
         {
+            m_data.resize({m_mesh->nb_total_cells(), size});
             m_data.fill(0);
         }
 
-        inline Field(std::string name, Mesh<MRConfig> &mesh)
-            : name_(name), m_mesh(&mesh),
-              m_data(std::array<std::size_t, 1>{mesh.nb_total_cells()})
+        void init_data(std::integral_constant<std::size_t, 1>)
         {
+            m_data.resize({m_mesh->nb_total_cells()});
             m_data.fill(0);
+        }
+
+        inline Field(std::string name, Mesh<MRConfig> &mesh, const BC<dim> &bc)
+            : m_name(name), m_mesh(&mesh), m_bc(bc)
+        {
+            init_data(std::integral_constant<std::size_t, size>{});
+        }
+
+        inline Field(std::string name, Mesh<MRConfig> &mesh)
+            : m_name(name), m_mesh(&mesh)
+        {
+            init_data(std::integral_constant<std::size_t, size>{});
         }
 
         template<class E>
@@ -113,45 +134,31 @@ namespace mure
             return *this;
         }
 
-        inline value_type const operator()(const Cell<coord_index_t, dim> &cell) const
+        inline auto operator[](const std::size_t index) const
         {
-            return m_data[cell.index];
+            return xt::view(m_data, index);
         }
 
-        inline value_type &operator()(const Cell<coord_index_t, dim> &cell)
+        inline auto operator[](const std::size_t index)
         {
-            return m_data[cell.index];
+            return xt::view(m_data, index);
         }
 
-        inline value_type const operator[](const Cell<coord_index_t, dim> &cell) const
+        inline auto operator[](const Cell<coord_index_t, dim> &cell) const
         {
-            return m_data[cell.index];
+            return xt::view(m_data, cell.index);
         }
 
-        inline value_type &operator[](const Cell<coord_index_t, dim> &cell)
+        inline auto operator[](const Cell<coord_index_t, dim> &cell)
         {
-            return m_data[cell.index];
-        }
-
-        template<class... T>
-        inline auto operator()(interval_t interval, T... index) const
-        {
-            return xt::view(m_data, xt::range(interval.start, interval.end));
+            return xt::view(m_data, cell.index);
         }
 
         template<class... T>
-        inline auto operator()(interval_t interval, T... index)
-        {
-            return xt::view(m_data, xt::range(interval.start, interval.end));
-        }
-
-        template<class... T>
-        inline auto operator()(const std::size_t level, const interval_t &interval,
-                        const T... index)
+        inline auto operator()(const std::size_t level, const interval_t &interval, const T... index)
         {
             auto interval_tmp = m_mesh->get_interval(level, interval, index...);
-            if ((interval_tmp.end - interval_tmp.step <
-                 interval.end - interval.step) or
+            if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
                 (interval_tmp.start > interval.start))
             {
                 spdlog::critical("WRITE FIELD ERROR on level {} for "
@@ -169,8 +176,7 @@ namespace mure
                         const T... index) const
         {
             auto interval_tmp = m_mesh->get_interval(level, interval, index...);
-            if ((interval_tmp.end - interval_tmp.step <
-                 interval.end - interval.step) or
+            if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
                 (interval_tmp.start > interval.start))
             {
                 spdlog::critical("READ FIELD ERROR on level {} for "
@@ -183,26 +189,66 @@ namespace mure
                                       interval.step));
         }
 
+        template<class... T>
+        inline auto operator()(const std::size_t item, const std::size_t level, const interval_t &interval, const T... index)
+        {
+            auto interval_tmp = m_mesh->get_interval(level, interval, index...);
+            if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
+                (interval_tmp.start > interval.start))
+            {
+                spdlog::critical("WRITE FIELD ERROR on level {} for "
+                                 "interval_tmp {} and interval {}",
+                                 level, interval_tmp, interval);
+            }
+            return xt::view(m_data,
+                            xt::range(interval_tmp.index + interval.start,
+                                      interval_tmp.index + interval.end,
+                                      interval.step), item);
+        }
+
+        template<class... T>
+        inline auto operator()(const std::size_t item, const std::size_t level, const interval_t &interval,
+                        const T... index) const
+        {
+            auto interval_tmp = m_mesh->get_interval(level, interval, index...);
+            if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
+                (interval_tmp.start > interval.start))
+            {
+                spdlog::critical("READ FIELD ERROR on level {} for "
+                                 "interval_tmp {} and interval {}",
+                                 level, interval_tmp, interval);
+            }
+            return xt::view(m_data,
+                            xt::range(interval_tmp.index + interval.start,
+                                      interval_tmp.index + interval.end,
+                                      interval.step), item);
+        }
+
         inline auto data(MeshType mesh_type) const
         {
-            std::array<std::size_t, 1> shape = {m_mesh->nb_cells(mesh_type)};
-            xt::xtensor<double, 1> output(shape);
+            std::array<std::size_t, 2> shape = {m_mesh->nb_cells(mesh_type), size};
+            xt::xtensor<double, 2> output(shape);
             std::size_t index = 0;
-            m_mesh->for_each_cell(
-                [&](auto cell) { output[index++] = m_data[cell.index]; },
-                mesh_type);
+            m_mesh->for_each_cell([&](auto cell)
+                                  {
+                                      auto view = xt::view(output, index++);
+                                      view = xt::view(m_data, cell.index);
+                                  },
+                                  mesh_type);
             return output;
         }
 
         inline auto data_on_level(std::size_t level, MeshType mesh_type) const
         {
-            std::array<std::size_t, 1> shape = {
-                m_mesh->nb_cells(level, mesh_type)};
-            xt::xtensor<double, 1> output(shape);
+            std::array<std::size_t, 2> shape = {m_mesh->nb_cells(level, mesh_type), size};
+            xt::xtensor<double, 2> output(shape);
             std::size_t index = 0;
-            m_mesh->for_each_cell(
-                level, [&](auto cell) { output[index++] = m_data[cell.index]; },
-                mesh_type);
+            m_mesh->for_each_cell(level,
+                                  [&](auto cell)
+                                  {
+                                      output[index++] = m_data[cell.index];
+                                  },
+                                  mesh_type);
             return output;
         }
 
@@ -226,18 +272,18 @@ namespace mure
             return m_mesh->nb_cells(level, mesh_type);
         }
 
-        inline auto const &name() const
+        inline auto name() const
         {
-            return name_;
+            return m_name;
         }
 
-        inline auto const &bc() const
+        inline auto bc() const
         {
             return m_bc;
         }
 
 
-        inline auto &bc()
+        inline auto bc()
         {
             return m_bc;
         }
@@ -287,18 +333,18 @@ namespace mure
 
         inline void to_stream(std::ostream &os) const
         {
-            os << "Field " << name_ << "\n";
+            os << "Field " << m_name << "\n";
             m_mesh->for_each_cell(
                 [&](auto &cell) {
                     os << cell.level << "[" << cell.center()
-                       << "]:" << m_data[cell.index] << "\n";
+                       << "]:" << xt::view(m_data, cell.index) << "\n";
                 },
                 // MeshType::all_cells);
                 MeshType::cells);
         }
 
       private:
-        std::string name_;
+        std::string m_name;
         Mesh<MRConfig> *m_mesh;
         BC<dim> m_bc;
         data_type m_data;

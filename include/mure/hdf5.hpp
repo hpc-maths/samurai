@@ -19,9 +19,6 @@ namespace mure
     template<class MRConfig>
     class Mesh;
 
-    template<class MRConfig, class value_t = double>
-    class Field;
-
     inline std::string element_type(std::size_t dim)
     {
         switch (dim)
@@ -208,24 +205,31 @@ namespace mure
             }
         }
 
-        template<class MRConfig, class value_t>
-        inline void add_field(Field<MRConfig, value_t> const &field)
+        template<class Field>
+        inline void add_field(const Field &field)
         {
-            xt::dump(h5_file, "fields/" + field.name(), field.data(mesh_type));
             auto grid = domain.child("Grid");
-            auto attribute = grid.append_child("Attribute");
-            attribute.append_attribute("Name") = field.name().c_str();
-            attribute.append_attribute("Center") = "Cell";
-            auto dataitem = attribute.append_child("DataItem");
-            dataitem.append_attribute("Dimensions") = field.nb_cells(mesh_type);
-            dataitem.append_attribute("Format") = "HDF";
-            dataitem.text() =
-                (filename + ".h5:/fields/" + field.name()).c_str();
+            auto data = field.data(mesh_type);
+            for(std::size_t i=0; i<data.shape()[1]; ++i)
+            {
+                std::stringstream s;
+                s << field.name() << "_" << i;
+                xt::dump(h5_file, "fields/" + s.str(), xt::eval(xt::view(data, xt::all(), i)));
+
+                auto attribute = grid.append_child("Attribute");
+                attribute.append_attribute("Name") = s.str().c_str();
+                attribute.append_attribute("Center") = "Cell";
+                auto dataitem = attribute.append_child("DataItem");
+                dataitem.append_attribute("Dimensions") = field.nb_cells(mesh_type);
+                dataitem.append_attribute("Format") = "HDF";
+                dataitem.text() =
+                    (filename + ".h5:/fields/" + s.str()).c_str();
+            }
         }
 
-        template<class MRConfig, class value_t>
-        inline void add_field_by_level(Mesh<MRConfig> const &mesh,
-                                Field<MRConfig, value_t> const &field)
+        template<class MRConfig, class Field>
+        inline void add_field_by_level(const Mesh<MRConfig> &mesh,
+                                       const Field &field)
         {
             constexpr std::size_t max_refinement_level =
                 Mesh<MRConfig>::max_refinement_level;
@@ -236,10 +240,10 @@ namespace mure
             }
         }
 
-        template<class MRConfig, class value_t>
-        inline void _add_on_level(Mesh<MRConfig> const &mesh,
-                           Field<MRConfig, value_t> const &field,
-                           std::size_t level)
+        template<class MRConfig, class Field>
+        inline void _add_on_level(const Mesh<MRConfig> &mesh,
+                                  const Field &field,
+                                  std::size_t level)
         {
             std::size_t nb_points = std::pow(2, Mesh<MRConfig>::dim);
             constexpr std::size_t dim = Mesh<MRConfig>::dim;
@@ -341,94 +345,6 @@ namespace mure
                          "/" + std::to_string(mesh_type) + "/fields/" +
                          field.name())
                             .c_str();
-                }
-            }
-        }
-        template<class MRConfig, class value_t>
-        inline void
-        add_field_by_level(Mesh<MRConfig> const &mesh,
-                           std::vector<Field<MRConfig, value_t>> const &fields)
-        {
-            std::size_t nb_points = std::pow(2, Mesh<MRConfig>::dim);
-            constexpr std::size_t dim = Mesh<MRConfig>::dim;
-            constexpr std::size_t max_refinement_level =
-                Mesh<MRConfig>::max_refinement_level;
-
-            auto range = xt::arange(nb_points);
-
-            for (std::size_t level = 0; level <= max_refinement_level; ++level)
-            {
-                if (mesh.nb_cells(level, mesh_type) != 0)
-                {
-                    xt::xtensor<std::size_t, 2> connectivity;
-                    connectivity.resize(
-                        {mesh.nb_cells(level, mesh_type), nb_points});
-
-                    xt::xtensor<double, 2> coords;
-                    coords.resize(
-                        {nb_points * mesh.nb_cells(level, mesh_type), 3});
-                    coords.fill(0);
-
-                    auto element =
-                        get_element(std::integral_constant<std::size_t, dim>{});
-
-                    std::size_t index = 0;
-                    mesh.for_each_cell(
-                        level,
-                        [&](auto cell) {
-                            auto coords_view =
-                                xt::view(coords,
-                                         xt::range(nb_points * index,
-                                                   nb_points * (index + 1)),
-                                         xt::range(0, dim));
-                            auto connectivity_view =
-                                xt::view(connectivity, index, xt::all());
-
-                            coords_view = xt::eval(cell.first_corner() +
-                                                   cell.length() * element);
-                            connectivity_view =
-                                xt::eval(nb_points * index + range);
-                            index++;
-                        },
-                        mesh_type);
-                    std::stringstream ss1;
-                    ss1 << "level/" << level << "/mesh/connectivity";
-                    xt::dump(h5_file, ss1.str().data(), connectivity);
-                    std::stringstream ss2;
-                    ss2 << "level/" << level << "/mesh/points";
-                    xt::dump(h5_file, ss2.str().data(), coords);
-
-                    // xdmf_file << "<Grid Name=\"level " << level << "\">\n";
-                    // xdmf_file << "<Topology TopologyType=\"" <<
-                    // element_type(dim) << "\" NumberOfElements=\"" <<
-                    // connectivity.shape()[0] << "\">\n"; xdmf_file <<
-                    // "<DataItem Dimensions=\"" << connectivity.size() << "\"
-                    // Format=\"HDF\">\n"; xdmf_file << filename <<
-                    // ".h5:/level/" << level << "/mesh/connectivity\n";
-                    // xdmf_file << "</DataItem>\n";
-                    // xdmf_file << "</Topology>\n";
-                    // xdmf_file << "<Geometry GeometryType=\"XYZ\">\n";
-                    // xdmf_file << "<DataItem Dimensions=\"" << coords.size()
-                    // << "\" Format=\"HDF\">\n"; xdmf_file << filename <<
-                    // ".h5:/level/" << level << "/mesh/points\n"; xdmf_file <<
-                    // "</DataItem>\n"; xdmf_file << "</Geometry>\n";
-
-                    for (auto &field : fields)
-                    {
-                        std::stringstream ss;
-                        ss << "level/" << level << "/fields/" << field.name();
-                        xt::dump(h5_file, ss.str().data(),
-                                 field.data_on_level(level, mesh_type));
-                        // xdmf_file << "<Attribute Name='" << field.name() <<
-                        // "' Center='Cell'>\n"; xdmf_file << "<DataItem
-                        // Format='HDF' Dimensions='" <<
-                        // field.nb_cells_on_level(level, mesh_type) << "
-                        // 1'>\n"; xdmf_file << filename << ".h5:/level/" <<
-                        // level << "/fields/" << field.name() << "\n";
-                        // xdmf_file << "</DataItem>\n";
-                        // xdmf_file << "</Attribute>\n";
-                    }
-                    // xdmf_file << "</Grid>\n";
                 }
             }
         }

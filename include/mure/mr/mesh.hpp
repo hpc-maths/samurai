@@ -20,9 +20,6 @@
 
 namespace mure
 {
-    template<class MRConfig, class value_t>
-    class Field;
-
     template<class MRConfig, std::size_t dim>
     struct MeshCellsArray : private std::array<CellArray<MRConfig>, dim>
     {

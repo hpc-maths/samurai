@@ -7,21 +7,23 @@
 #include "../FiniteVolume/criteria.hpp"
 
 
-template <class Config>
-bool refinement(mure::Field<Config> &u, double eps, std::size_t ite)
+template <class Field>
+bool refinement(Field &u, double eps, std::size_t ite)
 {
+    using Config = typename Field::Config;
+    using value_type = typename Field::value_type;
+    constexpr auto size = Field::size;
     constexpr auto dim = Config::dim;
     constexpr auto max_refinement_level = Config::max_refinement_level;
-
     using interval_t = typename Config::interval_t;
+
     auto mesh = u.mesh();
     std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
-    mure::Field<Config> detail{"detail", mesh};
-    mure::Field<Config, int> tag{"tag", mesh};
-    // It is problematic 
-    //tag.array().fill(static_cast<int>(mure::CellFlag::keep));
+
+    Field detail{"detail", mesh};
+    mure::Field<Config, int, 1> tag{"tag", mesh};
+
     tag.array().fill(0);
-    
     mesh.for_each_cell([&](auto &cell) {
         tag[cell] = static_cast<int>(mure::CellFlag::keep);
     });
@@ -30,9 +32,11 @@ bool refinement(mure::Field<Config> &u, double eps, std::size_t ite)
     mure::mr_prediction(u); 
     u.update_bc();
 
-    xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>max_detail;
-    max_detail.fill(std::numeric_limits<double>::min());
-
+    typename std::conditional<size == 1,
+                              xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1>>,
+                              xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1, size>>
+                             >::type max_detail;
+    max_detail.fill(std::numeric_limits<value_type>::min());
 
     for (std::size_t level = min_level - 1; level < max_level - ite; ++level)   {
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
@@ -149,7 +153,7 @@ bool refinement(mure::Field<Config> &u, double eps, std::size_t ite)
     if (new_mesh == mesh)
         return true;
 
-    mure::Field<Config> new_u{u.name(), new_mesh, u.bc()};
+    Field new_u{u.name(), new_mesh, u.bc()};
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
