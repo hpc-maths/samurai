@@ -139,11 +139,13 @@ auto prediction(const Field& f, std::size_t level_g, std::size_t level, const in
     ig.step = step >> 1;
 
     xt::xtensor<double, 1> d = xt::empty<double>({i.size()/i.step});
+
     for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
     {
         d[iii] = (ii & 1)? -1.: 1.;
     }
 
+    // std::cout << level << " " << level_g << " " << item << " " << i << " " << ig << " " << d << "\n";
     if (level == 1)
     {
         return xt::eval(f(item, level_g, ig) - 1./8  * d * (f(item, level_g, ig+1)
@@ -180,14 +182,16 @@ void one_time_step(Field &f)
             if (level != max_level)
             {
                 std::size_t j = max_level - level;
-                double coeff_p = 1. / (1 << level);
-                double coeff_m = 1. / (1 << j);
+                double coeff = 1. / (1 << j);
 
-                fp = f(0, level, i) + coeff_p * (prediction(f, level, j, i*(1<<j)-1, 0)
-                                               - prediction(f, level, j, (i+1)*(1<<j)-1, 0));
+                // std::cout << "interval " << i << " j " << j << "\n";
+                // std::cout << "calcul fp\n";
+                fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0)
+                                             - prediction(f, level, j, (i+1)*(1<<j)-1, 0));
 
-                fm = f(1, level, i) - coeff_m * (prediction(f, level, j, i*(1<<j), 1)
-                                               - prediction(f, level, j, (i+1)*(1<<j), 1));
+                // std::cout << "calcul fm\n";
+                fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1)
+                                             - prediction(f, level, j, (i+1)*(1<<j), 1));
             }
 
             auto uu = xt::eval(fp + fm);
