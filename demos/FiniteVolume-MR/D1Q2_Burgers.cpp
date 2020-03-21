@@ -49,7 +49,9 @@ void one_time_step_old(Field &f)
     constexpr std::size_t nvel = Field::size;
     double lambda = 1., s = 1.;
     auto mesh = f.mesh();
-    auto max_level = mesh[mure::MeshType::cells].max_level();
+    auto max_level = mesh.max_level();
+
+    std::cout << max_level << "\n";
 
     mure::mr_projection(f);
     mure::mr_prediction(f);
@@ -121,8 +123,8 @@ void one_time_step_old(Field &f)
 
             vv = (1 - s) * vv + s * .5 * uu * uu;
 
-            xt::view(new_f(level, i), xt::all(), 0) = .5 * (uu + 1. / lambda * vv);
-            xt::view(new_f(level, i), xt::all(), 1) = .5 * (uu - 1. / lambda * vv);
+            new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
+            new_f(1, level, i) = .5 * (uu - 1. / lambda * vv);
         });
     }
 
@@ -144,8 +146,8 @@ auto prediction(const Field& f, std::size_t level_g, std::size_t level, const in
 
     if (level == 1)
     {
-        return xt::eval(xt::view(f(level_g, ig), xt::all(), item) - 1./8  * d * (xt::view(f(level_g, ig+1), xt::all(), item)
-                                                                               - xt::view(f(level_g, ig-1), xt::all(), item)));
+        return xt::eval(f(item, level_g, ig) - 1./8  * d * (f(item, level_g, ig+1)
+                                                          - f(item, level_g, ig-1)));
     }
     return xt::eval(prediction(f, level_g, level-1, ig, item) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item) 
                                                                           - prediction(f, level_g, level-1, ig-1, item)));
@@ -157,7 +159,7 @@ void one_time_step(Field &f)
     constexpr std::size_t nvel = Field::size;
     double lambda = 1., s = 1.;
     auto mesh = f.mesh();
-    auto max_level = mesh[mure::MeshType::cells].max_level();
+    auto max_level = mesh.max_level();
 
     mure::mr_projection(f);
     mure::mr_prediction(f);
@@ -172,19 +174,20 @@ void one_time_step(Field &f)
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
-            auto fp = xt::view(f(level, i - 1), xt::all(), 0);
-            auto fm = xt::view(f(level, i + 1), xt::all(), 1);
+            auto fp = f(0, level, i - 1);
+            auto fm = f(1, level, i + 1);
 
             if (level != max_level)
             {
                 std::size_t j = max_level - level;
-                double coeff = 1. / (1 << j);
+                double coeff_p = 1. / (1 << level);
+                double coeff_m = 1. / (1 << j);
 
-                fp += coeff * (prediction(f, level, j, i*(1<<j)-1, 0)
-                             - prediction(f, level, j, (i+1)*(1<<j)-1, 0));
+                fp = f(0, level, i) + coeff_p * (prediction(f, level, j, i*(1<<j)-1, 0)
+                                               - prediction(f, level, j, (i+1)*(1<<j)-1, 0));
 
-                fm += coeff * (prediction(f, level, j, (i+1)*(1<<j), 1)
-                             - prediction(f, level, j, i*(1<<j), 1));
+                fm = f(1, level, i) - coeff_m * (prediction(f, level, j, i*(1<<j)-2, 1)
+                                               - prediction(f, level, j, (i+1)*(1<<j)-2, 1));
             }
 
             auto uu = xt::eval(fp + fm);
@@ -277,7 +280,7 @@ int main(int argc, char *argv[])
                         break;
                 }
 
-                one_time_step_old(f);
+                one_time_step(f);
 
                 save_solution(f, eps, nb_ite);
             }
