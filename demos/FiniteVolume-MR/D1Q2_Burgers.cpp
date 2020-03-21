@@ -195,8 +195,8 @@ void one_time_step(Field &f)
 
             vv = (1 - s) * vv + s * .5 * uu * uu;
 
-            xt::view(new_f(level, i), xt::all(), 0) = .5 * (uu + 1. / lambda * vv);
-            xt::view(new_f(level, i), xt::all(), 1) = .5 * (uu - 1. / lambda * vv);
+            new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
+            new_f(1, level, i) = .5 * (uu - 1. / lambda * vv);
         });
     }
 
