@@ -186,8 +186,8 @@ void one_time_step(Field &f)
                 fp = f(0, level, i) + coeff_p * (prediction(f, level, j, i*(1<<j)-1, 0)
                                                - prediction(f, level, j, (i+1)*(1<<j)-1, 0));
 
-                fm = f(1, level, i) - coeff_m * (prediction(f, level, j, i*(1<<j)-2, 1)
-                                               - prediction(f, level, j, (i+1)*(1<<j)-2, 1));
+                fm = f(1, level, i) - coeff_m * (prediction(f, level, j, i*(1<<j), 1)
+                                               - prediction(f, level, j, (i+1)*(1<<j), 1));
             }
 
             auto uu = xt::eval(fp + fm);
