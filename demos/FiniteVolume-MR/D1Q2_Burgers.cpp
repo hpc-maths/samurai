@@ -184,7 +184,12 @@ int main(int argc, char *argv[])
             double eps = result["epsilon"].as<double>();
 
             mure::Box<double, dim> box({-3}, {3});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
+            mure::Mesh<Config> mesh_old{box, min_level, max_level};
+
+            mure::CellList<Config> cl;
+            cl[6][{}].add_interval({-192, 0});
+            cl[5][{}].add_interval({0, 96});
+            mure::Mesh<Config> mesh{cl, mesh_old.initial_mesh(), min_level, max_level};
 
             // Initialization
             auto f = init_f(mesh, 0);
@@ -193,17 +198,17 @@ int main(int argc, char *argv[])
             {
                 std::cout << nb_ite << "\n";
 
-                for (std::size_t i=0; i<max_level-min_level; ++i)
-                {
-                    if (coarsening(f, eps, i))
-                        break;
-                }
+                // for (std::size_t i=0; i<max_level-min_level; ++i)
+                // {
+                //     if (coarsening(f, eps, i))
+                //         break;
+                // }
 
-                for (std::size_t i=0; i<max_level-min_level; ++i)
-                {
-                    if (refinement(f, eps, i))
-                        break;
-                }
+                // for (std::size_t i=0; i<max_level-min_level; ++i)
+                // {
+                //     if (refinement(f, eps, i))
+                //         break;
+                // }
 
                 one_time_step(f);
 
