@@ -67,35 +67,32 @@ namespace mure
         {
             auto qs_i = Qs_i<1>(field, level - 1, i >> 1);
 
-            auto dec = (i.start & 1) ? 1 : 0;
-
+            auto dec_even = (i.start & 1) ? 1 : 0;
             auto even_i = i;
-            even_i.start += dec;
+            even_i.start += dec_even;
             even_i.step = 2;
 
             auto coarse_even_i = i >> 1;
-            coarse_even_i.start += dec;
+            coarse_even_i.start += dec_even;
 
-            if (even_i.is_valid())
-            {
-                field(level, even_i) =
-                    field(level - 1, coarse_even_i) +
-                    xt::view(qs_i, xt::range(dec, qs_i.shape()[0]));
-            }
-
-            dec = (i.end & 1) ? 1 : 0;
+            auto dec_odd = (i.end & 1) ? 1 : 0;
             auto odd_i = i;
             odd_i.start += (i.start & 1) ? 0 : 1;
             odd_i.step = 2;
 
             auto coarse_odd_i = i >> 1;
-            coarse_odd_i.end -= dec;
+            coarse_odd_i.end -= dec_odd;
+
+            if (even_i.is_valid())
+            {
+                field(level, even_i) = field(level - 1, coarse_even_i)
+                                     + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]));
+            }
 
             if (odd_i.is_valid())
             {
-                field(level, odd_i) =
-                    field(level - 1, coarse_odd_i) -
-                    xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec));
+                field(level, odd_i) = field(level - 1, coarse_odd_i)
+                                    - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd));
             }
         }
 
