@@ -209,14 +209,11 @@ namespace mure
         auto ii = i << 1;
         ii.step = 2;
 
-        for (std::size_t i_f = 0; i_f < field.size(); ++i_f)
-        {
-            auto qs_i = Qs_i<1>(field[i_f], level, i);
+        auto qs_i = Qs_i<1>(field, level, i);
 
-            new_field[i_f](level + 1, ii) = (field[i_f](level, i) + qs_i);
+        new_field(level + 1, ii) = field(level, i) + qs_i;
 
-            new_field[i_f](level + 1, ii + 1) = (field[i_f](level, i) - qs_i);
-        }
+        new_field(level + 1, ii + 1) = field(level, i) - qs_i;
     }
 
     template<class interval_t, class coord_index_t, class field_t>

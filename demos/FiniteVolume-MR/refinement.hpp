@@ -175,7 +175,8 @@ bool refinement(Field &u, double eps, std::size_t ite)
                         if (tag.array()[i + interval.index] &
                             static_cast<int>(mure::CellFlag::refine))
                         {
-                            mure::compute_new_u(level, interval_t{i, i+1}, index_yz, u, new_u);
+                            mure::compute_prediction(level, interval_t{i, i + 1},
+                                                     index_yz, u, new_u);
                         }
                     }
                 });
