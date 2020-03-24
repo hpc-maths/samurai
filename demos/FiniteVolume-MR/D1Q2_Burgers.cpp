@@ -23,19 +23,21 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
     mesh.for_each_cell([&](auto &cell) {
         auto center = cell.center();
         auto x = center[0];
-        double u = 0;
+        // double u = 0;
 
-        if (x >= -1 and x < t)
-        {
-            u = (1 + x) / (1 + t);
-        }
-        if (x >= t and x < 1)
-        {
-            u = (1 - x) / (1 - t);
-        }
+        // if (x >= -1 and x < t)
+        // {
+        //     u = (1 + x) / (1 + t);
+        // }
+        // if (x >= t and x < 1)
+        // {
+        //     u = (1 - x) / (1 - t);
+        // }
 
-        double v = .5 * u; 
-        // double v = .5 * u * u;
+        double u = exp(-20.0 * x * x);
+
+        //double v = .5 * u; 
+        double v = .5 * u * u;
 
         f[cell][0] = .5 * (u + v);
         f[cell][1] = .5 * (u - v);
@@ -117,8 +119,8 @@ void one_time_step(Field &f)
             auto uu = xt::eval(fp + fm);
             auto vv = xt::eval(lambda * (fp - fm));
 
-            // vv = (1 - s) * vv + s * .5 * uu * uu;
-            vv = (1 - s) * vv + s * .5 * uu;
+            vv = (1 - s) * vv + s * .5 * uu * uu;
+            //vv = (1 - s) * vv + s * .5 * uu;
 
             new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
             new_f(1, level, i) = .5 * (uu - 1. / lambda * vv);
@@ -195,7 +197,14 @@ int main(int argc, char *argv[])
             // Initialization
             auto f = init_f(mesh, 0);
 
-            for (std::size_t nb_ite = 0; nb_ite < 100; ++nb_ite)
+            double T = 1.2;
+            double dx = 1.0 / (1 << max_level);
+            double dt = dx;
+
+            std::size_t N = static_cast<std::size_t>(T / dt);
+
+
+            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 std::cout << nb_ite << "\n";
 

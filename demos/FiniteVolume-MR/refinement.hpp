@@ -79,7 +79,9 @@ bool refinement(Field &u, double eps, std::size_t ite)
                                          mesh[mure::MeshType::all_cells][level-1])
                        .on(level-1);
         
-        subset.apply_op(level, to_refine_mr(detail, max_detail, tag, 32 * eps_l, max_level));
+        //subset.apply_op(level, to_refine_mr(detail, max_detail, tag, 32 * eps_l, max_level));
+        subset.apply_op(level, to_refine_mr(detail, max_detail, tag, 16 * eps_l, max_level));
+
         //subset.apply_op(level, to_refine_mr_BH(detail, max_detail, tag, 32 * eps_l, max_level));
 
 

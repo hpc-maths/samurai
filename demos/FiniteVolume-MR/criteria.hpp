@@ -22,14 +22,16 @@ namespace mure
 
                 if (size == 1)
                 {
-                    auto mask = xt::abs(detail(level, 2*i))/maxd < eps;
+                    //auto mask = xt::abs(detail(level, 2*i))/maxd < eps;
+                    auto mask = xt::abs(detail(level, 2*i)) < eps; // NO normalization
 
                     xt::masked_view(tag(level, 2*i), mask) = static_cast<int>(mure::CellFlag::coarsen);
                     xt::masked_view(tag(level, 2*i + 1), mask) = static_cast<int>(mure::CellFlag::coarsen);
                 }
                 else
                 {
-                    auto mask = xt::sum((xt::abs(detail(level, 2*i))/maxd < eps), {1}) > (size-1);
+                    //auto mask = xt::sum((xt::abs(detail(level, 2*i))/maxd < eps), {1}) > (size-1);
+                    auto mask = xt::sum((xt::abs(detail(level, 2*i)) < eps), {1}) > (size-1); // No normalization
 
                     xt::masked_view(tag(level, 2*i), mask) = static_cast<int>(mure::CellFlag::coarsen);
                     xt::masked_view(tag(level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
@@ -166,16 +168,23 @@ namespace mure
                 auto maxd = xt::view(max_detail, level);
                 if (size == 1)
                 {
-                    auto mask = ((xt::abs(detail(level, 2*i))/maxd) > eps) or 
-                                ((xt::abs(detail(level, 2*i+1))/maxd) > eps);
+                    // auto mask = ((xt::abs(detail(level, 2*i))/maxd) > eps) or 
+                    //             ((xt::abs(detail(level, 2*i+1))/maxd) > eps);
+
+                    auto mask = ((xt::abs(detail(level, 2*i))) > eps) or 
+                                ((xt::abs(detail(level, 2*i+1))) > eps); // No normalization
+
 
                     xt::masked_view(tag(level, 2*i  ), mask) = static_cast<int>(mure::CellFlag::refine);
                     xt::masked_view(tag(level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::refine);
                 }
                 else
                 {
-                    auto mask = xt::sum(((xt::abs(detail(level, 2*i  ))/maxd) > eps) or 
-                                        ((xt::abs(detail(level, 2*i+1))/maxd) > eps), {1}) > 0;
+                    // auto mask = xt::sum(((xt::abs(detail(level, 2*i  ))/maxd) > eps) or 
+                    //                     ((xt::abs(detail(level, 2*i+1))/maxd) > eps), {1}) > 0;
+
+                    auto mask = xt::sum(((xt::abs(detail(level, 2*i  ))) > eps) or 
+                                        ((xt::abs(detail(level, 2*i+1))) > eps), {1}) > 0; // No normalization
 
                     xt::masked_view(tag(level, 2*i  ), mask) = static_cast<int>(mure::CellFlag::refine);
                     xt::masked_view(tag(level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::refine);
