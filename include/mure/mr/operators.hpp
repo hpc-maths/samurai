@@ -228,32 +228,14 @@ namespace mure
         auto j = index_yz[0];
         auto jj = j << 1;
 
-        for (std::size_t i_f = 0; i_f < field.size(); ++i_f)
-        {
-            auto qs_i = Qs_i<1>(field[i_f], level, i, j);
-            auto qs_j = Qs_j<1>(field[i_f], level, i, j);
-            auto qs_ij = Qs_ij<1>(field[i_f], level, i, j);
+        auto qs_i = Qs_i<1>(field, level, i, j);
+        auto qs_j = Qs_j<1>(field, level, i, j);
+        auto qs_ij = Qs_ij<1>(field, level, i, j);
 
-            new_field[i_f](level + 1, ii, jj) =
-                (field[i_f](level, i, j) + qs_i + qs_j - qs_ij);
-            new_field[i_f](level + 1, ii + 1, jj) =
-                (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
-            new_field[i_f](level + 1, ii, jj + 1) =
-                (field[i_f](level, i, j) + qs_i - qs_j + qs_ij);
-            new_field[i_f](level + 1, ii + 1, jj + 1) =
-                (field[i_f](level, i, j) - qs_i - qs_j - qs_ij);
-
-
-            // This is what is done by Bihari and Harten 1999
-            // new_field[i_f](level + 1, ii, jj) =
-            //     (field[i_f](level, i, j) - qs_i - qs_j + qs_ij);
-            // new_field[i_f](level + 1, ii + 1, jj) =
-            //     (field[i_f](level, i, j) + qs_i - qs_j - qs_ij);
-            // new_field[i_f](level + 1, ii, jj + 1) =
-            //     (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
-            // new_field[i_f](level + 1, ii + 1, jj + 1) =
-            //     (field[i_f](level, i, j) + qs_i + qs_j + qs_ij);
-        }
+        new_field(level + 1, ii, jj) = field(level, i, j) + qs_i + qs_j - qs_ij;
+        new_field(level + 1, ii + 1, jj) = field(level, i, j) - qs_i + qs_j + qs_ij;
+        new_field(level + 1, ii, jj + 1) = field(level, i, j) + qs_i - qs_j + qs_ij;
+        new_field(level + 1, ii + 1, jj + 1) = field(level, i, j) - qs_i - qs_j - qs_ij;
     }
 
     template<class interval_t, class coord_index_t, class field_t,
