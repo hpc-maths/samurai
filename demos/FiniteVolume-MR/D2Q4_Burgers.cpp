@@ -38,16 +38,19 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 
 
         double lambda = 1.0; // Just here
+        double angle = M_PI / 4.0;
+        double kx = cos(angle);
+        double ky = sin(angle);
 
         double m1 = kx*m0*m0/2.0;
         double m2 = ky*m0*m0/2.0;
         double m3 = m0/2.0;  // We can change this but normally it works fine
 
         // We come back to the distributions
-        f[cell][0] = .25 * m0 + .5/lambda * (m1)                    + .25/(lambda*lambda) * m4;
-        f[cell][1] = .25 * m0                    + .5/lambda * (m2) - .25/(lambda*lambda) * m4;
-        f[cell][2] = .25 * m0 - .5/lambda * (m1)                    + .25/(lambda*lambda) * m4;
-        f[cell][3] = .25 * m0                    - .5/lambda * (m2) - .25/(lambda*lambda) * m4;
+        f[cell][0] = .25 * m0 + .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
+        f[cell][1] = .25 * m0                    + .5/lambda * (m2) - .25/(lambda*lambda) * m3;
+        f[cell][2] = .25 * m0 - .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
+        f[cell][3] = .25 * m0                    - .5/lambda * (m2) - .25/(lambda*lambda) * m3;
 
     });
 
@@ -64,20 +67,26 @@ auto prediction(const Field& f, std::size_t level_g, std::size_t level, const in
 
     auto step = k.step;
     auto kg = k / 2;
+    auto hg = h / 2;
     kg.step = step >> 1;
     xt::xtensor<double, 1> d_x = xt::empty<double>({k.size()/k.step});
-    xt::xtensor<double, 1> d_y = xt::empty<double>({h.size()/h.step}); // Je ne pense pas que ca se fasse comme ca....
+    xt::xtensor<double, 1> d_xy = xt::empty<double>({k.size()/k.step});
+    double d_y = (h & 1)? -1.: 1.;
 
-    // For LOIC : We should treat h (x coordinate) in the same way
-
-
-    for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
+    for (int ii=k.start, iii=0; ii<k.end; ii+=k.step, ++iii)
     {
         d_x[iii] = (ii & 1)? -1.: 1.;
+        d_xy[iii] = ((ii+h) & 1)? -1.: 1.;
     }
   
-    return xt::eval(prediction(f, level_g, level-1, ig, item) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item) 
-                                                                          - prediction(f, level_g, level-1, ig-1, item)));
+    return xt::eval(prediction(f, level_g, level-1, kg, hg, item) - 1./8 * d_x * (prediction(f, level_g, level-1, kg+1, hg, item) 
+                                                                               - prediction(f, level_g, level-1, kg-1, hg, item))
+                                                                 - 1./8 * d_y * (prediction(f, level_g, level-1, kg, hg+1, item) 
+                                                                               - prediction(f, level_g, level-1, kg, hg-1, item))
+                                                                 - 1./64 * d_xy * (prediction(f, level_g, level-1, kg+1, hg+1, item)
+                                                                                 - prediction(f, level_g, level-1, kg+1, hg-1, item)
+                                                                                 - prediction(f, level_g, level-1, kg-1, hg+1, item)
+                                                                                 + prediction(f, level_g, level-1, kg-1, hg+1, item)));
 }
 
 template<class Field>
@@ -89,7 +98,7 @@ void one_time_step(Field &f)
     double s3     = 1.5;
 
     // This gives the direction.
-    double angle = M_PI / 4.0
+    double angle = M_PI / 4.0;  
     double kx = cos(angle);
     double ky = sin(angle);
 
@@ -106,7 +115,7 @@ void one_time_step(Field &f)
     {
         auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
                                       mesh[mure::MeshType::cells][level]);
-        exp([&](auto, auto &interval, auto) {
+        exp([&](auto& index, auto &interval, auto) {
             auto k = interval[0]; // Logical index in x
             auto h = index[0];    // Logical index in y
 
@@ -114,12 +123,12 @@ void one_time_step(Field &f)
             double coeff = 1. / (1 << (2*j)); // The factor 2 comes from the 2D 
 
             auto fp0 = f(0, level, k, h);
-            auto f0P = f(1, level, k, h);
+            auto f0p = f(1, level, k, h);
             auto fm0 = f(2, level, k, h);
             auto f0m = f(3, level, k, h);
 
             // We have to iterate over the elements on the considered boundary
-            for (std::size_t l = 0; l < (1<<j); ++l)    {
+            for (int l = 0; l < (1<<j); ++l)    {
 
                 fp0 += coeff * (prediction(f, level, j,  k   *(1<<j) - 1, h*(1<<j) + l, 0)
                               - prediction(f, level, j, (k+1)*(1<<j) - 1, h*(1<<j) + l, 0));
@@ -145,10 +154,10 @@ void one_time_step(Field &f)
             m3 = (1 - s3) * m3 + s3 * (m0/2.0); // We can change this but normally it works fine
 
             // We come back to the distributions
-            new_f(0, level, k, h) = .25 * m0 + .5/lambda * (m1)                    + .25/(lambda*lambda) * m4;
-            new_f(1, level, k, h) = .25 * m0                    + .5/lambda * (m2) - .25/(lambda*lambda) * m4;
-            new_f(2, level, k, h) = .25 * m0 - .5/lambda * (m1)                    + .25/(lambda*lambda) * m4;
-            new_f(3, level, k, h) = .25 * m0                    - .5/lambda * (m2) - .25/(lambda*lambda) * m4;
+            new_f(0, level, k, h) = .25 * m0 + .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
+            new_f(1, level, k, h) = .25 * m0                    + .5/lambda * (m2) - .25/(lambda*lambda) * m3;
+            new_f(2, level, k, h) = .25 * m0 - .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
+            new_f(3, level, k, h) = .25 * m0                    - .5/lambda * (m2) - .25/(lambda*lambda) * m3;
 
 
         });
