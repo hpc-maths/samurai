@@ -5,7 +5,7 @@
 
 #include <chrono>
 
-double eps = 0.1;
+double eps = 0.01;
 
 
 /// Timer used in tic & toc
