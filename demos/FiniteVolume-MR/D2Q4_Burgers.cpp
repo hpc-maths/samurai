@@ -92,6 +92,9 @@ auto prediction(const Field& f, std::size_t level_g, std::size_t level, const in
 template<class Field>
 void one_time_step(Field &f)
 {
+
+    std::cout<<std::endl<<"Inside one time step";
+   
     constexpr std::size_t nvel = Field::size;
     double lambda = 1.;
     double s1, s2 = 1.5;
@@ -105,11 +108,16 @@ void one_time_step(Field &f)
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
 
+    std::cout<<std::endl<<"Got mesh and level";
+
+
     mure::mr_projection(f);
     mure::mr_prediction(f);
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
+
+    std::cout<<std::endl<<"Everything is ready to apply the numerical scheme on the leaves";
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
@@ -190,6 +198,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
     h5file.add_field(u);
     h5file.add_field(f);
     h5file.add_field(level_);
+
 }
 
 int main(int argc, char *argv[])
@@ -199,7 +208,7 @@ int main(int argc, char *argv[])
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
@@ -215,19 +224,22 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 2;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = mure::MRConfig<dim, 4>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
 
-            mure::Box<double, dim> box({-3, 3}, {3, 3});
+            mure::Box<double, dim> box({-3, -3}, {3, 3});
             mure::Mesh<Config> mesh{box, min_level, max_level};
-            // mure::Mesh<Config> mesh_old{box, min_level, max_level};
+
+            std::cout<<"\nBasic mesh created";
 
             // Initialization
             auto f = init_f(mesh, 0);
+
+            std::cout<<"\nData initializad";
 
             double T = 1.2;
             double dx = 1.0 / (1 << max_level);
@@ -246,7 +258,9 @@ int main(int argc, char *argv[])
                         break;
                 }
 
+                std::cout<<std::endl<<"Mesh coarsened";
                 save_solution(f, eps, nb_ite, "coarsening");
+                std::cout<<std::endl<<"Coarsened mesh saved";
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
@@ -254,11 +268,17 @@ int main(int argc, char *argv[])
                         break;
                 }
 
-                save_solution(f, eps, nb_ite, "refinement");
+                std::cout<<std::endl<<"Mesh refined";
+                //save_solution(f, eps, nb_ite, "refinement");
 
                 one_time_step(f);
 
+
+                std::cout<<std::endl<<"Step done";
+
                 save_solution(f, eps, nb_ite, "onetimestep");
+
+                std::cout<<"\nSolution saved";
             }
         }
     }

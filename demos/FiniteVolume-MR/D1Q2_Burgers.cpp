@@ -23,18 +23,18 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
     mesh.for_each_cell([&](auto &cell) {
         auto center = cell.center();
         auto x = center[0];
-        // double u = 0;
+        double u = 0;
 
-        // if (x >= -1 and x < t)
-        // {
-        //     u = (1 + x) / (1 + t);
-        // }
-        // if (x >= t and x < 1)
-        // {
-        //     u = (1 - x) / (1 - t);
-        // }
+        if (x >= -1 and x < t)
+        {
+            u = (1 + x) / (1 + t);
+        }
+        if (x >= t and x < 1)
+        {
+            u = (1 - x) / (1 - t);
+        }
 
-        double u = exp(-20.0 * x * x);
+        //double u = exp(-20.0 * x * x);
 
         //double v = .5 * u; 
         double v = .5 * u * u;
@@ -72,7 +72,7 @@ template<class Field>
 void one_time_step(Field &f)
 {
     constexpr std::size_t nvel = Field::size;
-    double lambda = 1., s = 1.;
+    double lambda = 1., s = 1.0;
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
 
