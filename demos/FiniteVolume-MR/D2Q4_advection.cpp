@@ -9,6 +9,11 @@
 #include "refinement.hpp"
 #include "criteria.hpp"
 
+
+const double kx = 0.0;
+const double ky = 0.4;
+const double lambda = 2.0;
+
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
 {
@@ -36,13 +41,10 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 <= radius * radius)
             m0 = 1;
 
-        double lambda = 1.0; // Just here
-        double kx = 0.5;
-        double ky = 0.;
 
         double m1 = kx*m0;
         double m2 = ky*m0;
-        double m3 = 0;
+        double m3 = 0.0;
 
         // We come back to the distributions
         f[cell][0] = .25 * m0 + .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
@@ -91,12 +93,9 @@ template<class Field>
 void one_time_step(Field &f)
 {
     constexpr std::size_t nvel = Field::size;
-    double lambda = 1.;
-    double s1, s2 = 1.;
-    double s3     = 1.;
 
-    double kx = 0.5;
-    double ky = 0;
+    double s1, s2 = 0.5;
+    double s3     = 0.5;
 
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
@@ -118,26 +117,32 @@ void one_time_step(Field &f)
             std::size_t j = max_level - level; 
             double coeff = 1. / (1 << (2*j)); // The factor 2 comes from the 2D 
 
-            auto fp0 = xt::eval(f(0, level, k, h));
-            auto f0p = xt::eval(f(1, level, k, h));
-            auto fm0 = xt::eval(f(2, level, k, h));
-            auto f0m = xt::eval(f(3, level, k, h));
+            // auto fp0 = xt::eval(f(0, level, k, h));
+            // auto f0p = xt::eval(f(1, level, k, h));
+            // auto fm0 = xt::eval(f(2, level, k, h));
+            // auto f0m = xt::eval(f(3, level, k, h));
+
+            // Danger : only for uniform mesh
+            auto fp0 = xt::eval(f(0, level, k - 1, h    ));
+            auto f0p = xt::eval(f(1, level, k    , h - 1));
+            auto fm0 = xt::eval(f(2, level, k + 1, h    ));
+            auto f0m = xt::eval(f(3, level, k    , h + 1));
 
             // We have to iterate over the elements on the considered boundary
-            for (int l = 0; l < (1<<j); ++l)
-            {
-                fp0 += coeff * (prediction(f, level, j,  k   *(1<<j) - 1, h*(1<<j) + l, 0)
-                              - prediction(f, level, j, (k+1)*(1<<j) - 1, h*(1<<j) + l, 0));
+            // for (int l = 0; l < (1<<j); ++l)
+            // {
+            //     fp0 += coeff * (prediction(f, level, j,  k   *(1<<j) - 1, h*(1<<j) + l, 0)
+            //                   - prediction(f, level, j, (k+1)*(1<<j) - 1, h*(1<<j) + l, 0));
                 
-                f0p += coeff * (prediction(f, level, j,  k*(1<<j) + l,  h   *(1<<j) - 1, 1)
-                              - prediction(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j) - 1, 1));
+            //     f0p += coeff * (prediction(f, level, j,  k*(1<<j) + l,  h   *(1<<j) - 1, 1)
+            //                   - prediction(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j) - 1, 1));
 
-                fm0 += coeff * (prediction(f, level, j, (k+1)*(1<<j), h*(1<<j) + l, 2)
-                              - prediction(f, level, j,  k   *(1<<j), h*(1<<j) + l, 2));
+            //     fm0 += coeff * (prediction(f, level, j, (k+1)*(1<<j), h*(1<<j) + l, 2)
+            //                   - prediction(f, level, j,  k   *(1<<j), h*(1<<j) + l, 2));
                 
-                f0m += coeff * (prediction(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j), 3)
-                              - prediction(f, level, j,  k*(1<<j) + l,  h   *(1<<j), 3));
-            }
+            //     f0m += coeff * (prediction(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j), 3)
+            //                   - prediction(f, level, j,  k*(1<<j) + l,  h   *(1<<j), 3));
+            // }
 
             // We compute the advected momenti
             auto m0 = xt::eval(                 fp0 + f0p + fm0 + f0m) ;
@@ -145,9 +150,9 @@ void one_time_step(Field &f)
             auto m2 = xt::eval(lambda        * (      f0p       - f0m));
             auto m3 = xt::eval(lambda*lambda * (fp0 - f0p + fm0 - f0m));
 
-            m1 = (1 - s1) * m1 + s1 * (kx*m0);
-            m2 = (1 - s2) * m2 + s2 * (ky*m0);
-            m3 = (1 - s3) * m3; 
+            m1 = (1. - s1) * m1 + s1 * (kx*m0);
+            m2 = (1. - s2) * m2 + s2 * (ky*m0);
+            m3 = (1. - s3) * m3; 
 
             // We come back to the distributions
             new_f(0, level, k, h) = .25 * m0 + .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
@@ -233,6 +238,9 @@ int main(int argc, char *argv[])
             {
                 std::cout << nb_ite << "\n";
 
+
+                save_solution(f, eps, nb_ite);
+
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
                     if (coarsening(f, eps, i))
@@ -252,7 +260,7 @@ int main(int argc, char *argv[])
 
                 one_time_step(f);
 
-                save_solution(f, eps, nb_ite);
+                // save_solution(f, eps, nb_ite);
             }
         }
     }
