@@ -8,6 +8,7 @@
 
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
+#include <math.h> 
 
 #include <mure/mure.hpp>
 #include "coarsening.hpp"
@@ -17,7 +18,7 @@
 double mach   = 0.1;
 double lambda = sqrt(3.0) / mach;
 double rho_0  = 1.0;
-double U_0    = 0.5;
+double U_0    = 0.05;//0.5;
 double zeta   = 0.0366;
 double mu     = 1.0E-6;
 double k      = 80.0;
@@ -78,7 +79,7 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
         f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
         f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-        f[cell][4] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+        f[cell][5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
         f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
         f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
         f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
@@ -311,8 +312,8 @@ int main(int argc, char *argv[])
             {
                 std::cout << nb_ite << "\n";
 
-                if (nb_ite > 0)
-                    save_solution(f, eps, nb_ite);
+                // if (nb_ite > 0)
+                save_solution(f, eps, nb_ite);
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
