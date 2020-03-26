@@ -13,7 +13,7 @@ double lambda = 2.;
 double sigma_q = 0.5; 
 double sigma_xy = 0.5;
 
-double sq = 1.9;//1./(.5 + sigma_q);
+double sq = 1.2;//1./(.5 + sigma_q);
 double sxy = 1./(.5 + sigma_xy);
 
 double kx = 0.2;
@@ -46,8 +46,8 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 <= radius * radius)
             m0 = 1;
 
-        double m1 = kx*m0;
-        double m2 = ky*m0;
+        double m1 = 0.5 * kx * m0 * m0;
+        double m2 = 0.5 * ky * m0 * m0;
         double m3 = 0.0;
 
         // We come back to the distributions
@@ -137,8 +137,8 @@ void one_time_step(Field &f)
             auto m2 = xt::eval(lambda        * (     f1      - f3));
             auto m3 = xt::eval(lambda*lambda * (f0 - f1 + f2 - f3));
 
-            m1 = (1 - sq) * m1 + sq * kx * m0;
-            m2 = (1 - sq) * m2 + sq * ky * m0;
+            m1 = (1 - sq) * m1 + sq * 0.5 * kx * m0 * m0;
+            m2 = (1 - sq) * m2 + sq * 0.5 * ky * m0 * m0;
             m3 = (1 - sxy) * m3; 
 
             // We come back to the distributions
@@ -161,7 +161,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     std::size_t max_level = mesh.max_level();
 
     std::stringstream str;
-    str << "LBM_D2Q4_advection-same_level_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
+    str << "LBM_D2Q4_burgers_same_level_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
     auto h5file = mure::Hdf5(str.str().data());
@@ -179,8 +179,8 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 
 int main(int argc, char *argv[])
 {
-    cxxopts::Options options("lbm_d2q4_advection_same_level",
-                             "Multi resolution for a D2Q4 LBM scheme for the scalar advection equation with cheap flux evaluation");
+    cxxopts::Options options("lbm_d2q4_Burgers_same_level",
+                             "Multi resolution for a D2Q4 LBM scheme for the scalar Burgers equation with cheap flux evaluation");
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))

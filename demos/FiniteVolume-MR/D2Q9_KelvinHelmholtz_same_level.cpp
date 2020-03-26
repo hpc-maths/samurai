@@ -1,3 +1,8 @@
+/*
+    The choice of the momenti is that 
+    of Geier as testesd in pyLBM and working properly
+*/
+
 #include <math.h>
 #include <vector>
 
@@ -9,24 +14,24 @@
 #include "refinement.hpp"
 #include "criteria.hpp"
 
-double lambda = 2.;
-double sigma_q = 0.5; 
-double sigma_xy = 0.5;
+double mach   = 0.1;
+double lambda = sqrt(3.0) / mach;
+double rho_0  = 1.0;
+double U_0    = 0.5;
+double zeta   = 0.0366;
+double mu     = 1.0E-6;
+double k      = 80.0;
+double delta  = 0.05;
 
-double sq = 1.9;//1./(.5 + sigma_q);
-double sxy = 1./(.5 + sigma_xy);
-
-double kx = 0.2;
-double ky = 0.5;
 
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
 {
-    constexpr std::size_t nvel = 4;
-    mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0}
+    constexpr std::size_t nvel = 9;
+    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0},
+                       {mure::BCType::neumann, 0},
+                       {mure::BCType::neumann, 0},
+                       {mure::BCType::neumann, 0}
                     }} };
 
     mure::Field<Config, double, nvel> f("f", mesh, bc);
@@ -37,24 +42,46 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         auto x = center[0];
         auto y = center[1];
 
-        double m0 = 0;
+        double rho = rho_0;
+        double qx = 0.0;
+        double qy = U_0 * delta * sin(2. * M_PI * (x + .25));
 
-        double radius = .1;
-        double x_center = 0.5, y_center = 0.5;
-        if ((   (x - x_center) * (x - x_center) + 
-                (y - y_center) * (y - y_center))
-                <= radius * radius)
-            m0 = 1;
+        if (y <= 0.5)  
+            qx = U_0 * tanh(k * (y - .25));
+        else
+            qx = U_0 * tanh(k * (.75 - y));
 
-        double m1 = kx*m0;
-        double m2 = ky*m0;
-        double m3 = 0.0;
+        // We give standard names
+        double c02 = lambda * lambda / 3.0; // sound velocity squared
+
+        double m0 = rho;
+        double m1 = qx;
+        double m2 = qy;
+        double m3 = (qx*qx+qy*qy)/rho + 2.*rho*c02;
+        double m4 = qx*(c02+(qy/rho)*(qy/rho));
+        double m5 = qy*(c02+(qx/rho)*(qx/rho));
+        double m6 = rho*(c02+(qx/rho)*(qx/rho))*(c02+(qy/rho)*(qy/rho));
+        double m7 = (qx*qx-qy*qy)/rho;
+        double m8 = qx*qy/rho;
+
+
 
         // We come back to the distributions
-        f[cell][0] = .25 * m0 + .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
-        f[cell][1] = .25 * m0                    + .5/lambda * (m2) - .25/(lambda*lambda) * m3;
-        f[cell][2] = .25 * m0 - .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
-        f[cell][3] = .25 * m0                    - .5/lambda * (m2) - .25/(lambda*lambda) * m3;
+
+        double r1 = 1.0 / lambda;
+        double r2 = 1.0 / (lambda*lambda);
+        double r3 = 1.0 / (lambda*lambda*lambda);
+        double r4 = 1.0 / (lambda*lambda*lambda*lambda);
+
+        f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
+        f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+        f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+        f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+        f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+        f[cell][4] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+        f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+        f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+        f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
 
     });
 
@@ -101,6 +128,8 @@ void one_time_step(Field &f)
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
 
+    double space_step = 1.0 / (1 << max_level);
+
     mure::mr_projection(f);
     mure::mr_prediction(f);
 
@@ -125,21 +154,51 @@ void one_time_step(Field &f)
 
             double coeff_new = 1. / (1 << (j));
 
-
-            auto f0 = (1.0 - coeff_new) * xt::eval(f(0, level, k, h)) + coeff_new * xt::eval(f(0, level, k-1, h));
-            auto f1 = (1.0 - coeff_new) * xt::eval(f(1, level, k, h)) + coeff_new * xt::eval(f(1, level, k, h-1));
-            auto f2 = (1.0 - coeff_new) * xt::eval(f(2, level, k, h)) + coeff_new * xt::eval(f(2, level, k+1, h));
-            auto f3 = (1.0 - coeff_new) * xt::eval(f(3, level, k, h)) + coeff_new * xt::eval(f(3, level, k, h+1));
+            // Uniform mesh for the moment
+            auto f0 = xt::eval(f(0, level, k    , h    ));
+            auto f1 = xt::eval(f(1, level, k - 1, h    ));
+            auto f2 = xt::eval(f(2, level, k    , h - 1));
+            auto f3 = xt::eval(f(3, level, k + 1, h    ));
+            auto f4 = xt::eval(f(4, level, k    , h + 1));
+            auto f5 = xt::eval(f(5, level, k - 1, h - 1));
+            auto f6 = xt::eval(f(6, level, k + 1, h - 1));
+            auto f7 = xt::eval(f(7, level, k + 1, h + 1));
+            auto f8 = xt::eval(f(8, level, k - 1, h + 1));
 
             // // We compute the advected momenti
-            auto m0 = xt::eval(                 f0 + f1 + f2 + f3) ;
-            auto m1 = xt::eval(lambda        * (f0      - f2      ));
-            auto m2 = xt::eval(lambda        * (     f1      - f3));
-            auto m3 = xt::eval(lambda*lambda * (f0 - f1 + f2 - f3));
+            double l1 = lambda;
+            double l2 = l1 * lambda;
+            double l3 = l2 * lambda;
+            double l4 = l3 * lambda;
 
-            m1 = (1 - sq) * m1 + sq * kx * m0;
-            m2 = (1 - sq) * m2 + sq * ky * m0;
-            m3 = (1 - sxy) * m3; 
+            auto m0 = xt::eval(f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f7);
+            auto m1 = xt::eval(l1*(f1 - f3 + f5 - f6 - f7 + f8));
+            auto m2 = xt::eval(l1*(f3 - f5 + f6 + f6 - f7 - f8));
+            auto m3 = xt::eval(l2*(f1 + f2 + f3 + f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8));
+            auto m4 = xt::eval(l3*(f5 - f6 - f7 + f8));
+            auto m5 = xt::eval(l3*(f5 + f6 - f7 - f8));
+            auto m6 = xt::eval(l4*(f5 + f6 + f7 + f8));
+            auto m7 = xt::eval(l2*(f1 - f2 + f3 - f4));
+            auto m8 = xt::eval(l2*(f5 - f6 + f7 - f8));
+
+            // Collision
+
+            double dummy = 3.0/(lambda*rho_0*space_step);
+            double sigma_1 = dummy*zeta;
+            double sigma_2 = dummy*mu;
+            double s_1 = 1/(.5+sigma_1);
+            double s_2 = 1/(.5+sigma_2);
+
+            double c02 = lambda * lambda / 3.0; // sound velocity squared
+
+
+            m3 = (1. - s_1) * m3 + s_1 * ((qx*qx+qy*qy)/rho + 2.*rho*c02);
+            m4 = (1. - s_1) * m3 + s_1 * (qx*(c02+(qy/rho)*(qy/rho)));
+            m5 = (1. - s_1) * m4 + s_1 * (qy*(c02+(qx/rho)*(qx/rho)));
+            m6 = (1. - s_1) * m5 + s_1 * (rho*(c02+(qx/rho)*(qx/rho))*(c02+(qy/rho)*(qy/rho)));
+            m7 = (1. - s_2) * m3 + s_2 * ((qx*qx-qy*qy)/rho);
+            m8 = (1. - s_2) * m3 + s_2 * (qx*qy/rho);
+
 
             // We come back to the distributions
             new_f(0, level, k, h) = .25 * m0 + .5/lambda * m1                    + .25/(lambda*lambda) * m3;
@@ -161,7 +220,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     std::size_t max_level = mesh.max_level();
 
     std::stringstream str;
-    str << "LBM_D2Q4_advection-same_level_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
+    str << "LBM_D2Q4_burgers_same_level_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
     auto h5file = mure::Hdf5(str.str().data());
@@ -179,8 +238,8 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 
 int main(int argc, char *argv[])
 {
-    cxxopts::Options options("lbm_d2q4_advection_same_level",
-                             "Multi resolution for a D2Q4 LBM scheme for the scalar advection equation with cheap flux evaluation");
+    cxxopts::Options options("lbm_d2q4_Burgers_same_level",
+                             "Multi resolution for a D2Q4 LBM scheme for the scalar Burgers equation with cheap flux evaluation");
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
