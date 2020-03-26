@@ -8,6 +8,7 @@
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
+#include "prediction_map_2d.hpp"
 
 double lambda = 2.;
 double sigma_q = 0.5; 
@@ -61,42 +62,32 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
     return f;
 }
 
-template<class Field, class interval_t, class index_t>
-auto prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &k, const index_t h, const std::size_t item)
+template<class coord_index_t>
+auto compute_prediction(std::size_t min_level, std::size_t max_level)
 {
-    if (level == 0)
-    {
-        return xt::eval(f(item, level_g, k, h));
-    }
+    coord_index_t i = 0, j = 0;
+    std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
 
-    auto step = k.step;
-    auto kg = k / 2;
-    auto hg = h / 2;
-    kg.step = step >> 1;
-    xt::xtensor<double, 1> d_x = xt::empty<double>({k.size()/k.step});
-    xt::xtensor<double, 1> d_xy = xt::empty<double>({k.size()/k.step});
-    double d_y = (h & 1)? -1.: 1.;
-
-    for (int ii=k.start, iii=0; ii<k.end; ii+=k.step, ++iii)
+    for(std::size_t k=0; k<max_level-min_level+1; ++k)
     {
-        d_x[iii] = (ii & 1)? -1.: 1.;
-        d_xy[iii] = ((ii+h) & 1)? -1.: 1.;
+        int size = (1<<k);
+        data[k].resize(4);
+        for (int l = 0; l < size; ++l)
+        {
+            data[k][0] += prediction(k, i*size - 1, j*size + l) - prediction(k, (i+1)*size - 1, j*size + l);
+            data[k][1] += prediction(k, i*size + l, j*size - 1) - prediction(k, i*size + l, (j+1)*size - 1);
+            data[k][2] += prediction(k, (i+1)*size, j*size + l) - prediction(k, i*size, j*size + l);
+            data[k][3] += prediction(k, i*size + l, (j+1)*size) - prediction(k, i*size + l, j*size);
+        }
     }
-  
-    return xt::eval(prediction(f, level_g, level-1, kg, hg, item) - 1./8 * d_x * (prediction(f, level_g, level-1, kg+1, hg, item) 
-                                                                               - prediction(f, level_g, level-1, kg-1, hg, item))
-                                                                  - 1./8 * d_y * (prediction(f, level_g, level-1, kg, hg+1, item) 
-                                                                               - prediction(f, level_g, level-1, kg, hg-1, item))
-                                                                  - 1./64 * d_xy * (prediction(f, level_g, level-1, kg+1, hg+1, item)
-                                                                                 - prediction(f, level_g, level-1, kg+1, hg-1, item)
-                                                                                 - prediction(f, level_g, level-1, kg-1, hg+1, item)
-                                                                                 + prediction(f, level_g, level-1, kg-1, hg+1, item)));
+    return data;
 }
 
-template<class Field>
-void one_time_step(Field &f)
+template<class Field, class pred>
+void one_time_step(Field &f, const pred& pred_coeff)
 {
     constexpr std::size_t nvel = Field::size;
+    using coord_index_t = typename Field::coord_index_t;
 
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
@@ -118,33 +109,41 @@ void one_time_step(Field &f)
             std::size_t j = max_level - level; 
             double coeff = 1. / (1 << (2*j)); // The factor 2 comes from the 2D 
 
-            // auto f0 = xt::eval(f(0, level, k-1, h  ));
-            // auto f1 = xt::eval(f(1, level, k  , h-1));
-            // auto f2 = xt::eval(f(2, level, k+1, h  ));
-            // auto f3 = xt::eval(f(3, level, k  , h+1));
-
             auto f0 = xt::eval(f(0, level, k, h));
             auto f1 = xt::eval(f(1, level, k, h));
             auto f2 = xt::eval(f(2, level, k, h));
             auto f3 = xt::eval(f(3, level, k, h));
 
             // We have to iterate over the elements on the considered boundary
-            for (int l = 0; l < (1<<j); ++l)
+            for(auto &c: pred_coeff[j][0].coeff)
             {
-                f0 += coeff * (prediction(f, level, j,  k   *(1<<j) - 1, h*(1<<j) + l, 0)
-                              - prediction(f, level, j, (k+1)*(1<<j) - 1, h*(1<<j) + l, 0));
-                
-                f1 += coeff * (prediction(f, level, j,  k*(1<<j) + l,  h   *(1<<j) - 1, 1)
-                              - prediction(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j) - 1, 1));
-
-                f2 += coeff * (prediction(f, level, j, (k+1)*(1<<j), h*(1<<j) + l, 2)
-                              - prediction(f, level, j,  k   *(1<<j), h*(1<<j) + l, 2));
-                
-                f3 += coeff * (prediction(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j), 3)
-                              - prediction(f, level, j,  k*(1<<j) + l,  h   *(1<<j), 3));
+                coord_index_t stencil_x, stencil_y;
+                std::tie(stencil_x, stencil_y) = c.first;
+                f0 += coeff*c.second*f(0, level, k + stencil_x, h + stencil_y);
             }
 
-            // // We compute the advected momenti
+            for(auto &c: pred_coeff[j][1].coeff)
+            {
+                coord_index_t stencil_x, stencil_y;
+                std::tie(stencil_x, stencil_y) = c.first;
+                f1 += coeff*c.second*f(1, level, k + stencil_x, h + stencil_y);
+            }
+
+            for(auto &c: pred_coeff[j][2].coeff)
+            {
+                coord_index_t stencil_x, stencil_y;
+                std::tie(stencil_x, stencil_y) = c.first;
+                f2 += coeff*c.second*f(2, level, k + stencil_x, h + stencil_y);
+            }
+
+            for(auto &c: pred_coeff[j][3].coeff)
+            {
+                coord_index_t stencil_x, stencil_y;
+                std::tie(stencil_x, stencil_y) = c.first;
+                f3 += coeff*c.second*f(3, level, k + stencil_x, h + stencil_y);
+            }
+
+            // We compute the advected momenti
             auto m0 = xt::eval(                 f0 + f1 + f2 + f3) ;
             auto m1 = xt::eval(lambda        * (f0      - f2      ));
             auto m2 = xt::eval(lambda        * (     f1      - f3));
@@ -223,6 +222,9 @@ int main(int argc, char *argv[])
             mure::Box<double, dim> box({0, 0}, {1, 1});
             mure::Mesh<Config> mesh{box, min_level, max_level};
 
+            using coord_index_t = typename Config::coord_index_t;
+            auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
+
             // Initialization
             auto f = init_f(mesh, 0);
 
@@ -236,7 +238,6 @@ int main(int argc, char *argv[])
             {
                 std::cout << nb_ite << "\n";
 
-
                 save_solution(f, eps, nb_ite);
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
@@ -244,21 +245,14 @@ int main(int argc, char *argv[])
                     if (coarsening(f, eps, i))
                         break;
                 }
-                std::cout << "coarsening\n";
-                // save_solution(f, eps, nb_ite, "coarsening");
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
                     if (refinement(f, eps, i))
                         break;
                 }
-                std::cout << "refinement\n";
 
-                // save_solution(f, eps, nb_ite, "refinement");
-
-                one_time_step(f);
-
-                // save_solution(f, eps, nb_ite);
+                one_time_step(f, pred_coeff);
             }
         }
     }
