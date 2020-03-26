@@ -77,7 +77,8 @@ namespace mure
             update_ghost_nodes();
         }
 
-        inline Mesh(const CellList<MRConfig> &dcl)
+        inline Mesh(const CellList<MRConfig> &dcl, std::size_t min_level, std::size_t max_level)
+        : m_min_level{min_level}, m_max_level{max_level}
         {
             m_cells[MeshType::cells] = {dcl};
             update_ghost_nodes();
