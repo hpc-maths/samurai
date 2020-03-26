@@ -14,7 +14,7 @@ double lambda = 2.;
 double sigma_q = 0.5; 
 double sigma_xy = 0.5;
 
-double sq = 1./(.5 + sigma_q);
+double sq = 1.9;//1./(.5 + sigma_q);
 double sxy = 1./(.5 + sigma_xy);
 
 double kx = 0.2;
@@ -238,7 +238,8 @@ int main(int argc, char *argv[])
             {
                 std::cout << nb_ite << "\n";
 
-                save_solution(f, eps, nb_ite);
+                if (nb_ite > 0)
+                    save_solution(f, eps, nb_ite);
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {

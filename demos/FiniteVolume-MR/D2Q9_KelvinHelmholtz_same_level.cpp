@@ -173,13 +173,15 @@ void one_time_step(Field &f)
 
             auto m0 = xt::eval(f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f7);
             auto m1 = xt::eval(l1*(f1 - f3 + f5 - f6 - f7 + f8));
-            auto m2 = xt::eval(l1*(f3 - f5 + f6 + f6 - f7 - f8));
+            auto m2 = xt::eval(l1*(f2 - f4 + f5 + f6 - f7 - f8));
             auto m3 = xt::eval(l2*(f1 + f2 + f3 + f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8));
             auto m4 = xt::eval(l3*(f5 - f6 - f7 + f8));
             auto m5 = xt::eval(l3*(f5 + f6 - f7 - f8));
             auto m6 = xt::eval(l4*(f5 + f6 + f7 + f8));
             auto m7 = xt::eval(l2*(f1 - f2 + f3 - f4));
             auto m8 = xt::eval(l2*(f5 - f6 + f7 - f8));
+
+
 
             // Collision
 
@@ -192,19 +194,30 @@ void one_time_step(Field &f)
             double c02 = lambda * lambda / 3.0; // sound velocity squared
 
 
-            m3 = (1. - s_1) * m3 + s_1 * ((qx*qx+qy*qy)/rho + 2.*rho*c02);
-            m4 = (1. - s_1) * m3 + s_1 * (qx*(c02+(qy/rho)*(qy/rho)));
-            m5 = (1. - s_1) * m4 + s_1 * (qy*(c02+(qx/rho)*(qx/rho)));
-            m6 = (1. - s_1) * m5 + s_1 * (rho*(c02+(qx/rho)*(qx/rho))*(c02+(qy/rho)*(qy/rho)));
-            m7 = (1. - s_2) * m3 + s_2 * ((qx*qx-qy*qy)/rho);
-            m8 = (1. - s_2) * m3 + s_2 * (qx*qy/rho);
-
+            m3 = (1. - s_1) * m3 + s_1 * ((m1*m1+m2*m2)/m0 + 2.*m0*c02);
+            m4 = (1. - s_1) * m3 + s_1 * (m1*(c02+(m2/m0)*(m2/m0)));
+            m5 = (1. - s_1) * m4 + s_1 * (m2*(c02+(m1/m0)*(m1/m0)));
+            m6 = (1. - s_1) * m5 + s_1 * (m0*(c02+(m1/m0)*(m1/m0))*(c02+(m2/m0)*(m2/m0)));
+            m7 = (1. - s_2) * m3 + s_2 * ((m1*m1-m2*m2)/m0);
+            m8 = (1. - s_2) * m3 + s_2 * (m1*m2/m0);
 
             // We come back to the distributions
-            new_f(0, level, k, h) = .25 * m0 + .5/lambda * m1                    + .25/(lambda*lambda) * m3;
-            new_f(1, level, k, h) = .25 * m0                    + .5/lambda * m2 - .25/(lambda*lambda) * m3;
-            new_f(2, level, k, h) = .25 * m0 - .5/lambda * m1                    + .25/(lambda*lambda) * m3;
-            new_f(3, level, k, h) = .25 * m0                    - .5/lambda * m2 - .25/(lambda*lambda) * m3;
+
+            double r1 = 1.0 / lambda;
+            double r2 = 1.0 / (lambda*lambda);
+            double r3 = 1.0 / (lambda*lambda*lambda);
+            double r4 = 1.0 / (lambda*lambda*lambda*lambda);
+
+            new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                         ;
+            new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+            new_f(2, level, k, h) =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+            new_f(3, level, k, h) =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+            new_f(4, level, k, h) =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+            new_f(5, level, k, h) =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+            new_f(6, level, k, h) =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+            new_f(7, level, k, h) =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+            new_f(8, level, k, h) =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+
         });
     }
 
@@ -220,30 +233,46 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     std::size_t max_level = mesh.max_level();
 
     std::stringstream str;
-    str << "LBM_D2Q4_burgers_same_level_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
+    str << "LBM_D2Q9_KelvinHelmholtz_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
     auto h5file = mure::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
     mure::Field<Config> level_{"level", mesh};
-    mure::Field<Config> u{"u", mesh};
+    mure::Field<Config> rho{"rho", mesh};
+    mure::Field<Config> qx{"qx", mesh};
+    mure::Field<Config> qy{"qy", mesh};
+    mure::Field<Config> vel_mod{"vel_modulus", mesh};
+
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
-        u[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3];
+        rho[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3] 
+                  + f[cell][4] + f[cell][5] + f[cell][6] + f[cell][7] + f[cell][8];
+
+        qx[cell] = lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]);
+        qy[cell] = lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]);
+
+        vel_mod[cell] = xt::sqrt((qx[cell] / rho[cell]) * (qx[cell] / rho[cell]) 
+                                + (qy[cell] / rho[cell]) * (qy[cell] / rho[cell]));
+
     });
-    h5file.add_field(u);
+    h5file.add_field(rho);
+    h5file.add_field(qx);
+    h5file.add_field(qy);
+    h5file.add_field(vel_mod);
+
     h5file.add_field(f);
     h5file.add_field(level_);
 }
 
 int main(int argc, char *argv[])
 {
-    cxxopts::Options options("lbm_d2q4_Burgers_same_level",
-                             "Multi resolution for a D2Q4 LBM scheme for the scalar Burgers equation with cheap flux evaluation");
+    cxxopts::Options options("lbm_d2q5_kelvin_helhotlz",
+                             "...");
 
     options.add_options()
-                       ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
+                       ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("8"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("8"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
