@@ -8,6 +8,17 @@
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
+#include "prediction_map_2d.hpp"
+
+double lambda = 2.;
+double sigma_q = 0.5; 
+double sigma_xy = 0.5;
+
+double sq = 1.2;//1./(.5 + sigma_q);
+double sxy = 1./(.5 + sigma_xy);
+
+double kx = 0.0;
+double ky = 1.5;
 
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
@@ -29,22 +40,16 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 
         double m0 = 0;
 
-        double radius = .5;
-        double x_center = 0.0, y_center = 0.0;
+        double radius = .1;
+        double x_center = 0.5, y_center = 0.5;
         if ((   (x - x_center) * (x - x_center) + 
                 (y - y_center) * (y - y_center))
                 <= radius * radius)
             m0 = 1;
 
-
-        double lambda = 1.0; // Just here
-        double angle = M_PI / 4.0;
-        double kx = cos(angle);
-        double ky = sin(angle);
-
-        double m1 = kx*m0*m0/2.0;
-        double m2 = ky*m0*m0/2.0;
-        double m3 = m0/2.0;  // We can change this but normally it works fine
+        double m1 = 0.5 * kx * m0 * m0;
+        double m2 = 0.5 * ky * m0 * m0;
+        double m3 = 0.0;
 
         // We come back to the distributions
         f[cell][0] = .25 * m0 + .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
@@ -57,67 +62,41 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
     return f;
 }
 
-template<class Field, class interval_t, class index_t>
-auto prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &k, const index_t h, const std::size_t item)
+template<class coord_index_t>
+auto compute_prediction(std::size_t min_level, std::size_t max_level)
 {
-    if (level == 0)
-    {
-        return xt::eval(f(item, level_g, k, h));
-    }
+    coord_index_t i = 0, j = 0;
+    std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
 
-    auto step = k.step;
-    auto kg = k / 2;
-    auto hg = h / 2;
-    kg.step = step >> 1;
-    xt::xtensor<double, 1> d_x = xt::empty<double>({k.size()/k.step});
-    xt::xtensor<double, 1> d_xy = xt::empty<double>({k.size()/k.step});
-    double d_y = (h & 1)? -1.: 1.;
-
-    for (int ii=k.start, iii=0; ii<k.end; ii+=k.step, ++iii)
+    for(std::size_t k=0; k<max_level-min_level+1; ++k)
     {
-        d_x[iii] = (ii & 1)? -1.: 1.;
-        d_xy[iii] = ((ii+h) & 1)? -1.: 1.;
+        int size = (1<<k);
+        data[k].resize(4);
+        for (int l = 0; l < size; ++l)
+        {
+            data[k][0] += prediction(k, i*size - 1, j*size + l) - prediction(k, (i+1)*size - 1, j*size + l);
+            data[k][1] += prediction(k, i*size + l, j*size - 1) - prediction(k, i*size + l, (j+1)*size - 1);
+            data[k][2] += prediction(k, (i+1)*size, j*size + l) - prediction(k, i*size, j*size + l);
+            data[k][3] += prediction(k, i*size + l, (j+1)*size) - prediction(k, i*size + l, j*size);
+        }
     }
-  
-    return xt::eval(prediction(f, level_g, level-1, kg, hg, item) - 1./8 * d_x * (prediction(f, level_g, level-1, kg+1, hg, item) 
-                                                                               - prediction(f, level_g, level-1, kg-1, hg, item))
-                                                                 - 1./8 * d_y * (prediction(f, level_g, level-1, kg, hg+1, item) 
-                                                                               - prediction(f, level_g, level-1, kg, hg-1, item))
-                                                                 - 1./64 * d_xy * (prediction(f, level_g, level-1, kg+1, hg+1, item)
-                                                                                 - prediction(f, level_g, level-1, kg+1, hg-1, item)
-                                                                                 - prediction(f, level_g, level-1, kg-1, hg+1, item)
-                                                                                 + prediction(f, level_g, level-1, kg-1, hg+1, item)));
+    return data;
 }
 
-template<class Field>
-void one_time_step(Field &f)
+template<class Field, class pred>
+void one_time_step(Field &f, const pred& pred_coeff)
 {
-
-    std::cout<<std::endl<<"Inside one time step";
-   
     constexpr std::size_t nvel = Field::size;
-    double lambda = 1.;
-    double s1, s2 = 1.5;
-    double s3     = 1.5;
-
-    // This gives the direction.
-    double angle = M_PI / 4.0;  
-    double kx = cos(angle);
-    double ky = sin(angle);
+    using coord_index_t = typename Field::coord_index_t;
 
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
-
-    std::cout<<std::endl<<"Got mesh and level";
-
 
     mure::mr_projection(f);
     mure::mr_prediction(f);
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
-
-    std::cout<<std::endl<<"Everything is ready to apply the numerical scheme on the leaves";
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
@@ -130,53 +109,63 @@ void one_time_step(Field &f)
             std::size_t j = max_level - level; 
             double coeff = 1. / (1 << (2*j)); // The factor 2 comes from the 2D 
 
-            auto fp0 = f(0, level, k, h);
-            auto f0p = f(1, level, k, h);
-            auto fm0 = f(2, level, k, h);
-            auto f0m = f(3, level, k, h);
+            auto f0 = xt::eval(f(0, level, k, h));
+            auto f1 = xt::eval(f(1, level, k, h));
+            auto f2 = xt::eval(f(2, level, k, h));
+            auto f3 = xt::eval(f(3, level, k, h));
 
             // We have to iterate over the elements on the considered boundary
-            for (int l = 0; l < (1<<j); ++l)    {
+            for(auto &c: pred_coeff[j][0].coeff)
+            {
+                coord_index_t stencil_x, stencil_y;
+                std::tie(stencil_x, stencil_y) = c.first;
+                f0 += coeff*c.second*f(0, level, k + stencil_x, h + stencil_y);
+            }
 
-                fp0 += coeff * (prediction(f, level, j,  k   *(1<<j) - 1, h*(1<<j) + l, 0)
-                              - prediction(f, level, j, (k+1)*(1<<j) - 1, h*(1<<j) + l, 0));
-                
-                f0p += coeff * (prediction(f, level, j,  k*(1<<j) + l,  h   *(1<<j) - 1, 1)
-                              - prediction(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j) - 1, 1));
+            for(auto &c: pred_coeff[j][1].coeff)
+            {
+                coord_index_t stencil_x, stencil_y;
+                std::tie(stencil_x, stencil_y) = c.first;
+                f1 += coeff*c.second*f(1, level, k + stencil_x, h + stencil_y);
+            }
 
-                fm0 += coeff * (prediction(f, level, j, (k+1)*(1<<j), h*(1<<j) + l, 2)
-                              - prediction(f, level, j,  k   *(1<<j), h*(1<<j) + l, 2));
-                
-                f0m += coeff * (prediction(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j), 3)
-                              - prediction(f, level, j,  k*(1<<j) + l,  h   *(1<<j), 3));
+            for(auto &c: pred_coeff[j][2].coeff)
+            {
+                coord_index_t stencil_x, stencil_y;
+                std::tie(stencil_x, stencil_y) = c.first;
+                f2 += coeff*c.second*f(2, level, k + stencil_x, h + stencil_y);
+            }
+
+            for(auto &c: pred_coeff[j][3].coeff)
+            {
+                coord_index_t stencil_x, stencil_y;
+                std::tie(stencil_x, stencil_y) = c.first;
+                f3 += coeff*c.second*f(3, level, k + stencil_x, h + stencil_y);
             }
 
             // We compute the advected momenti
-            auto m0 = xt::eval(                 fp0 + f0p + fm0 + f0m) ;
-            auto m1 = xt::eval(lambda        * (fp0       - fm0      ));
-            auto m2 = xt::eval(lambda        * (      f0p       - f0m));
-            auto m3 = xt::eval(lambda*lambda * (fp0 - f0p + fm0 - f0m));
+            auto m0 = xt::eval(                 f0 + f1 + f2 + f3) ;
+            auto m1 = xt::eval(lambda        * (f0      - f2      ));
+            auto m2 = xt::eval(lambda        * (     f1      - f3));
+            auto m3 = xt::eval(lambda*lambda * (f0 - f1 + f2 - f3));
 
-            m1 = (1 - s1) * m1 + s1 * (kx*m0*m0/2.0);
-            m2 = (1 - s2) * m2 + s2 * (ky*m0*m0/2.0);
-            m3 = (1 - s3) * m3 + s3 * (m0/2.0); // We can change this but normally it works fine
+            m1 = (1 - sq) * m1 + sq * 0.5 * kx * m0 * m0;
+            m2 = (1 - sq) * m2 + sq * 0.5 * ky * m0 * m0;
+            m3 = (1 - sxy) * m3; 
 
             // We come back to the distributions
-            new_f(0, level, k, h) = .25 * m0 + .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
-            new_f(1, level, k, h) = .25 * m0                    + .5/lambda * (m2) - .25/(lambda*lambda) * m3;
-            new_f(2, level, k, h) = .25 * m0 - .5/lambda * (m1)                    + .25/(lambda*lambda) * m3;
-            new_f(3, level, k, h) = .25 * m0                    - .5/lambda * (m2) - .25/(lambda*lambda) * m3;
-
-
+            new_f(0, level, k, h) = .25 * m0 + .5/lambda * m1                    + .25/(lambda*lambda) * m3;
+            new_f(1, level, k, h) = .25 * m0                    + .5/lambda * m2 - .25/(lambda*lambda) * m3;
+            new_f(2, level, k, h) = .25 * m0 - .5/lambda * m1                    + .25/(lambda*lambda) * m3;
+            new_f(3, level, k, h) = .25 * m0                    - .5/lambda * m2 - .25/(lambda*lambda) * m3;
         });
     }
 
     std::swap(f.array(), new_f.array());
 }
 
-
 template<class Field>
-void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
+void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 {
     using Config = typename Field::Config;
     auto mesh = f.mesh();
@@ -184,7 +173,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
     std::size_t max_level = mesh.max_level();
 
     std::stringstream str;
-    str << "LBM_D2Q4_Burgers_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
+    str << "LBM_D2Q4_burgers_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
     auto h5file = mure::Hdf5(str.str().data());
@@ -198,17 +187,16 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
     h5file.add_field(u);
     h5file.add_field(f);
     h5file.add_field(level_);
-
 }
 
 int main(int argc, char *argv[])
 {
-    cxxopts::Options options("lbm_d2q4_burgers",
-                             "Multi resolution for a D2Q4 LBM scheme for the scalar Burgers equation");
+    cxxopts::Options options("lbm_d2q4_scalar_burgers",
+                             "Multi resolution for a D2Q4 LBM scheme for the scalar burgers equation");
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
@@ -224,22 +212,21 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 2;
-            using Config = mure::MRConfig<dim, 4>;
+            using Config = mure::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
 
-            mure::Box<double, dim> box({-3, -3}, {3, 3});
+            mure::Box<double, dim> box({0, 0}, {1, 1});
             mure::Mesh<Config> mesh{box, min_level, max_level};
 
-            std::cout<<"\nBasic mesh created";
+            using coord_index_t = typename Config::coord_index_t;
+            auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
 
             // Initialization
             auto f = init_f(mesh, 0);
-
-            std::cout<<"\nData initializad";
 
             double T = 1.2;
             double dx = 1.0 / (1 << max_level);
@@ -247,10 +234,12 @@ int main(int argc, char *argv[])
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
-
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 std::cout << nb_ite << "\n";
+
+                if (nb_ite > 0)
+                    save_solution(f, eps, nb_ite);
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
@@ -258,27 +247,13 @@ int main(int argc, char *argv[])
                         break;
                 }
 
-                std::cout<<std::endl<<"Mesh coarsened";
-                save_solution(f, eps, nb_ite, "coarsening");
-                std::cout<<std::endl<<"Coarsened mesh saved";
-
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
                     if (refinement(f, eps, i))
                         break;
                 }
 
-                std::cout<<std::endl<<"Mesh refined";
-                //save_solution(f, eps, nb_ite, "refinement");
-
-                one_time_step(f);
-
-
-                std::cout<<std::endl<<"Step done";
-
-                save_solution(f, eps, nb_ite, "onetimestep");
-
-                std::cout<<"\nSolution saved";
+                one_time_step(f, pred_coeff);
             }
         }
     }

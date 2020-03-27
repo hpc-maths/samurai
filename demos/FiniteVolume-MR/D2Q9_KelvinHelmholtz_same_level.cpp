@@ -302,15 +302,17 @@ int main(int argc, char *argv[])
             // Initialization
             auto f = init_f(mesh, 0);
 
-            double T = 1.2;
+            double T = 20.0;
             double dx = 1.0 / (1 << max_level);
-            double dt = dx;
+            double dt = dx / lambda;
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 std::cout << nb_ite << "\n";
+
+
 
                 // if (nb_ite > 0)
                 save_solution(f, eps, nb_ite);
@@ -329,6 +331,21 @@ int main(int argc, char *argv[])
                         break;
                 }
                 std::cout << "refinement\n";
+
+
+
+                if (nb_ite == 0)    {
+
+                    std::stringstream str;
+                    str << "debug_KH";
+
+                    auto h5file = mure::Hdf5(str.str().data());
+                    h5file.add_mesh(mesh);
+                
+                    // We save with the levels
+                    h5file.add_field_by_level(mesh, f);
+
+                }
 
                 // save_solution(f, eps, nb_ite, "refinement");
 
