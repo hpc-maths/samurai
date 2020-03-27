@@ -246,7 +246,7 @@ namespace mure
             m_mesh->for_each_cell(level,
                                   [&](auto cell)
                                   {
-                                      output[index++] = xt::view(m_data, cell.index);
+                                      xt::view(output, index++) = xt::view(m_data, cell.index);
                                   },
                                   mesh_type);
             return output;
