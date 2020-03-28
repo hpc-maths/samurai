@@ -31,10 +31,10 @@ template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 9;
-    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0},
-                       {mure::BCType::neumann, 0},
-                       {mure::BCType::neumann, 0},
-                       {mure::BCType::neumann, 0}
+    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0}, // W
+                       {mure::BCType::neumann, 0}, // E
+                       {mure::BCType::neumann, 0}, // S
+                       {mure::BCType::neumann, 0}  // N
                     }} };
 
     mure::Field<Config, double, nvel> f("f", mesh, bc);
@@ -46,13 +46,19 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         auto y = center[1];
 
         double rho = rho_0;
-        double qx = 0.0;
-        double qy = U_0 * delta * sin(2. * M_PI * (x + .25));
+        // double qx = 0.0;
+        // double qy = U_0 * delta * sin(2. * M_PI * (x + .25));
 
-        if (y <= 0.5)  
-            qx = U_0 * tanh(k * (y - .25));
-        else
-            qx = U_0 * tanh(k * (.75 - y));
+        // if (y <= 0.5)  
+        //     qx = U_0 * tanh(k * (y - .25));
+        // else
+        //     qx = U_0 * tanh(k * (.75 - y));
+
+        double qx = 1.0;
+        double qy = 0.5 * tanh(3*k * (x - .5));
+
+        // qx = 0.5 * (x + 2.0*y);
+        // double qy = tanh(k * (y - .25));
 
         // We give standard names
         double c02 = lambda * lambda / 3.0; // sound velocity squared
@@ -408,7 +414,7 @@ int main(int argc, char *argv[])
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
-            for (std::size_t nb_ite = 0; nb_ite < 5; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < 2; ++nb_ite)
             {
                 std::cout <<"Iteration" << nb_ite<<" Time = "<<nb_ite * dt << "\n";
 
@@ -437,6 +443,19 @@ int main(int argc, char *argv[])
 
                 f.update_bc(); // Very important
 
+
+
+                if (nb_ite == 0)    {
+
+                    std::stringstream str;
+                    str << "debug_KH";
+
+                    auto h5file = mure::Hdf5(str.str().data());
+                    h5file.add_mesh(mesh);
+                    // We save with the levels
+                    h5file.add_field_by_level(mesh, f);
+
+                }
 
                 one_time_step(f, pred_coeff);
 

@@ -52,7 +52,7 @@ namespace mure
                 }
                 case mure::BCType::neumann:
                 {
-                    int n = stencil[0] + stencil[1];
+                    int n = stencil[0] + stencil[1]; // Think about for diagonals, but it is true that here we do not have any normal vector.
                     field(level, i, j) = n*dx()*bc.second + field(level, i - stencil[0], j - stencil[1]);
                     break;
                 }
@@ -304,13 +304,16 @@ namespace mure
             std::size_t index_bc = 0;
             for (std::size_t d = 0; d < dim; ++d)
             {
+
                 for (std::size_t d1 = 0; d1 < dim; ++d1)
                     stencil[d1] = 0;
+            
                 for (int s = -1; s <= 1; ++s)
                 {
                     if (s != 0)
                     {
                         stencil[d] = s;
+
                         for (std::size_t level = 0; level <= m_mesh->max_level(); ++level)
                         {
                             double dx = 1./(1<<level);
@@ -321,7 +324,6 @@ namespace mure
                                                                       m_mesh->initial_mesh()),
                                                            (*m_mesh)[mure::MeshType::all_cells][level])
                                             .on(level);
-
                                 subset.apply_op(level, update_boundary(*this, m_bc.type[index_bc], stencil));
                             }
                         }
@@ -329,6 +331,60 @@ namespace mure
                     }
                 }
             }
+
+            // Integrate the diagonal velocity in what we have previously coded
+            // yields strange results which are not good. I do this by hand
+            // for the D2Q9.
+            // for (std::size_t level = 0; level <= m_mesh->max_level(); ++level)
+            // {
+            //     double dx = 1./(1<<level);
+            //     if (!(*m_mesh)[mure::MeshType::all_cells][level].empty())
+            //     {
+            //         // Parallel to the axis
+            //         xt::xtensor_fixed<int, xt::xshape<dim>> stencil_p0{ 1,  0};
+            //         xt::xtensor_fixed<int, xt::xshape<dim>> stencil_m0{-1,  0};
+            //         xt::xtensor_fixed<int, xt::xshape<dim>> stencil_0p{ 0,  1};
+            //         xt::xtensor_fixed<int, xt::xshape<dim>> stencil_0m{ 0, -1};
+
+            //         // Diagonally
+            //         xt::xtensor_fixed<int, xt::xshape<dim>> stencil_pp{ 1,  1};
+            //         xt::xtensor_fixed<int, xt::xshape<dim>> stencil_pm{ 1, -1};
+            //         xt::xtensor_fixed<int, xt::xshape<dim>> stencil_mp{-1,  1};
+            //         xt::xtensor_fixed<int, xt::xshape<dim>> stencil_mm{-1, -1};
+
+            //         auto subset_pp = intersection(difference(difference(difference(translate(m_mesh->initial_mesh(), stencil_pp), m_mesh->initial_mesh()), 
+            //                                                             translate(m_mesh->initial_mesh(), stencil_p0)), 
+            //                                                             translate(m_mesh->initial_mesh(), stencil_0p)),
+            //                                      (*m_mesh)[mure::MeshType::all_cells][level]).on(level);
+
+            //         subset_pp.apply_op(level, update_boundary(*this, m_bc.type[0], stencil_pp));
+
+
+            //         auto subset_pm = intersection(difference(difference(difference(translate(m_mesh->initial_mesh(), stencil_pm), m_mesh->initial_mesh()), 
+            //                                                             translate(m_mesh->initial_mesh(), stencil_p0)), 
+            //                                                             translate(m_mesh->initial_mesh(), stencil_0m)),
+            //                                      (*m_mesh)[mure::MeshType::all_cells][level]).on(level);
+
+            //         subset_pm.apply_op(level, update_boundary(*this, m_bc.type[0], stencil_pm));
+
+                    
+            //         auto subset_mp = intersection(difference(difference(difference(translate(m_mesh->initial_mesh(), stencil_mp), m_mesh->initial_mesh()), 
+            //                                                             translate(m_mesh->initial_mesh(), stencil_m0)), 
+            //                                                             translate(m_mesh->initial_mesh(), stencil_0p)),
+            //                                      (*m_mesh)[mure::MeshType::all_cells][level]).on(level);
+
+            //         subset_mp.apply_op(level, update_boundary(*this, m_bc.type[0], stencil_mp));
+
+                    
+            //         auto subset_mm = intersection(difference(difference(difference(translate(m_mesh->initial_mesh(), stencil_mm), m_mesh->initial_mesh()), 
+            //                                                             translate(m_mesh->initial_mesh(), stencil_m0)), 
+            //                                                             translate(m_mesh->initial_mesh(), stencil_0m)),
+            //                                      (*m_mesh)[mure::MeshType::all_cells][level]).on(level);
+
+            //         subset_mm.apply_op(level, update_boundary(*this, m_bc.type[0], stencil_mm));
+            //     }
+            // }
+
         }
 
         inline void to_stream(std::ostream &os) const
