@@ -46,13 +46,19 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
     return f;
 }
 
-template<class Field, class interval_t>
-auto prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item)
+template<class Field, class interval_t, class FieldTag>
+xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item, const FieldTag & tag)
 {
-    if (level == 0)
-    {
-        return xt::eval(f(item, level_g, i));
-    }
+
+
+
+    xt::xtensor<double, 1> out = xt::empty<double>({i.size()});//xt::eval(f(item, level_g, i));
+    auto mask = (tag(level_g, i) < 1);
+
+    // if (level == 0)
+    // {
+    //     return xt::eval(f(item, level_g, i));
+    // }
 
     auto step = i.step;
     auto ig = i / 2;
@@ -64,12 +70,20 @@ auto prediction(const Field& f, std::size_t level_g, std::size_t level, const in
         d[iii] = (ii & 1)? -1.: 1.;
     }
   
-    return xt::eval(prediction(f, level_g, level-1, ig, item) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item) 
-                                                                          - prediction(f, level_g, level-1, ig-1, item)));
+
+    auto val = xt::eval(prediction(f, level_g, level-1, ig, item, tag) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, tag) 
+                                                                          - prediction(f, level_g, level-1, ig-1, item, tag)));
+    xt::masked_view(out, mask) = xt::masked_view(val, mask);
+
+    xt::masked_view(out, !mask) = xt::masked_view(f(item, level_g, i), !mask);
+
+
+    return out;
+
 }
 
-template<class Field>
-void one_time_step(Field &f)
+template<class Field, class FieldTag>
+void one_time_step(Field &f, const FieldTag & tag)
 {
     constexpr std::size_t nvel = Field::size;
     double lambda = 1., s = 1.0;
@@ -109,12 +123,12 @@ void one_time_step(Field &f)
 
             std::size_t j = max_level - level;
             double coeff = 1. / (1 << j);
-            auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0)
-                                            - prediction(f, level, j, (i+1)*(1<<j)-1, 0));
+            auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag)
+                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag));
 
             // std::cout << "calcul fm\n";
-            auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1)
-                                            - prediction(f, level, j, (i+1)*(1<<j), 1));
+            auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag)
+                                             -  prediction(f, level, j, (i+1)*(1<<j), 1, tag));
 
             auto uu = xt::eval(fp + fm);
             auto vv = xt::eval(lambda * (fp - fm));
@@ -206,6 +220,8 @@ int main(int argc, char *argv[])
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
+
+
                 std::cout << nb_ite << "\n";
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
@@ -224,7 +240,26 @@ int main(int argc, char *argv[])
 
                 save_solution(f, eps, nb_ite, "refinement");
 
-                one_time_step(f);
+
+                // Create and initialize field containing the leaves
+                mure::Field<Config, int, 1> tag_leaf{"tag_leaf", mesh};
+                tag_leaf.array().fill(0);
+                mesh.for_each_cell([&](auto &cell) {
+                    tag_leaf[cell] = static_cast<int>(1);
+                });
+
+                // Finding the leaves
+                // for (std::size_t level = 0; level <= max_level; ++level)   {
+                //     auto subset = intersection(mesh[mure::MeshType::cells][level], 
+                //                                mesh[mure::MeshType::cells][level]);
+                    
+                //     subset([&](auto, auto &interval, auto) {
+                //         auto i = interval[0];
+                //         tag_leaf(level, i) = static_cast<int>(1);
+                //     });
+                // }
+                
+                one_time_step(f, tag_leaf);
 
                 save_solution(f, eps, nb_ite, "onetimestep");
             }

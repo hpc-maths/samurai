@@ -24,10 +24,10 @@ template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 4;
-    mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0}
+    mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 1},
+                       {mure::BCType::dirichlet, 1},
+                       {mure::BCType::dirichlet, 1},
+                       {mure::BCType::dirichlet, 1}
                     }} };
 
     mure::Field<Config, double, nvel> f("f", mesh, bc);
@@ -251,6 +251,20 @@ int main(int argc, char *argv[])
                 {
                     if (refinement(f, eps, i))
                         break;
+                }
+
+                f.update_bc();
+
+                if (nb_ite == 0)    {
+
+                    std::stringstream str;
+                    str << "debug_BG";
+
+                    auto h5file = mure::Hdf5(str.str().data());
+                    h5file.add_mesh(mesh);
+                    // We save with the levels
+                    h5file.add_field_by_level(mesh, f);
+
                 }
 
                 one_time_step(f, pred_coeff);
