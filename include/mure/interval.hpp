@@ -260,4 +260,13 @@ namespace mure
             return true;
         return false;
     }
+
+    template<class value_t, class index_t>
+    inline bool operator<(const Interval<value_t, index_t> &i1,
+                          const Interval<value_t, index_t> &i2)
+    {
+        if (i1.start < i2.start)
+            return true;
+        return false;
+    }
 }

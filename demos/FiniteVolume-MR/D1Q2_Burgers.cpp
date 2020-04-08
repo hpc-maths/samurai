@@ -71,11 +71,11 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 
 template<class Field, class interval_t, class FieldTag>
 xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item, 
-                                  const FieldTag & tag, std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> & mem_map)
+                                  const FieldTag & tag, std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> & mem_map)
 {
 
     // We check if the element is already in the map
-    auto it = mem_map.find({item, level, i});
+    auto it = mem_map.find({item, level_g, level, i});
     if (it != mem_map.end())   {
         return it->second;
     }
@@ -113,7 +113,7 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
         }
 
         // The value should be added to the memoization map before returning
-        return mem_map[{item, level, i}] = out;
+        return mem_map[{item, level_g, level, i}] = out;
 
         //return out;
     }
@@ -135,7 +135,7 @@ void one_time_step(Field &f, const FieldTag & tag)
     // MEMOIZATION
     // All is ready to do a little bit  of mem...
     using interval_t = typename Field::Config::interval_t;
-    std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
+    std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
     memoization_map.clear(); // Just to be sure...
 
     Field new_f{"new_f", mesh};
