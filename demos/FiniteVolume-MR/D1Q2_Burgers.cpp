@@ -11,6 +11,27 @@
 #include "refinement.hpp"
 #include "criteria.hpp"
 
+#include <chrono>
+
+
+/// Timer used in tic & toc
+auto tic_timer = std::chrono::high_resolution_clock::now();
+
+/// Launching the timer
+void tic()
+{
+    tic_timer = std::chrono::high_resolution_clock::now();
+}
+
+
+/// Stopping the timer and returning the duration in seconds
+double toc()
+{
+    const auto toc_timer = std::chrono::high_resolution_clock::now();
+    const std::chrono::duration<double> time_span = toc_timer - tic_timer;
+    return time_span.count();
+}
+
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
 {
@@ -49,42 +70,53 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 }
 
 template<class Field, class interval_t, class FieldTag>
-xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item, const FieldTag & tag)
+xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item, 
+                                  const FieldTag & tag, std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> & mem_map)
 {
 
-
-    auto mesh = f.mesh();
-    xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
-    auto mask = mesh.exists(level_g + level, i);
-
-    // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
-    if (xt::all(mask))
-    {
-        return xt::eval(f(item, level_g + level, i));
+    // We check if the element is already in the map
+    auto it = mem_map.find({item, level, i});
+    if (it != mem_map.end())   {
+        return it->second;
     }
+    else {
 
-    auto step = i.step;
-    auto ig = i / 2;
-    ig.step = step >> 1;
-    xt::xtensor<double, 1> d = xt::empty<double>({i.size()/i.step});
+        auto mesh = f.mesh();
+        xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
+        auto mask = mesh.exists(level_g + level, i);
 
-    for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
-    {
-        d[iii] = (ii & 1)? -1.: 1.;
-    }
-  
-    auto val = xt::eval(prediction(f, level_g, level-1, ig, item, tag) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, tag) 
-                                                                                   - prediction(f, level_g, level-1, ig-1, item, tag)));
-    xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
-    for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
-    {
-        if (mask[i_mask])
+        // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
+        if (xt::all(mask))
         {
-            out[i_mask] = f(item, level_g + level, {i_int, i_int + 1})[0];
+            return xt::eval(f(item, level_g + level, i));
         }
-    }
 
-    return out;
+        auto step = i.step;
+        auto ig = i / 2;
+        ig.step = step >> 1;
+        xt::xtensor<double, 1> d = xt::empty<double>({i.size()/i.step});
+
+        for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
+        {
+            d[iii] = (ii & 1)? -1.: 1.;
+        }
+    
+        auto val = xt::eval(prediction(f, level_g, level-1, ig, item, tag, mem_map) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, tag, mem_map) 
+                                                                                       - prediction(f, level_g, level-1, ig-1, item, tag, mem_map)));
+        xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
+        for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
+        {
+            if (mask[i_mask])
+            {
+                out[i_mask] = f(item, level_g + level, {i_int, i_int + 1})[0];
+            }
+        }
+
+        // The value should be added to the memoization map before returning
+        return mem_map[{item, level, i}] = out;
+
+        //return out;
+    }
 
 }
 
@@ -99,6 +131,13 @@ void one_time_step(Field &f, const FieldTag & tag)
     mure::mr_projection(f);
     mure::mr_prediction(f);
 
+
+    // MEMOIZATION
+    // All is ready to do a little bit  of mem...
+    using interval_t = typename Field::Config::interval_t;
+    std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
+    memoization_map.clear(); // Just to be sure...
+
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
 
@@ -109,32 +148,14 @@ void one_time_step(Field &f, const FieldTag & tag)
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
-            // auto fp = f(0, level, i - 1);
-            // auto fm = f(1, level, i + 1);
-
-            // if (level != max_level)
-            // {
-            //     std::size_t j = max_level - level;
-            //     double coeff = 1. / (1 << j);
-
-            //     // std::cout << "interval " << i << " j " << j << "\n";
-            //     // std::cout << "calcul fp\n";
-            //     fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0)
-            //                                  - prediction(f, level, j, (i+1)*(1<<j)-1, 0));
-
-            //     // std::cout << "calcul fm\n";
-            //     fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1)
-            //                                  - prediction(f, level, j, (i+1)*(1<<j), 1));
-            // }
-
             std::size_t j = max_level - level;
             double coeff = 1. / (1 << j);
-            auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag)
-                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag));
+            auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map)
+                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map));
 
             // std::cout << "calcul fm\n";
-            auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag)
-                                             -  prediction(f, level, j, (i+1)*(1<<j), 1, tag));
+            auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag, memoization_map)
+                                             -  prediction(f, level, j, (i+1)*(1<<j), 1, tag, memoization_map));
 
             auto uu = xt::eval(fp + fm);
             auto vv = xt::eval(lambda * (fp - fm));
@@ -230,29 +251,35 @@ int main(int argc, char *argv[])
 
                 std::cout << nb_ite << "\n";
 
+
+                tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
                     if (coarsening(f, eps, i))
                         break;
                 }
+                auto duration_coarsening = toc();
 
-                save_solution(f, eps, nb_ite, "coarsening");
+                // save_solution(f, eps, nb_ite, "coarsening");
 
+                tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
                     if (refinement(f, eps, i))
                         break;
                 }
-
-                save_solution(f, eps, nb_ite, "refinement");
+                auto duration_refinement = toc();
+                //save_solution(f, eps, nb_ite, "refinement");
 
 
                 // Create and initialize field containing the leaves
+                tic();
                 mure::Field<Config, int, 1> tag_leaf{"tag_leaf", mesh};
                 tag_leaf.array().fill(0);
                 mesh.for_each_cell([&](auto &cell) {
                     tag_leaf[cell] = static_cast<int>(1);
                 });
+                auto duration_leaf_checking = toc();
 
                 // Finding the leaves
                 // for (std::size_t level = 0; level <= max_level; ++level)   {
@@ -265,9 +292,21 @@ int main(int argc, char *argv[])
                 //     });
                 // }
                 
+                tic();
                 one_time_step(f, tag_leaf);
+                auto duration_scheme = toc();
 
+                tic();
                 save_solution(f, eps, nb_ite, "onetimestep");
+                auto duration_save = toc();
+
+
+                std::cout<<"\n\n=======Iteration summary========"
+                         <<"\nCoarsening: "<<duration_coarsening
+                         <<"\nRefinement: "<<duration_refinement
+                         <<"\nLeafChecking: "<<duration_leaf_checking
+                         <<"\nScheme: "<<duration_scheme
+                         <<"\nSave: "<<duration_save;
             }
         }
     }
