@@ -46,18 +46,18 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
     mesh.for_each_cell([&](auto &cell) {
         auto center = cell.center();
         auto x = center[0];
-        double u = 0;
+        // double u = 0;
 
-        if (x >= -1 and x < t)
-        {
-            u = (1 + x) / (1 + t);
-        }
-        if (x >= t and x < 1)
-        {
-            u = (1 - x) / (1 - t);
-        }
+        // if (x >= -1 and x < t)
+        // {
+        //     u = (1 + x) / (1 + t);
+        // }
+        // if (x >= t and x < 1)
+        // {
+        //     u = (1 - x) / (1 - t);
+        // }
 
-        //double u = exp(-20.0 * x * x);
+        double u = exp(-20.0 * x * x);
 
         //double v = .5 * u; 
         double v = .5 * u * u;
@@ -71,7 +71,8 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 
 template<class Field, class interval_t, class FieldTag>
 xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item, 
-                                  const FieldTag & tag, std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> & mem_map)
+                                  const FieldTag & tag, std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, 
+                                  xt::xtensor<double, 1>> & mem_map)
 {
 
     // We check if the element is already in the map
@@ -87,7 +88,7 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
 
         // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
         if (xt::all(mask))
-        {
+        {         
             return xt::eval(f(item, level_g + level, i));
         }
 
@@ -100,9 +101,12 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
         {
             d[iii] = (ii & 1)? -1.: 1.;
         }
+
     
         auto val = xt::eval(prediction(f, level_g, level-1, ig, item, tag, mem_map) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, tag, mem_map) 
                                                                                        - prediction(f, level_g, level-1, ig-1, item, tag, mem_map)));
+        
+
         xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
         for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
         {
@@ -196,6 +200,50 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
     h5file.add_field(level_);
 }
 
+template<class Field, class FieldTag>
+double compute_error(const Field & f, const FieldTag & tag, double t)
+{
+    double error_to_return = 0.0;
+
+    // Getting ready for memoization
+    using interval_t = typename Field::Config::interval_t;
+    std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
+    memoization_map.clear();
+
+
+    auto mesh = f.mesh();
+    auto max_level = mesh.max_level();
+
+    double dx = 1 << max_level;
+
+
+    Field error_cell_by_cell{"error_cell_by_cell", mesh};
+    error_cell_by_cell.array().fill(0.);
+
+
+    auto subset = intersection(mesh.initial_mesh(), mesh.initial_mesh()).on(max_level);
+    subset([&](auto, auto &interval, auto) {
+        auto i = interval[0];
+
+
+        std::cout<<"\n\nHere  "<<i;
+
+        auto fp = prediction(f, max_level, 0, i, 0, tag, memoization_map); // BUG ICI
+        //auto fm = prediction(f, max_level, 0, i, 1, tag, memoization_map);
+
+        // CELA IL FAUT LE TRAITER MAIS ON VERRA APRES...
+
+        // auto rho = xt::eval(fp + fm);
+
+        // error_cell_by_cell(0, max_level, i) = dx * xt::abs(rho);
+    });
+
+    return error_to_return;
+    
+    
+    //return xt::sum(xt::view(error_cell_by_cell, 0, max_level, xt::all));
+}
+
 int main(int argc, char *argv[])
 {
     cxxopts::Options options("lbm_d1q2_burgers",
@@ -249,7 +297,7 @@ int main(int argc, char *argv[])
             {
 
 
-                std::cout << nb_ite << "\n";
+                //std::cout << nb_ite << "\n";
 
 
                 tic();
@@ -301,12 +349,16 @@ int main(int argc, char *argv[])
                 auto duration_save = toc();
 
 
-                std::cout<<"\n\n=======Iteration summary========"
-                         <<"\nCoarsening: "<<duration_coarsening
-                         <<"\nRefinement: "<<duration_refinement
-                         <<"\nLeafChecking: "<<duration_leaf_checking
-                         <<"\nScheme: "<<duration_scheme
-                         <<"\nSave: "<<duration_save;
+                std::cout<<std::endl<<"\n=======Iteration "<<nb_ite<<" summary========"
+                                    <<"\nCoarsening: "<<duration_coarsening
+                                    <<"\nRefinement: "<<duration_refinement
+                                    <<"\nLeafChecking: "<<duration_leaf_checking
+                                    <<"\nScheme: "<<duration_scheme
+                                    <<"\nSave: "<<duration_save<<std::endl;
+
+
+                compute_error(f, tag_leaf, 0.0);
+
             }
         }
     }
