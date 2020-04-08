@@ -288,6 +288,11 @@ namespace mure
             return m_bc;
         }
 
+        inline auto mesh() const
+        {
+            return *m_mesh;
+        }
+
         inline auto mesh()
         {
             return *m_mesh;

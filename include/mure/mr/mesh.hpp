@@ -139,6 +139,28 @@ namespace mure
             return lca[0][static_cast<std::size_t>(row)];
         }
 
+        template<typename... T>
+        inline auto exists(std::size_t level, interval_t interval, T... index) const
+        {
+            const auto& lca = m_cells[MeshType::cells_and_ghosts][level];
+            std::size_t size = interval.size()/interval.step;
+            xt::xtensor<bool, 1> out = xt::empty<bool>({size});
+            std::size_t iout = 0;
+            for(coord_index_t i = interval.start; i < interval.end; i+=interval.step)
+            {
+                auto row = lca.find({i, index...});
+                if (row == -1)
+                {
+                    out[iout++] = false;
+                }
+                else
+                {
+                    out[iout++] = true;
+                }
+            }
+            return out;
+        }
+
         inline void to_stream(std::ostream &os) const
         {
             os << "Cells\n";

@@ -4,6 +4,8 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
+#include <xtensor/xio.hpp>
+
 #include <mure/mure.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
@@ -51,14 +53,15 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
 {
 
 
+    auto mesh = f.mesh();
+    xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
+    auto mask = mesh.exists(level_g + level, i);
 
-    xt::xtensor<double, 1> out = xt::empty<double>({i.size()});//xt::eval(f(item, level_g, i));
-    auto mask = (tag(level_g, i) < 1);
-
-    // if (level == 0)
-    // {
-    //     return xt::eval(f(item, level_g, i));
-    // }
+    // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
+    if (xt::all(mask))
+    {
+        return xt::eval(f(item, level_g + level, i));
+    }
 
     auto step = i.step;
     auto ig = i / 2;
@@ -70,13 +73,16 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
         d[iii] = (ii & 1)? -1.: 1.;
     }
   
-
     auto val = xt::eval(prediction(f, level_g, level-1, ig, item, tag) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, tag) 
-                                                                          - prediction(f, level_g, level-1, ig-1, item, tag)));
-    xt::masked_view(out, mask) = xt::masked_view(val, mask);
-
-    xt::masked_view(out, !mask) = xt::masked_view(f(item, level_g, i), !mask);
-
+                                                                                   - prediction(f, level_g, level-1, ig-1, item, tag)));
+    xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
+    for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
+    {
+        if (mask[i_mask])
+        {
+            out[i_mask] = f(item, level_g + level, {i_int, i_int + 1})[0];
+        }
+    }
 
     return out;
 
