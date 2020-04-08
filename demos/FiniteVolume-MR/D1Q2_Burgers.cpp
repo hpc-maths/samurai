@@ -200,10 +200,55 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
     h5file.add_field(level_);
 }
 
+// template<class Field, class FieldTag>
+// double compute_error(const Field & f, const FieldTag & tag, double t)
+// {
+//     double error_to_return = 0.0;
+
+//     // Getting ready for memoization
+//     using interval_t = typename Field::Config::interval_t;
+//     std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
+//     memoization_map.clear();
+
+
+//     auto mesh = f.mesh();
+//     auto max_level = mesh.max_level();
+
+//     double dx = 1 << max_level;
+
+
+//     Field error_cell_by_cell{"error_cell_by_cell", mesh};
+//     error_cell_by_cell.array().fill(0.);
+
+
+//     auto subset = intersection(mesh.initial_mesh(), mesh.initial_mesh()).on(max_level);
+//     subset([&](auto, auto &interval, auto) {
+//         auto i = interval[0];
+
+
+//         std::cout<<"\n\nHere  "<<i;
+
+//         auto fp = prediction(f, max_level, 0, i, 0, tag, memoization_map); // BUG ICI
+//         //auto fm = prediction(f, max_level, 0, i, 1, tag, memoization_map);
+
+//         // CELA IL FAUT LE TRAITER MAIS ON VERRA APRES...
+
+//         // auto rho = xt::eval(fp + fm);
+
+//         // error_cell_by_cell(0, max_level, i) = dx * xt::abs(rho);
+//     });
+
+//     return error_to_return;
+    
+    
+//     //return xt::sum(xt::view(error_cell_by_cell, 0, max_level, xt::all));
+// }
+
 template<class Field, class FieldTag>
 double compute_error(const Field & f, const FieldTag & tag, double t)
 {
-    double error_to_return = 0.0;
+    auto mesh = f.mesh();
+    auto max_level = mesh.max_level();
 
     // Getting ready for memoization
     using interval_t = typename Field::Config::interval_t;
@@ -211,37 +256,51 @@ double compute_error(const Field & f, const FieldTag & tag, double t)
     memoization_map.clear();
 
 
-    auto mesh = f.mesh();
-    auto max_level = mesh.max_level();
 
-    double dx = 1 << max_level;
+    double dx = 1.0 / (1 << max_level);
 
+    double error = 0;
 
-    Field error_cell_by_cell{"error_cell_by_cell", mesh};
-    error_cell_by_cell.array().fill(0.);
-
-
-    auto subset = intersection(mesh.initial_mesh(), mesh.initial_mesh()).on(max_level);
-    subset([&](auto, auto &interval, auto) {
-        auto i = interval[0];
+    Field error_by_cell{"error", mesh};
+    error_by_cell.array().fill(0.);
 
 
-        std::cout<<"\n\nHere  "<<i;
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
 
-        auto fp = prediction(f, max_level, 0, i, 0, tag, memoization_map); // BUG ICI
-        //auto fm = prediction(f, max_level, 0, i, 1, tag, memoization_map);
+        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
+                                      mesh[mure::MeshType::cells][level]).on(level);
 
-        // CELA IL FAUT LE TRAITER MAIS ON VERRA APRES...
+        exp([&](auto, auto &interval, auto) {
+            auto i = interval[0];
 
-        // auto rho = xt::eval(fp + fm);
-
-        // error_cell_by_cell(0, max_level, i) = dx * xt::abs(rho);
-    });
-
-    return error_to_return;
+            auto j = max_level - level;
+            for (std::size_t sub = 0; sub < 1 << j; ++sub)    {
+                
     
-    
-    //return xt::sum(xt::view(error_cell_by_cell, 0, max_level, xt::all));
+                auto fp = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 0, tag, memoization_map);
+                auto fm = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 1, tag, memoization_map);
+
+                auto tmp = xt::sum(xt::abs(xt::eval(fp + fm)));
+
+                //error += dx * tmp(0);
+                error += tmp(0); // Il vaut mieux faire moins de multiplic. Ce sont petits
+
+                //std::cout<<"\n"<<tmp(0);
+                //= dx * xt::sum(xt::eval(fp + fm));
+
+            }
+            //auto fp = prediction(f, max_level, 0, i, 0, tag, memoization_map);
+            //auto fm = prediction(f, max_level, 0, i, 1, tag, memoization_map);
+            
+            //error += 1;
+
+            //error_by_cell(0, max_level, i) = dx * xt::sum(xt::eval(fp + fm));
+        });
+    }
+
+    return dx * error;
+
 }
 
 int main(int argc, char *argv[])
@@ -339,6 +398,7 @@ int main(int argc, char *argv[])
                 //         tag_leaf(level, i) = static_cast<int>(1);
                 //     });
                 // }
+
                 
                 tic();
                 one_time_step(f, tag_leaf);
@@ -354,10 +414,8 @@ int main(int argc, char *argv[])
                                     <<"\nRefinement: "<<duration_refinement
                                     <<"\nLeafChecking: "<<duration_leaf_checking
                                     <<"\nScheme: "<<duration_scheme
-                                    <<"\nSave: "<<duration_save<<std::endl;
-
-
-                compute_error(f, tag_leaf, 0.0);
+                                    <<"\nSave: "<<duration_save
+                                    <<std::endl<<compute_error(f, tag_leaf, 0.0);
 
             }
         }
