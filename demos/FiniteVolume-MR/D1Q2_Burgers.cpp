@@ -424,7 +424,7 @@ int main(int argc, char *argv[])
                     tag_leafR[cell] = static_cast<int>(1);
                 });
 
-                auto norm_before_computation = compute_error(f, tag_leaf, fR, t);
+                auto error = compute_error(f, tag_leaf, fR, t);
 
                 std::cout<<std::endl;
 
@@ -439,8 +439,6 @@ int main(int argc, char *argv[])
 
                 t += dt;
 
-                //double norm_after_computation = compute_error(f, tag_leaf, 0.0);
-
                 tic();
                 save_solution(f, eps, nb_ite, "onetimestep");
                 auto duration_save = toc();
@@ -453,7 +451,7 @@ int main(int argc, char *argv[])
                                     <<"\nScheme: "<<duration_scheme
                                     <<"\nScheme reference: "<<duration_schemeR
                                     <<"\nSave: "<<duration_save
-                                    <<"\nNorm before computation = "<<norm_before_computation[0];
+                                    <<"\nError exact - adaptive = "<<error[0];
                                     //<<"\nNorm after computation = "<<norm_after_computation;
                                     
 
