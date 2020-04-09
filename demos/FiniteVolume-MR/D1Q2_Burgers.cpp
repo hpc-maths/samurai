@@ -57,7 +57,7 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
             u = (1 - x) / (1 - t);
         }
 
-        // double u = exp(-20.0 * x * x);
+        //double u = exp(-20.0 * x * x);
 
         //double v = .5 * u; 
         double v = .5 * u * u;
@@ -245,10 +245,14 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
 // }
 
 template<class Field, class FieldTag>
-double compute_error(const Field & f, const FieldTag & tag, double t)
+double compute_error(Field & f, const FieldTag & tag, double t)
 {
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
+
+
+    mure::mr_projection(f);
+    mure::mr_prediction(f);
 
     // Getting ready for memoization
     using interval_t = typename Field::Config::interval_t;
@@ -257,37 +261,61 @@ double compute_error(const Field & f, const FieldTag & tag, double t)
 
     double error = 0; // To return
 
+
     for (std::size_t level = 0; level <= max_level; ++level)
     {
 
         auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
                                       mesh[mure::MeshType::cells][level]).on(level);
 
+        // exp([&](auto, auto &interval, auto) {
+        //     auto i = interval[0];
+
+        //     auto j = max_level - level;
+
+        //     auto fp = prediction(f, level, j, i*(1<<j), 0, tag, memoization_map); // First micro cell of the current cell
+        //     auto fm = prediction(f, level, j, i*(1<<j), 1, tag, memoization_map);
+        //     auto partial = xt::eval(xt::abs(fp + fm));
+
+        //    
+
+        //     for (std::size_t sub = 1; sub < (1 << j); ++sub)    { // If we are not at the finest, there are more micro-cells to add
+
+        //         auto fp_b = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 0, tag, memoization_map);
+        //         auto fm_b = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 1, tag, memoization_map);
+        //         partial += xt::eval(xt::abs(fp_b + fm_b)); // Partial will always have the same size, that of the interval we are looking at.
+
+        //         test += static_cast<double>(i.size());
+
+        //     }
+
+        //     auto tmp = xt::sum(partial); // We sum over all the cells making up the interval
+        //     error += tmp(0);
+
+        // });
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
             auto j = max_level - level;
 
-            auto fp = prediction(f, level, j, i*(1<<j), 0, tag, memoization_map); // First micro cell of the current cell
-            auto fm = prediction(f, level, j, i*(1<<j), 1, tag, memoization_map);
-            auto partial = xt::eval(xt::abs(fp + fm));
+            for (std::size_t sub = 0; sub < (1 << j); ++sub)    { // If we are not at the finest, there are more micro-cells to add
 
-            for (std::size_t sub = 1; sub < (1 << j); ++sub)    { // If we are not at the finest, there are more micro-cells to add
+                auto fp = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 0, tag, memoization_map);
+                auto fm = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 1, tag, memoization_map);
 
-                auto fp_b = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 0, tag, memoization_map);
-                auto fm_b = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 1, tag, memoization_map);
-                partial += xt::eval(xt::abs(fp_b + fm_b)); // Partial will always have the same size, that of the interval we are looking at.
+                auto tmp = xt::sum(xt::eval(xt::abs(fp + fm))); // Partial will always have the same size, that of the interval we are looking at.
 
+                //std::cout<<std::endl<<"Level "<<level<<" Cell "<<i<<" Partial "<<tmp(0);
+                error += tmp(0);
             }
-
-            auto tmp = xt::sum(partial); // We sum over all the cells making up the interval
-            error += tmp(0);
 
         });
     }
 
     return error / (1 << max_level); // Normalization by dx before returning
     // I think it is better to do the normalization at the very end ... especially for round-offs
+
+    
 }
 
 int main(int argc, char *argv[])
@@ -375,21 +403,16 @@ int main(int argc, char *argv[])
                 });
                 auto duration_leaf_checking = toc();
 
-                // Finding the leaves
-                // for (std::size_t level = 0; level <= max_level; ++level)   {
-                //     auto subset = intersection(mesh[mure::MeshType::cells][level], 
-                //                                mesh[mure::MeshType::cells][level]);
-                    
-                //     subset([&](auto, auto &interval, auto) {
-                //         auto i = interval[0];
-                //         tag_leaf(level, i) = static_cast<int>(1);
-                //     });
-                // }
+                double norm_before_computation = compute_error(f, tag_leaf, 0.0);
+
+                std::cout<<std::endl;
 
                 
                 tic();
                 one_time_step(f, tag_leaf);
                 auto duration_scheme = toc();
+
+                double norm_after_computation = compute_error(f, tag_leaf, 0.0);
 
                 tic();
                 save_solution(f, eps, nb_ite, "onetimestep");
@@ -402,7 +425,9 @@ int main(int argc, char *argv[])
                                     <<"\nLeafChecking: "<<duration_leaf_checking
                                     <<"\nScheme: "<<duration_scheme
                                     <<"\nSave: "<<duration_save
-                                    <<"\nl1 norm of the solution reconstructed at the finest level = "<<compute_error(f, tag_leaf, 0.0);
+                                    <<"\nNorm before computation = "<<norm_before_computation
+                                    <<"\nNorm after computation = "<<norm_after_computation;
+                                    
 
             }
         }
