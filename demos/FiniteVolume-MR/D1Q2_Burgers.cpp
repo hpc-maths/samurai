@@ -46,18 +46,18 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
     mesh.for_each_cell([&](auto &cell) {
         auto center = cell.center();
         auto x = center[0];
-        // double u = 0;
+        double u = 0;
 
-        // if (x >= -1 and x < t)
-        // {
-        //     u = (1 + x) / (1 + t);
-        // }
-        // if (x >= t and x < 1)
-        // {
-        //     u = (1 - x) / (1 - t);
-        // }
+        if (x >= -1 and x < t)
+        {
+            u = (1 + x) / (1 + t);
+        }
+        if (x >= t and x < 1)
+        {
+            u = (1 - x) / (1 - t);
+        }
 
-        double u = exp(-20.0 * x * x);
+        // double u = exp(-20.0 * x * x);
 
         //double v = .5 * u; 
         double v = .5 * u * u;
@@ -255,15 +255,7 @@ double compute_error(const Field & f, const FieldTag & tag, double t)
     std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
     memoization_map.clear();
 
-
-
-    double dx = 1.0 / (1 << max_level);
-
-    double error = 0;
-
-    Field error_by_cell{"error", mesh};
-    error_by_cell.array().fill(0.);
-
+    double error = 0; // To return
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
@@ -275,32 +267,27 @@ double compute_error(const Field & f, const FieldTag & tag, double t)
             auto i = interval[0];
 
             auto j = max_level - level;
-            for (std::size_t sub = 0; sub < 1 << j; ++sub)    {
-                
-    
-                auto fp = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 0, tag, memoization_map);
-                auto fm = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 1, tag, memoization_map);
 
-                auto tmp = xt::sum(xt::abs(xt::eval(fp + fm)));
+            auto fp = prediction(f, level, j, i*(1<<j), 0, tag, memoization_map); // First micro cell of the current cell
+            auto fm = prediction(f, level, j, i*(1<<j), 1, tag, memoization_map);
+            auto partial = xt::eval(xt::abs(fp + fm));
 
-                //error += dx * tmp(0);
-                error += tmp(0); // Il vaut mieux faire moins de multiplic. Ce sont petits
+            for (std::size_t sub = 1; sub < (1 << j); ++sub)    { // If we are not at the finest, there are more micro-cells to add
 
-                //std::cout<<"\n"<<tmp(0);
-                //= dx * xt::sum(xt::eval(fp + fm));
+                auto fp_b = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 0, tag, memoization_map);
+                auto fm_b = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 1, tag, memoization_map);
+                partial += xt::eval(xt::abs(fp_b + fm_b)); // Partial will always have the same size, that of the interval we are looking at.
 
             }
-            //auto fp = prediction(f, max_level, 0, i, 0, tag, memoization_map);
-            //auto fm = prediction(f, max_level, 0, i, 1, tag, memoization_map);
-            
-            //error += 1;
 
-            //error_by_cell(0, max_level, i) = dx * xt::sum(xt::eval(fp + fm));
+            auto tmp = xt::sum(partial); // We sum over all the cells making up the interval
+            error += tmp(0);
+
         });
     }
 
-    return dx * error;
-
+    return error / (1 << max_level); // Normalization by dx before returning
+    // I think it is better to do the normalization at the very end ... especially for round-offs
 }
 
 int main(int argc, char *argv[])
@@ -415,7 +402,7 @@ int main(int argc, char *argv[])
                                     <<"\nLeafChecking: "<<duration_leaf_checking
                                     <<"\nScheme: "<<duration_scheme
                                     <<"\nSave: "<<duration_save
-                                    <<std::endl<<compute_error(f, tag_leaf, 0.0);
+                                    <<"\nl1 norm of the solution reconstructed at the finest level = "<<compute_error(f, tag_leaf, 0.0);
 
             }
         }
@@ -424,5 +411,6 @@ int main(int argc, char *argv[])
     {
         std::cout << options.help() << "\n";
     }
+
     return 0;
 }
