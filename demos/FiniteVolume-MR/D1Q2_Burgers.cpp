@@ -32,6 +32,22 @@ double toc()
     return time_span.count();
 }
 
+double exact_solution(double x, double t)   {
+    double u = 0;
+    
+    if (x >= -1 and x < t)
+    {
+        u = (1 + x) / (1 + t);
+    }
+    
+    if (x >= t and x < 1)
+    {
+        u = (1 - x) / (1 - t);
+    }
+
+    return u;
+}
+
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
 {
@@ -244,15 +260,18 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
 //     //return xt::sum(xt::view(error_cell_by_cell, 0, max_level, xt::all));
 // }
 
-template<class Field, class FieldTag>
-double compute_error(Field & f, const FieldTag & tag, double t)
+template<class Field, class FieldTag, class FieldR>
+std::array<double, 2> compute_error(Field & f, const FieldTag & tag, FieldR & fR, double t)
 {
+
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
 
+    auto meshR = fR.mesh();
+
 
     mure::mr_projection(f);
-    mure::mr_prediction(f);
+    mure::mr_prediction(f);  // C'est supercrucial de le faire.
 
     // Getting ready for memoization
     using interval_t = typename Field::Config::interval_t;
@@ -260,6 +279,9 @@ double compute_error(Field & f, const FieldTag & tag, double t)
     memoization_map.clear();
 
     double error = 0; // To return
+    double diff = 0.0;
+
+    double dx = 1.0 / (1 << max_level);
 
 
     for (std::size_t level = 0; level <= max_level; ++level)
@@ -268,31 +290,6 @@ double compute_error(Field & f, const FieldTag & tag, double t)
         auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
                                       mesh[mure::MeshType::cells][level]).on(level);
 
-        // exp([&](auto, auto &interval, auto) {
-        //     auto i = interval[0];
-
-        //     auto j = max_level - level;
-
-        //     auto fp = prediction(f, level, j, i*(1<<j), 0, tag, memoization_map); // First micro cell of the current cell
-        //     auto fm = prediction(f, level, j, i*(1<<j), 1, tag, memoization_map);
-        //     auto partial = xt::eval(xt::abs(fp + fm));
-
-        //    
-
-        //     for (std::size_t sub = 1; sub < (1 << j); ++sub)    { // If we are not at the finest, there are more micro-cells to add
-
-        //         auto fp_b = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 0, tag, memoization_map);
-        //         auto fm_b = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 1, tag, memoization_map);
-        //         partial += xt::eval(xt::abs(fp_b + fm_b)); // Partial will always have the same size, that of the interval we are looking at.
-
-        //         test += static_cast<double>(i.size());
-
-        //     }
-
-        //     auto tmp = xt::sum(partial); // We sum over all the cells making up the interval
-        //     error += tmp(0);
-
-        // });
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
@@ -300,19 +297,39 @@ double compute_error(Field & f, const FieldTag & tag, double t)
 
             for (std::size_t sub = 0; sub < (1 << j); ++sub)    { // If we are not at the finest, there are more micro-cells to add
 
+
+                // ERROR OF THE ADAPTIVE SOLUTION WRT TO THE EXACT ONE
+
+                auto v1 = xt::linspace<int>(i.start, i.end - 1, i.size());
+                xt::xtensor<int, 1> here = xt::ones<int>({i.size()});
+                auto v2 = ((1 << j) * v1) + static_cast<int>(sub) * here;
+                auto v3 = (v2/static_cast<double>(1 << max_level)) + 0.5 * dx * here;
+
+                auto ex_sol = (v3 >= -1.0 and v3 < t) * ((1 + v3) / (1 + t)) + 
+                              (v3 >= t and v3 < 1) * (1 - v3) / (1 - t);
+                
+                //std::cout<<std::endl<<std::endl<<"Level "<<level<<" Interval "<<i<<" Sub "<<sub;
+                //std::cout<<std::endl<<ex_sol;
+
+
+                //auto exact_solution = xt::linspace<double>({0.0, static_cast<double>(i.size() - 1), i.size()});
+
                 auto fp = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 0, tag, memoization_map);
                 auto fm = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 1, tag, memoization_map);
 
-                auto tmp = xt::sum(xt::eval(xt::abs(fp + fm))); // Partial will always have the same size, that of the interval we are looking at.
+                auto tmp = xt::sum(xt::eval(xt::abs(fp + fm - ex_sol))); 
 
-                //std::cout<<std::endl<<"Level "<<level<<" Cell "<<i<<" Partial "<<tmp(0);
                 error += tmp(0);
+
+                // ERROR OF THE ADAPTIVE SOLUTION WRT THE REFERENCE SOLUTION    
+
+
             }
 
         });
     }
 
-    return error / (1 << max_level); // Normalization by dx before returning
+    return {dx * error, 0.0}; // Normalization by dx before returning
     // I think it is better to do the normalization at the very end ... especially for round-offs
 
     
@@ -350,15 +367,11 @@ int main(int argc, char *argv[])
 
             mure::Box<double, dim> box({-3}, {3});
             mure::Mesh<Config> mesh{box, min_level, max_level};
-            // mure::Mesh<Config> mesh_old{box, min_level, max_level};
-
-            // mure::CellList<Config> cl;
-            // cl[6][{}].add_interval({-192, 0});
-            // cl[5][{}].add_interval({0, 96});
-            // mure::Mesh<Config> mesh{cl, mesh_old.initial_mesh(), min_level, max_level};
+            mure::Mesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
 
             // Initialization
-            auto f = init_f(mesh, 0);
+            auto f  = init_f(mesh , 0.0);
+            auto fR = init_f(meshR, 0.0);
 
             double T = 1.2;
             double dx = 1.0 / (1 << max_level);
@@ -366,13 +379,15 @@ int main(int argc, char *argv[])
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
+            double t = 0.0;
+
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
 
-
-                //std::cout << nb_ite << "\n";
-
+                // For the reference solution, we just call a coarsening
+                // in order to set the BC and the ghost correctly
+                coarsening(fR, 0.0, 0); // and thats all
 
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
@@ -403,7 +418,13 @@ int main(int argc, char *argv[])
                 });
                 auto duration_leaf_checking = toc();
 
-                double norm_before_computation = compute_error(f, tag_leaf, 0.0);
+                mure::Field<Config, int, 1> tag_leafR{"tag_leafR", meshR};
+                tag_leafR.array().fill(0);
+                meshR.for_each_cell([&](auto &cell) {
+                    tag_leafR[cell] = static_cast<int>(1);
+                });
+
+                auto norm_before_computation = compute_error(f, tag_leaf, fR, t);
 
                 std::cout<<std::endl;
 
@@ -412,7 +433,13 @@ int main(int argc, char *argv[])
                 one_time_step(f, tag_leaf);
                 auto duration_scheme = toc();
 
-                double norm_after_computation = compute_error(f, tag_leaf, 0.0);
+                tic();
+                one_time_step(fR, tag_leafR);
+                auto duration_schemeR = toc();
+
+                t += dt;
+
+                //double norm_after_computation = compute_error(f, tag_leaf, 0.0);
 
                 tic();
                 save_solution(f, eps, nb_ite, "onetimestep");
@@ -424,9 +451,10 @@ int main(int argc, char *argv[])
                                     <<"\nRefinement: "<<duration_refinement
                                     <<"\nLeafChecking: "<<duration_leaf_checking
                                     <<"\nScheme: "<<duration_scheme
+                                    <<"\nScheme reference: "<<duration_schemeR
                                     <<"\nSave: "<<duration_save
-                                    <<"\nNorm before computation = "<<norm_before_computation
-                                    <<"\nNorm after computation = "<<norm_after_computation;
+                                    <<"\nNorm before computation = "<<norm_before_computation[0];
+                                    //<<"\nNorm after computation = "<<norm_after_computation;
                                     
 
             }
