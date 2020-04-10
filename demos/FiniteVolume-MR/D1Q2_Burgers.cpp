@@ -140,6 +140,64 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
 
 }
 
+
+
+template<class Field, class interval_t, class FieldTag>
+xt::xtensor<double, 1> prediction_all(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item, 
+                                  const FieldTag & tag, std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, 
+                                  xt::xtensor<double, 1>> & mem_map)
+{
+
+    // We check if the element is already in the map
+    auto it = mem_map.find({item, level_g, level, i});
+    if (it != mem_map.end())   {
+        return it->second;
+    }
+    else {
+
+        auto mesh = f.mesh();
+        xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
+        auto mask = mesh.exists(level_g + level, i);
+
+        // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
+        if (xt::all(mask))
+        {         
+            return xt::eval(f(item, level_g + level, i));
+        }
+
+        auto step = i.step;
+        auto ig = i / 2;
+        ig.step = step;
+
+        xt::xtensor<double, 1> d = xt::empty<double>({i.size()/i.step});
+
+        for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
+        {
+            d[iii] = (ii & 1)? -1.: 1.;
+        }
+
+    
+        auto val = xt::eval(prediction_all(f, level_g, level-1, ig, item, tag, mem_map) - 1./8 * d * (prediction_all(f, level_g, level-1, ig+1, item, tag, mem_map) 
+                                                                                       - prediction_all(f, level_g, level-1, ig-1, item, tag, mem_map)));
+        
+
+        xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
+        for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
+        {
+            if (mask[i_mask])
+            {
+                out[i_mask] = f(item, level_g + level, {i_int, i_int + 1})[0];
+            }
+        }
+
+        // The value should be added to the memoization map before returning
+        return mem_map[{item, level_g, level, i}] = out;
+
+        //return out;
+    }
+
+}
+
 template<class Field, class FieldTag>
 void one_time_step(Field &f, const FieldTag & tag)
 {
@@ -168,7 +226,12 @@ void one_time_step(Field &f, const FieldTag & tag)
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
+
+
             std::size_t j = max_level - level;
+            // auto tmp = i*(1<<j);
+            // std::cout<<std::endl<<"Level "<<level<<" interval "<<i<<" with step"<<i.step<<" transformed "<<i*(1<<j)<<" with step "<<tmp.step;
+
             double coeff = 1. / (1 << j);
             auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map));
@@ -295,6 +358,15 @@ std::array<double, 2> compute_error(Field & f, const FieldTag & tag, FieldR & fR
 
             auto j = max_level - level;
 
+            std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<" step "<<i.step;
+
+            // std::cout<<std::endl<<"Step "<<i.step;
+            auto int_tmp = i * (1 << j);
+            int_tmp.step = 1;
+
+            auto fp = prediction_all(f, level, j, int_tmp, 0, tag, memoization_map);
+            // std::cout<<std::endl<<fp;
+
             for (std::size_t sub = 0; sub < (1 << j); ++sub)    { // If we are not at the finest, there are more micro-cells to add
 
 
@@ -322,6 +394,11 @@ std::array<double, 2> compute_error(Field & f, const FieldTag & tag, FieldR & fR
                 error += tmp(0);
 
                 // ERROR OF THE ADAPTIVE SOLUTION WRT THE REFERENCE SOLUTION    
+
+                auto ii = i * (1 << j);
+
+                // REFLECHIR A CA...
+                //ii.step = 1;
 
 
             }
@@ -382,7 +459,7 @@ int main(int argc, char *argv[])
             double t = 0.0;
 
 
-            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
             {
 
                 // For the reference solution, we just call a coarsening
