@@ -141,61 +141,58 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
 }
 
 
-
-template<class Field, class interval_t, class FieldTag>
-xt::xtensor<double, 1> prediction_all(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item, 
-                                  const FieldTag & tag, std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, 
-                                  xt::xtensor<double, 1>> & mem_map)
+template<class Field, class interval_t>
+xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, 
+                                  std::map<std::tuple<std::size_t, std::size_t, interval_t>, 
+                                  xt::xtensor<double, 2>> & mem_map)
 {
 
+    using namespace xt::placeholders;
     // We check if the element is already in the map
-    auto it = mem_map.find({item, level_g, level, i});
-    if (it != mem_map.end())   {
+    auto it = mem_map.find({level_g, level, i});
+    if (it != mem_map.end())
+    {
         return it->second;
     }
-    else {
-
+    else
+    {
         auto mesh = f.mesh();
-        xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
+        std::vector<std::size_t> shape = {i.size(), 2};
+        xt::xtensor<double, 2> out = xt::empty<double>(shape);
         auto mask = mesh.exists(level_g + level, i);
+
+        xt::xtensor<double, 2> mask_all = xt::empty<double>(shape);
+        xt::view(mask_all, xt::all(), 0) = mask;
+        xt::view(mask_all, xt::all(), 1) = mask;
 
         // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
         if (xt::all(mask))
         {         
-            return xt::eval(f(item, level_g + level, i));
+            return xt::eval(f(level_g + level, i));
         }
 
-        auto step = i.step;
         auto ig = i / 2;
-        ig.step = step;
+        ig.step = 1;
 
-        xt::xtensor<double, 1> d = xt::empty<double>({i.size()/i.step});
-
-        for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
-        {
-            d[iii] = (ii & 1)? -1.: 1.;
-        }
-
-    
-        auto val = xt::eval(prediction_all(f, level_g, level-1, ig, item, tag, mem_map) - 1./8 * d * (prediction_all(f, level_g, level-1, ig+1, item, tag, mem_map) 
-                                                                                       - prediction_all(f, level_g, level-1, ig-1, item, tag, mem_map)));
-        
-
-        xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
-        for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
+        xt::xtensor<double, 2> val = xt::empty<double>(shape);
+        xt::view(val, xt::range(0, _, 2)) = xt::eval(prediction_all(f, level_g, level-1, ig, mem_map) - 1./8 * (prediction_all(f, level_g, level-1, ig+1, mem_map) 
+                                                                                                                    - prediction_all(f, level_g, level-1, ig-1, mem_map)));
+        xt::view(val, xt::range(1, _, 2)) = xt::eval(prediction_all(f, level_g, level-1, ig, mem_map) + 1./8 * (prediction_all(f, level_g, level-1, ig+1, mem_map) 
+                                                                                                                    - prediction_all(f, level_g, level-1, ig-1, mem_map)));
+        std::cout << "\n\n" << level_g << " " << level << " " << i << "\n\n";
+        std::cout << "\n\n" << xt::adapt(mask.shape()) << " " << xt::adapt(out.shape()) << " " << xt::adapt(val.shape()) << "\n\n";
+        xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
+        for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, ++i_int)
         {
             if (mask[i_mask])
             {
-                out[i_mask] = f(item, level_g + level, {i_int, i_int + 1})[0];
+                xt::view(out, i_mask) = f(level_g + level, {i_int, i_int + 1})[0];
             }
         }
 
         // The value should be added to the memoization map before returning
-        return mem_map[{item, level_g, level, i}] = out;
-
-        //return out;
+        return mem_map[{level_g, level, i}] = out;
     }
-
 }
 
 template<class Field, class FieldTag>
@@ -323,8 +320,8 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
 //     //return xt::sum(xt::view(error_cell_by_cell, 0, max_level, xt::all));
 // }
 
-template<class Field, class FieldTag, class FieldR>
-std::array<double, 2> compute_error(Field & f, const FieldTag & tag, FieldR & fR, double t)
+template<class Field, class FieldR>
+std::array<double, 2> compute_error(Field & f, FieldR & fR, double t)
 {
 
     auto mesh = f.mesh();
@@ -332,84 +329,43 @@ std::array<double, 2> compute_error(Field & f, const FieldTag & tag, FieldR & fR
 
     auto meshR = fR.mesh();
 
-
     mure::mr_projection(f);
     mure::mr_prediction(f);  // C'est supercrucial de le faire.
 
     // Getting ready for memoization
     using interval_t = typename Field::Config::interval_t;
-    std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
-    memoization_map.clear();
+    std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> error_memoization_map;
+    error_memoization_map.clear();
 
     double error = 0; // To return
     double diff = 0.0;
 
     double dx = 1.0 / (1 << max_level);
 
-
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-
         auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
-                                      mesh[mure::MeshType::cells][level]).on(level);
+                                      mesh[mure::MeshType::cells][level]);
 
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
             auto j = max_level - level;
 
-            std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<" step "<<i.step;
-
-            // std::cout<<std::endl<<"Step "<<i.step;
             auto int_tmp = i * (1 << j);
             int_tmp.step = 1;
 
-            auto fp = prediction_all(f, level, j, int_tmp, 0, tag, memoization_map);
-            // std::cout<<std::endl<<fp;
+            auto fp = prediction_all(f, level, j, int_tmp, error_memoization_map);
 
-            for (std::size_t sub = 0; sub < (1 << j); ++sub)    { // If we are not at the finest, there are more micro-cells to add
-
-
-                // ERROR OF THE ADAPTIVE SOLUTION WRT TO THE EXACT ONE
-
-                auto v1 = xt::linspace<int>(i.start, i.end - 1, i.size());
-                xt::xtensor<int, 1> here = xt::ones<int>({i.size()});
-                auto v2 = ((1 << j) * v1) + static_cast<int>(sub) * here;
-                auto v3 = (v2/static_cast<double>(1 << max_level)) + 0.5 * dx * here;
-
-                auto ex_sol = (v3 >= -1.0 and v3 < t) * ((1 + v3) / (1 + t)) + 
-                              (v3 >= t and v3 < 1) * (1 - v3) / (1 - t);
-                
-                //std::cout<<std::endl<<std::endl<<"Level "<<level<<" Interval "<<i<<" Sub "<<sub;
-                //std::cout<<std::endl<<ex_sol;
-
-
-                //auto exact_solution = xt::linspace<double>({0.0, static_cast<double>(i.size() - 1), i.size()});
-
-                auto fp = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 0, tag, memoization_map);
-                auto fm = prediction(f, level, j, i*(1<<j) + static_cast<int>(sub), 1, tag, memoization_map);
-
-                auto tmp = xt::sum(xt::eval(xt::abs(fp + fm - ex_sol))); 
-
-                error += tmp(0);
-
-                // ERROR OF THE ADAPTIVE SOLUTION WRT THE REFERENCE SOLUTION    
-
-                auto ii = i * (1 << j);
-
-                // REFLECHIR A CA...
-                //ii.step = 1;
-
-
-            }
-
+            xt::xtensor<double, 1> x = dx*xt::linspace<int>(int_tmp.start, int_tmp.end - 1, int_tmp.size()) + 0.5*dx;
+            xt::xtensor<double, 1> uexact = (x >= -1.0 and x < t) * ((1 + x) / (1 + t)) + 
+                                            (x >= t and x < 1) * (1 - x) / (1 - t);
+            error += xt::sum(xt::abs(xt::sum(fp, 1) - uexact))[0];
         });
     }
 
     return {dx * error, 0.0}; // Normalization by dx before returning
-    // I think it is better to do the normalization at the very end ... especially for round-offs
-
-    
+    // I think it is better to do the normalization at the very end ... especially for round-offs    
 }
 
 int main(int argc, char *argv[])
@@ -501,7 +457,7 @@ int main(int argc, char *argv[])
                     tag_leafR[cell] = static_cast<int>(1);
                 });
 
-                auto error = compute_error(f, tag_leaf, fR, t);
+                auto error = compute_error(f, fR, t);
 
                 std::cout<<std::endl;
 
@@ -528,7 +484,7 @@ int main(int argc, char *argv[])
                                     <<"\nScheme: "<<duration_scheme
                                     <<"\nScheme reference: "<<duration_schemeR
                                     <<"\nSave: "<<duration_save
-                                    <<"\nError exact - adaptive = "<<error[0];
+                                    <<"\nError exact - adaptive = "<< error[0] << "\n";
                                     //<<"\nNorm after computation = "<<norm_after_computation;
                                     
 
