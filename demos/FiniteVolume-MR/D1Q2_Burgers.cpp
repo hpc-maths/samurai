@@ -179,8 +179,8 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
                                                                                                                     - prediction_all(f, level_g, level-1, ig-1, mem_map)));
         xt::view(val, xt::range(1, _, 2)) = xt::eval(prediction_all(f, level_g, level-1, ig, mem_map) + 1./8 * (prediction_all(f, level_g, level-1, ig+1, mem_map) 
                                                                                                                     - prediction_all(f, level_g, level-1, ig-1, mem_map)));
-        std::cout << "\n\n" << level_g << " " << level << " " << i << "\n\n";
-        std::cout << "\n\n" << xt::adapt(mask.shape()) << " " << xt::adapt(out.shape()) << " " << xt::adapt(val.shape()) << "\n\n";
+        // std::cout << "\n\n" << level_g << " " << level << " " << i << "\n\n";
+        // std::cout << "\n\n" << xt::adapt(mask.shape()) << " " << xt::adapt(out.shape()) << " " << xt::adapt(val.shape()) << "\n\n";
         xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
         for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, ++i_int)
         {
@@ -356,6 +356,9 @@ std::array<double, 2> compute_error(Field & f, FieldR & fR, double t)
             int_tmp.step = 1;
 
             auto fp = prediction_all(f, level, j, int_tmp, error_memoization_map);
+
+            std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<std::endl;
+            std::cout<<fp; 
 
             xt::xtensor<double, 1> x = dx*xt::linspace<int>(int_tmp.start, int_tmp.end - 1, int_tmp.size()) + 0.5*dx;
             xt::xtensor<double, 1> uexact = (x >= -1.0 and x < t) * ((1 + x) / (1 + t)) + 
