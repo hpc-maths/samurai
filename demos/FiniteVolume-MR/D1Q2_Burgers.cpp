@@ -165,33 +165,37 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
         xt::view(mask_all, xt::all(), 0) = mask;
         xt::view(mask_all, xt::all(), 1) = mask;
 
-        // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
         if (xt::all(mask))
         {         
             return xt::eval(f(level_g + level, i));
         }
 
-        auto ig = i / 2;
+        auto ig = i >> 1;
         ig.step = 1;
 
         xt::xtensor<double, 2> val = xt::empty<double>(shape);
-        xt::view(val, xt::range(0, _, 2)) = xt::eval(prediction_all(f, level_g, level-1, ig, mem_map) - 1./8 * (prediction_all(f, level_g, level-1, ig+1, mem_map) 
-                                                                                                                    - prediction_all(f, level_g, level-1, ig-1, mem_map)));
-        xt::view(val, xt::range(1, _, 2)) = xt::eval(prediction_all(f, level_g, level-1, ig, mem_map) + 1./8 * (prediction_all(f, level_g, level-1, ig+1, mem_map) 
-                                                                                                                    - prediction_all(f, level_g, level-1, ig-1, mem_map)));
-        // std::cout << "\n\n" << level_g << " " << level << " " << i << "\n\n";
-        // std::cout << "\n\n" << xt::adapt(mask.shape()) << " " << xt::adapt(out.shape()) << " " << xt::adapt(val.shape()) << "\n\n";
+        auto current = xt::eval(prediction_all(f, level_g, level-1, ig, mem_map));
+        auto left = xt::eval(prediction_all(f, level_g, level-1, ig-1, mem_map));
+        auto right = xt::eval(prediction_all(f, level_g, level-1, ig+1, mem_map));
+
+        std::size_t start_even = (i.start&1)? 1: 0;
+        std::size_t start_odd = (i.start&1)? 0: 1;
+        std::size_t end_even = (i.end&1)? ig.size(): ig.size()-1;
+        std::size_t end_odd = (i.end&1)? ig.size()-1: ig.size();
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(current - 1./8 * (right - left), xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(current + 1./8 * (right - left), xt::range(_, end_odd));
+
         xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
         for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, ++i_int)
         {
             if (mask[i_mask])
             {
-                xt::view(out, i_mask) = f(level_g + level, {i_int, i_int + 1})[0];
+                xt::view(out, i_mask) = xt::view(f(level_g + level, {i_int, i_int + 1}), 0);
             }
         }
 
         // The value should be added to the memoization map before returning
-        return mem_map[{level_g, level, i}] = out;
+        return out;// mem_map[{level_g, level, i, ig}] = out;
     }
 }
 
@@ -276,6 +280,29 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
     h5file.add_field(level_);
 }
 
+template<class Field>
+void save_refined_solution(Field &f, std::size_t min_level, std::size_t max_level, double eps, std::size_t ite, std::string ext="")
+{
+    using Config = typename Field::Config;
+    auto mesh = f.mesh();
+
+    std::stringstream str;
+    str << "LBM_D1Q2_Burgers_refined_solution_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
+        << eps << "_ite-" << ite;
+
+    auto h5file = mure::Hdf5(str.str().data());
+    h5file.add_mesh(mesh);
+    mure::Field<Config> level_{"level", mesh};
+    mure::Field<Config> u{"u", mesh};
+    mesh.for_each_cell([&](auto &cell) {
+        level_[cell] = static_cast<double>(cell.level);
+        u[cell] = f[cell][0] + f[cell][1];
+    });
+    h5file.add_field(u);
+    h5file.add_field(f);
+    h5file.add_field(level_);
+}
+
 // template<class Field, class FieldTag>
 // double compute_error(const Field & f, const FieldTag & tag, double t)
 // {
@@ -320,20 +347,22 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
 //     //return xt::sum(xt::view(error_cell_by_cell, 0, max_level, xt::all));
 // }
 
-template<class Field, class FieldR>
-std::array<double, 2> compute_error(Field & f, FieldR & fR, double t)
+// template<class Field, class FieldR>
+template<class Config, class FieldR>
+std::array<double, 2> compute_error(mure::Field<Config, double, 2> &f, FieldR & fR, double t)
 {
 
     auto mesh = f.mesh();
-    auto max_level = mesh.max_level();
 
     auto meshR = fR.mesh();
+    auto max_level = meshR.max_level();
 
     mure::mr_projection(f);
     mure::mr_prediction(f);  // C'est supercrucial de le faire.
 
     // Getting ready for memoization
-    using interval_t = typename Field::Config::interval_t;
+    // using interval_t = typename Field::Config::interval_t;
+    using interval_t = typename Config::interval_t;
     std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> error_memoization_map;
     error_memoization_map.clear();
 
@@ -344,25 +373,23 @@ std::array<double, 2> compute_error(Field & f, FieldR & fR, double t)
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
-                                      mesh[mure::MeshType::cells][level]);
+        auto exp = mure::intersection(meshR[mure::MeshType::cells][max_level],
+                                      mesh[mure::MeshType::cells][level])
+                  .on(max_level);
 
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
-
             auto j = max_level - level;
 
-            auto int_tmp = i * (1 << j);
-            int_tmp.step = 1;
-
-            auto fp = prediction_all(f, level, j, int_tmp, error_memoization_map);
-
+            auto fp = prediction_all(f, level, j, i, error_memoization_map);
+            xt::view(fR(max_level, i), xt::all(), xt::range(0, 2)) = fp;
             std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<std::endl;
-            std::cout<<fp; 
+            std::cout<<fp << "\n"; 
 
-            xt::xtensor<double, 1> x = dx*xt::linspace<int>(int_tmp.start, int_tmp.end - 1, int_tmp.size()) + 0.5*dx;
+            xt::xtensor<double, 1> x = dx*xt::linspace<int>(i.start, i.end - 1, i.size()) + 0.5*dx;
             xt::xtensor<double, 1> uexact = (x >= -1.0 and x < t) * ((1 + x) / (1 + t)) + 
                                             (x >= t and x < 1) * (1 - x) / (1 - t);
+            xt::view(fR(max_level, i), xt::all(), 2) = xt::abs(xt::sum(fp, 1) - uexact);
             error += xt::sum(xt::abs(xt::sum(fp, 1) - uexact))[0];
         });
     }
@@ -407,7 +434,9 @@ int main(int argc, char *argv[])
 
             // Initialization
             auto f  = init_f(mesh , 0.0);
-            auto fR = init_f(meshR, 0.0);
+            
+            mure::Field<Config, double, 3> fR("fR", meshR);
+            fR.array().fill(0);
 
             double T = 1.2;
             double dx = 1.0 / (1 << max_level);
@@ -420,11 +449,6 @@ int main(int argc, char *argv[])
 
             for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
             {
-
-                // For the reference solution, we just call a coarsening
-                // in order to set the BC and the ghost correctly
-                coarsening(fR, 0.0, 0); // and thats all
-
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
@@ -461,6 +485,8 @@ int main(int argc, char *argv[])
                 });
 
                 auto error = compute_error(f, fR, t);
+
+                save_refined_solution(fR, min_level, max_level, eps, nb_ite);
 
                 std::cout<<std::endl;
 
