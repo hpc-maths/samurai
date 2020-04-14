@@ -411,8 +411,8 @@ namespace mure
         data_type m_data;
     };
 
-    template<class MRConfig, class T>
-    inline std::ostream &operator<<(std::ostream &out, const Field<MRConfig, T> &field)
+    template<class MRConfig, class T, std::size_t N>
+    inline std::ostream &operator<<(std::ostream &out, const Field<MRConfig, T, N> &field)
     {
         field.to_stream(out);
         return out;
