@@ -24,17 +24,30 @@ namespace mure
         template<class T, class BC, class stencil_t>
         inline void operator()(Dim<1>, T &field, const BC &bc, const stencil_t& stencil) const
         {
+
+            //std::cout<<std::endl<<"Level = "<<level<<"  interval = "<<i;
             switch(bc.first)
             {
                 case mure::BCType::dirichlet:
                 {
+                    //std::cout<<std::endl<<"Dir value = "<<bc.second;
                     field(level, i) = bc.second;
                     break;
                 }
                 case mure::BCType::neumann:
                 {
                     int n = stencil[0];
-                    field(level, i) = n*dx()*bc.second + field(level, i - stencil[0]);
+
+                    auto mesh = field.mesh();
+
+                    double dx_level = (1 << (mesh.max_level() - level)) * dx();
+
+                    field(level, i) = n*dx_level*bc.second + field(level, i - stencil[0]);
+
+                    // field(level, i) = n*dx()*bc.second + field(level, i - stencil[0]);
+
+
+                    //std::cout<<std::endl<<"Level "<<level<<" interval"<<i<<" value "<<field(level, i - stencil[0]);
                     break;
                 }
             }
@@ -312,8 +325,10 @@ namespace mure
 
                 for (std::size_t d1 = 0; d1 < dim; ++d1)
                     stencil[d1] = 0;
-            
-                for (int s = -1; s <= 1; ++s)
+                
+                auto gw = m_mesh->ghost_width;
+                for (int s = -gw; s <= gw; ++s)
+                //for (int s = -1; s <= 1; ++s)
                 {
                     if (s != 0)
                     {
@@ -325,14 +340,44 @@ namespace mure
                             if (!(*m_mesh)[mure::MeshType::all_cells][level].empty())
                             {
                                 // TODO: use union mesh instead
-                                auto subset = intersection(difference(translate(m_mesh->initial_mesh(), stencil),
+                                // auto subset = intersection(difference(translate(m_mesh->initial_mesh(), stencil),
+                                //                                       m_mesh->initial_mesh()),
+                                //                            (*m_mesh)[mure::MeshType::all_cells][level])
+                                //             .on(level);
+
+                                int factor = 1 << (m_mesh->max_level() - level);
+                                // std::cout<<std::endl<<"Factor = "<<factor<<" Stencil "<<stencil;
+
+                                // auto originalmesh = intersection(m_mesh->initial_mesh(), m_mesh->initial_mesh());
+                                // originalmesh([&](auto, auto &interval, auto) {
+                                //     auto i = interval[0];
+                                //     std::cout<<std::endl<<"Originalmesh  "<<i;
+                                // });
+
+                                // auto originaltranslated = intersection(difference(translate(m_mesh->initial_mesh(), factor * stencil),
+                                //                                       m_mesh->initial_mesh()).on(level), (*m_mesh)[mure::MeshType::cells_and_ghosts][level]);
+                                // originaltranslated([&](auto, auto &interval, auto) {
+                                //     auto i = interval[0];
+                                //     std::cout<<std::endl<<"OriginalTranslated "<<i;
+                                // });
+
+                                auto subset = intersection(difference(translate(m_mesh->initial_mesh(), factor * stencil),
                                                                       m_mesh->initial_mesh()),
                                                            (*m_mesh)[mure::MeshType::all_cells][level])
                                             .on(level);
-                                subset.apply_op(level, update_boundary(*this, m_bc.type[index_bc], stencil));
+
+                                // subset([&](auto, auto &interval, auto) {
+                                //     auto i = interval[0];
+                                //     std::cout<<std::endl<<"We apply at level "<<level<<" for "<<i;
+                                // });
+
+                                // A changer ... c'est crade
+                                subset.apply_op(level, update_boundary(*this, m_bc.type[0], stencil));
                             }
                         }
-                        index_bc++;
+                        // Cochonnerie a changer ...
+                        if (s%2 != 0)
+                            index_bc++;
                     }
                 }
             }

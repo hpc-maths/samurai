@@ -42,6 +42,10 @@ namespace mure
       public:
         static constexpr auto dim = MRConfig::dim;
         static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
+        // static constexpr auto ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
+        //                                                       static_cast<int>(MRConfig::max_stencil_width)),
+        //                                              static_cast<int>(MRConfig::default_s_for_prediction));
+
         static constexpr auto ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
                                                               static_cast<int>(MRConfig::max_stencil_width)),
                                                      static_cast<int>(MRConfig::default_s_for_prediction));
@@ -60,10 +64,21 @@ namespace mure
             point_t start = b.min_corner() * std::pow(2, max_level);
             point_t end = b.max_corner() * std::pow(2, max_level);
 
+            // m_cells[MeshType::cells][max_level] = {max_level, box_t{start, end}};
+            // m_cells[MeshType::cells_and_ghosts][max_level] = {max_level, box_t{start - 1, end + 1}};
+            // m_cells[MeshType::all_cells][max_level] = {max_level, box_t{start - 1, end + 1}};
+            // m_cells[MeshType::all_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1) - 1, (end >> 1) + 1}};
+            // m_cells[MeshType::proj_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
+            // m_cells[MeshType::union_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
+            // m_init_cells = {max_level, box_t{start, end}};
+            // update_x0_and_nb_ghosts();
+
+            point_t gw = ghost_width; // Just to cast it...
+
             m_cells[MeshType::cells][max_level] = {max_level, box_t{start, end}};
-            m_cells[MeshType::cells_and_ghosts][max_level] = {max_level, box_t{start - 1, end + 1}};
-            m_cells[MeshType::all_cells][max_level] = {max_level, box_t{start - 1, end + 1}};
-            m_cells[MeshType::all_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1) - 1, (end >> 1) + 1}};
+            m_cells[MeshType::cells_and_ghosts][max_level] = {max_level, box_t{start - gw, end + gw}};
+            m_cells[MeshType::all_cells][max_level] = {max_level, box_t{start - gw, end + gw}};
+            m_cells[MeshType::all_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1) - gw, (end >> 1) + gw}};
             m_cells[MeshType::proj_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
             m_cells[MeshType::union_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
             m_init_cells = {max_level, box_t{start, end}};

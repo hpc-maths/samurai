@@ -80,7 +80,10 @@ bool refinement(Field &u, double eps, std::size_t ite)
                        .on(level-1);
         
         //subset.apply_op(level, to_refine_mr(detail, max_detail, tag, 32 * eps_l, max_level));
-        subset.apply_op(level, to_refine_mr(detail, max_detail, tag, 16 * eps_l, max_level));
+
+        double regularity_of_the_function = 3.0;
+
+        subset.apply_op(level, to_refine_mr(detail, max_detail, tag, (pow(2.0, regularity_of_the_function + dim)) * eps_l, max_level));
 
         //subset.apply_op(level, to_refine_mr_BH(detail, max_detail, tag, 32 * eps_l, max_level));
 

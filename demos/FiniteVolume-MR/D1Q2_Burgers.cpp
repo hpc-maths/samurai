@@ -42,35 +42,44 @@ double exact_solution(double x, double t)   {
 
     double vshock = 0.5 * (rhoL + rhoR);
 
+    return ((x-0.5*t) <= x0) ? rhoL : rhoR;
+
     //return (x <= x0 + vshock * t) ? rhoL : rhoR;
-    
-    // if (x >= -1 and x < t)
     // {
-    //     u = (1 + x) / (1 + t);
-    // }
-    
-    // if (x >= t and x < 1)
-    // {
-    //     u = (1 - x) / (1 - t);
+    //     double x0L = -0.2;
+    //     double x0R =  0.2;
+    //     return ((x - 0.5*t) < x0L) ? 0.0 : (((x - 0.5*t) < x0R ? 1.0 : 0.0));
     // }
 
-    u = 1.0 + exp(-20.0 * (x-0.5*t) * (x-0.5*t));
 
-    u = 0.0;
+    
+    if (x >= -1 and x < t)
+    {
+        u = (1 + x) / (1 + t);
+    }
+    
+    if (x >= t and x < 1)
+    {
+        u = (1 - x) / (1 - t);
+    }
+
+    //u = exp(-20.0 * (x-0.5*t) * (x-0.5*t));
+
+    // u = 0.0;
     
     return u;
 }
 
 double flux(double u)   {
-    return 0.5 * u * u;
+    return 0.5 * u;
 }
 
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 2;
-    mure::BC<1> bc{ {{ {mure::BCType::dirichlet, 1.},
-                       {mure::BCType::dirichlet, 1.},
+    mure::BC<1> bc{ {{ {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0},
                     }} };
 
     mure::Field<Config, double, nvel> f("f", mesh, bc);
@@ -273,7 +282,7 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
 
             
 
-            vv = (1 - s) * vv + s * .5 * uu * uu;
+            vv = (1 - s) * vv + s * .5 * uu;// * uu;
             //vv = (1 - s) * vv + s * .5 * uu;
 
             new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
@@ -389,6 +398,9 @@ std::array<double, 2> compute_error(mure::Field<Config, double, 2> &f, FieldR & 
     mure::mr_projection(f);
     mure::mr_prediction(f);  // C'est supercrucial de le faire.
 
+    f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
+    fR.update_bc();    
+
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;
     using interval_t = typename Config::interval_t;
@@ -475,52 +487,52 @@ int main(int argc, char *argv[])
             mure::Mesh<Config> mesh{box, min_level, max_level};
             mure::Mesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
 
-            for (std::size_t level = min_level; level <= max_level; ++level) {
+            // for (std::size_t level = min_level; level <= max_level; ++level) {
 
-                auto cells = intersection(mesh[mure::MeshType::cells][level], 
-                                          mesh[mure::MeshType::cells][level]);
+            //     auto cells = intersection(mesh[mure::MeshType::cells][level], 
+            //                               mesh[mure::MeshType::cells][level]);
 
-                auto allcells = intersection(mesh[mure::MeshType::all_cells][level], 
-                                             mesh[mure::MeshType::all_cells][level]);
-                auto projcells = intersection(mesh[mure::MeshType::proj_cells][level], 
-                                              mesh[mure::MeshType::proj_cells][level]);
+            //     auto allcells = intersection(mesh[mure::MeshType::all_cells][level], 
+            //                                  mesh[mure::MeshType::all_cells][level]);
+            //     auto projcells = intersection(mesh[mure::MeshType::proj_cells][level], 
+            //                                   mesh[mure::MeshType::proj_cells][level]);
 
-                auto cellsandghosts = intersection(mesh[mure::MeshType::cells_and_ghosts][level], 
-                                                   mesh[mure::MeshType::cells_and_ghosts][level]);
+            //     auto cellsandghosts = intersection(mesh[mure::MeshType::cells_and_ghosts][level], 
+            //                                        mesh[mure::MeshType::cells_and_ghosts][level]);
 
 
-                cells([&](auto, auto &interval, auto) {
-                    auto i = interval[0];
-                    std::cout<<std::endl<<"Level "<<level<<"Cells "<<i;
-                });
+            //     cells([&](auto, auto &interval, auto) {
+            //         auto i = interval[0];
+            //         std::cout<<std::endl<<"Level "<<level<<"Cells "<<i;
+            //     });
                 
-                allcells([&](auto, auto &interval, auto) {
-                    auto i = interval[0];
-                    std::cout<<std::endl<<"Level "<<level<<"All Cells "<<i;
-                });
+            //     allcells([&](auto, auto &interval, auto) {
+            //         auto i = interval[0];
+            //         std::cout<<std::endl<<"Level "<<level<<"All Cells "<<i;
+            //     });
 
-                projcells([&](auto, auto &interval, auto) {
-                    auto i = interval[0];
-                    std::cout<<std::endl<<"Level "<<level<<"Proj Cells "<<i;
-                });
+            //     projcells([&](auto, auto &interval, auto) {
+            //         auto i = interval[0];
+            //         std::cout<<std::endl<<"Level "<<level<<"Proj Cells "<<i;
+            //     });
                 
-                cellsandghosts([&](auto, auto &interval, auto) {
-                    auto i = interval[0];
-                    std::cout<<std::endl<<"Level "<<level<<"Cells and ghosts "<<i;
-                });
-            }
+            //     cellsandghosts([&](auto, auto &interval, auto) {
+            //         auto i = interval[0];
+            //         std::cout<<std::endl<<"Level "<<level<<"Cells and ghosts "<<i;
+            //     });
+            // }
 
 
-            std::cout<<std::endl
-                     <<std::endl
-                     <<std::endl
-                     <<std::endl;
+            // std::cout<<std::endl
+            //          <<std::endl
+            //          <<std::endl
+            //          <<std::endl;
 
             // Initialization
             auto f  = init_f(mesh , 0.0);
             auto fR = init_f(meshR, 0.0);             
 
-            double T = 0.6;
+            double T = 2.0;
             double dx = 1.0 / (1 << max_level);
             double dt = dx;
 
@@ -544,7 +556,7 @@ int main(int argc, char *argv[])
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
-                    std::cout<<std::endl<<"Passe "<<i;
+                    //std::cout<<std::endl<<"Passe "<<i;
                     if (coarsening(f, eps, i))
                         break;
                 }
@@ -559,7 +571,7 @@ int main(int argc, char *argv[])
                         break;
                 }
                 auto duration_refinement = toc();
-                //save_solution(f, eps, nb_ite, "refinement");
+                save_solution(f, eps, nb_ite, "refinement");
 
 
                 // Create and initialize field containing the leaves
