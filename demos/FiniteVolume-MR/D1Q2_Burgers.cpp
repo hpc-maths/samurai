@@ -1,5 +1,6 @@
 #include <math.h>
 #include <vector>
+#include <fstream>
 
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
@@ -34,26 +35,42 @@ double toc()
 
 double exact_solution(double x, double t)   {
     double u = 0;
-    
-    if (x >= -1 and x < t)
-    {
-        u = (1 + x) / (1 + t);
-    }
-    
-    if (x >= t and x < 1)
-    {
-        u = (1 - x) / (1 - t);
-    }
 
+    double rhoL = 1.0;
+    double rhoR = 0.0;
+    double x0 = 0.0;
+
+    double vshock = 0.5 * (rhoL + rhoR);
+
+    //return (x <= x0 + vshock * t) ? rhoL : rhoR;
+    
+    // if (x >= -1 and x < t)
+    // {
+    //     u = (1 + x) / (1 + t);
+    // }
+    
+    // if (x >= t and x < 1)
+    // {
+    //     u = (1 - x) / (1 - t);
+    // }
+
+    u = 1.0 + exp(-20.0 * (x-0.5*t) * (x-0.5*t));
+
+    u = 0.0;
+    
     return u;
+}
+
+double flux(double u)   {
+    return 0.5 * u * u;
 }
 
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 2;
-    mure::BC<1> bc{ {{ {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
+    mure::BC<1> bc{ {{ {mure::BCType::dirichlet, 1.},
+                       {mure::BCType::dirichlet, 1.},
                     }} };
 
     mure::Field<Config, double, nvel> f("f", mesh, bc);
@@ -64,19 +81,21 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         auto x = center[0];
         double u = 0;
 
-        if (x >= -1 and x < t)
-        {
-            u = (1 + x) / (1 + t);
-        }
-        if (x >= t and x < 1)
-        {
-            u = (1 - x) / (1 - t);
-        }
+        // if (x >= -1 and x < t)
+        // {
+        //     u = (1 + x) / (1 + t);
+        // }
+        // if (x >= t and x < 1)
+        // {
+        //     u = (1 - x) / (1 - t);
+        // }
+
+        u = exact_solution(x, 0.0);
 
         //double u = exp(-20.0 * x * x);
 
-        //double v = .5 * u; 
-        double v = .5 * u * u;
+        double v = flux(u);//.5 * u; 
+        //double v = .5 * u * u;
 
         f[cell][0] = .5 * (u + v);
         f[cell][1] = .5 * (u - v);
@@ -94,6 +113,7 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
     // We check if the element is already in the map
     auto it = mem_map.find({item, level_g, level, i});
     if (it != mem_map.end())   {
+        //std::cout<<std::endl<<"Found by memoization";
         return it->second;
     }
     else {
@@ -200,10 +220,10 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
 }
 
 template<class Field, class FieldTag>
-void one_time_step(Field &f, const FieldTag & tag)
+void one_time_step(Field &f, const FieldTag & tag, double s)
 {
     constexpr std::size_t nvel = Field::size;
-    double lambda = 1., s = 1.0;
+    double lambda = 1.;//, s = 1.0;
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
 
@@ -234,15 +254,24 @@ void one_time_step(Field &f, const FieldTag & tag)
             // std::cout<<std::endl<<"Level "<<level<<" interval "<<i<<" with step"<<i.step<<" transformed "<<i*(1<<j)<<" with step "<<tmp.step;
 
             double coeff = 1. / (1 << j);
+
+
             auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map));
 
-            // std::cout << "calcul fm\n";
             auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j), 1, tag, memoization_map));
 
+            
+
+            // auto fp = (1.0 - coeff) * f(0, level, i) + coeff *  f(0, level, i - 1);
+            // auto fm = (1.0 - coeff) * f(1, level, i) + coeff *  f(1, level, i + 1);
+
+           
             auto uu = xt::eval(fp + fm);
             auto vv = xt::eval(lambda * (fp - fm));
+
+            
 
             vv = (1 - s) * vv + s * .5 * uu * uu;
             //vv = (1 - s) * vv + s * .5 * uu;
@@ -381,20 +410,31 @@ std::array<double, 2> compute_error(mure::Field<Config, double, 2> &f, FieldR & 
             auto i = interval[0];
             auto j = max_level - level;
 
-            auto fp = prediction_all(f, level, j, i, error_memoization_map);
-            xt::view(fR(max_level, i), xt::all(), xt::range(0, 2)) = fp;
-            std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<std::endl;
-            std::cout<<fp << "\n"; 
+            auto sol  = prediction_all(f, level, j, i, error_memoization_map);
+            auto solR = xt::view(fR(max_level, i), xt::all(), xt::range(0, 2));
+
 
             xt::xtensor<double, 1> x = dx*xt::linspace<int>(i.start, i.end - 1, i.size()) + 0.5*dx;
-            xt::xtensor<double, 1> uexact = (x >= -1.0 and x < t) * ((1 + x) / (1 + t)) + 
-                                            (x >= t and x < 1) * (1 - x) / (1 - t);
-            xt::view(fR(max_level, i), xt::all(), 2) = xt::abs(xt::sum(fp, 1) - uexact);
-            error += xt::sum(xt::abs(xt::sum(fp, 1) - uexact))[0];
+            // xt::xtensor<double, 1> uexact = (x >= -1.0 and x < t) * ((1 + x) / (1 + t)) + 
+            //                                 (x >= t and x < 1) * (1 - x) / (1 - t);
+
+            xt::xtensor<double, 1> uexact = xt::zeros<double>(x.shape());
+
+            for (std::size_t idx = 0; idx < x.shape()[0]; ++idx)    {
+                uexact[idx] = exact_solution(x[idx], t); // We can probably do better
+            }
+
+
+            error += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))) 
+                             - uexact))[0];
+
+            diff += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), xt::range(0, 1)) + xt::view(sol, xt::all(), xt::range(1, 2))) - xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2)))))[0];
+
+
         });
     }
 
-    return {dx * error, 0.0}; // Normalization by dx before returning
+    return {dx * error, dx * diff}; // Normalization by dx before returning
     // I think it is better to do the normalization at the very end ... especially for round-offs    
 }
 
@@ -407,6 +447,7 @@ int main(int argc, char *argv[])
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
                        ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
+                       ("s", "relaxation parameter", cxxopts::value<double>()->default_value("1.0"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
 
@@ -427,18 +468,59 @@ int main(int argc, char *argv[])
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
+            double s = result["s"].as<double>();
+
 
             mure::Box<double, dim> box({-3}, {3});
             mure::Mesh<Config> mesh{box, min_level, max_level};
             mure::Mesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
 
+            for (std::size_t level = min_level; level <= max_level; ++level) {
+
+                auto cells = intersection(mesh[mure::MeshType::cells][level], 
+                                          mesh[mure::MeshType::cells][level]);
+
+                auto allcells = intersection(mesh[mure::MeshType::all_cells][level], 
+                                             mesh[mure::MeshType::all_cells][level]);
+                auto projcells = intersection(mesh[mure::MeshType::proj_cells][level], 
+                                              mesh[mure::MeshType::proj_cells][level]);
+
+                auto cellsandghosts = intersection(mesh[mure::MeshType::cells_and_ghosts][level], 
+                                                   mesh[mure::MeshType::cells_and_ghosts][level]);
+
+
+                cells([&](auto, auto &interval, auto) {
+                    auto i = interval[0];
+                    std::cout<<std::endl<<"Level "<<level<<"Cells "<<i;
+                });
+                
+                allcells([&](auto, auto &interval, auto) {
+                    auto i = interval[0];
+                    std::cout<<std::endl<<"Level "<<level<<"All Cells "<<i;
+                });
+
+                projcells([&](auto, auto &interval, auto) {
+                    auto i = interval[0];
+                    std::cout<<std::endl<<"Level "<<level<<"Proj Cells "<<i;
+                });
+                
+                cellsandghosts([&](auto, auto &interval, auto) {
+                    auto i = interval[0];
+                    std::cout<<std::endl<<"Level "<<level<<"Cells and ghosts "<<i;
+                });
+            }
+
+
+            std::cout<<std::endl
+                     <<std::endl
+                     <<std::endl
+                     <<std::endl;
+
             // Initialization
             auto f  = init_f(mesh , 0.0);
-            
-            mure::Field<Config, double, 3> fR("fR", meshR);
-            fR.array().fill(0);
+            auto fR = init_f(meshR, 0.0);             
 
-            double T = 1.2;
+            double T = 0.6;
             double dx = 1.0 / (1 << max_level);
             double dt = dx;
 
@@ -446,12 +528,23 @@ int main(int argc, char *argv[])
 
             double t = 0.0;
 
+            std::ofstream out_time_frames;
+            std::ofstream out_error_exact_ref;
+            std::ofstream out_diff_ref_adap;
+            std::ofstream out_compression;
 
-            for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
+            out_time_frames.open     ("./d1q2/time_frame_s_"     +std::to_string(s)+"_eps_"+std::to_string(eps)+".dat");
+            out_error_exact_ref.open ("./d1q2/error_exact_ref_"  +std::to_string(s)+"_eps_"+std::to_string(eps)+".dat");
+            out_diff_ref_adap.open   ("./d1q2/diff_ref_adap_s_"  +std::to_string(s)+"_eps_"+std::to_string(eps)+".dat");
+            out_compression.open     ("./d1q2/compression_s_"    +std::to_string(s)+"_eps_"+std::to_string(eps)+".dat");
+
+
+            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
+                    std::cout<<std::endl<<"Passe "<<i;
                     if (coarsening(f, eps, i))
                         break;
                 }
@@ -486,17 +579,25 @@ int main(int argc, char *argv[])
 
                 auto error = compute_error(f, fR, t);
 
+                out_time_frames    <<t       <<std::endl;
+                out_error_exact_ref<<error[0]<<std::endl;
+                out_diff_ref_adap  <<error[1]<<std::endl;
+                out_compression    <<static_cast<double>(mesh.nb_cells(mure::MeshType::cells)) 
+                                   / static_cast<double>(meshR.nb_cells(mure::MeshType::cells))<<std::endl;
+
                 save_refined_solution(fR, min_level, max_level, eps, nb_ite);
 
                 std::cout<<std::endl;
 
                 
+
+                
                 tic();
-                one_time_step(f, tag_leaf);
+                one_time_step(f, tag_leaf, s);
                 auto duration_scheme = toc();
 
                 tic();
-                one_time_step(fR, tag_leafR);
+                one_time_step(fR, tag_leafR, s);
                 auto duration_schemeR = toc();
 
                 t += dt;
@@ -506,24 +607,34 @@ int main(int argc, char *argv[])
                 auto duration_save = toc();
 
 
-                std::cout<<std::endl<<"\n=======Iteration "<<nb_ite<<" summary========"
+                std::cout<<std::endl<<"\n=======Iteration "<<nb_ite<<"  time "<<t<<" summary========"
                                     <<"\nCoarsening: "<<duration_coarsening
                                     <<"\nRefinement: "<<duration_refinement
                                     <<"\nLeafChecking: "<<duration_leaf_checking
                                     <<"\nScheme: "<<duration_scheme
                                     <<"\nScheme reference: "<<duration_schemeR
                                     <<"\nSave: "<<duration_save
-                                    <<"\nError exact - adaptive = "<< error[0] << "\n";
-                                    //<<"\nNorm after computation = "<<norm_after_computation;
+                                    <<"\nError exact - referece = "<< error[0]
+                                    <<"\nError adaptive - referece = "<< error[1] << "\n";
+
                                     
 
             }
+            
+            out_time_frames.close();
+            out_error_exact_ref.close();
+            out_diff_ref_adap.close();
+            out_compression.close();
+
         }
+
     }
     catch (const cxxopts::OptionException &e)
     {
         std::cout << options.help() << "\n";
     }
+
+
 
     return 0;
 }

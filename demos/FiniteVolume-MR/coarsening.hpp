@@ -72,6 +72,8 @@ bool coarsening(Field &u, double eps, std::size_t ite)
                                compute_max_detail(detail, max_detail));
     }
 
+    //std::cout<<std::endl<<"Max detail : "<<max_detail;
+
     // std::stringstream s;
     // s << "coarsening_"<<ite;
     // auto h5file = mure::Hdf5(s.str().data());
