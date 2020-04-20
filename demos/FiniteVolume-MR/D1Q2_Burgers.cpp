@@ -308,34 +308,34 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
             // }
             
             // This is the CHEAP FLUX EVALUATION
-            {
-                auto fp = f(0, level, i); // Just to give the shape ....
-                auto fm = f(1, level, i);
+            
+            auto fp = f(0, level, i); // Just to give the shape ....
+            auto fm = f(1, level, i);
 
-                auto exist_0_m1 = mesh.exists(level, i - 1, mure::MeshType::cells);
-                auto exist_0_p1 = mesh.exists(level, i + 1, mure::MeshType::cells);
+            auto exist_0_m1 = mesh.exists(level, i - 1, mure::MeshType::cells);
+            auto exist_0_p1 = mesh.exists(level, i + 1, mure::MeshType::cells);
 
-                auto exist_up_m1 = mesh.exists(level + 1, 2*i - 1, mure::MeshType::cells);
-                auto exist_up_p1 = mesh.exists(level + 1, 2*i + 1, mure::MeshType::cells);
+            auto exist_up_m1 = mesh.exists(level + 1, 2*i - 1, mure::MeshType::cells);
+            auto exist_up_p1 = mesh.exists(level + 1, 2*i + 1, mure::MeshType::cells);
 
-                auto exist_down_m1 = mesh.exists(level - 1, i/2 - 1, mure::MeshType::cells); // Verify this division by 2... sometimes is problematic
-                auto exist_down_p1 = mesh.exists(level - 1, i/2 + 1, mure::MeshType::cells);
+            auto exist_down_m1 = mesh.exists(level - 1, i/2 - 1, mure::MeshType::cells); // Verify this division by 2... sometimes is problematic
+            auto exist_down_p1 = mesh.exists(level - 1, i/2 + 1, mure::MeshType::cells);
 
-                // The left neigh at the same level exists
-                xt::masked_view(fp, exist_0_m1) = (1.0 - coeff) * f(0, level, i) + coeff * f(0, level, i - 1);
-                // The right neigh at the same level exists
-                xt::masked_view(fm, exist_0_p1) = (1.0 - coeff) * f(1, level, i) + coeff * f(1, level, i + 1);
+            // The left neigh at the same level exists
+            xt::masked_view(fp, exist_0_m1) = (1.0 - coeff) * f(0, level, i) + coeff * f(0, level, i - 1);
+            // The right neigh at the same level exists
+            xt::masked_view(fm, exist_0_p1) = (1.0 - coeff) * f(1, level, i) + coeff * f(1, level, i + 1);
 
 
                 // This is problematic... ASK
-                xt::masked_view(xt::masked_view(fp, !exist_0_m1), 
-                                                    exist_up_m1) = (1.0 - coeff) * f(0, level, i) + coeff * f(0, level + 1, 2*i - 1); 
-
-                xt::masked_view(xt::masked_view(fm, !exist_0_p1), 
+            xt::masked_view(xt::masked_view(fp, !exist_0_m1), 
+                                                exist_up_m1) = (1.0 - coeff) * f(0, level, i) + coeff * f(0, level + 1, 2*i - 1); 
+                                                
+            xt::masked_view(xt::masked_view(fm, !exist_0_p1), 
                                                     exist_up_p1) = (1.0 - coeff) * f(1, level, i);// + coeff * f(1, level + 1, 2*i + 1); 
 
 
-            }
+            
 
 
             // COLLISION    
