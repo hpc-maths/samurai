@@ -184,11 +184,13 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
 
             double coeff = 1. / (1 << j);
 
-            std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<" At finest = "<<i*(1<<j);
+            std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<" At finest = "<<i*(1<<j)<<" Minus one "<<i*(1<<j)-1<<" Plus one "<<(i+1)*(1<<j)<<std::endl;
             auto fp1 = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map));
+            std::cout<<"Plus"<<std::endl;
             auto fm1 = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j), 1, tag, memoization_map));
+            std::cout<<"Minus"<<std::endl;
 
             auto fp2 = f(2, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 2, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j)-1, 2, tag, memoization_map));
@@ -268,8 +270,8 @@ int main(int argc, char *argv[])
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
-                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("9"))
+                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.001"))
                        ("s", "relaxation parameter", cxxopts::value<double>()->default_value("1.0"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
