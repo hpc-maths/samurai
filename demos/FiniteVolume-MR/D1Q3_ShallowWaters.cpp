@@ -240,6 +240,157 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
     h5file.add_field(level_);
 }
 
+
+
+template<class Field, class interval_t>
+xt::xtensor<double, 3> prediction_all(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, 
+                                  std::map<std::tuple<std::size_t, std::size_t, interval_t>, 
+                                  xt::xtensor<double, 3>> & mem_map)
+{
+
+    using namespace xt::placeholders;
+    // We check if the element is already in the map
+    auto it = mem_map.find({level_g, level, i});
+    if (it != mem_map.end())
+    {
+        return it->second;
+    }
+    else
+    {
+        auto mesh = f.mesh();
+        std::vector<std::size_t> shape = {i.size(), 3};
+        xt::xtensor<double, 2> out = xt::empty<double>(shape);
+        auto mask = mesh.exists(level_g + level, i, mure::MeshType::cells_and_ghosts);
+
+        xt::xtensor<double, 2> mask_all = xt::empty<double>(shape);
+        xt::view(mask_all, xt::all(), 0) = mask;
+        xt::view(mask_all, xt::all(), 1) = mask;
+        xt::view(mask_all, xt::all(), 2) = mask;
+
+        if (xt::all(mask))
+        {         
+            return xt::eval(f(level_g + level, i));
+        }
+
+        auto ig = i >> 1;
+        ig.step = 1;
+
+        xt::xtensor<double, 2> val = xt::empty<double>(shape);
+        auto current = xt::eval(prediction_all(f, level_g, level-1, ig, mem_map));
+        auto left = xt::eval(prediction_all(f, level_g, level-1, ig-1, mem_map));
+        auto right = xt::eval(prediction_all(f, level_g, level-1, ig+1, mem_map));
+
+        std::size_t start_even = (i.start&1)? 1: 0;
+        std::size_t start_odd = (i.start&1)? 0: 1;
+        std::size_t end_even = (i.end&1)? ig.size(): ig.size()-1;
+        std::size_t end_odd = (i.end&1)? ig.size()-1: ig.size();
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(current - 1./8 * (right - left), xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(current + 1./8 * (right - left), xt::range(_, end_odd));
+
+        xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
+        for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, ++i_int)
+        {
+            if (mask[i_mask])
+            {
+                xt::view(out, i_mask) = xt::view(f(level_g + level, {i_int, i_int + 1}), 0);
+            }
+        }
+
+        // The value should be added to the memoization map before returning
+        return out;// mem_map[{level_g, level, i, ig}] = out;
+    }
+}
+
+template<class Config, class FieldR>
+std::array<double, 4> compute_error(mure::Field<Config, double, 3> &f, FieldR & fR, double t)
+{
+
+    auto mesh = f.mesh();
+
+    auto meshR = fR.mesh();
+    auto max_level = meshR.max_level();
+
+    mure::mr_projection(f);
+    mure::mr_prediction(f);  // C'est supercrucial de le faire.
+
+    f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
+    fR.update_bc();    
+
+    // Getting ready for memoization
+    // using interval_t = typename Field::Config::interval_t;
+    using interval_t = typename Config::interval_t;
+    std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 3>> error_memoization_map;
+    error_memoization_map.clear();
+
+    double error_h = 0.0; // First momentum 
+    double error_q = 0.0; // Second momentum
+    double diff_h = 0.0;
+    double diff_q = 0.0;
+
+
+    double dx = 1.0 / (1 << max_level);
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto exp = mure::intersection(meshR[mure::MeshType::cells][max_level],
+                                      mesh[mure::MeshType::cells][level])
+                  .on(max_level);
+
+        exp([&](auto, auto &interval, auto) {
+            auto i = interval[0];
+            auto j = max_level - level;
+
+            auto sol  = prediction_all(f, level, j, i, error_memoization_map);
+            auto solR = xt::view(fR(max_level, i), xt::all(), xt::range(0, 3));
+
+
+            xt::xtensor<double, 1> x = dx*xt::linspace<int>(i.start, i.end - 1, i.size()) + 0.5*dx;
+
+
+            xt::xtensor<double, 1> hexact = xt::zeros<double>(x.shape());
+            xt::xtensor<double, 1> qexact = xt::zeros<double>(x.shape());
+
+            for (std::size_t idx = 0; idx < x.shape()[0]; ++idx)    {
+                auto ex_sol = exact_solution(x[idx], t);
+
+                hexact[idx] = ex_sol[0];
+                qexact[idx] = ex_sol[0]*ex_sol[1];
+
+            }
+
+            error_h += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) 
+                                                 + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))
+                                                 + xt::view(fR(max_level, i), xt::all(), xt::range(2, 3))) 
+                                     - hexact))[0];
+
+            double lambda = 2.0;
+            error_q += xt::sum(xt::abs(lambda*xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))
+                                                        - xt::view(fR(max_level, i), xt::all(), xt::range(2, 3))) 
+                                     - qexact))[0];
+
+
+            diff_h += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), xt::range(0, 1)) 
+                                                + xt::view(sol, xt::all(), xt::range(1, 2))
+                                                + xt::view(sol, xt::all(), xt::range(2, 3))) 
+                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) 
+                                                            + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))
+                                                            + xt::view(fR(max_level, i), xt::all(), xt::range(2, 3))))) [0];
+            
+            diff_q += xt::sum(xt::abs(lambda * xt::flatten(xt::view(sol, xt::all(), xt::range(1, 2))
+                                                         - xt::view(sol, xt::all(), xt::range(2, 3))) 
+                                                - lambda * xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))
+                                                                     - xt::view(fR(max_level, i), xt::all(), xt::range(2, 3))))) [0];
+            
+        });
+    }
+
+
+    return {dx * error_h, dx * diff_h, 
+            dx * error_q, dx * diff_q};
+
+
+}
+
 int main(int argc, char *argv[])
 {
     cxxopts::Options options("lbm_d1q3_shallow waters",
@@ -264,7 +415,7 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 1;
-            using Config = mure::MRConfig<dim, 3>;
+            using Config = mure::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
@@ -275,10 +426,11 @@ int main(int argc, char *argv[])
 
             mure::Box<double, dim> box({-1}, {1});
             mure::Mesh<Config> mesh{box, min_level, max_level};
-         
+            mure::Mesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
 
             // Initialization
-            auto f  = init_f(mesh , 0.0);
+            auto f   = init_f(mesh , 0.0);
+            auto fR  = init_f(meshR , 0.0);
 
             double T = 0.2;
 
@@ -331,6 +483,19 @@ int main(int argc, char *argv[])
                 auto duration_leaf_checking = toc();
 
 
+                mure::Field<Config, int, 1> tag_leafR{"tag_leafR", meshR};
+                tag_leafR.array().fill(0);
+                meshR.for_each_cell([&](auto &cell) {
+                    tag_leafR[cell] = static_cast<int>(1);
+                });
+
+                auto error = compute_error(f, fR, t);
+
+
+                std::cout<<std::endl<<"Error h = "<<error[0]
+                                    <<"Diff h = "<<error[1]
+                                    <<"Error q = "<<error[2]
+                                    <<"Diff q = "<<error[3];
 
                 
 
@@ -338,6 +503,9 @@ int main(int argc, char *argv[])
                 tic();
                 one_time_step(f, tag_leaf, s);
                 auto duration_scheme = toc();
+
+                one_time_step(fR, tag_leafR, s);
+
 
                 t += dt;
 
