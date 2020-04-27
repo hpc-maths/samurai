@@ -184,13 +184,13 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
 
             double coeff = 1. / (1 << j);
 
-            std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<" At finest = "<<i*(1<<j)<<" Minus one "<<i*(1<<j)-1<<" Plus one "<<(i+1)*(1<<j)<<std::endl;
+            //std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<" At finest = "<<i*(1<<j)<<" Minus one "<<i*(1<<j)-1<<" Plus one "<<(i+1)*(1<<j)<<std::endl;
             auto fp1 = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map));
-            std::cout<<"Plus"<<std::endl;
+            //std::cout<<"Plus"<<std::endl;
             auto fm1 = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j), 1, tag, memoization_map));
-            std::cout<<"Minus"<<std::endl;
+            //std::cout<<"Minus"<<std::endl;
 
             auto fp2 = f(2, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 2, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j)-1, 2, tag, memoization_map));
@@ -202,7 +202,7 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
             auto fm3 = f(5, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 5, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j), 5, tag, memoization_map));
 
-            std::cout<<std::endl<<"Done";
+            //std::cout<<std::endl<<"Done";
 
            
             auto u10 = xt::eval(          fp1 + fm1);

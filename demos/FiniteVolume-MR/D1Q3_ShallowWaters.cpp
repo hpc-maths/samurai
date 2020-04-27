@@ -243,9 +243,9 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
 
 
 template<class Field, class interval_t>
-xt::xtensor<double, 3> prediction_all(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, 
+xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, 
                                   std::map<std::tuple<std::size_t, std::size_t, interval_t>, 
-                                  xt::xtensor<double, 3>> & mem_map)
+                                  xt::xtensor<double, 2>> & mem_map)
 {
 
     using namespace xt::placeholders;
@@ -319,7 +319,7 @@ std::array<double, 4> compute_error(mure::Field<Config, double, 3> &f, FieldR & 
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;
     using interval_t = typename Config::interval_t;
-    std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 3>> error_memoization_map;
+    std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> error_memoization_map;
     error_memoization_map.clear();
 
     double error_h = 0.0; // First momentum 
@@ -443,6 +443,10 @@ int main(int argc, char *argv[])
 
             double t = 0.0;
 
+            // xt::xtensor<double, 2> test = xt::empty<double>({10, 3});
+
+            // std::cout<<std::endl<<test;
+            // return 0;
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
@@ -492,9 +496,9 @@ int main(int argc, char *argv[])
                 auto error = compute_error(f, fR, t);
 
 
-                std::cout<<std::endl<<"Error h = "<<error[0]
-                                    <<"Diff h = "<<error[1]
-                                    <<"Error q = "<<error[2]
+                std::cout<<std::endl<<"Error h = "<<error[0]<<std::endl
+                                    <<"Diff h = "<<error[1]<<std::endl
+                                    <<"Error q = "<<error[2]<<std::endl
                                     <<"Diff q = "<<error[3];
 
                 

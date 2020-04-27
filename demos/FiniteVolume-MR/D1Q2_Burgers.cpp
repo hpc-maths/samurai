@@ -71,13 +71,14 @@ double exact_solution(double x, double t)   {
         
     // }
 
-    double rhoL = 1.0;
-    double rhoR = 0.0;
-    double x0 = 0.0;
+    // double rhoL = 1.0;
+    // double rhoR = 0.0;
+    // double x0 = 0.0;
 
-    double vshock = 0.5 * (rhoL + rhoR);
+    //double vshock = 0.5 * (rhoL + rhoR);
 
-    return ((x-0.5*t) <= x0) ? rhoL : rhoR;
+    //return ((x-0.5*t) <= x0) ? rhoL : rhoR;
+    //return ((x-0.5*t) <= -1.0) ? 0 : ((x-0.5*t) <= 1.0 ? 1.0 : 0.0);
 
     //return (x <= x0 + vshock * t) ? rhoL : rhoR;
     // {
@@ -86,17 +87,26 @@ double exact_solution(double x, double t)   {
     //     return ((x - 0.5*t) < x0L) ? 0.0 : (((x - 0.5*t) < x0R ? 1.0 : 0.0));
     // }
 
+    // double sigma = 0.5;
+    // double rhoL = 0.0;
+    // double rhoC = 1.0;
+    // double rhoR = 0.0;
 
+    // return (x + sigma <= rhoL * t) ? rhoL : ((x + sigma <= rhoC*t) ? (x+sigma)/t : ((x-sigma <= t/2*(rhoC + rhoR)) ? rhoC : rhoR ));
+
+
+    // // x = x - 0.5 * t;
+    // // t = 0.0;
+
+    // if (x >= -1 and x < t)
+    // {
+    //     u = (1 + x) / (1 + t);
+    // }
     
-    if (x >= -1 and x < t)
-    {
-        u = (1 + x) / (1 + t);
-    }
-    
-    if (x >= t and x < 1)
-    {
-        u = (1 - x) / (1 - t);
-    }
+    // if (x >= t and x < 1)
+    // {
+    //     u = (1 - x) / (1 - t);
+    // }
 
     u = exp(-20.0 * (x-0.5*t) * (x-0.5*t));
 
@@ -299,40 +309,40 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
             double coeff = 1. / (1 << j);
 
             // This is the STANDARD FLUX EVALUATION
-            // {
-            //     auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map)
-            //                                      -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map));
+            
+            auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map)
+                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map));
 
-            //     auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag, memoization_map)
-            //                                      -  prediction(f, level, j, (i+1)*(1<<j), 1, tag, memoization_map));
-            // }
+            auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag, memoization_map)
+                                             -  prediction(f, level, j, (i+1)*(1<<j), 1, tag, memoization_map));
+            
             
             // This is the CHEAP FLUX EVALUATION
             
-            auto fp = f(0, level, i); // Just to give the shape ....
-            auto fm = f(1, level, i);
+            // auto fp = f(0, level, i); // Just to give the shape ....
+            // auto fm = f(1, level, i);
 
-            auto exist_0_m1 = mesh.exists(level, i - 1, mure::MeshType::cells);
-            auto exist_0_p1 = mesh.exists(level, i + 1, mure::MeshType::cells);
+            // auto exist_0_m1 = mesh.exists(level, i - 1, mure::MeshType::cells);
+            // auto exist_0_p1 = mesh.exists(level, i + 1, mure::MeshType::cells);
 
-            auto exist_up_m1 = mesh.exists(level + 1, 2*i - 1, mure::MeshType::cells);
-            auto exist_up_p1 = mesh.exists(level + 1, 2*i + 1, mure::MeshType::cells);
+            // auto exist_up_m1 = mesh.exists(level + 1, 2*i - 1, mure::MeshType::cells);
+            // auto exist_up_p1 = mesh.exists(level + 1, 2*i + 1, mure::MeshType::cells);
 
-            auto exist_down_m1 = mesh.exists(level - 1, i/2 - 1, mure::MeshType::cells); // Verify this division by 2... sometimes is problematic
-            auto exist_down_p1 = mesh.exists(level - 1, i/2 + 1, mure::MeshType::cells);
+            // auto exist_down_m1 = mesh.exists(level - 1, i/2 - 1, mure::MeshType::cells); // Verify this division by 2... sometimes is problematic
+            // auto exist_down_p1 = mesh.exists(level - 1, i/2 + 1, mure::MeshType::cells);
 
-            // The left neigh at the same level exists
-            xt::masked_view(fp, exist_0_m1) = (1.0 - coeff) * f(0, level, i) + coeff * f(0, level, i - 1);
-            // The right neigh at the same level exists
-            xt::masked_view(fm, exist_0_p1) = (1.0 - coeff) * f(1, level, i) + coeff * f(1, level, i + 1);
+            // // The left neigh at the same level exists
+            // xt::masked_view(fp, exist_0_m1) = (1.0 - coeff) * f(0, level, i) + coeff * f(0, level, i - 1);
+            // // The right neigh at the same level exists
+            // xt::masked_view(fm, exist_0_p1) = (1.0 - coeff) * f(1, level, i) + coeff * f(1, level, i + 1);
 
 
-                // This is problematic... ASK
-            xt::masked_view(xt::masked_view(fp, !exist_0_m1), 
-                                                exist_up_m1) = (1.0 - coeff) * f(0, level, i) + coeff * f(0, level + 1, 2*i - 1); 
+            //     // This is problematic... ASK
+            // xt::masked_view(xt::masked_view(fp, !exist_0_m1), 
+            //                                     exist_up_m1) = (1.0 - coeff) * f(0, level, i) + coeff * f(0, level + 1, 2*i - 1); 
                                                 
-            xt::masked_view(xt::masked_view(fm, !exist_0_p1), 
-                                                    exist_up_p1) = (1.0 - coeff) * f(1, level, i);// + coeff * f(1, level + 1, 2*i + 1); 
+            // xt::masked_view(xt::masked_view(fm, !exist_0_p1), 
+            //                                         exist_up_p1) = (1.0 - coeff) * f(1, level, i);// + coeff * f(1, level + 1, 2*i + 1); 
 
 
             
@@ -346,7 +356,6 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
             
 
             vv = (1 - s) * vv + s * .5 * uu;// * uu;
-            //vv = (1 - s) * vv + s * .5 * uu;
 
             new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
             new_f(1, level, i) = .5 * (uu - 1. / lambda * vv);
@@ -473,6 +482,7 @@ std::array<double, 2> compute_error(mure::Field<Config, double, 2> &f, FieldR & 
     double error = 0; // To return
     double diff = 0.0;
 
+
     double dx = 1.0 / (1 << max_level);
 
     for (std::size_t level = 0; level <= max_level; ++level)
@@ -499,9 +509,9 @@ std::array<double, 2> compute_error(mure::Field<Config, double, 2> &f, FieldR & 
                 uexact[idx] = exact_solution(x[idx], t); // We can probably do better
             }
 
-
             error += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))) 
                              - uexact))[0];
+
 
             diff += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), xt::range(0, 1)) + xt::view(sol, xt::all(), xt::range(1, 2))) - xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2)))))[0];
 
@@ -614,7 +624,7 @@ int main(int argc, char *argv[])
             out_compression.open     ("./d1q2/compression_s_"    +std::to_string(s)+"_eps_"+std::to_string(eps)+".dat");
 
 
-            for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
@@ -637,7 +647,7 @@ int main(int argc, char *argv[])
                 save_solution(f, eps, nb_ite, "refinement");
 
 
-                std::cout<<std::endl<<"Mesh before computing solution"<<std::endl<<mesh;
+                //std::cout<<std::endl<<"Mesh before computing solution"<<std::endl<<mesh;
 
 
                 // Create and initialize field containing the leaves
@@ -675,7 +685,7 @@ int main(int argc, char *argv[])
                 auto duration_scheme = toc();
 
                 tic();
-                //one_time_step(fR, tag_leafR, s);
+                one_time_step(fR, tag_leafR, s);
                 auto duration_schemeR = toc();
 
                 t += dt;
