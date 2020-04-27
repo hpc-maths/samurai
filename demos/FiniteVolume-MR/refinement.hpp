@@ -8,7 +8,7 @@
 
 
 template <class Field>
-bool refinement(Field &u, double eps, std::size_t ite)
+bool refinement(Field &u, double eps, double regularity, std::size_t ite)
 {
     using Config = typename Field::Config;
     using value_type = typename Field::value_type;
@@ -81,11 +81,9 @@ bool refinement(Field &u, double eps, std::size_t ite)
         
         //subset.apply_op(level, to_refine_mr(detail, max_detail, tag, 32 * eps_l, max_level));
 
-        double regularity_of_the_function = 100.0;
+        double regularity_to_use = std::min(regularity, 3.0) + dim;
 
-        double regularity = std::min(regularity_of_the_function, 3.0) + dim;
-
-        subset.apply_op(level, to_refine_mr(detail, max_detail, tag, (pow(2.0, regularity)) * eps_l, max_level));
+        subset.apply_op(level, to_refine_mr(detail, max_detail, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level));
 
         //subset.apply_op(level, to_refine_mr_BH(detail, max_detail, tag, 32 * eps_l, max_level));
 

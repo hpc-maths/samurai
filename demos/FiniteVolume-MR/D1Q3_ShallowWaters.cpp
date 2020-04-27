@@ -109,7 +109,7 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
 
         auto mesh = f.mesh();
         xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
-        auto mask = mesh.exists(level_g + level, i, mure::MeshType::cells_and_ghosts);
+        auto mask = mesh.exists(level_g + level, i);
 
         // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
         if (xt::all(mask))
@@ -260,7 +260,7 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
         auto mesh = f.mesh();
         std::vector<std::size_t> shape = {i.size(), 3};
         xt::xtensor<double, 2> out = xt::empty<double>(shape);
-        auto mask = mesh.exists(level_g + level, i, mure::MeshType::cells_and_ghosts);
+        auto mask = mesh.exists(level_g + level, i);
 
         xt::xtensor<double, 2> mask_all = xt::empty<double>(shape);
         xt::view(mask_all, xt::all(), 0) = mask;

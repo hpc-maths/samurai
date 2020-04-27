@@ -42,13 +42,13 @@ namespace mure
       public:
         static constexpr auto dim = MRConfig::dim;
         static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
-        // static constexpr auto ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
-        //                                                       static_cast<int>(MRConfig::max_stencil_width)),
-        //                                              static_cast<int>(MRConfig::default_s_for_prediction));
-
         static constexpr auto ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
                                                               static_cast<int>(MRConfig::max_stencil_width)),
                                                      static_cast<int>(MRConfig::default_s_for_prediction));
+
+        // static constexpr auto ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
+        //                                                       static_cast<int>(MRConfig::max_stencil_width)),
+        //                                              static_cast<int>(MRConfig::default_s_for_prediction));
         using index_t = typename MRConfig::index_t;
         using coord_index_t = typename MRConfig::coord_index_t;
         using point_t = typename Box<int, dim>::point_t;
@@ -155,15 +155,19 @@ namespace mure
         }
 
         template<typename... T>
-        inline auto exists(std::size_t level, interval_t interval, T... index, mure::MeshType cell_type) const
+        inline auto exists(std::size_t level, interval_t interval, T... index) const
         {
-            const auto& lca = m_cells[cell_type][level];
+            const auto& lca = m_cells[MeshType::cells_and_ghosts][level];
             std::size_t size = interval.size()/interval.step;
             xt::xtensor<bool, 1> out = xt::empty<bool>({size});
             std::size_t iout = 0;
             for(coord_index_t i = interval.start; i < interval.end; i+=interval.step)
             {
+
                 auto row = lca.find({i, index...});
+
+                // std::cout<<std::endl<<"(***) level = "<<level<<" i = "<<i<<"  row = "<<row<<std::endl;
+
                 if (row == -1)
                 {
                     out[iout++] = false;

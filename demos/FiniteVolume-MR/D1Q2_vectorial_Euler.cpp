@@ -96,8 +96,13 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 template<class Field, class interval_t, class FieldTag>
 xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item, 
                                   const FieldTag & tag, std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, 
-                                  xt::xtensor<double, 1>> & mem_map)
+                                  xt::xtensor<double, 1>> & mem_map, bool yes = false)
 {
+
+
+    if (yes) {
+        std::cout<<std::endl<<"level_g"<<level_g<<"  level = "<<level<<" interval = "<<i<<std::endl;
+    }
 
     // We check if the element is already in the map
     auto it = mem_map.find({item, level_g, level, i});
@@ -105,11 +110,16 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
         //std::cout<<std::endl<<"Found by memoization";
         return it->second;
     }
-    else {
+    else 
+    {
 
         auto mesh = f.mesh();
         xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
-        auto mask = mesh.exists(level_g + level, i, mure::MeshType::cells_and_ghosts);
+        auto mask = mesh.exists(level_g + level, i);
+
+        if (yes) {
+            std::cout<<std::endl<<"Mask = "<<mask<<std::endl;
+        }
 
         // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
         if (xt::all(mask))
@@ -151,7 +161,7 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
 
 
 template<class Field, class FieldTag>
-void one_time_step(Field &f, const FieldTag & tag, double s)
+void one_time_step(Field &f, const FieldTag & tag, double s, std::size_t iter)
 {
     constexpr std::size_t nvel = Field::size;
     double lambda = 3.;//, s = 1.0;
@@ -184,9 +194,16 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
 
             double coeff = 1. / (1 << j);
 
-            //std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<" At finest = "<<i*(1<<j)<<" Minus one "<<i*(1<<j)-1<<" Plus one "<<(i+1)*(1<<j)<<std::endl;
-            auto fp1 = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map)
-                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map));
+            if (iter == 123 and level == 7)    {
+                std::cout<<std::endl<<"Level "<<level<<" Interval "<<i<<" At finest = "<<i*(1<<j)<<" Minus one "<<i*(1<<j)-1<<" Plus one "<<(i+1)*(1<<j)<<std::endl;
+
+
+            }
+
+            bool toyes = level == 7 and iter == 123;
+
+            auto fp1 = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map,toyes)
+                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map, toyes));
             //std::cout<<"Plus"<<std::endl;
             auto fm1 = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag, memoization_map)
                                              -  prediction(f, level, j, (i+1)*(1<<j), 1, tag, memoization_map));
@@ -272,7 +289,7 @@ int main(int argc, char *argv[])
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
                        ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("9"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.001"))
-                       ("s", "relaxation parameter", cxxopts::value<double>()->default_value("1.0"))
+                       ("s", "relaxation parameter", cxxopts::value<double>()->default_value("1.5"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
 
@@ -287,7 +304,7 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 1;
-            using Config = mure::MRConfig<dim, 6>;
+            using Config = mure::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
@@ -314,6 +331,11 @@ int main(int argc, char *argv[])
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
+
+                if(nb_ite == 123 or nb_ite == 0)   {
+                    std::cout<<std::endl<<"Mesh"<<std::endl<<mesh<<std::endl;
+                }
+
 
                 std::cout<<std::endl<<"Iteration "<<nb_ite<<" time = "<<t;
                 tic();
@@ -352,7 +374,7 @@ int main(int argc, char *argv[])
 
                 
                 tic();
-                one_time_step(f, tag_leaf, s);
+                one_time_step(f, tag_leaf, s, nb_ite);
                 auto duration_scheme = toc();
 
 

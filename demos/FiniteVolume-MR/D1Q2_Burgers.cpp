@@ -98,17 +98,17 @@ double exact_solution(double x, double t)   {
     // // x = x - 0.5 * t;
     // // t = 0.0;
 
-    // if (x >= -1 and x < t)
-    // {
-    //     u = (1 + x) / (1 + t);
-    // }
+    if (x >= -1 and x < t)
+    {
+        u = (1 + x) / (1 + t);
+    }
     
-    // if (x >= t and x < 1)
-    // {
-    //     u = (1 - x) / (1 - t);
-    // }
+    if (x >= t and x < 1)
+    {
+        u = (1 - x) / (1 - t);
+    }
 
-    u = exp(-20.0 * (x-0.5*t) * (x-0.5*t));
+    //u = exp(-20.0 * (x-0.75*t) * (x-0.75*t));
 
     // u = 0.0;
     
@@ -116,7 +116,8 @@ double exact_solution(double x, double t)   {
 }
 
 double flux(double u)   {
-    return 0.5 * u;// * u;
+    return 0.5 * u * u;
+    //return 0.75 * u;
 }
 
 template<class Config>
@@ -174,7 +175,7 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
 
         auto mesh = f.mesh();
         xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
-        auto mask = mesh.exists(level_g + level, i, mure::MeshType::cells_and_ghosts);
+        auto mask = mesh.exists(level_g + level, i);
 
         // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
         if (xt::all(mask))
@@ -233,7 +234,7 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
         auto mesh = f.mesh();
         std::vector<std::size_t> shape = {i.size(), 2};
         xt::xtensor<double, 2> out = xt::empty<double>(shape);
-        auto mask = mesh.exists(level_g + level, i, mure::MeshType::cells_and_ghosts);
+        auto mask = mesh.exists(level_g + level, i);
 
         xt::xtensor<double, 2> mask_all = xt::empty<double>(shape);
         xt::view(mask_all, xt::all(), 0) = mask;
@@ -337,7 +338,7 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
             // xt::masked_view(fm, exist_0_p1) = (1.0 - coeff) * f(1, level, i) + coeff * f(1, level, i + 1);
 
 
-            //     // This is problematic... ASK
+            // // This is problematic... ASK
             // xt::masked_view(xt::masked_view(fp, !exist_0_m1), 
             //                                     exist_up_m1) = (1.0 - coeff) * f(0, level, i) + coeff * f(0, level + 1, 2*i - 1); 
                                                 
@@ -354,8 +355,9 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
             auto vv = xt::eval(lambda * (fp - fm));
 
             
+            //vv = (1 - s) * vv + s * 0.75 * uu;
 
-            vv = (1 - s) * vv + s * .5 * uu;// * uu;
+            vv = (1 - s) * vv + s * .5 * uu * uu;
 
             new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
             new_f(1, level, i) = .5 * (uu - 1. / lambda * vv);
@@ -640,7 +642,7 @@ int main(int argc, char *argv[])
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
-                    if (refinement(f, eps, i))
+                    if (refinement(f, eps, 300.0, i))
                         break;
                 }
                 auto duration_refinement = toc();
