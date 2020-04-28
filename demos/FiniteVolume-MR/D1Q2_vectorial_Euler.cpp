@@ -245,6 +245,7 @@ void one_time_step(Field &f, const FieldTag & tag, double s, std::size_t iter)
     auto max_level = mesh.max_level();
 
     mure::mr_projection(f);
+    f.update_bc();
     mure::mr_prediction(f);
 
 
@@ -455,11 +456,12 @@ std::array<double, 6> compute_error(mure::Field<Config, double, 6> &f, FieldR & 
     auto meshR = fR.mesh();
     auto max_level = meshR.max_level();
 
+    fR.update_bc();    
+
     mure::mr_projection(f);
+    f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
     mure::mr_prediction(f);  // C'est supercrucial de le faire.
 
-    f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
-    fR.update_bc();    
 
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;

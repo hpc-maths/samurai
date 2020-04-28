@@ -291,9 +291,11 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
     double lambda = 3.;//, s = 1.0;
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
-
+    
     mure::mr_projection(f);
+    f.update_bc();
     mure::mr_prediction(f);
+
 
 
     // MEMOIZATION
@@ -384,11 +386,20 @@ std::array<double, 6> compute_error(mure::Field<Config, double, 6> &f, FieldR & 
     auto meshR = fR.mesh();
     auto max_level = meshR.max_level();
 
+    // mure::mr_projection(f);
+    // mure::mr_prediction(f);  // C'est supercrucial de le faire.
+    
+
+    fR.update_bc();    
+
     mure::mr_projection(f);
+    
+    f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
+
     mure::mr_prediction(f);  // C'est supercrucial de le faire.
 
-    f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
-    fR.update_bc();    
+    // f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
+    // fR.update_bc();  
 
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;
@@ -441,33 +452,33 @@ std::array<double, 6> compute_error(mure::Field<Config, double, 6> &f, FieldR & 
 
             }
 
-            error_rho += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) 
-                                                 + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))) 
+            error_rho += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), 0) 
+                                                 + xt::view(fR(max_level, i), xt::all(), 1)) 
                                      - rhoexact))[0];
 
-            error_q += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(2, 3))
-                                                 + xt::view(fR(max_level, i), xt::all(), xt::range(3, 4))) 
+            error_q += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), 2)
+                                                 + xt::view(fR(max_level, i), xt::all(), 3)) 
                                      - qexact))[0];
 
-            error_E += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(4, 5))
-                                                 + xt::view(fR(max_level, i), xt::all(), xt::range(5, 6))) 
+            error_E += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), 4)
+                                                 + xt::view(fR(max_level, i), xt::all(), 5)) 
                                      - Eexact))[0];
 
 
-            diff_rho += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), xt::range(0, 1)) 
-                                                  + xt::view(sol, xt::all(), xt::range(1, 2))) 
-                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) 
-                                                            + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))))) [0];
+            diff_rho += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), 0) 
+                                                  + xt::view(sol, xt::all(), 1))
+                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), 0) 
+                                                            + xt::view(fR(max_level, i), xt::all(), 1)))) [0];
             
-            diff_q += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), xt::range(2, 3)) 
-                                                + xt::view(sol, xt::all(), xt::range(3, 4))) 
-                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(2, 3)) 
-                                                            + xt::view(fR(max_level, i), xt::all(), xt::range(3, 4))))) [0];
+            diff_q += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), 2) 
+                                                + xt::view(sol, xt::all(), 3)) 
+                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), 2) 
+                                                            + xt::view(fR(max_level, i), xt::all(), 3)))) [0];
             
-            diff_E += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), xt::range(4, 5)) 
-                                                + xt::view(sol, xt::all(), xt::range(5, 6))) 
-                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(4, 5)) 
-                                                            + xt::view(fR(max_level, i), xt::all(), xt::range(5, 6))))) [0];
+            diff_E += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), 4) 
+                                                + xt::view(sol, xt::all(), 5)) 
+                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), 4) 
+                                                            + xt::view(fR(max_level, i), xt::all(), 5)))) [0];
             
         });
     }
@@ -520,6 +531,7 @@ int main(int argc, char *argv[])
             mure::Box<double, dim> box({-1}, {1});
 
             std::vector<double> s_vect {0.75, 1.0, 1.25, 1.5, 1.75};
+            //std::vector<double> s_vect {1.5, 1.75};
 
             for (auto s : s_vect)   {
                 std::cout<<std::endl<<"Relaxation parameter s = "<<s;
@@ -713,14 +725,13 @@ int main(int argc, char *argv[])
                                 fR.update_bc();    
                             }
                         
-                            // if (nb_ite == N - 1){
-                            //     auto error = compute_error(f, fR, t);
+                            
 
-                            //     std::cout<<std::endl<<"Eps = "<<eps<<" Diff_h = "<<error[1]<<std::endl<<"Diff q = "<<error[3];
-                            // }
                 
                             one_time_step(f, tag_leaf, s);
                             one_time_step(fR, tag_leafR, s);
+
+            
 
                             t += dt;
              
