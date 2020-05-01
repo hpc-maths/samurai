@@ -42,7 +42,7 @@ namespace mure
       public:
         static constexpr auto dim = MRConfig::dim;
         static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
-        static constexpr auto ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
+        static constexpr std::size_t ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
                                                               static_cast<int>(MRConfig::max_stencil_width)),
                                                      static_cast<int>(MRConfig::default_s_for_prediction));
 
@@ -73,7 +73,7 @@ namespace mure
             // m_init_cells = {max_level, box_t{start, end}};
             // update_x0_and_nb_ghosts();
 
-            point_t gw = ghost_width; // Just to cast it...
+            auto gw = static_cast<int>(ghost_width); // Just to cast it...
 
             m_cells[MeshType::cells][max_level] = {max_level, box_t{start, end}};
             m_cells[MeshType::cells_and_ghosts][max_level] = {max_level, box_t{start - gw, end + gw}};
