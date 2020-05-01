@@ -83,6 +83,66 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
     return data;
 }
 
+template<class Field, class interval_t, class index_t>
+auto prediction_with_mem(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const index_t j, const std::size_t item,
+                         std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t, index_t>, 
+                         xt::xtensor<double, 1>> & mem_map)
+{
+    // We check if the element is already in the map
+    auto it = mem_map.find({item, level_g, level, i, j});
+    if (it != mem_map.end())   {
+        //std::cout<<std::endl<<"Found by memoization";
+        return it->second;
+    }
+    else
+    {
+        auto mesh = f.mesh();
+        xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});
+        auto mask = mesh.exists(level_g + level, i, j);
+
+        if (xt::all(mask))
+        {         
+            return xt::eval(f(item, level_g + level, i, j));
+        }    
+
+        auto step = i.step;
+        auto ig = i / 2;
+        auto jg = j / 2;
+        ig.step = step >> 1;
+        xt::xtensor<double, 1> d_x = xt::empty<double>({i.size()/i.step});
+        xt::xtensor<double, 1> d_xy = xt::empty<double>({i.size()/i.step});
+        double d_y = (j & 1)? -1.: 1.;
+
+        for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
+        {
+            d_x[iii] = (ii & 1)? -1.: 1.;
+            d_xy[iii] = ((ii+j) & 1)? -1.: 1.;
+        }
+    
+        auto val = xt::eval(prediction_with_mem(f, level_g, level-1, ig, jg, item, mem_map) - 1./8 * d_x * (prediction_with_mem(f, level_g, level-1, ig+1, jg, item, mem_map)
+                                                                                                          - prediction_with_mem(f, level_g, level-1, ig-1, jg, item, mem_map))
+                                                                                            - 1./8 * d_y * (prediction_with_mem(f, level_g, level-1, ig, jg+1, item, mem_map) 
+                                                                                                          - prediction_with_mem(f, level_g, level-1, ig, jg-1, item, mem_map))
+                                                                                          - 1./64 * d_xy * (prediction_with_mem(f, level_g, level-1, ig+1, jg+1, item, mem_map)
+                                                                                                          - prediction_with_mem(f, level_g, level-1, ig+1, jg-1, item, mem_map)
+                                                                                                          - prediction_with_mem(f, level_g, level-1, ig-1, jg+1, item, mem_map)
+                                                                                                          + prediction_with_mem(f, level_g, level-1, ig-1, jg+1, item, mem_map)));
+
+        xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
+        for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
+        {
+            if (mask[i_mask])
+            {
+                out[i_mask] = f(item, level_g + level, {i_int, i_int + 1}, j)[0];
+            }
+        }
+
+        // The value should be added to the memoization map before returning
+        return mem_map[{item, level_g, level, i, j}] = out;
+        // return out;
+    }
+}
+
 template<class Field, class pred>
 void one_time_step(Field &f, const pred& pred_coeff)
 {
@@ -141,6 +201,93 @@ void one_time_step(Field &f, const pred& pred_coeff)
                 coord_index_t stencil_x, stencil_y;
                 std::tie(stencil_x, stencil_y) = c.first;
                 f3 += coeff*c.second*f(3, level, k + stencil_x, h + stencil_y);
+            }
+
+            // We compute the advected momenti
+            auto m0 = xt::eval(                 f0 + f1 + f2 + f3) ;
+            auto m1 = xt::eval(lambda        * (f0      - f2      ));
+            auto m2 = xt::eval(lambda        * (     f1      - f3));
+            auto m3 = xt::eval(lambda*lambda * (f0 - f1 + f2 - f3));
+
+            m1 = (1 - sq) * m1 + sq * kx * m0;
+            m2 = (1 - sq) * m2 + sq * ky * m0;
+            m3 = (1 - sxy) * m3; 
+
+            // We come back to the distributions
+            new_f(0, level, k, h) = .25 * m0 + .5/lambda * m1                    + .25/(lambda*lambda) * m3;
+            new_f(1, level, k, h) = .25 * m0                    + .5/lambda * m2 - .25/(lambda*lambda) * m3;
+            new_f(2, level, k, h) = .25 * m0 - .5/lambda * m1                    + .25/(lambda*lambda) * m3;
+            new_f(3, level, k, h) = .25 * m0                    - .5/lambda * m2 - .25/(lambda*lambda) * m3;
+        });
+    }
+
+    std::swap(f.array(), new_f.array());
+}
+
+template<class Field>
+void one_time_step_with_mem(Field &f)
+{
+    constexpr std::size_t nvel = Field::size;
+    using coord_index_t = typename Field::coord_index_t;
+
+    auto mesh = f.mesh();
+    auto max_level = mesh.max_level();
+
+    mure::mr_projection(f);
+    mure::mr_prediction(f);
+
+    // MEMOIZATION
+    // All is ready to do a little bit  of mem...
+    using interval_t = typename Field::Config::interval_t;
+    std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t, coord_index_t>, xt::xtensor<double, 1>> memoization_map;
+    memoization_map.clear(); // Just to be sure...
+
+    Field new_f{"new_f", mesh};
+    new_f.array().fill(0.);
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
+                                      mesh[mure::MeshType::cells][level]);
+        exp([&](auto& index, auto &interval, auto) {
+            auto k = interval[0]; // Logical index in x
+            auto h = index[0];    // Logical index in y
+
+            std::size_t j = max_level - level; 
+            double coeff = 1. / (1 << (2*j)); // The factor 2 comes from the 2D 
+
+            auto f0 = xt::eval(f(0, level, k, h));
+            auto f1 = xt::eval(f(1, level, k, h));
+            auto f2 = xt::eval(f(2, level, k, h));
+            auto f3 = xt::eval(f(3, level, k, h));
+
+            // We have to iterate over the elements on the considered boundary
+            memoization_map.clear();
+            for (int l = 0; l < (1<<j); ++l)
+            {
+                f0 += coeff * (prediction_with_mem(f, level, j,  k   *(1<<j) - 1, h*(1<<j) + l, 0, memoization_map)
+                              - prediction_with_mem(f, level, j, (k+1)*(1<<j) - 1, h*(1<<j) + l, 0, memoization_map));
+            }
+
+            memoization_map.clear();
+            for (int l = 0; l < (1<<j); ++l)
+            {
+                f1 += coeff * (prediction_with_mem(f, level, j,  k*(1<<j) + l,  h   *(1<<j) - 1, 1, memoization_map)
+                              - prediction_with_mem(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j) - 1, 1, memoization_map));
+            }
+
+            memoization_map.clear();
+            for (int l = 0; l < (1<<j); ++l)
+            {
+                f2 += coeff * (prediction_with_mem(f, level, j, (k+1)*(1<<j), h*(1<<j) + l, 2, memoization_map)
+                              - prediction_with_mem(f, level, j,  k   *(1<<j), h*(1<<j) + l, 2, memoization_map));
+            }
+
+            memoization_map.clear();
+            for (int l = 0; l < (1<<j); ++l)
+            {
+                f3 += coeff * (prediction_with_mem(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j), 3, memoization_map)
+                              - prediction_with_mem(f, level, j,  k*(1<<j) + l,  h   *(1<<j), 3, memoization_map));
             }
 
             // We compute the advected momenti
@@ -249,11 +396,12 @@ int main(int argc, char *argv[])
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
-                    if (refinement(f, eps, i))
+                    if (refinement(f, eps, 300.0, i))
                         break;
                 }
 
-                one_time_step(f, pred_coeff);
+                // one_time_step_with_mem(f);
+                one_time_step(f,pred_coeff);
             }
         }
     }
