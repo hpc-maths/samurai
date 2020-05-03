@@ -481,8 +481,8 @@ void one_time_step_matrix(Field &f, double s)
                 double fp = xt::eval(f(0, level, interval_t(k, k  + 1)))[0] + coeff * (prediction_matrix(f, k * (1<<j_dist) - 1, 0)
                                                                                      - prediction_matrix(f, (k+1) * (1<<j_dist) - 1, 0));
 
-                double fm = xt::eval(f(1, level, interval_t(k, k  + 1)))[0] + coeff * (prediction_matrix(f, (k+1) * (1<<j_dist) + 1, 1)
-                                                                                     - prediction_matrix(f, k * (1<<j_dist), 2));
+                double fm = xt::eval(f(1, level, interval_t(k, k  + 1)))[0] + coeff * (prediction_matrix(f, (k+1) * (1<<j_dist), 1)
+                                                                                     - prediction_matrix(f, k * (1<<j_dist), 1));
 
                 double rho = fp + fm;
                 double q = lambda * (fp - fm);
@@ -506,8 +506,8 @@ void one_time_step_matrix(Field &f, double s)
     std::swap(f.array(), new_f.array());
 }
 
-template<class Field, class FieldTag>
-void one_time_step(Field &f, const FieldTag & tag, double s)
+template<class Field>
+void one_time_step(Field &f, double s)
 {
     constexpr std::size_t nvel = Field::size;
     double lambda = 1.;//, s = 1.0;
@@ -883,7 +883,7 @@ int main(int argc, char *argv[])
                 auto duration_scheme = toc();
 
                 tic();
-                //one_time_step(fR, tag_leafR, s);
+                one_time_step(fR, s);
                 auto duration_schemeR = toc();
 
                 t += dt;
