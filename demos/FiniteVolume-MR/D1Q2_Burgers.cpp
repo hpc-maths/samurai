@@ -15,6 +15,94 @@
 #include <chrono>
 
 
+std::array<double, 4> mult_by_prediction_matrix(std::size_t exponent, const std::array<double, 4> & in)
+{
+    std::array<double, 4> out;
+    out.fill(0.0);
+
+    std::vector<std::array<std::array<double, 4>, 4>> matrices;
+
+    // exp 1
+    std::array<std::array<double, 4>, 4> tmp {std::array<double, 4>{1./8., 1., -1./8., 0.},
+                                              std::array<double, 4>{-1./8., 1., 1./8., 0.}, 
+                                              std::array<double, 4>{0., 1./8., 1., -1./8.}, 
+                                              std::array<double, 4>{0., -1./8., 1., 1./8.}};
+    matrices.push_back(tmp);   
+
+    // exp 2
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-7./64, 71./64, -1./64, 1./64},
+                                               std::array<double, 4>{-9./64, 57./64, 17./64, -1./64}, 
+                                               std::array<double, 4>{-1./64, 17./64, 57./64, -9./64}, 
+                                               std::array<double, 4>{1./64, -1./64, 71./64, -7./64}};
+    matrices.push_back(tmp);  
+
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-39./256, 255./256, 39./256, 1./256}, 
+                                               std::array<double, 4>{-33./256, 201./256, 97./256, -9./256},  
+                                               std::array<double, 4>{-9./256, 97./256, 201./256, -33./256},  
+                                               std::array<double, 4>{ 1./256, 39./256, 255./256, -39./256}};
+    matrices.push_back(tmp);   
+
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-147./1024, 883./1024, 307./1024, -19./1024}, 
+                                               std::array<double, 4>{-117./1024, 725./1024, 469./1024, -53./1024},   
+                                               std::array<double, 4>{-53./1024, 469./1024, 725./1024, -117./1024},   
+                                               std::array<double, 4>{-19./1024, 307./1024, 883./1024, -147./1024}};
+    matrices.push_back(tmp);   
+
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-515./4096, 3107./4096, 1667./4096, -163./4096}, 
+                                               std::array<double, 4>{-421./4096, 2693./4096, 2085./4096, -261./4096},   
+                                               std::array<double, 4>{-261./4096, 2085./4096, 2693./4096, -421./4096},   
+                                               std::array<double, 4>{-163./4096, 1667./4096, 3107./4096, -515./4096}};
+    matrices.push_back(tmp);
+
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-1811./16384, 11283./16384, 7827./16384, -915./16384}, 
+                                               std::array<double, 4>{-1557./16384, 10261./16384, 8853./16384, -1173./16384},   
+                                               std::array<double, 4>{-1173./16384, 8853./16384, 10261./16384, -1557./16384},   
+                                               std::array<double, 4>{-915./16384, 7827./16384, 11283./16384, -1811./16384}};
+    matrices.push_back(tmp); 
+
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-6547./65536, 42259./65536, 34195./65536, -4371./65536}, 
+                                               std::array<double, 4>{-5909./65536, 39829./65536, 36629./65536, -5013./65536},  
+                                               std::array<double, 4>{-5013./65536, 36629./65536, 39829./65536, -5909./65536},  
+                                               std::array<double, 4>{-4371./65536, 34195./65536, 42259./65536, -6547./65536}};
+    matrices.push_back(tmp); 
+
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-24403./262144, 162131./262144, 143699./262144, -19283./262144},  
+                                               std::array<double, 4>{-22869./262144, 156501./262144, 149333./262144, -20821./262144},   
+                                               std::array<double, 4>{-20821./262144, 149333./262144, 156501./262144, -22869./262144},   
+                                               std::array<double, 4>{-19283./262144, 143699./262144, 162131./262144, -24403./262144}};
+    matrices.push_back(tmp); 
+
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-93267./1048576, 632403./1048576, 590931./1048576, -81491./1048576},   
+                                               std::array<double, 4>{-89685./1048576, 619605./1048576, 603733./1048576, -85077./1048576},    
+                                               std::array<double, 4>{-85077./1048576, 603733./1048576, 619605./1048576, -89685./1048576},    
+                                               std::array<double, 4>{-81491./1048576, 590931./1048576, 632403./1048576, -93267./1048576}};
+    matrices.push_back(tmp); 
+
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-362835./4194304, 2492755./4194304, 2400595./4194304, -336211./4194304},    
+                                               std::array<double, 4>{-354645./4194304, 2464085./4194304, 2429269./4194304, -344405./4194304},     
+                                               std::array<double, 4>{-344405./4194304, 2429269./4194304, 2464085./4194304, -354645./4194304},     
+                                               std::array<double, 4>{-336211./4194304, 2400595./4194304, 2492755./4194304, -362835./4194304}};
+    matrices.push_back(tmp); 
+
+    tmp = std::array<std::array<double, 4>, 4>{std::array<double, 4>{-1427795./16777216, 9888083./16777216, 9685331./16777216, -1368403./16777216},     
+                                               std::array<double, 4>{-1409365./16777216, 9824597./16777216, 9748821./16777216, -1386837./16777216},      
+                                               std::array<double, 4>{-1386837./16777216, 9748821./16777216, 9824597./16777216, -1409365./16777216},      
+                                               std::array<double, 4>{-1368403./16777216, 9685331./16777216, 9888083./16777216, -1427795./16777216}};
+    matrices.push_back(tmp); 
+
+    std::size_t which_matrix = exponent - 1;
+
+    for (std::size_t i = 0; i < 4; ++i) {
+        out[i] = 0.0;
+        for (std::size_t j = 0; j < 4; ++j) {
+            out[i] += matrices[which_matrix][i][j] * in[j];
+        }
+    }
+
+    return out;
+}
+
+
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
 
@@ -75,12 +163,12 @@ double exact_solution(double x, double t)   {
     // double rhoR = 0.0;
     // double x0 = 0.0;
 
-    //double vshock = 0.5 * (rhoL + rhoR);
+    // double vshock = 0.5 * (rhoL + rhoR);
 
-    //return ((x-0.5*t) <= x0) ? rhoL : rhoR;
-    //return ((x-0.5*t) <= -1.0) ? 0 : ((x-0.5*t) <= 1.0 ? 1.0 : 0.0);
+    // //return ((x-0.5*t) <= x0) ? rhoL : rhoR;
+    // //return ((x-0.5*t) <= -1.0) ? 0 : ((x-0.5*t) <= 1.0 ? 1.0 : 0.0);
 
-    //return (x <= x0 + vshock * t) ? rhoL : rhoR;
+    // return (x <= x0 + vshock * t) ? rhoL : rhoR;
     // {
     //     double x0L = -0.2;
     //     double x0R =  0.2;
@@ -159,10 +247,10 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
     return f;
 }
 
-template<class Field, class interval_t, class FieldTag>
+template<class Field, class interval_t>
 xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item, 
-                                  const FieldTag & tag, std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, 
-                                  xt::xtensor<double, 1>> & mem_map)
+                                  std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, 
+                                  xt::xtensor<double, 1>> & mem_map, bool cheap = false)
 {
 
     // We check if the element is already in the map
@@ -193,10 +281,17 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
             d[iii] = (ii & 1)? -1.: 1.;
         }
 
-    
-        auto val = xt::eval(prediction(f, level_g, level-1, ig, item, tag, mem_map) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, tag, mem_map) 
-                                                                                       - prediction(f, level_g, level-1, ig-1, item, tag, mem_map)));
         
+        xt::xtensor<double, 1> val;
+
+        if (cheap)  {  // This is the cheap prediction
+            val = xt::eval(prediction(f, level_g, level-1, ig, item, mem_map, cheap));
+        }
+        else {
+            val = xt::eval(prediction(f, level_g, level-1, ig, item, mem_map, cheap) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, mem_map, cheap) 
+                                                                                       - prediction(f, level_g, level-1, ig-1, item, mem_map, cheap)));
+        }
+    
 
         xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
         for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
@@ -214,6 +309,7 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
     }
 
 }
+
 
 
 template<class Field, class interval_t>
@@ -274,6 +370,142 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
     }
 }
 
+template<class Field>
+double prediction_matrix(const Field& f, int k, std::size_t n_field)
+{
+    using interval_t = typename Field::Config::interval_t;
+
+    auto mesh = f.mesh();
+    auto max_level = mesh.max_level();
+    auto min_level = mesh.min_level();
+
+    if (mesh.exists(max_level, interval_t(k, k+1))[0])  {
+        return xt::eval(f(n_field, max_level, interval_t(k, k + 1)))[0];
+    }
+    else
+    {
+        int k_finest = k;
+        std::size_t level_stop = max_level;
+
+        bool stop = false;
+        while(!stop and level_stop >= min_level) {
+
+            stop = mesh.exists(level_stop, interval_t(k_finest-2, k_finest-1))[0]    or
+                   mesh.exists(level_stop, interval_t(k_finest-1, k_finest))[0]      or
+                   mesh.exists(level_stop, interval_t(k_finest, k_finest+1))[0]      or
+                   mesh.exists(level_stop, interval_t(k_finest+1, k_finest+2))[0];
+
+            if (!stop)  {
+                k_finest = k_finest / 2;
+                level_stop--;
+            }
+        }
+
+        std::array<bool, 4> is_at_stop_level;
+        is_at_stop_level.fill(false);
+        is_at_stop_level[0] = mesh.exists(level_stop, interval_t(k_finest-2, k_finest-1))[0];
+        is_at_stop_level[1] = mesh.exists(level_stop, interval_t(k_finest-1, k_finest))[0];
+        is_at_stop_level[2] = mesh.exists(level_stop, interval_t(k_finest, k_finest+1))[0];
+        is_at_stop_level[3] = mesh.exists(level_stop, interval_t(k_finest+1, k_finest+2))[0];
+
+        std::array<double, 4> in_values;
+        in_values.fill(0.0);
+
+        for (std::size_t idx = 0; idx < 4; ++idx)   {
+
+            int cell_start = k_finest - 2 + idx;
+
+            if (is_at_stop_level[idx])  {
+                in_values[idx] = xt::eval(f(0, level_stop, interval_t(cell_start, cell_start + 1)))[0];
+            }
+            else
+            {
+                in_values[idx] = xt::eval(f(0, level_stop - 1, interval_t(cell_start / 2, cell_start/2  + 1)))[0]
+                            + 1./8. * (cell_start % 2 == 0 ? 1. : -1. ) * (xt::eval(f(0, level_stop - 1, interval_t(cell_start / 2 - 1, cell_start/2)))[0]
+                                                                          -xt::eval(f(0, level_stop - 1, interval_t(cell_start / 2 + 1, cell_start/2 + 2)))[0]);   
+            }            
+        }
+
+        auto out_values = mult_by_prediction_matrix(max_level - level_stop, in_values);
+
+        // Think about it more precisely
+        return (k % 2 == 0) ? out_values[2] : out_values[3];
+    }
+    
+}
+
+
+template<class Field>
+void one_time_step_matrix(Field &f, double s)
+{
+    constexpr std::size_t nvel = Field::size;
+    double lambda = 1.;//, s = 1.0;
+    auto mesh = f.mesh();
+    auto max_level = mesh.max_level();
+    auto min_level = mesh.min_level();
+
+    mure::mr_projection(f);
+    f.update_bc();
+    mure::mr_prediction(f);
+
+    using interval_t = typename Field::Config::interval_t;
+
+
+    Field new_f{"new_f", mesh};
+    new_f.array().fill(0.);
+
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
+                                      mesh[mure::MeshType::cells][level]);
+
+
+        std::size_t j_dist = max_level - level;
+
+        double coeff = 1. / (1 << j_dist);
+
+        exp([&](auto, auto &interval, auto) {
+            auto i = interval[0];
+
+            auto number_of_cells_in_interval = i.size();
+
+            std::cout<<std::endl<<"Level = "<<level<<" Interval = "<<i;
+
+
+
+            for (int k = i.start; k < i.end; ++k)   {
+                
+
+
+                double fp = xt::eval(f(0, level, interval_t(k, k  + 1)))[0] + coeff * (prediction_matrix(f, k * (1<<j_dist) - 1, 0)
+                                                                                     - prediction_matrix(f, (k+1) * (1<<j_dist) - 1, 0));
+
+                double fm = xt::eval(f(1, level, interval_t(k, k  + 1)))[0] + coeff * (prediction_matrix(f, (k+1) * (1<<j_dist) + 1, 1)
+                                                                                     - prediction_matrix(f, k * (1<<j_dist), 2));
+
+                double rho = fp + fm;
+                double q = lambda * (fp - fm);
+
+
+                double q_coll = (1. - s) * q + s * 0.5 * rho*rho;
+
+                fp = 0.5 * rho + 0.5 / lambda * q_coll;
+                fm = 0.5 * rho - 0.5 / lambda * q_coll;
+
+
+
+                new_f(0, level, interval_t{k, k+1}) = fp;
+                new_f(1, level, interval_t{k, k+1}) = fm;
+
+            }
+
+        });
+    }
+
+    std::swap(f.array(), new_f.array());
+}
+
 template<class Field, class FieldTag>
 void one_time_step(Field &f, const FieldTag & tag, double s)
 {
@@ -311,12 +543,14 @@ void one_time_step(Field &f, const FieldTag & tag, double s)
             double coeff = 1. / (1 << j);
 
             // This is the STANDARD FLUX EVALUATION
-            
-            auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, tag, memoization_map)
-                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, tag, memoization_map));
 
-            auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, tag, memoization_map)
-                                             -  prediction(f, level, j, (i+1)*(1<<j), 1, tag, memoization_map));
+            bool cheap = false;
+            
+            auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, memoization_map, cheap)
+                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, memoization_map, cheap));
+
+            auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, memoization_map, cheap)
+                                             -  prediction(f, level, j, (i+1)*(1<<j), 1, memoization_map, cheap));
             
             
             // This is the CHEAP FLUX EVALUATION
@@ -465,6 +699,7 @@ template<class Config, class FieldR>
 std::array<double, 2> compute_error(mure::Field<Config, double, 2> &f, FieldR & fR, double t)
 {
 
+
     auto mesh = f.mesh();
 
     auto meshR = fR.mesh();
@@ -548,6 +783,20 @@ int main(int argc, char *argv[])
             std::cout << options.help() << "\n";
         else
         {
+
+            // std::array<double, 4> foo1 {1, 0, 0, 0};
+            // auto foo = mult_by_prediction_matrix(2, foo1);
+
+            // for (auto el : foo){
+            //     std::cout<<std::endl<<el;
+            // }
+
+            // return 0;
+
+
+
+
+
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 1;
@@ -564,52 +813,13 @@ int main(int argc, char *argv[])
             mure::Mesh<Config> mesh{box, min_level, max_level};
             mure::Mesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
 
-            // for (std::size_t level = min_level; level <= max_level; ++level) {
-
-            //     auto cells = intersection(mesh[mure::MeshType::cells][level], 
-            //                               mesh[mure::MeshType::cells][level]);
-
-            //     auto allcells = intersection(mesh[mure::MeshType::all_cells][level], 
-            //                                  mesh[mure::MeshType::all_cells][level]);
-            //     auto projcells = intersection(mesh[mure::MeshType::proj_cells][level], 
-            //                                   mesh[mure::MeshType::proj_cells][level]);
-
-            //     auto cellsandghosts = intersection(mesh[mure::MeshType::cells_and_ghosts][level], 
-            //                                        mesh[mure::MeshType::cells_and_ghosts][level]);
-
-
-            //     cells([&](auto, auto &interval, auto) {
-            //         auto i = interval[0];
-            //         std::cout<<std::endl<<"Level "<<level<<"Cells "<<i;
-            //     });
-                
-            //     allcells([&](auto, auto &interval, auto) {
-            //         auto i = interval[0];
-            //         std::cout<<std::endl<<"Level "<<level<<"All Cells "<<i;
-            //     });
-
-            //     projcells([&](auto, auto &interval, auto) {
-            //         auto i = interval[0];
-            //         std::cout<<std::endl<<"Level "<<level<<"Proj Cells "<<i;
-            //     });
-                
-            //     cellsandghosts([&](auto, auto &interval, auto) {
-            //         auto i = interval[0];
-            //         std::cout<<std::endl<<"Level "<<level<<"Cells and ghosts "<<i;
-            //     });
-            // }
-
-
-            // std::cout<<std::endl
-            //          <<std::endl
-            //          <<std::endl
-            //          <<std::endl;
+    
 
             // Initialization
             auto f  = init_f(mesh , 0.0);
             auto fR = init_f(meshR, 0.0);             
 
-            double T = 0.4;
+            double T = 1.2;
             double dx = 1.0 / (1 << max_level);
             double dt = dx;
 
@@ -651,24 +861,6 @@ int main(int argc, char *argv[])
                 save_solution(f, eps, nb_ite, "refinement");
 
 
-                //std::cout<<std::endl<<"Mesh before computing solution"<<std::endl<<mesh;
-
-
-                // Create and initialize field containing the leaves
-                tic();
-                mure::Field<Config, int, 1> tag_leaf{"tag_leaf", mesh};
-                tag_leaf.array().fill(0);
-                mesh.for_each_cell([&](auto &cell) {
-                    tag_leaf[cell] = static_cast<int>(1);
-                });
-                auto duration_leaf_checking = toc();
-
-                mure::Field<Config, int, 1> tag_leafR{"tag_leafR", meshR};
-                tag_leafR.array().fill(0);
-                meshR.for_each_cell([&](auto &cell) {
-                    tag_leafR[cell] = static_cast<int>(1);
-                });
-
                 auto error = compute_error(f, fR, t);
 
                 out_time_frames    <<t       <<std::endl;
@@ -683,13 +875,15 @@ int main(int argc, char *argv[])
 
                 
 
-                
+        
                 tic();
-                one_time_step(f, tag_leaf, s);
+                //one_time_step(f, tag_leaf, s);
+                one_time_step_matrix(f, s);
+
                 auto duration_scheme = toc();
 
                 tic();
-                one_time_step(fR, tag_leafR, s);
+                //one_time_step(fR, tag_leafR, s);
                 auto duration_schemeR = toc();
 
                 t += dt;
@@ -702,7 +896,6 @@ int main(int argc, char *argv[])
                 std::cout<<std::endl<<"\n=======Iteration "<<nb_ite<<"  time "<<t<<" summary========"
                                     <<"\nCoarsening: "<<duration_coarsening
                                     <<"\nRefinement: "<<duration_refinement
-                                    <<"\nLeafChecking: "<<duration_leaf_checking
                                     <<"\nScheme: "<<duration_scheme
                                     <<"\nScheme reference: "<<duration_schemeR
                                     <<"\nSave: "<<duration_save
