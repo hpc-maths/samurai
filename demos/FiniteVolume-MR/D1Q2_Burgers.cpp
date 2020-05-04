@@ -186,17 +186,17 @@ double exact_solution(double x, double t)   {
     // // x = x - 0.5 * t;
     // // t = 0.0;
 
-    if (x >= -1 and x < t)
-    {
-        u = (1 + x) / (1 + t);
-    }
+    // if (x >= -1 and x < t)
+    // {
+    //     u = (1 + x) / (1 + t);
+    // }
     
-    if (x >= t and x < 1)
-    {
-        u = (1 - x) / (1 - t);
-    }
+    // if (x >= t and x < 1)
+    // {
+    //     u = (1 - x) / (1 - t);
+    // }
 
-    //u = exp(-20.0 * (x-0.75*t) * (x-0.75*t));
+    u = exp(-20.0 * (x-0.75*t) * (x-0.75*t));
 
     // u = 0.0;
     
@@ -263,7 +263,7 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
 
         auto mesh = f.mesh();
         xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
-        auto mask = mesh.exists(level_g + level, i);
+        auto mask = mesh.exists(mure::MeshType::cells_and_ghosts, level_g + level, i);
 
         // std::cout << level_g + level << " " << i << " " << mask << "\n"; 
         if (xt::all(mask))
@@ -330,7 +330,7 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
         auto mesh = f.mesh();
         std::vector<std::size_t> shape = {i.size(), 2};
         xt::xtensor<double, 2> out = xt::empty<double>(shape);
-        auto mask = mesh.exists(level_g + level, i);
+        auto mask = mesh.exists(mure::MeshType::cells_and_ghosts, level_g + level, i);
 
         xt::xtensor<double, 2> mask_all = xt::empty<double>(shape);
         xt::view(mask_all, xt::all(), 0) = mask;
@@ -371,29 +371,32 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
 }
 
 template<class Field>
-double prediction_matrix(const Field& f, int k, std::size_t n_field)
+double prediction_matrix(const Field& f, volatile int k, volatile std::size_t n_field, volatile std::size_t calling_level)
 {
     using interval_t = typename Field::Config::interval_t;
+    volatile std::size_t copy_calling_level = calling_level;
+
+    std::cout<<std::endl<<"Cell k = "<<k<<std::flush;
 
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
     auto min_level = mesh.min_level();
 
-    if (mesh.exists(max_level, interval_t(k, k+1))[0])  {
-        return xt::eval(f(n_field, max_level, interval_t(k, k + 1)))[0];
+    if (mesh.exists(mure::MeshType::cells, max_level, interval_t(k, k+1))[0])  {
+        return xt::eval(f(n_field, max_level, interval_t(k, k+1)))[0];
     }
     else
     {
-        int k_finest = k;
+        volatile int k_finest = (k%2 == 0) ? k : k + 1; // This is what we call "k" in the theory of the prediction with the matrix
         std::size_t level_stop = max_level;
 
         bool stop = false;
         while(!stop and level_stop >= min_level) {
 
-            stop = mesh.exists(level_stop, interval_t(k_finest-2, k_finest-1))[0]    or
-                   mesh.exists(level_stop, interval_t(k_finest-1, k_finest))[0]      or
-                   mesh.exists(level_stop, interval_t(k_finest, k_finest+1))[0]      or
-                   mesh.exists(level_stop, interval_t(k_finest+1, k_finest+2))[0];
+            stop = mesh.exists(mure::MeshType::cells, level_stop, interval_t(k_finest-2, k_finest-1))[0]    or
+                   mesh.exists(mure::MeshType::cells, level_stop, interval_t(k_finest-1, k_finest))[0]      or
+                   mesh.exists(mure::MeshType::cells, level_stop, interval_t(k_finest, k_finest+1))[0]      or
+                   mesh.exists(mure::MeshType::cells, level_stop, interval_t(k_finest+1, k_finest+2))[0];
 
             if (!stop)  {
                 k_finest = k_finest / 2;
@@ -401,12 +404,24 @@ double prediction_matrix(const Field& f, int k, std::size_t n_field)
             }
         }
 
+        std::cout<<std::endl<<"Level stop = "<<level_stop<<std::flush<<std::endl;
+
         std::array<bool, 4> is_at_stop_level;
         is_at_stop_level.fill(false);
-        is_at_stop_level[0] = mesh.exists(level_stop, interval_t(k_finest-2, k_finest-1))[0];
-        is_at_stop_level[1] = mesh.exists(level_stop, interval_t(k_finest-1, k_finest))[0];
-        is_at_stop_level[2] = mesh.exists(level_stop, interval_t(k_finest, k_finest+1))[0];
-        is_at_stop_level[3] = mesh.exists(level_stop, interval_t(k_finest+1, k_finest+2))[0];
+        is_at_stop_level[0] = mesh.exists(mure::MeshType::cells, level_stop, interval_t(k_finest-2, k_finest-1))[0];
+        is_at_stop_level[1] = mesh.exists(mure::MeshType::cells, level_stop, interval_t(k_finest-1, k_finest))[0];
+        is_at_stop_level[2] = mesh.exists(mure::MeshType::cells, level_stop, interval_t(k_finest, k_finest+1))[0];
+        is_at_stop_level[3] = mesh.exists(mure::MeshType::cells, level_stop, interval_t(k_finest+1, k_finest+2))[0];
+
+        std::cout<<interval_t(k_finest-2, k_finest-1)<<" | "
+                 <<interval_t(k_finest-1, k_finest)<<" | "
+                 <<interval_t(k_finest, k_finest+1)<<" | "
+                 <<interval_t(k_finest+1, k_finest+2)<<" | "<<std::endl;
+
+        for (auto el : is_at_stop_level)
+            std::cout<<"| "<<el;
+        
+        std::cout<<std::flush;
 
         std::array<double, 4> in_values;
         in_values.fill(0.0);
@@ -416,20 +431,23 @@ double prediction_matrix(const Field& f, int k, std::size_t n_field)
             int cell_start = k_finest - 2 + idx;
 
             if (is_at_stop_level[idx])  {
-                in_values[idx] = xt::eval(f(0, level_stop, interval_t(cell_start, cell_start + 1)))[0];
+                in_values[idx] = xt::eval(f(n_field, level_stop, interval_t(cell_start, cell_start + 1)))[0];
             }
             else
             {
-                in_values[idx] = xt::eval(f(0, level_stop - 1, interval_t(cell_start / 2, cell_start/2  + 1)))[0]
-                            + 1./8. * (cell_start % 2 == 0 ? 1. : -1. ) * (xt::eval(f(0, level_stop - 1, interval_t(cell_start / 2 - 1, cell_start/2)))[0]
-                                                                          -xt::eval(f(0, level_stop - 1, interval_t(cell_start / 2 + 1, cell_start/2 + 2)))[0]);   
+                
+                in_values[idx] = xt::eval(f(n_field, level_stop - 1, interval_t(cell_start / 2, cell_start/2  + 1)))[0]
+                        + 1./8. * (cell_start % 2 == 0 ? 1. : -1. ) * (xt::eval(f(n_field, level_stop - 1, interval_t(cell_start / 2 - 1, cell_start/2)))[0]
+                                                                      -xt::eval(f(n_field, level_stop - 1, interval_t(cell_start / 2 + 1, cell_start/2 + 2)))[0]);                     
+                
+  
             }            
         }
 
         auto out_values = mult_by_prediction_matrix(max_level - level_stop, in_values);
 
         // Think about it more precisely
-        return (k % 2 == 0) ? out_values[2] : out_values[3];
+        return (k % 2 == 0) ? out_values[2] : out_values[1];
     }
     
 }
@@ -470,19 +488,22 @@ void one_time_step_matrix(Field &f, double s)
 
             auto number_of_cells_in_interval = i.size();
 
-            std::cout<<std::endl<<"Level = "<<level<<" Interval = "<<i;
+            std::cout<<std::endl<<"Level = "<<level<<" Interval = "<<i<<std::flush;
 
 
 
             for (int k = i.start; k < i.end; ++k)   {
+
+
+                std::cout<<std::endl<<std::endl<<"* Leaf k = "<<k<<std::endl;
                 
 
 
-                double fp = xt::eval(f(0, level, interval_t(k, k  + 1)))[0] + coeff * (prediction_matrix(f, k * (1<<j_dist) - 1, 0)
-                                                                                     - prediction_matrix(f, (k+1) * (1<<j_dist) - 1, 0));
+                double fp = xt::eval(f(0, level, interval_t(k, k  + 1)))[0] + coeff * (prediction_matrix(f, k * (1<<j_dist) - 1, 0, level)
+                                                                                     - prediction_matrix(f, (k+1) * (1<<j_dist) - 1, 0, level));
 
-                double fm = xt::eval(f(1, level, interval_t(k, k  + 1)))[0] + coeff * (prediction_matrix(f, (k+1) * (1<<j_dist), 1)
-                                                                                     - prediction_matrix(f, k * (1<<j_dist), 1));
+                double fm = xt::eval(f(1, level, interval_t(k, k  + 1)))[0] + coeff * (prediction_matrix(f, (k+1) * (1<<j_dist), 1, level)
+                                                                                     - prediction_matrix(f, k * (1<<j_dist), 1, level));
 
                 double rho = fp + fm;
                 double q = lambda * (fp - fm);
@@ -769,8 +790,8 @@ int main(int argc, char *argv[])
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
-                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("6"))
+                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
                        ("s", "relaxation parameter", cxxopts::value<double>()->default_value("1.0"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
