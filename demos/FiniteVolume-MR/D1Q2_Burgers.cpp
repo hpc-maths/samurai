@@ -673,6 +673,18 @@ void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_r
     f_help.array().fill(0.);
 
 
+    auto f_copy = f;
+
+    refinement_up_one_level(f_copy);
+    auto mesh_copy = f_copy.mesh();
+
+
+
+    // std::cout<<std::endl<<std::endl<<" +++ Original mesh"<<std::endl<<mesh;
+    // std::cout<<std::endl<<std::endl<<" +++ New mesh"<<std::endl<<mesh_copy;
+
+
+
     for (std::size_t level = 0; level <= max_level; ++level)
     {
 
@@ -706,10 +718,6 @@ void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_r
             auto not_to_predict = mure::intersection(mesh[mure::MeshType::cells][level + 1], exp_jp1_with_ghosts);
             auto to_predict = mure::difference(exp_jp1_with_ghosts, mesh[mure::MeshType::cells][level + 1]);
 
-            // THe problem is that it writes and it cant
-            //to_predict.apply_op(level + 1, prediction(f));
-            // Il faudrait modifier le maillage mais ça ma l'air compliqué.
-
 
 
             exp([&](auto, auto &interval, auto) {
@@ -733,9 +741,18 @@ void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_r
 
                 auto k = interval[0];
 
-                std::cout<<std::endl<<"Level + 1 = "<<level + 1<<" TO predict Interval = "<<k;
+                std::cout<<std::endl<<"Level + 1 = "<<level + 1<<" TO predict Interval = "<<k<<std::flush;
 
             });
+
+
+            // THe problem is that it writes and it cant
+            to_predict.apply_op(level + 1, prediction_source_destination(f, f_copy));
+            // Il faudrait modifier le maillage mais ça ma l'air compliqué.
+
+
+
+            
 
 
         }
@@ -743,47 +760,6 @@ void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_r
 
         }
 
-        // exp([&](auto, auto &interval, auto) {
-        //     something_at_this_level = true;
-
-        //     auto k = interval[0]; // Logical index in x
-
-
-        //     auto fp = xt::eval(f(0, level, k));
-        //     auto fm = xt::eval(f(1, level, k));
-
-        //     //std::cout<<std::endl<<"Level = "<<level<<" Interval = "<<k<<std::endl<<std::flush;
-
- 
-        //     for(auto &c: pred_coeff[j][0].coeff)
-        //     {
-        //         coord_index_t stencil = c.first;
-        //         double weight = c.second;
-
-        //         //std::cout<<"stencil = "<<stencil<<" weight = "<<weight<<std::endl;
-
-        //         fp += coeff * weight * f(0, level, k + stencil);
-        //     }
-
-        //     for(auto &c: pred_coeff[j][1].coeff)
-        //     {
-        //         coord_index_t stencil = c.first;
-        //         double weight = c.second;
-
-        //         fp += coeff * weight * f(1, level, k + stencil);
-        //     }
-
-        //     // COLLISION    
-
-        //     auto uu = xt::eval(fp + fm);
-        //     auto vv = xt::eval(lambda * (fp - fm));
-            
-        //     //vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
-        //     vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
-
-        //     new_f(0, level, k) = .5 * (uu + 1. / lambda * vv);
-        //     new_f(1, level, k) = .5 * (uu - 1. / lambda * vv);
-        // });
     }
 
     std::swap(f.array(), new_f.array());
@@ -1054,7 +1030,7 @@ int main(int argc, char *argv[])
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
                        ("s", "relaxation parameter", cxxopts::value<double>()->default_value("1.0"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
@@ -1166,8 +1142,8 @@ int main(int argc, char *argv[])
         
                 tic();
                 //one_time_step(f, s);
-                one_time_step_matrix(f, pred_coeff, s);
-                //one_time_step_matrix_corrected(f, pred_coeff, s);
+                //one_time_step_matrix(f, pred_coeff, s);
+                one_time_step_matrix_corrected(f, pred_coeff, s);
 
                 auto duration_scheme = toc();
 
