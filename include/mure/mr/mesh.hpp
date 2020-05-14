@@ -155,9 +155,9 @@ namespace mure
         }
 
         template<typename... T>
-        inline auto exists(std::size_t level, interval_t interval, T... index) const
+        inline auto exists(MeshType type, std::size_t level, interval_t interval, T... index) const
         {
-            const auto& lca = m_cells[MeshType::cells_and_ghosts][level];
+            const auto& lca = m_cells[type][level];
             std::size_t size = interval.size()/interval.step;
             xt::xtensor<bool, 1> out = xt::empty<bool>({size});
             std::size_t iout = 0;

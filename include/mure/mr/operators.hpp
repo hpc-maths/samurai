@@ -823,4 +823,67 @@ namespace mure
         return make_field_operator_function<apply_expr_op>(
             std::forward<CT>(e)...);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+    template<class TInterval>
+    class prediction_source_destination_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(prediction_source_destination_op)
+
+        template<class T1, class T2>
+        inline void operator()(Dim<1>, T1 &fieldsource, T2 &fielddest) const
+        {
+            auto qs_i = Qs_i<1>(fieldsource, level - 1, i >> 1);
+
+            auto dec_even = (i.start & 1) ? 1 : 0;
+            auto even_i = i;
+            even_i.start += dec_even;
+            even_i.step = 2;
+
+            auto coarse_even_i = i >> 1;
+            coarse_even_i.start += dec_even;
+
+            auto dec_odd = (i.end & 1) ? 1 : 0;
+            auto odd_i = i;
+            odd_i.start += (i.start & 1) ? 0 : 1;
+            odd_i.step = 2;
+
+            auto coarse_odd_i = i >> 1;
+            coarse_odd_i.end -= dec_odd;
+
+            if (even_i.is_valid())
+            {
+                
+                std::cout<<std::endl<<"Dest = "<<fielddest(level, even_i)<<" Source = "<<xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))<<std::endl;
+
+                fielddest(level, even_i) = fieldsource(level - 1, coarse_even_i)
+                                     + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]));
+            }
+
+            if (odd_i.is_valid())
+            {
+                fielddest(level, odd_i) = fieldsource(level - 1, coarse_odd_i)
+                                    - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd));
+            }
+        }
+    };
+
+    template<class... CT>
+    inline auto prediction_source_destination(CT &&... e)
+    {
+        return make_field_operator_function<prediction_source_destination_op>(
+            std::forward<CT>(e)...);
+    }
+
+
 }
