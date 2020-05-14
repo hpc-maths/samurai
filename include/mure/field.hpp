@@ -60,13 +60,28 @@ namespace mure
             {
                 case mure::BCType::dirichlet:
                 {
+                    std::cout<<std::endl<<"Dirichlet";
+
                     field(level, i, j) = bc.second;
                     break;
                 }
                 case mure::BCType::neumann:
                 {
+                    std::cout<<std::endl<<"Neumann";
+
                     int n = stencil[0] + stencil[1]; // Think about for diagonals, but it is true that here we do not have any normal vector.
                     field(level, i, j) = n*dx()*bc.second + field(level, i - stencil[0], j - stencil[1]);
+                    break;
+                }
+                case mure::BCType::interpolation:
+                {
+                    int offset_x = (stencil[0] > 0) ? -1 : ((stencil[0] < 0) ? 1 : 0);
+                    int offset_y = (stencil[1] > 0) ? -1 : ((stencil[1] < 0) ? 1 : 0);
+
+                    std::cout<<std::endl<<"Interpolation";
+
+                    field(level, i, j) = 2.0 * field(level, i - stencil[0], j - stencil[1])
+                                       - 1.0 * field(level, i - stencil[0] + offset_x, j - stencil[1] + offset_y);
                     break;
                 }
             }
@@ -318,6 +333,7 @@ namespace mure
 
         inline void update_bc()
         {
+
             xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
             std::size_t index_bc = 0;
             for (std::size_t d = 0; d < dim; ++d)
@@ -339,6 +355,8 @@ namespace mure
                             double dx = 1./(1<<level);
                             if (!(*m_mesh)[mure::MeshType::all_cells][level].empty())
                             {
+                                            std::cout<<std::endl<<"Update bc called";
+
                                 // TODO: use union mesh instead
                                 // auto subset = intersection(difference(translate(m_mesh->initial_mesh(), stencil),
                                 //                                       m_mesh->initial_mesh()),

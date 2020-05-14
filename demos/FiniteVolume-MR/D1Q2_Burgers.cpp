@@ -660,38 +660,19 @@ void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_r
     using coord_index_t = typename Field::coord_index_t;
 
     auto mesh = f.mesh();
+    auto min_level = mesh.max_level();
     auto max_level = mesh.max_level();
 
     mure::mr_projection(f);
     f.update_bc();
     mure::mr_prediction(f);
 
-    Field new_f{"new_f", mesh};
-    new_f.array().fill(0.);
-
-    Field f_help{"f_help", mesh};
-    f_help.array().fill(0.);
-
-
-    auto f_copy = f;
-
-    refinement_up_one_level(f_copy);
-    auto mesh_copy = f_copy.mesh();
-
-
-
-    // std::cout<<std::endl<<std::endl<<" +++ Original mesh"<<std::endl<<mesh;
-    // std::cout<<std::endl<<std::endl<<" +++ New mesh"<<std::endl<<mesh_copy;
-
-
+    Field new_f_final{"new_f_final", mesh};
+    new_f_final.array().fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
 
-        bool something_at_this_level = false;
-
-        std::size_t j = max_level - level; 
-        double coeff = 1. / (1 << j);
 
         auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
                                       mesh[mure::MeshType::cells][level]);
@@ -707,7 +688,22 @@ void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_r
         
         if (level < max_level)  {
 
+
+            mure::Box<double, 1> boxfoo({-3}, {3});
+            mure::Mesh< mure::MRConfig<1, 2>> meshfoo{boxfoo, min_level, max_level};
+            Field f_copy{f.name(), meshfoo, f.bc()}; // This is just to create another mesh
+                                                    // In order not to override the existing one
+                                                    // due to the fact that most of the operations
+                                                    // are applied to pointers
+
+            refinement_up_one_level(f, f_copy, level);
+            auto mesh_copy = f_copy.mesh();
+
             // Does union work well ?
+
+            auto exp_jp1 = mure::intersection(mesh[mure::MeshType::cells][level],
+                                              mesh[mure::MeshType::cells][level]).on(level + 1);
+
             auto exp_jp1_with_ghosts = mure::union_(mure::union_(mesh[mure::MeshType::cells][level], 
                                 mure::translate(mesh[mure::MeshType::cells][level], stencil_plus)),
                                 mure::translate(mesh[mure::MeshType::cells][level], stencil_minus)).on(level + 1);
@@ -719,50 +715,110 @@ void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_r
             auto to_predict = mure::difference(exp_jp1_with_ghosts, mesh[mure::MeshType::cells][level + 1]);
 
 
-
-            exp([&](auto, auto &interval, auto) {
-
-                auto k = interval[0];
-
-                std::cout<<std::endl<<"Level "<<level<<" Original interval = "<<k;
-
-            });
-
-            // expghosts([&](auto, auto &interval, auto) {
-
-            //     auto k = interval[0];
-
-            //     std::cout<<std::endl<<"Level "<<level<<" Original interval ghosts = "<<k;
-
-            // });
-
-            std::cout<<std::endl<<std::endl;
-            to_predict([&](auto, auto &interval, auto) {
-
-                auto k = interval[0];
-
-                std::cout<<std::endl<<"Level + 1 = "<<level + 1<<" TO predict Interval = "<<k<<std::flush;
-
-            });
-
-
             // THe problem is that it writes and it cant
-            to_predict.apply_op(level + 1, prediction_source_destination(f, f_copy));
+            //to_predict.apply_op(level + 1, prediction_source_destination(f, f_copy));
             // Il faudrait modifier le maillage mais ça ma l'air compliqué.
-
-
-
             
+            // En fait les predictions sont déja faites
+            
+            Field new_f{"new_f", mesh_copy};
+            new_f.array().fill(0.);
 
+
+            exp_jp1([&](auto, auto &interval, auto) {
+
+
+                std::size_t j = max_level - (level + 1); 
+                double coeff = 1. / (1 << j);
+
+
+                auto k = interval[0]; // Logical index in x
+
+                std::cout<<std::endl<<"level =  "<<(level + 1)<<"  Interval = "<<k<<std::flush;
+
+
+                auto fp = xt::eval(f_copy(0, level + 1, k));
+                auto fm = xt::eval(f_copy(1, level + 1, k));
+
+
+                for(auto &c: pred_coeff[j][0].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fp += coeff * weight * f_copy(0, level + 1, k + stencil);
+                }
+
+                for(auto &c: pred_coeff[j][1].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fp += coeff * weight * f_copy(1, level + 1, k + stencil);
+                }
+
+                // COLLISION    
+
+                auto uu = xt::eval(fp + fm);
+                auto vv = xt::eval(lambda * (fp - fm));
+
+                //vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
+                vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+
+                new_f(0, level + 1, k) = .5 * (uu + 1. / lambda * vv);
+                new_f(1, level + 1, k) = .5 * (uu - 1. / lambda * vv);
+                
+                // From new_f we have to come back by projection
+                auto k_original = k/2;
+                k.step = 2;
+                new_f_final(0, level, k_original) = 0.5 * (new_f(0, level + 1, k) + new_f(0, level + 1, k + 1)); 
+            });
 
         }
         else {
+            std::size_t j = 0; 
 
+            auto exp = mure::intersection(mesh[mure::MeshType::cells][max_level],
+                                          mesh[mure::MeshType::cells][max_level]);
+            exp([&](auto, auto &interval, auto) {
+
+            auto k = interval[0]; // Logical index in x
+
+
+                auto fp = xt::eval(f(0, level, k));
+                auto fm = xt::eval(f(1, level, k));
+ 
+                for(auto &c: pred_coeff[j][0].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fp += 1.0 * weight * f(0, level, k + stencil);
+                }
+
+                for(auto &c: pred_coeff[j][1].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fp += 1.0 * weight * f(1, level, k + stencil);
+                }
+
+                // COLLISION    
+
+                auto uu = xt::eval(fp + fm);
+                auto vv = xt::eval(lambda * (fp - fm));
+
+                //vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
+                vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+
+                new_f_final(0, level, k) = .5 * (uu + 1. / lambda * vv);
+                new_f_final(1, level, k) = .5 * (uu - 1. / lambda * vv);
+            });
         }
-
     }
 
-    std::swap(f.array(), new_f.array());
+    std::swap(f.array(), new_f_final.array());
 }
 
 
@@ -1102,7 +1158,7 @@ int main(int argc, char *argv[])
             out_compression.open     ("./d1q2/compression_s_"    +std::to_string(s)+"_eps_"+std::to_string(eps)+".dat");
 
 
-            for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)

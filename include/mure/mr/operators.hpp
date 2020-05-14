@@ -864,7 +864,7 @@ namespace mure
             if (even_i.is_valid())
             {
                 
-                std::cout<<std::endl<<"Dest = "<<fielddest(level, even_i)<<" Source = "<<xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))<<std::endl;
+                std::cout<<std::endl<<"Level = "<<level<<"  int = "<<even_i<<" / Dest = "<<fielddest(level, even_i)<<std::endl;
 
                 fielddest(level, even_i) = fieldsource(level - 1, coarse_even_i)
                                      + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]));
