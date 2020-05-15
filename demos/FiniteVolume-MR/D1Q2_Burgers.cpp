@@ -592,6 +592,40 @@ void one_time_step_matrix(Field &f, const Pred& pred_coeff, double s_rel)
 
         auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
                                       mesh[mure::MeshType::cells][level]);
+
+
+
+        // // Showing problems
+        // for(auto &c: pred_coeff[j][1].coeff) {
+        //     auto stencil = c.first;
+
+        //     xt::xtensor_fixed<int, xt::xshape<1>> stencil_vec;
+        //     stencil_vec = {{stencil}};
+
+        //     xt::xtensor_fixed<int, xt::xshape<1>> stencil_back_vec;
+        //     stencil_back_vec = {{-stencil}};
+
+
+
+        //     // Je ne sais pas pour quelle raison ca ne marche pas
+        //     // Aucun des deux
+        //     //auto problem = mure::translate(mure::intersection(mesh[mure::MeshType::cells][level], mesh[mure::MeshType::cells][level]), stencil_vec);
+        //     auto problem = mure::translate(mesh[mure::MeshType::cells][level], stencil_vec);
+
+        //     problem([&](auto, auto &interval, auto) {
+        //         auto k = interval[0]; 
+
+        //         std::cout<<std::endl<<"Level "<<level<<" Stencil "<<stencil<<" Problem "<<k<<std::flush;
+
+        //     });
+
+        // }
+
+
+
+
+
+
         exp([&](auto, auto &interval, auto) {
             something_at_this_level = true;
 
@@ -601,7 +635,7 @@ void one_time_step_matrix(Field &f, const Pred& pred_coeff, double s_rel)
             auto fp = xt::eval(f(0, level, k));
             auto fm = xt::eval(f(1, level, k));
 
-            std::cout<<std::endl<<"Level = "<<level<<" Interval = "<<k<<std::endl<<std::flush;
+            //std::cout<<std::endl<<"Level = "<<level<<" Interval = "<<k<<std::endl<<std::flush;
 
  
             for(auto &c: pred_coeff[j][0].coeff)
@@ -609,7 +643,7 @@ void one_time_step_matrix(Field &f, const Pred& pred_coeff, double s_rel)
                 coord_index_t stencil = c.first;
                 double weight = c.second;
 
-                std::cout<<"stencil = "<<stencil<<" weight = "<<weight<<std::endl;
+                //std::cout<<"stencil = "<<stencil<<" weight = "<<weight<<std::endl;
 
                 fp += coeff * weight * f(0, level, k + stencil);
             }
@@ -619,7 +653,7 @@ void one_time_step_matrix(Field &f, const Pred& pred_coeff, double s_rel)
                 coord_index_t stencil = c.first;
                 double weight = c.second;
 
-                fp += coeff * weight * f(1, level, k + stencil);
+                fm += coeff * weight * f(1, level, k + stencil);
             }
 
             // COLLISION    
@@ -638,17 +672,131 @@ void one_time_step_matrix(Field &f, const Pred& pred_coeff, double s_rel)
     std::swap(f.array(), new_f.array());
 }
 
-// template<class Field, class Interval>
-// inline void prediction_matrix_corrected(Field & original_field, Field & to_fill_field, Interval & where)
-// {
-//     auto mesh = original_field.mesh();
-//     std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
+
+template<class Field, class Pred>
+void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_rel)
+{
+
+    double lambda = 1.;
+
+    constexpr std::size_t nvel = Field::size;
+    using coord_index_t = typename Field::coord_index_t;
+
+    auto mesh = f.mesh();
+    auto max_level = mesh.max_level();
+
+    mure::mr_projection(f);
+    f.update_bc();
+    mure::mr_prediction(f);
+
+    Field new_f{"new_f", mesh};
+    new_f.array().fill(0.);
+
+    Field help_f{"help_f", mesh};
+    help_f.array().fill(0.);
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+
+        // If we are at the finest level, we no not need to correct
+        if (level == max_level) {
+            std::size_t j = 0; 
+            double coeff = 1.;
+
+            auto leaves = mure::intersection(mesh[mure::MeshType::cells][max_level],
+                                      mesh[mure::MeshType::cells][max_level]);
 
 
-//     expr.apply_op(level, prediction(field));
+            leaves([&](auto, auto &interval, auto) {
 
-//     }
-// }
+                auto k = interval[0]; 
+
+                auto fp = xt::eval(f(0, max_level, k - 1));
+                auto fm = xt::eval(f(1, max_level, k + 1));
+
+                // COLLISION    
+
+                auto uu = xt::eval(fp + fm);
+                auto vv = xt::eval(lambda * (fp - fm));
+            
+                //vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
+                vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+
+                new_f(0, max_level, k) = .5 * (uu + 1. / lambda * vv);
+                new_f(1, max_level, k) = .5 * (uu - 1. / lambda * vv);
+            });
+        }
+
+        // Otherwise, correction is needed
+        else
+        {
+
+            // We do the advection on the overleaves
+            std::size_t j = max_level - (level + 1); 
+            double coeff = 1. / (1 << j);
+
+            // We take the overleaves corresponding to the existing leaves
+            auto overleaves = mure::intersection(mesh[mure::MeshType::cells][level],
+                                                 mesh[mure::MeshType::cells][level]).on(level + 1);
+            
+            overleaves([&](auto, auto &interval, auto) {
+                auto k = interval[0]; // Logical index in x
+
+                //std::cout<<std::endl<<"Level + 1 "<<(level + 1)<<" interval = "<<k<<" Values "<<std::endl<<f(0, level + 1, k - 2)<<std::flush; 
+
+
+                auto fp = xt::eval(f(0, level + 1, k));
+                auto fm = xt::eval(f(1, level + 1, k));
+ 
+                for(auto &c: pred_coeff[j][0].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fp += coeff * weight * f(0, level + 1, k + stencil);
+                }
+
+                for(auto &c: pred_coeff[j][1].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fm += coeff * weight * f(1, level + 1, k + stencil);
+                }
+
+                // Save it
+                help_f(0, level + 1, k) = fp;
+                help_f(1, level + 1, k) = fm;
+
+            });
+
+            // Now that projection has been done, we have to come back on the leaves below the overleaves
+            auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
+                                             mesh[mure::MeshType::cells][level]);
+
+            leaves([&](auto, auto &interval, auto) {
+                auto k = interval[0]; 
+
+                // Projection
+                auto fp_advected = 0.5 * (help_f(0, level + 1, 2*k) + help_f(0, level + 1, 2*k + 1));
+                auto fm_advected = 0.5 * (help_f(1, level + 1, 2*k) + help_f(1, level + 1, 2*k + 1));
+
+                auto uu = xt::eval(fp_advected + fm_advected);
+                auto vv = xt::eval(lambda * (fp_advected - fm_advected));
+            
+                //vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
+                vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+
+                new_f(0, level, k) = .5 * (uu + 1. / lambda * vv);
+                new_f(1, level, k) = .5 * (uu - 1. / lambda * vv);
+
+            });   
+        }
+    }
+
+    std::swap(f.array(), new_f.array());
+}
+
 
 template<class Field, class Pred>
 void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_rel)
@@ -673,7 +821,6 @@ void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_r
     for (std::size_t level = 0; level <= max_level; ++level)
     {
 
-
         auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
                                       mesh[mure::MeshType::cells][level]);
 
@@ -697,7 +844,12 @@ void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_r
                                                     // are applied to pointers
 
             refinement_up_one_level(f, f_copy, level);
+            mure::mr_projection(f_copy);
+            f_copy.update_bc();
+            mure::mr_prediction(f_copy);
             auto mesh_copy = f_copy.mesh();
+
+
 
             // Does union work well ?
 
@@ -1174,7 +1326,7 @@ int main(int argc, char *argv[])
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
-                    if (refinement(f, eps, 1.0, i))
+                    if (refinement(f, eps, 0.0, i))
                         break;
                 }
                 auto duration_refinement = toc();
@@ -1199,7 +1351,8 @@ int main(int argc, char *argv[])
                 tic();
                 //one_time_step(f, s);
                 //one_time_step_matrix(f, pred_coeff, s);
-                one_time_step_matrix_corrected(f, pred_coeff, s);
+                //one_time_step_matrix_corrected(f, pred_coeff, s);
+                one_time_step_matrix_overleaves(f, pred_coeff, s);
 
                 auto duration_scheme = toc();
 

@@ -81,6 +81,9 @@ namespace mure
             m_cells[MeshType::all_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1) - gw, (end >> 1) + gw}};
             m_cells[MeshType::proj_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
             m_cells[MeshType::union_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
+            
+            m_cells[MeshType::overleaves][max_level] = {max_level, box_t{start, end}};
+
             m_init_cells = {max_level, box_t{start, end}};
             update_x0_and_nb_ghosts();
         }
@@ -97,6 +100,11 @@ namespace mure
         {
             m_cells[MeshType::cells] = {dcl};
             update_ghost_nodes();
+        }
+
+        inline void put_overleaves(const CellList<MRConfig> &dcl)
+        {
+            m_cells[MeshType::overleaves] = {dcl};
         }
 
         inline std::size_t nb_cells(MeshType mesh_type) const
@@ -193,6 +201,9 @@ namespace mure
             m_cells[MeshType::proj_cells].to_stream(os);
             os << "\nAll cells\n";
             m_cells[MeshType::all_cells].to_stream(os);
+            
+            os << "\nOverleaves\n";
+            m_cells[MeshType::overleaves].to_stream(os);
         }
 
         template<class Func>
@@ -209,11 +220,16 @@ namespace mure
 
       private:
         void update_ghost_nodes();
+            
+        void add_overleaves(CellList<MRConfig> &, CellList<MRConfig> &);
+
         void add_ng_ghosts_and_get_nb_leaves(CellList<MRConfig> &cell_list);
         void add_ghosts_for_level_m1(CellList<MRConfig> &cell_list);
         void update_x0_and_nb_ghosts();
 
-        MeshCellsArray<MRConfig, 5> m_cells;
+        //MeshCellsArray<MRConfig, 5> m_cells;
+        MeshCellsArray<MRConfig, 6> m_cells; // Since we have added one type....
+
         LevelCellArray<dim> m_init_cells;
         std::size_t m_max_level;
         std::size_t m_min_level;
@@ -293,7 +309,49 @@ namespace mure
         }
 
         // update of x0_indices, _leaf_to_ghost_indices,
-        update_x0_and_nb_ghosts();
+
+
+        //PUT MY UPDATE
+        CellList<MRConfig> overleaves_list;
+        add_overleaves(overleaves_list, cell_list);
+        m_cells[MeshType::overleaves] = {overleaves_list};
+        
+        m_cells[MeshType::all_cells] = {cell_list}; // We must put the overleaves in the all cells to store them
+
+
+
+        update_x0_and_nb_ghosts(); // MODIFY INSIDE
+    }
+
+    template<class MRConfig>
+    inline void Mesh<MRConfig>::add_overleaves(CellList<MRConfig> &overleaves_list, CellList<MRConfig> &cell_list)
+    {
+        
+        int cells_to_add = 2; // To be changed according to the numerical scheme
+
+        for (std::size_t level = 0; level < max_level(); ++level)
+        {
+            const LevelCellArray<dim> &level_cell_array = m_cells[MeshType::cells][level];
+            if (!level_cell_array.empty())
+            {
+                LevelCellList<dim> &level_overleaves_list = overleaves_list[level + 1]; // We have to put it at the higher level
+                LevelCellList<dim> &level_cell_list = cell_list[level + 1]; // We have to put it at the higher level
+
+                level_cell_array.for_each_interval_in_x(
+                    [&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index_yz,
+                        interval_t const &interval) {
+                        
+                        auto index = xt::eval(index_yz);
+                        
+                        level_overleaves_list[index].add_interval({2*interval.start - cells_to_add,
+                                                                   2*interval.end   + cells_to_add});
+
+                                                                                           
+                        level_cell_list[index].add_interval({2*interval.start - cells_to_add,
+                                                                   2*interval.end   + cells_to_add});
+                    });
+            }
+        }
     }
 
     template<class MRConfig>
@@ -397,6 +455,18 @@ namespace mure
 
                 expr([&](auto & /*index_yz*/, auto & /*interval*/, auto &interval_index) {
                     m_cells[MeshType::union_cells][level][0][static_cast<std::size_t>(interval_index[1])].index =
+                        m_cells[MeshType::all_cells][level][0][static_cast<std::size_t>(interval_index[0])].index;
+                });
+            }
+
+
+
+            if (!m_cells[MeshType::overleaves][level].empty())
+            {
+                auto expr = intersection(m_cells[MeshType::overleaves][level], m_cells[MeshType::overleaves][level]);
+
+                expr([&](auto & /*index_yz*/, auto & /*interval*/, auto &interval_index) {
+                    m_cells[MeshType::overleaves][level][0][static_cast<std::size_t>(interval_index[1])].index =
                         m_cells[MeshType::all_cells][level][0][static_cast<std::size_t>(interval_index[0])].index;
                 });
             }
