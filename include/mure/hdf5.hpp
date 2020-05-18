@@ -249,8 +249,12 @@ namespace mure
             std::size_t nb_points = std::pow(2, Mesh<MRConfig>::dim);
             constexpr std::size_t dim = Mesh<MRConfig>::dim;
 
-            std::array<std::string, 5> mesh_name{"cells", "cells_and_ghosts",
-                                                 "proj", "all", "union"};
+            // std::array<std::string, 5> mesh_name{"cells", "cells_and_ghosts",
+            //                                      "proj", "all", "union"};
+
+            std::array<std::string, 6> mesh_name{"cells", "cells_and_ghosts",
+                                                 "proj", "all", "union", "overleaves"};
+
 
             auto range = xt::arange(nb_points);
 
@@ -259,7 +263,7 @@ namespace mure
                 ("level " + std::to_string(level)).c_str();
             grid_parent.append_attribute("GridType") = "Collection";
 
-            for (std::size_t mesh_type = 0; mesh_type < 5; ++mesh_type)
+            for (std::size_t mesh_type = 0; mesh_type < 6; ++mesh_type)
             {
                 if (mesh.nb_cells(level, static_cast<MeshType>(mesh_type)) != 0)
                 {

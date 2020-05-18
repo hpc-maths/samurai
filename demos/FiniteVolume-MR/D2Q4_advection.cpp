@@ -381,7 +381,7 @@ int main(int argc, char *argv[])
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
-            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
             {
                 std::cout << nb_ite << "\n";
 
@@ -396,13 +396,24 @@ int main(int argc, char *argv[])
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
-                    if (refinement(f, eps, 300.0, i))
+                    if (refinement(f, eps, 0.0, i))
                         break;
                 }
 
-                // one_time_step_with_mem(f);
+
+
+                std::stringstream str;
+                str << "debug_by_level";
+
+                auto h5file = mure::Hdf5(str.str().data());
+                h5file.add_field_by_level(mesh, f);
+
+                std::cout<<std::endl<<"Printing mesh "<<std::endl<<f.mesh()<<std::endl;
+
+                //one_time_step_with_mem(f);
                 one_time_step(f,pred_coeff);
             }
+            
         }
     }
     catch (const cxxopts::OptionException &e)
