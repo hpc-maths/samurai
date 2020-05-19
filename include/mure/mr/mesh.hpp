@@ -326,8 +326,9 @@ namespace mure
     template<class MRConfig>
     inline void Mesh<MRConfig>::add_overleaves(CellList<MRConfig> &overleaves_list, CellList<MRConfig> &cell_list)
     {
-        
-        const int cells_to_add = 2; // To be changed according to the numerical scheme
+
+        //const int cells_to_add_1D = 2; // To be changed according to the numerical scheme
+        const int cells_to_add = 1; // To be changed according to the numerical scheme
 
         for (std::size_t level = 0; level < max_level(); ++level)
         {
@@ -346,24 +347,31 @@ namespace mure
                         
                         // auto index = xt::eval(index_yz);
                         
-                        // level_overleaves_list[index].add_interval({2*interval.start - cells_to_add,
-                        //                                            2*interval.end   + cells_to_add});
+                        // level_overleaves_list[index].add_interval({2*interval.start - cells_to_add_1D,
+                        //                                            2*interval.end   + cells_to_add_1D});
 
                                                                                            
-                        // level_cell_list[index].add_interval({2*interval.start - cells_to_add,
-                        //                                            2*interval.end   + cells_to_add});
+                        // level_cell_list[index].add_interval({2*interval.start - cells_to_add_1D,
+                        //                                            2*interval.end   + cells_to_add_1D});
 
 
 
 
                         static_nested_loop<dim - 1, -cells_to_add, cells_to_add + 1, 1>([&](auto stencil) {
                             auto index = xt::eval(index_yz + stencil);
+
+                            std::cout<<std::endl<<"Debug = "<<(2 * index + 1)<<std::flush;
                         
-                            level_overleaves_list[index].add_interval({2*interval.start - cells_to_add,
-                                                                       2*interval.end   + cells_to_add});
+                            level_overleaves_list[2 * index].add_interval({2 * (interval.start - cells_to_add),
+                                                                       2 * (interval.end   + cells_to_add)});
+                            level_overleaves_list[2 * index + 1].add_interval({2 * (interval.start - cells_to_add),
+                                                                       2 * (interval.end   + cells_to_add)});
+
                                                                                            
-                            level_cell_list[index].add_interval({2*interval.start - cells_to_add,
-                                                                 2*interval.end   + cells_to_add});
+                            level_cell_list[2 * index].add_interval({2 * (interval.start - cells_to_add),
+                                                                 2 * (interval.end   + cells_to_add)});
+                            level_cell_list[2 * index + 1].add_interval({2 * (interval.start - cells_to_add),
+                                                                 2 * (interval.end   + cells_to_add)});
                         });
                     });
             }

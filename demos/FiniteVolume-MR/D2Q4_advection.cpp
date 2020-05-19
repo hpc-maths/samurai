@@ -343,7 +343,7 @@ int main(int argc, char *argv[])
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
