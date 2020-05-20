@@ -33,6 +33,10 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
     mure::mr_prediction(u); 
     u.update_bc();
 
+    // It should not be done here. Surtout pas
+    mure::mr_prediction_overleaves(u); 
+
+
     typename std::conditional<size == 1,
                               xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1>>,
                               xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1, size>>

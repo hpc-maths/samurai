@@ -1346,7 +1346,7 @@ int main(int argc, char *argv[])
             out_compression.open     ("./d1q2/compression_s_"    +std::to_string(s)+"_eps_"+std::to_string(eps)+".dat");
 
 
-            for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < 2; ++nb_ite)
             {
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
@@ -1355,6 +1355,9 @@ int main(int argc, char *argv[])
                     if (coarsening(f, eps, i))
                         break;
                 }
+
+
+
                 auto duration_coarsening = toc();
 
                 // save_solution(f, eps, nb_ite, "coarsening");
@@ -1362,9 +1365,30 @@ int main(int argc, char *argv[])
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
+                    std::cout<<std::endl<<"Refinement "<<i<<std::flush;
                     if (refinement(f, eps, 0.0, i))
                         break;
                 }
+
+                if(nb_ite == 1) {
+
+                    for (std::size_t level = 0; level <= max_level; ++level)    {
+                        auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
+                                                         mesh[mure::MeshType::cells][level]);
+            
+                        leaves([&](auto, auto &interval, auto) {
+                            auto k = interval[0];
+                            std::cout<<std::endl<<"Check vales after refinement - Level = "<<level<<" Cell = "<<k<<std::endl<<(f(0, level, k) + f(1, level, k));
+                        });
+                    }
+                }
+
+
+
+
+
+
+
                 auto duration_refinement = toc();
                 save_solution(f, eps, nb_ite, "refinement");
 
