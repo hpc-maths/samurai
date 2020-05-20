@@ -196,26 +196,41 @@ double exact_solution(double x, double t)   {
     //     return ((x - 0.5*t) < x0L) ? 0.0 : (((x - 0.5*t) < x0R ? 1.0 : 0.0));
     // }
 
-    // double sigma = 0.5;
-    // double rhoL = 0.0;
-    // double rhoC = 1.0;
-    // double rhoR = 0.0;
+    double sigma = 0.5;
+    double rhoL = 0.0;
+    double rhoC = 1.0;
+    double rhoR = 0.0;
 
-    // return (x + sigma <= rhoL * t) ? rhoL : ((x + sigma <= rhoC*t) ? (x+sigma)/t : ((x-sigma <= t/2*(rhoC + rhoR)) ? rhoC : rhoR ));
+    // We translate up just to see if there are 0s left
 
+    //return (x + sigma <= rhoL * t) ? rhoL : ((x + sigma <= rhoC*t) ? (x+sigma)/t : ((x-sigma <= t/2*(rhoC + rhoR)) ? rhoC : rhoR ));
+    if (x < -sigma){
+        return 0.;
+
+    }
+    else
+    {
+        if (x < sigma){
+            return 1.;
+
+        }
+        else 
+            return 0.;
+    }
+    
 
     // // x = x - 0.5 * t;
     // // t = 0.0;
 
-    if (x >= -1 and x < t)
-    {
-        u = (1 + x) / (1 + t);
-    }
+    // if (x >= -1 and x < t)
+    // {
+    //     u = (1 + x) / (1 + t);
+    // }
     
-    if (x >= t and x < 1)
-    {
-        u = (1 - x) / (1 - t);
-    }
+    // if (x >= t and x < 1)
+    // {
+    //     u = (1 - x) / (1 - t);
+    // }
 
     // u = exp(-20.0 * (x-0.75*t) * (x-0.75*t));
 
@@ -225,8 +240,8 @@ double exact_solution(double x, double t)   {
 }
 
 double flux(double u)   {
-    return 0.5 * u * u;
-    //return 0.75 * u;
+    //return 0.5 * u * u;
+    return 0.75 * u;
 }
 
 template<class Config>
@@ -689,6 +704,27 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
     f.update_bc();
     mure::mr_prediction(f);
 
+    // After that everything is ready, we predict what is remaining
+    mure::mr_prediction_overleaves(f);
+
+
+    // We check the values on the overleaves
+    // for (std::size_t level = 0; level <= max_level; ++level) {
+
+    //     auto overleaves = mure::intersection(mesh[mure::MeshType::overleaves][level],
+    //                                          mesh[mure::MeshType::overleaves][level]);
+
+    //     overleaves([&](auto, auto &interval, auto) {
+    //         auto k = interval[0]; 
+
+    //         std::cout<<std::endl<<"[OL Value check] Level = "<<level<<" Patch = "<<k<<std::endl<<(f(0, level, k) + f(1, level, k))<<std::flush;
+
+    //     });
+    // }
+
+
+
+
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
 
@@ -719,8 +755,8 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
                 auto uu = xt::eval(fp + fm);
                 auto vv = xt::eval(lambda * (fp - fm));
             
-                //vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
-                vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+                vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
+                //vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
 
                 new_f(0, max_level, k) = .5 * (uu + 1. / lambda * vv);
                 new_f(1, max_level, k) = .5 * (uu - 1. / lambda * vv);
@@ -784,8 +820,8 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
                 auto uu = xt::eval(fp_advected + fm_advected);
                 auto vv = xt::eval(lambda * (fp_advected - fm_advected));
             
-                //vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
-                vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+                vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
+                //vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
 
                 new_f(0, level, k) = .5 * (uu + 1. / lambda * vv);
                 new_f(1, level, k) = .5 * (uu - 1. / lambda * vv);
@@ -1310,7 +1346,7 @@ int main(int argc, char *argv[])
             out_compression.open     ("./d1q2/compression_s_"    +std::to_string(s)+"_eps_"+std::to_string(eps)+".dat");
 
 
-            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
             {
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
@@ -1343,9 +1379,8 @@ int main(int argc, char *argv[])
 
                 save_refined_solution(fR, min_level, max_level, eps, nb_ite);
 
-                std::cout<<std::endl;
+                std::cout<<std::endl<<"Mesh after refinement and addition of the overleaves"<<std::endl<<f.mesh();
 
-                
 
         
                 tic();
