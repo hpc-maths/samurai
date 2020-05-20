@@ -43,6 +43,15 @@ namespace mure
                            .on(level);
 
                 expr.apply_op(level, prediction(field));
+
+
+                // I added this is order to ne sure that we update the overleaves which are not leaves
+                // and do not belong to the domain, since they are outside of  mesh.initial_mesh()
+                // auto overleaves_outside_domain = intersection(mesh[MeshType::all_cells][level], 
+                //                 difference(difference(mesh[MeshType::overleaves][level], mesh[MeshType::cells][level]), mesh.initial_mesh())).on(level);
+                
+                // overleaves_outside_domain.apply_op(level, prediction(field));
+                // // This does not change anything
             }
         }
     }

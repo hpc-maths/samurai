@@ -360,14 +360,13 @@ namespace mure
                         static_nested_loop<dim - 1, -cells_to_add, cells_to_add + 1, 1>([&](auto stencil) {
                             auto index = xt::eval(index_yz + stencil);
 
-                            std::cout<<std::endl<<"Debug = "<<(2 * index + 1)<<std::flush;
+                            //std::cout<<std::endl<<"Debug = "<<(2 * index + 1)<<std::flush;
                         
                             level_overleaves_list[2 * index].add_interval({2 * (interval.start - cells_to_add),
                                                                        2 * (interval.end   + cells_to_add)});
                             level_overleaves_list[2 * index + 1].add_interval({2 * (interval.start - cells_to_add),
                                                                        2 * (interval.end   + cells_to_add)});
-
-                                                                                           
+             
                             level_cell_list[2 * index].add_interval({2 * (interval.start - cells_to_add),
                                                                  2 * (interval.end   + cells_to_add)});
                             level_cell_list[2 * index + 1].add_interval({2 * (interval.start - cells_to_add),
@@ -487,7 +486,7 @@ namespace mure
 
             if (!m_cells[MeshType::overleaves][level].empty())
             {
-                auto expr = intersection(m_cells[MeshType::overleaves][level], m_cells[MeshType::overleaves][level]);
+                auto expr = intersection(m_cells[MeshType::all_cells][level], m_cells[MeshType::overleaves][level]);
 
                 expr([&](auto & /*index_yz*/, auto & /*interval*/, auto &interval_index) {
                     m_cells[MeshType::overleaves][level][0][static_cast<std::size_t>(interval_index[1])].index =
