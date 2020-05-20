@@ -196,7 +196,7 @@ double exact_solution(double x, double t)   {
     //     return ((x - 0.5*t) < x0L) ? 0.0 : (((x - 0.5*t) < x0R ? 1.0 : 0.0));
     // }
 
-    double sigma = 0.5;
+    double sigma = 0.15;
     double rhoL = 0.0;
     double rhoC = 1.0;
     double rhoR = 0.0;
@@ -1346,7 +1346,7 @@ int main(int argc, char *argv[])
             out_compression.open     ("./d1q2/compression_s_"    +std::to_string(s)+"_eps_"+std::to_string(eps)+".dat");
 
 
-            for (std::size_t nb_ite = 0; nb_ite < 2; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 tic();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
@@ -1393,17 +1393,17 @@ int main(int argc, char *argv[])
                 save_solution(f, eps, nb_ite, "refinement");
 
 
-                auto error = compute_error(f, fR, t);
+                // auto error = compute_error(f, fR, t);
 
-                out_time_frames    <<t       <<std::endl;
-                out_error_exact_ref<<error[0]<<std::endl;
-                out_diff_ref_adap  <<error[1]<<std::endl;
-                out_compression    <<static_cast<double>(mesh.nb_cells(mure::MeshType::cells)) 
-                                   / static_cast<double>(meshR.nb_cells(mure::MeshType::cells))<<std::endl;
+                // out_time_frames    <<t       <<std::endl;
+                // out_error_exact_ref<<error[0]<<std::endl;
+                // out_diff_ref_adap  <<error[1]<<std::endl;
+                // out_compression    <<static_cast<double>(mesh.nb_cells(mure::MeshType::cells)) 
+                //                    / static_cast<double>(meshR.nb_cells(mure::MeshType::cells))<<std::endl;
 
                 save_refined_solution(fR, min_level, max_level, eps, nb_ite);
 
-                std::cout<<std::endl<<"Mesh after refinement and addition of the overleaves"<<std::endl<<f.mesh();
+                //std::cout<<std::endl<<"Mesh after refinement and addition of the overleaves"<<std::endl<<f.mesh();
 
 
         
@@ -1431,9 +1431,9 @@ int main(int argc, char *argv[])
                                     <<"\nRefinement: "<<duration_refinement
                                     <<"\nScheme: "<<duration_scheme
                                     <<"\nScheme reference: "<<duration_schemeR
-                                    <<"\nSave: "<<duration_save
-                                    <<"\nError exact - referece = "<< error[0]
-                                    <<"\nError adaptive - referece = "<< error[1] << "\n";
+                                    <<"\nSave: "<<duration_save;
+                                    // <<"\nError exact - referece = "<< error[0]
+                                    // <<"\nError adaptive - referece = "<< error[1] << "\n";
 
                                     
 
