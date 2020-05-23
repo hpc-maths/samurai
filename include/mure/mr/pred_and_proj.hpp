@@ -47,10 +47,11 @@ namespace mure
 
                 // We eliminate the overleaves from the computation since they 
                 // are done separately
+                
                 auto expr = difference(intersection(difference(mesh[MeshType::all_cells][level],
                                          union_(mesh[MeshType::cells][level],
                                                 mesh[MeshType::proj_cells][level])),
-                                         mesh.initial_mesh()), mesh[MeshType::overleaves][level])
+                                         mesh.initial_mesh()), difference(mesh[MeshType::overleaves][level], union_(mesh[MeshType::union_cells][level], mesh[MeshType::cells_and_ghosts][level])))
                            .on(level);
 
                 expr.apply_op(level, prediction(field));
@@ -76,8 +77,10 @@ namespace mure
                 // These are the overleaves which are nothing else
                 // because when this procedure is called all the rest
                 // should be already with the right value.
+                // auto overleaves_to_predict = 
+                //     difference(difference(mesh[MeshType::overleaves][level], mesh[MeshType::cells][level]), mesh[MeshType::proj_cells][level]);
                 auto overleaves_to_predict = 
-                    difference(difference(mesh[MeshType::overleaves][level], mesh[MeshType::cells][level]), mesh[MeshType::proj_cells][level]);
+                    difference(difference(mesh[MeshType::overleaves][level], mesh[MeshType::cells_and_ghosts][level]), mesh[MeshType::proj_cells][level]);
 
                 overleaves_to_predict.apply_op(level, prediction(field));
 

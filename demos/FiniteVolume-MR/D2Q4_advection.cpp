@@ -14,11 +14,15 @@ double lambda = 2.;
 double sigma_q = 0.5; 
 double sigma_xy = 0.5;
 
-double sq = 1.0;//1./(.5 + sigma_q);
+double sq = 1.7;//1./(.5 + sigma_q);
 double sxy = 1./(.5 + sigma_xy);
 
-double kx = .0;//0.2;
-double ky = -1.0;//0.5;
+// double kx = .0;//0.2;
+// double ky = -1.0;//0.5;
+
+double kx = 0.2;
+double ky = 0.5;
+
 
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
@@ -46,6 +50,9 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 (y - y_center) * (y - y_center))
                 <= radius * radius)
             m0 = 1;
+        // if (abs(x - x_center) <= radius and abs(y - y_center) <= radius)    {
+        //     m0 = 1.;
+        // }
 
         double m1 = kx*m0;
         double m2 = ky*m0;
@@ -153,7 +160,9 @@ void one_time_step(Field &f, const pred& pred_coeff)
     auto max_level = mesh.max_level();
 
     mure::mr_projection(f);
+    f.update_bc(); 
     mure::mr_prediction(f);
+    //mure::mr_prediction_overleaves(f); // UNUSEFUL HERE BUT DOES NOT AFFECT THE PROCEDURE
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
@@ -411,7 +420,7 @@ void one_time_step_overleaves(Field &f, const pred& pred_coeff)
 
 // We have to average only the fluxes
 template<class Field, class pred>
-void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff)
+void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::size_t iter)
 {
     constexpr std::size_t nvel = Field::size;
     using coord_index_t = typename Field::coord_index_t;
@@ -422,6 +431,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff)
     mure::mr_projection(f);
     f.update_bc(); // It is important to do so
     mure::mr_prediction(f);
+    mure::mr_prediction_overleaves(f);
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
@@ -469,7 +479,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff)
         {
             // We do the advection on the overleaves
             std::size_t j = max_level - (level + 1); 
-            double coeff = 1. / (1 << j);
+            double coeff = 1. / (1 << (2*j));
 
             // We take the overleaves corresponding to the existing leaves
             auto overleaves = mure::intersection(mesh[mure::MeshType::overleaves][level + 1],
@@ -549,6 +559,21 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff)
                                                               + fluxes(3, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(3, level + 1, 2*k + 1, 2*h + 1));
 
+                if (iter == 11 and level == 8)  {
+                    
+                    std::cout<<std::endl<<"Double x = "<<(2*k)<<" Double y = "<<(2*h)<<"Double x + 1 = "<<(2*k + 1)<<" Double y  + 1= "<<(2*h + 1)<<std::endl<<std::endl;
+
+
+                    std::cout<<std::endl<<"k = "<<k<<" h = "<<h<<"Cell vl = "<<std::endl<<xt::eval(f(3, level, k, h))<<std::endl<<" Flux Values = "<<std::endl<<0.25 * (fluxes(3, level + 1, 2*k,     2*h) 
+                                                              + fluxes(3, level + 1, 2*k + 1, 2*h)
+                                                              + fluxes(3, level + 1, 2*k,     2*h + 1)
+                                                              + fluxes(3, level + 1, 2*k + 1, 2*h + 1));
+
+                    // std::cout<<std::endl<<"k = "<<k<<" h = "<<h<<" L "<<std::endl<<fluxes(3, level + 1, 2*k,     2*h + 1)<<std::endl
+                    //                                            <<" R "<<std::endl<<fluxes(3, level + 1, 2*k + 1,     2*h + 1);
+
+                }
+
 
 
                 //We compute the advected momenti
@@ -578,7 +603,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff)
 
 
 template<class Field>
-void one_time_step_with_mem(Field &f)
+void one_time_step_with_mem(Field &f, std::size_t iter)
 {
     constexpr std::size_t nvel = Field::size;
     using coord_index_t = typename Field::coord_index_t;
@@ -587,7 +612,9 @@ void one_time_step_with_mem(Field &f)
     auto max_level = mesh.max_level();
 
     mure::mr_projection(f);
+    f.update_bc(); 
     mure::mr_prediction(f);
+    mure::mr_prediction_overleaves(f);
 
     // MEMOIZATION
     // All is ready to do a little bit  of mem...
@@ -642,6 +669,13 @@ void one_time_step_with_mem(Field &f)
                 f3 += coeff * (prediction_with_mem(f, level, j,  k*(1<<j) + l, (h+1)*(1<<j), 3, memoization_map)
                               - prediction_with_mem(f, level, j,  k*(1<<j) + l,  h   *(1<<j), 3, memoization_map));
             }
+
+            if (iter == 11 and level == 8)  {
+
+                std::cout<<std::endl<<"k = "<<k<<" h = "<<h<<"Cell vl = "<<std::endl<<xt::eval(f(3, level, k, h))<<std::endl<<" Flux Values = "<<std::endl<<f3 - xt::eval(f(3, level, k, h));
+                                                          
+            }
+
 
             // We compute the advected momenti
             auto m0 = xt::eval(                 f0 + f1 + f2 + f3) ;
@@ -709,6 +743,11 @@ int main(int argc, char *argv[])
             std::cout << options.help() << "\n";
         else
         {
+
+            //auto save_string = std::string("bruteforce");
+            auto save_string = std::string("overleaves");
+
+
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 2;
@@ -750,29 +789,43 @@ int main(int argc, char *argv[])
                     if (refinement(f, eps, 0.0, i))
                         break;
                 }
+                mure::mr_prediction_overleaves(f); // Before saving
+
+
 
                 // if (nb_ite > 0)
                 //save_solution(f, eps, nb_ite, std::string("fullcomp"));
                 //save_solution(f, eps, nb_ite, std::string("nocorr"));
                 //save_solution(f, eps, nb_ite);
-                save_solution(f, eps, nb_ite, std::string("corrected"));
 
+                save_solution(f, eps, nb_ite, save_string+std::string("_before")); // Before applying the scheme
+       
                 //save_solution(f, eps, nb_ite,std::string("bback") );
 
 
                 // std::cout<<std::endl<<"Printing mesh "<<std::endl<<f.mesh()<<std::endl;
-                if (nb_ite == 0)    {
+                if (nb_ite < 30)    {
                     std::stringstream str;
-                    str << "debug_by_level";
+                    str << "debug_by_level_"<<save_string<<"_before_"<<nb_ite;
 
                     auto h5file = mure::Hdf5(str.str().data());
                     h5file.add_field_by_level(mesh, f);
                 }
 
-                //one_time_step_with_mem(f);
+                //one_time_step_with_mem(f, nb_ite);
                 //one_time_step(f,pred_coeff);
                 //one_time_step_overleaves(f, pred_coeff);
-                one_time_step_overleaves_corrected(f, pred_coeff);
+                one_time_step_overleaves_corrected(f, pred_coeff, nb_ite);
+
+
+                save_solution(f, eps, nb_ite, save_string+std::string("_after")); // Before applying the scheme
+                if (nb_ite < 30)    {
+                    std::stringstream str;
+                    str << "debug_by_level_"<<save_string<<"_after_"<<nb_ite;
+
+                    auto h5file = mure::Hdf5(str.str().data());
+                    h5file.add_field_by_level(mesh, f);
+                }
 
             }
             
