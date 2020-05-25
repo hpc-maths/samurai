@@ -10,7 +10,7 @@
 #include "criteria.hpp"
 #include "prediction_map_2d.hpp"
 
-double lambda = 2.;
+double lambda = 2.0;
 double sigma_q = 0.5; 
 double sigma_xy = 0.5;
 
@@ -20,8 +20,31 @@ double sxy = 1./(.5 + sigma_xy);
 // double kx = .0;//0.2;
 // double ky = -1.0;//0.5;
 
-double kx = 0.2;
-double ky = 0.5;
+double kx = sqrt(2.) / 2.0;
+double ky = sqrt(2.) / 2.0;
+
+template<class Config>
+auto construct_velocity_field(mure::Mesh<Config> &mesh, double t)
+{
+    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0}
+                    }} };
+    // We shall see what to do with BC....
+    mure::Field<Config, double, 2> vel("velocity", mesh, bc);
+    vel.array().fill(0);
+    mesh.for_each_cell([&](auto &cell) {
+        auto center = cell.center();
+        auto x = center[0];
+        auto y = center[1];
+
+        vel[cell][0] = (-pow(sin(M_PI * x), 2.0) * sin(2*M_PI*y));
+        vel[cell][1] =  (pow(sin(M_PI * y), 2.0) * sin(2*M_PI*x));
+    });
+
+    return vel;
+}
 
 
 template<class Config>
@@ -45,7 +68,7 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         double m0 = 0;
 
         double radius = .1;
-        double x_center = 0.5, y_center = 0.5;
+        double x_center = 0.5, y_center = 0.75;
         if ((   (x - x_center) * (x - x_center) + 
                 (y - y_center) * (y - y_center))
                 <= radius * radius)
@@ -54,8 +77,9 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         //     m0 = 1.;
         // }
 
-        double m1 = kx*m0;
-        double m2 = ky*m0;
+
+        double m1 = 0.5 * kx*m0 * m0;
+        double m2 = 0.5 * ky*m0 * m0;
         double m3 = 0.0;
 
         // We come back to the distributions
@@ -441,6 +465,9 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
     Field fluxes{"fluxes", mesh};
     fluxes.array().fill(0.);
 
+    // Added to handle spatially varying velocities
+    auto vel = construct_velocity_field(mesh, 0.0);
+
     for (std::size_t level = 0; level <= max_level; ++level)
     {
 
@@ -464,9 +491,14 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 auto m2 = xt::eval(lambda        * (     f1      - f3));
                 auto m3 = xt::eval(lambda*lambda * (f0 - f1 + f2 - f3));
 
-                m1 = (1 - sq) * m1 + sq * kx * m0;
-                m2 = (1 - sq) * m2 + sq * ky * m0;
+
+                m1 = (1 - sq) * m1 + sq * vel(0, level, k, h) * m0;
+                m2 = (1 - sq) * m2 + sq * vel(1, level, k, h) * m0;
                 m3 = (1 - sxy) * m3; 
+
+                // m1 = (1 - sq) * m1 + sq * 0.5 * kx * m0 * m0;
+                // m2 = (1 - sq) * m2 + sq * 0.5 * ky * m0 * m0;
+                // m3 = (1 - sxy) * m3; 
 
                 // We come back to the distributions
                 new_f(0, level, k, h) = .25 * m0 + .5/lambda * m1                    + .25/ (lambda*lambda) * m3;
@@ -559,33 +591,20 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                                                               + fluxes(3, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(3, level + 1, 2*k + 1, 2*h + 1));
 
-                if (iter == 11 and level == 8)  {
-                    
-                    std::cout<<std::endl<<"Double x = "<<(2*k)<<" Double y = "<<(2*h)<<"Double x + 1 = "<<(2*k + 1)<<" Double y  + 1= "<<(2*h + 1)<<std::endl<<std::endl;
-
-
-                    std::cout<<std::endl<<"k = "<<k<<" h = "<<h<<"Cell vl = "<<std::endl<<xt::eval(f(3, level, k, h))<<std::endl<<" Flux Values = "<<std::endl<<0.25 * (fluxes(3, level + 1, 2*k,     2*h) 
-                                                              + fluxes(3, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(3, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(3, level + 1, 2*k + 1, 2*h + 1));
-
-                    // std::cout<<std::endl<<"k = "<<k<<" h = "<<h<<" L "<<std::endl<<fluxes(3, level + 1, 2*k,     2*h + 1)<<std::endl
-                    //                                            <<" R "<<std::endl<<fluxes(3, level + 1, 2*k + 1,     2*h + 1);
-
-                }
-
-
-
                 //We compute the advected momenti
-                
                 auto m0 = xt::eval(                 f0 + f1 + f2 + f3) ;
                 auto m1 = xt::eval(lambda        * (f0      - f2      ));
                 auto m2 = xt::eval(lambda        * (     f1      - f3));
                 auto m3 = xt::eval(lambda*lambda * (f0 - f1 + f2 - f3));
 
-                m1 = (1 - sq) * m1 + sq * kx * m0;
-                m2 = (1 - sq) * m2 + sq * ky * m0;
+
+                m1 = (1 - sq) * m1 + sq * vel(0, level, k, h) * m0;
+                m2 = (1 - sq) * m2 + sq * vel(1, level, k, h) * m0;
                 m3 = (1 - sxy) * m3; 
+
+                // m1 = (1 - sq) * m1 + sq * 0.5 * kx * m0 * m0;
+                // m2 = (1 - sq) * m2 + sq * 0.5 * ky * m0 * m0;
+                // m3 = (1 - sxy) * m3; 
 
                 // We come back to the distributions
                 new_f(0, level, k, h) = .25 * m0 + .5/lambda * m1                    + .25/ (lambda*lambda) * m3;
@@ -804,13 +823,13 @@ int main(int argc, char *argv[])
 
 
                 // std::cout<<std::endl<<"Printing mesh "<<std::endl<<f.mesh()<<std::endl;
-                if (nb_ite < 30)    {
-                    std::stringstream str;
-                    str << "debug_by_level_"<<save_string<<"_before_"<<nb_ite;
+                // if (nb_ite < 30)    {
+                //     std::stringstream str;
+                //     str << "debug_by_level_"<<save_string<<"_before_"<<nb_ite;
 
-                    auto h5file = mure::Hdf5(str.str().data());
-                    h5file.add_field_by_level(mesh, f);
-                }
+                //     auto h5file = mure::Hdf5(str.str().data());
+                //     h5file.add_field_by_level(mesh, f);
+                // }
 
                 //one_time_step_with_mem(f, nb_ite);
                 //one_time_step(f,pred_coeff);
@@ -818,14 +837,14 @@ int main(int argc, char *argv[])
                 one_time_step_overleaves_corrected(f, pred_coeff, nb_ite);
 
 
-                save_solution(f, eps, nb_ite, save_string+std::string("_after")); // Before applying the scheme
-                if (nb_ite < 30)    {
-                    std::stringstream str;
-                    str << "debug_by_level_"<<save_string<<"_after_"<<nb_ite;
+                // save_solution(f, eps, nb_ite, save_string+std::string("_after")); // Before applying the scheme
+                // if (nb_ite < 30)    {
+                //     std::stringstream str;
+                //     str << "debug_by_level_"<<save_string<<"_after_"<<nb_ite;
 
-                    auto h5file = mure::Hdf5(str.str().data());
-                    h5file.add_field_by_level(mesh, f);
-                }
+                //     auto h5file = mure::Hdf5(str.str().data());
+                //     h5file.add_field_by_level(mesh, f);
+                // }
 
             }
             

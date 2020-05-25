@@ -34,7 +34,7 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
     u.update_bc();
 
     // It should not be done here. Surtout pas
-    mure::mr_prediction_overleaves(u); 
+    //mure::mr_prediction_overleaves(u); 
 
 
     typename std::conditional<size == 1,
@@ -97,7 +97,37 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
 
     //h5file.add_field(tag);
 
+    // // Old grading : no diagonals
+    // for (std::size_t level = max_level; level > min_level; --level)
+    // {
+    //     auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
+    //                                  mesh[mure::MeshType::cells][level]);
 
+    //     subset_1.apply_op(level, extend(tag));
+        
+    //     xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
+    //     for (std::size_t d = 0; d < dim; ++d)
+    //     {
+    //         for (std::size_t d1 = 0; d1 < dim; ++d1)
+    //             stencil[d1] = 0;
+    //         for (int s = -1; s <= 1; ++s)
+    //         {
+    //             if (s != 0)
+    //             {
+    //                 stencil[d] = s;
+
+    //                 auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
+    //                                           mesh[mure::MeshType::cells][level-1])
+    //                             .on(level);
+
+    //                 subset.apply_op(level, make_graduation(tag));
+    //             }
+    //         }
+    //     }
+    // }
+
+    // With the static nested loop, we also grade along the diagonals
+    // and not only the axis
     for (std::size_t level = max_level; level > min_level; --level)
     {
         auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
@@ -105,26 +135,19 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
 
         subset_1.apply_op(level, extend(tag));
         
-        xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            for (std::size_t d1 = 0; d1 < dim; ++d1)
-                stencil[d1] = 0;
-            for (int s = -1; s <= 1; ++s)
-            {
-                if (s != 0)
-                {
-                    stencil[d] = s;
+        mure::static_nested_loop<dim, -1, 2>(
+            [&](auto stencil) {
+            
+            auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
+                                       mesh[mure::MeshType::cells][level-1]).on(level);
 
-                    auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
-                                              mesh[mure::MeshType::cells][level-1])
-                                .on(level);
-
-                    subset.apply_op(level, make_graduation(tag));
-                }
-            }
-        }
+            subset.apply_op(level, make_graduation(tag));
+            
+        });
     }
+    
+
+
 
 
     mure::CellList<Config> cell_list;
