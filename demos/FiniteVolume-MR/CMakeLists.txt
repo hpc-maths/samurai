@@ -12,3 +12,7 @@ target_link_libraries(lbm_d1q2_burgers mure)
 
 add_executable(D2Q4_advection D2Q4_advection.cpp ${MURE_HEADERS})
 target_link_libraries(D2Q4_advection mure)
+
+
+add_executable(D2Q9_KelvinHelmholtz_Geier D2Q9_KelvinHelmholtz_Geier.cpp ${MURE_HEADERS})
+target_link_libraries(D2Q9_KelvinHelmholtz_Geier mure)

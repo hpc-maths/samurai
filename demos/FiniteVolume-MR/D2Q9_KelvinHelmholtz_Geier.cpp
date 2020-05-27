@@ -22,7 +22,7 @@ double U_0    = 0.05;//0.5;
 double zeta   = 0.0366;
 double mu     = 1.0E-6;
 double k      = 80.0;
-double delta  = 0.15;//0.05;
+double delta  = 0.05;
 
 
 template<class Config>
@@ -46,16 +46,13 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         double rho = rho_0;
         double qx = 0.0;
         double qy = U_0 * delta * sin(2. * M_PI * (x + .25));
-        //double qy = U_0 * delta * sin(M_PI * (x + .5));
-        //double qy = U_0 * delta * tanh(15. * (x - .5));
-
-        //qx = U_0 * tanh(k * (y - .5));
-
 
         if (y <= 0.5)  
             qx = U_0 * tanh(k * (y - .25));
         else
             qx = U_0 * tanh(k * (.75 - y));
+
+
 
         // We give standard names
         double cs2 = (lambda*lambda)/ 3.0; // sound velocity of the lattice squared
@@ -86,7 +83,6 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
         f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
         f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-
 
     });
 
@@ -123,15 +119,17 @@ void one_time_step(Field &f)
             auto h = index[0];    // Logical index in y
 
             // Uniform mesh for the moment
-            auto f0 = xt::eval(f(0, level, k    , h    )); // ( 0,  0) 
-            auto f1 = xt::eval(f(1, level, k - 1, h    )); // ( 1,  0)
-            auto f2 = xt::eval(f(2, level, k    , h - 1)); // ( 0,  1)
-            auto f3 = xt::eval(f(3, level, k + 1, h    )); // (-1,  0)
-            auto f4 = xt::eval(f(4, level, k    , h + 1)); // ( 0, -1)
-            auto f5 = xt::eval(f(5, level, k - 1, h - 1)); // ( 1,  1)
-            auto f6 = xt::eval(f(6, level, k + 1, h - 1)); // (-1,  1)
-            auto f7 = xt::eval(f(7, level, k + 1, h + 1)); // (-1, -1)
-            auto f8 = xt::eval(f(8, level, k - 1, h + 1)); // ( 1, -1)
+
+            auto f0 = xt::eval(f(0, level, k    , h    ));
+            auto f1 = xt::eval(f(1, level, k - 1, h    ));
+            auto f2 = xt::eval(f(2, level, k    , h - 1));
+            auto f3 = xt::eval(f(3, level, k + 1, h    ));
+            auto f4 = xt::eval(f(4, level, k    , h + 1));
+            auto f5 = xt::eval(f(5, level, k - 1, h - 1));
+            auto f6 = xt::eval(f(6, level, k + 1, h - 1));
+            auto f7 = xt::eval(f(7, level, k + 1, h + 1));
+            auto f8 = xt::eval(f(8, level, k - 1, h + 1));
+
 
             // // We compute the advected momenti
             double l1 = lambda;
@@ -159,13 +157,13 @@ void one_time_step(Field &f)
 
             double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
 
-
             m3 = (1. - s_1) * m3 + s_1 * ((m1*m1+m2*m2)/m0 + 2.*m0*cs2);
             m4 = (1. - s_1) * m4 + s_1 * (m1*(cs2+(m2/m0)*(m2/m0)));
             m5 = (1. - s_1) * m5 + s_1 * (m2*(cs2+(m1/m0)*(m1/m0)));
             m6 = (1. - s_1) * m6 + s_1 * (m0*(cs2+(m1/m0)*(m1/m0))*(cs2+(m2/m0)*(m2/m0)));
             m7 = (1. - s_2) * m7 + s_2 * ((m1*m1-m2*m2)/m0);
             m8 = (1. - s_2) * m8 + s_2 * (m1*m2/m0);
+
 
             // We come back to the distributions
 
@@ -175,15 +173,15 @@ void one_time_step(Field &f)
             double r4 = 1.0 / (lambda*lambda*lambda*lambda);
 
 
-            new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                         ; 
-            new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ; 
-            new_f(2, level, k, h) =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ; 
-            new_f(3, level, k, h) =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ; 
-            new_f(4, level, k, h) =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ; 
-            new_f(5, level, k, h) =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ; 
-            new_f(6, level, k, h) =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ; 
-            new_f(7, level, k, h) =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ; 
-            new_f(8, level, k, h) =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ; 
+            new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                         ;
+            new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+            new_f(2, level, k, h) =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+            new_f(3, level, k, h) =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+            new_f(4, level, k, h) =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+            new_f(5, level, k, h) =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+            new_f(6, level, k, h) =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+            new_f(7, level, k, h) =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+            new_f(8, level, k, h) =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
 
 
         });
