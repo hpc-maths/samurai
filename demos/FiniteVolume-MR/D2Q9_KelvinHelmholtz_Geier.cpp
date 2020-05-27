@@ -14,6 +14,8 @@
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
+#include "prediction_map_2d.hpp"
+
 
 double mach   = 0.1;
 double lambda = sqrt(3.0) / mach;
@@ -23,6 +25,48 @@ double zeta   = 0.0366;
 double mu     = 1.0E-6;
 double k      = 80.0;
 double delta  = 0.05;
+
+
+template<class coord_index_t>
+auto compute_prediction_d2q9(std::size_t min_level, std::size_t max_level)
+{
+    coord_index_t i = 0, j = 0;
+    std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
+
+    for(std::size_t k=0; k<max_level-min_level+1; ++k)
+    {
+        int size = (1<<k);
+        data[k].resize(8); // The null velocity is not used
+
+        // Velocities parallel to the axis
+        for (int l = 0; l < size; ++l)
+        {
+            data[k][0] += prediction(k, i*size - 1, j*size + l) - prediction(k, (i+1)*size - 1, j*size + l);
+            data[k][1] += prediction(k, i*size + l, j*size - 1) - prediction(k, i*size + l, (j+1)*size - 1);
+            data[k][2] += prediction(k, (i+1)*size, j*size + l) - prediction(k, i*size, j*size + l);
+            data[k][3] += prediction(k, i*size + l, (j+1)*size) - prediction(k, i*size + l, j*size);
+        }
+        // Diagonal velocities -  x stripes
+        for (int l = 0; l < size; ++l)
+        {
+            data[k][4] += prediction(k, i*size - l - 1, j*size - 1) - prediction(k, i*size + l, (j+1)*size - 1);
+            data[k][5] += prediction(k, i*size + l + 1, j*size - 1) - prediction(k, i*size + l, (j+1)*size - 1);
+            data[k][6] += prediction(k, i*size + l + 1, (j+1)*size) - prediction(k, i*size + l, j*size);
+            data[k][7] += prediction(k, i*size + l - 1, (j+1)*size) - prediction(k, i*size + l, j*size);
+
+        }
+        // Diagonal velocities -  y stripes
+        for (int l = 1; l < size; ++l) // We start from 1 in order not to count the angular cells twice
+        {
+            data[k][4] += prediction(k, i*size - 1, j*size + l - 1) - prediction(k, (i+1)*size - 1, j*size + l - 1);   
+            data[k][5] += prediction(k, (i+1)*size, j*size + l - 1) - prediction(k, i*size, j*size + l - 1);   
+            data[k][6] += prediction(k, (i+1)*size, j*size + l) - prediction(k, i*size, j*size + l);   
+            data[k][7] += prediction(k, i*size - 1, j*size + l) - prediction(k, (i+1)*size - 1, j*size + l);   
+        }
+
+    }
+    return data;
+}
 
 
 template<class Config>
@@ -190,6 +234,316 @@ void one_time_step(Field &f)
     std::swap(f.array(), new_f.array());
 }
 
+
+template<class Field, class Pred>
+void one_time_step_overleaves(Field &f, const Pred & pred_coeff)
+{
+    constexpr std::size_t nvel = Field::size;
+    using coord_index_t = typename Field::coord_index_t;
+
+    auto mesh = f.mesh();
+    auto max_level = mesh.max_level();
+
+    double space_step = 1.0 / (1 << max_level);
+
+    mure::mr_projection(f);
+    f.update_bc();
+    mure::mr_prediction(f);
+    mure::mr_prediction_overleaves(f);
+
+
+
+    Field new_f{"new_f", mesh};
+    new_f.array().fill(0.);
+
+    // This stored the fluxes computed at the level
+    // of the overleaves
+    Field fluxes{"fluxes", mesh};
+    fluxes.array().fill(0.);
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+
+
+
+        if (level == max_level) {
+            auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
+                                             mesh[mure::MeshType::cells][level]);
+
+            leaves([&](auto& index, auto &interval, auto) {
+                auto k = interval[0]; // Logical index in x
+                auto h = index[0];    // Logical index in y 
+
+                auto f0 = xt::eval(f(0, level, k    , h    ));
+                auto f1 = xt::eval(f(1, level, k - 1, h    ));
+                auto f2 = xt::eval(f(2, level, k    , h - 1));
+                auto f3 = xt::eval(f(3, level, k + 1, h    ));
+                auto f4 = xt::eval(f(4, level, k    , h + 1));
+                auto f5 = xt::eval(f(5, level, k - 1, h - 1));
+                auto f6 = xt::eval(f(6, level, k + 1, h - 1));
+                auto f7 = xt::eval(f(7, level, k + 1, h + 1));
+                auto f8 = xt::eval(f(8, level, k - 1, h + 1));
+
+                // // We compute the advected momenti
+                double l1 = lambda;
+                double l2 = l1 * lambda;
+                double l3 = l2 * lambda;
+                double l4 = l3 * lambda;
+
+                auto m0 = xt::eval(    f0 + f1 + f2 + f3 + f4 +   f5 +   f6 +   f7 +   f8 ) ;
+                auto m1 = xt::eval(l1*(     f1      - f3      +   f5 -   f6 -   f7 +   f8 ) );
+                auto m2 = xt::eval(l1*(          f2      - f4 +   f5 +   f6 -   f7 -   f8 ) );
+                auto m3 = xt::eval(l2*(     f1 + f2 + f3 + f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8 ) );
+                auto m4 = xt::eval(l3*(                           f5 -   f6 -   f7 +   f8 ) );
+                auto m5 = xt::eval(l3*(                           f5 +   f6 -   f7 -   f8 ) );
+                auto m6 = xt::eval(l4*(                           f5 +   f6 +   f7 +   f8 ) );
+                auto m7 = xt::eval(l2*(     f1 - f2 + f3 - f4                             ) );
+                auto m8 = xt::eval(l2*(                           f5 -   f6 +   f7 -   f8 ) );
+
+                // Collision
+
+                double dummy = 3.0/(lambda*rho_0*space_step);
+                double sigma_1 = dummy*zeta;
+                double sigma_2 = dummy*mu;
+                double s_1 = 1/(.5+sigma_1);
+                double s_2 = 1/(.5+sigma_2);
+
+                double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
+
+                m3 = (1. - s_1) * m3 + s_1 * ((m1*m1+m2*m2)/m0 + 2.*m0*cs2);
+                m4 = (1. - s_1) * m4 + s_1 * (m1*(cs2+(m2/m0)*(m2/m0)));
+                m5 = (1. - s_1) * m5 + s_1 * (m2*(cs2+(m1/m0)*(m1/m0)));
+                m6 = (1. - s_1) * m6 + s_1 * (m0*(cs2+(m1/m0)*(m1/m0))*(cs2+(m2/m0)*(m2/m0)));
+                m7 = (1. - s_2) * m7 + s_2 * ((m1*m1-m2*m2)/m0);
+                m8 = (1. - s_2) * m8 + s_2 * (m1*m2/m0);
+
+
+                // We come back to the distributions
+
+                double r1 = 1.0 / lambda;
+                double r2 = 1.0 / (lambda*lambda);
+                double r3 = 1.0 / (lambda*lambda*lambda);
+                double r4 = 1.0 / (lambda*lambda*lambda*lambda);
+
+
+                new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                           ;
+                new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                new_f(2, level, k, h) =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                new_f(3, level, k, h) =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                new_f(4, level, k, h) =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                new_f(5, level, k, h) =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                new_f(6, level, k, h) =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                new_f(7, level, k, h) =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                new_f(8, level, k, h) =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+            });
+
+        }
+
+        else
+        {
+            // We do the advection on the overleaves
+            std::size_t j = max_level - (level + 1); 
+            double coeff = 1. / (1 << (2*j)); // The 2 comes from the spatial dimension
+
+            // We take the overleaves corresponding to the existing leaves
+            auto overleaves = mure::intersection(mesh[mure::MeshType::all_cells][level], 
+                                                mure::intersection(mesh[mure::MeshType::overleaves][level + 1],
+                                                                   mesh[mure::MeshType::cells][level]))
+                             .on(level + 1);
+
+            
+            overleaves([&](auto& index, auto &interval, auto) {
+                auto k = interval[0]; // Logical index in x
+                auto h = index[0];    // Logical index in y 
+
+
+                //auto f0 = xt::eval(f(0, level, k    , h    ));
+                auto f1 = xt::eval(0.0 * f(1, level, k - 1, h    )); // for the shape
+                auto f2 = xt::eval(0.0 * f(2, level, k    , h - 1)); // for the shape
+                auto f3 = xt::eval(0.0 * f(3, level, k + 1, h    )); // for the shape
+                auto f4 = xt::eval(0.0 * f(4, level, k    , h + 1)); // for the shape
+                auto f5 = xt::eval(0.0 * f(5, level, k - 1, h - 1)); // for the shape
+                auto f6 = xt::eval(0.0 * f(6, level, k + 1, h - 1)); // for the shape
+                auto f7 = xt::eval(0.0 * f(7, level, k + 1, h + 1)); // for the shape
+                auto f8 = xt::eval(0.0 * f(8, level, k - 1, h + 1)); // for the shape
+
+
+                // The velocity 0 is skept
+                for(auto &c: pred_coeff[j][0].coeff)
+                {
+                    coord_index_t stencil_x, stencil_y;
+                    std::tie(stencil_x, stencil_y) = c.first;
+                    f1 += coeff*c.second*f(1, level + 1, k + stencil_x, h + stencil_y);
+                }
+
+                for(auto &c: pred_coeff[j][1].coeff)
+                {
+                    coord_index_t stencil_x, stencil_y;
+                    std::tie(stencil_x, stencil_y) = c.first;
+                    f2 += coeff*c.second*f(2, level + 1, k + stencil_x, h + stencil_y);
+                }
+
+                for(auto &c: pred_coeff[j][2].coeff)
+                {
+                    coord_index_t stencil_x, stencil_y;
+                    std::tie(stencil_x, stencil_y) = c.first;
+                    f3 += coeff*c.second*f(3, level + 1, k + stencil_x, h + stencil_y);
+                }
+
+                for(auto &c: pred_coeff[j][3].coeff)
+                {
+                    coord_index_t stencil_x, stencil_y;
+                    std::tie(stencil_x, stencil_y) = c.first;
+                    f4 += coeff*c.second*f(4, level + 1, k + stencil_x, h + stencil_y);
+                }
+
+                for(auto &c: pred_coeff[j][4].coeff)
+                {
+                    coord_index_t stencil_x, stencil_y;
+                    std::tie(stencil_x, stencil_y) = c.first;
+                    f5 += coeff*c.second*f(5, level + 1, k + stencil_x, h + stencil_y);
+                }
+                
+                for(auto &c: pred_coeff[j][5].coeff)
+                {
+                    coord_index_t stencil_x, stencil_y;
+                    std::tie(stencil_x, stencil_y) = c.first;
+                    f6 += coeff*c.second*f(6, level + 1, k + stencil_x, h + stencil_y);
+                }
+
+                for(auto &c: pred_coeff[j][6].coeff)
+                {
+                    coord_index_t stencil_x, stencil_y;
+                    std::tie(stencil_x, stencil_y) = c.first;
+                    f7 += coeff*c.second*f(7, level + 1, k + stencil_x, h + stencil_y);
+                }
+
+                for(auto &c: pred_coeff[j][7].coeff)
+                {
+                    coord_index_t stencil_x, stencil_y;
+                    std::tie(stencil_x, stencil_y) = c.first;
+                    f8 += coeff*c.second*f(8, level + 1, k + stencil_x, h + stencil_y);
+                }
+
+                // // We save the fluxes
+                // Probably not the most optimized choice...
+                fluxes(1, level + 1, k, h) = f1;
+                fluxes(2, level + 1, k, h) = f2;
+                fluxes(3, level + 1, k, h) = f3;
+                fluxes(4, level + 1, k, h) = f4;
+                fluxes(5, level + 1, k, h) = f5;
+                fluxes(6, level + 1, k, h) = f6;
+                fluxes(7, level + 1, k, h) = f7;
+                fluxes(8, level + 1, k, h) = f8;
+            });
+
+            // Now that projection has been done, we have to come back on the leaves below the overleaves
+            auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
+                                             mesh[mure::MeshType::cells][level]);
+
+            leaves([&](auto& index, auto &interval, auto) {
+                auto k = interval[0]; // Logical index in x
+                auto h = index[0];    // Logical index in y 
+
+                auto f0 = xt::eval(f(0, level, k, h));
+
+                auto f1 = xt::eval(f(1, level, k, h)) + 0.25 * (fluxes(1, level + 1, 2*k,     2*h) 
+                                                              + fluxes(1, level + 1, 2*k + 1, 2*h)
+                                                              + fluxes(1, level + 1, 2*k,     2*h + 1)
+                                                              + fluxes(1, level + 1, 2*k + 1, 2*h + 1));
+                
+                auto f2 = xt::eval(f(2, level, k, h)) + 0.25 * (fluxes(2, level + 1, 2*k,     2*h) 
+                                                              + fluxes(2, level + 1, 2*k + 1, 2*h)
+                                                              + fluxes(2, level + 1, 2*k,     2*h + 1)
+                                                              + fluxes(2, level + 1, 2*k + 1, 2*h + 1));
+
+                auto f3 = xt::eval(f(3, level, k, h)) + 0.25 * (fluxes(3, level + 1, 2*k,     2*h) 
+                                                              + fluxes(3, level + 1, 2*k + 1, 2*h)
+                                                              + fluxes(3, level + 1, 2*k,     2*h + 1)
+                                                              + fluxes(3, level + 1, 2*k + 1, 2*h + 1));         
+
+                auto f4 = xt::eval(f(4, level, k, h)) + 0.25 * (fluxes(4, level + 1, 2*k,     2*h) 
+                                                              + fluxes(4, level + 1, 2*k + 1, 2*h)
+                                                              + fluxes(4, level + 1, 2*k,     2*h + 1)
+                                                              + fluxes(4, level + 1, 2*k + 1, 2*h + 1));
+
+                auto f5 = xt::eval(f(5, level, k, h)) + 0.25 * (fluxes(5, level + 1, 2*k,     2*h) 
+                                                              + fluxes(5, level + 1, 2*k + 1, 2*h)
+                                                              + fluxes(5, level + 1, 2*k,     2*h + 1)
+                                                              + fluxes(5, level + 1, 2*k + 1, 2*h + 1));
+
+                auto f6 = xt::eval(f(6, level, k, h)) + 0.25 * (fluxes(6, level + 1, 2*k,     2*h) 
+                                                              + fluxes(6, level + 1, 2*k + 1, 2*h)
+                                                              + fluxes(6, level + 1, 2*k,     2*h + 1)
+                                                              + fluxes(6, level + 1, 2*k + 1, 2*h + 1)); 
+
+                auto f7 = xt::eval(f(7, level, k, h)) + 0.25 * (fluxes(7, level + 1, 2*k,     2*h) 
+                                                              + fluxes(7, level + 1, 2*k + 1, 2*h)
+                                                              + fluxes(7, level + 1, 2*k,     2*h + 1)
+                                                              + fluxes(7, level + 1, 2*k + 1, 2*h + 1)); 
+
+                auto f8 = xt::eval(f(8, level, k, h)) + 0.25 * (fluxes(8, level + 1, 2*k,     2*h) 
+                                                              + fluxes(8, level + 1, 2*k + 1, 2*h)
+                                                              + fluxes(8, level + 1, 2*k,     2*h + 1)
+                                                              + fluxes(8, level + 1, 2*k + 1, 2*h + 1)); 
+
+                // // We compute the advected momenti
+                double l1 = lambda;
+                double l2 = l1 * lambda;
+                double l3 = l2 * lambda;
+                double l4 = l3 * lambda;
+
+                auto m0 = xt::eval(    f0 + f1 + f2 + f3 + f4 +   f5 +   f6 +   f7 +   f8 ) ;
+                auto m1 = xt::eval(l1*(     f1      - f3      +   f5 -   f6 -   f7 +   f8 ) );
+                auto m2 = xt::eval(l1*(          f2      - f4 +   f5 +   f6 -   f7 -   f8 ) );
+                auto m3 = xt::eval(l2*(     f1 + f2 + f3 + f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8 ) );
+                auto m4 = xt::eval(l3*(                           f5 -   f6 -   f7 +   f8 ) );
+                auto m5 = xt::eval(l3*(                           f5 +   f6 -   f7 -   f8 ) );
+                auto m6 = xt::eval(l4*(                           f5 +   f6 +   f7 +   f8 ) );
+                auto m7 = xt::eval(l2*(     f1 - f2 + f3 - f4                             ) );
+                auto m8 = xt::eval(l2*(                           f5 -   f6 +   f7 -   f8 ) );
+
+                // Collision
+
+                double dummy = 3.0/(lambda*rho_0*space_step);
+                double sigma_1 = dummy*zeta;
+                double sigma_2 = dummy*mu;
+                double s_1 = 1/(.5+sigma_1);
+                double s_2 = 1/(.5+sigma_2);
+
+                double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
+
+                m3 = (1. - s_1) * m3 + s_1 * ((m1*m1+m2*m2)/m0 + 2.*m0*cs2);
+                m4 = (1. - s_1) * m4 + s_1 * (m1*(cs2+(m2/m0)*(m2/m0)));
+                m5 = (1. - s_1) * m5 + s_1 * (m2*(cs2+(m1/m0)*(m1/m0)));
+                m6 = (1. - s_1) * m6 + s_1 * (m0*(cs2+(m1/m0)*(m1/m0))*(cs2+(m2/m0)*(m2/m0)));
+                m7 = (1. - s_2) * m7 + s_2 * ((m1*m1-m2*m2)/m0);
+                m8 = (1. - s_2) * m8 + s_2 * (m1*m2/m0);
+
+
+                // We come back to the distributions
+
+                double r1 = 1.0 / lambda;
+                double r2 = 1.0 / (lambda*lambda);
+                double r3 = 1.0 / (lambda*lambda*lambda);
+                double r4 = 1.0 / (lambda*lambda*lambda*lambda);
+
+
+                new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                         ;
+                new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7           ;
+                new_f(2, level, k, h) =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7           ;
+                new_f(3, level, k, h) =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7           ;
+                new_f(4, level, k, h) =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7           ;
+                new_f(5, level, k, h) =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                new_f(6, level, k, h) =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                new_f(7, level, k, h) =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                new_f(8, level, k, h) =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+            });
+        }
+    }
+    std::swap(f.array(), new_f.array());
+}
+
 template<class Field>
 void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 {
@@ -312,6 +666,9 @@ int main(int argc, char *argv[])
             mure::Box<double, dim> box({0, 0}, {1, 1});
             mure::Mesh<Config> mesh{box, min_level, max_level};
 
+            using coord_index_t = typename Config::coord_index_t;
+            auto pred_coeff = compute_prediction_d2q9<coord_index_t>(min_level, max_level);
+
             // Initialization
             auto f = init_f(mesh, 0);
 
@@ -321,7 +678,7 @@ int main(int argc, char *argv[])
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
-            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
             {
                 std::cout <<"Iteration" << nb_ite<<" Time = "<<nb_ite * dt << "\n";
 
@@ -333,19 +690,19 @@ int main(int argc, char *argv[])
 
                 //save_solution(f, eps, nb_ite);
 
-                // for (std::size_t i=0; i<max_level-min_level; ++i)
-                // {
-                //     if (coarsening(f, eps, i))
-                //         break;
-                // }
+                for (std::size_t i=0; i<max_level-min_level; ++i)
+                {
+                    if (coarsening(f, eps, i))
+                        break;
+                }
                 // std::cout << "coarsening\n";
                 // // save_solution(f, eps, nb_ite, "coarsening");
 
-                // for (std::size_t i=0; i<max_level-min_level; ++i)
-                // {
-                //     if (refinement(f, eps, i))
-                //         break;
-                // }
+                for (std::size_t i=0; i<max_level-min_level; ++i)
+                {
+                    if (refinement(f, eps, 1.0, i))
+                        break;
+                }
                 // std::cout << "refinement\n";
 
                 f.update_bc();
@@ -361,7 +718,8 @@ int main(int argc, char *argv[])
 
                 //save_solution(f, eps, nb_ite, "refinement");
 
-                one_time_step(f);
+                //one_time_step(f);
+                one_time_step_overleaves(f, pred_coeff);
 
                 // save_solution(f, eps, nb_ite);
             }
