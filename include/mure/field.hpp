@@ -95,6 +95,29 @@ namespace mure
             std::forward<T>(field), std::forward<BC>(bc), std::forward<stencil_t>(stencil));
     }
 
+
+
+    template<class TInterval>
+    class update_boundary_d2q9_KH_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(update_boundary_d2q9_KH_op)
+
+        template<class T, class stencil_t>
+        inline void operator()(Dim<2>, T &field, const stencil_t& stencil) const
+        {
+            int n = stencil[0] + stencil[1]; // Think about for diagonals, but it is true that here we do not have any normal vector.
+            field(level, i, j) = field(level, i - stencil[0], j - stencil[1]);
+                
+        }
+    };
+
+    template<class T, class stencil_t>
+    inline auto update_boundary_D2Q9_KH(T &&field, stencil_t &&stencil)
+    {
+        return make_field_operator_function<update_boundary_d2q9_KH_op>(
+            std::forward<T>(field), std::forward<stencil_t>(stencil));
+    }
+
     template<std::size_t size>
     struct is_scalar_field: std::false_type
     {};
@@ -331,8 +354,48 @@ namespace mure
             return m_mesh;
         }
 
+        inline void update_bc_D2Q9_KH()
+        {
+            // 4 axis
+            std::vector<xt::xtensor_fixed<int, xt::xshape<dim>>> versors {{ 1,  0},
+                                                                          {-1,  0},
+                                                                          { 0,  1},
+                                                                          { 0, -1}};
+
+
+            auto max_level = m_mesh->max_level();                                                             
+
+            for (std::size_t level = 0; level <= max_level; ++level)    {
+                if (!(*m_mesh)[mure::MeshType::all_cells][level].empty())   {
+                    
+                    for (auto versor : versors) {
+                        // The order of the operations is important
+                        auto subset1 = intersection(difference(translate(m_mesh->initial_mesh(), versor),
+                                                              m_mesh->initial_mesh()),
+                                                  (*m_mesh)[mure::MeshType::all_cells][level])
+                                     .on(level);
+
+                        subset1.apply_op(level, update_boundary_D2Q9_KH(*this, versor));
+
+
+                        auto subset2 = intersection(difference(translate(m_mesh->initial_mesh(), 2 * (1 << (max_level - level)) * versor),
+                                                              m_mesh->initial_mesh()),
+                                                  (*m_mesh)[mure::MeshType::all_cells][level])
+                                     .on(level);
+
+                        subset2.apply_op(level, update_boundary_D2Q9_KH(*this, 2 * versor));
+
+                    }
+                }
+            }                                                        
+        }
+
         inline void update_bc()
         {
+
+            update_bc_D2Q9_KH();
+            return; // Just to exit here
+
 
             // for (std::size_t level = 0; level <= m_mesh->max_level(); ++level)
             // {
