@@ -145,8 +145,12 @@ void one_time_step(Field &f)
     double space_step = 1.0 / (1 << max_level);
 
     mure::mr_projection(f);
+    std::cout<<std::endl<<"Projection done";
     f.update_bc();
+    std::cout<<std::endl<<"BC done";
     mure::mr_prediction(f);
+    std::cout<<std::endl<<"Prediction done";
+
 
 
     f.update_bc(); // Should we do it twice ?
@@ -249,6 +253,7 @@ void one_time_step_overleaves(Field &f, const Pred & pred_coeff)
     mure::mr_projection(f);
     f.update_bc();
     mure::mr_prediction(f);
+
     mure::mr_prediction_overleaves(f);
 
 
@@ -273,6 +278,7 @@ void one_time_step_overleaves(Field &f, const Pred & pred_coeff)
             leaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
+
 
                 auto f0 = xt::eval(f(0, level, k    , h    ));
                 auto f1 = xt::eval(f(1, level, k - 1, h    ));
@@ -346,9 +352,8 @@ void one_time_step_overleaves(Field &f, const Pred & pred_coeff)
             double coeff = 1. / (1 << (2*j)); // The 2 comes from the spatial dimension
 
             // We take the overleaves corresponding to the existing leaves
-            auto overleaves = mure::intersection(mesh[mure::MeshType::all_cells][level], 
-                                                mure::intersection(mesh[mure::MeshType::overleaves][level + 1],
-                                                                   mesh[mure::MeshType::cells][level]))
+            auto overleaves = mure::intersection(mesh[mure::MeshType::overleaves][level + 1],
+                                                mesh[mure::MeshType::cells][level])
                              .on(level + 1);
 
             
@@ -356,16 +361,15 @@ void one_time_step_overleaves(Field &f, const Pred & pred_coeff)
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
-
                 //auto f0 = xt::eval(f(0, level, k    , h    ));
-                auto f1 = xt::eval(0.0 * f(1, level, k - 1, h    )); // for the shape
-                auto f2 = xt::eval(0.0 * f(2, level, k    , h - 1)); // for the shape
-                auto f3 = xt::eval(0.0 * f(3, level, k + 1, h    )); // for the shape
-                auto f4 = xt::eval(0.0 * f(4, level, k    , h + 1)); // for the shape
-                auto f5 = xt::eval(0.0 * f(5, level, k - 1, h - 1)); // for the shape
-                auto f6 = xt::eval(0.0 * f(6, level, k + 1, h - 1)); // for the shape
-                auto f7 = xt::eval(0.0 * f(7, level, k + 1, h + 1)); // for the shape
-                auto f8 = xt::eval(0.0 * f(8, level, k - 1, h + 1)); // for the shape
+                auto f1 = xt::eval(0.0 * f(1, level + 1, k - 1, h    )); // for the shape
+                auto f2 = xt::eval(0.0 * f(2, level + 1, k    , h - 1)); // for the shape
+                auto f3 = xt::eval(0.0 * f(3, level + 1, k + 1, h    )); // for the shape
+                auto f4 = xt::eval(0.0 * f(4, level + 1, k    , h + 1)); // for the shape
+                auto f5 = xt::eval(0.0 * f(5, level + 1, k - 1, h - 1)); // for the shape
+                auto f6 = xt::eval(0.0 * f(6, level + 1, k + 1, h - 1)); // for the shape
+                auto f7 = xt::eval(0.0 * f(7, level + 1, k + 1, h + 1)); // for the shape
+                auto f8 = xt::eval(0.0 * f(8, level + 1, k - 1, h + 1)); // for the shape
 
 
                 // The velocity 0 is skept
@@ -579,7 +583,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 
     mure::Field<Config> vort{"vorticity", mesh};
 
-    // We update the ghosts
+    //We update the ghosts
     mure::mr_projection(f);
     f.update_bc();
     mure::mr_prediction(f);
@@ -678,14 +682,12 @@ int main(int argc, char *argv[])
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
-            for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
+            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 std::cout <<"Iteration" << nb_ite<<" Time = "<<nb_ite * dt << "\n";
 
 
 
-                if (nb_ite % 50 == 0)
-                    save_solution(f, eps, nb_ite / 50);
 
 
                 //save_solution(f, eps, nb_ite);
@@ -695,17 +697,18 @@ int main(int argc, char *argv[])
                     if (coarsening(f, eps, i))
                         break;
                 }
-                // std::cout << "coarsening\n";
-                // // save_solution(f, eps, nb_ite, "coarsening");
+
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
                     if (refinement(f, eps, 1.0, i))
                         break;
                 }
-                // std::cout << "refinement\n";
 
-                f.update_bc();
+                
+                if (nb_ite % 50 == 0)
+                    save_solution(f, eps, nb_ite / 50);
+
 
                 // if (nb_ite % 50 == 0) {
                 //     std::stringstream str;
@@ -720,6 +723,7 @@ int main(int argc, char *argv[])
 
                 //one_time_step(f);
                 one_time_step_overleaves(f, pred_coeff);
+
 
                 // save_solution(f, eps, nb_ite);
             }
