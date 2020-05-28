@@ -36,7 +36,7 @@ auto compute_prediction_d2q9(std::size_t min_level, std::size_t max_level)
     for(std::size_t k=0; k<max_level-min_level+1; ++k)
     {
         int size = (1<<k);
-        data[k].resize(8); // The null velocity is not used
+        data[k].resize(8); // The null velocity (0, 0) is not used
 
         // Velocities parallel to the axis
         for (int l = 0; l < size; ++l)
@@ -49,7 +49,7 @@ auto compute_prediction_d2q9(std::size_t min_level, std::size_t max_level)
         // Diagonal velocities -  x stripes
         for (int l = 0; l < size; ++l)
         {
-            data[k][4] += prediction(k, i*size - l - 1, j*size - 1) - prediction(k, i*size + l, (j+1)*size - 1);
+            data[k][4] += prediction(k, i*size + l - 1, j*size - 1) - prediction(k, i*size + l, (j+1)*size - 1);
             data[k][5] += prediction(k, i*size + l + 1, j*size - 1) - prediction(k, i*size + l, (j+1)*size - 1);
             data[k][6] += prediction(k, i*size + l + 1, (j+1)*size) - prediction(k, i*size + l, j*size);
             data[k][7] += prediction(k, i*size + l - 1, (j+1)*size) - prediction(k, i*size + l, j*size);
@@ -698,31 +698,64 @@ int main(int argc, char *argv[])
                         break;
                 }
 
+                // {
+                //     f.update_bc();
+                //     std::stringstream str;
+                //     str << "after_coarsening";
+                //     auto h5file = mure::Hdf5(str.str().data());
+                //     h5file.add_field_by_level(mesh, f);
+                // }
+
 
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
                     if (refinement(f, eps, 1.0, i))
                         break;
                 }
-
                 
-                if (nb_ite % 50 == 0)
-                    save_solution(f, eps, nb_ite / 50);
+                // if (nb_ite == 0){
 
+                //     f.update_bc();
 
-                // if (nb_ite % 50 == 0) {
                 //     std::stringstream str;
-                //     str << "debug_by_level_"<<nb_ite;
-
+                //     str << "after_refinement";
                 //     auto h5file = mure::Hdf5(str.str().data());
                 //     h5file.add_field_by_level(mesh, f);
-
                 // }
 
+                
+                // f.update_bc();
+
+                // std::stringstream str;
+                // str << "debug_by_level_"<<nb_ite;
+                // auto h5file = mure::Hdf5(str.str().data());
+                // h5file.add_field_by_level(mesh, f);
+
+                
+                
+                if (nb_ite % 50 == 0)
+                    save_solution(f, eps, nb_ite/50, std::string("right_"));
+
+                //return 0;
+
+                //save_solution(f, eps, nb_ite);
+
+                //f.update_bc();
+
+                // std::stringstream str;
+                // str << "debug_by_level_"<<nb_ite;
+                // auto h5file = mure::Hdf5(str.str().data());
+                // h5file.add_field_by_level(mesh, f);
+
+                
+
                 //save_solution(f, eps, nb_ite, "refinement");
+                //return 0;
 
                 //one_time_step(f);
                 one_time_step_overleaves(f, pred_coeff);
+
+                //return 0;
 
 
                 // save_solution(f, eps, nb_ite);

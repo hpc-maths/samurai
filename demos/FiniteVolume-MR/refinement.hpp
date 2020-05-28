@@ -30,8 +30,8 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
     });
 
     mure::mr_projection(u);
-    mure::mr_prediction(u); 
     u.update_bc();
+    mure::mr_prediction(u); 
 
     // It should not be done here. Surtout pas
     //mure::mr_prediction_overleaves(u); 

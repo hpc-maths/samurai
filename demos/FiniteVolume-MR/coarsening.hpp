@@ -52,10 +52,17 @@ bool coarsening(Field &u, double eps, std::size_t ite)
     mesh.for_each_cell([&](auto &cell) {
         tag[cell] = static_cast<int>(mure::CellFlag::keep);
     });
-
+    //std::cout<<std::endl<<"Coarsening "<<ite<<std::flush;
     mure::mr_projection(u);
-    mure::mr_prediction(u);
     u.update_bc();
+    mure::mr_prediction(u);
+
+
+    // std::stringstream str;
+    // str << "in_coarsening_"<<ite;
+    // auto h5file = mure::Hdf5(str.str().data());
+    // h5file.add_field_by_level(mesh, u);
+
 
     typename std::conditional<size == 1,
                               xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1>>,
