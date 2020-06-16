@@ -5,9 +5,6 @@
 
 namespace mure
 {
-    template<class MRConfig, class value_t>
-    class Field;
-
     template<class T>
     class subset_node;
 

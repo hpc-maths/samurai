@@ -190,7 +190,10 @@ namespace mure
             auto refine_mask =
                 tag(level, i) & static_cast<int>(mure::CellFlag::refine);
 
-            for (int ii = -1; ii < 2; ++ii)
+
+            int added_cells = 2; // 1 by default
+
+            for (int ii = -added_cells; ii < added_cells + 1; ++ii)
             {
                 xt::masked_view(tag(level, i + ii), refine_mask) |= static_cast<int>(mure::CellFlag::keep);
             }

@@ -17,12 +17,9 @@ double max_detail(mure::Field<Config> &u)
 
     mure::mr_projection(u);
     mure::mr_prediction(u); 
-
     u.update_bc();
 
-
     double max_detail = 0.0;
-
 
     for (std::size_t level = min_level - 1; level < max_level; ++level)   {
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
@@ -35,42 +32,54 @@ double max_detail(mure::Field<Config> &u)
 }
 
 
-template <class Config>
-bool coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
+template <class Field>
+bool coarsening(Field &u, double eps, std::size_t ite)
 {
+    using Config = typename Field::Config;
+    using value_type = typename Field::value_type;
+    constexpr auto size = Field::size;
     constexpr auto dim = Config::dim;
     constexpr auto max_refinement_level = Config::max_refinement_level;
-
     using interval_t = typename Config::interval_t;
+
     auto mesh = u.mesh();
     std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
-    mure::Field<Config> detail{"detail", mesh};
-    mure::Field<Config, int> tag{"tag", mesh};
 
+    Field detail{"detail", mesh};
+
+    mure::Field<Config, int, 1> tag{"tag", mesh};
     tag.array().fill(0);
-    
     mesh.for_each_cell([&](auto &cell) {
         tag[cell] = static_cast<int>(mure::CellFlag::keep);
     });
-
+    //std::cout<<std::endl<<"Coarsening "<<ite<<std::flush;
     mure::mr_projection(u);
-    mure::mr_prediction(u);
     u.update_bc();
- 
+    mure::mr_prediction(u);
 
-    xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>max_detail;
-    max_detail.fill(std::numeric_limits<double>::min());
+
+    // std::stringstream str;
+    // str << "in_coarsening_"<<ite;
+    // auto h5file = mure::Hdf5(str.str().data());
+    // h5file.add_field_by_level(mesh, u);
+
+
+    typename std::conditional<size == 1,
+                              xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1>>,
+                              xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1, size>>
+                             >::type max_detail;
+    max_detail.fill(std::numeric_limits<value_type>::min());
 
     // What are the data it uses at min_level - 1 ???
     for (std::size_t level = min_level - 1; level < max_level - ite; ++level)   {
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
                                    mesh[mure::MeshType::cells][level + 1])
-                                .on(level);
+                     .on(level);
         subset.apply_op(level, compute_detail(detail, u),
                                compute_max_detail(detail, max_detail));
     }
 
-    
+    //std::cout<<std::endl<<"Max detail : "<<max_detail;
 
     // std::stringstream s;
     // s << "coarsening_"<<ite;
@@ -83,8 +92,6 @@ bool coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
     // AGAIN I DONT KNOW WHAT min_level - 1 is
     for (std::size_t level = min_level; level <= max_level - ite; ++level)
     {
-        //int exponent = dim * (level - max_level + 1);
-
         int exponent = dim * (level - max_level);
 
         auto eps_l = std::pow(2, exponent) * eps;
@@ -92,14 +99,13 @@ bool coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
         // COMPRESSION
 
         auto subset_1 = mure::intersection(mesh[mure::MeshType::cells][level],
-                                         mesh[mure::MeshType::all_cells][level-1])
-                                        .on(level-1);
+                                           mesh[mure::MeshType::all_cells][level-1])
+                       .on(level-1);
 
 
         // This operations flags the cells to coarsen
         subset_1.apply_op(level, to_coarsen_mr(detail, max_detail, tag, eps_l, min_level));
         //subset_1.apply_op(level, to_coarsen_mr_BH(detail, max_detail, tag, eps_l, min_level));
-
 
         auto subset_2 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);
@@ -117,27 +123,23 @@ bool coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
 
     for (std::size_t level = max_level; level > 0; --level)
     {
-        auto keep_subset =
-            intersection(mesh[mure::MeshType::cells][level],
-                         mesh[mure::MeshType::all_cells][level - 1])
-                .on(level - 1);
+        auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
+                                        mesh[mure::MeshType::all_cells][level - 1])
+                          .on(level - 1);
         keep_subset.apply_op(level - 1, maximum(tag));
+
         xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
         for (std::size_t d = 0; d < dim; ++d)
         {
-            for (std::size_t d1 = 0; d1 < dim; ++d1)
-                stencil[d1] = 0;
+            stencil.fill(0);
             for (int s = -1; s <= 1; ++s)
             {
                 if (s != 0)
                 {
                     stencil[d] = s;
-                    auto subset =
-                        intersection(
-                            mesh[mure::MeshType::cells][level],
-                            translate(
-                                mesh[mure::MeshType::cells][level - 1], stencil))
-                            .on(level - 1);
+                    auto subset = intersection(mesh[mure::MeshType::cells][level],
+                                               translate(mesh[mure::MeshType::cells][level - 1], stencil))
+                                 .on(level - 1);
                     subset.apply_op(level - 1, balance_2to1(tag, stencil));
                 }
             }
@@ -171,10 +173,11 @@ bool coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
 
 
     if (new_mesh == mesh)
+    {
         return true;
+    }
 
-
-    mure::Field<Config> new_u{u.name(), new_mesh, u.bc()};
+    Field new_u{u.name(), new_mesh, u.bc()};
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
@@ -186,7 +189,5 @@ bool coarsening(mure::Field<Config> &u, double eps, std::size_t ite)
     u.mesh_ptr()->swap(new_mesh);
     std::swap(u.array(), new_u.array());
 
-
     return false;
-
  }

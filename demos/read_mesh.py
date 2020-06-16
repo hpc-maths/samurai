@@ -12,7 +12,7 @@ filename = sys.argv[1]
 
 f = h5py.File(filename, 'r')
 u = f['fields']['u_0']
-level = np.repeat(f['fields']['level'], 2)
+level = np.repeat(f['fields']['level_0'], 2)
 mesh = f['mesh']['points']
 
 ax1=plt.subplot(1, 2, 1)
@@ -26,7 +26,7 @@ ax1.scatter(mesh[:, 0], level, marker='+')
 ax1.autoscale()
 ax1.set_title('level')
 plt.subplot(122)
-plt.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), u)
+plt.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), u, s=0.5)
 plt.title('solution')
 plt.show()
 

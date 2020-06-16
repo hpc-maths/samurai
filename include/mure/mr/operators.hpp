@@ -67,35 +67,32 @@ namespace mure
         {
             auto qs_i = Qs_i<1>(field, level - 1, i >> 1);
 
-            auto dec = (i.start & 1) ? 1 : 0;
-
+            auto dec_even = (i.start & 1) ? 1 : 0;
             auto even_i = i;
-            even_i.start += dec;
+            even_i.start += dec_even;
             even_i.step = 2;
 
             auto coarse_even_i = i >> 1;
-            coarse_even_i.start += dec;
+            coarse_even_i.start += dec_even;
 
-            if (even_i.is_valid())
-            {
-                field(level, even_i) =
-                    field(level - 1, coarse_even_i) +
-                    xt::view(qs_i, xt::range(dec, qs_i.size()));
-            }
-
-            dec = (i.end & 1) ? 1 : 0;
+            auto dec_odd = (i.end & 1) ? 1 : 0;
             auto odd_i = i;
             odd_i.start += (i.start & 1) ? 0 : 1;
             odd_i.step = 2;
 
             auto coarse_odd_i = i >> 1;
-            coarse_odd_i.end -= dec;
+            coarse_odd_i.end -= dec_odd;
+
+            if (even_i.is_valid())
+            {
+                field(level, even_i) = field(level - 1, coarse_even_i)
+                                     + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]));
+            }
 
             if (odd_i.is_valid())
             {
-                field(level, odd_i) =
-                    field(level - 1, coarse_odd_i) -
-                    xt::view(qs_i, xt::range(0, qs_i.size() - dec));
+                field(level, odd_i) = field(level - 1, coarse_odd_i)
+                                    - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd));
             }
         }
 
@@ -128,9 +125,9 @@ namespace mure
                 {
                     field(level, even_i, j) =
                         field(level - 1, coarse_even_i, j >> 1) +
-                        xt::view(qs_i, xt::range(dec_even, qs_i.size())) -
-                        xt::view(qs_j, xt::range(dec_even, qs_j.size())) +
-                        xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+                        xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0])) -
+                        xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0])) +
+                        xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
 
                     // field(level, even_i, j) =
                     //     field(level - 1, coarse_even_i, j >> 1) -
@@ -145,9 +142,9 @@ namespace mure
                 {
                     field(level, odd_i, j) =
                         field(level - 1, coarse_odd_i, j >> 1) -
-                        xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) -
-                        xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) -
-                        xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
+                        xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd)) -
+                        xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd)) -
+                        xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
                     
                     // field(level, odd_i, j) =
                     //     field(level - 1, coarse_odd_i, j >> 1) +
@@ -164,9 +161,9 @@ namespace mure
                 {
                     field(level, even_i, j) =
                         field(level - 1, coarse_even_i, j >> 1) +
-                        xt::view(qs_i, xt::range(dec_even, qs_i.size())) +
-                        xt::view(qs_j, xt::range(dec_even, qs_j.size())) -
-                        xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
+                        xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0])) +
+                        xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0])) -
+                        xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
 
                     // field(level, even_i, j) =
                     //     field(level - 1, coarse_even_i, j >> 1) -
@@ -181,9 +178,9 @@ namespace mure
                 {
                     field(level, odd_i, j) =
                         field(level - 1, coarse_odd_i, j >> 1) -
-                        xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) +
-                        xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) +
-                        xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
+                        xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd)) +
+                        xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd)) +
+                        xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
 
                     // field(level, odd_i, j) =
                     //     field(level - 1, coarse_odd_i, j >> 1) +
@@ -212,14 +209,11 @@ namespace mure
         auto ii = i << 1;
         ii.step = 2;
 
-        for (std::size_t i_f = 0; i_f < field.size(); ++i_f)
-        {
-            auto qs_i = Qs_i<1>(field[i_f], level, i);
+        auto qs_i = Qs_i<1>(field, level, i);
 
-            new_field[i_f](level + 1, ii) = (field[i_f](level, i) + qs_i);
+        new_field(level + 1, ii) = field(level, i) + qs_i;
 
-            new_field[i_f](level + 1, ii + 1) = (field[i_f](level, i) - qs_i);
-        }
+        new_field(level + 1, ii + 1) = field(level, i) - qs_i;
     }
 
     template<class interval_t, class coord_index_t, class field_t>
@@ -234,32 +228,14 @@ namespace mure
         auto j = index_yz[0];
         auto jj = j << 1;
 
-        for (std::size_t i_f = 0; i_f < field.size(); ++i_f)
-        {
-            auto qs_i = Qs_i<1>(field[i_f], level, i, j);
-            auto qs_j = Qs_j<1>(field[i_f], level, i, j);
-            auto qs_ij = Qs_ij<1>(field[i_f], level, i, j);
+        auto qs_i = Qs_i<1>(field, level, i, j);
+        auto qs_j = Qs_j<1>(field, level, i, j);
+        auto qs_ij = Qs_ij<1>(field, level, i, j);
 
-            new_field[i_f](level + 1, ii, jj) =
-                (field[i_f](level, i, j) + qs_i + qs_j - qs_ij);
-            new_field[i_f](level + 1, ii + 1, jj) =
-                (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
-            new_field[i_f](level + 1, ii, jj + 1) =
-                (field[i_f](level, i, j) + qs_i - qs_j + qs_ij);
-            new_field[i_f](level + 1, ii + 1, jj + 1) =
-                (field[i_f](level, i, j) - qs_i - qs_j - qs_ij);
-
-
-            // This is what is done by Bihari and Harten 1999
-            // new_field[i_f](level + 1, ii, jj) =
-            //     (field[i_f](level, i, j) - qs_i - qs_j + qs_ij);
-            // new_field[i_f](level + 1, ii + 1, jj) =
-            //     (field[i_f](level, i, j) + qs_i - qs_j - qs_ij);
-            // new_field[i_f](level + 1, ii, jj + 1) =
-            //     (field[i_f](level, i, j) - qs_i + qs_j + qs_ij);
-            // new_field[i_f](level + 1, ii + 1, jj + 1) =
-            //     (field[i_f](level, i, j) + qs_i + qs_j + qs_ij);
-        }
+        new_field(level + 1, ii, jj) = field(level, i, j) + qs_i + qs_j - qs_ij;
+        new_field(level + 1, ii + 1, jj) = field(level, i, j) - qs_i + qs_j + qs_ij;
+        new_field(level + 1, ii, jj + 1) = field(level, i, j) + qs_i - qs_j + qs_ij;
+        new_field(level + 1, ii + 1, jj + 1) = field(level, i, j) - qs_i - qs_j - qs_ij;
     }
 
     template<class interval_t, class coord_index_t, class field_t,
@@ -523,9 +499,12 @@ namespace mure
         {
             auto ii = 2 * i;
             ii.step = 1;
-            max_detail[level + 1] =
-                std::max(max_detail[level + 1],
-                         xt::amax(xt::abs(detail(level + 1, ii)))[0]);
+            auto max_view = xt::view(max_detail, level + 1);
+
+            max_view = xt::maximum(max_view,
+                                   xt::amax(xt::abs(detail(level + 1, ii)),
+                                            {0})
+                                  );
         }
 
         template<class T, class U>
@@ -533,11 +512,13 @@ namespace mure
         {
             auto ii = 2 * i;
             ii.step = 1;
-            max_detail[level + 1] =
-                std::max(max_detail[level + 1],
-                         xt::amax(xt::maximum(
-                             xt::abs(detail(level + 1, ii, 2 * j)),
-                             xt::abs(detail(level + 1, ii, 2 * j + 1))))[0]);
+            auto max_view = xt::view(max_detail, level + 1);
+
+            max_view = xt::maximum(max_view,
+                                   xt::amax(xt::maximum(xt::abs(detail(level + 1, ii, 2 * j)),
+                                                        xt::abs(detail(level + 1, ii, 2 * j + 1))),
+                                            {0})
+                                  );
         }
     };
 
@@ -842,4 +823,67 @@ namespace mure
         return make_field_operator_function<apply_expr_op>(
             std::forward<CT>(e)...);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+    template<class TInterval>
+    class prediction_source_destination_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(prediction_source_destination_op)
+
+        template<class T1, class T2>
+        inline void operator()(Dim<1>, T1 &fieldsource, T2 &fielddest) const
+        {
+            auto qs_i = Qs_i<1>(fieldsource, level - 1, i >> 1);
+
+            auto dec_even = (i.start & 1) ? 1 : 0;
+            auto even_i = i;
+            even_i.start += dec_even;
+            even_i.step = 2;
+
+            auto coarse_even_i = i >> 1;
+            coarse_even_i.start += dec_even;
+
+            auto dec_odd = (i.end & 1) ? 1 : 0;
+            auto odd_i = i;
+            odd_i.start += (i.start & 1) ? 0 : 1;
+            odd_i.step = 2;
+
+            auto coarse_odd_i = i >> 1;
+            coarse_odd_i.end -= dec_odd;
+
+            if (even_i.is_valid())
+            {
+                
+                std::cout<<std::endl<<"Level = "<<level<<"  int = "<<even_i<<" / Dest = "<<fielddest(level, even_i)<<std::endl;
+
+                fielddest(level, even_i) = fieldsource(level - 1, coarse_even_i)
+                                     + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]));
+            }
+
+            if (odd_i.is_valid())
+            {
+                fielddest(level, odd_i) = fieldsource(level - 1, coarse_odd_i)
+                                    - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd));
+            }
+        }
+    };
+
+    template<class... CT>
+    inline auto prediction_source_destination(CT &&... e)
+    {
+        return make_field_operator_function<prediction_source_destination_op>(
+            std::forward<CT>(e)...);
+    }
+
+
 }

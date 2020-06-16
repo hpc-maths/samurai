@@ -5,7 +5,7 @@
 
 #include <chrono>
 
-double eps = 0.01;
+double eps = 0.1;
 
 
 /// Timer used in tic & toc
@@ -33,7 +33,7 @@ auto init(mure::Mesh<Config> &mesh)
                        {mure::BCType::neumann, 0},
                        {mure::BCType::neumann, 0}
                     }} };
-    mure::Field<Config> u{"u", mesh, bc};
+    mure::Field<Config, double, 2> u{"u", mesh, bc};
     u.array().fill(0);
 
     // mesh.for_each_cell([&](auto &cell) {
@@ -47,19 +47,28 @@ auto init(mure::Mesh<Config> &mesh)
         auto center = cell.center();
         double radius = .1;
         double x_center = 0.5, y_center = 0.5;
+
         if (((center[0] - x_center) * (center[0] - x_center) + 
                 (center[1] - y_center) * (center[1] - y_center))
                 <= radius * radius)
-            u[cell] = 1;
+            u[cell][0] = 1;
         else
-            u[cell] = 0;
+            u[cell][0] = 0;
 
 
         double x_center2 = 0.2, y_center2 = 0.2;
         if (((center[0] - x_center2) * (center[0] - x_center2) + 
                 (center[1] - y_center2) * (center[1] - y_center2))
                 <= radius * radius)
-            u[cell] = -1;
+            u[cell][0] = -1;
+
+        x_center = 0.65, y_center = 0.45;
+        if (((center[0] - x_center) * (center[0] - x_center) + 
+                (center[1] - y_center) * (center[1] - y_center))
+                <= radius * radius)
+            u[cell][1] = 1;
+        else
+            u[cell][1] = 0;
 
     });
 
@@ -104,10 +113,9 @@ int main(int argc, char *argv[])
     for (std::size_t nt=0; nt<1500; ++nt)
     {
 
-
         tic();
         std::stringstream s;
-        s << "VF_burgers_MR_2d_ite_" << nt;
+        s << "VF_burgers_vect_MR_2d_ite_" << nt;
         auto h5file = mure::Hdf5(s.str().data());
         h5file.add_mesh(mesh);
         mure::Field<Config> level_{"level", mesh};
@@ -118,7 +126,6 @@ int main(int argc, char *argv[])
         std::cout << "save: " << duration << "s\n";
         std::cout << "iteration " << nt << "\n";
         tic();
-
 
         for (std::size_t i=0; i<max_level-min_level; ++i)
         {
@@ -142,7 +149,7 @@ int main(int argc, char *argv[])
         u.update_bc();
 
         tic();
-        mure::Field<Config> unp1{"u", mesh};
+        mure::Field<Config, double, 2> unp1{"u", mesh};
 
         //unp1 = u - dt * mure::upwind_scalar_burgers(k, u);
         unp1 = u - dt * mure::upwind_scalar_burgers(k, u);
@@ -224,9 +231,7 @@ int main(int argc, char *argv[])
         std::swap(u.array(), unp1.array());
 
         duration = toc();
-        std::cout << "upwind: " << duration << "s\n";
-
-      
+        std::cout << "upwind: " << duration << "s\n";      
     }
     return 0;
 }

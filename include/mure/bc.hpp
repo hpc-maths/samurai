@@ -10,7 +10,8 @@ namespace mure
     {
         dirichlet = 0,
         neumann = 1,
-        periodic = 2
+        periodic = 2,
+        interpolation = 3 // Reconstruct the function by linear approximation
     };
 
     template<std::size_t Dim>

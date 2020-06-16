@@ -8,7 +8,7 @@ namespace mure
              unsigned _max_stencil_with =
                  1, // nb bits par axis in the coarsest level
              unsigned _graduation_width = 1,     //
-             unsigned _max_refinement_level = 16 //
+             unsigned _max_refinement_level = 20//16 //
              >
     struct MRConfig
     {

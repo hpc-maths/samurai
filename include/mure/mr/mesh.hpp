@@ -20,9 +20,6 @@
 
 namespace mure
 {
-    template<class MRConfig, class value_t>
-    class Field;
-
     template<class MRConfig, std::size_t dim>
     struct MeshCellsArray : private std::array<CellArray<MRConfig>, dim>
     {
@@ -45,9 +42,13 @@ namespace mure
       public:
         static constexpr auto dim = MRConfig::dim;
         static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
-        static constexpr auto ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
+        static constexpr std::size_t ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
                                                               static_cast<int>(MRConfig::max_stencil_width)),
                                                      static_cast<int>(MRConfig::default_s_for_prediction));
+
+        // static constexpr auto ghost_width = std::max(std::max(2 * static_cast<int>(MRConfig::graduation_width) - 1,
+        //                                                       static_cast<int>(MRConfig::max_stencil_width)),
+        //                                              static_cast<int>(MRConfig::default_s_for_prediction));
         using index_t = typename MRConfig::index_t;
         using coord_index_t = typename MRConfig::coord_index_t;
         using point_t = typename Box<int, dim>::point_t;
@@ -63,12 +64,26 @@ namespace mure
             point_t start = b.min_corner() * std::pow(2, max_level);
             point_t end = b.max_corner() * std::pow(2, max_level);
 
+            // m_cells[MeshType::cells][max_level] = {max_level, box_t{start, end}};
+            // m_cells[MeshType::cells_and_ghosts][max_level] = {max_level, box_t{start - 1, end + 1}};
+            // m_cells[MeshType::all_cells][max_level] = {max_level, box_t{start - 1, end + 1}};
+            // m_cells[MeshType::all_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1) - 1, (end >> 1) + 1}};
+            // m_cells[MeshType::proj_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
+            // m_cells[MeshType::union_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
+            // m_init_cells = {max_level, box_t{start, end}};
+            // update_x0_and_nb_ghosts();
+
+            auto gw = static_cast<int>(ghost_width); // Just to cast it...
+
             m_cells[MeshType::cells][max_level] = {max_level, box_t{start, end}};
-            m_cells[MeshType::cells_and_ghosts][max_level] = {max_level, box_t{start - 1, end + 1}};
-            m_cells[MeshType::all_cells][max_level] = {max_level, box_t{start - 1, end + 1}};
-            m_cells[MeshType::all_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1) - 1, (end >> 1) + 1}};
+            m_cells[MeshType::cells_and_ghosts][max_level] = {max_level, box_t{start - gw, end + gw}};
+            m_cells[MeshType::all_cells][max_level] = {max_level, box_t{start - gw, end + gw}};
+            m_cells[MeshType::all_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1) - gw, (end >> 1) + gw}};
             m_cells[MeshType::proj_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
             m_cells[MeshType::union_cells][max_level - 1] = {max_level - 1, box_t{(start >> 1), (end >> 1)}};
+            
+            m_cells[MeshType::overleaves][max_level] = {max_level, box_t{start, end}};
+
             m_init_cells = {max_level, box_t{start, end}};
             update_x0_and_nb_ghosts();
         }
@@ -80,10 +95,16 @@ namespace mure
             update_ghost_nodes();
         }
 
-        inline Mesh(const CellList<MRConfig> &dcl)
+        inline Mesh(const CellList<MRConfig> &dcl, std::size_t min_level, std::size_t max_level)
+        : m_min_level{min_level}, m_max_level{max_level}
         {
             m_cells[MeshType::cells] = {dcl};
             update_ghost_nodes();
+        }
+
+        inline void put_overleaves(const CellList<MRConfig> &dcl)
+        {
+            m_cells[MeshType::overleaves] = {dcl};
         }
 
         inline std::size_t nb_cells(MeshType mesh_type) const
@@ -141,6 +162,33 @@ namespace mure
             return lca[0][static_cast<std::size_t>(row)];
         }
 
+        template<typename... T>
+        inline auto exists(MeshType type, std::size_t level, interval_t interval, T... index) const
+        {
+            const auto& lca = m_cells[type][level];
+            std::size_t size = interval.size()/interval.step;
+            xt::xtensor<bool, 1> out = xt::empty<bool>({size});
+            std::size_t iout = 0;
+            for(coord_index_t i = interval.start; i < interval.end; i+=interval.step)
+            {
+
+                auto row = lca.find({i, index...});
+
+                // std::cout<<std::endl<<"(***) level = "<<level<<" i = "<<i<<"  row = "<<row<<std::endl;
+
+                if (row == -1)
+                {
+                    out[iout++] = false;
+                }
+                else
+                {
+                    out[iout++] = true;
+                }
+            }
+            return out;
+        }
+
+
         inline void to_stream(std::ostream &os) const
         {
             os << "Cells\n";
@@ -153,6 +201,9 @@ namespace mure
             m_cells[MeshType::proj_cells].to_stream(os);
             os << "\nAll cells\n";
             m_cells[MeshType::all_cells].to_stream(os);
+            
+            os << "\nOverleaves\n";
+            m_cells[MeshType::overleaves].to_stream(os);
         }
 
         template<class Func>
@@ -169,11 +220,16 @@ namespace mure
 
       private:
         void update_ghost_nodes();
+            
+        void add_overleaves(CellList<MRConfig> &, CellList<MRConfig> &);
+
         void add_ng_ghosts_and_get_nb_leaves(CellList<MRConfig> &cell_list);
         void add_ghosts_for_level_m1(CellList<MRConfig> &cell_list);
         void update_x0_and_nb_ghosts();
 
-        MeshCellsArray<MRConfig, 5> m_cells;
+        //MeshCellsArray<MRConfig, 5> m_cells;
+        MeshCellsArray<MRConfig, 6> m_cells; // Since we have added one type....
+
         LevelCellArray<dim> m_init_cells;
         std::size_t m_max_level;
         std::size_t m_min_level;
@@ -253,7 +309,72 @@ namespace mure
         }
 
         // update of x0_indices, _leaf_to_ghost_indices,
-        update_x0_and_nb_ghosts();
+
+
+        //PUT MY UPDATE
+        CellList<MRConfig> overleaves_list;
+        add_overleaves(overleaves_list, cell_list);
+        m_cells[MeshType::overleaves] = {overleaves_list};
+        
+        m_cells[MeshType::all_cells] = {cell_list}; // We must put the overleaves in the all cells to store them
+
+
+
+        update_x0_and_nb_ghosts(); // MODIFY INSIDE
+    }
+
+    template<class MRConfig>
+    inline void Mesh<MRConfig>::add_overleaves(CellList<MRConfig> &overleaves_list, CellList<MRConfig> &cell_list)
+    {
+
+        //const int cells_to_add_1D = 2; // To be changed according to the numerical scheme
+        const int cells_to_add = 1; // To be changed according to the numerical scheme
+
+        for (std::size_t level = 0; level < max_level(); ++level)
+        {
+            const LevelCellArray<dim> &level_cell_array = m_cells[MeshType::cells][level];
+            if (!level_cell_array.empty())
+            {
+                LevelCellList<dim> &level_overleaves_list = overleaves_list[level + 1]; // We have to put it at the higher level
+                LevelCellList<dim> &level_cell_list = cell_list[level + 1]; // We have to put it at the higher level
+
+                level_cell_array.for_each_interval_in_x(
+                    [&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index_yz,
+                        interval_t const &interval) {
+
+                        
+                        // THIS WORKED FOR THE 1D ONLY. BUT WORKED !!!
+                        
+                        // auto index = xt::eval(index_yz);
+                        
+                        // level_overleaves_list[index].add_interval({2*interval.start - cells_to_add_1D,
+                        //                                            2*interval.end   + cells_to_add_1D});
+
+                                                                                           
+                        // level_cell_list[index].add_interval({2*interval.start - cells_to_add_1D,
+                        //                                            2*interval.end   + cells_to_add_1D});
+
+
+
+
+                        static_nested_loop<dim - 1, -cells_to_add, cells_to_add + 1, 1>([&](auto stencil) {
+                            auto index = xt::eval(index_yz + stencil);
+
+                            //std::cout<<std::endl<<"Debug = "<<(2 * index + 1)<<std::flush;
+                        
+                            level_overleaves_list[2 * index].add_interval({2 * (interval.start - cells_to_add),
+                                                                       2 * (interval.end   + cells_to_add)});
+                            level_overleaves_list[2 * index + 1].add_interval({2 * (interval.start - cells_to_add),
+                                                                       2 * (interval.end   + cells_to_add)});
+             
+                            level_cell_list[2 * index].add_interval({2 * (interval.start - cells_to_add),
+                                                                 2 * (interval.end   + cells_to_add)});
+                            level_cell_list[2 * index + 1].add_interval({2 * (interval.start - cells_to_add),
+                                                                 2 * (interval.end   + cells_to_add)});
+                        });
+                    });
+            }
+        }
     }
 
     template<class MRConfig>
@@ -357,6 +478,18 @@ namespace mure
 
                 expr([&](auto & /*index_yz*/, auto & /*interval*/, auto &interval_index) {
                     m_cells[MeshType::union_cells][level][0][static_cast<std::size_t>(interval_index[1])].index =
+                        m_cells[MeshType::all_cells][level][0][static_cast<std::size_t>(interval_index[0])].index;
+                });
+            }
+
+
+
+            if (!m_cells[MeshType::overleaves][level].empty())
+            {
+                auto expr = intersection(m_cells[MeshType::all_cells][level], m_cells[MeshType::overleaves][level]);
+
+                expr([&](auto & /*index_yz*/, auto & /*interval*/, auto &interval_index) {
+                    m_cells[MeshType::overleaves][level][0][static_cast<std::size_t>(interval_index[1])].index =
                         m_cells[MeshType::all_cells][level][0][static_cast<std::size_t>(interval_index[0])].index;
                 });
             }
