@@ -14,7 +14,7 @@ double lambda = 4.0;
 double sigma_q = 0.5; 
 double sigma_xy = 0.5;
 
-double sq = 1.0;//1./(.5 + sigma_q);
+double sq = 1.5;//1./(.5 + sigma_q);
 double sxy = 1./(.5 + sigma_xy);
 
 template<class Config>
@@ -40,66 +40,93 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         double qy = 0.0; // y-momentum
         double e = 0.0;
 
-        double p = 0.0;
+        double p = 1.0;
         
         double gm = 1.4;
 
-        if (x < 0.5)    {
-            if (y < 0.5)    {
-                // 3
-                // rho = 1.0;
-                // qx = rho * 0.75;
-                // qy = rho * 0.5;
-                // double p = 1.0;
+        //rho = (y < 0.5 + 0.002 * cos(2.*M_PI*2*x)) ? 0.5 : 1.0; 
+        //qx  = rho * (y < 0.5 + 0.025 * sin(2*M_PI*2*x)) ? -0.5 : 0.5; 
+        qx = - 0.5 * rho * (tanh(60 * (y - 0.5 + 0.025 * sin(2*M_PI*4*x))));
+        //qy = -0.05;
+        //p = (y < 0.5 + 0.002 * cos(2.*M_PI*2*x)) ? 0.5 : 0.1;
 
-                rho = 0.5;
-                qx = rho * 0.0;
-                qy = rho * 0.0;
-                p = 1.0;
+        // if (x < 0.5)    {
+        //     if (y < 0.5)    {
+        //         // 3
+        //         // rho = 1.0;
+        //         // qx = rho * 0.75;
+        //         // qy = rho * 0.5;
+        //         // double p = 1.0;
 
-            }
-            else
-            {
-                // 2   
-                // rho = 2.0;
-                // qx = rho * (-0.75);
-                // qy = rho * (0.5);
-                // double p = 1.0;
+        //         // rho = 0.5;
+        //         // qx = rho * 0.0;
+        //         // qy = rho * 0.0;
+        //         // p = 1.0;
 
-                rho = 0.5;
-                qx = rho * 0.7276;
-                qy = rho * 0.0;
-                p = 1.0;
-            }
-        }
-        else
-        {
-            if (y < 0.5)    {
-                // 4
-                // rho = 3.0;
-                // qx = rho * (0.75);
-                // qy = rho * (-0.5);
-                // double p = 1.0;
+        //         rho = 0.8;
+        //         qx = rho * 0.1;
+        //         qy = rho * 0.0;
+        //         p = 0.4;
 
-                rho = 1.0;
-                qx = rho * 0.0;
-                qy = rho * 0.7276;
-                p = 1.0;
-            }
-            else
-            {
-                // 1
-                // rho = 1.0;
-                // qx = rho * (-0.75);
-                // qy = rho * (-0.5);
-                // double p = 1.0;
+        //     }
+        //     else
+        //     {
+        //         // 2   
+        //         // rho = 2.0;
+        //         // qx = rho * (-0.75);
+        //         // qy = rho * (0.5);
+        //         // double p = 1.0;
+
+        //         // rho = 0.5;
+        //         // qx = rho * 0.7276;
+        //         // qy = rho * 0.0;
+        //         // p = 1.0;
+
+        //         rho = 0.5313;
+        //         qx = rho * 0.8276;
+        //         qy = rho * 0.0;
+        //         p = 0.4;
+        //     }
+        // }
+        // else
+        // {
+        //     if (y < 0.5)    {
+        //         // 4
+        //         // rho = 3.0;
+        //         // qx = rho * (0.75);
+        //         // qy = rho * (-0.5);
+        //         // double p = 1.0;
+
+        //         // rho = 1.0;
+        //         // qx = rho * 0.0;
+        //         // qy = rho * 0.7276;
+        //         // p = 1.0;
+
+        //         rho = 0.5313;
+        //         qx = rho * 0.1;
+        //         qy = rho * 0.7276;
+        //         p = 0.4;
+        //     }
+        //     else
+        //     {
+        //         // 1
+        //         // rho = 1.0;
+        //         // qx = rho * (-0.75);
+        //         // qy = rho * (-0.5);
+        //         // double p = 1.0;
                 
-                rho = 0.5313;
-                qx = rho * 0.0;
-                qy = rho * 0.0;
-                p = 0.4;
-            }
-        }
+        //         // rho = 0.5313;
+        //         // qx = rho * 0.0;
+        //         // qy = rho * 0.0;
+        //         // p = 0.4;
+
+                                
+        //         rho = 1.;
+        //         qx = rho * 0.1;
+        //         qy = rho * 0.0;
+        //         p = 1.;
+        //     }
+        // }
         
         
         e = p / (gm - 1.) + 0.5 * (qx*qx + qy*qy) / rho;     
