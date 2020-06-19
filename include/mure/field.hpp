@@ -101,6 +101,33 @@ namespace mure
     }
 
 
+    template<class TInterval>
+    class update_boundary_testD1Q2_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(update_boundary_testD1Q2_op)
+
+        template<class T>
+        inline void operator()(Dim<1>, T &field) const
+        {
+
+            field(level, i) = field(level, i + 2);
+
+
+            // field(level, i, 0) = 3./4.;
+            // field(level, i, 1) = 1./4.;            
+        }
+    };
+
+
+    template<class T>
+    inline auto update_boundary_testD1Q2(T &&field)
+    {
+        return make_field_operator_function<update_boundary_testD1Q2_op>(
+            std::forward<T>(field));
+    }
+
+
+
 
     template<class TInterval>
     class update_boundary_d2q9_KH_op : public field_operator_base<TInterval> {
@@ -668,7 +695,34 @@ namespace mure
             // update_bc_D2Q4_3_Euler();
             // return;
 
-            update_bc_D2Q9_KH();
+            // update_bc_D2Q9_KH();
+
+
+
+            for (std::size_t level = 0; level <= m_mesh->max_level(); ++level)
+            {
+                xt::xtensor_fixed<int, xt::xshape<1>> stencil{-1};
+
+                if (!(*m_mesh)[mure::MeshType::all_cells][level].empty())   {
+                    auto subset = intersection(difference(translate(m_mesh->initial_mesh(), 2 * (1<<(m_mesh->max_level() - level)) * stencil),
+                                        m_mesh->initial_mesh()),
+                             (*m_mesh)[mure::MeshType::all_cells][level])
+                                            .on(level);
+
+                        subset.apply_op(level, update_boundary_testD1Q2(*this));
+
+                }
+            }
+
+
+
+
+
+
+
+
+
+
             return; // Just to exit here
 
 

@@ -36,6 +36,25 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 }
 
 
+template<class coord_index_t>
+auto compute_prediction_separate_inout(std::size_t min_level, std::size_t max_level)
+{
+    coord_index_t i = 0;
+    std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
+
+    for(std::size_t k=0; k<max_level-min_level+1; ++k)
+    {
+        int size = (1<<k);
+        data[k].resize(4);
+
+        data[k][0] = prediction(k, i*size - 1);
+        data[k][1] = prediction(k, (i+1)*size - 1);
+        data[k][2] = prediction(k, (i+1)*size);
+        data[k][3] = prediction(k, i*size);
+    }
+    return data;
+}
+
 // std::array<double, 4> mult_by_prediction_matrix(std::size_t exponent, const std::array<double, 4> & in)
 // {
 //     std::array<double, 4> out;
@@ -204,19 +223,20 @@ double exact_solution(double x, double t)   {
     // We translate up just to see if there are 0s left
 
     //return (x + sigma <= rhoL * t) ? rhoL : ((x + sigma <= rhoC*t) ? (x+sigma)/t : ((x-sigma <= t/2*(rhoC + rhoR)) ? rhoC : rhoR ));
-    if (x < -sigma){
-        return 0.;
+    // if (x < -sigma){
+    //     return 0.;
 
-    }
-    else
-    {
-        if (x < sigma){
-            return 1.;
+    // }
+    // else
+    // {
+    //     if (x < sigma){
+    //         return 1.;
 
-        }
-        else 
-            return 0.;
-    }
+    //     }
+    //     else 
+    //         return 0.;
+    // }
+    
     
 
     // // x = x - 0.5 * t;
@@ -235,13 +255,13 @@ double exact_solution(double x, double t)   {
     // u = exp(-20.0 * (x-0.75*t) * (x-0.75*t));
 
     // u = 0.0;
-    
-    return u;
+    return (x < 0.) ? 1. : 0.;
+    // return u;
 }
 
 double flux(double u)   {
-    //return 0.5 * u * u;
-    return 0.75 * u;
+    return 0.5 * u * u;
+    // return 0.75 * u;
 }
 
 template<class Config>
@@ -708,21 +728,7 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
     mure::mr_prediction_overleaves(f);
 
 
-    // We check the values on the overleaves
-    // for (std::size_t level = 0; level <= max_level; ++level) {
-
-    //     auto overleaves = mure::intersection(mesh[mure::MeshType::overleaves][level],
-    //                                          mesh[mure::MeshType::overleaves][level]);
-
-    //     overleaves([&](auto, auto &interval, auto) {
-    //         auto k = interval[0]; 
-
-    //         std::cout<<std::endl<<"[OL Value check] Level = "<<level<<" Patch = "<<k<<std::endl<<(f(0, level, k) + f(1, level, k))<<std::flush;
-
-    //     });
-    // }
-
-
+    
 
 
     Field new_f{"new_f", mesh};
@@ -734,15 +740,57 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
     for (std::size_t level = 0; level <= max_level; ++level)
     {
 
+        std::cout<<std::endl<<"Verification values outside domain"<<std::flush;
+        auto outside = difference(mesh[mure::MeshType::all_cells][level],
+                                    mesh.initial_mesh()).on(level);
+
+        outside([&](auto, auto &interval, auto) {
+            auto k = interval[0];
+            std::cout<<std::endl<<"Level = "<<level<<" k = "<<k<<" Value = "<<f(level, k)<<std::flush;
+
+        });
+
+
+
         // If we are at the finest level, we no not need to correct
         if (level == max_level) {
             std::size_t j = 0; 
             double coeff = 1.;
 
-            auto leaves = mure::intersection(mesh[mure::MeshType::cells][max_level],
-                                      mesh[mure::MeshType::cells][max_level]);
+            // Left boundary
+            xt::xtensor_fixed<int, xt::xshape<1>> stencil{1};
+            // auto leaf_lb = mure::difference(mesh[mure::MeshType::cells][max_level],
+            //                           translate(mesh[mure::MeshType::cells][max_level], stencil));
+
+            auto leaf_lb = intersection(difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), stencil)), mesh[mure::MeshType::cells][max_level]);
+
+            leaf_lb([&](auto, auto &interval, auto) {
+
+                auto k = interval[0]; 
+                // Anti bounce back to enforce density 1
+                // auto fp = 1. - xt::eval(f(1, max_level, k));
+                auto fp = xt::eval(0.5 - f(1, max_level, k));
+
+                auto fm = xt::eval(f(1, max_level, k + 1));
+
+                // COLLISION    
+
+                auto uu = xt::eval(fp + fm);
+                auto vv = xt::eval(lambda * (fp - fm));
+            
+                // vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
+                vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+
+                new_f(0, max_level, k) = .5 * (uu + 1. / lambda * vv);
+                new_f(1, max_level, k) = .5 * (uu - 1. / lambda * vv);
+            });
+
+            // auto leaves = mure::intersection(mesh[mure::MeshType::cells][max_level],
+            //                           mesh[mure::MeshType::cells][max_level]);
 
 
+            auto leaves = mure::difference(mesh[mure::MeshType::cells][max_level],
+                                      leaf_lb);
             leaves([&](auto, auto &interval, auto) {
 
                 auto k = interval[0]; 
@@ -755,8 +803,8 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
                 auto uu = xt::eval(fp + fm);
                 auto vv = xt::eval(lambda * (fp - fm));
             
-                vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
-                //vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+                // vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
+                vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
 
                 new_f(0, max_level, k) = .5 * (uu + 1. / lambda * vv);
                 new_f(1, max_level, k) = .5 * (uu - 1. / lambda * vv);
@@ -771,9 +819,90 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
             std::size_t j = max_level - (level + 1); 
             double coeff = 1. / (1 << j);
 
+
+            xt::xtensor_fixed<int, xt::xshape<1>> stencil{1};
+            // auto overleaves_lb = mure::difference(mesh[mure::MeshType::cells][level],
+            //                           translate(mesh[mure::MeshType::overleaves][level + 1], stencil)).on(level + 1);
+
+
+
+            xt::xtensor_fixed<int, xt::xshape<1>> stencil_new{(1 << j)};
+
+
+            
+            auto overleaves_lb = intersection(difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), stencil_new)),
+                                mesh[mure::MeshType::overleaves][level + 1]).on(level + 1);
+
+
+            overleaves_lb([&](auto, auto &interval, auto) {
+                auto k = interval[0]; // Logical index in x
+
+                std::cout<<std::endl<<"Flux correction near boundary on overleaves "<<k<<" Value = "<<xt::eval(f(1, level + 1, k))<<std::flush;
+
+                auto fp = xt::eval(f(0, level + 1, k));
+                auto fm = xt::eval(f(1, level + 1, k));
+ 
+                // We have to correct it.
+                // for(auto &c: pred_coeff[j][0].coeff)
+                // {
+                //     coord_index_t stencil = c.first;
+                //     double weight = c.second;
+
+                //     fp += coeff * weight * f(0, level + 1, k + stencil);
+                // }
+
+
+                // Anti bounce back
+                // fp += coeff * (1.0 - xt::eval(f(1, level + 1, k)));
+                fp += coeff * (0.5 - xt::eval(f(1, level + 1, k)));
+
+
+                auto sortant = xt::eval(0.0 * f(0, level + 1, k));
+
+                for(auto &c: pred_coeff[j][1].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    std::cout<<std::endl<<"Used to compute sortant "<<f(0, level + 1, k + stencil)<<" At "<<(k + stencil)<<std::flush;
+
+                    sortant += weight * f(0, level + 1, k + stencil);
+
+                    fp -= coeff * weight * f(0, level + 1, k + stencil);
+                }
+                std::cout<<std::endl<<"Sortant = "<<sortant<<std::flush;
+
+                for(auto &c: pred_coeff[j][2].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fm += coeff * weight * f(1, level + 1, k + stencil);
+                }
+
+                for(auto &c: pred_coeff[j][3].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fm -= coeff * weight * f(1, level + 1, k + stencil);
+                }
+
+                // Save it
+                help_f(0, level + 1, k) = fp;
+                help_f(1, level + 1, k) = fm;
+
+            });
+
+
             // We take the overleaves corresponding to the existing leaves
-            auto overleaves = mure::intersection(mesh[mure::MeshType::cells][level],
+            // auto overleaves = mure::intersection(mesh[mure::MeshType::cells][level],
+            //                                      mesh[mure::MeshType::cells][level]).on(level + 1);
+
+            auto ol = mure::intersection(mesh[mure::MeshType::cells][level],
                                                  mesh[mure::MeshType::cells][level]).on(level + 1);
+            auto overleaves = mure::difference(ol,
+                                    overleaves_lb);
             
             overleaves([&](auto, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -784,6 +913,23 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
                 auto fp = xt::eval(f(0, level + 1, k));
                 auto fm = xt::eval(f(1, level + 1, k));
  
+                // for(auto &c: pred_coeff[j][0].coeff)
+                // {
+                //     coord_index_t stencil = c.first;
+                //     double weight = c.second;
+
+                //     fp += coeff * weight * f(0, level + 1, k + stencil);
+                // }
+
+                // for(auto &c: pred_coeff[j][1].coeff)
+                // {
+                //     coord_index_t stencil = c.first;
+                //     double weight = c.second;
+
+                //     fm += coeff * weight * f(1, level + 1, k + stencil);
+                // }
+
+
                 for(auto &c: pred_coeff[j][0].coeff)
                 {
                     coord_index_t stencil = c.first;
@@ -797,7 +943,23 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
                     coord_index_t stencil = c.first;
                     double weight = c.second;
 
+                    fp -= coeff * weight * f(0, level + 1, k + stencil);
+                }
+
+                for(auto &c: pred_coeff[j][2].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
                     fm += coeff * weight * f(1, level + 1, k + stencil);
+                }
+
+                for(auto &c: pred_coeff[j][3].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fm -= coeff * weight * f(1, level + 1, k + stencil);
                 }
 
                 // Save it
@@ -820,8 +982,8 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
                 auto uu = xt::eval(fp_advected + fm_advected);
                 auto vv = xt::eval(lambda * (fp_advected - fm_advected));
             
-                vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
-                //vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+                // vv = (1 - s_rel) * vv + s_rel * 0.75 * uu;
+                vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
 
                 new_f(0, level, k) = .5 * (uu + 1. / lambda * vv);
                 new_f(1, level, k) = .5 * (uu - 1. / lambda * vv);
@@ -1274,8 +1436,8 @@ int main(int argc, char *argv[])
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
-                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
+                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.001"))
                        ("s", "relaxation parameter", cxxopts::value<double>()->default_value("1.0"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
@@ -1320,7 +1482,8 @@ int main(int argc, char *argv[])
 
     
             using coord_index_t = typename Config::coord_index_t;
-            auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
+            // auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
+            auto pred_coeff_separate = compute_prediction_separate_inout<coord_index_t>(min_level, max_level);
 
 
             // Initialization
@@ -1411,7 +1574,9 @@ int main(int argc, char *argv[])
                 //one_time_step(f, s);
                 //one_time_step_matrix(f, pred_coeff, s);
                 //one_time_step_matrix_corrected(f, pred_coeff, s);
-                one_time_step_matrix_overleaves(f, pred_coeff, s);
+                // one_time_step_matrix_overleaves(f, pred_coeff, s);
+                one_time_step_matrix_overleaves(f, pred_coeff_separate, s);
+
 
                 auto duration_scheme = toc();
 
