@@ -256,6 +256,7 @@ double exact_solution(double x, double t)   {
 
     // u = 0.0;
     return (x < 0.) ? 1. : 0.;
+    // return exp(-50 * (x + 2.882259)*(x + 2.882259));
     // return u;
 }
 
@@ -712,6 +713,8 @@ template<class Field, class Pred>
 void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_rel)
 {
 
+    double value_dirichlet = 0.5;
+
     double lambda = 1.;
 
     constexpr std::size_t nvel = Field::size;
@@ -726,10 +729,6 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
 
     // After that everything is ready, we predict what is remaining
     mure::mr_prediction_overleaves(f);
-
-
-    
-
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
@@ -769,7 +768,7 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
                 auto k = interval[0]; 
                 // Anti bounce back to enforce density 1
                 // auto fp = 1. - xt::eval(f(1, max_level, k));
-                auto fp = xt::eval(0.5 - f(1, max_level, k));
+                auto fp = xt::eval(value_dirichlet - f(1, max_level, k));
 
                 auto fm = xt::eval(f(1, max_level, k + 1));
 
@@ -854,7 +853,7 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
 
                 // Anti bounce back
                 // fp += coeff * (1.0 - xt::eval(f(1, level + 1, k)));
-                fp += coeff * (0.5 - xt::eval(f(1, level + 1, k)));
+                fp += coeff * (value_dirichlet - xt::eval(f(1, level + 1, k)));
 
 
                 auto sortant = xt::eval(0.0 * f(0, level + 1, k));

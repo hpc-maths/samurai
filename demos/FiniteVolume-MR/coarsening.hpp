@@ -54,6 +54,7 @@ bool coarsening(Field &u, double eps, std::size_t ite)
     });
     //std::cout<<std::endl<<"Coarsening "<<ite<<std::flush;
     mure::mr_projection(u);
+    // std::cout<<std::endl<<"Calling in coarsesnin"<<std::flush;
     u.update_bc();
     mure::mr_prediction(u);
 

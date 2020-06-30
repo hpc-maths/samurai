@@ -14,8 +14,17 @@
 # target_link_libraries(D2Q4_advection mure)
 
 
-add_executable(D2Q9_KelvinHelmholtz_Geier D2Q9_KelvinHelmholtz_Geier.cpp ${MURE_HEADERS})
-target_link_libraries(D2Q9_KelvinHelmholtz_Geier mure)
+# add_executable(D2Q9_KelvinHelmholtz_Geier D2Q9_KelvinHelmholtz_Geier.cpp ${MURE_HEADERS})
+# target_link_libraries(D2Q9_KelvinHelmholtz_Geier mure)
 
-add_executable(D2Q4_3_Euler D2Q4_3_Euler.cpp ${MURE_HEADERS})
-target_link_libraries(D2Q4_3_Euler mure)
+# add_executable(D2Q4_3_Euler D2Q4_3_Euler.cpp ${MURE_HEADERS})
+# target_link_libraries(D2Q4_3_Euler mure)
+
+add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp ${MURE_HEADERS})
+target_link_libraries(D2Q4_3_Euler_right_boundary_conditions mure)
+
+# add_executable(D2Q4_advection_right_boundary_conditions D2Q4_advection_right_boundary_conditions.cpp ${MURE_HEADERS})
+# target_link_libraries(D2Q4_advection_right_boundary_conditions mure)
+
+# add_executable(D1Q2_Burgers D1Q2_Burgers.cpp ${MURE_HEADERS})
+# target_link_libraries(D1Q2_Burgers mure)
