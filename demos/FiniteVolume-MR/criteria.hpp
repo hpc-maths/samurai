@@ -39,8 +39,8 @@ namespace mure
             }            
         }
 
-        template<class T1, class T2, class T3>
-        inline void operator()(Dim<2>, const T1& detail, const T3&  max_detail, T2 &tag, double eps, std::size_t min_lev) const
+        template<class T1, class T2>
+        inline void operator()(Dim<2>, const T1& detail, T2 &tag, double eps, std::size_t min_lev) const
         {
             constexpr auto size = T1::size;
 
@@ -151,15 +151,15 @@ namespace mure
         public:
         INIT_OPERATOR(to_refine_mr_op)
 
-        template<class T1, class T2, class T3>
-        inline void operator()(Dim<1>, const T1& detail, const T3& max_detail, 
+        template<class T1, class T2>
+        inline void operator()(Dim<1>, const T1& detail, 
                                T2 &tag, double eps, std::size_t max_level) const
         {
             constexpr auto size = T1::size;
 
             if (level < max_level)
             {
-                auto maxd = xt::view(max_detail, level);
+                // auto maxd = xt::view(max_detail, level);
                 if (size == 1)
                 {
                     // auto mask = ((xt::abs(detail(level, 2*i))/maxd) > eps) or 
@@ -186,8 +186,8 @@ namespace mure
             }        
         }
 
-        template<class T1, class T2, class T3>
-        inline void operator()(Dim<2>, const T1& detail, const T3& max_detail, 
+        template<class T1, class T2>
+        inline void operator()(Dim<2>, const T1& detail, 
                                T2 &tag, double eps, std::size_t max_level) const
         {
             constexpr auto size = T1::size;

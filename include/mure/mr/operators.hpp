@@ -570,7 +570,7 @@ namespace mure
         INIT_OPERATOR(to_coarsen_op)
 
         template<class T, class U, class V>
-        inline void operator()(Dim<1>, T &keep, const U &detail, const V &max_detail,
+        inline void operator()(Dim<1>, T &keep, const U &detail,
                         double eps) const
         {
             auto mask = xt::abs(detail(level + 1, 2 * i)) < eps;
@@ -587,7 +587,7 @@ namespace mure
         }
 
         template<class T, class U, class V>
-        inline void operator()(Dim<2>, T &keep, const U &detail, const V &max_detail,
+        inline void operator()(Dim<2>, T &keep, const U &detail,
                         double eps) const
         {
             auto mask = xt::abs(detail(level + 1, 2 * i, 2 * j)) < eps;

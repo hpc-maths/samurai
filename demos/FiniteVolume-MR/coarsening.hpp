@@ -55,39 +55,18 @@ bool coarsening(Field &u, double eps, std::size_t ite)
     //std::cout<<std::endl<<"Coarsening "<<ite<<std::flush;
     mure::mr_projection(u);
     // std::cout<<std::endl<<"Calling in coarsesnin"<<std::flush;
-    u.update_bc();
+    u.update_bc(ite);
     mure::mr_prediction(u);
 
-
-    // std::stringstream str;
-    // str << "in_coarsening_"<<ite;
-    // auto h5file = mure::Hdf5(str.str().data());
-    // h5file.add_field_by_level(mesh, u);
-
-
-    typename std::conditional<size == 1,
-                              xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1>>,
-                              xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1, size>>
-                             >::type max_detail;
-    max_detail.fill(std::numeric_limits<value_type>::min());
 
     // What are the data it uses at min_level - 1 ???
     for (std::size_t level = min_level - 1; level < max_level - ite; ++level)   {
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
                                    mesh[mure::MeshType::cells][level + 1])
                      .on(level);
-        subset.apply_op(level, compute_detail(detail, u),
-                               compute_max_detail(detail, max_detail));
+        subset.apply_op(level, compute_detail(detail, u));
     }
 
-    //std::cout<<std::endl<<"Max detail : "<<max_detail;
-
-    // std::stringstream s;
-    // s << "coarsening_"<<ite;
-    // auto h5file = mure::Hdf5(s.str().data());
-    // h5file.add_mesh(mesh);
-    // h5file.add_field(detail);
-    // h5file.add_field(u);
 
 
     // AGAIN I DONT KNOW WHAT min_level - 1 is
@@ -105,8 +84,7 @@ bool coarsening(Field &u, double eps, std::size_t ite)
 
 
         // This operations flags the cells to coarsen
-        subset_1.apply_op(level, to_coarsen_mr(detail, max_detail, tag, eps_l, min_level));
-        //subset_1.apply_op(level, to_coarsen_mr_BH(detail, max_detail, tag, eps_l, min_level));
+        subset_1.apply_op(level, to_coarsen_mr(detail, tag, eps_l, min_level));
 
         auto subset_2 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);

@@ -23,6 +23,15 @@
 add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp ${MURE_HEADERS})
 target_link_libraries(D2Q4_3_Euler_right_boundary_conditions mure)
 
+add_executable(D2Q4_3_ShallowWaters_right_boundary_conditions D2Q4_3_ShallowWaters_right_boundary_conditions.cpp ${MURE_HEADERS})
+target_link_libraries(D2Q4_3_ShallowWaters_right_boundary_conditions mure)
+
+add_executable(D2Q4twisted_3_ShallowWaters_right_boundary_conditions D2Q4twisted_3_ShallowWaters_right_boundary_conditions.cpp ${MURE_HEADERS})
+target_link_libraries(D2Q4twisted_3_ShallowWaters_right_boundary_conditions mure)
+
+add_executable(D2Q4_4_Implosion D2Q4_4_Implosion.cpp ${MURE_HEADERS})
+target_link_libraries(D2Q4_4_Implosion mure)
+
 # add_executable(D2Q4_advection_right_boundary_conditions D2Q4_advection_right_boundary_conditions.cpp ${MURE_HEADERS})
 # target_link_libraries(D2Q4_advection_right_boundary_conditions mure)
 

@@ -243,6 +243,28 @@ namespace mure
             std::forward<T>(field), std::forward<stencil_t>(stencil));
     }
 
+    template<class TInterval>
+    class update_boundary_D2Q4_linear_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(update_boundary_D2Q4_linear_op)
+
+        template<class T, class stencil_t>
+        inline void operator()(Dim<2>, T &field, const stencil_t& stencil) const
+        {
+            // Only works along the axis
+            field(level, i, j) = 2. * field(level, i - stencil[0], j - stencil[1]) - 1. * field(level, i - 2*stencil[0], j - 2*stencil[1]);
+            
+        }
+    };
+
+
+    template<class T, class stencil_t>
+    inline auto update_boundary_D2Q4_linear(T &&field, stencil_t &&stencil)
+    {
+        return make_field_operator_function<update_boundary_D2Q4_linear_op>(
+            std::forward<T>(field), std::forward<stencil_t>(stencil));
+    }
+
 
 
 
@@ -807,6 +829,131 @@ namespace mure
 
 
 
+        inline void update_bc_D2Q4_3_Euler_linear_extension(std::size_t ite = 0)
+        {
+        
+            const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
+            const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
+
+            const xt::xtensor_fixed<int, xt::xshape<2>> pp{1, 1};
+            const xt::xtensor_fixed<int, xt::xshape<2>> pm{1, -1};
+
+            size_t max_level = m_mesh->max_level();
+
+            // for (std::size_t level = 0; level <= max_level; ++level)  {
+            for (std::size_t level = 0; level <= max_level - 1 - ite; ++level)  {
+
+                size_t j = max_level - level;
+
+
+                // E first rank (not projected on the level for future use)
+                auto east_1 = intersection(difference(translate(m_mesh->initial_mesh(), (1<<j) * xp), 
+                                                      m_mesh->initial_mesh()), 
+                                           (*m_mesh)[mure::MeshType::all_cells][level]);
+                
+                // E second rank
+                auto east_2 = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 * (1<<j) * xp), 
+                                                                 m_mesh->initial_mesh()), 
+                                                      (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                         east_1);
+                // The order is important becase the second rank shall take the values stored in the first rank
+                east_1.on(level).apply_op(level, update_boundary_D2Q4_linear(*this, xp));
+                east_2.on(level).apply_op(level, update_boundary_D2Q4_linear(*this, xp));// By not multiplying by 2 it takes the values in the first rank
+
+
+                // W first rank
+                auto west_1 = intersection(difference(translate(m_mesh->initial_mesh(), (-1) * (1<<j) * xp), 
+                                                      m_mesh->initial_mesh()), 
+                                           (*m_mesh)[mure::MeshType::all_cells][level]);
+                
+                // W second rank
+                auto west_2 = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 * (-1) * (1<<j) * xp), 
+                                                                 m_mesh->initial_mesh()), 
+                                                      (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                         west_1);
+                west_1.on(level).apply_op(level, update_boundary_D2Q4_linear(*this, (-1) * xp));
+                west_2.on(level).apply_op(level, update_boundary_D2Q4_linear(*this, (-1) * xp));
+
+                // N first rank
+                auto north_1 = intersection(difference(translate(m_mesh->initial_mesh(), (1<<j) * yp), 
+                                                      m_mesh->initial_mesh()), 
+                                           (*m_mesh)[mure::MeshType::all_cells][level]);
+
+                // N second rank
+                auto north_2 = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 * (1<<j) * yp), 
+                                                                 m_mesh->initial_mesh()), 
+                                                      (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                         north_1);
+                north_1.on(level).apply_op(level, update_boundary_D2Q4_linear(*this, yp));
+                north_2.on(level).apply_op(level, update_boundary_D2Q4_linear(*this, yp));
+
+                // S first rank
+                auto south_1 = intersection(difference(translate(m_mesh->initial_mesh(), (-1) * (1<<j) * yp), 
+                                                      m_mesh->initial_mesh()), 
+                                           (*m_mesh)[mure::MeshType::all_cells][level]);
+                
+                // S second rank
+                auto south_2 = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 * (-1) * (1<<j) * yp), 
+                                                                 m_mesh->initial_mesh()), 
+                                                      (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                         south_1);
+                south_1.on(level).apply_op(level, update_boundary_D2Q4_linear(*this, (-1) * yp));
+                south_2.on(level).apply_op(level, update_boundary_D2Q4_linear(*this, (-1) * yp));
+
+
+
+                auto east  = union_(east_1,  east_2);
+                auto west  = union_(west_1,  west_2);
+                auto north = union_(north_1, north_2);
+                auto south = union_(south_1, south_2);
+
+               
+                auto north_east = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 * (1<<j) * pp), 
+                                                                     m_mesh->initial_mesh()), 
+                                                         (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                            union_(east, north));
+
+                north_east.on(level).apply_op(level, update_boundary_D2Q4_flat(*this, 2 * pp)); // Come back inside
+
+
+            
+     
+
+                auto south_east = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 * (1<<j) * pm), 
+                                                                     m_mesh->initial_mesh()), 
+                                                         (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                             union_(east, south));
+
+                south_east.on(level).apply_op(level, update_boundary_D2Q4_flat(*this, 2 * pm)); // Come back inside
+
+
+
+
+
+                auto north_west = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 *  (-1) * (1<<j) * pm), 
+                                                                     m_mesh->initial_mesh()), 
+                                                         (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                            union_(west, north));
+
+                
+                north_west.on(level).apply_op(level, update_boundary_D2Q4_flat(*this, 2 * (-1) * pm)); // Come back inside
+
+
+                auto south_west = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 *  (-1) * (1<<j) * pp), 
+                                                                     m_mesh->initial_mesh()), 
+                                                         (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                            union_(south, west));
+
+                south_west.on(level).apply_op(level, update_boundary_D2Q4_flat(*this, 2 * (-1) * pp)); // Come back inside
+
+
+
+            }
+
+        }
+
+
+
 
         inline void update_bc_D2Q4_3_Euler()
         {
@@ -932,10 +1079,12 @@ namespace mure
 
         }
 
-        inline void update_bc()
+        inline void update_bc(std::size_t ite = 0)
         {
             
-            update_bc_D2Q4_3_Euler_constant_extension();
+            // update_bc_D2Q4_3_Euler_constant_extension();
+            update_bc_D2Q4_3_Euler_linear_extension(ite);
+
             // update_bc_D2Q4_3_Euler();
             return;
 

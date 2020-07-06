@@ -30,50 +30,24 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
     });
 
     mure::mr_projection(u);
-    u.update_bc();
+    u.update_bc(ite);
     mure::mr_prediction(u); 
 
     // It should not be done here. Surtout pas
     //mure::mr_prediction_overleaves(u); 
 
 
-    typename std::conditional<size == 1,
-                              xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1>>,
-                              xt::xtensor_fixed<value_type, xt::xshape<max_refinement_level + 1, size>>
-                             >::type max_detail;
-    max_detail.fill(std::numeric_limits<value_type>::min());
-
     for (std::size_t level = min_level - 1; level < max_level - ite; ++level)   {
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
                                    mesh[mure::MeshType::cells][level + 1])
                                 .on(level);
-        subset.apply_op(level, compute_detail(detail, u),
-                               compute_max_detail(detail, max_detail));
+        subset.apply_op(level, compute_detail(detail, u));
     }
 
-    // std::stringstream s;
-    // s << "refinement_"<<ite;
-    // auto h5file = mure::Hdf5(s.str().data());
-    // h5file.add_mesh(mesh);
-    // h5file.add_field(detail);
-    // h5file.add_field(u);
 
     // Look carefully at how much of this we have to do...
     for (std::size_t level = min_level; level <= max_level - ite; ++level)
     {
-
-        // int exponent = dim * (level - max_level);
-
-        // auto eps_l = std::pow(2, exponent) * eps;
-
-        // // HARTEN HEURISTICS
-        
-        // auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
-        //                                  mesh[mure::MeshType::cells][level])
-        //                .on(level);
-        
-        // subset.apply_op(level, to_refine_mr(detail, max_detail, tag, 32 * eps_l, max_level));
-
 
         int exponent = dim * (level - max_level);
         auto eps_l = std::pow(2, exponent) * eps;
@@ -84,48 +58,12 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
                                          mesh[mure::MeshType::all_cells][level-1])
                        .on(level-1);
         
-        //subset.apply_op(level, to_refine_mr(detail, max_detail, tag, 32 * eps_l, max_level));
 
         double regularity_to_use = std::min(regularity, 3.0) + dim;
 
-        subset.apply_op(level, to_refine_mr(detail, max_detail, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level));
-
-        //subset.apply_op(level, to_refine_mr_BH(detail, max_detail, tag, 32 * eps_l, max_level));
-
+        subset.apply_op(level, to_refine_mr(detail, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level));
 
     }
-
-    //h5file.add_field(tag);
-
-    // // Old grading : no diagonals
-    // for (std::size_t level = max_level; level > min_level; --level)
-    // {
-    //     auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
-    //                                  mesh[mure::MeshType::cells][level]);
-
-    //     subset_1.apply_op(level, extend(tag));
-        
-    //     xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
-    //     for (std::size_t d = 0; d < dim; ++d)
-    //     {
-    //         for (std::size_t d1 = 0; d1 < dim; ++d1)
-    //             stencil[d1] = 0;
-    //         for (int s = -1; s <= 1; ++s)
-    //         {
-    //             if (s != 0)
-    //             {
-    //                 stencil[d] = s;
-
-    //                 auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
-    //                                           mesh[mure::MeshType::cells][level-1])
-    //                             .on(level);
-
-    //                 subset.apply_op(level, make_graduation(tag));
-    //             }
-    //         }
-    //     }
-    // }
-
     // With the static nested loop, we also grade along the diagonals
     // and not only the axis
     for (std::size_t level = max_level; level > min_level; --level)
