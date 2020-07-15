@@ -15,7 +15,7 @@ auto build_mesh(std::size_t min_level, std::size_t max_level)
 {
     constexpr std::size_t dim = Config::dim;
 
-    mure::Box<double, dim> box({0, 0}, {1, 1});
+    mure::Box<double, dim> box({0, 0}, {2, 1});
     mure::Mesh<Config> mesh{box, min_level, max_level};
 
     mure::CellList<Config> cl;
@@ -24,11 +24,12 @@ auto build_mesh(std::size_t min_level, std::size_t max_level)
         auto x = center[0];
         auto y = center[1];
 
-        double radius = .1;
-        double x_center = 0.5, y_center = 0.5;
-        if ((   (x - x_center) * (x - x_center) + 
-                (y - y_center) * (y - y_center))
-                > radius * radius)
+        double radius = 1./32.;
+        double x_center = 5./16. + radius, y_center = 0.5;
+
+        if ((   std::max(std::abs(x - x_center), 
+                std::abs(y - y_center)))
+                > radius)
         {
             cl[cell.level][{cell.indices[1]}].add_point(cell.indices[0]);
         }
@@ -71,7 +72,22 @@ int main()
             break;
     }
 
+
+    for (std::size_t i=0; i<max_level-min_level; ++i)
+    {
+        if (refinement(f, eps, 0.0, i))
+            break;
+    }
+
     auto h5file = mure::Hdf5("hole");
     h5file.add_mesh(mesh);
+
+    {
+        std::stringstream str;
+        str << "hole_level_by_level";
+        auto h5file = mure::Hdf5(str.str().data());
+        h5file.add_field_by_level(mesh, f);
+    }
+
     return 0;
 }

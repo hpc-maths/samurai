@@ -10,7 +10,9 @@
 #include "criteria.hpp"
 #include "prediction_map_2d.hpp"
 
-double lambda = 1./0.3; //4.0;
+// double lambda = 1./0.3; //4.0; // We always used it
+double lambda = 1./0.2499; //4.0;
+
 double sigma_q = 0.5; 
 double sigma_xy = 0.5;
 
@@ -63,9 +65,14 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // qy = rho * 0.0;
                 // p = 1.0;
 
-                rho = 0.8;
-                qx = rho * 0.1;
-                qy = rho * 0.0;
+                // rho = 0.8;
+                // qx = rho * 0.1;
+                // qy = rho * 0.0;
+                // p = 0.4;
+
+                rho = 1.0625;
+                qx = rho * 0.;
+                qy = rho * 0.2145;
                 p = 0.4;
 
             }
@@ -82,10 +89,15 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // qy = rho * 0.0;
                 // p = 1.0;
 
-                rho = 0.5313;
-                qx = rho * 0.8276;
-                qy = rho * 0.0;
-                p = 0.4;
+                // rho = 0.5313;
+                // qx = rho * 0.8276;
+                // qy = rho * 0.0;
+                // p = 0.4;
+
+                rho = 2.;
+                qx = rho * 0.;
+                qy = rho * (-0.3);
+                p = 1.;
             }
         }
         else
@@ -102,9 +114,14 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // qy = rho * 0.7276;
                 // p = 1.0;
 
-                rho = 0.5313;
-                qx = rho * 0.1;
-                qy = rho * 0.7276;
+                // rho = 0.5313;
+                // qx = rho * 0.1;
+                // qy = rho * 0.7276;
+                // p = 0.4;
+
+                rho = 0.5197;
+                qx = rho * 0.;
+                qy = rho * (-1.1259);
                 p = 0.4;
             }
             else
@@ -121,9 +138,14 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // p = 0.4;
 
                                 
+                // rho = 1.;
+                // qx = rho * 0.1;
+                // qy = rho * 0.0;
+                // p = 1.;
+
                 rho = 1.;
-                qx = rho * 0.1;
-                qy = rho * 0.0;
+                qx = rho * 0.;
+                qy = rho * (-0.4);
                 p = 1.;
             }
         }

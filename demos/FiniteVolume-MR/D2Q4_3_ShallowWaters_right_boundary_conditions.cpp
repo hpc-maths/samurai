@@ -26,6 +26,25 @@ const double s_h_xy = 1./(0.5 + sigma_h_xy);
 const double s_q_x  = 1./(0.5 + sigma_q_x);
 const double s_q_xy = 1./(0.5 + sigma_q_xy);
 
+/// Timer used in tic & toc
+auto tic_timer = std::chrono::high_resolution_clock::now();
+
+/// Launching the timer
+void tic()
+{
+    tic_timer = std::chrono::high_resolution_clock::now();
+}
+
+
+/// Stopping the timer and returning the duration in seconds
+double toc()
+{
+    const auto toc_timer = std::chrono::high_resolution_clock::now();
+    const std::chrono::duration<double> time_span = toc_timer - tic_timer;
+    return time_span.count();
+}
+
+
 
 
 
@@ -1266,9 +1285,21 @@ int main(int argc, char *argv[])
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
+            std::string prefix ("D2Q4_3_ShallowWaters_");
+            std::ofstream s_times;
+            std::ofstream s_leaves;
+            std::ofstream s_totalcells;
+            std::ofstream s_comptime;
+            s_times.open(prefix + "times.dat");
+            s_leaves.open(prefix + "leaves.dat");
+            s_totalcells.open(prefix + "totalcells.dat");
+            s_comptime.open(prefix + "comptime.dat");
+
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 std::cout<<std::endl<<"Iteration number = "<<nb_ite<<std::endl;
+
+                tic();
 
                 std::cout<<std::endl<<"[*] Coarsening"<<std::flush;
                 for (std::size_t i=0; i<max_level-min_level; ++i)
@@ -1295,10 +1326,23 @@ int main(int argc, char *argv[])
                 std::cout<<std::endl<<"[*] Entering time stepping"<<std::flush;
                 one_time_step_overleaves_corrected(f, pred_coeff, nb_ite);
 
+                auto mesh_process_plus_iteration = toc();
+                auto nb_of_leaves = mesh.nb_cells(mure::MeshType::cells);
+                auto nb_all_cells = mesh.nb_total_cells();
+
+                std::cout<<std::endl<<"{{{{ ++++++ }}}} Number of cells = "<<nb_of_leaves<<" Total number of cells = "<<nb_all_cells<<" Time elapsed = "<<mesh_process_plus_iteration<<std::flush;
+                s_times<<(nb_ite * dt)<<std::endl;
+                s_leaves<<nb_of_leaves<<std::endl;
+                s_totalcells<<nb_all_cells<<std::endl;
+                s_comptime<<mesh_process_plus_iteration<<std::endl;
 
 
             }
             
+            s_times.close();
+            s_leaves.close();
+            s_totalcells.close();
+            s_comptime.close();
         }
     }
     catch (const cxxopts::OptionException &e)
