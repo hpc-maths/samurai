@@ -37,3 +37,9 @@ target_link_libraries(D2Q4_4_Implosion mure)
 
 # add_executable(D1Q2_Burgers D1Q2_Burgers.cpp ${MURE_HEADERS})
 # target_link_libraries(D1Q2_Burgers mure)
+
+add_executable(hole hole.cpp ${MURE_HEADERS})
+target_link_libraries(hole mure)
+
+add_executable(D2Q9_von_Karman_street D2Q9_von_Karman_street.cpp ${MURE_HEADERS})
+target_link_libraries(D2Q9_von_Karman_street mure)
