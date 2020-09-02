@@ -205,32 +205,109 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
     return f;
 }
 
+// template<class coord_index_t>
+// auto compute_prediction(std::size_t min_level, std::size_t max_level)
+// {
+//     coord_index_t i = 0, j = 0;
+//     std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
+
+//     for(std::size_t k=0; k<max_level-min_level+1; ++k)
+//     {
+//         int size = (1<<k);
+//         data[k].resize(8);
+//         for (int l = 0; l < size; ++l)
+//         {
+//             // Be careful, there is no sign on this fluxes
+
+//             // Along x (vertical edge)
+//             data[k][0] += prediction(k, i*size - 1, j*size + l); // In W
+//             data[k][1] += prediction(k, (i+1)*size - 1, j*size + l); // Out E
+//             data[k][2] += prediction(k, i*size + l, j*size - 1); // In S
+//             data[k][3] += prediction(k, i*size + l, (j+1)*size - 1); // Out N
+
+//             // Along y (horizontal edge)
+//             data[k][4] += prediction(k, (i+1)*size, j*size + l); // In E
+//             data[k][5] += prediction(k, i*size, j*size + l); // Out W
+//             data[k][6] += prediction(k, i*size + l, (j+1)*size); // In N
+//             data[k][7] += prediction(k, i*size + l, j*size); // Out S
+//         }
+//     }
+//     return data;
+// }
+
+
 template<class coord_index_t>
 auto compute_prediction(std::size_t min_level, std::size_t max_level)
 {
     coord_index_t i = 0, j = 0;
     std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
 
-    for(std::size_t k=0; k<max_level-min_level+1; ++k)
+
+    auto rotation_of_pi_over_two = [] (int alpha, int k, int h)
+    {
+        // Returns the rotation of (k, h) of an angle alpha * pi / 2.
+        // All the operations are performed on integer, to be exact
+
+        int cosinus = static_cast<int>(std::round(std::cos(alpha * M_PI / 2.)));
+        int sinus   = static_cast<int>(std::round(std::sin(alpha * M_PI / 2.)));
+
+        return std::pair<int, int> (cosinus * k - sinus   * h, 
+                                      sinus * k + cosinus * h);
+    };
+
+    // Transforms the coordinates to apply the rotation
+    auto tau = [] (int delta, int k)
+    {
+        // The case in which delta = 0 is rather exceptional
+        if (delta == 0) {
+            return k;
+        }
+        else {
+            auto tmp = (1 << (delta - 1));
+            return static_cast<int>((k < tmp) ? (k - tmp) : (k - tmp + 1));
+        }
+    };
+
+    auto tau_inverse = [] (int delta, int k)
+    {
+        if (delta == 0) {
+            return k;
+        }
+        else
+        {
+            auto tmp = (1 << (delta - 1));
+            return static_cast<int>((k < 0) ? (k + tmp) : (k + tmp - 1));   
+        }
+    };
+
+    for(std::size_t k = 0; k < max_level - min_level + 1; ++k)
     {
         int size = (1<<k);
+
+
         data[k].resize(8);
-        for (int l = 0; l < size; ++l)
+
+
+        // Parallel velocities
+        
+        for (int alpha = 0; alpha <= 3; ++alpha)
         {
-            // Be careful, there is no sign on this fluxes
 
-            // Along x (vertical edge)
-            data[k][0] += prediction(k, i*size - 1, j*size + l); // In W
-            data[k][1] += prediction(k, (i+1)*size - 1, j*size + l); // Out E
-            data[k][2] += prediction(k, i*size + l, j*size - 1); // In S
-            data[k][3] += prediction(k, i*size + l, (j+1)*size - 1); // Out N
+            // std::
+            
+            for (int l = 0; l < size; ++l)
+            {
+                // The reference direction from which the other ones are computed
+                // is that of (1, 0)
+                auto rotated_in  = rotation_of_pi_over_two(alpha, tau(k,  i   * size - 1), tau(k, j * size + l));
+                auto rotated_out = rotation_of_pi_over_two(alpha, tau(k, (i+1)* size - 1), tau(k, j * size + l));
 
-            // Along y (horizontal edge)
-            data[k][4] += prediction(k, (i+1)*size, j*size + l); // In E
-            data[k][5] += prediction(k, i*size, j*size + l); // Out W
-            data[k][6] += prediction(k, i*size + l, (j+1)*size); // In N
-            data[k][7] += prediction(k, i*size + l, j*size); // Out S
+                data[k][0 + 2 * alpha] += prediction(k, tau_inverse(k, rotated_in.first ), tau_inverse(k, rotated_in.second ));
+                data[k][1 + 2 * alpha] += prediction(k, tau_inverse(k, rotated_out.first), tau_inverse(k, rotated_out.second));
+
+            }
         }
+
     }
     return data;
 }
@@ -1210,22 +1287,45 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
                 double gm = 1.4;
 
-                m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
-                m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
-                m0_3 = (1 - sxy) * m0_3; 
+                // m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
+                // m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
+                // m0_3 = (1 - sxy) * m0_3; 
 
 
-                m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
-                m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
-                m1_3 = (1 - sxy) * m1_3; 
+                // m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
+                // m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
+                // m1_3 = (1 - sxy) * m1_3; 
 
-                m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
-                m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
-                m2_3 = (1 - sxy) * m2_3; 
+                // m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
+                // m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
+                // m2_3 = (1 - sxy) * m2_3; 
 
-                m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-                m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
-                m3_3 = (1 - sxy) * m3_3; 
+                // m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
+                // m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
+                // m3_3 = (1 - sxy) * m3_3; 
+
+
+                std::size_t how_often = 1 << (max_level - level);
+
+                double sq_real  = (iter % how_often == 0) ? sq  : 0.;
+                double sxy_real = (iter % how_often == 0) ? sxy : 0.;
+
+                m0_1 = (1 - sq_real) *  m0_1 + sq_real * (m1_0);
+                m0_2 = (1 - sq_real) *  m0_2 + sq_real * (m2_0);
+                m0_3 = (1 - sxy_real) * m0_3; 
+
+
+                m1_1 = (1 - sq_real) *  m1_1 + sq_real * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
+                m1_2 = (1 - sq_real) *  m1_2 + sq_real * (m1_0*m2_0/m0_0);
+                m1_3 = (1 - sxy_real) * m1_3; 
+
+                m2_1 = (1 - sq_real) *  m2_1 + sq_real * (m1_0*m2_0/m0_0);
+                m2_2 = (1 - sq_real) *  m2_2 + sq_real * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
+                m2_3 = (1 - sxy_real) * m2_3; 
+
+                m3_1 = (1 - sq_real) *  m3_1 + sq_real * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
+                m3_2 = (1 - sq_real) *  m3_2 + sq_real * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
+                m3_3 = (1 - sxy_real) * m3_3; 
 
 
                 new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
@@ -1340,6 +1440,26 @@ int main(int argc, char *argv[])
 
             using coord_index_t = typename Config::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
+
+
+
+            // std::cout<<std::endl<<"Showing prediction matrix for fluxes"<<std::endl;
+
+            // for (int idx = 0; idx <= 7; ++idx){
+            // std::cout<<std::endl<<"Idx = "<<idx<<std::endl;
+            // for (int k = 0; k <= max_level - min_level; ++k)
+            // {
+            //     for (auto cf : pred_coeff[k][idx].coeff){
+            //         coord_index_t stencil_x, stencil_y;
+            //         std::tie(stencil_x, stencil_y) = cf.first;
+                    
+                    
+            //         std::cout<<"k = "<<k<<"  Offset x = "<<stencil_x<<"   Offset y = "<<stencil_y<<"   Value = "<<cf.second<<std::endl;
+            //     }
+                   
+            // }
+            // }
+            // return 0;
 
             // Initialization
             auto f = init_f(mesh, 0);
