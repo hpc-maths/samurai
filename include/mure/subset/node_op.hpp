@@ -687,7 +687,9 @@ namespace mure
                                      const index_t &index_yz,
                                      const interval_t &interval, Dim<2>) const
     {
-        for (int j = 0; j < 2 * -m_shift; ++j)
+        // Loic je t'aime bien
+        for (int j = 0; j < (1<<(-m_shift)); ++j)
+        // for (int j = 0; j < 2 * -m_shift; ++j)
         {
             lcl[xt::eval((index_yz << -m_shift) + j)].add_interval(
                 {interval.start << -m_shift, interval.end << -m_shift});
@@ -700,9 +702,9 @@ namespace mure
                                      const index_t &index_yz,
                                      const interval_t &interval, Dim<3>) const
     {
-        for (int k = 0; k < 2 * -m_shift; ++k)
+        for (int k = 0; k < (1 <<(-m_shift)); ++k)
         {
-            for (int j = 0; j < 2 * -m_shift; ++j)
+            for (int j = 0; j < (1 <<(-m_shift)); ++j)
             {
                 xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> ind{j, k};
                 lcl[xt::eval((index_yz << -m_shift) + ind)].add_interval(

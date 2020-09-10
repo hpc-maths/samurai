@@ -70,22 +70,109 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 
 
 template<class Field, class interval_t, class ordinates_t>
-double prediction_all(const Field & f, std::size_t level_g, std::size_t level, 
-                      const interval_t & i, const ordinates_t & j)
+xt::xtensor<double, 1> prediction_all(const Field & f, std::size_t level_g, std::size_t level, 
+                                      const interval_t & k, const ordinates_t & h)
 {
+
+    // That is used to employ _ with xtensor
+    using namespace xt::placeholders;
+
+    std::cout<<std::endl<<"Before doing - k = "<<k<<std::flush;
 
     auto mesh = f.mesh();
 
+    // We put only the size in x (k.size()) because in y
+    // we only have slices of size 1. 
+    // The second term (1) should be adapted according to the 
+    // number of fields that we have.
+    std::vector<std::size_t> shape_x = {k.size(), 1};
+    xt::xtensor<double, 2> out = xt::empty<double>(shape_x);
 
-    std::vector<std::size_t> shape_x = {i.size(), 2};
+    auto mask = mesh.exists(mure::MeshType::cells_and_ghosts, level_g + level, k, h); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
 
-    std::cout<<std::endl<<"Level_g = "<<level_g<<"  level = "<<level<<"  i_size = "<<i.size()<<"  i = "<<i<<"  j = "<<j<<std::flush;
+    xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
+        
+    xt::view(mask_all, xt::all(), 0) = mask; // We have only this because we only have one field
+
+    // Recursion finished
+    if (xt::all(mask))
+    {         
+        return xt::eval(f(level_g + level, k, h));
+    }
+
+    // If we cannot stop here
+
+    auto kg = k >> 1;
+    kg.step = 1;
+
+    xt::xtensor<double, 2> val = xt::empty<double>(shape_x);
 
 
-    return 1.;
+    /*
+    --------------------
+    NW   |   N   |   NE
+    --------------------
+     W   | EARTH |   E
+    --------------------
+    SW   |   S   |   SE
+    --------------------
+    */
+
+   std::cout<<std::endl<<"In pred_all - level_g = "<<level_g<<"  level = "<<level<<"  k = "<<k<<"  h = "<<h<<"   kg = "<<kg<<std::flush;
+
+    auto earth  = xt::eval(prediction_all(f, level_g, level - 1, kg    , h / 2    ));
+    auto W      = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, h / 2    ));
+    auto E      = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, h / 2    ));
+    auto S      = xt::eval(prediction_all(f, level_g, level - 1, kg    , h / 2 - 1));
+    auto N      = xt::eval(prediction_all(f, level_g, level - 1, kg    , h / 2 + 1));
+    auto SW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, h / 2 - 1));
+    auto SE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, h / 2 - 1));
+    auto NW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, h / 2 + 1));
+    auto NE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, h / 2 + 1));
+
+    // This is to deal with odd/even indices in the x direction
+    std::size_t start_even = (k.start & 1) ?     1         :     0        ; 
+    std::size_t start_odd  = (k.start & 1) ?     0         :     1        ; 
+    std::size_t end_even   = (k.end & 1)   ? kg.size()     : kg.size() - 1;
+    std::size_t end_odd    = (k.end & 1)   ? kg.size() - 1 : kg.size()    ;
+
+    int delta_y = (h & 1) ? 1 : 0;
+    int m1_delta_y = (delta_y == 0) ? 1 : -1; // (-1)^(delta_y) 
+
+    // We recall the formula before doing everything
+    /*
+    f[j + 1][2k + dx][2h + dy] = f[j][k][h] + 1/8 * (-1)^dx * (f[j][k - 1][h] - f[j][k + 1][h])
+                                            + 1/8 * (-1)^dy * (f[j][k][h - 1] - f[j][k][h + 1])
+                                - 1/64 * (-1)^(dx+dy) * (f[j][k + 1][h + 1] - f[j][k - 1][h + 1]
+                                                         f[j][k - 1][h - 1] - f[j][k + 1][h - 1])
+
+    dx = 0, 1
+    dy = 0, 1
+    */
+
+    xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth 
+                                                          + 1./8               * (W - E) 
+                                                          + 1./8  * m1_delta_y * (S - N) 
+                                                          - 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(start_even, _));
 
 
 
+    xt::view(val, xt::range(start_odd, _, 2))  = xt::view(                        earth 
+                                                          - 1./8               * (W - E) 
+                                                          + 1./8  * m1_delta_y * (S - N)
+                                                          + 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(_, end_odd));
+
+    xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
+
+    for(int k_mask = 0, k_int = k.start; k_int < k.end; ++k_mask, ++k_int)
+    {
+        if (mask[k_mask])
+        {
+            xt::view(out, k_mask) = xt::view(f(level_g + level, {k_int, k_int + 1}, h), 0);
+        }
+    }
+
+    return out;
 }
 
 template<class Field>
@@ -105,10 +192,12 @@ void foo(Field & f)
                                                    mesh[mure::MeshType::cells][level]);
         
         leaves_on_finest.on(max_level)([&](auto& index, auto &interval, auto) {
-            auto h = interval[0];
-            auto k = index[0];
+            auto k = interval[0];
+            auto h = index[0];
 
-            auto tmp = prediction_all(f, level, max_level - level, h, k);
+            std::cout<<std::endl<<"In foo - level = "<<level<<"  k = "<<k<<"  h = "<<h<<std::flush;
+
+            auto tmp = prediction_all(f, level, max_level - level, k, h);
 
 
         });
