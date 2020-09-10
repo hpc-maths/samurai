@@ -150,6 +150,12 @@ xt::xtensor<double, 1> prediction_all(const Field & f, std::size_t level_g, std:
     dy = 0, 1
     */
 
+    // // Gives a segfault as well
+
+    // xt::view(val, xt::range(start_even, _, 2)) = xt::view(earth - 1./8 * (E - W), xt::range(start_even, _));
+    // xt::view(val, xt::range(start_odd, _, 2))  = xt::view(earth + 1./8 * (E - W), xt::range(_, end_odd));
+
+
     xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth 
                                                           + 1./8               * (W - E) 
                                                           + 1./8  * m1_delta_y * (S - N) 
