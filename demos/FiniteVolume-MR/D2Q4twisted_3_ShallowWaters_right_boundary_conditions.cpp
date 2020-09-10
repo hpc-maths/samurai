@@ -28,8 +28,6 @@ const double s_q_xy = 1./(0.5 + sigma_q_xy);
 
 
 
-// THIS IS NON RIGHT : IT HAS TO BE UPDATED CONSIDERING THAT WE
-// ARE DEALING WITH THE TWISTED SCHEME
 template<class coord_index_t>
 auto compute_prediction(std::size_t min_level, std::size_t max_level)
 {
@@ -40,7 +38,6 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
     {
         int size = (1<<k);
         data[k].resize(24);
-        // Along the axis
         for (int l = 0; l < size - 1; ++l)
         {
             // velocity (1, 1)
@@ -70,6 +67,16 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 
         }
         // Corners
+
+        // ATTENTION : CEST BOGUE POUR K = 0
+        // PARCE QUON NE RENTRE MEME PAS DANS LA BOUCLE ET 
+        // DONC LA CONTRIBUTION DIAGONALE NEST PAS LA
+        // CEST IMPORTANT POUR LES CELLULES MAXLEVEL - 1
+        // QUI ONT UNE OVERLEAF A MAXLEVEL
+
+        // A DEBOGGUER
+
+
         // velocity (1, 1)
         data[k][2] += prediction(k, i*size - 1, j*size - 1); // In SW
         data[k][5] += prediction(k, (i+1)*size - 1, (j+1)*size - 1); // Out NE
@@ -90,6 +97,8 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
     }
     return data;
 }
+
+
 
 
 template<class Config>
@@ -1573,6 +1582,32 @@ int main(int argc, char *argv[])
 
             using coord_index_t = typename Config::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
+
+
+            // std::cout<<std::endl<<"Showing prediction matrix for fluxes"<<std::endl;
+
+            // std::vector<int> indices {0, 2, 1, 3, 5, 4,
+            //                          7, 8, 6, 10, 11, 9, 
+            //                          12, 14, 13, 15, 17, 16, 
+            //                          19, 20, 18, 22, 23, 21};
+            // int counter = 8;
+            // for (auto idx : indices){
+            // std::cout<<std::endl<<"Idx = "<<counter<<std::endl;
+            // for (int k = 0; k <= max_level - min_level; ++k)
+            // {
+            //     for (auto cf : pred_coeff[k][idx].coeff){
+            //         coord_index_t stencil_x, stencil_y;
+            //         std::tie(stencil_x, stencil_y) = cf.first;
+                    
+                    
+            //         std::cout<<"k = "<<k<<"  Offset x = "<<stencil_x<<"   Offset y = "<<stencil_y<<"   Value = "<<cf.second<<std::endl;
+            //     }
+                   
+            // }
+            // counter ++;
+            // }
+
+            // return 0;
 
             // Initialization
             auto f = init_f(mesh, 0);

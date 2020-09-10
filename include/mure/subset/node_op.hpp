@@ -515,9 +515,10 @@ namespace mure
     }
 
     template<class T>
-    inline auto contraction_op<T>::end(std::size_t dim, std::size_t index) const
-        noexcept
-    {
+    inline auto contraction_op<T>::end(std::size_t dim,
+                                       std::size_t index) const noexcept
+    {   
+        std::cout<<std::endl<<"Debug contraction "<<m_data.end(dim, index)<<"    |   "<<m_data.end(dim, index) - 1<<std::endl;
         return m_data.end(dim, index) - 1;
     }
 

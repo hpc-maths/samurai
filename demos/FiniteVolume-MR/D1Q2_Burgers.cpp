@@ -255,8 +255,8 @@ double exact_solution(double x, double t)   {
     // u = exp(-20.0 * (x-0.75*t) * (x-0.75*t));
 
     // u = 0.0;
-    return (x < 0.) ? 1. : 0.;
-    // return exp(-50 * (x + 2.882259)*(x + 2.882259));
+    // return (x < 0.) ? 1. : 0.;
+    return exp(-50 * (x )*(x ));
     // return u;
 }
 
@@ -713,7 +713,7 @@ template<class Field, class Pred>
 void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_rel)
 {
 
-    double value_dirichlet = 0.5;
+    double value_dirichlet = 0.;
 
     double lambda = 1.;
 

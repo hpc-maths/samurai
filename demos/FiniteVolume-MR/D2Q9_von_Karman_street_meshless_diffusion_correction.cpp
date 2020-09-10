@@ -16,11 +16,17 @@
 
 double radius = 1./32.; // Radius of the obstacle
 
+double Re = 200.;
+
 const double lambda = 1.; // Lattice velocity of the scheme
 const double rho0 = 1.; // Reference density
-const double u0 = 0.1; // Reference x-velocity
+// const double u0 = 0.1; // Reference x-velocity
+// const double u0 = 0.05; // Reference x-velocity
+
 const double mu = 5.e-6; // Bulk viscosity
 const double zeta = 10. * mu; // Shear viscosity
+
+const double u0 = mu * Re / (2. * rho0 * radius);
 
 // The relaxation parameters will be computed in the sequel
 // because they depend on the space step of the scheme
@@ -33,7 +39,7 @@ bool inside_obstacle (double x, double y)
     //                  std::abs(y - y_center)))
     //             > radius)
     if ((   std::sqrt(std::pow(x - x_center, 2.)+ 
-                     std::pow(y - y_center, 2.)))
+                      std::pow(y - y_center, 2.)))
                 > radius)
         return false;
     else
@@ -42,13 +48,73 @@ bool inside_obstacle (double x, double y)
     }    
 }
 
+double level_set_obstacle (double x, double y)
+{
+     double x_center = 5./16., y_center = 0.5;
+
+    return ((   std::sqrt(std::pow(x - x_center, 2.)+ 
+                          std::pow(y - y_center, 2.))) - radius);
+}
+
+double volume_inside_obstacle_estimation(double xLL, double yLL, double dx)
+{
+    // Super stupid way of
+    // computing the volume of the cell inside the obstacle
+
+    const int n_point_per_direction = 30;
+    double step = dx / n_point_per_direction;
+
+    int volume    = 0;
+    int volume_in = 0;
+
+    for (int i = 0; i < n_point_per_direction; ++i) {
+        for (int j = 0; j < n_point_per_direction; ++j) {
+
+            volume++;
+
+            if (inside_obstacle(xLL + i * step, yLL + j * step))
+                volume_in++;
+
+        }
+    }
+
+    // That is the volumic fraction
+    return static_cast<double>(volume_in) / static_cast<double>(volume);
+}
+
+double length_obstacle_inside_cell(double xLL, double yLL, double dx)
+{
+
+    double delta = 0.05 * dx;
+
+    const int n_point_per_direction = 30;
+    double step = dx / n_point_per_direction;
+
+    int volume    = 0;
+    int volume_in = 0;
+
+    for (int i = 0; i < n_point_per_direction; ++i) {
+        for (int j = 0; j < n_point_per_direction; ++j) {
+
+            volume++;
+
+            if (std::abs(level_set_obstacle(xLL + i * step, yLL + j * step)) < 0.5 * delta)
+                volume_in++;
+
+        }
+    }
+    
+    return dx * dx * (static_cast<double>(volume_in) / static_cast<double>(volume)) / delta;
+
+}
+
 std::array<double, 9> inlet_bc()
 {
 
     std::array<double, 9> to_return;    
 
     double rho = rho0;
-    double qx = rho0*u0;
+    double qx = rho0 * u0;
     double qy = 0.;
 
 
@@ -106,9 +172,9 @@ auto init_f(mure::Mesh<Config> &mesh)
         auto x = center[0];
         auto y = center[1];
 
-        double rho = rho0;
+        double rho = inside_obstacle(x, y) ? rho0 : rho0;
         double qx = inside_obstacle(x, y) ? 0. : rho0 * u0;
-        double qy = 0.;
+        double qy = inside_obstacle(x, y) ? 0. : 0.001 * rho0 * u0;//0.; // TO start instability earlier
 
 
         double r1 = 1.0 / lambda;
@@ -309,9 +375,9 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 
                 // I could be done better but it does not matter
                 data[k][32] += prediction(k,  i   *size    ,  j   *size + l); 
-                data[k][33] += prediction(k, (i+1)*size - 1,  j   *size + l); 
+                data[k][33] += prediction(k, (i+1)*size    ,  j   *size + l); 
                 data[k][34] += prediction(k,  i   *size + l,  j   *size    ); 
-                data[k][35] += prediction(k,  i   *size + l, (j+1)*size - 1); 
+                data[k][35] += prediction(k,  i   *size + l, (j+1)*size    ); 
             }
 
         }
@@ -438,10 +504,15 @@ auto get_adjacent_boundary_southeast(Mesh & mesh, std::size_t level, mure::MeshT
 
 // We have to average only the fluxes
 template<class Field, class pred>
-void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::size_t iter)
+std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pred & pred_coeff, std::size_t iter)
 {
     constexpr std::size_t nvel = Field::size;
     using coord_index_t = typename Field::coord_index_t;
+
+
+
+    double Fx = 0.;
+    double Fy = 0.;
 
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
@@ -1199,6 +1270,91 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                     }
                 } 
 
+
+
+
+                // We correct the structure of the diffusion
+                int correction_factor = (1 << j) - 1;
+                double dx = 1./(1 << max_level);
+                double dt = dx / lambda;
+
+
+                // double prefactor = lambda * dt * dx / 2. * correction_factor;
+                double prefactor = correction_factor / (2. * (1 << (2 * j)));
+
+                // // X axis
+                // std::vector<int> vel_vec_x {1, 3};//, 5, 6, 7, 8};
+                // for (auto vel_idx : vel_vec_x)    {
+                //     for(auto &c: pred_coeff[j][0].coeff)
+                //     {
+                //         coord_index_t stencil_x, stencil_y;
+                //         std::tie(stencil_x, stencil_y) = c.first;
+
+                //         fluxes(vel_idx, level + 1, k, h) -= prefactor * c.second * f(vel_idx, level + 1, k + stencil_x, h + stencil_y);
+                //     }
+
+                //     for(auto &c: pred_coeff[j][5].coeff)
+                //     {
+                //         coord_index_t stencil_x, stencil_y;
+                //         std::tie(stencil_x, stencil_y) = c.first;
+
+                //         fluxes(vel_idx, level + 1, k, h) += prefactor * c.second * f(vel_idx, level + 1, k + stencil_x, h + stencil_y);
+                //     }
+
+                //     for(auto &c: pred_coeff[j][1].coeff)
+                //     {
+                //         coord_index_t stencil_x, stencil_y;
+                //         std::tie(stencil_x, stencil_y) = c.first;
+
+                //         fluxes(vel_idx, level + 1, k, h) += prefactor * c.second * f(vel_idx, level + 1, k + stencil_x, h + stencil_y);
+                //     }
+
+                //     for(auto &c: pred_coeff[j][4].coeff)
+                //     {
+                //         coord_index_t stencil_x, stencil_y;
+                //         std::tie(stencil_x, stencil_y) = c.first;
+
+                //         fluxes(vel_idx, level + 1, k, h) -= prefactor * c.second * f(vel_idx, level + 1, k + stencil_x, h + stencil_y);
+                //     }
+                // }
+
+                // // // Y axis
+                // std::vector<int> vel_vec_y {2, 4};//, 5, 6, 7, 8};
+                // for (auto vel_idx : vel_vec_y)    {
+                //     for(auto &c: pred_coeff[j][2].coeff)
+                //     {
+                //         coord_index_t stencil_x, stencil_y;
+                //         std::tie(stencil_x, stencil_y) = c.first;
+
+                //         fluxes(vel_idx, level + 1, k, h) -= prefactor * c.second * f(vel_idx, level + 1, k + stencil_x, h + stencil_y);
+                //     }
+
+                //     for(auto &c: pred_coeff[j][7].coeff)
+                //     {
+                //         coord_index_t stencil_x, stencil_y;
+                //         std::tie(stencil_x, stencil_y) = c.first;
+
+                //         fluxes(vel_idx, level + 1, k, h) += prefactor * c.second * f(vel_idx, level + 1, k + stencil_x, h + stencil_y);
+                //     }
+
+                //     for(auto &c: pred_coeff[j][3].coeff)
+                //     {
+                //         coord_index_t stencil_x, stencil_y;
+                //         std::tie(stencil_x, stencil_y) = c.first;
+
+                //         fluxes(vel_idx, level + 1, k, h) += prefactor * c.second * f(vel_idx, level + 1, k + stencil_x, h + stencil_y);
+                //     }
+
+                //     for(auto &c: pred_coeff[j][6].coeff)
+                //     {
+                //         coord_index_t stencil_x, stencil_y;
+                //         std::tie(stencil_x, stencil_y) = c.first;
+
+                //         fluxes(vel_idx, level + 1, k, h) -= prefactor * c.second * f(vel_idx, level + 1, k + stencil_x, h + stencil_y);
+                //     }
+                // }                
+
+
             });                              
 
             std::cout<<std::endl<<"[=] Far from the boundary"<<std::flush;
@@ -1223,6 +1379,9 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
                 } 
+
+
+
 
             });
 
@@ -1304,8 +1463,15 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 double dummy = 3.0/(lambda*rho0*space_step);
                 double sigma_1 = dummy*(zeta - 2.*mu/3.);
                 double sigma_2 = dummy*mu;
+
+                // // // Default
                 double s_1 = 1/(.5+sigma_1);
                 double s_2 = 1/(.5+sigma_2);
+
+
+                // double s_1 = (iter % (1 << (max_level - level)) == 0) ? 1/(.5+sigma_1) : 0.;
+                // double s_2 = (iter % (1 << (max_level - level)) == 0) ? 1/(.5+sigma_2) : 0.;
+
 
                 double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
 
@@ -1338,55 +1504,166 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
         }
 
 
+
+            // mesh.for_each_cell([&](auto &cell) {
+            //     auto center = cell.center();
+            //     auto x = center[0];
+            //     auto y = center[1];
+            //     auto dx_cell = cell.length();
+
+
+            //     if (inside_obstacle(x + dx_cell/2., y + dx_cell/2.) ||
+            //         inside_obstacle(x - dx_cell/2., y + dx_cell/2.) ||
+            //         inside_obstacle(x - dx_cell/2., y - dx_cell/2.) ||
+            //         inside_obstacle(x + dx_cell/2., y - dx_cell/2.))
+            //     {
+            //         double dt = 1./(1<<max_level) / lambda;
+
+            //         Fx += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]));
+            //         Fy += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]));
+            //     }            
+
+            // });
+
+
+
+            std::cout<<std::endl<<"[[[[ DRAG COEFFICIENT ]]]] - CD = "<<Fx/(rho0 * u0*u0 * radius)
+                                <<"   CL = "<<Fy/(rho0 * u0*u0 * radius)<<std::endl;
+
             mesh.for_each_cell([&](auto &cell) {
                 auto center = cell.center();
                 auto x = center[0];
                 auto y = center[1];
 
-                if (inside_obstacle(x, y))  {
-                    double rho = rho0;
-                    double qx =  0.;
-                    double qy = 0.;
+                double dx = cell.length();
 
-                    double r1 = 1.0 / lambda;
-                    double r2 = 1.0 / (lambda*lambda);
-                    double r3 = 1.0 / (lambda*lambda*lambda);
-                    double r4 = 1.0 / (lambda*lambda*lambda*lambda);
+                double rho = rho0;
+                double qx =  0.;
+                double qy = 0.;
 
-
-                    // This is the Geier choice of momenti
-
-                    double cs2 = (lambda*lambda)/ 3.0; // Sound velocity of the lattice squared
-
-                    double m0 = rho;
-                    double m1 = qx;
-                    double m2 = qy;
-                    double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
-                    double m4 = qx*(cs2+(qy/rho)*(qy/rho));
-                    double m5 = qy*(cs2+(qx/rho)*(qx/rho));
-                    double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
-                    double m7 = (qx*qx-qy*qy)/rho;
-                    double m8 = qx*qy/rho;
-
-                    // We come back to the distributions
+                double r1 = 1.0 / lambda;
+                double r2 = 1.0 / (lambda*lambda);
+                double r3 = 1.0 / (lambda*lambda*lambda);
+                double r4 = 1.0 / (lambda*lambda*lambda*lambda);
 
 
+                // This is the Geier choice of momenti
 
-                    f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
-                    f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                    f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                    f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                    f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                    f[cell][5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                    f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-                    f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                    f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                double cs2 = (lambda*lambda)/ 3.0; // Sound velocity of the lattice squared
+
+                double m0 = rho;
+                double m1 = qx;
+                double m2 = qy;
+                double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
+                double m4 = qx*(cs2+(qy/rho)*(qy/rho));
+                double m5 = qy*(cs2+(qx/rho)*(qx/rho));
+                double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
+                double m7 = (qx*qx-qy*qy)/rho;
+                double m8 = qx*qy/rho;
+
+                // The cell is fully inside the obstacle
+                if (inside_obstacle(x - .5*dx, y - .5*dx) &&
+                    inside_obstacle(x + .5*dx, y - .5*dx) &&
+                    inside_obstacle(x + .5*dx, y + .5*dx) &&
+                    inside_obstacle(x - .5*dx, y + .5*dx))  {
+                    
+                    new_f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
+                    new_f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                    new_f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                    new_f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                    new_f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                    new_f[cell][5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                    new_f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                    new_f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                    new_f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
                 }
+                else
+                {
+                    // The cell has the interface cutting through it
+                    if (inside_obstacle(x - .5*dx, y - .5*dx) ||
+                        inside_obstacle(x + .5*dx, y - .5*dx) ||
+                        inside_obstacle(x + .5*dx, y + .5*dx) ||
+                        inside_obstacle(x - .5*dx, y + .5*dx))  {
+
+                        // We compute the volume fraction
+                        double vol_fraction = volume_inside_obstacle_estimation(x - .5*dx, y - .5*dx, dx);
+                        double len_boundary =       length_obstacle_inside_cell(x - .5*dx, y - .5*dx, dx);
+
+
+                        std::cout<<std::endl<<"Volumic fraction = "<<vol_fraction<<"  Arclength normalized = "<<len_boundary/dx;
+                        double dt = 1./(1<<max_level) / lambda;
+
+                        Fx += len_boundary * (dx * dx / dt * lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]));
+                        Fy += len_boundary * (dx * dx / dt * lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]));
+
+
+                        new_f[cell][0] = (1. - vol_fraction)*new_f[cell][0] + vol_fraction*(m0                      -     r2*m3                        +     r4*m6                        ) ;
+                        new_f[cell][1] = (1. - vol_fraction)*new_f[cell][1] + vol_fraction*(    .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7            ) ;
+                        new_f[cell][2] = (1. - vol_fraction)*new_f[cell][2] + vol_fraction*(               .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7            ) ;
+                        new_f[cell][3] = (1. - vol_fraction)*new_f[cell][3] + vol_fraction*(   -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7            ) ;
+                        new_f[cell][4] = (1. - vol_fraction)*new_f[cell][4] + vol_fraction*(             - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7            ) ;
+                        new_f[cell][5] = (1. - vol_fraction)*new_f[cell][5] + vol_fraction*(                                     .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8) ;
+                        new_f[cell][6] = (1. - vol_fraction)*new_f[cell][6] + vol_fraction*(                                    -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8) ;
+                        new_f[cell][7] = (1. - vol_fraction)*new_f[cell][7] + vol_fraction*(                                    -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8) ;
+                        new_f[cell][8] = (1. - vol_fraction)*new_f[cell][8] + vol_fraction*(                                     .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8) ;
+
+                    }
+                }
+                
+
+                // This worked quite ok but was not super precise
+
+                // if (inside_obstacle(x, y))  {
+  
+
+                //     double rho = rho0;
+                //     double qx =  0.;
+                //     double qy = 0.;
+
+                //     double r1 = 1.0 / lambda;
+                //     double r2 = 1.0 / (lambda*lambda);
+                //     double r3 = 1.0 / (lambda*lambda*lambda);
+                //     double r4 = 1.0 / (lambda*lambda*lambda*lambda);
+
+
+                //     // This is the Geier choice of momenti
+
+                //     double cs2 = (lambda*lambda)/ 3.0; // Sound velocity of the lattice squared
+
+                //     double m0 = rho;
+                //     double m1 = qx;
+                //     double m2 = qy;
+                //     double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
+                //     double m4 = qx*(cs2+(qy/rho)*(qy/rho));
+                //     double m5 = qy*(cs2+(qx/rho)*(qx/rho));
+                //     double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
+                //     double m7 = (qx*qx-qy*qy)/rho;
+                //     double m8 = qx*qy/rho;
+
+                //     // We come back to the distributions
+
+
+
+                //     f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
+                //     f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                //     f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                //     f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                //     f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                //     f[cell][5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                //     f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                //     f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                //     f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                // }
+                
             });
+
+
         
     }
 
     std::swap(f.array(), new_f.array());
+
+    return std::make_pair(Fx/(rho0 * u0*u0 * radius), Fy/(rho0 * u0*u0 * radius));
 }
 
 
@@ -1401,7 +1678,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     std::size_t max_level = mesh.max_level();
 
     std::stringstream str;
-    str << "LBM_D2Q9_von_Karman_meshless_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
+    str << "LBM_D2Q9_von_Karman_meshless_diffusion_correction_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
     auto h5file = mure::Hdf5(str.str().data());
@@ -1504,6 +1781,11 @@ int main(int argc, char *argv[])
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
+            std::ofstream CD;
+            CD.open("./drag/CD.dat");
+            std::ofstream CL;
+            CL.open("./drag/CL.dat");
+
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 std::cout<<std::endl<<"Iteration number = "<<nb_ite<<std::endl;
@@ -1535,7 +1817,9 @@ int main(int argc, char *argv[])
                 // h5file.add_field_by_level(mesh, f);
 
 
-                std::size_t howoften = 256;
+                // std::size_t howoften = 256;
+
+                std::size_t howoften = 256 * static_cast<double>(max_level) / 10.;
 
                 if (nb_ite % howoften == 0) {
                     std::cout<<std::endl<<"Saving"<<std::endl;
@@ -1543,11 +1827,18 @@ int main(int argc, char *argv[])
                 }
                     
 
-                one_time_step_overleaves_corrected(f, pred_coeff, nb_ite);
+                auto CDCL = one_time_step_overleaves_corrected(f, pred_coeff, nb_ite);
+
+                CD<<CDCL.first<<std::endl;
+                CL<<CDCL.second<<std::endl;
+
                 
                 // save_solution(f, eps, nb_ite/1, std::string("_after")); // Before applying the scheme
 
             }
+
+            CD.close();
+            CL.close();
     
         }
     }

@@ -324,13 +324,13 @@ void verification_boundary(Field &f)
     }); 
 
 
-    std::cout<<std::endl<<"Reduced"<<std::endl<<std::endl;
-    auto red = intersection(mesh.initial_mesh(), contraction(mesh.initial_mesh()));
+    std::cout<<std::endl<<"Expansion"<<std::endl<<std::endl;
+    auto red = intersection(mesh.initial_mesh(), expand(mesh.initial_mesh()));
     red.on(max_level)([&](auto& index, auto &interval, auto) {
         auto k = interval[0]; // Logical index in x
         auto h = index[0];    // Logical index in y 
         
-        std::cout<<std::endl<<"Red k = "<<k<<" h = "<<h<<std::endl;
+        std::cout<<std::endl<<"Exp k = "<<k<<" h = "<<h<<std::endl;
             
     });
 

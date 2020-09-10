@@ -11,8 +11,10 @@ namespace mure
         public:
         INIT_OPERATOR(to_coarsen_mr_op)
 
-        template<class T1, class T2, class T3>
-        inline void operator()(Dim<1>, const T1& detail, const T3&  max_detail, T2 &tag, double eps, std::size_t min_lev) const
+        template<class T1, class T2>
+        // inline void operator()(Dim<1>, const T1& detail, const T3&  max_detail, T2 &tag, double eps, std::size_t min_lev) const
+        inline void operator()(Dim<1>, const T1& detail, T2 &tag, double eps, std::size_t min_lev) const
+
         {
             constexpr auto size = T1::size;
 
