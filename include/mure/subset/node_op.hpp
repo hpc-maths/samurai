@@ -518,7 +518,7 @@ namespace mure
     inline auto contraction_op<T>::end(std::size_t dim,
                                        std::size_t index) const noexcept
     {   
-        std::cout<<std::endl<<"Debug contraction "<<m_data.end(dim, index)<<"    |   "<<m_data.end(dim, index) - 1<<std::endl;
+        // std::cout<<std::endl<<"Debug contraction "<<m_data.end(dim, index)<<"    |   "<<m_data.end(dim, index) - 1<<std::endl;
         return m_data.end(dim, index) - 1;
     }
 
@@ -587,6 +587,7 @@ namespace mure
     inline auto expand_op<T>::end(std::size_t dim, std::size_t index) const
         noexcept
     {
+        // std::cout<<std::endl<<"Debug expand "<<m_data.end(dim, index)<<"    |   "<<m_data.end(dim, index) + 1<<"  dim = "<<dim<<std::flush;
         return m_data.end(dim, index) + 1;
     }
 

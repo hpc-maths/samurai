@@ -335,7 +335,7 @@ namespace mure
         for (int i = m_result[d].start; i < m_result[d].end; ++i)
         {
             m_index_yz[d - 1] = i;
-
+            // std::cout << "sub_apply " << d << " " << i << " " << m_result << "\n";
             decrement_dim(i);
             apply(std::forward<Func>(func),
                   std::integral_constant<std::size_t, d - 1>{});
@@ -383,6 +383,7 @@ namespace mure
 
                     if (result.is_valid())
                     {
+                        // std::cout << "dim " << d << " result " << result << "\n";
                         m_result[d] = result;
                         sub_apply(std::forward<Func>(func),
                                   std::integral_constant<std::size_t, d>{});

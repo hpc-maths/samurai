@@ -21,7 +21,7 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                        {mure::BCType::neumann, 0.0}
                     }} };
 
-    mure::Field<Config, double, 1> f("f", mesh, bc);
+    mure::Field<Config, double, 2> f("f", mesh, bc);
     f.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -29,13 +29,16 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         auto x = center[0];
         auto y = center[1];
 
-        double f_new = (y < 0.5) ? 0.5 : 1.;
+        // double f_new = (y < 0.5) ? 0.5 : 1.;
 
-        if (std::sqrt(std::pow(x - .5, 2.) + std::pow(y - .5, 2.)) < 0.15)  {
-            f_new = 2.;
-        }
+        // if (std::sqrt(std::pow(x - .5, 2.) + std::pow(y - .5, 2.)) < 0.15)  {
+        //     f_new = 2.;
+        // }
+
+        double f_new = std::exp(-500. * (std::pow(x - .5, 2.) + std::pow(y - .5, 2.)));
 
         f[cell][0] = f_new;
+        f[cell][1] = f_new;
 
 
     });
@@ -69,15 +72,16 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 }
 
 
+// Attention : the number 2 as second template parameter does not mean
+// that we are dealing with two fields!!!!
 template<class Field, class interval_t, class ordinates_t>
-xt::xtensor<double, 1> prediction_all(const Field & f, std::size_t level_g, std::size_t level, 
+xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std::size_t level, 
                                       const interval_t & k, const ordinates_t & h)
 {
 
     // That is used to employ _ with xtensor
     using namespace xt::placeholders;
 
-    std::cout<<std::endl<<"Before doing - k = "<<k<<std::flush;
 
     auto mesh = f.mesh();
 
@@ -85,7 +89,7 @@ xt::xtensor<double, 1> prediction_all(const Field & f, std::size_t level_g, std:
     // we only have slices of size 1. 
     // The second term (1) should be adapted according to the 
     // number of fields that we have.
-    std::vector<std::size_t> shape_x = {k.size(), 1};
+    std::vector<std::size_t> shape_x = {k.size(), 2};
     xt::xtensor<double, 2> out = xt::empty<double>(shape_x);
 
     auto mask = mesh.exists(mure::MeshType::cells_and_ghosts, level_g + level, k, h); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
@@ -93,10 +97,14 @@ xt::xtensor<double, 1> prediction_all(const Field & f, std::size_t level_g, std:
     xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
         
     xt::view(mask_all, xt::all(), 0) = mask; // We have only this because we only have one field
+    xt::view(mask_all, xt::all(), 1) = mask; // We have only this because we only have one field
+
+    // std::cout<<std::endl<<"Inside all - level_g = "<<level_g<<"  level = "<<level<<"   k = "<<k<<"   h = "<<h<<"  mask = "<<mask;
 
     // Recursion finished
     if (xt::all(mask))
     {         
+        // std::cout<<std::endl<<"Returning - level_g = "<<level_g<<"  level = "<<level<<"   k = "<<k<<"   h = "<<h;//" Value = "<<xt::adapt(xt::eval(f(0, level_g + level, k, h)).shape());
         return xt::eval(f(level_g + level, k, h));
     }
 
@@ -118,17 +126,20 @@ xt::xtensor<double, 1> prediction_all(const Field & f, std::size_t level_g, std:
     --------------------
     */
 
-   std::cout<<std::endl<<"In pred_all - level_g = "<<level_g<<"  level = "<<level<<"  k = "<<k<<"  h = "<<h<<"   kg = "<<kg<<std::flush;
 
-    auto earth  = xt::eval(prediction_all(f, level_g, level - 1, kg    , h / 2    ));
-    auto W      = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, h / 2    ));
-    auto E      = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, h / 2    ));
-    auto S      = xt::eval(prediction_all(f, level_g, level - 1, kg    , h / 2 - 1));
-    auto N      = xt::eval(prediction_all(f, level_g, level - 1, kg    , h / 2 + 1));
-    auto SW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, h / 2 - 1));
-    auto SE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, h / 2 - 1));
-    auto NW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, h / 2 + 1));
-    auto NE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, h / 2 + 1));
+
+
+    auto earth  = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1)    ));
+    auto W      = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1)    ));
+    auto E      = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1)    ));
+    auto S      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) - 1));
+    auto N      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) + 1));
+    auto SW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) - 1));
+    auto SE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) - 1));
+    auto NW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) + 1));
+    auto NE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) + 1));
+
+    // std::cout<<std::endl<<"HERE = "<<(level - 1 + level_g)<<"  kg = "<<kg<<"  hg = "<<(h>>1)<<" value = "<<earth<<std::flush;
 
     // This is to deal with odd/even indices in the x direction
     std::size_t start_even = (k.start & 1) ?     1         :     0        ; 
@@ -155,6 +166,20 @@ xt::xtensor<double, 1> prediction_all(const Field & f, std::size_t level_g, std:
     // xt::view(val, xt::range(start_even, _, 2)) = xt::view(earth - 1./8 * (E - W), xt::range(start_even, _));
     // xt::view(val, xt::range(start_odd, _, 2))  = xt::view(earth + 1./8 * (E - W), xt::range(_, end_odd));
 
+    // std::cout<<std::endl<<"Comparing shapes - lhs1 = "<<xt::adapt(xt::view(val, xt::range(start_even, _, 2)).shape())
+    //                             <<" rhs1 = "<<xt::adapt(xt::view(earth + 1./8  * (W - E),  xt::range(start_even, _)).shape())
+    //                             <<" lhs2 = "<<xt::adapt(xt::view(val, xt::range(start_odd, _, 2)).shape())
+    //                             <<" rhs2 = "<<xt::adapt(xt::view(earth + 1./8  * (W - E), xt::range(_, end_odd)).shape())<<std::flush;
+
+    // std::cout<<std::endl<<"Showing shapes - view = "<< xt::adapt(xt::view(earth + 1./8  * (W - E), xt::range(_, end_odd)).shape())<<std::flush;
+
+    // xt::view(val, xt::range(start_even, _, 2)) = xt::view(earth + 1./8  * (W - E),  xt::range(start_even, _));
+
+
+
+    // xt::view(val, xt::range(start_odd, _, 2))  = xt::view(earth + 1./8  * (W - E), xt::range(_, end_odd));
+
+    // std::cout<<std::endl<<"Earth = "<<xt::adapt(earth.shape())<<std::endl;
 
     xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth 
                                                           + 1./8               * (W - E) 
@@ -181,19 +206,44 @@ xt::xtensor<double, 1> prediction_all(const Field & f, std::size_t level_g, std:
     return out;
 }
 
-template<class Field>
-void foo(Field & f)
+template<class Config, class Field>
+void save_reconstructed(Field & f, mure::Mesh<Config> & init_mesh, 
+                        double eps, std::size_t ite, std::string ext="")
 {
 
+    
+
+
     auto mesh = f.mesh();
+    auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
+
 
     mure::mr_projection(f);
     f.update_bc();
     mure::mr_prediction(f);
 
+
+
+    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0}
+                    }} };
+
+  
+    mure::Field<Config, double, 2> f_reconstructed("f_reconstructed", init_mesh, bc);
+    f_reconstructed.array().fill(0);
+
+
     for (std::size_t level = 0; level <= max_level; ++level)
     {
+        auto number_leaves = mesh.nb_cells(level, mure::MeshType::cells);
+
+        std::cout<<std::endl<<"Level = "<<level<<"   Until the end = "<<(max_level - level)
+                            <<"  Num cells = "<<number_leaves<<"  At finest = "<<number_leaves * (1 << (max_level - level))<<std::flush;
+
+                            
         auto leaves_on_finest = mure::intersection(mesh[mure::MeshType::cells][level],
                                                    mesh[mure::MeshType::cells][level]);
         
@@ -201,14 +251,29 @@ void foo(Field & f)
             auto k = interval[0];
             auto h = index[0];
 
-            std::cout<<std::endl<<"In foo - level = "<<level<<"  k = "<<k<<"  h = "<<h<<std::flush;
+            // std::cout<<std::endl<<"Level = "<<level<<"  k = "<<k<<"   h = "<<h;
 
             auto tmp = prediction_all(f, level, max_level - level, k, h);
 
+            // std::cout<<std::endl<<"Level = "<<level<<"  k = "<<k<<"   h = "<<h<<" Field = "<<xt::adapt(tmp.shape())<<std::flush;
+            // std::cout<<std::endl<<"Level = "<<level<<"  k = "<<k<<"   h = "<<h<<" Field = "<<tmp<<std::flush;
+
+            f_reconstructed(max_level, k, h) = prediction_all(f, level, max_level - level, k, h);
 
         });
 
     }
+
+    std::cout<<std::endl;
+
+    std::stringstream str;
+    str << "Finest_Reconstruction_2D_reconstructed_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
+        << eps << "_ite-" << ite;
+
+    auto h5file = mure::Hdf5(str.str().data());
+    h5file.add_mesh(init_mesh);
+    h5file.add_field(f_reconstructed);
+
 }
 
 
@@ -219,8 +284,8 @@ int main(int argc, char *argv[])
                              "...");
 
     options.add_options()
-                       ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
+                       ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("6"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
@@ -270,10 +335,10 @@ int main(int argc, char *argv[])
             mure::mr_prediction_overleaves(f);
 
             save_solution(f, eps, 0);
-            save_solution(f_everywhere_refined, 0., 0);
+            save_solution(f_everywhere_refined, 0., 0, std::string("original"));
 
 
-            foo(f);
+            save_reconstructed(f, mesh_everywhere_refined, 0., 0);
 
             
         }
