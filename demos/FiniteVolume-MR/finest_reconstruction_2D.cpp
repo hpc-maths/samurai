@@ -74,14 +74,105 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 
 // Attention : the number 2 as second template parameter does not mean
 // that we are dealing with two fields!!!!
-template<class Field, class interval_t, class ordinates_t>
-xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std::size_t level, 
-                                      const interval_t & k, const ordinates_t & h)
+template<class Field, class interval_t, class ordinates_t, class ordinates_t_bis>
+xt::xtensor<double, 2> prediction_all(std::size_t icase, const Field & f, std::size_t level_g, std::size_t level, 
+                                      const interval_t & k, const ordinates_t & h, 
+                                      std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>, xt::xtensor<double, 2>> & mem_map)
 {
 
     // That is used to employ _ with xtensor
     using namespace xt::placeholders;
 
+    // mem_map.clear();
+
+    // auto it_foo = mem_map.find({level_g, level, k, h});
+
+    // std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>, xt::xtensor<double, 2>> map_copy;
+
+    // map_copy.clear();
+
+    // auto key = it_foo->first;
+    // auto value = xt::xtensor<double, 2>();
+
+    // map_copy[key] = value;
+
+
+    // {
+    //     auto it = map_copy.find({level_g, level, {-1, 7}, h});
+    //     std::cout<<std::endl<<"[-1, 7[ = "<<((it != map_copy.end()) ? "OK" : "NO")<<std::flush;
+    // }
+    // {
+    //     auto it = map_copy.find({level_g, level, {-1, 33}, h});
+    //     std::cout<<std::endl<<"[-1, 33[ = "<<((it != map_copy.end()) ? "OK" : "NO")<<std::flush;
+    // }
+    // {
+    //     auto it = map_copy.find({level_g, level, {0, 33}, h});
+    //     std::cout<<std::endl<<"[0, 33[ = "<<((it != map_copy.end()) ? "OK" : "NO")<<std::flush;
+    // }
+    // {
+    //     auto it = map_copy.find({level_g, level, {0, 40}, h});
+    //     std::cout<<std::endl<<"[0, 40[ = "<<((it != map_copy.end()) ? "OK" : "NO")<<std::flush;
+    // }
+
+    auto it = mem_map.find({level_g, level, k, h});
+
+
+    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())    {
+    
+
+        // std::cout<<"*"<<std::flush;
+
+        // std::cout<<std::endl<<"Element found in the memoization map"
+        //             <<"\nAsking k = "<<k<<"  Offering k = "<<std::get<2>(it->first)<<std::flush;
+        
+        return it->second;
+
+        // auto offering = std::get<2>(it->first);
+
+        // auto delta_start =        k.start - offering.start ;
+        // auto delta_end   = offering.end   -        k.end   ;
+
+        // auto offering_data = it->second;
+
+        // xt::xtensor<double, 2> to_return = xt::zeros<double>({k.size(), 2});
+
+        // if (delta_start >= 0)   {
+        //     // We have more information in the offering
+        //     auto min_end = std::min(k.end, offering.end);
+
+        //     xt::view(to_return, xt::range(_, min_end), xt::all()) = xt::view(offering_data, xt::range(delta_start, min_end), xt::all());
+        // }
+        // else
+        // {
+        //     // We have to complete by prediction
+
+        //     auto min_end = std::min(k.end, offering.end);
+
+        //     xt::view(to_return, xt::range(_, -delta_start), xt::all()) = prediction_all(f, level_g, level, {k.start, k.start - delta}, h, mem_map);
+        //     xt::view(to_return, xt::range(-delta_start, min_end), xt::all()) = xt::view(offering_data, xt::range(_, min_end), xt::all());
+            
+        // }
+
+        // if (delta_end >= 0) {
+        //     to_return = xt::view(to_return,  xt::range(_, offering.end - delta_end, xt::all()));
+        // }
+        // else
+        // {
+        //     // We have to make predictions
+        //     auto to_append_end =  prediction_all(f, level_g, level, {offering.end, offering.end - delta}, h, mem_map);
+        //     // Put at the end of to_return
+        // }
+        
+        
+        
+
+        // // return xt::view(it->second, xt::range(delta_start, offering.end - delta_end), xt::all());
+        // return to_return;
+
+    }
+    else
+    {
+        
 
     auto mesh = f.mesh();
 
@@ -105,6 +196,7 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
     if (xt::all(mask))
     {         
         // std::cout<<std::endl<<"Returning - level_g = "<<level_g<<"  level = "<<level<<"   k = "<<k<<"   h = "<<h;//" Value = "<<xt::adapt(xt::eval(f(0, level_g + level, k, h)).shape());
+        
         return xt::eval(f(level_g + level, k, h));
     }
 
@@ -127,19 +219,16 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
     */
 
 
+    // auto earth  = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1)    , mem_map));
+    // auto W      = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1)    , mem_map));
+    // auto E      = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1)    , mem_map));
+    // auto S      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) - 1, mem_map));
+    // auto N      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) + 1, mem_map));
+    // auto SW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) - 1, mem_map));
+    // auto SE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) - 1, mem_map));
+    // auto NW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) + 1, mem_map));
+    // auto NE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) + 1, mem_map));
 
-
-    auto earth  = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1)    ));
-    auto W      = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1)    ));
-    auto E      = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1)    ));
-    auto S      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) - 1));
-    auto N      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) + 1));
-    auto SW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) - 1));
-    auto SE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) - 1));
-    auto NW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) + 1));
-    auto NE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) + 1));
-
-    // std::cout<<std::endl<<"HERE = "<<(level - 1 + level_g)<<"  kg = "<<kg<<"  hg = "<<(h>>1)<<" value = "<<earth<<std::flush;
 
     // This is to deal with odd/even indices in the x direction
     std::size_t start_even = (k.start & 1) ?     1         :     0        ; 
@@ -161,37 +250,104 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
     dy = 0, 1
     */
 
-    // // Gives a segfault as well
-
-    // xt::view(val, xt::range(start_even, _, 2)) = xt::view(earth - 1./8 * (E - W), xt::range(start_even, _));
-    // xt::view(val, xt::range(start_odd, _, 2))  = xt::view(earth + 1./8 * (E - W), xt::range(_, end_odd));
-
-    // std::cout<<std::endl<<"Comparing shapes - lhs1 = "<<xt::adapt(xt::view(val, xt::range(start_even, _, 2)).shape())
-    //                             <<" rhs1 = "<<xt::adapt(xt::view(earth + 1./8  * (W - E),  xt::range(start_even, _)).shape())
-    //                             <<" lhs2 = "<<xt::adapt(xt::view(val, xt::range(start_odd, _, 2)).shape())
-    //                             <<" rhs2 = "<<xt::adapt(xt::view(earth + 1./8  * (W - E), xt::range(_, end_odd)).shape())<<std::flush;
-
-    // std::cout<<std::endl<<"Showing shapes - view = "<< xt::adapt(xt::view(earth + 1./8  * (W - E), xt::range(_, end_odd)).shape())<<std::flush;
-
-    // xt::view(val, xt::range(start_even, _, 2)) = xt::view(earth + 1./8  * (W - E),  xt::range(start_even, _));
+    // std::cout<<std::endl<<"  Dim H = "<<xt::adapt(earth.shape())
+    //                     <<"  Dim W = "<<xt::adapt(W.shape())
+    //                     <<"  Dim E = "<<xt::adapt(E.shape())
+    //                     <<"  Dim S = "<<xt::adapt(S.shape())
+    //                     <<"  Dim N = "<<xt::adapt(N.shape())
+    //                     <<"  Dim SW = "<<xt::adapt(SW.shape())
+    //                     <<"  Dim SE = "<<xt::adapt(SE.shape())
+    //                     <<"  Dim NW = "<<xt::adapt(NW.shape())
+    //                     <<"  Dim NE = "<<xt::adapt(NE.shape())<<std::flush;
 
 
-
-    // xt::view(val, xt::range(start_odd, _, 2))  = xt::view(earth + 1./8  * (W - E), xt::range(_, end_odd));
-
-    // std::cout<<std::endl<<"Earth = "<<xt::adapt(earth.shape())<<std::endl;
-
-    xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth 
-                                                          + 1./8               * (W - E) 
-                                                          + 1./8  * m1_delta_y * (S - N) 
-                                                          - 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(start_even, _));
+    // xt::view(val, xt::range(start_even, _, 2)) = xt::view(earth + E + W, xt::range(start_even, _));
 
 
 
-    xt::view(val, xt::range(start_odd, _, 2))  = xt::view(                        earth 
-                                                          - 1./8               * (W - E) 
-                                                          + 1./8  * m1_delta_y * (S - N)
-                                                          + 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(_, end_odd));
+    // xt::view(val, xt::range(start_odd, _, 2))  = xt::view(earth + E + W, xt::range(_, end_odd));
+    if (icase == 0) // EARTH
+    {
+        auto data  = xt::eval(prediction_all(icase, f, level_g, level - 1, kg    , (h>>1)    , mem_map));
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(data, xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(data, xt::range(_, end_odd));
+    }
+    
+    else if (icase == 1) // W
+    {
+        auto data = xt::eval(prediction_all(icase, f, level_g, level - 1, kg - 1, (h>>1)    , mem_map));
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(1./8*data, xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(-1./8*data, xt::range(_, end_odd));
+    }
+    else if (icase == 2) // E
+    {
+        std::cout<<std::endl<<"E - level - 1 = "<<(level-1)<<"  kg + 1 = "<<(kg + 1)<<"  hg = "<<(h>>1)<<std::flush;
+        auto data = xt::eval(prediction_all(icase, f, level_g, level - 1, kg + 1, (h>>1)    , mem_map));
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(-1./8*data, xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(1./8*data, xt::range(_, end_odd));
+    }
+    else if (icase == 3) // S
+    {
+        std::cout<<std::endl<<"S - level - 1 = "<<(level-1)<<"  kg= "<<kg<<"  hg - 1 = "<<(h>>1) - 1<<std::flush;
+        auto data = xt::eval(prediction_all(icase, f, level_g, level - 1, kg    , (h>>1) - 1, mem_map));
+
+        std::cout<<std::endl<<"   lhs1 = " << xt::adapt(xt::view(val, xt::range(start_even, _, 2)).shape())
+                            <<"   rhs1 = " << xt::adapt(xt::view(1./8*m1_delta_y*data, xt::range(start_even, end_even)).shape())
+                            <<"   lhs2 = " << xt::adapt(xt::view(val, xt::range(start_odd, _, 2)).shape())
+                            <<"   rhs2 = " << xt::adapt(xt::view(1./8*m1_delta_y*data, xt::range(start_odd, end_odd)).shape())<<std::flush;
+        std::cout<<std::endl<<"start even = "<<start_even<<" end even = "<<end_even
+                            <<"start odd = "<<start_odd<<" end odd = "<<end_odd<<std::flush;
+
+
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(1./8*m1_delta_y*data, xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(1./8*m1_delta_y*data, xt::range(_, end_odd));
+    }
+    else if (icase == 4) //N
+    {
+        auto data = xt::eval(prediction_all(icase, f, level_g, level - 1, kg    , (h>>1) + 1, mem_map));
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(-1./8*m1_delta_y*data, xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(-1./8*m1_delta_y*data, xt::range(_, end_odd));
+    }
+    else if (icase == 5) // SW
+    {
+        auto data = xt::eval(prediction_all(icase, f, level_g, level - 1, kg - 1, (h>>1) - 1, mem_map));
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(-1/64. * m1_delta_y *data, xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(1/64. * m1_delta_y *data, xt::range(_, end_odd));
+    }
+    else if (icase == 6) // SE
+    {
+        auto data = xt::eval(prediction_all(icase, f, level_g, level - 1, kg + 1, (h>>1) - 1, mem_map));
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(1/64. * m1_delta_y *data, xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(-1/64. * m1_delta_y *data, xt::range(_, end_odd));
+    }
+    else if (icase == 7) // NW
+    {
+        auto data = xt::eval(prediction_all(icase, f, level_g, level - 1, kg - 1, (h>>1) + 1, mem_map));
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(-1/64. * m1_delta_y *data, xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(1/64. * m1_delta_y *data, xt::range(_, end_odd));
+    }
+    else if (icase == 8) // NE
+    {
+        auto data = xt::eval(prediction_all(icase, f, level_g, level - 1, kg + 1, (h>>1) + 1, mem_map));
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(1/64. * m1_delta_y *data, xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(-1/64. * m1_delta_y *data, xt::range(_, end_odd));
+    }
+        // auto SW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) - 1, mem_map));
+    // auto SE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) - 1, mem_map));
+    // auto NW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) + 1, mem_map));
+    // auto NE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) + 1, mem_map));
+
+    // xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth 
+    //                                                       + 1./8               * (W - E) 
+    //                                                       + 1./8  * m1_delta_y * (S - N) 
+    //                                                       - 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(start_even, _));
+
+
+
+    // xt::view(val, xt::range(start_odd, _, 2))  = xt::view(                        earth 
+    //                                                       - 1./8               * (W - E) 
+    //                                                       + 1./8  * m1_delta_y * (S - N)
+    //                                                       + 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(_, end_odd));
 
     xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
 
@@ -203,7 +359,13 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
         }
     }
 
-    return out;
+    // std::cout<<std::endl<<"Interval = "<<k<<"   Size = "<<k.size()<<"  Size before returning = "<<xt::adapt(out.shape())<<std::endl;
+
+    return mem_map[{level_g, level, k, h}] = out;
+
+    // return out;
+
+    }
 }
 
 template<class Config, class Field>
@@ -212,8 +374,6 @@ void save_reconstructed(Field & f, mure::Mesh<Config> & init_mesh,
 {
 
     
-
-
     auto mesh = f.mesh();
     auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
@@ -233,35 +393,58 @@ void save_reconstructed(Field & f, mure::Mesh<Config> & init_mesh,
 
   
     mure::Field<Config, double, 2> f_reconstructed("f_reconstructed", init_mesh, bc);
-    f_reconstructed.array().fill(0);
+    f_reconstructed.array().fill(0.);
 
 
-    for (std::size_t level = 0; level <= max_level; ++level)
+    // For memoization
+    using interval_t  = typename Config::interval_t; // Type in X
+    using ordinates_t = typename Config::index_t;    // Type in Y
+    std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t>, xt::xtensor<double, 2>> memoization_map;
+
+    //memoization_map.clear();
+
+    for(std::size_t icase = 0; icase < 9; ++icase)
     {
-        auto number_leaves = mesh.nb_cells(level, mure::MeshType::cells);
+        memoization_map.clear();
+        std::cout << "CASE " << icase << "\n";
+        // if (icase >= 3 and icase <= 7)
+        // {
+        //     continue;
+        // }
+        for (std::size_t level = 0; level <= max_level; ++level)
+        {
+            auto number_leaves = mesh.nb_cells(level, mure::MeshType::cells);
 
-        std::cout<<std::endl<<"Level = "<<level<<"   Until the end = "<<(max_level - level)
-                            <<"  Num cells = "<<number_leaves<<"  At finest = "<<number_leaves * (1 << (max_level - level))<<std::flush;
+            std::cout<<std::endl<<"Level = "<<level<<"   Until the end = "<<(max_level - level)
+                                <<"  Num cells = "<<number_leaves<<"  At finest = "<<number_leaves * (1 << (max_level - level))<<std::endl;
 
-                            
-        auto leaves_on_finest = mure::intersection(mesh[mure::MeshType::cells][level],
-                                                   mesh[mure::MeshType::cells][level]);
-        
-        leaves_on_finest.on(max_level)([&](auto& index, auto &interval, auto) {
-            auto k = interval[0];
-            auto h = index[0];
 
-            // std::cout<<std::endl<<"Level = "<<level<<"  k = "<<k<<"   h = "<<h;
+            auto leaves_on_finest = mure::intersection(mesh[mure::MeshType::cells][level],
+                                                    mesh[mure::MeshType::cells][level]);
+            
+            leaves_on_finest.on(max_level)([&](auto& index, auto &interval, auto) {
+                auto k = interval[0];
+                auto h = index[0];
 
-            auto tmp = prediction_all(f, level, max_level - level, k, h);
 
-            // std::cout<<std::endl<<"Level = "<<level<<"  k = "<<k<<"   h = "<<h<<" Field = "<<xt::adapt(tmp.shape())<<std::flush;
-            // std::cout<<std::endl<<"Level = "<<level<<"  k = "<<k<<"   h = "<<h<<" Field = "<<tmp<<std::flush;
+                std::cout<<std::endl<<"Reconstructing dir = "<<icase<<"  at finest k  = "<<k<<"   h = "<<h<<std::flush;
 
-            f_reconstructed(max_level, k, h) = prediction_all(f, level, max_level - level, k, h);
+                if (level == max_level)
+                { 
+                    if (icase == 0)
+                    {
+                        f_reconstructed(max_level, k, h) = f(max_level, k, h);
+                    }
+                }
+                else
+                {
+                    f_reconstructed(max_level, k, h) += prediction_all(icase, f, level, max_level - level, k, h, memoization_map);
+                }
+                
 
-        });
 
+            });
+        }
     }
 
     std::cout<<std::endl;
@@ -284,7 +467,7 @@ int main(int argc, char *argv[])
                              "...");
 
     options.add_options()
-                       ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("6"))
+                       ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
                        ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
