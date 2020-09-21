@@ -10,14 +10,33 @@
 #include "criteria.hpp"
 #include "prediction_map_2d.hpp"
 
+/// Timer used in tic & toc
+auto tic_timer = std::chrono::high_resolution_clock::now();
+
+/// Launching the timer
+void tic()
+{
+    tic_timer = std::chrono::high_resolution_clock::now();
+}
+
+/// Stopping the timer and returning the duration in seconds
+double toc()
+{
+    const auto toc_timer = std::chrono::high_resolution_clock::now();
+    const std::chrono::duration<double> time_span = toc_timer - tic_timer;
+    return time_span.count();
+}
+
 // double lambda = 1./0.3; //4.0; // We always used it
-double lambda = 1./0.2499; //4.0;
+// double lambda = 1./0.2499; //4.0;
+
+double lambda = 1./0.2;
 
 double sigma_q = 0.5; 
 double sigma_xy = 0.5;
 
-double sq = 1.5;//1./(.5 + sigma_q);
-double sxy = 1./(.5 + sigma_xy);
+double sq = 1.75;//1./(.5 + sigma_q);
+double sxy = 0.5;//1./(.5 + sigma_xy);
 
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
@@ -65,15 +84,30 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // qy = rho * 0.0;
                 // p = 1.0;
 
+                // // Configuration 11
                 // rho = 0.8;
                 // qx = rho * 0.1;
                 // qy = rho * 0.0;
                 // p = 0.4;
 
-                rho = 1.0625;
-                qx = rho * 0.;
-                qy = rho * 0.2145;
-                p = 0.4;
+
+                // // Configuration 12
+                // rho = 0.8;
+                // qx = rho * 0.0;
+                // qy = rho * 0.0;
+                // p = 1.;
+
+                //// Configuration 17
+                // rho = 1.0625;
+                // qx = rho * 0.;
+                // qy = rho * 0.2145;
+                // p = 0.4;
+
+                //// Configuration 3
+                rho = 0.138;
+                qx = rho * 1.206;
+                qy = rho * 1.206;
+                p = 0.029;
 
             }
             else
@@ -89,15 +123,33 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // qy = rho * 0.0;
                 // p = 1.0;
 
+                // // Configuration 11
+
                 // rho = 0.5313;
                 // qx = rho * 0.8276;
                 // qy = rho * 0.0;
                 // p = 0.4;
 
-                rho = 2.;
-                qx = rho * 0.;
-                qy = rho * (-0.3);
-                p = 1.;
+
+                // // Configuration 12
+
+                // rho = 1.;
+                // qx = rho * 0.7276;
+                // qy = rho * 0.0;
+                // p = 1.;
+
+
+                //// Configuration 17
+                // rho = 2.;
+                // qx = rho * 0.;
+                // qy = rho * (-0.3);
+                // p = 1.;
+
+                // Configuration 3
+                rho = 0.5323;
+                qx = rho * 1.206;
+                qy = rho * 0.;
+                p = 0.3;
             }
         }
         else
@@ -114,15 +166,29 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // qy = rho * 0.7276;
                 // p = 1.0;
 
+                // // Configuration 11
                 // rho = 0.5313;
                 // qx = rho * 0.1;
                 // qy = rho * 0.7276;
                 // p = 0.4;
 
-                rho = 0.5197;
+                // // // Configuration 12
+                // rho = 1.;
+                // qx = rho * 0.0;
+                // qy = rho * 0.7276;
+                // p = 1.;
+
+                //// Configuration 17
+                // rho = 0.5197;
+                // qx = rho * 0.;
+                // qy = rho * (-1.1259);
+                // p = 0.4;
+
+                //// Configuration 3
+                rho = 0.5323;
                 qx = rho * 0.;
-                qy = rho * (-1.1259);
-                p = 0.4;
+                qy = rho * 1.206;
+                p = 0.3;
             }
             else
             {
@@ -137,16 +203,30 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // qy = rho * 0.0;
                 // p = 0.4;
 
-                                
+                // // Configuration 11
                 // rho = 1.;
                 // qx = rho * 0.1;
                 // qy = rho * 0.0;
                 // p = 1.;
 
-                rho = 1.;
+                // // // Configuration 12
+                // rho = 0.5313;
+                // qx = rho * 0.0;
+                // qy = rho * 0.0;
+                // p = 0.4;
+
+
+                //// Configuration 17
+                // rho = 1.;
+                // qx = rho * 0.;
+                // qy = rho * (-0.4);
+                // p = 1.;
+
+                //// Configuration 3
+                rho = 1.5;
                 qx = rho * 0.;
-                qy = rho * (-0.4);
-                p = 1.;
+                qy = rho * 0.;
+                p = 1.5;
             }
         }
         
@@ -285,7 +365,7 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
         int size = (1<<k);
 
 
-        data[k].resize(8);
+        data[k].resize(12);
 
 
         // Parallel velocities
@@ -304,6 +384,12 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 
                 data[k][0 + 2 * alpha] += prediction(k, tau_inverse(k, rotated_in.first ), tau_inverse(k, rotated_in.second ));
                 data[k][1 + 2 * alpha] += prediction(k, tau_inverse(k, rotated_out.first), tau_inverse(k, rotated_out.second));
+
+                // For the cells inside the domain, we can already
+                // Combine entering and exiting fluxes and 
+                // we have a compensation of many cells.
+                data[k][8 + alpha] += (prediction(k, tau_inverse(k, rotated_in.first ), tau_inverse(k, rotated_in.second ))
+                                     - prediction(k, tau_inverse(k, rotated_out.first), tau_inverse(k, rotated_out.second)));
 
             }
         }
@@ -324,7 +410,7 @@ auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, mure::MeshType t
 
     std::size_t coeff = 1 << (mesh.max_level() - level); // When we are not at the finest level, we must translate more
 
-    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), -coeff * xp)),
+    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), - xp)),
                                               difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), -coeff * yp))), // Removing NE
                                    difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), coeff * yp))), // Removing SE
                         mesh[type][level]);//.on(level);
@@ -439,13 +525,9 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
     
-    std::cout<<std::endl<<"[+] Projecting"<<std::flush;
     mure::mr_projection(f);
-    std::cout<<std::endl<<"[+] Updating BC"<<std::flush;
     f.update_bc(); // It is important to do so
-    std::cout<<std::endl<<"[+] Predicting"<<std::flush;
     mure::mr_prediction(f);
-    std::cout<<std::endl<<"[+] Predicting overleaves"<<std::flush;
     mure::mr_prediction_overleaves(f);
 
     Field new_f{"new_f", mesh};
@@ -460,14 +542,18 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
     Field advected{"advected", mesh};
     advected.array().fill(0.);
 
+
+    double time_advection_overleaves_boundary = 0.;
+    double time_advection_overleaves_inside = 0.;
+    double time_collision_overleaves = 0.;
+
     for (std::size_t level = 0; level <= max_level; ++level)
     {
 
         if (level == max_level) {
 
-            std::cout<<std::endl<<"[+] Advecting at finest"<<std::flush;
-            
-            std::cout<<std::endl<<"[=] East"<<std::flush;
+            // tic();
+
             auto leaves_east = get_adjacent_boundary_east(mesh, max_level, mure::MeshType::cells);
             leaves_east.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -482,7 +568,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
             
-            std::cout<<std::endl<<"[=] North"<<std::flush;
             auto leaves_north = get_adjacent_boundary_north(mesh, max_level, mure::MeshType::cells);
             leaves_north.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -497,7 +582,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
-            std::cout<<std::endl<<"[=] NorthEast"<<std::flush;
             auto leaves_northeast = get_adjacent_boundary_northeast(mesh, max_level, mure::MeshType::cells);
             leaves_northeast.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -512,7 +596,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
-            std::cout<<std::endl<<"[=] West"<<std::flush;
             auto leaves_west = get_adjacent_boundary_west(mesh, max_level, mure::MeshType::cells);
             leaves_west.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -527,7 +610,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
-            std::cout<<std::endl<<"[=] NorthWest"<<std::flush;
             auto leaves_northwest = get_adjacent_boundary_northwest(mesh, max_level, mure::MeshType::cells);
             leaves_northwest.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -542,7 +624,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
-            std::cout<<std::endl<<"[=] South"<<std::flush;
             auto leaves_south = get_adjacent_boundary_south(mesh, max_level, mure::MeshType::cells);
             leaves_south.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -557,7 +638,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
-            std::cout<<std::endl<<"[=] SouthWest"<<std::flush;
             auto leaves_southwest = get_adjacent_boundary_southwest(mesh, max_level, mure::MeshType::cells);
             leaves_southwest.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -572,7 +652,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
-            std::cout<<std::endl<<"[=] SouthEast"<<std::flush;
             auto leaves_southeast = get_adjacent_boundary_southeast(mesh, max_level, mure::MeshType::cells);
             leaves_southeast.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -587,6 +666,11 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
+            // auto time1 = toc();
+            // std::cout<<std::endl<<"Advection boundary finest level = "<<time1<<std::flush;
+
+
+            // tic();
 
             // Advection far from the boundary
             auto tmp1 = union_(union_(union_(leaves_east, leaves_north), leaves_west), leaves_south);
@@ -595,7 +679,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
             auto internal_leaves = mure::difference(mesh[mure::MeshType::cells][max_level],
                                       all_leaves_boundary).on(max_level); // It is very important to project at this point
 
-            std::cout<<std::endl<<"[=] Far from the boundary"<<std::flush;
             internal_leaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
@@ -609,12 +692,15 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
+            // auto time2 = toc();
+            // std::cout<<std::endl<<"Advection inside finest level = "<<time2<<std::flush;
 
+
+            // tic();
             // Its time for collision which is local
             auto leaves = intersection(mesh[mure::MeshType::cells][max_level], 
                                        mesh[mure::MeshType::cells][max_level]);
 
-            std::cout<<std::endl<<"[+] Colliding at finest"<<std::flush;
             leaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y  
@@ -703,34 +789,42 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
             });                       
 
+            // auto time3 = toc();
+
+            // std::cout<<std::endl<<"Collision finest level = "<<time3<<std::flush;
+
+
         }
 
         else
         {
 
-            std::size_t j = max_level - (level + 1);
-            double coeff = 1. / (1 << (2*j)); // ATTENTION A LA DIMENSION 2 !!!!
 
-            std::cout<<std::endl<<"[+] Advecting at level "<<level<<" with overleaves at "<<(level + 1)<<std::flush;
+            auto lev_p_1 = level + 1;
+
+
+            std::size_t j = max_level - (lev_p_1);
+
+            // tic();
+
 
             // This is necessary because the only overleaves we have to advect
             // on are the ones superposed with the leaves to which we come back
             // eventually in the process
-            auto overleaves_east = intersection(get_adjacent_boundary_east(mesh, level + 1, mure::MeshType::overleaves), 
+            auto overleaves_east = intersection(get_adjacent_boundary_east(mesh, lev_p_1, mure::MeshType::overleaves), 
                                                 mesh[mure::MeshType::cells][level]); 
 
-            auto overleaves_northeast = intersection(get_adjacent_boundary_northeast(mesh, level + 1, mure::MeshType::overleaves), 
+            auto overleaves_northeast = intersection(get_adjacent_boundary_northeast(mesh, lev_p_1, mure::MeshType::overleaves), 
                                                 mesh[mure::MeshType::cells][level]); 
                                                 
-            auto overleaves_southeast = intersection(get_adjacent_boundary_southeast(mesh, level + 1, mure::MeshType::overleaves), 
+            auto overleaves_southeast = intersection(get_adjacent_boundary_southeast(mesh, lev_p_1, mure::MeshType::overleaves), 
                                                 mesh[mure::MeshType::cells][level]); 
                                                                                     
             auto touching_east = union_(union_(overleaves_east, overleaves_northeast), 
                                         overleaves_southeast);
 
             // General
-            std::cout<<std::endl<<"[=] East/NorthEast/SouthEast"<<std::flush;
-            touching_east.on(level + 1)([&](auto& index, auto &interval, auto) {
+            touching_east.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
@@ -741,7 +835,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(0 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(0 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
                     for(auto &c: pred_coeff[j][1].coeff) // Out E
@@ -749,7 +843,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(0 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(0 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
                     for(auto &c: pred_coeff[j][3].coeff) // Out N
@@ -757,7 +851,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
                     for(auto &c: pred_coeff[j][5].coeff) // Out W
@@ -765,7 +859,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(2 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(2 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
                     
@@ -774,13 +868,12 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                 }
             });
             // Corrections
-            std::cout<<std::endl<<"[=] East"<<std::flush;
-            overleaves_east.on(level + 1)([&](auto& index, auto &interval, auto) {
+            overleaves_east.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
@@ -790,7 +883,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
                     for(auto &c: pred_coeff[j][6].coeff) // In N
@@ -798,15 +891,14 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
-                    fluxes(2 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(2 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(2 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(2 + 4 * scheme_n, lev_p_1, k, h);
                 }
             });
 
-            std::cout<<std::endl<<"[=] NorthEast"<<std::flush;
-            overleaves_northeast.on(level + 1)([&](auto& index, auto &interval, auto) {
+            overleaves_northeast.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
@@ -816,51 +908,49 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
-                    fluxes(3 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(3 + 4 * scheme_n, level + 1, k, h);
-                    fluxes(2 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(2 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(3 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(3 + 4 * scheme_n, lev_p_1, k, h);
+                    fluxes(2 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(2 + 4 * scheme_n, lev_p_1, k, h);
                 }
             });
 
-            std::cout<<std::endl<<"[=] SouthEast"<<std::flush;
-            overleaves_southeast.on(level + 1)([&](auto& index, auto &interval, auto) {
+            overleaves_southeast.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
                 for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
 
-                    fluxes(1 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(1 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(1 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(1 + 4 * scheme_n, lev_p_1, k, h);
                     
                     for(auto &c: pred_coeff[j][6].coeff) // In N
                     {
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
-                    fluxes(2 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(2 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(2 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(2 + 4 * scheme_n, lev_p_1, k, h);
                 }
                 
             });
 
 
-            auto overleaves_west = intersection(get_adjacent_boundary_west(mesh, level + 1, mure::MeshType::overleaves), 
+            auto overleaves_west = intersection(get_adjacent_boundary_west(mesh, lev_p_1, mure::MeshType::overleaves), 
                                                 mesh[mure::MeshType::cells][level]); 
 
-            auto overleaves_northwest = intersection(get_adjacent_boundary_northwest(mesh, level + 1, mure::MeshType::overleaves), 
+            auto overleaves_northwest = intersection(get_adjacent_boundary_northwest(mesh, lev_p_1, mure::MeshType::overleaves), 
                                                 mesh[mure::MeshType::cells][level]); 
                                                 
-            auto overleaves_southwest = intersection(get_adjacent_boundary_southwest(mesh, level + 1, mure::MeshType::overleaves), 
+            auto overleaves_southwest = intersection(get_adjacent_boundary_southwest(mesh, lev_p_1, mure::MeshType::overleaves), 
                                                 mesh[mure::MeshType::cells][level]); 
                                                                                     
             auto touching_west = union_(union_(overleaves_west, overleaves_northwest), 
                                         overleaves_southwest);
 
-            std::cout<<std::endl<<"[=] West/NorthWest/SouthWest"<<std::flush;
-            touching_west.on(level + 1)([&](auto& index, auto &interval, auto) {
+            touching_west.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
@@ -871,7 +961,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(0 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(0 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
                     for(auto &c: pred_coeff[j][3].coeff) // Out N
@@ -879,7 +969,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
 
@@ -888,7 +978,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(2 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(2 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
                     for(auto &c: pred_coeff[j][5].coeff) // Out W
@@ -896,7 +986,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(2 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(2 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
                     for(auto &c: pred_coeff[j][7].coeff) // Out S
@@ -904,25 +994,24 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                 }
             });
 
-            std::cout<<std::endl<<"[=] West"<<std::flush;
-            overleaves_west.on(level + 1)([&](auto& index, auto &interval, auto) {
+            overleaves_west.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
                 for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-                    fluxes(0 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(0 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(0 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(0 + 4 * scheme_n, lev_p_1, k, h);
 
                     for(auto &c: pred_coeff[j][2].coeff) // In S
                     {
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
                     for(auto &c: pred_coeff[j][6].coeff) // In N
@@ -930,41 +1019,39 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                 }
             });
 
-            std::cout<<std::endl<<"[=] NorthWest"<<std::flush;
-            overleaves_northwest.on(level + 1)([&](auto& index, auto &interval, auto) {
+            overleaves_northwest.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
                 for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-                    fluxes(0 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(0 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(0 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(0 + 4 * scheme_n, lev_p_1, k, h);
 
                     for(auto &c: pred_coeff[j][2].coeff) // In S
                     {
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
-                    fluxes(3 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(3 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(3 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(3 + 4 * scheme_n, lev_p_1, k, h);
                     
                 }
             });
 
-            std::cout<<std::endl<<"[=] SouthWest"<<std::flush;
-            overleaves_southwest.on(level + 1)([&](auto& index, auto &interval, auto) {
+            overleaves_southwest.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
                 for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-                    fluxes(0 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(0 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(0 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(0 + 4 * scheme_n, lev_p_1, k, h);
 
-                    fluxes(1 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(1 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(1 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(1 + 4 * scheme_n, lev_p_1, k, h);
                     
 
                     for(auto &c: pred_coeff[j][6].coeff) // In N
@@ -972,23 +1059,22 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                 }
             });
 
 
-            auto overleaves_south = intersection(get_adjacent_boundary_south(mesh, level + 1, mure::MeshType::overleaves), 
+            auto overleaves_south = intersection(get_adjacent_boundary_south(mesh, lev_p_1, mure::MeshType::overleaves), 
                                                 mesh[mure::MeshType::cells][level]); 
 
-            auto overleaves_north = intersection(get_adjacent_boundary_north(mesh, level + 1, mure::MeshType::overleaves), 
+            auto overleaves_north = intersection(get_adjacent_boundary_north(mesh, lev_p_1, mure::MeshType::overleaves), 
                                                 mesh[mure::MeshType::cells][level]); 
                                                 
                                                                                     
             auto north_and_south = union_(overleaves_south, overleaves_north);
 
-            std::cout<<std::endl<<"[=] North/South"<<std::flush;
-            north_and_south.on(level + 1)([&](auto& index, auto &interval, auto) {
+            north_and_south.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
@@ -999,7 +1085,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(0 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(0 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
                     for(auto &c: pred_coeff[j][1].coeff) // Out E
@@ -1007,7 +1093,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(0 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(0 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
                     for(auto &c: pred_coeff[j][3].coeff) // Out N
@@ -1015,7 +1101,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
 
@@ -1024,7 +1110,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(2 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(2 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
                     for(auto &c: pred_coeff[j][5].coeff) // Out W
@@ -1032,7 +1118,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(2 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(2 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
                     for(auto &c: pred_coeff[j][7].coeff) // Out S
@@ -1040,21 +1126,20 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                 }
 
             });
                                     
 
-            std::cout<<std::endl<<"[=] South"<<std::flush;
-            overleaves_south.on(level + 1)([&](auto& index, auto &interval, auto) {
+            overleaves_south.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
                 for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
 
-                    fluxes(1 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(1 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(1 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(1 + 4 * scheme_n, lev_p_1, k, h);
                 
   
                     for(auto &c: pred_coeff[j][6].coeff) // In N
@@ -1062,14 +1147,13 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }                    
                 }
 
             });
 
-            std::cout<<std::endl<<"[=] North"<<std::flush;
-            overleaves_north.on(level + 1)([&](auto& index, auto &interval, auto) {
+            overleaves_north.on(lev_p_1)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
@@ -1079,23 +1163,25 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                     }
 
   
-                    fluxes(3 + 4 * scheme_n, level + 1, k, h) += (1<<j) * coeff * f(3 + 4 * scheme_n, level + 1, k, h);
+                    fluxes(3 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(3 + 4 * scheme_n, lev_p_1, k, h);
                     
                 }
 
             });
+
+            // time_advection_overleaves_boundary += toc();
                     
+            // tic();
 
 
             // // To update
-            std::cout<<std::endl<<"[=] Far from the boundary"<<std::flush;
             auto overleaves_far_boundary = difference(mesh[mure::MeshType::cells][level], 
                                                       union_(union_(touching_east, touching_west), 
-                                                             north_and_south)).on(level + 1);  // Again, it is very important to project before using
+                                                             north_and_south)).on(lev_p_1);  // Again, it is very important to project before using
 
             overleaves_far_boundary([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -1103,166 +1189,153 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
                 for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
 
-                    for(auto &c: pred_coeff[j][0].coeff) // In W
+                    auto shift = 4 * scheme_n;
+
+                    for(auto &c: pred_coeff[j][8].coeff) 
                     {
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(0 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(0 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(0 + shift, lev_p_1, k, h) +=  c.second * f(0 + shift, lev_p_1, k + stencil_x, h + stencil_y);
+                    }
+                   
+                    for(auto &c: pred_coeff[j][9].coeff)
+                    {
+                        coord_index_t stencil_x, stencil_y;
+                        std::tie(stencil_x, stencil_y) = c.first;
+
+                        fluxes(1 + shift, lev_p_1, k, h) +=  c.second * f(1 + shift, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
-                    for(auto &c: pred_coeff[j][1].coeff) // Out E
+
+                    for(auto &c: pred_coeff[j][10].coeff)
                     {
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(0 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(0 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][2].coeff) // In S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(2 + shift, lev_p_1, k, h) +=  c.second * f(2 + shift, lev_p_1, k + stencil_x, h + stencil_y);
                     }
                     
-                    for(auto &c: pred_coeff[j][3].coeff) // Out N
+
+                    for(auto &c: pred_coeff[j][11].coeff)
                     {
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(1 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(1 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
+                        fluxes(3 + shift, lev_p_1, k, h) +=  c.second * f(3 + shift, lev_p_1, k + stencil_x, h + stencil_y);
                     }
-
-
-                    for(auto &c: pred_coeff[j][4].coeff) // In E
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(2 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(2 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
-                    }
-                    
-                    for(auto &c: pred_coeff[j][5].coeff) // Out W
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(2 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(2 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][6].coeff) // In N
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) += coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
-                    }
-                    
-                    for(auto &c: pred_coeff[j][7].coeff) // Out S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, level + 1, k, h) -= coeff * c.second * f(3 + 4 * scheme_n, level + 1, k + stencil_x, h + stencil_y);
-                    }
+                  
                 }
 
             });
 
-// Now that projection has been done, we have to come back on the leaves below the overleaves
+
+            // time_advection_overleaves_inside += toc();
+
+            // tic();
+
+            // Now that projection has been done, we have to come back on the leaves below the overleaves
+
+
             auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
                                              mesh[mure::MeshType::cells][level]);
 
-            std::cout<<std::endl<<"[+] Projection of the overleaves on their leaves and collision"<<std::flush;
             leaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
-                auto f0 = xt::eval(f(0, level, k, h)) + 0.25 * (fluxes(0, level + 1, 2*k,     2*h) 
-                                                              + fluxes(0, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(0, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(0, level + 1, 2*k + 1, 2*h + 1));
+                auto two_k = 2*k;
+                auto two_k_p_1 = 2*k+1;
+                auto two_h = 2*h;
+                auto two_h_p_1 = 2*h+1;
 
-                auto f1 = xt::eval(f(1, level, k, h)) + 0.25 * (fluxes(1, level + 1, 2*k,     2*h) 
-                                                              + fluxes(1, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(1, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(1, level + 1, 2*k + 1, 2*h + 1));
-
-                auto f2 = xt::eval(f(2, level, k, h)) + 0.25 * (fluxes(2, level + 1, 2*k,     2*h) 
-                                                              + fluxes(2, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(2, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(2, level + 1, 2*k + 1, 2*h + 1));
-
-                auto f3 = xt::eval(f(3, level, k, h)) + 0.25 * (fluxes(3, level + 1, 2*k,     2*h) 
-                                                              + fluxes(3, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(3, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(3, level + 1, 2*k + 1, 2*h + 1));
+                double coeff = 1. / (1 << (2*j)); // ATTENTION A LA DIMENSION 2 !!!!
 
 
-                auto f4 = xt::eval(f(4, level, k, h)) + 0.25 * (fluxes(4, level + 1, 2*k,     2*h) 
-                                                              + fluxes(4, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(4, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(4, level + 1, 2*k + 1, 2*h + 1));
+                auto f0 = xt::eval(f(0, level, k, h) + coeff * 0.25 * (fluxes(0, lev_p_1, two_k,     two_h) 
+                                                                     + fluxes(0, lev_p_1, two_k + 1, two_h)
+                                                                     + fluxes(0, lev_p_1, two_k,     two_h_p_1)
+                                                                     + fluxes(0, lev_p_1, two_k_p_1, two_h_p_1)));
 
-                auto f5 = xt::eval(f(5, level, k, h)) + 0.25 * (fluxes(5, level + 1, 2*k,     2*h) 
-                                                              + fluxes(5, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(5, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(5, level + 1, 2*k + 1, 2*h + 1));
+                auto f1 = xt::eval(f(1, level, k, h) + coeff * 0.25 * (fluxes(1, lev_p_1, two_k,     two_h) 
+                                                              + fluxes(1, lev_p_1, two_k_p_1, two_h)
+                                                              + fluxes(1, lev_p_1, two_k,     two_h_p_1)
+                                                              + fluxes(1, lev_p_1, two_k_p_1, two_h_p_1)));
 
-                auto f6 = xt::eval(f(6, level, k, h)) + 0.25 * (fluxes(6, level + 1, 2*k,     2*h) 
-                                                              + fluxes(6, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(6, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(6, level + 1, 2*k + 1, 2*h + 1));
+                auto f2 = xt::eval(f(2, level, k, h) + coeff * 0.25 * (fluxes(2, lev_p_1, two_k,     two_h) 
+                                                              + fluxes(2, lev_p_1, two_k_p_1, two_h)
+                                                              + fluxes(2, lev_p_1, two_k,     two_h_p_1)
+                                                              + fluxes(2, lev_p_1, two_k_p_1, two_h_p_1)));
 
-                auto f7 = xt::eval(f(7, level, k, h)) + 0.25 * (fluxes(7, level + 1, 2*k,     2*h) 
-                                                              + fluxes(7, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(7, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(7, level + 1, 2*k + 1, 2*h + 1));
-
-
-                auto f8 = xt::eval(f(8, level, k, h)) + 0.25 * (fluxes(8, level + 1, 2*k,     2*h) 
-                                                              + fluxes(8, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(8, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(8, level + 1, 2*k + 1, 2*h + 1));
-
-                auto f9 = xt::eval(f(9, level, k, h)) + 0.25 * (fluxes(9, level + 1, 2*k,     2*h) 
-                                                              + fluxes(9, level + 1, 2*k + 1, 2*h)
-                                                              + fluxes(9, level + 1, 2*k,     2*h + 1)
-                                                              + fluxes(9, level + 1, 2*k + 1, 2*h + 1));
-
-                auto f10 = xt::eval(f(10, level, k, h)) + 0.25 * (fluxes(10, level + 1, 2*k,     2*h) 
-                                                                + fluxes(10, level + 1, 2*k + 1, 2*h)
-                                                                + fluxes(10, level + 1, 2*k,     2*h + 1)
-                                                                + fluxes(10, level + 1, 2*k + 1, 2*h + 1));
-
-                auto f11 = xt::eval(f(11, level, k, h)) + 0.25 * (fluxes(11, level + 1, 2*k,     2*h) 
-                                                                + fluxes(11, level + 1, 2*k + 1, 2*h)
-                                                                + fluxes(11, level + 1, 2*k,     2*h + 1)
-                                                                + fluxes(11, level + 1, 2*k + 1, 2*h + 1));
+                auto f3 = xt::eval(f(3, level, k, h) + coeff * 0.25 * (fluxes(3, lev_p_1, two_k,     two_h) 
+                                                              + fluxes(3, lev_p_1, two_k_p_1, two_h)
+                                                              + fluxes(3, lev_p_1, two_k,     two_h_p_1)
+                                                              + fluxes(3, lev_p_1, two_k_p_1, two_h_p_1)));
 
 
-                auto f12 = xt::eval(f(12, level, k, h)) + 0.25 * (fluxes(12, level + 1, 2*k,     2*h) 
-                                                                + fluxes(12, level + 1, 2*k + 1, 2*h)
-                                                                + fluxes(12, level + 1, 2*k,     2*h + 1)
-                                                                + fluxes(12, level + 1, 2*k + 1, 2*h + 1));
+                auto f4 = xt::eval(f(4, level, k, h) + coeff * 0.25 * (fluxes(4, lev_p_1, two_k,     two_h) 
+                                                              + fluxes(4, lev_p_1, two_k_p_1, two_h)
+                                                              + fluxes(4, lev_p_1, two_k,     two_h_p_1)
+                                                              + fluxes(4, lev_p_1, two_k_p_1, two_h_p_1)));
 
-                auto f13 = xt::eval(f(13, level, k, h)) + 0.25 * (fluxes(13, level + 1, 2*k,     2*h) 
-                                                                + fluxes(13, level + 1, 2*k + 1, 2*h)
-                                                                + fluxes(13, level + 1, 2*k,     2*h + 1)
-                                                                + fluxes(13, level + 1, 2*k + 1, 2*h + 1));
+                auto f5 = xt::eval(f(5, level, k, h) + coeff * 0.25 * (fluxes(5, lev_p_1, two_k,     two_h) 
+                                                              + fluxes(5, lev_p_1, two_k_p_1, two_h)
+                                                              + fluxes(5, lev_p_1, two_k,     two_h_p_1)
+                                                              + fluxes(5, lev_p_1, two_k_p_1, two_h_p_1)));
 
-                auto f14 = xt::eval(f(14, level, k, h)) + 0.25 * (fluxes(14, level + 1, 2*k,     2*h) 
-                                                                + fluxes(14, level + 1, 2*k + 1, 2*h)
-                                                                + fluxes(14, level + 1, 2*k,     2*h + 1)
-                                                                + fluxes(14, level + 1, 2*k + 1, 2*h + 1));
+                auto f6 = xt::eval(f(6, level, k, h) + coeff * 0.25 * (fluxes(6, lev_p_1, two_k,     two_h) 
+                                                              + fluxes(6, lev_p_1, two_k_p_1, two_h)
+                                                              + fluxes(6, lev_p_1, two_k,     two_h_p_1)
+                                                              + fluxes(6, lev_p_1, two_k_p_1, two_h_p_1)));
 
-                auto f15 = xt::eval(f(15, level, k, h)) + 0.25 * (fluxes(15, level + 1, 2*k,     2*h) 
-                                                                + fluxes(15, level + 1, 2*k + 1, 2*h)
-                                                                + fluxes(15, level + 1, 2*k,     2*h + 1)
-                                                                + fluxes(15, level + 1, 2*k + 1, 2*h + 1));
+                auto f7 = xt::eval(f(7, level, k, h) + coeff * 0.25 * (fluxes(7, lev_p_1, two_k,     two_h) 
+                                                              + fluxes(7, lev_p_1, two_k_p_1, two_h)
+                                                              + fluxes(7, lev_p_1, two_k,     two_h_p_1)
+                                                              + fluxes(7, lev_p_1, two_k_p_1, two_h_p_1)));
 
+
+                auto f8 = xt::eval(f(8, level, k, h) + coeff * 0.25 * (fluxes(8, lev_p_1, two_k,     two_h) 
+                                                              + fluxes(8, lev_p_1, two_k_p_1, two_h)
+                                                              + fluxes(8, lev_p_1, two_k,     two_h_p_1)
+                                                              + fluxes(8, lev_p_1, two_k_p_1, two_h_p_1)));
+
+                auto f9 = xt::eval(f(9, level, k, h) + coeff * 0.25 * (fluxes(9, lev_p_1, two_k,     two_h) 
+                                                              + fluxes(9, lev_p_1, two_k_p_1, two_h)
+                                                              + fluxes(9, lev_p_1, two_k,     two_h_p_1)
+                                                              + fluxes(9, lev_p_1, two_k_p_1, two_h_p_1)));
+
+                auto f10 = xt::eval(f(10, level, k, h) + coeff * 0.25 * (fluxes(10, lev_p_1, two_k,     two_h) 
+                                                                + fluxes(10, lev_p_1, two_k_p_1, two_h)
+                                                                + fluxes(10, lev_p_1, two_k,     two_h_p_1)
+                                                                + fluxes(10, lev_p_1, two_k_p_1, two_h_p_1)));
+
+                auto f11 = xt::eval(f(11, level, k, h) + coeff * 0.25 * (fluxes(11, lev_p_1, two_k,     two_h) 
+                                                                + fluxes(11, lev_p_1, two_k_p_1, two_h)
+                                                                + fluxes(11, lev_p_1, two_k,     two_h_p_1)
+                                                                + fluxes(11, lev_p_1, two_k_p_1, two_h_p_1)));
+
+
+                auto f12 = xt::eval(f(12, level, k, h) + coeff * 0.25 * (fluxes(12, lev_p_1, two_k,     two_h) 
+                                                                + fluxes(12, lev_p_1, two_k_p_1, two_h)
+                                                                + fluxes(12, lev_p_1, two_k,     two_h_p_1)
+                                                                + fluxes(12, lev_p_1, two_k_p_1, two_h_p_1)));
+
+                auto f13 = xt::eval(f(13, level, k, h) + coeff * 0.25 * (fluxes(13, lev_p_1, two_k,     two_h) 
+                                                                + fluxes(13, lev_p_1, two_k_p_1, two_h)
+                                                                + fluxes(13, lev_p_1, two_k,     two_h_p_1)
+                                                                + fluxes(13, lev_p_1, two_k_p_1, two_h_p_1)));
+
+                auto f14 = xt::eval(f(14, level, k, h) + coeff * 0.25 * (fluxes(14, lev_p_1, two_k,     two_h) 
+                                                                + fluxes(14, lev_p_1, two_k_p_1, two_h)
+                                                                + fluxes(14, lev_p_1, two_k,     two_h_p_1)
+                                                                + fluxes(14, lev_p_1, two_k_p_1, two_h_p_1)));
+
+                auto f15 = xt::eval(f(15, level, k, h) + coeff * 0.25 * (fluxes(15, lev_p_1, two_k,     two_h) 
+                                                                + fluxes(15, lev_p_1, two_k_p_1, two_h)
+                                                                + fluxes(15, lev_p_1, two_k,     two_h_p_1)
+                                                                + fluxes(15, lev_p_1, two_k_p_1, two_h_p_1)));
+
+                
                 // We compute the advected momenti
                 auto m0_0 = xt::eval(                 f0 + f1 + f2 + f3) ;
                 auto m0_1 = xt::eval(lambda        * (f0      - f2      ));
@@ -1285,47 +1358,48 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 auto m3_3 = xt::eval(lambda*lambda * (f12 - f13 + f14 - f15));
 
 
+
                 double gm = 1.4;
 
-                // m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
-                // m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
-                // m0_3 = (1 - sxy) * m0_3; 
+                m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
+                m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
+                m0_3 = (1 - sxy) * m0_3; 
 
 
-                // m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
-                // m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
-                // m1_3 = (1 - sxy) * m1_3; 
+                m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
+                m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
+                m1_3 = (1 - sxy) * m1_3; 
 
-                // m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
-                // m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
-                // m2_3 = (1 - sxy) * m2_3; 
+                m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
+                m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
+                m2_3 = (1 - sxy) * m2_3; 
 
-                // m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-                // m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
-                // m3_3 = (1 - sxy) * m3_3; 
-
-
-                std::size_t how_often = 1 << (max_level - level);
-
-                double sq_real  = (iter % how_often == 0) ? sq  : 0.;
-                double sxy_real = (iter % how_often == 0) ? sxy : 0.;
-
-                m0_1 = (1 - sq_real) *  m0_1 + sq_real * (m1_0);
-                m0_2 = (1 - sq_real) *  m0_2 + sq_real * (m2_0);
-                m0_3 = (1 - sxy_real) * m0_3; 
+                m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
+                m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
+                m3_3 = (1 - sxy) * m3_3; 
 
 
-                m1_1 = (1 - sq_real) *  m1_1 + sq_real * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
-                m1_2 = (1 - sq_real) *  m1_2 + sq_real * (m1_0*m2_0/m0_0);
-                m1_3 = (1 - sxy_real) * m1_3; 
+                // std::size_t how_often = 1 << (max_level - level);
 
-                m2_1 = (1 - sq_real) *  m2_1 + sq_real * (m1_0*m2_0/m0_0);
-                m2_2 = (1 - sq_real) *  m2_2 + sq_real * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
-                m2_3 = (1 - sxy_real) * m2_3; 
+                // double sq_real  = (iter % how_often == 0) ? sq  : 0.;
+                // double sxy_real = (iter % how_often == 0) ? sxy : 0.;
 
-                m3_1 = (1 - sq_real) *  m3_1 + sq_real * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-                m3_2 = (1 - sq_real) *  m3_2 + sq_real * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
-                m3_3 = (1 - sxy_real) * m3_3; 
+                // m0_1 = (1 - sq_real) *  m0_1 + sq_real * (m1_0);
+                // m0_2 = (1 - sq_real) *  m0_2 + sq_real * (m2_0);
+                // m0_3 = (1 - sxy_real) * m0_3; 
+
+
+                // m1_1 = (1 - sq_real) *  m1_1 + sq_real * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
+                // m1_2 = (1 - sq_real) *  m1_2 + sq_real * (m1_0*m2_0/m0_0);
+                // m1_3 = (1 - sxy_real) * m1_3; 
+
+                // m2_1 = (1 - sq_real) *  m2_1 + sq_real * (m1_0*m2_0/m0_0);
+                // m2_2 = (1 - sq_real) *  m2_2 + sq_real * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
+                // m2_3 = (1 - sxy_real) * m2_3; 
+
+                // m3_1 = (1 - sq_real) *  m3_1 + sq_real * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
+                // m3_2 = (1 - sq_real) *  m3_2 + sq_real * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
+                // m3_3 = (1 - sxy_real) * m3_3; 
 
 
                 new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
@@ -1350,11 +1424,16 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
             });
 
-
+            // time_collision_overleaves += toc();
 
                 
         }
     }
+
+    // std::cout<<std::endl<<"Advection overleaves boundary = "<<time_advection_overleaves_boundary<<std::flush;
+    // std::cout<<std::endl<<"Advection overleaves inside = "<<time_advection_overleaves_inside<<std::flush;
+    // std::cout<<std::endl<<"Collision overleaves = "<<time_collision_overleaves<<std::flush;
+
 
     std::swap(f.array(), new_f.array());
 }
@@ -1402,6 +1481,302 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 
 
 
+// Attention : the number 2 as second template parameter does not mean
+// that we are dealing with two fields!!!!
+template<class Field, class interval_t, class ordinates_t, class ordinates_t_bis>
+xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std::size_t level, 
+                                      const interval_t & k, const ordinates_t & h, 
+                                      std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>, xt::xtensor<double, 2>> & mem_map)
+{
+
+    // That is used to employ _ with xtensor
+    using namespace xt::placeholders;
+
+    // mem_map.clear();
+
+    auto it = mem_map.find({level_g, level, k, h});
+
+
+    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())    {
+
+        return it->second;
+    }
+    else
+    {
+        
+
+    auto mesh = f.mesh();
+
+    // We put only the size in x (k.size()) because in y
+    // we only have slices of size 1. 
+    // The second term (1) should be adapted according to the 
+    // number of fields that we have.
+    std::vector<std::size_t> shape_x = {k.size(), 4};
+    xt::xtensor<double, 2> out = xt::empty<double>(shape_x);
+
+    auto mask = mesh.exists(mure::MeshType::cells_and_ghosts, level_g + level, k, h); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
+
+    xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
+        
+    for (int h_field = 0; h_field < 4; ++h_field)  {
+        xt::view(mask_all, xt::all(), h_field) = mask;
+    }    
+
+    // Recursion finished
+    if (xt::all(mask))
+    {                 
+        return xt::eval(f(0, 4, level_g + level, k, h));
+    }
+
+    // If we cannot stop here
+
+    auto kg = k >> 1;
+    kg.step = 1;
+
+    xt::xtensor<double, 2> val = xt::empty<double>(shape_x);
+
+
+    /*
+    --------------------
+    NW   |   N   |   NE
+    --------------------
+     W   | EARTH |   E
+    --------------------
+    SW   |   S   |   SE
+    --------------------
+    */
+
+
+    auto earth  = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1)    , mem_map));
+    auto W      = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1)    , mem_map));
+    auto E      = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1)    , mem_map));
+    auto S      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) - 1, mem_map));
+    auto N      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) + 1, mem_map));
+    auto SW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) - 1, mem_map));
+    auto SE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) - 1, mem_map));
+    auto NW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) + 1, mem_map));
+    auto NE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) + 1, mem_map));
+
+
+    // This is to deal with odd/even indices in the x direction
+    std::size_t start_even = (k.start & 1) ?     1         :     0        ; 
+    std::size_t start_odd  = (k.start & 1) ?     0         :     1        ; 
+    std::size_t end_even   = (k.end & 1)   ? kg.size()     : kg.size() - 1;
+    std::size_t end_odd    = (k.end & 1)   ? kg.size() - 1 : kg.size()    ;
+
+    int delta_y = (h & 1) ? 1 : 0;
+    int m1_delta_y = (delta_y == 0) ? 1 : -1; // (-1)^(delta_y) 
+
+    // We recall the formula before doing everything
+    /*
+    f[j + 1][2k + dx][2h + dy] = f[j][k][h] + 1/8 * (-1)^dx * (f[j][k - 1][h] - f[j][k + 1][h])
+                                            + 1/8 * (-1)^dy * (f[j][k][h - 1] - f[j][k][h + 1])
+                                - 1/64 * (-1)^(dx+dy) * (f[j][k + 1][h + 1] - f[j][k - 1][h + 1]
+                                                         f[j][k - 1][h - 1] - f[j][k + 1][h - 1])
+
+    dx = 0, 1
+    dy = 0, 1
+    */
+
+    
+    xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth 
+                                                          + 1./8               * (W - E) 
+                                                          + 1./8  * m1_delta_y * (S - N) 
+                                                          - 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(start_even, _));
+
+
+
+    xt::view(val, xt::range(start_odd, _, 2))  = xt::view(                        earth 
+                                                          - 1./8               * (W - E) 
+                                                          + 1./8  * m1_delta_y * (S - N)
+                                                          + 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(_, end_odd));
+
+    xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
+
+    for(int k_mask = 0, k_int = k.start; k_int < k.end; ++k_mask, ++k_int)
+    {
+        if (mask[k_mask])
+        {
+            xt::view(out, k_mask) = xt::view(f(0, 4, level_g + level, {k_int, k_int + 1}, h), 0);
+        }
+    }
+
+    // It is crucial to use insert and not []
+    // in order not to update the value in case of duplicated (same key)
+    mem_map.insert(std::make_pair(std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>{level_g, level, k, h}
+                                  ,out));
+
+
+    return out;
+
+    }
+}
+
+
+
+template<class Field, class FieldFull>
+double compute_error(Field & f, FieldFull & f_full)
+{
+
+    
+    auto mesh = f.mesh();
+    auto min_level = mesh.min_level();
+    auto max_level = mesh.max_level();
+
+    auto init_mesh = f_full.mesh();
+
+
+    using Config = typename FieldFull::Config;
+
+
+    mure::mr_projection(f);
+    f.update_bc();
+    mure::mr_prediction(f);
+
+
+
+    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0}
+                    }} };
+
+  
+    mure::Field<Config, double, 4> f_reconstructed("f_reconstructed", init_mesh, bc);
+    f_reconstructed.array().fill(0.);
+
+
+    // For memoization
+    using interval_t  = typename Config::interval_t; // Type in X
+    using ordinates_t = typename Config::index_t;    // Type in Y
+    std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t>, xt::xtensor<double, 2>> memoization_map;
+
+    memoization_map.clear();
+
+    double error = 0.;
+
+    double dx = 1. / (1 << max_level);
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto leaves_on_finest = mure::intersection(mesh[mure::MeshType::cells][level],
+                                                    mesh[mure::MeshType::cells][level]);
+            
+        leaves_on_finest.on(max_level)([&](auto& index, auto &interval, auto) {
+            auto k = interval[0];
+            auto h = index[0];
+
+            f_reconstructed(max_level, k, h) = prediction_all(f, level, max_level - level, k, h, memoization_map);
+
+            // Error on the density field
+
+            auto rho_reconstructed = f_reconstructed(0, max_level, k, h) 
+                                   + f_reconstructed(1, max_level, k, h)
+                                   + f_reconstructed(2, max_level, k, h)
+                                   + f_reconstructed(3, max_level, k, h);
+
+            auto rho_full =  f_full(0, max_level, k, h)
+                           + f_full(1, max_level, k, h)
+                           + f_full(2, max_level, k, h)
+                           + f_full(3, max_level, k, h);
+
+            error += xt::sum(xt::abs(rho_reconstructed - rho_full))[0];
+
+        });
+    }
+
+
+    return dx * error;
+
+}
+
+
+template<class Field, class FieldFull>
+void save_reconstructed(Field & f, FieldFull & f_full, 
+                        double eps, std::size_t ite, std::string ext="")
+{
+
+    
+    auto mesh = f.mesh();
+    auto min_level = mesh.min_level();
+    auto max_level = mesh.max_level();
+
+    auto init_mesh = f_full.mesh();
+
+
+    using Config = typename FieldFull::Config;
+
+
+    mure::mr_projection(f);
+    f.update_bc();
+    mure::mr_prediction(f);
+
+
+
+    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0},
+                       {mure::BCType::neumann, 0.0}
+                    }} };
+
+  
+    mure::Field<Config, double, 4> f_reconstructed("f_reconstructed", init_mesh, bc);
+    f_reconstructed.array().fill(0.);
+
+    mure::Field<Config> rho_reconstructed{"rho_reconstructed", init_mesh};
+    mure::Field<Config> rho{"rho", init_mesh};
+
+
+    // For memoization
+    using interval_t  = typename Config::interval_t; // Type in X
+    using ordinates_t = typename Config::index_t;    // Type in Y
+    std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t>, xt::xtensor<double, 2>> memoization_map;
+
+    memoization_map.clear();
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto number_leaves = mesh.nb_cells(level, mure::MeshType::cells);
+
+
+        auto leaves_on_finest = mure::intersection(mesh[mure::MeshType::cells][level],
+                                                    mesh[mure::MeshType::cells][level]);
+            
+        leaves_on_finest.on(max_level)([&](auto& index, auto &interval, auto) {
+            auto k = interval[0];
+            auto h = index[0];
+
+
+            f_reconstructed(max_level, k, h) = prediction_all(f, level, max_level - level, k, h, memoization_map);
+            rho_reconstructed(max_level, k, h) = f_reconstructed(0, max_level, k, h)
+                                               + f_reconstructed(1, max_level, k, h)
+                                               + f_reconstructed(2, max_level, k, h)
+                                               + f_reconstructed(3, max_level, k, h);
+
+            rho(max_level, k, h) = f_full(0, max_level, k, h)
+                                 + f_full(1, max_level, k, h)
+                                 + f_full(2, max_level, k, h)
+                                 + f_full(3, max_level, k, h);
+
+        });
+    }
+
+
+    std::cout<<std::endl;
+
+    std::stringstream str;
+    str << "Euler_Reconstruction_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
+        << eps << "_ite-" << ite;
+
+    auto h5file = mure::Hdf5(str.str().data());
+    h5file.add_mesh(init_mesh);
+    h5file.add_field(rho_reconstructed);
+    h5file.add_field(rho);
+
+}
+
+
+
 
 int main(int argc, char *argv[])
 {
@@ -1440,103 +1815,132 @@ int main(int argc, char *argv[])
 
             mure::Box<double, dim> box({0, 0}, {1, 1});
             mure::Mesh<Config> mesh{box, min_level, max_level};
+            mure::Mesh<Config> mesh_ref{box, max_level, max_level};
+
 
             using coord_index_t = typename Config::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
 
 
-
-            // std::cout<<std::endl<<"Showing prediction matrix for fluxes"<<std::endl;
-
-            // for (int idx = 0; idx <= 7; ++idx){
-            // std::cout<<std::endl<<"Idx = "<<idx<<std::endl;
-            // for (int k = 0; k <= max_level - min_level; ++k)
-            // {
-            //     for (auto cf : pred_coeff[k][idx].coeff){
-            //         coord_index_t stencil_x, stencil_y;
-            //         std::tie(stencil_x, stencil_y) = cf.first;
-                    
-                    
-            //         std::cout<<"k = "<<k<<"  Offset x = "<<stencil_x<<"   Offset y = "<<stencil_y<<"   Value = "<<cf.second<<std::endl;
-            //     }
-                   
-            // }
-            // }
-            // return 0;
-
             // Initialization
-            auto f = init_f(mesh, 0);
+            auto f     = init_f(mesh,     0);
+            auto f_ref = init_f(mesh_ref, 0);
 
-            double T = 0.3;//1.2;
+            double T = 0.3;//0.3;//1.2;
             double dx = 1.0 / (1 << max_level);
             double dt = dx / lambda;
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
-            for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+            std::string dirname ("./LaxLiu/");
+            std::string suffix("_min_"+std::to_string(min_level)+"_max_"+std::to_string(max_level)+"_eps_"+std::to_string(eps));
+
+            std::ofstream stream_time_mesh_adaptation;
+            stream_time_mesh_adaptation.open     (dirname+"time_mesh_adaptation"+suffix+".dat");
+
+            std::ofstream stream_time_scheme;
+            stream_time_scheme.open     (dirname+"time_scheme"+suffix+".dat");
+
+            std::ofstream stream_number_leaves;
+            stream_number_leaves.open     (dirname+"number_leaves"+suffix+".dat");
+
+            std::ofstream stream_number_cells;
+            stream_number_cells.open     (dirname+"number_cells"+suffix+".dat");
+
+            std::ofstream stream_time_scheme_ref;
+            stream_time_scheme_ref.open     (dirname+"time_scheme_ref"+suffix+".dat");
+
+            std::ofstream stream_number_leaves_ref;
+            stream_number_leaves_ref.open     (dirname+"number_leaves_ref"+suffix+".dat");
+
+            std::ofstream stream_number_cells_ref;
+            stream_number_cells_ref.open     (dirname+"number_cells_ref"+suffix+".dat");
+
+
+
+            int N_saves = 20;
+            int howoften = N / N_saves;
+
+            for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
                 std::cout<<std::endl<<"Iteration number = "<<nb_ite<<std::endl;
 
-                std::cout<<std::endl<<"[*] Coarsening"<<std::flush;
-                for (std::size_t i=0; i<max_level-min_level; ++i)
-                {
-                    std::cout<<std::endl<<"Step "<<i<<std::flush;
-                    if (coarsening(f, eps, i))
-                        break;
+
+                tic();
+                if (max_level > min_level)  {
+
+                    std::cout<<std::endl<<"[*] Coarsening"<<std::flush;
+                    for (std::size_t i=0; i<max_level-min_level; ++i)
+                    {
+                        std::cout<<std::endl<<"Step "<<i<<std::flush;
+                        if (coarsening(f, eps, i))
+                            break;
+                    }
+
+                    std::cout<<std::endl<<"[*] Refinement"<<std::flush;
+                    for (std::size_t i=0; i<max_level-min_level; ++i)
+                    {
+                        std::cout<<std::endl<<"Step "<<i<<std::flush;
+                        if (refinement(f, eps, 0.0, i))
+                            break;
+                    }
+
+                    // std::cout<<std::endl<<"[*] Prediction overleaves before saving"<<std::flush;
+                    // mure::mr_prediction_overleaves(f); // Before saving
                 }
 
-                std::cout<<std::endl<<"[*] Refinement"<<std::flush;
-                for (std::size_t i=0; i<max_level-min_level; ++i)
-                {
-                    std::cout<<std::endl<<"Step "<<i<<std::flush;
-                    if (refinement(f, eps, 0.0, i))
-                        break;
+
+
+                auto time_mesh_adaptation = toc();
+                stream_time_mesh_adaptation<<time_mesh_adaptation<<std::endl;
+
+                if (nb_ite == N)    {
+                    auto error_density = compute_error(f, f_ref);
+                    std::cout<<std::endl<<"#### Epsilon = "<<eps<<"   error = "<<error_density<<std::flush;
+                    //save_reconstructed(f, f_ref, eps, 0);
                 }
 
-                std::cout<<std::endl<<"[*] Prediction overleaves before saving"<<std::flush;
-                mure::mr_prediction_overleaves(f); // Before saving
 
 
-
-                // if (nb_ite > 0)
-                //save_solution(f, eps, nb_ite, std::string("fullcomp"));
-                //save_solution(f, eps, nb_ite, std::string("nocorr"));
-                //save_solution(f, eps, nb_ite);
-                std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
-                save_solution(f, eps, nb_ite, save_string+std::string("_before")); // Before applying the scheme
+                if (false){//nb_ite % howoften == 0)    {
+                    std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
+                    save_solution(f, eps, nb_ite/howoften, save_string+std::string("_before")); // Before applying the scheme
+                }
        
-                //save_solution(f, eps, nb_ite,std::string("bback") );
 
-
-                // std::cout<<std::endl<<"Printing mesh "<<std::endl<<f.mesh()<<std::endl;
-                // if (nb_ite < 30)    {
-                //     f.update_bc();
-                //     std::stringstream str;
-                //     str << "debug_by_level_"<<save_string<<"_before_"<<nb_ite;
-
-                //     auto h5file = mure::Hdf5(str.str().data());
-                //     h5file.add_field_by_level(mesh, f);
-                // }
-                //return 0;
-
-                //one_time_step_with_mem(f, nb_ite);
-                //one_time_step(f,pred_coeff);
-                //one_time_step_overleaves(f, pred_coeff);
                 std::cout<<std::endl<<"[*] Entering time stepping"<<std::flush;
+                tic();
                 one_time_step_overleaves_corrected(f, pred_coeff, nb_ite);
+                auto time_scheme = toc();
+                stream_time_scheme<<time_scheme<<std::endl;
 
+                tic();
+                one_time_step_overleaves_corrected(f_ref, pred_coeff, nb_ite);
+                auto time_scheme_ref = toc();
+                stream_time_scheme_ref<<time_scheme_ref<<std::endl;
 
-                // save_solution(f, eps, nb_ite, save_string+std::string("_after")); // Before applying the scheme
-                // if (nb_ite < 30)    {
-                //     std::stringstream str;
-                //     str << "debug_by_level_"<<save_string<<"_after_"<<nb_ite;
+                auto number_leaves = mesh.nb_cells(mure::MeshType::cells);
+                auto number_cells  = mesh.nb_total_cells();
 
-                //     auto h5file = mure::Hdf5(str.str().data());
-                //     h5file.add_field_by_level(mesh, f);
-                // }
+                stream_number_leaves<<number_leaves<<std::endl;
+                stream_number_cells<<number_cells<<std::endl;
+
+                stream_number_leaves_ref<<mesh_ref.nb_cells(mure::MeshType::cells)<<std::endl;
+                stream_number_cells_ref<<mesh_ref.nb_total_cells()<<std::endl;
 
             }
             
+            // auto error_density = compute_error(f, f_ref);
+            // std::cout<<std::endl<<"#### Epsilon = "<<eps<<"   error = "<<error_density<<std::flush;
+
+            stream_time_mesh_adaptation.close();
+            stream_time_scheme.close();
+            stream_number_leaves.close();
+            stream_number_cells.close();
+
+            stream_time_scheme_ref.close();
+            stream_number_leaves_ref.close();
+            stream_number_cells_ref.close();
         }
     }
     catch (const cxxopts::OptionException &e)

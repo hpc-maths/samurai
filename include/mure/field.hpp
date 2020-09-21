@@ -510,6 +510,42 @@ namespace mure
                                       interval.step), item);
         }
 
+        template<class... T>
+        inline auto operator()(const std::size_t item_s, const std::size_t item_e, const std::size_t level, const interval_t &interval, const T... index)
+        {
+            auto interval_tmp = m_mesh->get_interval(level, interval, index...);
+            if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
+                (interval_tmp.start > interval.start))
+            {
+                spdlog::critical("WRITE FIELD ERROR on level {} for "
+                                 "interval_tmp {} and interval {}",
+                                 level, interval_tmp, interval);
+            }
+            return xt::view(m_data,
+                            xt::range(interval_tmp.index + interval.start,
+                                      interval_tmp.index + interval.end,
+                                      interval.step), xt::range(item_s, item_e));
+        }
+
+        template<class... T>
+        inline auto operator()(const std::size_t item_s, const std::size_t item_e, const std::size_t level, const interval_t &interval,
+                        const T... index) const
+        {
+            auto interval_tmp = m_mesh->get_interval(level, interval, index...);
+            if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
+                (interval_tmp.start > interval.start))
+            {
+                spdlog::critical("READ FIELD ERROR on level {} for "
+                                 "interval_tmp {} and interval {}",
+                                 level, interval_tmp, interval);
+            }
+            return xt::view(m_data,
+                            xt::range(interval_tmp.index + interval.start,
+                                      interval_tmp.index + interval.end,
+                                      interval.step), xt::range(item_s, item_e));
+        }
+
+
         inline auto data(MeshType mesh_type) const
         {
             std::array<std::size_t, 2> shape = {m_mesh->nb_cells(mesh_type), size};
