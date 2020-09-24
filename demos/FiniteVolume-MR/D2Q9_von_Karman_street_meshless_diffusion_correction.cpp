@@ -16,9 +16,9 @@
 
 double radius = 1./32.; // Radius of the obstacle
 
-double Re = 200.;
+double Re = 1600.;
 
-const double lambda = 1.; // Lattice velocity of the scheme
+const double lambda = 2.; // Lattice velocity of the scheme
 const double rho0 = 1.; // Reference density
 // const double u0 = 0.1; // Reference x-velocity
 // const double u0 = 0.05; // Reference x-velocity
@@ -558,9 +558,18 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 auto h = index[0];    // Logical index in y 
                 
                 // // BC
+                // advected(3, level, k, h) =  f(3, level, k, h);
+                // advected(6, level, k, h) =  f(6, level, k, h);
+                // advected(7, level, k, h) =  f(7, level, k, h);
+
                 advected(3, level, k, h) =  f(3, level, k, h);
-                advected(6, level, k, h) =  f(6, level, k, h);
-                advected(7, level, k, h) =  f(7, level, k, h);
+                advected(6, level, k, h) =  f(6, level, k, h - 1);
+                advected(7, level, k, h) =  f(7, level, k, h + 1);
+
+                // advected(3, level, k, h) =  2. * f(3, level, k, h) - f(3, level, k - 1, h);
+                // advected(6, level, k, h) =  2. * f(6, level, k, h) - f(6, level, k - 1, h + 1);
+                // advected(7, level, k, h) =  2. * f(7, level, k, h) - f(7, level, k - 1, h - 1);
+
 
                 advected(0, level, k, h) =  f(0, level, k, h);
                 advected(1, level, k, h) =  f(1, level, k - 1, h);
@@ -579,17 +588,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
-                // We come back to the distributions
 
-                // advected(0, level, k, h) = inlet_condition[0] ;
-                // advected(1, level, k, h) = inlet_condition[1] ;
-                // advected(2, level, k, h) = inlet_condition[2] ;
-                // advected(3, level, k, h) = inlet_condition[3] ;
-                // advected(4, level, k, h) = inlet_condition[4] ;
-                // advected(5, level, k, h) = inlet_condition[5] ;
-                // advected(6, level, k, h) = inlet_condition[6] ;
-                // advected(7, level, k, h) = inlet_condition[7] ;
-                // advected(8, level, k, h) = inlet_condition[8] ;
                 advected(0, level, k, h) =  f(0, level, k, h);
                 advected(1, level, k, h) =  f(1, level, k - 1, h);
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
@@ -599,6 +598,22 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 advected(6, level, k, h) =  f(6, level, k + 1, h - 1);
                 advected(7, level, k, h) =  inlet_condition[7];
                 advected(8, level, k, h) =  inlet_condition[8];
+
+                // advected(0, level, k, h) =  f(0, level, k, h);
+                // advected(1, level, k, h) =  f(1, level, k - 1, h);
+                // advected(2, level, k, h) =  f(2, level, k,     h - 1);
+                // advected(3, level, k, h) =  f(3, level, k + 1, h);
+                // // advected(4, level, k, h) =  f(2, level, k, h) + (inlet_condition[4] - inlet_condition[2]);
+                // advected(4, level, k, h) =  f(4, level, k, h);
+                // advected(5, level, k, h) =  f(5, level, k - 1, h - 1);
+                // advected(6, level, k, h) =  f(6, level, k + 1, h - 1);
+                // // advected(7, level, k, h) =  f(5, level, k, h) + (inlet_condition[7] - inlet_condition[5]);
+                // advected(7, level, k, h) =  f(7, level, k, h);
+                // // advected(8, level, k, h) =  f(6, level, k, h) + (inlet_condition[8] - inlet_condition[6]);
+                // advected(8, level, k, h) =  f(8, level, k, h);
+
+
+
 
             });
 
@@ -608,15 +623,43 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
+                // advected(0, level, k, h) =  f(0, level, k, h);
+                // advected(1, level, k, h) =  f(1, level, k - 1, h);
+                // advected(2, level, k, h) =  f(2, level, k,     h - 1);
+                // advected(3, level, k, h) =  inlet_condition[3];
+                // advected(4, level, k, h) =  inlet_condition[4];
+                // advected(5, level, k, h) =  f(5, level, k - 1, h - 1);
+                // advected(6, level, k, h) =  inlet_condition[6];
+                // advected(7, level, k, h) =  inlet_condition[7];
+                // advected(8, level, k, h) =  inlet_condition[8];
+
+
                 advected(0, level, k, h) =  f(0, level, k, h);
                 advected(1, level, k, h) =  f(1, level, k - 1, h);
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                advected(3, level, k, h) =  inlet_condition[3];
+                advected(3, level, k, h) =  f(3, level, k, h);
                 advected(4, level, k, h) =  inlet_condition[4];
                 advected(5, level, k, h) =  f(5, level, k - 1, h - 1);
-                advected(6, level, k, h) =  inlet_condition[6];
+                advected(6, level, k, h) =  f(6, level, k, h);
                 advected(7, level, k, h) =  inlet_condition[7];
                 advected(8, level, k, h) =  inlet_condition[8];
+
+
+                // advected(0, level, k, h) =  f(0, level, k, h);
+                // advected(1, level, k, h) =  f(1, level, k - 1, h);
+                // advected(2, level, k, h) =  f(2, level, k,     h - 1);
+                // advected(3, level, k, h) =  f(3, level, k, h);
+                // // advected(3, level, k, h) =  2. * f(3, level, k, h) - f(3, level, k - 1, h);
+                // // advected(4, level, k, h) =  f(2, level, k, h) + (inlet_condition[4] - inlet_condition[2]);
+                // advected(4, level, k, h) =  f(4, level, k, h);
+                // advected(5, level, k, h) =  f(5, level, k - 1, h - 1);
+                // advected(6, level, k, h) =  f(6, level, k, h);
+                // // advected(6, level, k, h) =  2. * f(6, level, k, h) - f(6, level, k - 1, h + 1);
+                // // advected(7, level, k, h) =  f(5, level, k, h) + (inlet_condition[7] - inlet_condition[5]);
+                // advected(7, level, k, h) =  f(7, level, k, h);
+                // // advected(8, level, k, h) =  f(6, level, k, h) + (inlet_condition[8] - inlet_condition[6]);
+                // advected(8, level, k, h) =  f(8, level, k, h);
+
             });
 
             std::cout<<std::endl<<"[=] West"<<std::flush;
@@ -625,15 +668,26 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 auto k = interval[0]; // Logical index in x
                 auto h = index[0];    // Logical index in y 
 
+                // advected(0, level, k, h) =  f(0, level, k, h);
+                // advected(1, level, k, h) =  inlet_condition[1];
+                // advected(2, level, k, h) =  f(2, level, k,     h - 1);
+                // advected(3, level, k, h) =  f(3, level, k + 1, h);
+                // advected(4, level, k, h) =  f(4, level, k,     h + 1);
+                // advected(5, level, k, h) =  inlet_condition[5];
+                // advected(6, level, k, h) =  f(6, level, k + 1, h - 1);
+                // advected(7, level, k, h) =  f(7, level, k + 1, h + 1);
+                // advected(8, level, k, h) =  inlet_condition[8];
+
+
                 advected(0, level, k, h) =  f(0, level, k, h);
-                advected(1, level, k, h) =  inlet_condition[1];
+                advected(1, level, k, h) =  f(3, level, k, h) + (inlet_condition[1] - inlet_condition[3]);
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
                 advected(3, level, k, h) =  f(3, level, k + 1, h);
                 advected(4, level, k, h) =  f(4, level, k,     h + 1);
-                advected(5, level, k, h) =  inlet_condition[5];
+                advected(5, level, k, h) =  f(7, level, k, h) + (inlet_condition[5] - inlet_condition[7]);
                 advected(6, level, k, h) =  f(6, level, k + 1, h - 1);
                 advected(7, level, k, h) =  f(7, level, k + 1, h + 1);
-                advected(8, level, k, h) =  inlet_condition[8];
+                advected(8, level, k, h) =  f(6, level, k, h) + (inlet_condition[8] - inlet_condition[6]);
 
             });
 
@@ -652,6 +706,17 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 advected(6, level, k, h) =  f(6, level, k + 1, h - 1);
                 advected(7, level, k, h) =  inlet_condition[7];
                 advected(8, level, k, h) =  inlet_condition[8];
+
+                // advected(0, level, k, h) =  f(0, level, k, h);
+                // advected(1, level, k, h) =  f(3, level, k, h) + (inlet_condition[1] - inlet_condition[3]);
+                // advected(2, level, k, h) =  f(2, level, k,     h - 1);
+                // advected(3, level, k, h) =  f(3, level, k + 1, h);
+                // advected(4, level, k, h) =  f(2, level, k, h) + (inlet_condition[4] - inlet_condition[2]);
+                // advected(5, level, k, h) =  f(7, level, k, h) + (inlet_condition[5] - inlet_condition[7]);
+                // advected(6, level, k, h) =  f(6, level, k + 1, h - 1);
+                // advected(7, level, k, h) =  f(5, level, k, h) + (inlet_condition[7] - inlet_condition[5]);
+                // advected(8, level, k, h) =  f(6, level, k, h) + (inlet_condition[8] - inlet_condition[6]);
+
 
             });
 
@@ -672,6 +737,19 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 advected(7, level, k, h) =  f(7, level, k + 1, h + 1);
                 advected(8, level, k, h) =  f(8, level, k - 1, h + 1);
 
+                // advected(0, level, k, h) =  f(0, level, k, h);
+                // advected(1, level, k, h) =  f(1, level, k - 1, h);
+                // // advected(2, level, k, h) =  f(4, level, k, h) + (inlet_condition[2] - inlet_condition[4]);
+                // advected(2, level, k, h) =  f(2, level, k, h);
+                // advected(3, level, k, h) =  f(3, level, k + 1, h);
+                // advected(4, level, k, h) =  f(4, level, k,     h + 1);
+                // // advected(5, level, k, h) =  f(7, level, k, h) + (inlet_condition[5] - inlet_condition[7]);
+                // advected(5, level, k, h) =  f(5, level, k, h);
+                // // advected(6, level, k, h) =  f(8, level, k, h) + (inlet_condition[6] - inlet_condition[8]);
+                // advected(6, level, k, h) =  f(6, level, k, h);
+                // advected(7, level, k, h) =  f(7, level, k + 1, h + 1);
+                // advected(8, level, k, h) =  f(8, level, k - 1, h + 1);
+
             });
 
             std::cout<<std::endl<<"[=] SouthWest"<<std::flush;
@@ -690,6 +768,18 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 advected(7, level, k, h) =  f(7, level, k + 1, h + 1);
                 advected(8, level, k, h) =  inlet_condition[8];
 
+
+                // advected(0, level, k, h) =  f(0, level, k, h);
+                // advected(1, level, k, h) =  f(3, level, k, h) + (inlet_condition[1] - inlet_condition[3]);
+                // advected(2, level, k, h) =  f(4, level, k, h) + (inlet_condition[2] - inlet_condition[4]);
+                // advected(3, level, k, h) =  f(3, level, k + 1, h);
+                // advected(4, level, k, h) =  f(4, level, k,     h + 1);
+                // advected(5, level, k, h) =  f(7, level, k, h) + (inlet_condition[5] - inlet_condition[7]);
+                // advected(6, level, k, h) =  f(8, level, k, h) + (inlet_condition[6] - inlet_condition[8]);
+                // advected(7, level, k, h) =  f(7, level, k + 1, h + 1);
+                // advected(8, level, k, h) =  f(6, level, k, h) + (inlet_condition[8] - inlet_condition[6]);
+
+
             });
 
             std::cout<<std::endl<<"[=] SouthEast"<<std::flush;
@@ -701,12 +791,27 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 advected(0, level, k, h) =  f(0, level, k, h);
                 advected(1, level, k, h) =  f(1, level, k - 1, h);
                 advected(2, level, k, h) =  inlet_condition[2];
-                advected(3, level, k, h) =  inlet_condition[3];
+                advected(3, level, k, h) =  f(3, level, k, h);
                 advected(4, level, k, h) =  f(4, level, k,     h + 1);
                 advected(5, level, k, h) =  inlet_condition[5];
                 advected(6, level, k, h) =  inlet_condition[6];
-                advected(7, level, k, h) =  inlet_condition[7];
+                advected(7, level, k, h) =  f(7, level, k, h);
                 advected(8, level, k, h) =  f(8, level, k - 1, h + 1);
+
+                // advected(0, level, k, h) =  f(0, level, k, h);
+                // advected(1, level, k, h) =  f(1, level, k - 1, h);
+                // // advected(2, level, k, h) =  f(4, level, k, h) + (inlet_condition[2] - inlet_condition[4]);
+                // advected(2, level, k, h) =  f(2, level, k, h);
+                // advected(3, level, k, h) =  f(3, level, k, h);
+                // // advected(3, level, k, h) =  2. * f(3, level, k, h) - f(3, level, k - 1, h);
+                // advected(4, level, k, h) =  f(4, level, k,     h + 1);
+                // // advected(5, level, k, h) =  f(7, level, k, h) + (inlet_condition[5] - inlet_condition[7]);
+                // advected(5, level, k, h) =  f(5, level, k, h);
+                // // advected(6, level, k, h) =  f(8, level, k, h) + (inlet_condition[6] - inlet_condition[8]);
+                // advected(6, level, k, h) =  f(6, level, k, h);
+                // advected(7, level, k, h) =  f(7, level, k, h);
+                // // advected(7, level, k, h) =  2. * f(7, level, k, h) - f(7, level, k - 1, h + 1);
+                // advected(8, level, k, h) =  f(8, level, k - 1, h + 1);
 
             });
 
@@ -924,11 +1029,11 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 // To correct   
             
                 // h = 1
-                fluxes(1, level + 1, k, h) += (1 << j) * coeff * inlet_condition[1];
+                fluxes(1, level + 1, k, h) += (1 << j) * coeff * (f(3, level + 1, k, h) + (inlet_condition[1] - inlet_condition[3]));
                 // h = 5
-                fluxes(5, level + 1, k, h) += (1 << j) * coeff * inlet_condition[5];
+                fluxes(5, level + 1, k, h) += (1 << j) * coeff * (f(7, level + 1, k, h) + (inlet_condition[5] - inlet_condition[7]));
                 // h = 8
-                fluxes(8, level + 1, k, h) += (1 << j) * coeff * inlet_condition[8];
+                fluxes(8, level + 1, k, h) += (1 << j) * coeff * (f(6, level + 1, k, h) + (inlet_condition[8] - inlet_condition[6]));
             });
 
             std::cout<<std::endl<<"[=] NorthWest"<<std::flush;
@@ -953,16 +1058,27 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 // To correct   
             
                 // Bounce back to velocity (0, 0)
-                // h = 1
-                fluxes(1, level + 1, k, h) += (1 << j) * coeff * inlet_condition[1];
+                // // h = 1
+                // fluxes(1, level + 1, k, h) += (1 << j) * coeff * (f(3, level + 1, k, h) + (inlet_condition[1] - inlet_condition[3]));
+                // // h = 4
+                // fluxes(4, level + 1, k, h) += (1 << j) * coeff * (f(2, level + 1, k, h) + (inlet_condition[4] - inlet_condition[2]));
+                // // h = 5
+                // fluxes(5, level + 1, k, h) += (1 << j) * coeff * (f(7, level + 1, k, h) + (inlet_condition[5] - inlet_condition[7]));
+                // // h = 7
+                // fluxes(7, level + 1, k, h) += (1 << j) * coeff * (f(5, level + 1, k, h) + (inlet_condition[7] - inlet_condition[5]));
+                // // h = 8
+                // fluxes(8, level + 1, k, h) += (2 * (1 << j) - 1) * coeff * (f(6, level + 1, k, h) + (inlet_condition[8] - inlet_condition[6]));
+
+                                // h = 1
+                fluxes(1, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[1]);
                 // h = 4
-                fluxes(4, level + 1, k, h) += (1 << j) * coeff * inlet_condition[4];
+                fluxes(4, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[4]);
                 // h = 5
-                fluxes(5, level + 1, k, h) += (1 << j) * coeff * inlet_condition[5];
+                fluxes(5, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[5]);
                 // h = 7
-                fluxes(7, level + 1, k, h) += (1 << j) * coeff * inlet_condition[7];
+                fluxes(7, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[7]);
                 // h = 8
-                fluxes(8, level + 1, k, h) += (2 * (1 << j) - 1) * coeff * inlet_condition[8];
+                fluxes(8, level + 1, k, h) += (2 * (1 << j) - 1) * coeff * (inlet_condition[8]);
             });
 
 
@@ -988,17 +1104,31 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                 // To correct   
             
-                // Bounce back to velocity (0, 0)
+                // // Bounce back to velocity (0, 0)
+                // // h = 1
+                // fluxes(1, level + 1, k, h) += (1 << j) * coeff * (f(3, level + 1, k, h) + (inlet_condition[1] - inlet_condition[3]));
+                // // h = 2
+                // fluxes(2, level + 1, k, h) += (1 << j) * coeff * (f(4, level + 1, k, h) + (inlet_condition[2] - inlet_condition[4]));
+                // // h = 5
+                // fluxes(5, level + 1, k, h) += (2 * (1 << j) - 1) * coeff * (f(7, level + 1, k, h) + (inlet_condition[5] - inlet_condition[7]));
+                // // h = 6
+                // fluxes(6, level + 1, k, h) += (1 << j) * coeff * (f(8, level + 1, k, h) + (inlet_condition[6] - inlet_condition[8]));
+                // // h = 8
+                // fluxes(8, level + 1, k, h) += (1 << j) * coeff * (f(6, level + 1, k, h) + (inlet_condition[8] - inlet_condition[6]));
+
+                                // Bounce back to velocity (0, 0)
                 // h = 1
-                fluxes(1, level + 1, k, h) += (1 << j) * coeff * inlet_condition[1];
+                fluxes(1, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[1]);
                 // h = 2
-                fluxes(2, level + 1, k, h) += (1 << j) * coeff * inlet_condition[2];
+                fluxes(2, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[2]);
                 // h = 5
-                fluxes(5, level + 1, k, h) += (2 * (1 << j) - 1) * coeff * inlet_condition[5];
+                fluxes(5, level + 1, k, h) += (2 * (1 << j) - 1) * coeff * (inlet_condition[5]);
                 // h = 6
-                fluxes(6, level + 1, k, h) += (1 << j) * coeff * inlet_condition[6];
+                fluxes(6, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[6]);
                 // h = 8
-                fluxes(8, level + 1, k, h) += (1 << j) * coeff * inlet_condition[8];
+                fluxes(8, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[8]);
+
+
             });
 
 
@@ -1109,17 +1239,29 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                                                  + f(5, level + 1, k, h) + f(6, level + 1, k, h) + f(7, level + 1, k, h) + f(8, level + 1, k, h);
 
 
-                // h = 3
+                // // h = 3
+                // fluxes(3, level + 1, k, h) += (1 << j) * coeff * f(3, level + 1, k, h);
+                // // h = 4
+                // fluxes(4, level + 1, k, h) += (1 << j) * coeff * (f(2, level + 1, k, h) + (inlet_condition[4] - inlet_condition[2]));
+                // // h = 6
+                // fluxes(6, level + 1, k, h) += (1 << j) * coeff * f(6, level + 1, k, h);
+                // // h = 7
+                // fluxes(7, level + 1, k, h) += (1 << j) * coeff * (f(5, level + 1, k, h) + (inlet_condition[7] - inlet_condition[5]));
+                // fluxes(7, level + 1, k, h) += ((1 << j) - 1) * coeff * f(7, level + 1, k, h);
+                // // h = 8
+                // fluxes(8, level + 1, k, h) += (1 << j) * coeff * (f(6, level + 1, k, h) + (inlet_condition[8] - inlet_condition[6]));
+
+                                // h = 3
                 fluxes(3, level + 1, k, h) += (1 << j) * coeff * f(3, level + 1, k, h);
                 // h = 4
-                fluxes(4, level + 1, k, h) += (1 << j) * coeff * inlet_condition[4];
+                fluxes(4, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[4]);
                 // h = 6
                 fluxes(6, level + 1, k, h) += (1 << j) * coeff * f(6, level + 1, k, h);
                 // h = 7
-                fluxes(7, level + 1, k, h) += (1 << j) * coeff * inlet_condition[7];
+                fluxes(7, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[7]);
                 fluxes(7, level + 1, k, h) += ((1 << j) - 1) * coeff * f(7, level + 1, k, h);
                 // h = 8
-                fluxes(8, level + 1, k, h) += (1 << j) * coeff * inlet_condition[8];
+                fluxes(8, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[8]);
 
             });
 
@@ -1146,15 +1288,28 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                 // To correct   
            
-                // Bounce back to velocity (0, 0)
+                // // Bounce back to velocity (0, 0)
+                // // h = 2
+                // fluxes(2, level + 1, k, h) += (1 << j) * coeff * (f(4, level + 1, k, h) + (inlet_condition[2] - inlet_condition[4]));
+                // // h = 3
+                // fluxes(3, level + 1, k, h) += (1 << j) * coeff * f(3, level + 1, k, h);
+                // // h = 5
+                // fluxes(5, level + 1, k, h) += (1 << j) * coeff * (f(7, level + 1, k, h) + (inlet_condition[5] - inlet_condition[7]));
+                // // h = 6
+                // fluxes(6, level + 1, k, h) += ((1 << j)) * coeff * (f(8, level + 1, k, h) + (inlet_condition[6] - inlet_condition[8]));
+                // fluxes(6, level + 1, k, h) += ((1 << j) - 1) * coeff * f(6, level + 1, k, h);
+                // // h = 7
+                // fluxes(7, level + 1, k, h) += (1 << j) * coeff * f(7, level + 1, k, h);
+
+                                // Bounce back to velocity (0, 0)
                 // h = 2
-                fluxes(2, level + 1, k, h) += (1 << j) * coeff * inlet_condition[2];
+                fluxes(2, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[2]);
                 // h = 3
                 fluxes(3, level + 1, k, h) += (1 << j) * coeff * f(3, level + 1, k, h);
                 // h = 5
-                fluxes(5, level + 1, k, h) += (1 << j) * coeff * inlet_condition[5];
+                fluxes(5, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[5]);
                 // h = 6
-                fluxes(6, level + 1, k, h) += ((1 << j)) * coeff * inlet_condition[6];
+                fluxes(6, level + 1, k, h) += ((1 << j)) * coeff * (inlet_condition[6]);
                 fluxes(6, level + 1, k, h) += ((1 << j) - 1) * coeff * f(6, level + 1, k, h);
                 // h = 7
                 fluxes(7, level + 1, k, h) += (1 << j) * coeff * f(7, level + 1, k, h);
@@ -1199,12 +1354,19 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 auto rho = f(0, level + 1, k, h) + f(1, level + 1, k, h) + f(2, level + 1, k, h) + f(3, level + 1, k, h) + f(4, level + 1, k, h)
                                                  + f(5, level + 1, k, h) + f(6, level + 1, k, h) + f(7, level + 1, k, h) + f(8, level + 1, k, h);
 
-                // h = 4
-                fluxes(4, level + 1, k, h) += (1 << j) * coeff * inlet_condition[4];
+                // // h = 4
+                // fluxes(4, level + 1, k, h) += (1 << j) * coeff * (f(2, level + 1, k, h) + (inlet_condition[4] - inlet_condition[2]));
+                // // h = 7
+                // fluxes(7, level + 1, k, h) += (1 << j) * coeff * (f(5, level + 1, k, h) + (inlet_condition[7] - inlet_condition[5]));
+                // // h = 8
+                // fluxes(8, level + 1, k, h) += (1 << j) * coeff * (f(6, level + 1, k, h) + (inlet_condition[8] - inlet_condition[6]));
+
+                                // h = 4
+                fluxes(4, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[4]);
                 // h = 7
-                fluxes(7, level + 1, k, h) += (1 << j) * coeff * inlet_condition[7];
+                fluxes(7, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[7]);
                 // h = 8
-                fluxes(8, level + 1, k, h) += (1 << j) * coeff * inlet_condition[8];
+                fluxes(8, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[8]);
             });
 
 
@@ -1232,12 +1394,18 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 // To correct   
             
                 // Bounce back to (0, 0)
+                // // h = 2
+                // fluxes(2, level + 1, k, h) += (1 << j) * coeff * (f(4, level + 1, k, h) + (inlet_condition[2] - inlet_condition[4]));
+                // // h = 5
+                // fluxes(5, level + 1, k, h) += (1 << j) * coeff * (f(7, level + 1, k, h) + (inlet_condition[5] - inlet_condition[7]));
+                // // h = 6
+                // fluxes(6, level + 1, k, h) += (1 << j) * coeff * (f(8, level + 1, k, h) + (inlet_condition[6] - inlet_condition[8]));
                 // h = 2
-                fluxes(2, level + 1, k, h) += (1 << j) * coeff * inlet_condition[2];
+                fluxes(2, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[2]);
                 // h = 5
-                fluxes(5, level + 1, k, h) += (1 << j) * coeff * inlet_condition[5];
+                fluxes(5, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[5]);
                 // h = 6
-                fluxes(6, level + 1, k, h) += (1 << j) * coeff * inlet_condition[6];
+                fluxes(6, level + 1, k, h) += (1 << j) * coeff * (inlet_condition[6]);
 
             });
 
@@ -1505,25 +1673,25 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
 
 
-            // mesh.for_each_cell([&](auto &cell) {
-            //     auto center = cell.center();
-            //     auto x = center[0];
-            //     auto y = center[1];
-            //     auto dx_cell = cell.length();
+            mesh.for_each_cell([&](auto &cell) {
+                auto center = cell.center();
+                auto x = center[0];
+                auto y = center[1];
+                auto dx_cell = cell.length();
 
 
-            //     if (inside_obstacle(x + dx_cell/2., y + dx_cell/2.) ||
-            //         inside_obstacle(x - dx_cell/2., y + dx_cell/2.) ||
-            //         inside_obstacle(x - dx_cell/2., y - dx_cell/2.) ||
-            //         inside_obstacle(x + dx_cell/2., y - dx_cell/2.))
-            //     {
-            //         double dt = 1./(1<<max_level) / lambda;
+                if (inside_obstacle(x + dx_cell/2., y + dx_cell/2.) ||
+                    inside_obstacle(x - dx_cell/2., y + dx_cell/2.) ||
+                    inside_obstacle(x - dx_cell/2., y - dx_cell/2.) ||
+                    inside_obstacle(x + dx_cell/2., y - dx_cell/2.))
+                {
+                    double dt = 1./(1<<max_level) / lambda;
 
-            //         Fx += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]));
-            //         Fy += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]));
-            //     }            
+                    Fx += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]));
+                    Fy += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]));
+                }            
 
-            // });
+            });
 
 
 
@@ -1802,8 +1970,8 @@ int main(int argc, char *argv[])
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
                     std::cout<<std::endl<<"Step "<<i<<std::flush;
+                    // if (refinement(f, eps, 0.0, i))
                     if (refinement(f, eps, 0.0, i))
-                    // if (refinement(f, eps, 3.0, i))
                         break;
                 }
 
@@ -1819,7 +1987,7 @@ int main(int argc, char *argv[])
 
                 // std::size_t howoften = 256;
 
-                std::size_t howoften = 256 * static_cast<double>(max_level) / 10.;
+                std::size_t howoften = 128 * static_cast<double>(max_level) / 10.;
 
                 if (nb_ite % howoften == 0) {
                     std::cout<<std::endl<<"Saving"<<std::endl;
