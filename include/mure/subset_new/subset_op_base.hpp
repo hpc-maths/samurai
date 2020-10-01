@@ -33,7 +33,7 @@ namespace mure
     class subset_operator {
       public:
         using functor_type = F;
-        using tuple_type = std::tuple<CT...>;
+        using tuple_type = std::tuple<std::decay_t<CT>...>;
 
         static constexpr std::size_t dim = detail::compute_dim<CT...>();
         using interval_t = typename detail::interval_type<CT...>::type;
