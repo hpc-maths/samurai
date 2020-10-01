@@ -13,7 +13,15 @@ namespace mure
         static constexpr auto dim = MRConfig::dim;
         static constexpr auto max_refinement_level = MRConfig::max_refinement_level;
 
-        inline CellArray(const CellList<MRConfig> &dcl = {})
+        CellArray()
+        {
+            for (std::size_t level = 0; level <= max_refinement_level; ++level)
+            {
+                m_cells[level] = {level};
+            }
+        }
+
+        inline CellArray(const CellList<MRConfig> &dcl)
         {
             for (std::size_t level = 0; level <= max_refinement_level; ++level)
             {
@@ -98,9 +106,7 @@ namespace mure
         }
 
       private:
-        xt::xtensor_fixed<LevelCellArray<dim>,
-                          xt::xshape<max_refinement_level + 1>>
-            m_cells;
+        std::array<LevelCellArray<dim>, max_refinement_level + 1> m_cells;
     };
 
     template<class MRConfig>
