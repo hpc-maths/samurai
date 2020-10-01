@@ -12,7 +12,8 @@
 #include "../cell_array.hpp"
 #include "../cell_list.hpp"
 #include "../static_algorithm.hpp"
-#include "../subset/subset_op.hpp"
+// #include "../subset_old/subset_op.hpp"
+#include "../subset_new/subset_op.hpp"
 #include "operators.hpp"
 
 #include "../hdf5.hpp"
@@ -26,12 +27,12 @@ namespace mure
         using base = std::array<CellArray<MRConfig>, dim>;
         using base::operator[];
 
-        inline CellArray<MRConfig> const &operator[](MeshType mesh_type) const
+        inline const CellArray<MRConfig>& operator[](MeshType mesh_type) const
         {
             return operator[](static_cast<std::size_t>(mesh_type));
         }
 
-        inline CellArray<MRConfig> &operator[](MeshType mesh_type)
+        inline CellArray<MRConfig>& operator[](MeshType mesh_type)
         {
             return operator[](static_cast<std::size_t>(mesh_type));
         }
@@ -127,12 +128,12 @@ namespace mure
             return m_cells[i];
         }
 
-        inline auto operator[](MeshType mesh_type) const
+        inline const CellArray<MRConfig>& operator[](MeshType mesh_type) const
         {
             return m_cells[mesh_type];
         }
 
-        inline auto initial_mesh() const
+        inline const LevelCellArray<dim>& initial_mesh() const
         {
             return m_init_cells;
         }

@@ -34,17 +34,19 @@ namespace mure
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            if (!mesh[MeshType::cells][level].empty())
-            {
-                // auto expr = intersection(difference(mesh[MeshType::all_cells][level],
-                //                          union_(mesh[MeshType::cells][level],
-                //                                 mesh[MeshType::proj_cells][level])),
-                //                          mesh.initial_mesh())
-                //            .on(level);
+            // if (!mesh[MeshType::cells][level].empty())
+            // {
+            //     auto expr = intersection(difference(mesh[MeshType::all_cells][level],
+            //                              union_(mesh[MeshType::cells][level],
+            //                                     mesh[MeshType::proj_cells][level])),
+            //                              mesh.initial_mesh())
+            //                .on(level);
 
-                // expr.apply_op(level, prediction(field));
+            //     expr.apply_op(level, prediction(field));
+            // }
 
-
+            // if (!mesh[MeshType::all_cells][level].empty() && !mesh[MeshType::overleaves][level].empty() && !mesh[MeshType::cells][level].empty())
+            // {
                 // We eliminate the overleaves from the computation since they 
                 // are done separately
                 
@@ -56,7 +58,7 @@ namespace mure
 
                 expr.apply_op(level, prediction(field));
 
-            }
+            // }
         }
     }
     

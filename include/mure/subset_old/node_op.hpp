@@ -56,6 +56,7 @@ namespace mure
         auto create_index_yz() const noexcept;
 
         std::size_t level() const noexcept;
+        double dx() const noexcept;
 
         template<class Func>
         void for_each_interval_in_x(Func &&f) const;
@@ -175,6 +176,12 @@ namespace mure
     }
 
     template<class D>
+    inline double node_op<D>::dx() const noexcept
+    {
+        return this->derived_cast().m_data.dx();
+    }
+
+    template<class D>
     template<class T>
     inline auto node_op<D>::create_interval(T start, T end) const noexcept
     {
@@ -280,6 +287,7 @@ namespace mure
         const Mesh &data() const noexcept;
         void data(Mesh &mesh) noexcept;
         std::size_t level() const noexcept;
+        double dx() const noexcept;
 
         auto create_interval(coord_index_t start, coord_index_t end) const
             noexcept;
@@ -287,6 +295,7 @@ namespace mure
 
       private:
         std::shared_ptr<Mesh> m_data;
+        // const Mesh* m_data;
 
         friend class node_op<mesh_node<Mesh>>;
     };
@@ -298,6 +307,7 @@ namespace mure
     template<class Mesh>
     inline mesh_node<Mesh>::mesh_node(const Mesh &v)
         : m_data{std::make_shared<Mesh>(v)}
+        // : m_data{&v}
     {}
 
     template<class Mesh>
@@ -366,6 +376,7 @@ namespace mure
     inline const Mesh &mesh_node<Mesh>::data() const noexcept
     {
         return *(m_data.get());
+        // return *(m_data);
     }
 
     template<class Mesh>

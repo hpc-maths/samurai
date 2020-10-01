@@ -28,16 +28,19 @@ namespace mure
         using index_t = typename interval_t::index_t;
         using coord_index_t = typename interval_t::value_t;
 
-        LevelCellArray(LevelCellArray &&) = default;
-        LevelCellArray &operator=(LevelCellArray &&) = default;
+        LevelCellArray() = default;
 
-        LevelCellArray(const LevelCellArray &) = default;
-        LevelCellArray &operator=(const LevelCellArray &) = default;
+        // LevelCellArray(LevelCellArray &&) = default;
+        // LevelCellArray &operator=(LevelCellArray &&) = default;
+
+        // LevelCellArray(const LevelCellArray &) = default;
+        // LevelCellArray &operator=(const LevelCellArray &) = default;
 
         /// Construct from a level cell list
-        LevelCellArray(const LevelCellList<Dim, TInterval> &lcl = {});
+        LevelCellArray(const LevelCellList<Dim, TInterval> &lcl);
 
         LevelCellArray(std::size_t level, Box<coord_index_t, dim> box);
+        LevelCellArray(std::size_t level);
 
         /// Display to the given stream
         void to_stream(std::ostream &out) const;
@@ -163,10 +166,8 @@ namespace mure
                   std::integral_constant<std::size_t, 0>) const;
 
       private:
-        std::array<std::vector<interval_t>, dim>
-            m_cells; ///< All intervals in every direction
-        std::array<std::vector<std::size_t>, dim - 1>
-            m_offsets; ///< Offsets in interval list for each dim > 1
+        std::array<std::vector<interval_t>, dim> m_cells; ///< All intervals in every direction
+        std::array<std::vector<std::size_t>, dim - 1> m_offsets; ///< Offsets in interval list for each dim > 1
         std::size_t m_level;
     };
 
@@ -229,6 +230,12 @@ namespace mure
             m_cells[0][i] = {start[0], end[0],
                              static_cast<index_t>(i * dimensions[0]) -
                                  start[0]};
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level)
+        : m_level{level}
+    {
     }
 
     template<std::size_t Dim, class TInterval>
@@ -374,8 +381,10 @@ namespace mure
             out << "Dim " << d << std::endl;
 
             out << "\tcells = ";
-            for (auto const &interval : m_cells[d])
+            for (const auto& interval : m_cells[d])
+            {
                 out << interval << " ";
+            }
             out << std::endl;
 
             if (d > 0)

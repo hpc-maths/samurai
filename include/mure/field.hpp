@@ -1183,8 +1183,9 @@ namespace mure
 
             // std::cout<<std::endl<<"Update BC"<<std::flush;
 
-            for (std::size_t level = 0; level <= m_mesh->max_level(); ++level)  {
-
+            // std::cout << m_mesh->initial_mesh() << "\n";
+            for (std::size_t level = m_mesh->min_level()-1; level <= m_mesh->max_level(); ++level)
+            {
                 double length = 1./(1 << level);
 
                 auto to_set = difference((*m_mesh)[mure::MeshType::all_cells][level], m_mesh->initial_mesh()).on(level);
@@ -1193,7 +1194,7 @@ namespace mure
                     auto k = interval[0]; 
                     auto h_idx = index[0];
 
-                    //std::cout<<std::endl<<"Level = "<<level<<" Interval "<<k<<" h = "<<h_idx<<std::flush;
+                    // std::cout<<std::endl<<"Level = "<<level<<" Interval "<<k<<" h = "<<h_idx<<std::flush;
 
                     for (auto k_idx = k.start; k_idx < k.end; ++k_idx)  {
                         double x = length * (k_idx + 0.5);
