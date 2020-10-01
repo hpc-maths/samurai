@@ -131,7 +131,6 @@ namespace mure
     {
         std::size_t index;
         auto shift_i = detail::shift_value(i, -m_shift);
-        // std::cout << "level " << m_node.level() << " i = " << i << " shift_i = " << shift_i << "\n";
         //spdlog::debug("DECREMENT_DIM: level = {}, i = {}, shift_i = {}", m_node.level(), i, shift_i);
         if (m_shift >= 0)
         {
@@ -163,8 +162,6 @@ namespace mure
             for(std::size_t s=0; s< (1<<(-m_shift)); ++s)
             {
                 index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i + s));
-                // std::cout << "level " << m_node.level() << " s " << s << " search " << m_node.transform(m_d, shift_i + s) << "\n";
-                // std::cout << "level " << m_node.level() << " index " << index << "\n";
                 bool first_found = true;
                 if (index != std::numeric_limits<std::size_t>::max())
                 {
@@ -175,28 +172,21 @@ namespace mure
                         m_start_offset[m_d - 1] = m_node.offset(m_d, off_ind);
                         first_found = false;
                     }
-                    // std::cout << "level " << m_node.level() << " off_ind " << off_ind << "\n";
 
                     for(coord_index_t o=m_node.offset(m_d, off_ind); o<m_node.offset(m_d, off_ind+1); ++o)
                     {
-                        auto start = m_node.transform(m_d - 1, m_node.start(m_d - 1, o))>>(-m_shift);
-                        auto transform = m_node.transform(m_d - 1, m_node.end(m_d - 1, o));
-                        auto end = (transform + (transform & 1))>>(-m_shift);
+                        auto start = m_node.start(m_d - 1, o)>>(-m_shift);
+                        auto end = (m_node.end(m_d - 1, o) + (m_node.end(m_d - 1, o) & 1))>>(-m_shift);
                         if (start == end)
                         {
                             end++;
                         }
-                        // std::cout << "level " << m_node.level() << " start " << m_node.start(m_d - 1, o) << " " << start << "\n";
-                        // std::cout << "level " << m_node.level() << " end " << m_node.end(m_d - 1, o) << " " << end << "\n";
                         intervals.add_interval({start, end});
                     }
                     m_end_offset[m_d - 1] = m_node.offset(m_d, off_ind + 1);
                 }
             }
             //spdlog::debug("intervals -> {}", intervals);
-            // std::cout << "\n****************************************\n";
-            // std::cout << "level " << m_node.level() << " intervals -> " << intervals << "\n";
-            // std::cout << "\n****************************************\n";
             if (intervals.size() != 0)
             {
                 std::copy(intervals.cbegin(), intervals.cend(), std::back_inserter(m_work[m_d - 1]));
