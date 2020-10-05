@@ -516,6 +516,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
+    auto min_level = mesh.min_level();
     
     std::cout<<std::endl<<"[+] Projecting"<<std::flush;
     mure::mr_projection(f);
@@ -542,7 +543,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
     auto inlet_condition = inlet_bc();
 
-    for (std::size_t level = 0; level <= max_level; ++level)
+    for (std::size_t level = min_level; level <= max_level; ++level)
     {
 
         if (level == max_level) {
@@ -1673,25 +1674,25 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
 
 
-            mesh.for_each_cell([&](auto &cell) {
-                auto center = cell.center();
-                auto x = center[0];
-                auto y = center[1];
-                auto dx_cell = cell.length();
+            // mesh.for_each_cell([&](auto &cell) {
+            //     auto center = cell.center();
+            //     auto x = center[0];
+            //     auto y = center[1];
+            //     auto dx_cell = cell.length();
 
 
-                if (inside_obstacle(x + dx_cell/2., y + dx_cell/2.) ||
-                    inside_obstacle(x - dx_cell/2., y + dx_cell/2.) ||
-                    inside_obstacle(x - dx_cell/2., y - dx_cell/2.) ||
-                    inside_obstacle(x + dx_cell/2., y - dx_cell/2.))
-                {
-                    double dt = 1./(1<<max_level) / lambda;
+            //     if (inside_obstacle(x + dx_cell/2., y + dx_cell/2.) ||
+            //         inside_obstacle(x - dx_cell/2., y + dx_cell/2.) ||
+            //         inside_obstacle(x - dx_cell/2., y - dx_cell/2.) ||
+            //         inside_obstacle(x + dx_cell/2., y - dx_cell/2.))
+            //     {
+            //         double dt = 1./(1<<max_level) / lambda;
 
-                    Fx += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]));
-                    Fy += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]));
-                }            
+            //         Fx += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]));
+            //         Fy += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]));
+            //     }            
 
-            });
+            // });
 
 
 
@@ -1758,11 +1759,12 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                         double len_boundary =       length_obstacle_inside_cell(x - .5*dx, y - .5*dx, dx);
 
 
-                        std::cout<<std::endl<<"Volumic fraction = "<<vol_fraction<<"  Arclength normalized = "<<len_boundary/dx;
+                        // std::cout<<std::endl<<"Volumic fraction = "<<vol_fraction<<"  Arclength normalized = "<<len_boundary/dx;
                         double dt = 1./(1<<max_level) / lambda;
 
-                        Fx += len_boundary * (dx * dx / dt * lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]));
-                        Fy += len_boundary * (dx * dx / dt * lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]));
+
+                        Fx += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][1] - new_f[cell][3] + new_f[cell][5] - new_f[cell][6] - new_f[cell][7] + new_f[cell][8]);
+                        Fy += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][2] - new_f[cell][4] + new_f[cell][5] + new_f[cell][6] - new_f[cell][7] - new_f[cell][8]);
 
 
                         new_f[cell][0] = (1. - vol_fraction)*new_f[cell][0] + vol_fraction*(m0                      -     r2*m3                        +     r4*m6                        ) ;
@@ -1777,51 +1779,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                     }
                 }
-                
-
-                // This worked quite ok but was not super precise
-
-                // if (inside_obstacle(x, y))  {
-  
-
-                //     double rho = rho0;
-                //     double qx =  0.;
-                //     double qy = 0.;
-
-                //     double r1 = 1.0 / lambda;
-                //     double r2 = 1.0 / (lambda*lambda);
-                //     double r3 = 1.0 / (lambda*lambda*lambda);
-                //     double r4 = 1.0 / (lambda*lambda*lambda*lambda);
-
-
-                //     // This is the Geier choice of momenti
-
-                //     double cs2 = (lambda*lambda)/ 3.0; // Sound velocity of the lattice squared
-
-                //     double m0 = rho;
-                //     double m1 = qx;
-                //     double m2 = qy;
-                //     double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
-                //     double m4 = qx*(cs2+(qy/rho)*(qy/rho));
-                //     double m5 = qy*(cs2+(qx/rho)*(qx/rho));
-                //     double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
-                //     double m7 = (qx*qx-qy*qy)/rho;
-                //     double m8 = qx*qy/rho;
-
-                //     // We come back to the distributions
-
-
-
-                //     f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
-                //     f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                //     f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                //     f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                //     f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                //     f[cell][5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                //     f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-                //     f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                //     f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-                // }
+            
                 
             });
 
@@ -1949,14 +1907,28 @@ int main(int argc, char *argv[])
 
             std::size_t N = static_cast<std::size_t>(T / dt);
 
+            std::string suffix ("_"+std::to_string(min_level)
+                               +"_"+std::to_string(max_level)
+                               +"_"+std::to_string(eps));
+
+
+            std::ofstream time_frames;
+            time_frames.open("./drag/time_frames"+suffix+".dat");
+            std::ofstream time_frames_saved;
+            time_frames_saved.open("./drag/time_frames_saved"+suffix+".dat");
             std::ofstream CD;
-            CD.open("./drag/CD.dat");
+            CD.open("./drag/CD"+suffix+".dat");
             std::ofstream CL;
-            CL.open("./drag/CL.dat");
+            CL.open("./drag/CL"+suffix+".dat");
+            std::ofstream num_leaves;
+            num_leaves.open("./drag/leaves"+suffix+".dat");
+            std::ofstream num_cells;
+            num_cells.open("./drag/cells"+suffix+".dat");
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
                 std::cout<<std::endl<<"Iteration number = "<<nb_ite<<std::endl;
+                time_frames<<nb_ite * dt<<std::endl;
 
                 std::cout<<std::endl<<"[*] Coarsening"<<std::flush;
                 for (std::size_t i=0; i<max_level-min_level; ++i)
@@ -1992,13 +1964,19 @@ int main(int argc, char *argv[])
                 if (nb_ite % howoften == 0) {
                     std::cout<<std::endl<<"Saving"<<std::endl;
                     save_solution(f, eps, nb_ite/howoften, std::string("_before")); // Before applying the scheme
+                    time_frames_saved<<(nb_ite*dt)<<std::endl;
                 }
                     
 
                 auto CDCL = one_time_step_overleaves_corrected(f, pred_coeff, nb_ite);
 
+                std::cout<<std::endl<<"CD = "<<CDCL.first<<"   CL = "<<CDCL.second<<std::endl;
+
                 CD<<CDCL.first<<std::endl;
                 CL<<CDCL.second<<std::endl;
+
+                num_leaves<<mesh.nb_cells(mure::MeshType::cells)<<std::endl;
+                num_cells<<mesh.nb_total_cells()<<std::endl;
 
                 
                 // save_solution(f, eps, nb_ite/1, std::string("_after")); // Before applying the scheme
@@ -2007,7 +1985,11 @@ int main(int argc, char *argv[])
 
             CD.close();
             CL.close();
-    
+            time_frames.close();
+            num_leaves.close();
+            num_cells.close();
+            time_frames_saved.close();
+
         }
     }
     catch (const cxxopts::OptionException &e)

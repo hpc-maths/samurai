@@ -9,7 +9,7 @@ namespace mure
     template<class Field>
     inline void mr_projection(Field &field)
     {
-        spdlog::info("Make projection");
+        spdlog::debug("Make projection");
 
         auto mesh = field.mesh();
         std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
@@ -27,7 +27,7 @@ namespace mure
     template<class Field>
     inline void mr_prediction(Field &field)
     {
-        spdlog::info("Make prediction");
+        spdlog::debug("Make prediction");
 
         auto mesh = field.mesh();
         std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
@@ -66,7 +66,7 @@ namespace mure
     template<class Field>
     inline void mr_prediction_overleaves(Field &field)
     {
-        spdlog::info("Make prediction on the overleaves which are not already available");
+        spdlog::debug("Make prediction on the overleaves which are not already available");
 
         auto mesh = field.mesh();
         std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
@@ -104,7 +104,7 @@ namespace mure
     {
         std::cout<<"\n\nThe level is = "<<mx_lev<<std::endl;
 
-        spdlog::info("Make prediction");
+        spdlog::debug("Make prediction");
 
         auto mesh = field.mesh();
 

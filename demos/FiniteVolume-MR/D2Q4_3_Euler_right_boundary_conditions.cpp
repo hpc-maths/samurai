@@ -3,6 +3,7 @@
 
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
+#include <spdlog/stopwatch.h>
 
 #include <mure/mure.hpp>
 #include "coarsening.hpp"
@@ -35,8 +36,15 @@ double lambda = 1./0.2;
 double sigma_q = 0.5; 
 double sigma_xy = 0.5;
 
+// double sq = 1.6;// For the sod tube
 double sq = 1.75;//1./(.5 + sigma_q);
-double sxy = 0.5;//1./(.5 + sigma_xy);
+// double sxy = 0.5;//1./(.5 + sigma_xy);  
+double sxy = 1.5;//1./(.5 + sigma_xy);  
+
+        
+double gm = 1.4;
+
+
 
 template<class Config>
 auto init_f(mure::Mesh<Config> &mesh, double t)
@@ -62,8 +70,6 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         double e = 0.0;
 
         double p = 1.0;
-        
-        double gm = 1.4;
 
         // rho = (y < 0.5 + 0.002 * cos(2.*M_PI*2*x)) ? 0.5 : 1.0; 
         // qx  = rho * (y < 0.5 + 0.025 * sin(2*M_PI*2*x)) ? -0.5 : 0.5; 
@@ -92,10 +98,10 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 
 
                 // // Configuration 12
-                // rho = 0.8;
-                // qx = rho * 0.0;
-                // qy = rho * 0.0;
-                // p = 1.;
+                rho = 0.8;
+                qx = rho * 0.0;
+                qy = rho * 0.0;
+                p = 1.;
 
                 //// Configuration 17
                 // rho = 1.0625;
@@ -104,10 +110,10 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // p = 0.4;
 
                 //// Configuration 3
-                rho = 0.138;
-                qx = rho * 1.206;
-                qy = rho * 1.206;
-                p = 0.029;
+                // rho = 0.138;
+                // qx = rho * 1.206;
+                // qy = rho * 1.206;
+                // p = 0.029;
 
             }
             else
@@ -133,10 +139,10 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 
                 // // Configuration 12
 
-                // rho = 1.;
-                // qx = rho * 0.7276;
-                // qy = rho * 0.0;
-                // p = 1.;
+                rho = 1.;
+                qx = rho * 0.7276;
+                qy = rho * 0.0;
+                p = 1.;
 
 
                 //// Configuration 17
@@ -145,11 +151,11 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // qy = rho * (-0.3);
                 // p = 1.;
 
-                // Configuration 3
-                rho = 0.5323;
-                qx = rho * 1.206;
-                qy = rho * 0.;
-                p = 0.3;
+                // // Configuration 3
+                // rho = 0.5323;
+                // qx = rho * 1.206;
+                // qy = rho * 0.;
+                // p = 0.3;
             }
         }
         else
@@ -173,10 +179,10 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // p = 0.4;
 
                 // // // Configuration 12
-                // rho = 1.;
-                // qx = rho * 0.0;
-                // qy = rho * 0.7276;
-                // p = 1.;
+                rho = 1.;
+                qx = rho * 0.0;
+                qy = rho * 0.7276;
+                p = 1.;
 
                 //// Configuration 17
                 // rho = 0.5197;
@@ -185,10 +191,10 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // p = 0.4;
 
                 //// Configuration 3
-                rho = 0.5323;
-                qx = rho * 0.;
-                qy = rho * 1.206;
-                p = 0.3;
+                // rho = 0.5323;
+                // qx = rho * 0.;
+                // qy = rho * 1.206;
+                // p = 0.3;
             }
             else
             {
@@ -210,10 +216,10 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // p = 1.;
 
                 // // // Configuration 12
-                // rho = 0.5313;
-                // qx = rho * 0.0;
-                // qy = rho * 0.0;
-                // p = 0.4;
+                rho = 0.5313;
+                qx = rho * 0.0;
+                qy = rho * 0.0;
+                p = 0.4;
 
 
                 //// Configuration 17
@@ -223,12 +229,29 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 // p = 1.;
 
                 //// Configuration 3
-                rho = 1.5;
-                qx = rho * 0.;
-                qy = rho * 0.;
-                p = 1.5;
+                // rho = 1.5;
+                // qx = rho * 0.;
+                // qy = rho * 0.;
+                // p = 1.5;
             }
         }
+
+        // A sort of sod shock tube
+
+        // if (x < 0.5)    {
+        //     rho = 1.;
+        //     qx = 0.;
+        //     qy = 0.;
+        //     p = 1.;
+        // }
+        // else
+        // {
+        //     rho = 0.125;
+        //     qx = 0.;
+        //     qy = 0.;
+        //     p = 0.1;
+        // }
+        
         
         
         e = p / (gm - 1.) + 0.5 * (qx*qx + qy*qy) / rho;     
@@ -523,6 +546,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
     using coord_index_t = typename Field::coord_index_t;
 
     auto mesh = f.mesh();
+    auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
     
     mure::mr_projection(f);
@@ -547,12 +571,20 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
     double time_advection_overleaves_inside = 0.;
     double time_collision_overleaves = 0.;
 
-    for (std::size_t level = 0; level <= max_level; ++level)
+    spdlog::stopwatch sw;
+
+
+    for (std::size_t level = min_level; level <= max_level; ++level)
     {
 
         if (level == max_level) {
+            spdlog::info("Finest level treatment");
 
-            // tic();
+            sw.reset();
+
+            spdlog::stopwatch sw_boundary;
+
+            sw_boundary.reset();
 
             auto leaves_east = get_adjacent_boundary_east(mesh, max_level, mure::MeshType::cells);
             leaves_east.on(max_level)([&](auto& index, auto &interval, auto) {
@@ -567,7 +599,9 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                     advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
                 }
             });
-            
+            spdlog::info("COMPUTATION ADJACENT EAST FINEST = {:.3}", sw_boundary);
+            sw_boundary.reset();
+
             auto leaves_north = get_adjacent_boundary_north(mesh, max_level, mure::MeshType::cells);
             leaves_north.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
@@ -581,6 +615,8 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                     advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h    );
                 }
             });
+            spdlog::info("COMPUTATION ADJACENT NORTH FINEST = {:.3}", sw_boundary);
+            sw_boundary.reset();
 
             auto leaves_northeast = get_adjacent_boundary_northeast(mesh, max_level, mure::MeshType::cells);
             leaves_northeast.on(max_level)([&](auto& index, auto &interval, auto) {
@@ -595,6 +631,8 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                     advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h    );
                 }
             });
+            spdlog::info("COMPUTATION ADJACENT NORTH EAST FINEST = {:.3}", sw_boundary);
+            sw_boundary.reset();
 
             auto leaves_west = get_adjacent_boundary_west(mesh, max_level, mure::MeshType::cells);
             leaves_west.on(max_level)([&](auto& index, auto &interval, auto) {
@@ -609,6 +647,8 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                     advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
                 }
             });
+            spdlog::info("COMPUTATION ADJACENT WEST FINEST = {:.3}", sw_boundary);
+            sw_boundary.reset();
 
             auto leaves_northwest = get_adjacent_boundary_northwest(mesh, max_level, mure::MeshType::cells);
             leaves_northwest.on(max_level)([&](auto& index, auto &interval, auto) {
@@ -623,6 +663,9 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                     advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h    );
                 }
             });
+            spdlog::info("COMPUTATION ADJACENT NORTH WEST FINEST = {:.3}", sw_boundary);
+            sw_boundary.reset();
+
 
             auto leaves_south = get_adjacent_boundary_south(mesh, max_level, mure::MeshType::cells);
             leaves_south.on(max_level)([&](auto& index, auto &interval, auto) {
@@ -637,6 +680,9 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                     advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
                 }
             });
+            spdlog::info("COMPUTATION ADJACENT SOUTH FINEST = {:.3}", sw_boundary);
+            sw_boundary.reset();
+
 
             auto leaves_southwest = get_adjacent_boundary_southwest(mesh, max_level, mure::MeshType::cells);
             leaves_southwest.on(max_level)([&](auto& index, auto &interval, auto) {
@@ -651,6 +697,10 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                     advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
                 }
             });
+            
+            spdlog::info("COMPUTATION ADJACENT SOUTH WEST FINEST = {:.3}", sw_boundary);
+            sw_boundary.reset();
+
 
             auto leaves_southeast = get_adjacent_boundary_southeast(mesh, max_level, mure::MeshType::cells);
             leaves_southeast.on(max_level)([&](auto& index, auto &interval, auto) {
@@ -666,11 +716,11 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
-            // auto time1 = toc();
-            // std::cout<<std::endl<<"Advection boundary finest level = "<<time1<<std::flush;
+            spdlog::info("COMPUTATION ADJACENT SOUTH EAST FINEST = {:.3}", sw_boundary);
+            sw_boundary.reset();
 
-
-            // tic();
+            spdlog::info("Advection boundary finest level = {:.3} s", sw);
+            sw.reset();
 
             // Advection far from the boundary
             auto tmp1 = union_(union_(union_(leaves_east, leaves_north), leaves_west), leaves_south);
@@ -692,11 +742,9 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 }
             });
 
-            // auto time2 = toc();
-            // std::cout<<std::endl<<"Advection inside finest level = "<<time2<<std::flush;
+            spdlog::info("Advection inside finest level = {:.3}", sw);
+            sw.reset();
 
-
-            // tic();
             // Its time for collision which is local
             auto leaves = intersection(mesh[mure::MeshType::cells][max_level], 
                                        mesh[mure::MeshType::cells][max_level]);
@@ -746,7 +794,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 auto m3_2 = xt::eval(lambda        * (      f13       - f15));
                 auto m3_3 = xt::eval(lambda*lambda * (f12 - f13 + f14 - f15));
 
-                double gm = 1.4;
 
                 m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
                 m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
@@ -787,27 +834,17 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                 new_f(15, level, k, h) =  .25 * m3_0                    - .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
 
 
-            });                       
+            });
 
-            // auto time3 = toc();
-
-            // std::cout<<std::endl<<"Collision finest level = "<<time3<<std::flush;
-
-
+            spdlog::info("Collision finest level = {:.3}", sw);
         }
-
         else
         {
-
-
             auto lev_p_1 = level + 1;
-
-
             std::size_t j = max_level - (lev_p_1);
 
-            // tic();
-
-
+            spdlog::info("Overleaves treatment");
+            sw.reset();
             // This is necessary because the only overleaves we have to advect
             // on are the ones superposed with the leaves to which we come back
             // eventually in the process
@@ -1178,6 +1215,10 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
             // tic();
 
 
+            time_advection_overleaves_boundary += sw.elapsed().count();
+            sw.reset();
+
+
             // // To update
             auto overleaves_far_boundary = difference(mesh[mure::MeshType::cells][level], 
                                                       union_(union_(touching_east, touching_west), 
@@ -1230,13 +1271,10 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
             });
 
 
-            // time_advection_overleaves_inside += toc();
-
-            // tic();
+            time_advection_overleaves_inside += sw.elapsed().count();
+            sw.reset();
 
             // Now that projection has been done, we have to come back on the leaves below the overleaves
-
-
             auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
                                              mesh[mure::MeshType::cells][level]);
 
@@ -1359,8 +1397,6 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
 
 
-                double gm = 1.4;
-
                 m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
                 m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
                 m0_3 = (1 - sxy) * m0_3; 
@@ -1424,17 +1460,13 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
             });
 
-            // time_collision_overleaves += toc();
-
-                
+            time_collision_overleaves += sw.elapsed().count();
         }
     }
 
-    // std::cout<<std::endl<<"Advection overleaves boundary = "<<time_advection_overleaves_boundary<<std::flush;
-    // std::cout<<std::endl<<"Advection overleaves inside = "<<time_advection_overleaves_inside<<std::flush;
-    // std::cout<<std::endl<<"Collision overleaves = "<<time_collision_overleaves<<std::flush;
-
-
+    spdlog::info("Advection overleaves boundary = {:.3} s", time_advection_overleaves_boundary);
+    spdlog::info("Advection overleaves inside = {:.3} s", time_advection_overleaves_inside);
+    spdlog::info("Collision overleaves = {:.3} s", time_collision_overleaves);
     std::swap(f.array(), new_f.array());
 }
 
@@ -1461,6 +1493,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     mure::Field<Config> qx{"qx", mesh};
     mure::Field<Config> qy{"qy", mesh};
     mure::Field<Config> e{"e", mesh};
+    mure::Field<Config> s{"entropy", mesh};
 
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
@@ -1469,11 +1502,16 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
         qy[cell]  = f[cell][8] + f[cell][9] + f[cell][10] + f[cell][11];
         e[cell]   = f[cell][12] + f[cell][13] + f[cell][14] + f[cell][15];
 
+        // Computing the entropy with multiplicative constant 1 and additive constant 0
+        auto p = (gm - 1.) * (e[cell] - .5 * (std::pow(qx[cell], 2.) + std::pow(qy[cell], 2.)) / rho[cell]);
+        s[cell] = xt::log(p / xt::pow(rho[cell], gm));
+
     });
     h5file.add_field(rho);
     h5file.add_field(qx);
     h5file.add_field(qy);
     h5file.add_field(e);
+    h5file.add_field(s);
 
     h5file.add_field(f);
     h5file.add_field(level_);
@@ -1511,21 +1549,25 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
     // we only have slices of size 1. 
     // The second term (1) should be adapted according to the 
     // number of fields that we have.
-    std::vector<std::size_t> shape_x = {k.size(), 4};
+    // std::vector<std::size_t> shape_x = {k.size(), 4};
+    std::vector<std::size_t> shape_x = {k.size(), 16};
     xt::xtensor<double, 2> out = xt::empty<double>(shape_x);
 
     auto mask = mesh.exists(mure::MeshType::cells_and_ghosts, level_g + level, k, h); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
 
     xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
         
-    for (int h_field = 0; h_field < 4; ++h_field)  {
+    // for (int h_field = 0; h_field < 4; ++h_field)  {
+    for (int h_field = 0; h_field < 16; ++h_field)  {
         xt::view(mask_all, xt::all(), h_field) = mask;
     }    
 
     // Recursion finished
     if (xt::all(mask))
     {                 
-        return xt::eval(f(0, 4, level_g + level, k, h));
+        // return xt::eval(f(0, 4, level_g + level, k, h));
+        return xt::eval(f(0, 16, level_g + level, k, h));
+
     }
 
     // If we cannot stop here
@@ -1597,7 +1639,9 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
     {
         if (mask[k_mask])
         {
-            xt::view(out, k_mask) = xt::view(f(0, 4, level_g + level, {k_int, k_int + 1}, h), 0);
+            // xt::view(out, k_mask) = xt::view(f(0, 4, level_g + level, {k_int, k_int + 1}, h), 0);
+            xt::view(out, k_mask) = xt::view(f(0, 16, level_g + level, {k_int, k_int + 1}, h), 0);
+
         }
     }
 
@@ -1642,7 +1686,9 @@ double compute_error(Field & f, FieldFull & f_full)
                     }} };
 
   
-    mure::Field<Config, double, 4> f_reconstructed("f_reconstructed", init_mesh, bc);
+    // mure::Field<Config, double, 4> f_reconstructed("f_reconstructed", init_mesh, bc);
+    mure::Field<Config, double, 16> f_reconstructed("f_reconstructed", init_mesh, bc);
+
     f_reconstructed.array().fill(0.);
 
 
@@ -1720,11 +1766,21 @@ void save_reconstructed(Field & f, FieldFull & f_full,
                     }} };
 
   
-    mure::Field<Config, double, 4> f_reconstructed("f_reconstructed", init_mesh, bc);
+    // mure::Field<Config, double, 4> f_reconstructed("f_reconstructed", init_mesh, bc);
+    mure::Field<Config, double, 16> f_reconstructed("f_reconstructed", init_mesh, bc); // To reconstruct all and see entropy
     f_reconstructed.array().fill(0.);
 
-    mure::Field<Config> rho_reconstructed{"rho_reconstructed", init_mesh};
+    mure::Field<Config> rho_reconstructed{"rho_reconstructed", init_mesh};  
+    mure::Field<Config> qx_reconstructed{"qx_reconstructed", init_mesh};    
+    mure::Field<Config> qy_reconstructed{"qy_reconstructed", init_mesh};    
+    mure::Field<Config> E_reconstructed{"E_reconstructed", init_mesh};    
+    mure::Field<Config> s_reconstructed{"s_reconstructed", init_mesh};    
+  
     mure::Field<Config> rho{"rho", init_mesh};
+    mure::Field<Config> qx{"qx", init_mesh};
+    mure::Field<Config> qy{"qy", init_mesh};
+    mure::Field<Config> E{"E", init_mesh};
+    mure::Field<Config> s{"s", init_mesh};
 
 
     // For memoization
@@ -1753,10 +1809,51 @@ void save_reconstructed(Field & f, FieldFull & f_full,
                                                + f_reconstructed(2, max_level, k, h)
                                                + f_reconstructed(3, max_level, k, h);
 
+            qx_reconstructed(max_level, k, h) =  f_reconstructed(4, max_level, k, h)
+                                               + f_reconstructed(5, max_level, k, h)
+                                               + f_reconstructed(6, max_level, k, h)
+                                               + f_reconstructed(7, max_level, k, h);
+
+            qy_reconstructed(max_level, k, h) =  f_reconstructed(8, max_level, k, h)
+                                               + f_reconstructed(9, max_level, k, h)
+                                               + f_reconstructed(10, max_level, k, h)
+                                               + f_reconstructed(11, max_level, k, h);
+
+            E_reconstructed(max_level, k, h) =   f_reconstructed(12, max_level, k, h)
+                                               + f_reconstructed(13, max_level, k, h)
+                                               + f_reconstructed(14, max_level, k, h)
+                                               + f_reconstructed(15, max_level, k, h);
+
+            s_reconstructed(max_level, k, h) = xt::log(((gm - 1.) * (E_reconstructed(max_level, k, h) 
+                                                                   - .5 * (xt::pow(qx_reconstructed(max_level, k, h), 2.) 
+                                                                         + xt::pow(qy_reconstructed(max_level, k, h), 2.)) / rho_reconstructed(max_level, k, h))) / 
+                                                        xt::pow(rho_reconstructed(max_level, k, h), gm));
+
+
             rho(max_level, k, h) = f_full(0, max_level, k, h)
                                  + f_full(1, max_level, k, h)
                                  + f_full(2, max_level, k, h)
                                  + f_full(3, max_level, k, h);
+
+            qx(max_level, k, h) =  f_full(4, max_level, k, h)
+                                 + f_full(5, max_level, k, h)
+                                 + f_full(6, max_level, k, h)
+                                 + f_full(7, max_level, k, h);
+
+            qy(max_level, k, h) =  f_full(8, max_level, k, h)
+                                 + f_full(9, max_level, k, h)
+                                 + f_full(10, max_level, k, h)
+                                 + f_full(11, max_level, k, h);    
+
+            E(max_level, k, h) =   f_full(12, max_level, k, h)
+                                 + f_full(13, max_level, k, h)
+                                 + f_full(14, max_level, k, h)
+                                 + f_full(15, max_level, k, h);
+
+            s(max_level, k, h) = xt::log(((gm - 1.) * (E(max_level, k, h) 
+                                                      - .5 * (xt::pow(qx(max_level, k, h), 2.) 
+                                                            + xt::pow(qy(max_level, k, h), 2.)) / rho(max_level, k, h))) / 
+                                           xt::pow(rho(max_level, k, h), gm));
 
         });
     }
@@ -1771,7 +1868,11 @@ void save_reconstructed(Field & f, FieldFull & f_full,
     auto h5file = mure::Hdf5(str.str().data());
     h5file.add_mesh(init_mesh);
     h5file.add_field(rho_reconstructed);
+    h5file.add_field(s_reconstructed);
+
     h5file.add_field(rho);
+    h5file.add_field(s);
+
 
 }
 
@@ -1786,7 +1887,7 @@ int main(int argc, char *argv[])
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
                        ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
-                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
+                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
 
@@ -1804,7 +1905,8 @@ int main(int argc, char *argv[])
 
 
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
-                                                               {"warning", spdlog::level::warn}};
+                                                               {"warning", spdlog::level::warn},
+                                                               {"info", spdlog::level::info}};
             constexpr size_t dim = 2;
             using Config = mure::MRConfig<dim, 2>;
 
@@ -1826,7 +1928,7 @@ int main(int argc, char *argv[])
             auto f     = init_f(mesh,     0);
             auto f_ref = init_f(mesh_ref, 0);
 
-            double T = 0.3;//0.3;//1.2;
+            double T = 0.25;//0.3;//1.2;
             double dx = 1.0 / (1 << max_level);
             double dt = dx / lambda;
 
@@ -1859,12 +1961,11 @@ int main(int argc, char *argv[])
 
 
             int N_saves = 20;
-            int howoften = N / N_saves;
+            int howoften = 1;//N / N_saves;
 
             for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
                 std::cout<<std::endl<<"Iteration number = "<<nb_ite<<std::endl;
-
 
                 tic();
                 if (max_level > min_level)  {
@@ -1897,36 +1998,44 @@ int main(int argc, char *argv[])
                 if (nb_ite == N)    {
                     auto error_density = compute_error(f, f_ref);
                     std::cout<<std::endl<<"#### Epsilon = "<<eps<<"   error = "<<error_density<<std::flush;
-                    //save_reconstructed(f, f_ref, eps, 0);
+                    save_reconstructed(f, f_ref, eps, 0);
+                    save_solution(f, eps, 0, save_string+std::string("PAPER")); // Before applying the scheme
+
                 }
 
 
 
-                if (false){//nb_ite % howoften == 0)    {
+                if (nb_ite % howoften == 0)    {
                     std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
                     save_solution(f, eps, nb_ite/howoften, save_string+std::string("_before")); // Before applying the scheme
                 }
        
 
-                std::cout<<std::endl<<"[*] Entering time stepping"<<std::flush;
-                tic();
+                spdlog::info("Entering time stepping ADAPT");
+                // tic();
                 one_time_step_overleaves_corrected(f, pred_coeff, nb_ite);
-                auto time_scheme = toc();
-                stream_time_scheme<<time_scheme<<std::endl;
+                // auto time_scheme = toc();
+                // stream_time_scheme<<time_scheme<<std::endl;
 
-                tic();
+                // tic();
+                // std::cout<<std::endl<<"[*] Entering time stepping REFERENCE"<<std::flush;
+
+
+                spdlog::info("Entering time stepping REFERENCE");
                 one_time_step_overleaves_corrected(f_ref, pred_coeff, nb_ite);
-                auto time_scheme_ref = toc();
-                stream_time_scheme_ref<<time_scheme_ref<<std::endl;
+                // auto time_scheme_ref = toc();
+                // stream_time_scheme_ref<<time_scheme_ref<<std::endl;
 
                 auto number_leaves = mesh.nb_cells(mure::MeshType::cells);
                 auto number_cells  = mesh.nb_total_cells();
 
-                stream_number_leaves<<number_leaves<<std::endl;
-                stream_number_cells<<number_cells<<std::endl;
+                std::cout<<std::endl<<"Total cells = "<<number_cells<<"  Leaves = "<<number_leaves<<std::endl;
 
-                stream_number_leaves_ref<<mesh_ref.nb_cells(mure::MeshType::cells)<<std::endl;
-                stream_number_cells_ref<<mesh_ref.nb_total_cells()<<std::endl;
+                // stream_number_leaves<<number_leaves<<std::endl;
+                // stream_number_cells<<number_cells<<std::endl;
+
+                // stream_number_leaves_ref<<mesh_ref.nb_cells(mure::MeshType::cells)<<std::endl;
+                // stream_number_cells_ref<<mesh_ref.nb_total_cells()<<std::endl;
 
             }
             
