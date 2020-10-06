@@ -9,6 +9,7 @@
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
+#include "harten.hpp"
 #include "prediction_map_2d.hpp"
 
 /// Timer used in tic & toc
@@ -1963,6 +1964,7 @@ int main(int argc, char *argv[])
             int N_saves = 20;
             int howoften = 1;//N / N_saves;
 
+            bool make_graduation = true;
             for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
                 std::cout<<std::endl<<"Iteration number = "<<nb_ite<<std::endl;
@@ -1970,27 +1972,45 @@ int main(int argc, char *argv[])
                 tic();
                 if (max_level > min_level)  {
 
-                    std::cout<<std::endl<<"[*] Coarsening"<<std::flush;
-                    for (std::size_t i=0; i<max_level-min_level; ++i)
-                    {
-                        std::cout<<std::endl<<"Step "<<i<<std::flush;
-                        if (coarsening(f, eps, i))
-                            break;
-                    }
+                    // std::cout<<std::endl<<"[*] Coarsening"<<std::flush;
+                    // for (std::size_t i=0; i<max_level-min_level; ++i)
+                    // {
+                    //     std::cout<<std::endl<<"Step "<<i<<std::flush;
+                    //     if (coarsening(f, eps, i))
+                    //         break;
+                    // }
 
-                    std::cout<<std::endl<<"[*] Refinement"<<std::flush;
-                    for (std::size_t i=0; i<max_level-min_level; ++i)
-                    {
-                        std::cout<<std::endl<<"Step "<<i<<std::flush;
-                        if (refinement(f, eps, 0.0, i))
-                            break;
-                    }
+                    // std::cout<<std::endl<<"[*] Refinement"<<std::flush;
+                    // for (std::size_t i=0; i<max_level-min_level; ++i)
+                    // {
+                    //     std::cout<<std::endl<<"Step "<<i<<std::flush;
+                    //     if (refinement(f, eps, 0.0, i))
+                    //         break;
+                    // }
 
                     // std::cout<<std::endl<<"[*] Prediction overleaves before saving"<<std::flush;
                     // mure::mr_prediction_overleaves(f); // Before saving
+
+                    for (std::size_t i=0; i<max_level-min_level; ++i)
+                    {
+                        std::cout<<std::endl<<"Step "<<i<<std::flush;
+                        if (harten(f, eps, 2., i, make_graduation))
+                            break;
+                    }
+
                 }
+                make_graduation = false;
+                save_solution(f, eps, 0, save_string+std::string("DUNCOUP")); // Before applying the scheme
 
+                // return 0;
 
+                // if (nb_ite == 0)   {
+                //     std::stringstream s;
+                //     s << "u_by_level_beginning_"<<nb_ite;
+                //     auto h5file = mure::Hdf5(s.str().data());
+                //     h5file.add_field_by_level(f.mesh(), f);
+
+                // } 
 
                 auto time_mesh_adaptation = toc();
                 stream_time_mesh_adaptation<<time_mesh_adaptation<<std::endl;
@@ -2019,6 +2039,13 @@ int main(int argc, char *argv[])
 
                 // tic();
                 // std::cout<<std::endl<<"[*] Entering time stepping REFERENCE"<<std::flush;
+
+
+                if (nb_ite % howoften == 0)    {
+                    std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
+                    save_solution(f, eps, nb_ite/howoften, save_string+std::string("_after")); // Before applying the scheme
+                }
+       
 
 
                 spdlog::info("Entering time stepping REFERENCE");
