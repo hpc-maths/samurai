@@ -670,38 +670,26 @@ namespace mure
         INIT_OPERATOR(enlarge_op)
 
         template<class T>
-        inline void operator()(Dim<1>, T &cell_flag, CellFlag flag) const
+        inline void operator()(Dim<1>, T &cell_flag) const
         {
-            cell_flag(level, i + 1) |=
-                cell_flag(level, i) & static_cast<int>(flag);
-            cell_flag(level, i - 1) |=
-                cell_flag(level, i) & static_cast<int>(flag);
-            auto mask =
-                cell_flag(level, i) & static_cast<int>(CellFlag::refine);
-            xt::masked_view(cell_flag(level, i + 1), mask) |=
-                static_cast<int>(CellFlag::keep);
-            xt::masked_view(cell_flag(level, i - 1), mask) |=
-                static_cast<int>(CellFlag::keep);
+            auto keep_mask = cell_flag(level, i) & static_cast<int>(CellFlag::keep);
+
+            for (int ii = -1; ii < 2; ++ii)
+            {
+                xt::masked_view(cell_flag(level, i + ii), keep_mask) |= static_cast<int>(CellFlag::enlarge);
+            }
         }
 
         template<class T>
-        inline void operator()(Dim<2>, T &cell_flag, CellFlag flag) const
+        inline void operator()(Dim<2>, T &cell_flag) const
         {
-            auto keep_mask =
-                cell_flag(level, i, j) & static_cast<int>(CellFlag::keep);
-            auto refine_mask =
-                cell_flag(level, i, j) & static_cast<int>(CellFlag::refine);
+            auto keep_mask = cell_flag(level, i, j) & static_cast<int>(CellFlag::keep);
 
             for (int jj = -1; jj < 2; ++jj)
             {
                 for (int ii = -1; ii < 2; ++ii)
                 {
-                    xt::masked_view(cell_flag(level, i + ii, j + jj),
-                                    keep_mask) |=
-                        static_cast<int>(CellFlag::enlarge);
-                    xt::masked_view(cell_flag(level, i + ii, j + jj),
-                                    refine_mask) |=
-                        static_cast<int>(CellFlag::keep);
+                    xt::masked_view(cell_flag(level, i + ii, j + jj), keep_mask) |= static_cast<int>(CellFlag::enlarge);
                 }
             }
         }
@@ -711,6 +699,47 @@ namespace mure
     inline auto enlarge(CT &&... e)
     {
         return make_field_operator_function<enlarge_op>(std::forward<CT>(e)...);
+    }
+
+    /*******************************
+     * keep_around_refine operator *
+     *******************************/
+
+    template<class TInterval>
+    class keep_around_refine_op : public field_operator_base<TInterval> {
+      public:
+        INIT_OPERATOR(keep_around_refine_op)
+
+        template<class T>
+        inline void operator()(Dim<1>, T &cell_flag) const
+        {
+            auto refine_mask = cell_flag(level, i) & static_cast<int>(CellFlag::refine);
+
+            for (int ii = -1; ii < 2; ++ii)
+            {
+                xt::masked_view(cell_flag(level, i + ii), refine_mask) |= static_cast<int>(CellFlag::keep);
+            }
+        }
+
+        template<class T>
+        inline void operator()(Dim<2>, T &cell_flag) const
+        {
+            auto refine_mask = cell_flag(level, i, j) & static_cast<int>(CellFlag::refine);
+
+            for (int jj = -1; jj < 2; ++jj)
+            {
+                for (int ii = -1; ii < 2; ++ii)
+                {
+                    xt::masked_view(cell_flag(level, i + ii, j + jj), refine_mask) |= static_cast<int>(CellFlag::keep);
+                }
+            }
+        }
+    };
+
+    template<class... CT>
+    inline auto keep_around_refine(CT &&... e)
+    {
+        return make_field_operator_function<keep_around_refine_op>(std::forward<CT>(e)...);
     }
 
     /***********************
