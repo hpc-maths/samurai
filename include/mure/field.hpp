@@ -939,8 +939,8 @@ namespace mure
 
             size_t max_level = m_mesh->max_level();
 
-            // for (std::size_t level = 0; level <= max_level; ++level)  {
-            for (std::size_t level = 0; level <= max_level - 1 - ite; ++level)  {
+            for (std::size_t level = 0; level <= max_level; ++level)  {
+            // for (std::size_t level = 0; level <= max_level - ite; ++level)  {
 
                 size_t j = max_level - level;
 

@@ -1964,7 +1964,6 @@ int main(int argc, char *argv[])
             int N_saves = 20;
             int howoften = 1;//N / N_saves;
 
-            bool make_graduation = true;
             for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
                 std::cout<<std::endl<<"Iteration number = "<<nb_ite<<std::endl;
@@ -1994,13 +1993,12 @@ int main(int argc, char *argv[])
                     for (std::size_t i=0; i<max_level-min_level; ++i)
                     {
                         std::cout<<std::endl<<"Step "<<i<<std::flush;
-                        if (harten(f, eps, 2., i, make_graduation))
+                        if (harten(f, eps, 0., i))
                             break;
                     }
 
                 }
-                make_graduation = false;
-                save_solution(f, eps, 0, save_string+std::string("DUNCOUP")); // Before applying the scheme
+                save_solution(f, eps, nb_ite, save_string+std::string("DUNCOUP")); // Before applying the scheme
 
                 // return 0;
 

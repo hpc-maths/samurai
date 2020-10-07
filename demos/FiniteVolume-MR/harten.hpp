@@ -8,7 +8,7 @@
 
 
 template <class Field>
-bool harten(Field &u, double eps, double regularity, std::size_t ite, bool make_grad)
+bool harten(Field &u, double eps, double regularity, std::size_t ite)
 {
 
     using Config = typename Field::Config;
@@ -30,9 +30,35 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite, bool make_
     });
 
     mure::mr_projection(u);
-    u.update_bc(ite);
+    // {
+    //     std::stringstream s;
+    //     s << "u0_"<<ite;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, u);
+
+    // }    
+    u.update_bc();
+    // {
+    //     std::stringstream s;
+    //     s << "u1_"<<ite;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, u);
+
+    // }
     mure::mr_prediction(u);
-    u.update_bc(ite);
+    // {
+    //     std::stringstream s;
+    //     s << "u2_"<<ite;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, u);
+    // }
+    u.update_bc();
+    // {
+    //     std::stringstream s;
+    //     s << "u3_"<<ite;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, u);
+    // }
 
 
     for (std::size_t level = min_level - 1; level < max_level - ite; ++level)
@@ -90,52 +116,49 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite, bool make_
     //     h5file.add_field(detail);
     // }
 
-    // if (make_grad)
+    // COARSENING GRADUATION
+    for (std::size_t level = max_level; level > 0; --level)
     {
-        // COARSENING GRADUATION
-        for (std::size_t level = max_level; level > 0; --level)
-        {
-            auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
-                                            mesh[mure::MeshType::all_cells][level - 1])
-                            .on(level - 1);
-            keep_subset.apply_op(level - 1, maximum(tag));
+        auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
+                                        mesh[mure::MeshType::all_cells][level - 1])
+                        .on(level - 1);
+        keep_subset.apply_op(level - 1, maximum(tag));
 
-            xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
-            for (std::size_t d = 0; d < dim; ++d)
+        xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            stencil.fill(0);
+            for (int s = -1; s <= 1; ++s)
             {
-                stencil.fill(0);
-                for (int s = -1; s <= 1; ++s)
+                if (s != 0)
                 {
-                    if (s != 0)
-                    {
-                        stencil[d] = s;
-                        auto subset = intersection(mesh[mure::MeshType::cells][level],
-                                                translate(mesh[mure::MeshType::cells][level - 1], stencil))
-                                    .on(level - 1);
-                        subset.apply_op(level - 1, balance_2to1(tag, stencil));
-                    }
+                    stencil[d] = s;
+                    auto subset = intersection(mesh[mure::MeshType::cells][level],
+                                            translate(mesh[mure::MeshType::cells][level - 1], stencil))
+                                .on(level - 1);
+                    subset.apply_op(level - 1, balance_2to1(tag, stencil));
                 }
             }
         }
+    }
 
-        // REFINEMENT GRADUATION
-        for (std::size_t level = max_level; level > min_level; --level)
-        {
-            auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
-                                        mesh[mure::MeshType::cells][level]);
+    // REFINEMENT GRADUATION
+    for (std::size_t level = max_level; level > min_level; --level)
+    {
+        auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
+                                    mesh[mure::MeshType::cells][level]);
 
-            subset_1.apply_op(level, extend(tag));
+        subset_1.apply_op(level, extend(tag));
+        
+        mure::static_nested_loop<dim, -1, 2>(
+            [&](auto stencil) {
             
-            mure::static_nested_loop<dim, -1, 2>(
-                [&](auto stencil) {
-                
-                auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
-                                        mesh[mure::MeshType::cells][level-1]).on(level);
+            auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
+                                    mesh[mure::MeshType::cells][level-1]).on(level);
 
-                subset.apply_op(level, make_graduation(tag));
-                
-            });
-        }
+            subset.apply_op(level, make_graduation(tag));
+            
+        });
     }
 
     // {
@@ -188,40 +211,33 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite, bool make_
     Field new_u{u.name(), new_mesh, u.bc()};
     new_u.array().fill(0.);
 
-    // if (make_grad)
+    for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            auto subset = mure::intersection(mure::union_(mesh[mure::MeshType::cells][level], mesh[mure::MeshType::proj_cells][level]),
-                                            new_mesh[mure::MeshType::cells][level]);
-            // auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
-            //                                  new_mesh[mure::MeshType::cells][level]);
-            subset.apply_op(level, copy(new_u, u));
-        }
+        auto subset = mure::intersection(mure::union_(mesh[mure::MeshType::cells][level], mesh[mure::MeshType::proj_cells][level]),
+                                        new_mesh[mure::MeshType::cells][level]);
+        // auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
+        //                                  new_mesh[mure::MeshType::cells][level]);
+        subset.apply_op(level, copy(new_u, u));
     }
-    // u.update_bc(ite);
 
-    // if (make_grad)
+    for (std::size_t level = min_level; level < max_level; ++level)
     {
-        for (std::size_t level = min_level; level < max_level; ++level)
+        auto level_cell_array = mesh[mure::MeshType::cells][level];
+        
+
+        if (!level_cell_array.empty())
         {
-            auto level_cell_array = mesh[mure::MeshType::cells][level];
-            
 
-            if (!level_cell_array.empty())
+            level_cell_array.for_each_interval_in_x([&](auto const &index_yz, auto const &interval)
             {
-
-                level_cell_array.for_each_interval_in_x([&](auto const &index_yz, auto const &interval)
+                for (int i = interval.start; i < interval.end; ++i)
                 {
-                    for (int i = interval.start; i < interval.end; ++i)
+                    if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
                     {
-                        if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
-                        {
-                            mure::compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
-                        }
+                        mure::compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
                     }
-                });
-            }
+                }
+            });
         }
     }
 
