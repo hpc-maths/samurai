@@ -91,7 +91,7 @@ bool coarsening(Field &u, double eps, std::size_t ite)
         auto subset_3 = intersection(mesh[mure::MeshType::cells_and_ghosts][level],
                                      mesh[mure::MeshType::cells_and_ghosts][level]);
 
-        subset_2.apply_op(level, mure::enlarge(tag, mure::CellFlag::keep));
+        subset_2.apply_op(level, mure::enlarge(tag));
         subset_3.apply_op(level, mure::tag_to_keep(tag));
     }
 
