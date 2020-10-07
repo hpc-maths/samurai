@@ -8,7 +8,7 @@
 
 
 template <class Field>
-bool harten(Field &u, double eps, double regularity, std::size_t ite)
+bool harten(Field &u, double eps, double regularity, std::size_t ite, std::size_t global_iter)
 {
 
     using Config = typename Field::Config;
@@ -29,33 +29,28 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
         tag[cell] = static_cast<int>(mure::CellFlag::keep);
     });
 
+    std::size_t save_at_ite = 273;
     mure::mr_projection(u);
+    // if (global_iter == save_at_ite)
     // {
     //     std::stringstream s;
     //     s << "u0_"<<ite;
     //     auto h5file = mure::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, u);
-
-    // }    
+    // }
     u.update_bc();
+    // if (global_iter == save_at_ite)
     // {
     //     std::stringstream s;
     //     s << "u1_"<<ite;
     //     auto h5file = mure::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, u);
-
     // }
     mure::mr_prediction(u);
+    // if (global_iter == save_at_ite)
     // {
     //     std::stringstream s;
     //     s << "u2_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
-    //     h5file.add_field_by_level(mesh, u);
-    // }
-    u.update_bc();
-    // {
-    //     std::stringstream s;
-    //     s << "u3_"<<ite;
     //     auto h5file = mure::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, u);
     // }
@@ -85,6 +80,7 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
         subset_1.apply_op(level, to_refine_mr(detail, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level)); // Refinement according to Harten
     }
 
+    // if(global_iter == save_at_ite)
     // {
     //     std::stringstream s;
     //     s << "tagify_before_enlarge_"<<ite;
@@ -93,6 +89,14 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
     //     h5file.add_field(tag);
     //     h5file.add_field(detail);
     //     h5file.add_field(u);
+    // }
+
+    // if(global_iter == save_at_ite)
+    // {
+    //     std::stringstream s;
+    //     s << "tagify_before_enlarge_by_level"<<ite;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, tag);
     // }
 
     for (std::size_t level = min_level; level <= max_level - ite; ++level)
@@ -107,6 +111,7 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
         subset_3.apply_op(level, mure::tag_to_keep(tag));
     }
 
+    // if(global_iter == save_at_ite)
     // {
     //     std::stringstream s;
     //     s << "tagify_"<<ite;
@@ -114,6 +119,14 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
     //     h5file.add_mesh(mesh);
     //     h5file.add_field(tag);
     //     h5file.add_field(detail);
+    // }
+
+    // if(global_iter == save_at_ite)
+    // {
+    //     std::stringstream s;
+    //     s << "tagify_by_level"<<ite;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, tag);
     // }
 
     // COARSENING GRADUATION
@@ -161,12 +174,29 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
         });
     }
 
+    for (std::size_t level = max_level; level > 0; --level)
+    {
+        auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
+                                        mesh[mure::MeshType::all_cells][level - 1])
+                        .on(level - 1);
+        keep_subset.apply_op(level - 1, maximum(tag));
+    }
+
+    // if(global_iter == save_at_ite)
     // {
     //     std::stringstream s;
     //     s << "graduation_"<<ite;
     //     auto h5file = mure::Hdf5(s.str().data());
     //     h5file.add_mesh(mesh);
     //     h5file.add_field(tag);
+    // }
+
+    // if(global_iter == save_at_ite)
+    // {
+    //     std::stringstream s;
+    //     s << "graduation_by_level"<<ite;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, tag);
     // }
 
     mure::CellList<Config> cell_list;
@@ -180,6 +210,10 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
             {
                 for (int i = interval.start; i < interval.end; ++i)
                 {
+                    // if (global_iter == save_at_ite & ite == 2)
+                    // {
+                    //     std::cout << "level: " << level << " interval " << interval << " i: " << i << " j: " << index_yz[0] << " tag: " << tag.array()[i + interval.index] << "\n";
+                    // }
                     if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
                     {
                         mure::static_nested_loop<dim - 1, 0, 2>(
@@ -187,6 +221,10 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
                                 auto index = 2 * index_yz + stencil;
                                 cell_list[level + 1][index].add_point(2 * i);
                                 cell_list[level + 1][index].add_point(2 * i + 1);
+                                // if (global_iter == save_at_ite & ite == 2)
+                                // {
+                                //     std::cout << "Refine:" << index[0] << " " << 2*i << " " << 2*i+1 << "\n";
+                                // }
                             });
                     }
                     else if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::keep))
@@ -201,6 +239,7 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
             });
         }
     }
+
     mure::Mesh<Config> new_mesh{cell_list, mesh.initial_mesh(), min_level, max_level};
 
     if (new_mesh == mesh)
@@ -244,12 +283,11 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite)
     u.mesh_ptr()->swap(new_mesh);
     std::swap(u.array(), new_u.array());
 
-    // if (ite == 0)   {
+    // if (global_iter == save_at_ite)   {
     //     std::stringstream s;
-    //     s << "new_u_by_level_"<<ite;
+    //     s << "new_u_by_level_"<< ite;
     //     auto h5file = mure::Hdf5(s.str().data());
     //     h5file.add_field_by_level(u.mesh(), u);
-
     // } 
 
     // {

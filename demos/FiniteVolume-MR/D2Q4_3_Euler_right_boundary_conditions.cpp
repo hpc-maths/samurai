@@ -551,9 +551,37 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
     auto max_level = mesh.max_level();
     
     mure::mr_projection(f);
+    // if (max_level != min_level && iter == 105){
+    //     std::stringstream s;
+    //     s << "before_LB_scheme_projection_"<<iter;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, f);
+    // }    
     f.update_bc(); // It is important to do so
+    // if (max_level != min_level && iter == 105){
+    //     std::stringstream s;
+    //     s << "before_LB_scheme_update_bc_"<<iter;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, f);
+    // }    
     mure::mr_prediction(f);
+    // if (max_level != min_level && iter == 105){
+    //     std::stringstream s;
+    //     s << "before_LB_scheme_prediction_"<<iter;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, f);
+    // }    
+    // f.update_bc(); // It is important to do so
+
     mure::mr_prediction_overleaves(f);
+    // f.update_bc(); // It is important to do so
+
+    // if (max_level != min_level && iter == 105){
+    //     std::stringstream s;
+    //     s << "before_LB_scheme_overleaves_"<<iter;
+    //     auto h5file = mure::Hdf5(s.str().data());
+    //     h5file.add_field_by_level(mesh, f);
+    // }    
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
@@ -1890,6 +1918,7 @@ int main(int argc, char *argv[])
                        ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
+                       ("ite", "number of iteration", cxxopts::value<std::size_t>()->default_value("100"))
                        ("h, help", "Help");
 
     try
@@ -1914,6 +1943,7 @@ int main(int argc, char *argv[])
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
+            std::size_t total_nb_ite = result["ite"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
 
             mure::Box<double, dim> box({0, 0}, {1, 1});
@@ -1987,18 +2017,20 @@ int main(int argc, char *argv[])
                     //         break;
                     // }
 
+
+
                     // std::cout<<std::endl<<"[*] Prediction overleaves before saving"<<std::flush;
                     // mure::mr_prediction_overleaves(f); // Before saving
 
                     for (std::size_t i=0; i<max_level-min_level; ++i)
                     {
                         std::cout<<std::endl<<"Step "<<i<<std::flush;
-                        if (harten(f, eps, 0., i))
+                        if (harten(f, eps, 0., i, nb_ite))
                             break;
                     }
 
                 }
-                save_solution(f, eps, nb_ite, save_string+std::string("DUNCOUP")); // Before applying the scheme
+                // save_solution(f, eps, nb_ite, save_string+std::string("DUNCOUP")); // Before applying the scheme
 
                 // return 0;
 
@@ -2039,10 +2071,10 @@ int main(int argc, char *argv[])
                 // std::cout<<std::endl<<"[*] Entering time stepping REFERENCE"<<std::flush;
 
 
-                if (nb_ite % howoften == 0)    {
-                    std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
-                    save_solution(f, eps, nb_ite/howoften, save_string+std::string("_after")); // Before applying the scheme
-                }
+                // if (nb_ite % howoften == 0)    {
+                //     std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
+                //     save_solution(f, eps, nb_ite/howoften, save_string+std::string("_after")); // Before applying the scheme
+                // }
        
 
 

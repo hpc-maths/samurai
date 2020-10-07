@@ -416,9 +416,15 @@ namespace mure
                 level_cell_array.for_each_interval_in_x(
                     [&](xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index_yz,
                         interval_t const &interval) {
-                        static_nested_loop<dim - 1, -ghost_width - s, ghost_width + s + 1>([&](auto stencil) {
-                            int beg = (interval.start >> 1) - static_cast<int>(s + ghost_width);
-                            int end = ((interval.end + 1) >> 1) + static_cast<int>(s + ghost_width);
+                        // static_nested_loop<dim - 1, -ghost_width - s, ghost_width + s + 1>([&](auto stencil) {
+                        //     int beg = (interval.start >> 1) - static_cast<int>(s + ghost_width);
+                        //     int end = ((interval.end + 1) >> 1) + static_cast<int>(s + ghost_width);
+
+                        //     level_cell_list[(index_yz >> 1) + stencil].add_interval({beg, end});
+                        // });
+                        static_nested_loop<dim - 1, -ghost_width, ghost_width + 1>([&](auto stencil) {
+                            int beg = (interval.start >> 1) - static_cast<int>(ghost_width);
+                            int end = ((interval.end + 1) >> 1) + static_cast<int>(ghost_width);
 
                             level_cell_list[(index_yz >> 1) + stencil].add_interval({beg, end});
                         });

@@ -51,6 +51,31 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 (y - y_center) * (y - y_center))
                 <= radius * radius)
             m0 = 1.;
+
+
+        if (x < 0.5)    {
+            if (y < 0.5)    {
+               
+                m0 = 1.;
+            }
+            else
+            {
+                m0 = 0.5;
+            }
+        }
+        else
+        {
+            if (y < 0.5)    {
+                m0 = 0.25;
+            }
+            else
+            {
+                m0 = 0.4;
+        
+        }
+        }
+
+
         // if (abs(x - x_center) <= radius and abs(y - y_center) <= radius)    {
         //     m0 = 1.;
         // }
@@ -60,8 +85,8 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         // double m2 = 0.5 * ky * m0 * m0;
 
 
-        double m1 = kx * m0;
-        double m2 = ky * m0;
+        double m1 = 0.5 * kx * m0 * m0;
+        double m2 = 0.5 * ky * m0 * m0;
         double m3 = 0.0;
 
         // We come back to the distributions
@@ -504,13 +529,13 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
 
 
-                // m0_1 = (1. - sq) *  m0_1 + sq * 0.5 * kx * m0_0 * m0_0;
-                // m0_2 = (1. - sq) *  m0_2 + sq * 0.5 * ky * m0_0 * m0_0;
-                // m0_3 = (1. - sxy) * m0_3; 
-
-                m0_1 = (1. - sq) *  m0_1 + sq * kx * m0_0;
-                m0_2 = (1. - sq) *  m0_2 + sq * ky * m0_0;
+                m0_1 = (1. - sq) *  m0_1 + sq * 0.5 * kx * m0_0 * m0_0;
+                m0_2 = (1. - sq) *  m0_2 + sq * 0.5 * ky * m0_0 * m0_0;
                 m0_3 = (1. - sxy) * m0_3; 
+
+                // m0_1 = (1. - sq) *  m0_1 + sq * kx * m0_0;
+                // m0_2 = (1. - sq) *  m0_2 + sq * ky * m0_0;
+                // m0_3 = (1. - sxy) * m0_3; 
 
 
                 new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
@@ -1010,14 +1035,14 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
 
 
-                // m0_1 = (1. - sq) *  m0_1 + sq * 0.5 * kx * m0_0 * m0_0;
-                // m0_2 = (1. - sq) *  m0_2 + sq * 0.5 * ky * m0_0 * m0_0;
-                // m0_3 = (1. - sxy) * m0_3; 
-
-
-                m0_1 = (1. - sq) *  m0_1 + sq * kx * m0_0;
-                m0_2 = (1. - sq) *  m0_2 + sq * ky * m0_0;
+                m0_1 = (1. - sq) *  m0_1 + sq * 0.5 * kx * m0_0 * m0_0;
+                m0_2 = (1. - sq) *  m0_2 + sq * 0.5 * ky * m0_0 * m0_0;
                 m0_3 = (1. - sxy) * m0_3; 
+
+
+                // m0_1 = (1. - sq) *  m0_1 + sq * kx * m0_0;
+                // m0_2 = (1. - sq) *  m0_2 + sq * ky * m0_0;
+                // m0_3 = (1. - sxy) * m0_3; 
 
 
                 new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
@@ -1367,17 +1392,14 @@ int main(int argc, char *argv[])
                 //         break;
                 // }
 
-                bool make_graduation = true;
-
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
                     std::cout<<std::endl<<"Step "<<i<<std::flush;
-                    if (harten(f, eps, 2., i, make_graduation))
+                    if (harten(f, eps, 2., i))
                         break;
                 }
 
 
-                make_graduation = false;
 
                 mure::mr_prediction_overleaves(f); // Before saving
 

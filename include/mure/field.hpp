@@ -804,7 +804,7 @@ namespace mure
 
 
 
-        inline void update_bc_D2Q4_3_Euler_constant_extension()
+        inline void update_bc_D2Q4_3_Euler_constant_extension(std::size_t level)
         {
         
             const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
@@ -815,7 +815,8 @@ namespace mure
 
             size_t max_level = m_mesh->max_level();
 
-            for (std::size_t level = 0; level <= max_level; ++level)  {
+            // for (std::size_t level = 0; level <= max_level; ++level)
+            {
 
                 size_t j = max_level - level;
 
@@ -1303,11 +1304,19 @@ namespace mure
 
         }
 
+        inline void update_bc_for_level(std::size_t level)
+        {
+            update_bc_D2Q4_3_Euler_constant_extension(level);
+        }
+
         inline void update_bc(std::size_t ite = 0)
         {
             
-            // update_bc_D2Q4_3_Euler_constant_extension();
-            update_bc_D2Q4_3_Euler_linear_extension(ite); // Works properly
+            for(std::size_t level = m_mesh->min_level() - 1; level <= m_mesh->max_level(); ++level)
+            {
+                update_bc_D2Q4_3_Euler_constant_extension(level);
+            }
+            // update_bc_D2Q4_3_Euler_linear_extension(ite); // Works properly
 
             // update_bc_D2Q4_3_Euler();
 

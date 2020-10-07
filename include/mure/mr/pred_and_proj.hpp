@@ -57,7 +57,7 @@ namespace mure
                            .on(level);
 
                 expr.apply_op(level, prediction(field));
-
+                field.update_bc_for_level(level);
             // }
         }
     }
@@ -85,6 +85,7 @@ namespace mure
                     difference(difference(mesh[MeshType::overleaves][level], mesh[MeshType::cells_and_ghosts][level]), mesh[MeshType::proj_cells][level]);
 
                 overleaves_to_predict.apply_op(level, prediction(field));
+                field.update_bc_for_level(level);
 
 
                 // overleaves_to_predict([&](auto, auto &interval, auto) {
