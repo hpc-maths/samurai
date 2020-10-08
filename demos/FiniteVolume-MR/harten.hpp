@@ -8,7 +8,7 @@
 
 
 template <class Field>
-bool harten(Field &u, double eps, double regularity, std::size_t ite, std::size_t global_iter)
+bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t ite, std::size_t global_iter)
 {
 
     using Config = typename Field::Config;
@@ -281,7 +281,9 @@ bool harten(Field &u, double eps, double regularity, std::size_t ite, std::size_
     }
 
     u.mesh_ptr()->swap(new_mesh);
+    uold.mesh_ptr()->swap(new_mesh);
     std::swap(u.array(), new_u.array());
+    std::swap(uold.array(), new_u.array());
 
     // if (global_iter == save_at_ite)   {
     //     std::stringstream s;

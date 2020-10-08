@@ -528,11 +528,11 @@ namespace mure
     }
 }
 
-namespace std
-{
-    template<class MRConfig>
-    inline void swap(mure::Mesh<MRConfig> &lhs, mure::Mesh<MRConfig> &rhs) noexcept
-    {
-        lhs.swap(rhs);
-    }
-}
+// namespace std
+// {
+    // template<class MRConfig>
+    // inline void swap(mure::Mesh<MRConfig> &lhs, mure::Mesh<MRConfig> &rhs) noexcept
+    // {
+    //     lhs.swap(rhs);
+    // }
+// }

@@ -1948,6 +1948,7 @@ int main(int argc, char *argv[])
 
             mure::Box<double, dim> box({0, 0}, {1, 1});
             mure::Mesh<Config> mesh{box, min_level, max_level};
+            mure::Mesh<Config> mesh_old{box, min_level, max_level};
             mure::Mesh<Config> mesh_ref{box, max_level, max_level};
 
 
@@ -1957,6 +1958,7 @@ int main(int argc, char *argv[])
 
             // Initialization
             auto f     = init_f(mesh,     0);
+            auto f_old = init_f(mesh_old, 0);
             auto f_ref = init_f(mesh_ref, 0);
 
             double T = 0.25;//0.3;//1.2;
@@ -2025,7 +2027,7 @@ int main(int argc, char *argv[])
                     for (std::size_t i=0; i<max_level-min_level; ++i)
                     {
                         std::cout<<std::endl<<"Step "<<i<<std::flush;
-                        if (harten(f, eps, 0., i, nb_ite))
+                        if (harten(f, f_old, eps, 0., i, nb_ite))
                             break;
                     }
 

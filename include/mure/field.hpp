@@ -610,17 +610,22 @@ namespace mure
             return m_bc;
         }
 
-        inline auto mesh() const
+        inline const Mesh<MRConfig>& mesh() const
         {
             return *m_mesh;
         }
 
-        inline auto mesh()
+        inline Mesh<MRConfig>& mesh()
         {
             return *m_mesh;
         }
 
-        inline auto mesh_ptr()
+        inline const Mesh<MRConfig>* mesh_ptr() const
+        {
+            return m_mesh;
+        }
+
+        inline Mesh<MRConfig>* mesh_ptr()
         {
             return m_mesh;
         }
