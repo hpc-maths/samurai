@@ -150,9 +150,11 @@ namespace mure
 
         inline void swap(Mesh<MRConfig> &mesh) noexcept
         {
-            m_cells = std::move(mesh.m_cells);
-            // swap(m_init_cells, mesh.m_init_cells);
-            // swap(m_max_level, mesh.m_max_level);
+            using std::swap;
+            swap(m_cells, mesh.m_cells);
+            swap(m_init_cells, mesh.m_init_cells);
+            swap(m_max_level, mesh.m_max_level);
+            swap(m_min_level, mesh.m_min_level);
         }
 
         template<typename... T>
