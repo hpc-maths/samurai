@@ -280,6 +280,13 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
         }
     }
 
+    auto old_mesh = uold.mesh();
+    for (std::size_t level = min_level; level <= max_level; ++level)
+    {
+        auto subset = mure::intersection(old_mesh[mure::MeshType::cells][level],
+                                         difference(new_mesh[mure::MeshType::cells][level],mesh[mure::MeshType::cells][level]));
+        subset.apply_op(level, copy(new_u, uold));
+    }
     u.mesh_ptr()->swap(new_mesh);
     uold.mesh_ptr()->swap(new_mesh);
     std::swap(u.array(), new_u.array());
