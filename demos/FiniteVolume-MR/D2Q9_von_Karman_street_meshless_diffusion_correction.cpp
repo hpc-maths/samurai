@@ -8,6 +8,7 @@
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
+#include "harten.hpp"
 #include "prediction_map_2d.hpp"
 
 
@@ -16,9 +17,12 @@
 
 double radius = 1./32.; // Radius of the obstacle
 
-double Re = 1600.;
+// double Re = 1600.;
+double Re = 1200;
 
-const double lambda = 2.; // Lattice velocity of the scheme
+// const double lambda = 2.; // Lattice velocity of the scheme
+const double lambda = 1.;
+
 const double rho0 = 1.; // Reference density
 // const double u0 = 0.1; // Reference x-velocity
 // const double u0 = 0.05; // Reference x-velocity
@@ -27,6 +31,10 @@ const double mu = 5.e-6; // Bulk viscosity
 const double zeta = 10. * mu; // Shear viscosity
 
 const double u0 = mu * Re / (2. * rho0 * radius);
+
+// std::string momenti("Geier");
+std::string momenti("Lallemand");
+
 
 // The relaxation parameters will be computed in the sequel
 // because they depend on the space step of the scheme
@@ -124,32 +132,63 @@ std::array<double, 9> inlet_bc()
     double r4 = 1.0 / (lambda*lambda*lambda*lambda);
 
 
-    // This is the Geier choice of momenti
 
     double cs2 = (lambda*lambda)/ 3.0; // Sound velocity of the lattice squared
 
-    double m0 = rho;
-    double m1 = qx;
-    double m2 = qy;
-    double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
-    double m4 = qx*(cs2+(qy/rho)*(qy/rho));
-    double m5 = qy*(cs2+(qx/rho)*(qx/rho));
-    double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
-    double m7 = (qx*qx-qy*qy)/rho;
-    double m8 = qx*qy/rho;
+
+    if (! momenti.compare(std::string("Geier")))    {
+
+    // This is the Geier choice of moment
+
+        double m0 = rho;
+        double m1 = qx;
+        double m2 = qy;
+        double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
+        double m4 = qx*(cs2+(qy/rho)*(qy/rho));
+        double m5 = qy*(cs2+(qx/rho)*(qx/rho));
+        double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
+        double m7 = (qx*qx-qy*qy)/rho;
+        double m8 = qx*qy/rho;
 
     // We come back to the distributions
 
-    to_return[0] = m0                      -     r2*m3                        +     r4*m6                         ;
-    to_return[1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-    to_return[2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-    to_return[3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-    to_return[4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-    to_return[5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-    to_return[6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-    to_return[7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-    to_return[8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+        to_return[0] = m0                      -     r2*m3                        +     r4*m6                         ;
+        to_return[1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+        to_return[2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+        to_return[3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+        to_return[4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+        to_return[5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+        to_return[6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+        to_return[7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+        to_return[8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
     
+    }
+
+    if  (! momenti.compare(std::string("Lallemand")))    {
+        double m0 = rho;
+        double m1 = qx;
+        double m2 = qy;
+        double m3 = -2*lambda*lambda*rho + 3./rho*(qx*qx + qy*qy);
+        double m4 = -lambda*lambda*qx;
+        double m5 = -lambda*lambda*qy;
+        double m6 = lambda*lambda*lambda*lambda*rho - 3.*lambda*lambda/rho*(qx*qx + qy*qy);
+        double m7 = (qx*qx-qy*qy)/rho;
+        double m8 = qx*qy/rho;
+
+        to_return[0] = (1./9)*m0                                  -  (1./9)*r2*m3                                +   (1./9)*r4*m6                         ;
+        to_return[1] = (1./9)*m0   + (1./6)*r1*m1                 - (1./36)*r2*m3 - (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7             ;
+        to_return[2] = (1./9)*m0                  +  (1./6)*r1*m2 - (1./36)*r2*m3                -  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7             ;
+        to_return[3] = (1./9)*m0   - (1./6)*r1*m1                 - (1./36)*r2*m3 + (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7             ;
+        to_return[4] = (1./9)*m0                  -  (1./6)*r1*m2 - (1./36)*r2*m3                +  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7             ;
+        to_return[5] = (1./9)*m0   + (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8 ;
+        to_return[6] = (1./9)*m0   - (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8 ;
+        to_return[7] = (1./9)*m0   - (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8 ;
+        to_return[8] = (1./9)*m0   + (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8 ;
+
+
+    }
+
+
     return to_return;
 }
 
@@ -174,7 +213,7 @@ auto init_f(mure::Mesh<Config> &mesh)
 
         double rho = inside_obstacle(x, y) ? rho0 : rho0;
         double qx = inside_obstacle(x, y) ? 0. : rho0 * u0;
-        double qy = inside_obstacle(x, y) ? 0. : 0.001 * rho0 * u0;//0.; // TO start instability earlier
+        double qy = inside_obstacle(x, y) ? 0. : 0.01 * rho0 * u0;//0.; // TO start instability earlier
 
 
         double r1 = 1.0 / lambda;
@@ -183,62 +222,62 @@ auto init_f(mure::Mesh<Config> &mesh)
         double r4 = 1.0 / (lambda*lambda*lambda*lambda);
 
 
-        // This is the Geier choice of momenti
 
         double cs2 = (lambda*lambda)/ 3.0; // Sound velocity of the lattice squared
 
-        double m0 = rho;
-        double m1 = qx;
-        double m2 = qy;
-        double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
-        double m4 = qx*(cs2+(qy/rho)*(qy/rho));
-        double m5 = qy*(cs2+(qx/rho)*(qx/rho));
-        double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
-        double m7 = (qx*qx-qy*qy)/rho;
-        double m8 = qx*qy/rho;
+        if  (! momenti.compare(std::string("Geier")))    {
 
-        // We come back to the distributions
+            // This is the Geier choice of momenti
 
+            double m0 = rho;
+            double m1 = qx;
+            double m2 = qy;
+            double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
+            double m4 = qx*(cs2+(qy/rho)*(qy/rho));
+            double m5 = qy*(cs2+(qx/rho)*(qx/rho));
+            double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
+            double m7 = (qx*qx-qy*qy)/rho;
+            double m8 = qx*qy/rho;
 
-
-        f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
-        f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-        f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-        f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-        f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-        f[cell][5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-        f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-        f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-        f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+            // We come back to the distributions
 
 
 
-        // // This is the Lallemand choice of momenti
+            f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
+            f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+            f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+            f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+            f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+            f[cell][5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+            f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+            f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+            f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
 
-        // double d = 1./rho0;
-
-        // double m0 = rho;
-        // double m1 = qx;
-        // double m2 = qy;
-        // double m3 = d * (qx*qx + qy*qy) + 2./3.*lambda*lambda*rho;
-        // double m4 = 4./3.*lambda*lambda*qx;
-        // double m5 = 4./3.*lambda*lambda*qy;
-        // double m6 = 1./9. * (lambda*lambda*(21.*d*(qx*qx + qy*qy)+6.*lambda*lambda*rho)
-        //                      -(6.*d*(qx*qx + qy*qy) - 2.*lambda*lambda*rho));
-        // double m7 = d*(qx*qx - qy*qy);
-        // double m8 = d*qx*qy;
-
-        // f[cell][0] = m0                        - 1.5*r2*m3                          +  .5*r4*m6                         ;
-        // f[cell][1] =      1.*r1*m1            +   .5*r2*m3 -  .5*r3*m4              - .25*r4*m6 + .25*r2*m7             ;
-        // f[cell][2] =                 1.*r1*m2 +   .5*r2*m3             -  .5*r3*m5  - .25*r4*m6 - .25*r2*m7             ;
-        // f[cell][3] =     -1.*r1*m1            +   .5*r2*m3 +  .5*r3*m4              - .25*r4*m6 + .25*r2*m7             ;
-        // f[cell][4] =               - 1.*r1*m2 +   .5*r2*m3             +  .5*r3*m5  - .25*r4*m6 - .25*r2*m7             ;
-        // f[cell][5] =    -.25*r1*m1 -.25*r1*m2 - .125*r2*m3 + .25*r3*m4 + .25*r3*m5 + .125*r4*m6             + .25*r2*m8 ;
-        // f[cell][6] =     .25*r1*m1 -.25*r1*m2 - .125*r2*m3 - .25*r3*m4 + .25*r3*m5 + .125*r4*m6             - .25*r2*m8 ;                                     
-        // f[cell][7] =     .25*r1*m1 +.25*r1*m2 - .125*r2*m3 - .25*r3*m4 - .25*r3*m5 + .125*r4*m6             + .25*r2*m8 ;                                     
-        // f[cell][8] =    -.25*r1*m1 +.25*r1*m2 - .125*r2*m3 + .25*r3*m4 - .25*r3*m5 + .125*r4*m6             - .25*r2*m8 ;                                     
+        }
 
 
+
+        if  (! momenti.compare(std::string("Lallemand")))    {
+            double m0 = rho;
+            double m1 = qx;
+            double m2 = qy;
+            double m3 = -2*lambda*lambda*rho + 3./rho*(qx*qx + qy*qy);
+            double m4 = -lambda*lambda*qx;
+            double m5 = -lambda*lambda*qy;
+            double m6 = lambda*lambda*lambda*lambda*rho - 3.*lambda*lambda/rho*(qx*qx + qy*qy);
+            double m7 = (qx*qx-qy*qy)/rho;
+            double m8 = qx*qy/rho;
+
+            f[cell][0] = (1./9)*m0                                  -  (1./9)*r2*m3                                +   (1./9)*r4*m6                         ;
+            f[cell][1] = (1./9)*m0   + (1./6)*r1*m1                 - (1./36)*r2*m3 - (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7             ;
+            f[cell][2] = (1./9)*m0                  +  (1./6)*r1*m2 - (1./36)*r2*m3                -  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7             ;
+            f[cell][3] = (1./9)*m0   - (1./6)*r1*m1                 - (1./36)*r2*m3 + (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7             ;
+            f[cell][4] = (1./9)*m0                  -  (1./6)*r1*m2 - (1./36)*r2*m3                +  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7             ;
+            f[cell][5] = (1./9)*m0   + (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8 ;
+            f[cell][6] = (1./9)*m0   - (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8 ;
+            f[cell][7] = (1./9)*m0   - (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8 ;
+            f[cell][8] = (1./9)*m0   + (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8 ;
+        }
         
     });
 
@@ -875,89 +914,96 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
 
 
-                // // Choice of momenti by Geier
 
-                auto m0 = xt::eval(    f0 + f1 + f2 + f3 + f4 +   f5 +   f6 +   f7 +   f8 ) ;
-                auto m1 = xt::eval(l1*(     f1      - f3      +   f5 -   f6 -   f7 +   f8 ) );
-                auto m2 = xt::eval(l1*(          f2      - f4 +   f5 +   f6 -   f7 -   f8 ) );
-                auto m3 = xt::eval(l2*(     f1 + f2 + f3 + f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8 ) );
-                auto m4 = xt::eval(l3*(                           f5 -   f6 -   f7 +   f8 ) );
-                auto m5 = xt::eval(l3*(                           f5 +   f6 -   f7 -   f8 ) );
-                auto m6 = xt::eval(l4*(                           f5 +   f6 +   f7 +   f8 ) );
-                auto m7 = xt::eval(l2*(     f1 - f2 + f3 - f4                             ) );
-                auto m8 = xt::eval(l2*(                           f5 -   f6 +   f7 -   f8 ) );
+                if  (! momenti.compare(std::string("Geier")))    {
+                    // // Choice of momenti by Geier
 
-                // Collision
+                    auto m0 = xt::eval(    f0 + f1 + f2 + f3 + f4 +   f5 +   f6 +   f7 +   f8 ) ;
+                    auto m1 = xt::eval(l1*(     f1      - f3      +   f5 -   f6 -   f7 +   f8 ) );
+                    auto m2 = xt::eval(l1*(          f2      - f4 +   f5 +   f6 -   f7 -   f8 ) );
+                    auto m3 = xt::eval(l2*(     f1 + f2 + f3 + f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8 ) );
+                    auto m4 = xt::eval(l3*(                           f5 -   f6 -   f7 +   f8 ) );
+                    auto m5 = xt::eval(l3*(                           f5 +   f6 -   f7 -   f8 ) );
+                    auto m6 = xt::eval(l4*(                           f5 +   f6 +   f7 +   f8 ) );
+                    auto m7 = xt::eval(l2*(     f1 - f2 + f3 - f4                             ) );
+                    auto m8 = xt::eval(l2*(                           f5 -   f6 +   f7 -   f8 ) );
 
-                double space_step = 1.0 / (1 << max_level);
-                double dummy = 3.0/(lambda*rho0*space_step);
-                double sigma_1 = dummy*(zeta - 2.*mu/3.);
-                double sigma_2 = dummy*mu;
-                double s_1 = 1/(.5+sigma_1);
-                double s_2 = 1/(.5+sigma_2);
+                    // Collision
 
-                double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
+                    double space_step = 1.0 / (1 << max_level);
+                    double dummy = 3.0/(lambda*rho0*space_step);
 
-                m3 = (1. - s_1) * m3 + s_1 * ((m1*m1+m2*m2)/m0 + 2.*m0*cs2);
-                m4 = (1. - s_1) * m4 + s_1 * (m1*(cs2+(m2/m0)*(m2/m0)));
-                m5 = (1. - s_1) * m5 + s_1 * (m2*(cs2+(m1/m0)*(m1/m0)));
-                m6 = (1. - s_1) * m6 + s_1 * (m0*(cs2+(m1/m0)*(m1/m0))*(cs2+(m2/m0)*(m2/m0)));
-                m7 = (1. - s_2) * m7 + s_2 * ((m1*m1-m2*m2)/m0);
-                m8 = (1. - s_2) * m8 + s_2 * (m1*m2/m0);
+                    double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
+                    double sigma_1 = dummy*(zeta - 2.*mu/3.);
+                    double sigma_2 = dummy*mu;
+                    double s_1 = 1/(.5+sigma_1);
+                    double s_2 = 1/(.5+sigma_2);
 
 
-                // // We come back to the distributions
+                    m3 = (1. - s_1) * m3 + s_1 * ((m1*m1+m2*m2)/m0 + 2.*m0*cs2);
+                    m4 = (1. - s_1) * m4 + s_1 * (m1*(cs2+(m2/m0)*(m2/m0)));
+                    m5 = (1. - s_1) * m5 + s_1 * (m2*(cs2+(m1/m0)*(m1/m0)));
+                    m6 = (1. - s_1) * m6 + s_1 * (m0*(cs2+(m1/m0)*(m1/m0))*(cs2+(m2/m0)*(m2/m0)));
+                    m7 = (1. - s_2) * m7 + s_2 * ((m1*m1-m2*m2)/m0);
+                    m8 = (1. - s_2) * m8 + s_2 * (m1*m2/m0);
+
+
+                    // // We come back to the distributions
 
   
 
-                new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                           ;
-                new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                new_f(2, level, k, h) =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                new_f(3, level, k, h) =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                new_f(4, level, k, h) =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                new_f(5, level, k, h) =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                new_f(6, level, k, h) =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-                new_f(7, level, k, h) =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                new_f(8, level, k, h) =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                    new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                           ;
+                    new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                    new_f(2, level, k, h) =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                    new_f(3, level, k, h) =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                    new_f(4, level, k, h) =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                    new_f(5, level, k, h) =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                    new_f(6, level, k, h) =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                    new_f(7, level, k, h) =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                    new_f(8, level, k, h) =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
 
-                // // Choice of momenti by Lallemand
+                }
+                if  (! momenti.compare(std::string("Lallemand")))    {
 
-                // auto m0 = xt::eval(    f0 + f1 + f2 + f3 + f4 +   f5 +   f6 +   f7 +   f8 ) ;
-                // auto m1 = xt::eval(l1*(     f1      - f3      +   f5 -   f6 -   f7 +   f8 ) );
-                // auto m2 = xt::eval(l1*(          f2      - f4 +   f5 +   f6 -   f7 -   f8 ) );
-                // auto m3 = xt::eval(l2*(     f1 + f2 + f3 + f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8 ) );
-                // auto m4 = xt::eval(l3*(     f1      - f3      + 2*f5 - 2*f6 - 2*f7 + 2*f8 ) );
-                // auto m5 = xt::eval(l3*(          f2      - f4 + 2*f5 + 2*f6 - 2*f7 - 2*f8 ) );
-                // auto m6 = xt::eval(l4*(     f1 + f2 + f3 + f4 + 4*f5 + 4*f6 + 4*f7 + 4*f8 ) );
-                // auto m7 = xt::eval(l2*(     f1 - f2 + f3 - f4                             ) );
-                // auto m8 = xt::eval(l2*(                           f5 -   f6 +   f7 -   f8 ) );
+                    auto m0 = xt::eval(       f0 +  f1 +  f2  + f3  + f4 +   f5 +   f6 +   f7 +   f8 ) ;
+                    auto m1 = xt::eval(l1*(         f1        - f3       +   f5 -   f6 -   f7 +   f8 ) );
+                    auto m2 = xt::eval(l1*(               f2        - f4 +   f5 +   f6 -   f7 -   f8 ) );
+                    auto m3 = xt::eval(l2*(-4*f0 -  f1 -  f2  - f3  - f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8 ) );
+                    auto m4 = xt::eval(l3*(      -2*f1       +2*f3         + f5 -   f6   - f7 +   f8 ) );
+                    auto m5 = xt::eval(l3*(            -2*f2       +2*f4   + f5 +   f6   - f7 -   f8 ) );
+                    auto m6 = xt::eval(l4*( 4*f0 -2*f1 -2*f2 -2*f3 -2*f4   + f5 +   f6   + f7 +   f8 ) );
+                    auto m7 = xt::eval(l2*(         f1 -  f2  + f3  - f4                             ) );
+                    auto m8 = xt::eval(l2*(                                  f5 -   f6 +   f7 -   f8 ) );
 
-                // double space_step = 1.0 / (1 << max_level);
-                // double dummy = 3./(lambda * space_step * rho0);
-                // double sigma1 = dummy * zeta;
-                // double sigma2 = dummy * mu;
+                    double space_step = 1.0 / (1 << max_level);
+                    double dummy = 3.0/(lambda*rho0*space_step);
 
-                // double s1 = 1./(0.5 + sigma1);
-                // double s2 = 1./(0.5 + sigma2);
+                    double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
+                    double sigma_1 = dummy*zeta;
+                    double sigma_2 = dummy*mu;
+                    double s_1 = 1/(.5+sigma_1);
+                    double s_2 = 1/(.5+sigma_2);
 
-                // double d = 1./rho0;
 
-                // m3 = (1. - s1) * m3 + s1 * (d * (m1*m1 + m2*m2) + 2./3.*lambda*lambda*m0);
-                // m4 = (1. - s1) * m4 + s1 * (4./3.*lambda*lambda*m1);
-                // m5 = (1. - s1) * m5 + s1 * (4./3.*lambda*lambda*m2);
-                // m6 = (1. - s1) * m6 + s1 * (1./9. * (lambda*lambda*(21.*d*(m1*m1 + m2*m2)+6.*lambda*lambda*m0) - (6.*d*(m1*m1 + m2*m2) - 2.*lambda*lambda*m0)));
-                // m7 = (1. - s2) * m7 + s2 * (d*(m1*m1 - m2*m2));
-                // m8 = (1. - s2) * m8 + s2 * (d*m1*m2);
+                    m3 = (1. - s_1) * m3 + s_1 * (-2*lambda*lambda*m0 + 3./m0*(m1*m1 + m2*m2));
+                    m4 = (1. - s_1) * m4 + s_1 * (-lambda*lambda*m1);
+                    m5 = (1. - s_1) * m5 + s_1 * (-lambda*lambda*m2);
+                    m6 = (1. - s_1) * m6 + s_1 * (lambda*lambda*lambda*lambda*m0 - 3.*lambda*lambda/m0*(m1*m1 + m2*m2));
+                    m7 = (1. - s_2) * m7 + s_2 * ((m1*m1-m2*m2)/m0);
+                    m8 = (1. - s_2) * m8 + s_2 * (m1*m2/m0);
 
-                // new_f(0, level, k, h) = m0                        - 1.5*r2*m3                          +  .5*r4*m6                         ;
-                // new_f(1, level, k, h) =      1.*r1*m1            +   .5*r2*m3 -  .5*r3*m4              - .25*r4*m6 + .25*r2*m7             ;
-                // new_f(2, level, k, h) =                 1.*r1*m2 +   .5*r2*m3             -  .5*r3*m5  - .25*r4*m6 - .25*r2*m7             ;
-                // new_f(3, level, k, h) =     -1.*r1*m1            +   .5*r2*m3 +  .5*r3*m4              - .25*r4*m6 + .25*r2*m7             ;
-                // new_f(4, level, k, h) =               - 1.*r1*m2 +   .5*r2*m3             +  .5*r3*m5  - .25*r4*m6 - .25*r2*m7             ;
-                // new_f(5, level, k, h) =    -.25*r1*m1 -.25*r1*m2 - .125*r2*m3 + .25*r3*m4 + .25*r3*m5 + .125*r4*m6             + .25*r2*m8 ;
-                // new_f(6, level, k, h) =     .25*r1*m1 -.25*r1*m2 - .125*r2*m3 - .25*r3*m4 + .25*r3*m5 + .125*r4*m6             - .25*r2*m8 ;                                     
-                // new_f(7, level, k, h) =     .25*r1*m1 +.25*r1*m2 - .125*r2*m3 - .25*r3*m4 - .25*r3*m5 + .125*r4*m6             + .25*r2*m8 ;                                     
-                // new_f(8, level, k, h) =    -.25*r1*m1 +.25*r1*m2 - .125*r2*m3 + .25*r3*m4 - .25*r3*m5 + .125*r4*m6             - .25*r2*m8 ;  
+
+                    new_f(0, level, k, h) = (1./9)*m0                                  -  (1./9)*r2*m3                                +   (1./9)*r4*m6                         ;
+                    new_f(1, level, k, h) = (1./9)*m0   + (1./6)*r1*m1                 - (1./36)*r2*m3 - (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7             ;
+                    new_f(2, level, k, h) = (1./9)*m0                  +  (1./6)*r1*m2 - (1./36)*r2*m3                -  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7             ;
+                    new_f(3, level, k, h) = (1./9)*m0   - (1./6)*r1*m1                 - (1./36)*r2*m3 + (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7             ;
+                    new_f(4, level, k, h) = (1./9)*m0                  -  (1./6)*r1*m2 - (1./36)*r2*m3                +  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7             ;
+                    new_f(5, level, k, h) = (1./9)*m0   + (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8 ;
+                    new_f(6, level, k, h) = (1./9)*m0   - (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8 ;
+                    new_f(7, level, k, h) = (1./9)*m0   - (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8 ;
+                    new_f(8, level, k, h) = (1./9)*m0   + (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8 ;
+
+                }
 
             });                       
 
@@ -1617,41 +1663,6 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 double l3 = l2 * lambda;
                 double l4 = l3 * lambda;
 
-                auto m0 = xt::eval(    f0 + f1 + f2 + f3 + f4 +   f5 +   f6 +   f7 +   f8 ) ;
-                auto m1 = xt::eval(l1*(     f1      - f3      +   f5 -   f6 -   f7 +   f8 ) );
-                auto m2 = xt::eval(l1*(          f2      - f4 +   f5 +   f6 -   f7 -   f8 ) );
-                auto m3 = xt::eval(l2*(     f1 + f2 + f3 + f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8 ) );
-                auto m4 = xt::eval(l3*(                           f5 -   f6 -   f7 +   f8 ) );
-                auto m5 = xt::eval(l3*(                           f5 +   f6 -   f7 -   f8 ) );
-                auto m6 = xt::eval(l4*(                           f5 +   f6 +   f7 +   f8 ) );
-                auto m7 = xt::eval(l2*(     f1 - f2 + f3 - f4                             ) );
-                auto m8 = xt::eval(l2*(                           f5 -   f6 +   f7 -   f8 ) );
-
-                // Collision
-                double space_step = 1.0 / (1 << max_level);
-                double dummy = 3.0/(lambda*rho0*space_step);
-                double sigma_1 = dummy*(zeta - 2.*mu/3.);
-                double sigma_2 = dummy*mu;
-
-                // // // Default
-                double s_1 = 1/(.5+sigma_1);
-                double s_2 = 1/(.5+sigma_2);
-
-
-                // double s_1 = (iter % (1 << (max_level - level)) == 0) ? 1/(.5+sigma_1) : 0.;
-                // double s_2 = (iter % (1 << (max_level - level)) == 0) ? 1/(.5+sigma_2) : 0.;
-
-
-                double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
-
-                m3 = (1. - s_1) * m3 + s_1 * ((m1*m1+m2*m2)/m0 + 2.*m0*cs2);
-                m4 = (1. - s_1) * m4 + s_1 * (m1*(cs2+(m2/m0)*(m2/m0)));
-                m5 = (1. - s_1) * m5 + s_1 * (m2*(cs2+(m1/m0)*(m1/m0)));
-                m6 = (1. - s_1) * m6 + s_1 * (m0*(cs2+(m1/m0)*(m1/m0))*(cs2+(m2/m0)*(m2/m0)));
-                m7 = (1. - s_2) * m7 + s_2 * ((m1*m1-m2*m2)/m0);
-                m8 = (1. - s_2) * m8 + s_2 * (m1*m2/m0);
-
-                // We come back to the distributions
 
                 double r1 = 1.0 / lambda;
                 double r2 = 1.0 / (lambda*lambda);
@@ -1659,15 +1670,97 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 double r4 = 1.0 / (lambda*lambda*lambda*lambda);
 
 
-                new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                           ;
-                new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                new_f(2, level, k, h) =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                new_f(3, level, k, h) =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                new_f(4, level, k, h) =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                new_f(5, level, k, h) =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                new_f(6, level, k, h) =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-                new_f(7, level, k, h) =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                new_f(8, level, k, h) =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+
+
+                if  (! momenti.compare(std::string("Geier")))    {
+                    // // Choice of momenti by Geier
+
+                    auto m0 = xt::eval(    f0 + f1 + f2 + f3 + f4 +   f5 +   f6 +   f7 +   f8 ) ;
+                    auto m1 = xt::eval(l1*(     f1      - f3      +   f5 -   f6 -   f7 +   f8 ) );
+                    auto m2 = xt::eval(l1*(          f2      - f4 +   f5 +   f6 -   f7 -   f8 ) );
+                    auto m3 = xt::eval(l2*(     f1 + f2 + f3 + f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8 ) );
+                    auto m4 = xt::eval(l3*(                           f5 -   f6 -   f7 +   f8 ) );
+                    auto m5 = xt::eval(l3*(                           f5 +   f6 -   f7 -   f8 ) );
+                    auto m6 = xt::eval(l4*(                           f5 +   f6 +   f7 +   f8 ) );
+                    auto m7 = xt::eval(l2*(     f1 - f2 + f3 - f4                             ) );
+                    auto m8 = xt::eval(l2*(                           f5 -   f6 +   f7 -   f8 ) );
+
+                    // Collision
+
+                    double space_step = 1.0 / (1 << max_level);
+                    double dummy = 3.0/(lambda*rho0*space_step);
+
+                    double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
+                    double sigma_1 = dummy*(zeta - 2.*mu/3.);
+                    double sigma_2 = dummy*mu;
+                    double s_1 = 1/(.5+sigma_1);
+                    double s_2 = 1/(.5+sigma_2);
+
+
+                    m3 = (1. - s_1) * m3 + s_1 * ((m1*m1+m2*m2)/m0 + 2.*m0*cs2);
+                    m4 = (1. - s_1) * m4 + s_1 * (m1*(cs2+(m2/m0)*(m2/m0)));
+                    m5 = (1. - s_1) * m5 + s_1 * (m2*(cs2+(m1/m0)*(m1/m0)));
+                    m6 = (1. - s_1) * m6 + s_1 * (m0*(cs2+(m1/m0)*(m1/m0))*(cs2+(m2/m0)*(m2/m0)));
+                    m7 = (1. - s_2) * m7 + s_2 * ((m1*m1-m2*m2)/m0);
+                    m8 = (1. - s_2) * m8 + s_2 * (m1*m2/m0);
+
+
+                    // // We come back to the distributions
+
+  
+
+                    new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                           ;
+                    new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                    new_f(2, level, k, h) =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                    new_f(3, level, k, h) =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                    new_f(4, level, k, h) =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                    new_f(5, level, k, h) =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                    new_f(6, level, k, h) =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                    new_f(7, level, k, h) =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                    new_f(8, level, k, h) =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+
+                }
+                if  (! momenti.compare(std::string("Lallemand")))    {
+
+                    auto m0 = xt::eval(       f0 +  f1 +  f2  + f3  + f4 +   f5 +   f6 +   f7 +   f8 ) ;
+                    auto m1 = xt::eval(l1*(         f1        - f3       +   f5 -   f6 -   f7 +   f8 ) );
+                    auto m2 = xt::eval(l1*(               f2        - f4 +   f5 +   f6 -   f7 -   f8 ) );
+                    auto m3 = xt::eval(l2*(-4*f0 -  f1 -  f2  - f3  - f4 + 2*f5 + 2*f6 + 2*f7 + 2*f8 ) );
+                    auto m4 = xt::eval(l3*(      -2*f1       +2*f3         + f5 -   f6   - f7 +   f8 ) );
+                    auto m5 = xt::eval(l3*(            -2*f2       +2*f4   + f5 +   f6   - f7 -   f8 ) );
+                    auto m6 = xt::eval(l4*( 4*f0 -2*f1 -2*f2 -2*f3 -2*f4   + f5 +   f6   + f7 +   f8 ) );
+                    auto m7 = xt::eval(l2*(         f1 -  f2  + f3  - f4                             ) );
+                    auto m8 = xt::eval(l2*(                                  f5 -   f6 +   f7 -   f8 ) );
+
+                    double space_step = 1.0 / (1 << max_level);
+                    double dummy = 3.0/(lambda*rho0*space_step);
+
+                    double cs2 = (lambda * lambda) / 3.0; // sound velocity squared
+                    double sigma_1 = dummy*zeta;
+                    double sigma_2 = dummy*mu;
+                    double s_1 = 1/(.5+sigma_1);
+                    double s_2 = 1/(.5+sigma_2);
+
+
+                    m3 = (1. - s_1) * m3 + s_1 * (-2*lambda*lambda*m0 + 3./m0*(m1*m1 + m2*m2));
+                    m4 = (1. - s_1) * m4 + s_1 * (-lambda*lambda*m1);
+                    m5 = (1. - s_1) * m5 + s_1 * (-lambda*lambda*m2);
+                    m6 = (1. - s_1) * m6 + s_1 * (lambda*lambda*lambda*lambda*m0 - 3.*lambda*lambda/m0*(m1*m1 + m2*m2));
+                    m7 = (1. - s_2) * m7 + s_2 * ((m1*m1-m2*m2)/m0);
+                    m8 = (1. - s_2) * m8 + s_2 * (m1*m2/m0);
+
+
+                    new_f(0, level, k, h) = (1./9)*m0                                  -  (1./9)*r2*m3                                +   (1./9)*r4*m6                         ;
+                    new_f(1, level, k, h) = (1./9)*m0   + (1./6)*r1*m1                 - (1./36)*r2*m3 - (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7             ;
+                    new_f(2, level, k, h) = (1./9)*m0                  +  (1./6)*r1*m2 - (1./36)*r2*m3                -  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7             ;
+                    new_f(3, level, k, h) = (1./9)*m0   - (1./6)*r1*m1                 - (1./36)*r2*m3 + (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7             ;
+                    new_f(4, level, k, h) = (1./9)*m0                  -  (1./6)*r1*m2 - (1./36)*r2*m3                +  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7             ;
+                    new_f(5, level, k, h) = (1./9)*m0   + (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8 ;
+                    new_f(6, level, k, h) = (1./9)*m0   - (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8 ;
+                    new_f(7, level, k, h) = (1./9)*m0   - (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8 ;
+                    new_f(8, level, k, h) = (1./9)*m0   + (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8 ;
+                }
+
             });
 
         }
@@ -1720,66 +1813,136 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                 double cs2 = (lambda*lambda)/ 3.0; // Sound velocity of the lattice squared
 
-                double m0 = rho;
-                double m1 = qx;
-                double m2 = qy;
-                double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
-                double m4 = qx*(cs2+(qy/rho)*(qy/rho));
-                double m5 = qy*(cs2+(qx/rho)*(qx/rho));
-                double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
-                double m7 = (qx*qx-qy*qy)/rho;
-                double m8 = qx*qy/rho;
 
-                // The cell is fully inside the obstacle
-                if (inside_obstacle(x - .5*dx, y - .5*dx) &&
-                    inside_obstacle(x + .5*dx, y - .5*dx) &&
-                    inside_obstacle(x + .5*dx, y + .5*dx) &&
-                    inside_obstacle(x - .5*dx, y + .5*dx))  {
-                    
-                    new_f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
-                    new_f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                    new_f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                    new_f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
-                    new_f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
-                    new_f[cell][5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                    new_f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-                    new_f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
-                    new_f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-                }
-                else
-                {
-                    // The cell has the interface cutting through it
-                    if (inside_obstacle(x - .5*dx, y - .5*dx) ||
-                        inside_obstacle(x + .5*dx, y - .5*dx) ||
-                        inside_obstacle(x + .5*dx, y + .5*dx) ||
+                if  (! momenti.compare(std::string("Geier")))    {
+
+
+                    double m0 = rho;
+                    double m1 = qx;
+                    double m2 = qy;
+                    double m3 = (qx*qx+qy*qy)/rho + 2.*rho*cs2;
+                    double m4 = qx*(cs2+(qy/rho)*(qy/rho));
+                    double m5 = qy*(cs2+(qx/rho)*(qx/rho));
+                    double m6 = rho*(cs2+(qx/rho)*(qx/rho))*(cs2+(qy/rho)*(qy/rho));
+                    double m7 = (qx*qx-qy*qy)/rho;
+                    double m8 = qx*qy/rho;
+
+                    // The cell is fully inside the obstacle
+                    if (inside_obstacle(x - .5*dx, y - .5*dx) &&
+                        inside_obstacle(x + .5*dx, y - .5*dx) &&
+                        inside_obstacle(x + .5*dx, y + .5*dx) &&
                         inside_obstacle(x - .5*dx, y + .5*dx))  {
+                    
+                        new_f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
+                        new_f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                        new_f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                        new_f[cell][3] =    -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
+                        new_f[cell][4] =              - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
+                        new_f[cell][5] =                                      .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                        new_f[cell][6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                        new_f[cell][7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
+                        new_f[cell][8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
+                    }
+                    else
+                    {
+                        // The cell has the interface cutting through it
+                        if (inside_obstacle(x - .5*dx, y - .5*dx) ||
+                            inside_obstacle(x + .5*dx, y - .5*dx) ||
+                            inside_obstacle(x + .5*dx, y + .5*dx) ||
+                            inside_obstacle(x - .5*dx, y + .5*dx))  {
 
-                        // We compute the volume fraction
-                        double vol_fraction = volume_inside_obstacle_estimation(x - .5*dx, y - .5*dx, dx);
-                        double len_boundary =       length_obstacle_inside_cell(x - .5*dx, y - .5*dx, dx);
+                            // We compute the volume fraction
+                            double vol_fraction = volume_inside_obstacle_estimation(x - .5*dx, y - .5*dx, dx);
+                            double len_boundary =       length_obstacle_inside_cell(x - .5*dx, y - .5*dx, dx);
 
 
-                        // std::cout<<std::endl<<"Volumic fraction = "<<vol_fraction<<"  Arclength normalized = "<<len_boundary/dx;
-                        double dt = 1./(1<<max_level) / lambda;
+                            // std::cout<<std::endl<<"Volumic fraction = "<<vol_fraction<<"  Arclength normalized = "<<len_boundary/dx;
+                            double dt = 1./(1<<max_level) / lambda;
 
 
-                        Fx += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][1] - new_f[cell][3] + new_f[cell][5] - new_f[cell][6] - new_f[cell][7] + new_f[cell][8]);
-                        Fy += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][2] - new_f[cell][4] + new_f[cell][5] + new_f[cell][6] - new_f[cell][7] - new_f[cell][8]);
+                            Fx += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][1] - new_f[cell][3] + new_f[cell][5] - new_f[cell][6] - new_f[cell][7] + new_f[cell][8]);
+                            Fy += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][2] - new_f[cell][4] + new_f[cell][5] + new_f[cell][6] - new_f[cell][7] - new_f[cell][8]);
 
 
-                        new_f[cell][0] = (1. - vol_fraction)*new_f[cell][0] + vol_fraction*(m0                      -     r2*m3                        +     r4*m6                        ) ;
-                        new_f[cell][1] = (1. - vol_fraction)*new_f[cell][1] + vol_fraction*(    .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7            ) ;
-                        new_f[cell][2] = (1. - vol_fraction)*new_f[cell][2] + vol_fraction*(               .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7            ) ;
-                        new_f[cell][3] = (1. - vol_fraction)*new_f[cell][3] + vol_fraction*(   -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7            ) ;
-                        new_f[cell][4] = (1. - vol_fraction)*new_f[cell][4] + vol_fraction*(             - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7            ) ;
-                        new_f[cell][5] = (1. - vol_fraction)*new_f[cell][5] + vol_fraction*(                                     .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8) ;
-                        new_f[cell][6] = (1. - vol_fraction)*new_f[cell][6] + vol_fraction*(                                    -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8) ;
-                        new_f[cell][7] = (1. - vol_fraction)*new_f[cell][7] + vol_fraction*(                                    -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8) ;
-                        new_f[cell][8] = (1. - vol_fraction)*new_f[cell][8] + vol_fraction*(                                     .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8) ;
+                            new_f[cell][0] = (1. - vol_fraction)*new_f[cell][0] + vol_fraction*(m0                      -     r2*m3                        +     r4*m6                        ) ;
+                            new_f[cell][1] = (1. - vol_fraction)*new_f[cell][1] + vol_fraction*(    .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7            ) ;
+                            new_f[cell][2] = (1. - vol_fraction)*new_f[cell][2] + vol_fraction*(               .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7            ) ;
+                            new_f[cell][3] = (1. - vol_fraction)*new_f[cell][3] + vol_fraction*(   -.5*r1*m1            + .25*r2*m3 + .5*r3*m4             -  .5*r4*m6 + .25*r2*m7            ) ;
+                            new_f[cell][4] = (1. - vol_fraction)*new_f[cell][4] + vol_fraction*(             - .5*r1*m2 + .25*r2*m3            +  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7            ) ;
+                            new_f[cell][5] = (1. - vol_fraction)*new_f[cell][5] + vol_fraction*(                                     .25*r3*m4 + .25*r3*m5 + .25*r4*m6             + .25*r2*m8) ;
+                            new_f[cell][6] = (1. - vol_fraction)*new_f[cell][6] + vol_fraction*(                                    -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8) ;
+                            new_f[cell][7] = (1. - vol_fraction)*new_f[cell][7] + vol_fraction*(                                    -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8) ;
+                            new_f[cell][8] = (1. - vol_fraction)*new_f[cell][8] + vol_fraction*(                                     .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8) ;
 
+                        }
                     }
                 }
-            
+
+                if  (! momenti.compare(std::string("Lallemand")))    {
+
+
+                        double m0 = rho;
+                        double m1 = qx;
+                        double m2 = qy;
+                        double m3 = -2*lambda*lambda*rho + 3./rho*(qx*qx + qy*qy);
+                        double m4 = -lambda*lambda*qx;
+                        double m5 = -lambda*lambda*qy;
+                        double m6 = lambda*lambda*lambda*lambda*rho - 3.*lambda*lambda/rho*(qx*qx + qy*qy);
+                        double m7 = (qx*qx-qy*qy)/rho;
+                        double m8 = qx*qy/rho;
+
+
+
+                    // The cell is fully inside the obstacle
+                    if (inside_obstacle(x - .5*dx, y - .5*dx) &&
+                        inside_obstacle(x + .5*dx, y - .5*dx) &&
+                        inside_obstacle(x + .5*dx, y + .5*dx) &&
+                        inside_obstacle(x - .5*dx, y + .5*dx))  {
+                    
+                        new_f[cell][0] = (1./9)*m0                                  -  (1./9)*r2*m3                                +   (1./9)*r4*m6                        ;
+                        new_f[cell][1] = (1./9)*m0   + (1./6)*r1*m1                 - (1./36)*r2*m3 - (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7            ;
+                        new_f[cell][2] = (1./9)*m0                  +  (1./6)*r1*m2 - (1./36)*r2*m3                -  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7            ;
+                        new_f[cell][3] = (1./9)*m0   - (1./6)*r1*m1                 - (1./36)*r2*m3 + (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7            ;
+                        new_f[cell][4] = (1./9)*m0                  -  (1./6)*r1*m2 - (1./36)*r2*m3                +  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7            ;
+                        new_f[cell][5] = (1./9)*m0   + (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8;
+                        new_f[cell][6] = (1./9)*m0   - (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8;
+                        new_f[cell][7] = (1./9)*m0   - (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8;
+                        new_f[cell][8] = (1./9)*m0   + (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8;
+                    }
+                    else
+                    {
+                        // The cell has the interface cutting through it
+                        if (inside_obstacle(x - .5*dx, y - .5*dx) ||
+                            inside_obstacle(x + .5*dx, y - .5*dx) ||
+                            inside_obstacle(x + .5*dx, y + .5*dx) ||
+                            inside_obstacle(x - .5*dx, y + .5*dx))  {
+
+                            // We compute the volume fraction
+                            double vol_fraction = volume_inside_obstacle_estimation(x - .5*dx, y - .5*dx, dx);
+                            double len_boundary =       length_obstacle_inside_cell(x - .5*dx, y - .5*dx, dx);
+
+
+                            // std::cout<<std::endl<<"Volumic fraction = "<<vol_fraction<<"  Arclength normalized = "<<len_boundary/dx;
+                            double dt = 1./(1<<max_level) / lambda;
+
+
+                            Fx += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][1] - new_f[cell][3] + new_f[cell][5] - new_f[cell][6] - new_f[cell][7] + new_f[cell][8]);
+                            Fy += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][2] - new_f[cell][4] + new_f[cell][5] + new_f[cell][6] - new_f[cell][7] - new_f[cell][8]);
+
+
+                            new_f[cell][0] = (1. - vol_fraction)*new_f[cell][0] + vol_fraction*((1./9)*m0                                  -  (1./9)*r2*m3                                +   (1./9)*r4*m6                        ) ;
+                            new_f[cell][1] = (1. - vol_fraction)*new_f[cell][1] + vol_fraction*((1./9)*m0   + (1./6)*r1*m1                 - (1./36)*r2*m3 - (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7            ) ;
+                            new_f[cell][2] = (1. - vol_fraction)*new_f[cell][2] + vol_fraction*((1./9)*m0                  +  (1./6)*r1*m2 - (1./36)*r2*m3                -  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7            ) ;
+                            new_f[cell][3] = (1. - vol_fraction)*new_f[cell][3] + vol_fraction*((1./9)*m0   - (1./6)*r1*m1                 - (1./36)*r2*m3 + (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7            ) ;
+                            new_f[cell][4] = (1. - vol_fraction)*new_f[cell][4] + vol_fraction*((1./9)*m0                  -  (1./6)*r1*m2 - (1./36)*r2*m3                +  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7            ) ;
+                            new_f[cell][5] = (1. - vol_fraction)*new_f[cell][5] + vol_fraction*((1./9)*m0   + (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8) ;
+                            new_f[cell][6] = (1. - vol_fraction)*new_f[cell][6] + vol_fraction*((1./9)*m0   - (1./6)*r1*m1 +  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 + (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8) ;
+                            new_f[cell][7] = (1. - vol_fraction)*new_f[cell][7] + vol_fraction*((1./9)*m0   - (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8) ;
+                            new_f[cell][8] = (1. - vol_fraction)*new_f[cell][8] + vol_fraction*((1./9)*m0   + (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8) ;
+
+                        }
+                    }
+                }            
                 
             });
 
@@ -1814,6 +1977,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     mure::Field<Config> qx{"qx", mesh};
     mure::Field<Config> qy{"qy", mesh};
     mure::Field<Config> vel_mod{"vel_modulus", mesh};
+    mure::Field<Config> vort{"vorticity", mesh};
 
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
@@ -1829,10 +1993,62 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     });
 
 
+
+    // In order to have information accessible on the ghosts
+    // to compute derivatives
+    mure::mr_projection(f);
+    f.update_bc();
+    mure::mr_prediction(f);
+
+    for (auto level = min_level; level <= max_level; ++level)   {
+
+        auto leaves = mure::intersection(mesh[mure::MeshType::cells][level], 
+                                         mesh[mure::MeshType::all_cells][level]).on(level);
+
+        double dx = 1./(1<<(max_level - level));
+
+        leaves([&](auto& index, auto &interval, auto) {
+            auto k = interval[0]; // Logical index in x
+            auto h = index[0];    // Logical index in y
+
+            auto kplus = k + 1;
+            auto kminus = k - 1;
+
+            auto hplus = h + 1;
+            auto hminus = h - 1; 
+
+            auto dvdx = (((lambda * (f(2, level, kplus, h)  - f(4, level, kplus, h) + f(5, level, kplus, h) + f(6, level, kplus, h) - f(7, level, kplus, h) - f(8, level, kplus, h))) / 
+                                    (f(0, level, kplus, h)  + f(1, level, kplus, h) + f(2, level, kplus, h) + f(3, level, kplus, h) + f(4, level, kplus, h)
+                                                            + f(5, level, kplus, h) + f(6, level, kplus, h) + f(7, level, kplus, h) + f(8, level, kplus, h)) ) - 
+                         ((lambda * (f(2, level, kminus, h) - f(4, level, kminus, h) + f(5, level, kminus, h) + f(6, level, kminus, h) - f(7, level, kminus, h) - f(8, level, kminus, h))) / 
+                                    (f(0, level, kminus, h) + f(1, level, kminus, h) + f(2, level, kminus, h) + f(3, level, kminus, h) + f(4, level, kminus, h)
+                                                            + f(5, level, kminus, h) + f(6, level, kminus, h) + f(7, level, kminus, h) + f(8, level, kminus, h)) ))
+                        / (2.*dx);
+
+            auto dudy = (((lambda * (f(1, level, k, hplus) - f(3, level, k, hplus) + f(5, level, k, hplus) - f(6, level, k, hplus) - f(7, level, k, hplus) + f(8, level, k, hplus))) / 
+                                    (f(0, level, k, hplus) + f(1, level, k, hplus) + f(2, level, k, hplus) + f(3, level, k, hplus) + f(4, level, k, hplus)
+                                                           + f(5, level, k, hplus) + f(6, level, k, hplus) + f(7, level, k, hplus) + f(8, level, k, hplus)) ) - 
+                         ((lambda * f(1, level, k, hminus) - f(3, level, k, hminus) + f(5, level, k, hminus) - f(6, level, k, hminus) - f(7, level, k, hminus) + f(8, level, k, hminus))) / 
+                                   (f(0, level, k, hminus) + f(1, level, k, hminus) + f(2, level, k, hminus) + f(3, level, k, hminus) + f(4, level, k, hminus)
+                                                           + f(5, level, k, hminus) + f(6, level, k, hminus) + f(7, level, k, hminus) + f(8, level, k, hminus)) )
+                        / (2.*dx);
+
+
+
+            vort(level, k, h) =  dvdx - dudy;
+                
+        });
+        
+    } 
+
+
+
+
     h5file.add_field(rho);
     h5file.add_field(qx);
     h5file.add_field(qy);
     h5file.add_field(vel_mod);
+    h5file.add_field(vort);
 
     h5file.add_field(f);
     h5file.add_field(level_);
@@ -1849,6 +2065,7 @@ int main(int argc, char *argv[])
                        ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("8"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
+                       ("reg", "regularity", cxxopts::value<double>()->default_value("0."))
                        ("h, help", "Help");
 
     try
@@ -1869,10 +2086,12 @@ int main(int argc, char *argv[])
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
+            double regularity = result["reg"].as<double>();
 
 
             mure::Box<double, dim> box({0, 0}, {2, 1});
             mure::Mesh<Config> mesh{box, min_level, max_level};
+            mure::Mesh<Config> mesh_old{box, min_level, max_level};
 
 
 
@@ -1900,6 +2119,7 @@ int main(int argc, char *argv[])
             // return 0;
 
             auto f = init_f(mesh);
+            auto f_old = init_f(mesh_old);
 
             double T = 1000.;
             double dx = 1.0 / (1 << max_level);
@@ -1930,20 +2150,26 @@ int main(int argc, char *argv[])
                 std::cout<<std::endl<<"Iteration number = "<<nb_ite<<std::endl;
                 time_frames<<nb_ite * dt<<std::endl;
 
-                std::cout<<std::endl<<"[*] Coarsening"<<std::flush;
-                for (std::size_t i=0; i<max_level-min_level; ++i)
-                {
-                    std::cout<<std::endl<<"Step "<<i<<std::flush;
-                    if (coarsening(f, eps, i))
-                        break;
-                }
+                // std::cout<<std::endl<<"[*] Coarsening"<<std::flush;
+                // for (std::size_t i=0; i<max_level-min_level; ++i)
+                // {
+                //     std::cout<<std::endl<<"Step "<<i<<std::flush;
+                //     if (coarsening(f, eps, i))
+                //         break;
+                // }
 
-                std::cout<<std::endl<<"[*] Refinement"<<std::flush;
+                // std::cout<<std::endl<<"[*] Refinement"<<std::flush;
+                // for (std::size_t i=0; i<max_level-min_level; ++i)
+                // {
+                //     std::cout<<std::endl<<"Step "<<i<<std::flush;
+                //     // if (refinement(f, eps, 0.0, i))
+                //     if (refinement(f, eps, 0.0, i))
+                //         break;
+                // }
+
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
-                    std::cout<<std::endl<<"Step "<<i<<std::flush;
-                    // if (refinement(f, eps, 0.0, i))
-                    if (refinement(f, eps, 0.0, i))
+                    if (harten(f, f_old, eps, regularity, i, nb_ite))
                         break;
                 }
 

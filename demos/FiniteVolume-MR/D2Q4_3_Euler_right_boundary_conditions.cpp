@@ -1729,6 +1729,7 @@ double compute_error(Field & f, FieldFull & f_full)
     memoization_map.clear();
 
     double error = 0.;
+    double norm = 0.;
 
     double dx = 1. / (1 << max_level);
 
@@ -1757,11 +1758,13 @@ double compute_error(Field & f, FieldFull & f_full)
 
             error += xt::sum(xt::abs(rho_reconstructed - rho_full))[0];
 
+            norm += xt::sum(xt::abs(rho_full))[0];
+
         });
     }
 
 
-    return dx * error;
+    return (error / norm);
 
 }
 
@@ -1919,6 +1922,7 @@ int main(int argc, char *argv[])
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("ite", "number of iteration", cxxopts::value<std::size_t>()->default_value("100"))
+                       ("reg", "regularity", cxxopts::value<double>()->default_value("1."))
                        ("h, help", "Help");
 
     try
@@ -1945,6 +1949,7 @@ int main(int argc, char *argv[])
             std::size_t max_level = result["max_level"].as<std::size_t>();
             std::size_t total_nb_ite = result["ite"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
+            double regularity = result["reg"].as<double>();
 
             mure::Box<double, dim> box({0, 0}, {1, 1});
             mure::Mesh<Config> mesh{box, min_level, max_level};
@@ -2024,10 +2029,11 @@ int main(int argc, char *argv[])
                     // std::cout<<std::endl<<"[*] Prediction overleaves before saving"<<std::flush;
                     // mure::mr_prediction_overleaves(f); // Before saving
 
+
                     for (std::size_t i=0; i<max_level-min_level; ++i)
                     {
                         std::cout<<std::endl<<"Step "<<i<<std::flush;
-                        if (harten(f, f_old, eps, 0., i, nb_ite))
+                        if (harten(f, f_old, eps, regularity, i, nb_ite))
                             break;
                     }
 
@@ -2050,8 +2056,8 @@ int main(int argc, char *argv[])
                 if (nb_ite == N)    {
                     auto error_density = compute_error(f, f_ref);
                     std::cout<<std::endl<<"#### Epsilon = "<<eps<<"   error = "<<error_density<<std::flush;
-                    save_reconstructed(f, f_ref, eps, 0);
-                    save_solution(f, eps, 0, save_string+std::string("PAPER")); // Before applying the scheme
+                    // save_reconstructed(f, f_ref, eps, 0);
+                    // save_solution(f, eps, 0, save_string+std::string("PAPER")); // Before applying the scheme
 
                 }
 
@@ -2059,7 +2065,7 @@ int main(int argc, char *argv[])
 
                 if (nb_ite % howoften == 0)    {
                     std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
-                    save_solution(f, eps, nb_ite/howoften, save_string+std::string("_before")); // Before applying the scheme
+                    // save_solution(f, eps, nb_ite/howoften, save_string+std::string("_before")); // Before applying the scheme
                 }
        
 
@@ -2082,19 +2088,19 @@ int main(int argc, char *argv[])
 
                 spdlog::info("Entering time stepping REFERENCE");
                 one_time_step_overleaves_corrected(f_ref, pred_coeff, nb_ite);
-                // auto time_scheme_ref = toc();
-                // stream_time_scheme_ref<<time_scheme_ref<<std::endl;
+                auto time_scheme_ref = toc();
+                stream_time_scheme_ref<<time_scheme_ref<<std::endl;
 
                 auto number_leaves = mesh.nb_cells(mure::MeshType::cells);
                 auto number_cells  = mesh.nb_total_cells();
 
                 std::cout<<std::endl<<"Total cells = "<<number_cells<<"  Leaves = "<<number_leaves<<std::endl;
 
-                // stream_number_leaves<<number_leaves<<std::endl;
-                // stream_number_cells<<number_cells<<std::endl;
+                stream_number_leaves<<number_leaves<<std::endl;
+                stream_number_cells<<number_cells<<std::endl;
 
-                // stream_number_leaves_ref<<mesh_ref.nb_cells(mure::MeshType::cells)<<std::endl;
-                // stream_number_cells_ref<<mesh_ref.nb_total_cells()<<std::endl;
+                stream_number_leaves_ref<<mesh_ref.nb_cells(mure::MeshType::cells)<<std::endl;
+                stream_number_cells_ref<<mesh_ref.nb_total_cells()<<std::endl;
 
             }
             
