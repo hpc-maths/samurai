@@ -16,6 +16,8 @@
 
 #include "prediction_map_1d.hpp"
 
+#include "harten.hpp"
+
 
 
 template<class coord_index_t>
@@ -761,9 +763,10 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
             // auto leaf_lb = mure::difference(mesh[mure::MeshType::cells][max_level],
             //                           translate(mesh[mure::MeshType::cells][max_level], stencil));
 
-            auto leaf_lb = intersection(difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), stencil)), mesh[mure::MeshType::cells][max_level]);
-
-            leaf_lb([&](auto, auto &interval, auto) {
+            auto leaf_lb = intersection(difference(mesh.initial_mesh(), 
+                                                   translate(mesh.initial_mesh(), stencil)), 
+                                        mesh[mure::MeshType::cells][max_level]);
+            leaf_lb.on(max_level)([&](auto, auto &interval, auto) {
 
                 auto k = interval[0]; 
                 // Anti bounce back to enforce density 1
@@ -790,7 +793,7 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
 
             auto leaves = mure::difference(mesh[mure::MeshType::cells][max_level],
                                       leaf_lb);
-            leaves([&](auto, auto &interval, auto) {
+            leaves.on(max_level)([&](auto, auto &interval, auto) {
 
                 auto k = interval[0]; 
 
@@ -829,11 +832,11 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
 
 
             
-            auto overleaves_lb = intersection(difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), stencil_new)),
-                                mesh[mure::MeshType::overleaves][level + 1]).on(level + 1);
+            auto overleaves_lb = intersection(difference(mesh.initial_mesh(), 
+                                                         translate(mesh.initial_mesh(), stencil_new)),
+                                              mesh[mure::MeshType::cells][level]);
 
-
-            overleaves_lb([&](auto, auto &interval, auto) {
+            overleaves_lb.on(level+1)([&](auto, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
 
                 std::cout<<std::endl<<"Flux correction near boundary on overleaves "<<k<<" Value = "<<xt::eval(f(1, level + 1, k))<<std::flush;
@@ -900,10 +903,9 @@ void one_time_step_matrix_overleaves(Field &f, const Pred& pred_coeff, double s_
 
             auto ol = mure::intersection(mesh[mure::MeshType::cells][level],
                                                  mesh[mure::MeshType::cells][level]).on(level + 1);
-            auto overleaves = mure::difference(ol,
-                                    overleaves_lb);
+            auto overleaves_far = mure::difference(mesh[mure::MeshType::cells][level], overleaves_lb);
             
-            overleaves([&](auto, auto &interval, auto) {
+            overleaves_far.on(level+1)([&](auto, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
 
                 //std::cout<<std::endl<<"Level + 1 "<<(level + 1)<<" interval = "<<k<<" Values "<<std::endl<<f(0, level + 1, k - 2)<<std::flush; 
@@ -1435,8 +1437,8 @@ int main(int argc, char *argv[])
 
     options.add_options()
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
-                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.001"))
+                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
+                       ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
                        ("s", "relaxation parameter", cxxopts::value<double>()->default_value("1.0"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("h, help", "Help");
@@ -1477,6 +1479,7 @@ int main(int argc, char *argv[])
 
             mure::Box<double, dim> box({-3}, {3});
             mure::Mesh<Config> mesh{box, min_level, max_level};
+            mure::Mesh<Config> mesh_old{box, min_level, max_level};
             mure::Mesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
 
     
@@ -1487,6 +1490,7 @@ int main(int argc, char *argv[])
 
             // Initialization
             auto f  = init_f(mesh , 0.0);
+            auto f_old  = init_f(mesh_old , 0.0);
             auto fR = init_f(meshR, 0.0);             
 
             double T = 1.2;
@@ -1510,27 +1514,38 @@ int main(int argc, char *argv[])
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
+                // tic();
+                // for (std::size_t i=0; i<max_level-min_level; ++i)
+                // {
+                //     //std::cout<<std::endl<<"Passe "<<i;
+                //     if (coarsening(f, eps, i))
+                //         break;
+                // }
+
+
+
+
+                // // save_solution(f, eps, nb_ite, "coarsening");
+
+                // tic();
+                // for (std::size_t i=0; i<max_level-min_level; ++i)
+                // {
+                //     std::cout<<std::endl<<"Refinement "<<i<<std::flush;
+                //     if (refinement(f, eps, 0.0, i))
+                //         break;
+                // }
+
                 tic();
+
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
-                    //std::cout<<std::endl<<"Passe "<<i;
-                    if (coarsening(f, eps, i))
+                    std::cout<<std::endl<<"Step "<<i<<std::flush;
+                    if (harten(f, f_old, eps, 0., i, nb_ite))
                         break;
                 }
-
-
 
                 auto duration_coarsening = toc();
 
-                // save_solution(f, eps, nb_ite, "coarsening");
-
-                tic();
-                for (std::size_t i=0; i<max_level-min_level; ++i)
-                {
-                    std::cout<<std::endl<<"Refinement "<<i<<std::flush;
-                    if (refinement(f, eps, 0.0, i))
-                        break;
-                }
 
                 if(nb_ite == 1) {
 

@@ -227,6 +227,14 @@ namespace mure
         INIT_OPERATOR(update_boundary_D2Q4_flat_op)
 
         template<class T, class stencil_t>
+        inline void operator()(Dim<1>, T &field, const stencil_t& stencil) const
+        {
+
+            field(level, i) = field(level, i - stencil[0]);
+            
+        }
+
+        template<class T, class stencil_t>
         inline void operator()(Dim<2>, T &field, const stencil_t& stencil) const
         {
 
@@ -1309,6 +1317,52 @@ namespace mure
 
         }
 
+
+        inline void update_bc_1D_constant_extension(std::size_t level)
+        {
+        
+            const xt::xtensor_fixed<int, xt::xshape<1>> xp{1, 0};
+
+
+            size_t max_level = m_mesh->max_level();
+
+            {
+
+                size_t j = max_level - level;
+
+
+                // E first rank (not projected on the level for future use)
+                auto east_1 = intersection(difference(translate(m_mesh->initial_mesh(), (1<<j) * xp), 
+                                                      m_mesh->initial_mesh()), 
+                                           (*m_mesh)[mure::MeshType::all_cells][level]);
+                
+                // E second rank
+                auto east_2 = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 * (1<<j) * xp), 
+                                                                 m_mesh->initial_mesh()), 
+                                                      (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                         east_1);
+                // The order is important becase the second rank shall take the values stored in the first rank
+                east_1.on(level).apply_op(level, update_boundary_D2Q4_flat(*this, xp));
+                east_2.on(level).apply_op(level, update_boundary_D2Q4_flat(*this, xp));// By not multiplying by 2 it takes the values in the first rank
+
+
+                // W first rank
+                auto west_1 = intersection(difference(translate(m_mesh->initial_mesh(), (-1) * (1<<j) * xp), 
+                                                      m_mesh->initial_mesh()), 
+                                           (*m_mesh)[mure::MeshType::all_cells][level]);
+                
+                // W second rank
+                auto west_2 = difference(intersection(difference(translate(m_mesh->initial_mesh(), 2 * (-1) * (1<<j) * xp), 
+                                                                 m_mesh->initial_mesh()), 
+                                                      (*m_mesh)[mure::MeshType::all_cells][level]), 
+                                         west_1);
+                west_1.on(level).apply_op(level, update_boundary_D2Q4_flat(*this, (-1) * xp));
+                west_2.on(level).apply_op(level, update_boundary_D2Q4_flat(*this, (-1) * xp));
+
+            }
+
+        }
+
         inline void update_bc_for_level(std::size_t level)
         {
             update_bc_D2Q4_3_Euler_constant_extension(level);
@@ -1317,10 +1371,25 @@ namespace mure
         inline void update_bc(std::size_t ite = 0)
         {
             
+            // This is for the 1D
+
             for(std::size_t level = m_mesh->min_level() - 1; level <= m_mesh->max_level(); ++level)
             {
-                update_bc_D2Q4_3_Euler_constant_extension(level);
+                update_bc_1D_constant_extension(level);
             }
+
+
+            // // This is for the 2D
+            // for(std::size_t level = m_mesh->min_level() - 1; level <= m_mesh->max_level(); ++level)
+            // {
+            //     update_bc_D2Q4_3_Euler_constant_extension(level);
+            // }
+
+
+
+
+
+
             // update_bc_D2Q4_3_Euler_linear_extension(ite); // Works properly
 
             // update_bc_D2Q4_3_Euler();

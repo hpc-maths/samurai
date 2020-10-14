@@ -2056,8 +2056,8 @@ int main(int argc, char *argv[])
                 if (nb_ite == N)    {
                     auto error_density = compute_error(f, f_ref);
                     std::cout<<std::endl<<"#### Epsilon = "<<eps<<"   error = "<<error_density<<std::flush;
-                    // save_reconstructed(f, f_ref, eps, 0);
-                    // save_solution(f, eps, 0, save_string+std::string("PAPER")); // Before applying the scheme
+                    save_reconstructed(f, f_ref, eps, 0);
+                    save_solution(f, eps, 0, save_string+std::string("PAPER")); // Before applying the scheme
 
                 }
 
@@ -2065,7 +2065,7 @@ int main(int argc, char *argv[])
 
                 if (nb_ite % howoften == 0)    {
                     std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
-                    // save_solution(f, eps, nb_ite/howoften, save_string+std::string("_before")); // Before applying the scheme
+                    save_solution(f, eps, nb_ite/howoften, save_string+std::string("_before")); // Before applying the scheme
                 }
        
 

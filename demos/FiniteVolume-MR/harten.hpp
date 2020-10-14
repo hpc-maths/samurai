@@ -29,6 +29,26 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
         tag[cell] = static_cast<int>(mure::CellFlag::keep);
     });
 
+    // //For an entropy criterion
+    // mure::Field<Config, double, 1> detail_entropy{"entropy detail", mesh};
+    // mure::Field<Config, double, 1> entropy{"entropy", mesh};
+    // entropy.array().fill(0);
+    // mesh.for_each_cell([&](auto &cell) {
+    //     double gm = 1.4;
+
+    //     auto rho = u[cell][0] + u[cell][1] + u[cell][2] + u[cell][3];
+    //     auto qx  = u[cell][4] + u[cell][5] + u[cell][6] + u[cell][7];
+    //     auto qy  = u[cell][8] + u[cell][9] + u[cell][10]+ u[cell][11];
+    //     auto e   = u[cell][12]+ u[cell][13]+ u[cell][14]+ u[cell][15];
+
+    //     // Computing the entropy with multiplicative constant 1 and additive constant 0
+    //     auto p = (gm - 1.) * (e - .5 * (std::pow(qx, 2.) + std::pow(qy, 2.)) / rho);
+    //     entropy[cell] = std::log(p / std::pow(rho, gm));
+    // });
+    // mure::mr_projection(entropy);
+    // entropy.update_bc();
+    // mure::mr_prediction(entropy);
+
     std::size_t save_at_ite = 273;
     mure::mr_projection(u);
     // if (global_iter == save_at_ite)
@@ -62,6 +82,10 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
                                    mesh[mure::MeshType::cells][level + 1])
                      .on(level);
         subset.apply_op(level, compute_detail(detail, u));
+
+
+        // For entropy
+        // subset.apply_op(level, compute_detail(detail_entropy, entropy));
     }
 
 
@@ -78,6 +102,11 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
         subset_1.apply_op(level, to_coarsen_mr(detail, tag, eps_l, min_level)); // Derefinement
         subset_1.apply_op(level, to_refine_mr(detail, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level)); // Refinement according to Harten
+
+        // Entropy refinement
+        // subset_1.apply_op(level, to_coarsen_mr(detail_entropy, tag, eps_l, min_level)); // Derefinement
+        // subset_1.apply_op(level, to_refine_mr(detail_entropy, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level)); // Refinement according to Harten
+
     }
 
     // if(global_iter == save_at_ite)
