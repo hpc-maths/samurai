@@ -1373,17 +1373,17 @@ namespace mure
             
             // This is for the 1D
 
-            for(std::size_t level = m_mesh->min_level() - 1; level <= m_mesh->max_level(); ++level)
-            {
-                update_bc_1D_constant_extension(level);
-            }
+            // for(std::size_t level = m_mesh->min_level() - 1; level <= m_mesh->max_level(); ++level)
+            // {
+            //     update_bc_1D_constant_extension(level);
+            // }
 
 
             // // This is for the 2D
-            // for(std::size_t level = m_mesh->min_level() - 1; level <= m_mesh->max_level(); ++level)
-            // {
-            //     update_bc_D2Q4_3_Euler_constant_extension(level);
-            // }
+            for(std::size_t level = m_mesh->min_level() - 1; level <= m_mesh->max_level(); ++level)
+            {
+                update_bc_D2Q4_3_Euler_constant_extension(level);
+            }
 
 
 

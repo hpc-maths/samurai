@@ -15,6 +15,10 @@
 #include <chrono>
 
 
+#include "prediction_map_1d.hpp"
+#include "harten.hpp"
+
+
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
 
@@ -33,6 +37,25 @@ double toc()
     return time_span.count();
 }
 
+
+template<class coord_index_t>
+auto compute_prediction_separate_inout(std::size_t min_level, std::size_t max_level)
+{
+    coord_index_t i = 0;
+    std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
+
+    for(std::size_t k=0; k<max_level-min_level+1; ++k)
+    {
+        int size = (1<<k);
+        data[k].resize(4);
+
+        data[k][0] = prediction(k, i*size - 1);
+        data[k][1] = prediction(k, (i+1)*size - 1);
+        data[k][2] = prediction(k, (i+1)*size);
+        data[k][3] = prediction(k, i*size);
+    }
+    return data;
+}
 
 std::array<double, 3> exact_solution(double x, double t)   {
 
@@ -325,6 +348,233 @@ void one_time_step(Field &f, const FieldTag & tag, double s, std::size_t iter)
     std::swap(f.array(), new_f.array());
 }
 
+
+
+
+template<class Field, class Pred>
+void one_time_step_matrix_corrected(Field &f, const Pred& pred_coeff, double s_rel)
+{
+
+    double lambda = 3.;
+
+    constexpr std::size_t nvel = Field::size;
+    using coord_index_t = typename Field::coord_index_t;
+
+    auto mesh = f.mesh();
+    auto min_level = mesh.max_level();
+    auto max_level = mesh.max_level();
+
+    mure::mr_projection(f);
+    f.update_bc();
+    mure::mr_prediction(f);
+
+    mure::mr_prediction_overleaves(f);
+
+
+    Field new_f{"new_f", mesh};
+    new_f.array().fill(0.);
+
+    Field help_f{"help_f", mesh};
+    help_f.array().fill(0.);
+    double gamma = 1.4;
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+
+
+
+        // If we are at the finest level, we no not need to correct
+        if (level == max_level) {
+            std::size_t j = 0; 
+            double coeff = 1.;
+
+
+            auto leaves = mure::intersection(mesh[mure::MeshType::cells][max_level],
+                                             mesh[mure::MeshType::cells][max_level]);
+
+            leaves.on(max_level)([&](auto, auto &interval, auto) {
+
+                auto i = interval[0]; 
+
+                auto fp1 = xt::eval(f(0, max_level, i - 1));
+                auto fm1 = xt::eval(f(1, max_level, i + 1));
+
+                auto fp2 = xt::eval(f(2, max_level, i - 1));
+                auto fm2 = xt::eval(f(3, max_level, i + 1));
+
+                auto fp3 = xt::eval(f(4, max_level, i - 1));
+                auto fm3 = xt::eval(f(5, max_level, i + 1));
+
+
+
+           
+                auto u10 = xt::eval(          fp1 + fm1);
+                auto u11 = xt::eval(lambda * (fp1 - fm1));
+           
+                auto u20 = xt::eval(          fp2 + fm2);
+                auto u21 = xt::eval(lambda * (fp2 - fm2));
+           
+                auto u30 = xt::eval(          fp3 + fm3);
+                auto u31 = xt::eval(lambda * (fp3 - fm3));
+
+
+                double gamma = 1.4;
+                auto u11_coll = (1 - s_rel) * u11 + s_rel * (u20);
+
+                auto u21_coll = (1 - s_rel) * u21 + s_rel * ((gamma - 1.0) * u30 + (3.0 - gamma)/(2.0) * (u20*u20)/u10);
+
+                auto u31_coll = (1 - s_rel) * u31 + s_rel * (gamma * (u20*u30)/(u10) + (1.0 - gamma)/2.0 * (u20*u20*u20)/(u10*u10));
+
+
+                new_f(0, level, i) = .5 * (u10 + 1. / lambda * u11_coll);
+                new_f(1, level, i) = .5 * (u10 - 1. / lambda * u11_coll);
+
+                new_f(2, level, i) = .5 * (u20 + 1. / lambda * u21_coll);
+                new_f(3, level, i) = .5 * (u20 - 1. / lambda * u21_coll);
+
+                new_f(4, level, i) = .5 * (u30 + 1. / lambda * u31_coll);
+                new_f(5, level, i) = .5 * (u30 - 1. / lambda * u31_coll);
+            });
+        }
+
+        // Otherwise, correction is needed
+        else
+        {
+
+            // We do the advection on the overleaves
+            std::size_t j = max_level - (level + 1); 
+            double coeff = 1. / (1 << j);
+
+            auto ol = mure::intersection(mesh[mure::MeshType::cells][level],
+                                         mesh[mure::MeshType::cells][level]).on(level + 1);
+            
+            ol([&](auto, auto &interval, auto) {
+                auto k = interval[0]; // Logical index in x
+
+
+                auto fp1 = xt::eval(f(0, level + 1, k));
+                auto fm1 = xt::eval(f(1, level + 1, k));
+ 
+                auto fp2 = xt::eval(f(2, level + 1, k));
+                auto fm2 = xt::eval(f(3, level + 1, k));
+
+                auto fp3 = xt::eval(f(4, level + 1, k));
+                auto fm3 = xt::eval(f(5, level + 1, k));
+  
+
+
+                for(auto &c: pred_coeff[j][0].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fp1 += coeff * weight * f(0, level + 1, k + stencil);
+                    fp2 += coeff * weight * f(2, level + 1, k + stencil);
+                    fp3 += coeff * weight * f(4, level + 1, k + stencil);
+
+                }
+
+                for(auto &c: pred_coeff[j][1].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fp1-= coeff * weight * f(0, level + 1, k + stencil);
+                    fp2-= coeff * weight * f(2, level + 1, k + stencil);
+                    fp3-= coeff * weight * f(4, level + 1, k + stencil);
+
+                }
+
+
+                for(auto &c: pred_coeff[j][2].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fm1 += coeff * weight * f(1, level + 1, k + stencil);
+                    fm2 += coeff * weight * f(3, level + 1, k + stencil);
+                    fm3 += coeff * weight * f(5, level + 1, k + stencil);
+
+                }
+
+                for(auto &c: pred_coeff[j][3].coeff)
+                {
+                    coord_index_t stencil = c.first;
+                    double weight = c.second;
+
+                    fm1 -= coeff * weight * f(1, level + 1, k + stencil);
+                    fm2 -= coeff * weight * f(3, level + 1, k + stencil);
+                    fm3 -= coeff * weight * f(5, level + 1, k + stencil);
+
+                }
+
+                // Save it
+                help_f(0, level + 1, k) = fp1;
+                help_f(1, level + 1, k) = fm1;
+
+                help_f(2, level + 1, k) = fp2;
+                help_f(3, level + 1, k) = fm2;
+                
+                help_f(4, level + 1, k) = fp3;
+                help_f(5, level + 1, k) = fm3;
+
+            });
+
+            // Now that projection has been done, we have to come back on the leaves below the overleaves
+            auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
+                                             mesh[mure::MeshType::cells][level]);
+
+            leaves([&](auto, auto &interval, auto) {
+                auto i = interval[0]; 
+
+                // Projection
+                auto fp1_advected = 0.5 * (help_f(0, level + 1, 2*i) + help_f(0, level + 1, 2*i + 1));
+                auto fm1_advected = 0.5 * (help_f(1, level + 1, 2*i) + help_f(1, level + 1, 2*i + 1));
+
+                auto fp2_advected = 0.5 * (help_f(2, level + 1, 2*i) + help_f(2, level + 1, 2*i + 1));
+                auto fm2_advected = 0.5 * (help_f(3, level + 1, 2*i) + help_f(3, level + 1, 2*i + 1));
+
+                auto fp3_advected = 0.5 * (help_f(4, level + 1, 2*i) + help_f(4, level + 1, 2*i + 1));
+                auto fm3_advected = 0.5 * (help_f(5, level + 1, 2*i) + help_f(5, level + 1, 2*i + 1));
+
+
+                auto u10 = xt::eval(          fp1_advected + fm1_advected);
+                auto u11 = xt::eval(lambda * (fp1_advected - fm1_advected));
+           
+                auto u20 = xt::eval(          fp2_advected + fm2_advected);
+                auto u21 = xt::eval(lambda * (fp2_advected - fm2_advected));
+           
+                auto u30 = xt::eval(          fp3_advected + fm3_advected);
+                auto u31 = xt::eval(lambda * (fp3_advected - fm3_advected));
+
+
+                double gamma = 1.4;
+                auto u11_coll = (1 - s_rel) * u11 + s_rel * (u20);
+
+                auto u21_coll = (1 - s_rel) * u21 + s_rel * ((gamma - 1.0) * u30 + (3.0 - gamma)/(2.0) * (u20*u20)/u10);
+
+                auto u31_coll = (1 - s_rel) * u31 + s_rel * (gamma * (u20*u30)/(u10) + (1.0 - gamma)/2.0 * (u20*u20*u20)/(u10*u10));
+
+
+                new_f(0, level, i) = .5 * (u10 + 1. / lambda * u11_coll);
+                new_f(1, level, i) = .5 * (u10 - 1. / lambda * u11_coll);
+
+                new_f(2, level, i) = .5 * (u20 + 1. / lambda * u21_coll);
+                new_f(3, level, i) = .5 * (u20 - 1. / lambda * u21_coll);
+
+                new_f(4, level, i) = .5 * (u30 + 1. / lambda * u31_coll);
+                new_f(5, level, i) = .5 * (u30 - 1. / lambda * u31_coll);
+
+            });   
+        }
+    }
+
+    std::swap(f.array(), new_f.array());
+}
+
+
+
+
 template<class Field>
 void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
 {
@@ -341,17 +591,18 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
     h5file.add_mesh(mesh);
     mure::Field<Config> level_{"level", mesh};
     mure::Field<Config> u{"u", mesh};
+    mure::Field<Config> rho{"rho", mesh};
     mure::Field<Config> q{"q", mesh};
     mure::Field<Config> e{"e", mesh};
 
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
-        u[cell] = f[cell][0] + f[cell][1];
+        rho[cell] = f[cell][0] + f[cell][1];
         q[cell] = f[cell][2] + f[cell][3];
         e[cell] = f[cell][4] + f[cell][5];
 
     });
-    h5file.add_field(u);
+    h5file.add_field(rho);
     h5file.add_field(q);
     h5file.add_field(e);
     h5file.add_field(f);
@@ -385,67 +636,107 @@ void save_refined_solution(Field &f,FieldR &fR, std::size_t min_level, std::size
 
 
 
+// Attention : the number 2 as second template parameter does not mean
+// that we are dealing with two fields!!!!
 template<class Field, class interval_t>
-xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, 
-                                  std::map<std::tuple<std::size_t, std::size_t, interval_t>, 
-                                  xt::xtensor<double, 2>> & mem_map)
+xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std::size_t level, 
+                                      const interval_t & k, 
+                                      std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> & mem_map)
 {
 
+    // That is used to employ _ with xtensor
     using namespace xt::placeholders;
-    // We check if the element is already in the map
-    auto it = mem_map.find({level_g, level, i});
-    if (it != mem_map.end())
-    {
+
+    auto it = mem_map.find({level_g, level, k});
+
+
+    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())    {
+
         return it->second;
     }
     else
     {
-        auto mesh = f.mesh();
-        std::vector<std::size_t> shape = {i.size(), 6};
-        xt::xtensor<double, 2> out = xt::empty<double>(shape);
-        auto mask = mesh.exists(level_g + level, i);
+        
 
-        xt::xtensor<double, 2> mask_all = xt::empty<double>(shape);
-        xt::view(mask_all, xt::all(), 0) = mask;
-        xt::view(mask_all, xt::all(), 1) = mask;
-        xt::view(mask_all, xt::all(), 2) = mask;
-        xt::view(mask_all, xt::all(), 3) = mask;
-        xt::view(mask_all, xt::all(), 4) = mask;
-        xt::view(mask_all, xt::all(), 5) = mask;
+    auto mesh = f.mesh();
 
-        if (xt::all(mask))
-        {         
-            return xt::eval(f(level_g + level, i));
-        }
+    // We put only the size in x (k.size()) because in y
+    // we only have slices of size 1. 
+    // The second term (1) should be adapted according to the 
+    // number of fields that we have.
+    // std::vector<std::size_t> shape_x = {k.size(), 4};
+    std::vector<std::size_t> shape_x = {k.size(), 6};
+    xt::xtensor<double, 2> out = xt::empty<double>(shape_x);
 
-        auto ig = i >> 1;
-        ig.step = 1;
+    auto mask = mesh.exists(mure::MeshType::cells_and_ghosts, level_g + level, k); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
 
-        xt::xtensor<double, 2> val = xt::empty<double>(shape);
-        auto current = xt::eval(prediction_all(f, level_g, level-1, ig, mem_map));
-        auto left = xt::eval(prediction_all(f, level_g, level-1, ig-1, mem_map));
-        auto right = xt::eval(prediction_all(f, level_g, level-1, ig+1, mem_map));
+    xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
+        
+    // for (int h_field = 0; h_field < 4; ++h_field)  {
+    for (int h_field = 0; h_field < 6; ++h_field)  {
+        xt::view(mask_all, xt::all(), h_field) = mask;
+    }    
 
-        std::size_t start_even = (i.start&1)? 1: 0;
-        std::size_t start_odd = (i.start&1)? 0: 1;
-        std::size_t end_even = (i.end&1)? ig.size(): ig.size()-1;
-        std::size_t end_odd = (i.end&1)? ig.size()-1: ig.size();
-        xt::view(val, xt::range(start_even, _, 2)) = xt::view(current - 1./8 * (right - left), xt::range(start_even, _));
-        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(current + 1./8 * (right - left), xt::range(_, end_odd));
+    // Recursion finished
+    if (xt::all(mask))
+    {                 
+        return xt::eval(f(0, 6, level_g + level, k));
 
-        xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
-        for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, ++i_int)
+    }
+
+    // If we cannot stop here
+
+    auto kg = k >> 1;
+    kg.step = 1;
+
+    xt::xtensor<double, 2> val = xt::empty<double>(shape_x);
+
+
+
+    auto earth  = xt::eval(prediction_all(f, level_g, level - 1, kg     , mem_map));
+    auto W      = xt::eval(prediction_all(f, level_g, level - 1, kg - 1 , mem_map));
+    auto E      = xt::eval(prediction_all(f, level_g, level - 1, kg + 1 , mem_map));
+   
+
+
+    // This is to deal with odd/even indices in the x direction
+    std::size_t start_even = (k.start & 1) ?     1         :     0        ; 
+    std::size_t start_odd  = (k.start & 1) ?     0         :     1        ; 
+    std::size_t end_even   = (k.end & 1)   ? kg.size()     : kg.size() - 1;
+    std::size_t end_odd    = (k.end & 1)   ? kg.size() - 1 : kg.size()    ;
+
+
+    
+    xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth 
+                                                          + 1./8               * (W - E), xt::range(start_even, _));
+
+
+
+    xt::view(val, xt::range(start_odd, _, 2))  = xt::view(                        earth 
+                                                          - 1./8               * (W - E), xt::range(_, end_odd));
+
+    xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
+
+    for(int k_mask = 0, k_int = k.start; k_int < k.end; ++k_mask, ++k_int)
+    {
+        if (mask[k_mask])
         {
-            if (mask[i_mask])
-            {
-                xt::view(out, i_mask) = xt::view(f(level_g + level, {i_int, i_int + 1}), 0);
-            }
-        }
+            xt::view(out, k_mask) = xt::view(f(0, 6, level_g + level, {k_int, k_int + 1}), 0);
 
-        // The value should be added to the memoization map before returning
-        return out;// mem_map[{level_g, level, i, ig}] = out;
+        }
+    }
+
+    // It is crucial to use insert and not []
+    // in order not to update the value in case of duplicated (same key)
+    mem_map.insert(std::make_pair(std::tuple<std::size_t, std::size_t, interval_t>{level_g, level, k}
+                                  ,out));
+
+
+    return out;
+
     }
 }
+
 
 template<class Config, class FieldR>
 std::array<double, 6> compute_error(mure::Field<Config, double, 6> &f, FieldR & fR, double t)
@@ -455,8 +746,7 @@ std::array<double, 6> compute_error(mure::Field<Config, double, 6> &f, FieldR & 
 
     auto meshR = fR.mesh();
     auto max_level = meshR.max_level();
-
-    fR.update_bc();    
+  
 
     mure::mr_projection(f);
     f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
@@ -514,33 +804,25 @@ std::array<double, 6> compute_error(mure::Field<Config, double, 6> &f, FieldR & 
 
             }
 
-            error_rho += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) 
-                                                 + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))) 
-                                     - rhoexact))[0];
-
-            error_q += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(2, 3))
-                                                 + xt::view(fR(max_level, i), xt::all(), xt::range(3, 4))) 
-                                     - qexact))[0];
-
-            error_E += xt::sum(xt::abs(xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(4, 5))
-                                                 + xt::view(fR(max_level, i), xt::all(), xt::range(5, 6))) 
-                                     - Eexact))[0];
+                                                                        
+            auto rho =  xt::eval(xt::view(sol, xt::all(), 0) +  xt::view(sol, xt::all(), 1));
+            auto q =  xt::eval(xt::view(sol, xt::all(), 2) +  xt::view(sol, xt::all(), 3));
+            auto E =  xt::eval(xt::view(sol, xt::all(), 4) +  xt::view(sol, xt::all(), 5));
 
 
-            diff_rho += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), xt::range(0, 1)) 
-                                                  + xt::view(sol, xt::all(), xt::range(1, 2))) 
-                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(0, 1)) 
-                                                            + xt::view(fR(max_level, i), xt::all(), xt::range(1, 2))))) [0];
-            
-            diff_q += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), xt::range(2, 3)) 
-                                                + xt::view(sol, xt::all(), xt::range(3, 4))) 
-                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(2, 3)) 
-                                                            + xt::view(fR(max_level, i), xt::all(), xt::range(3, 4))))) [0];
-            
-            diff_E += xt::sum(xt::abs(xt::flatten(xt::view(sol, xt::all(), xt::range(4, 5)) 
-                                                + xt::view(sol, xt::all(), xt::range(5, 6))) 
-                                                - xt::flatten(xt::view(fR(max_level, i), xt::all(), xt::range(4, 5)) 
-                                                            + xt::view(fR(max_level, i), xt::all(), xt::range(5, 6))))) [0];
+            auto rho_ref =  xt::eval(fR(0, max_level, i) + fR(1, max_level, i));
+            auto q_ref =  xt::eval(fR(2, max_level, i) + fR(3, max_level, i));
+            auto E_ref =  xt::eval(fR(4, max_level, i) + fR(5, max_level, i));
+
+
+            error_rho += xt::sum(xt::abs(rho_ref - rhoexact))[0];
+            error_q += xt::sum(xt::abs(q_ref - qexact))[0];
+            error_E += xt::sum(xt::abs(E_ref - Eexact))[0];
+
+
+            diff_rho += xt::sum(xt::abs(rho_ref - rho))[0];
+            diff_q += xt::sum(xt::abs(q_ref - q))[0];
+            diff_E += xt::sum(xt::abs(E_ref - E))[0];
             
         });
     }
@@ -587,6 +869,10 @@ int main(int argc, char *argv[])
             double s = result["s"].as<double>();
 
 
+            using coord_index_t = typename Config::coord_index_t;
+            auto pred_coeff_separate = compute_prediction_separate_inout<coord_index_t>(min_level, max_level);
+
+
             mure::Box<double, dim> box({-1}, {1});
             mure::Mesh<Config> mesh{box, min_level, max_level};
             mure::Mesh<Config> meshR{box, max_level, max_level};
@@ -610,24 +896,38 @@ int main(int argc, char *argv[])
 
 
                 std::cout<<std::endl<<"Iteration "<<nb_ite<<" time = "<<t;
-                tic();
+                // tic();
+                // for (std::size_t i=0; i<max_level-min_level; ++i)
+                // {
+                //     if (coarsening(f, eps, i))
+                //         break;
+                // }
+                // auto duration_coarsening = toc();
+
+                // // save_solution(f, eps, nb_ite, "coarsening");
+
+                // tic();
+                // for (std::size_t i=0; i<max_level-min_level; ++i)
+                // {
+                //     if (refinement(f, eps, 0.0, i))
+                //         break;
+                // }
+
+                auto mesh_old = mesh;
+                mure::Field<Config, double, 6> f_old{"u", mesh_old};
+                f_old.array() = f.array();
                 for (std::size_t i=0; i<max_level-min_level; ++i)
                 {
-                    if (coarsening(f, eps, i))
+                    std::cout<<std::endl<<"Step "<<i<<std::flush;
+                    if (harten(f, f_old, eps, 0., i, nb_ite))
                         break;
                 }
-                auto duration_coarsening = toc();
 
-                // save_solution(f, eps, nb_ite, "coarsening");
 
-                tic();
-                for (std::size_t i=0; i<max_level-min_level; ++i)
-                {
-                    if (refinement(f, eps, 0.0, i))
-                        break;
-                }
+
+
                 auto duration_refinement = toc();
-                //save_solution(f, eps, nb_ite, "refinement");
+                save_solution(f, eps, nb_ite, "refinement");
 
 
                 // Create and initialize field containing the leaves
@@ -665,10 +965,13 @@ int main(int argc, char *argv[])
 
                 
                 tic();
-                one_time_step(f, tag_leaf, s, nb_ite);
+                // one_time_step(f, tag_leaf, s, nb_ite);
+
+                one_time_step_matrix_corrected(f, pred_coeff_separate, s);
                 auto duration_scheme = toc();
 
-                one_time_step(fR, tag_leafR, s, nb_ite);
+                // one_time_step(fR, tag_leafR, s, nb_ite);
+                one_time_step_matrix_corrected(fR, pred_coeff_separate, s);
 
                 t += dt;
 

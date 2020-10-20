@@ -27,6 +27,7 @@ namespace mure
                     //auto mask = xt::abs(detail(level, 2*i))/maxd < eps;
                     auto mask = xt::abs(detail(level, 2*i)) < eps; // NO normalization
 
+
                     xt::masked_view(tag(level, 2*i), mask) = static_cast<int>(mure::CellFlag::coarsen);
                     xt::masked_view(tag(level, 2*i + 1), mask) = static_cast<int>(mure::CellFlag::coarsen);
                 }

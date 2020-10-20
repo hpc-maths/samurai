@@ -385,21 +385,19 @@ namespace mure
         template<class T, class stencil_t>
         inline void operator()(Dim<1>, T &cell_flag, const stencil_t &stencil) const
         {
-            cell_flag(level, i - stencil[0]) |= cell_flag(level, i);
+            cell_flag(level, i - stencil[0]) |= (cell_flag(level, i) & static_cast<int>(mure::CellFlag::keep));
         }
 
         template<class T, class stencil_t>
         inline void operator()(Dim<2>, T &cell_flag, const stencil_t &stencil) const
         {
-            cell_flag(level, i - stencil[0], j - stencil[1]) |=
-                cell_flag(level, i, j);
+            cell_flag(level, i - stencil[0], j - stencil[1]) |= (cell_flag(level, i, j) & static_cast<int>(mure::CellFlag::keep));
         }
 
         template<class T, class stencil_t>
         inline void operator()(Dim<3>, T &cell_flag, const stencil_t &stencil) const
         {
-            cell_flag(level, i - stencil[0], j - stencil[1], k - stencil[2]) |=
-                cell_flag(level, i, j, k);
+            cell_flag(level, i - stencil[0], j - stencil[1], k - stencil[2]) |= (cell_flag(level, i, j, k) & static_cast<int>(mure::CellFlag::keep));
         }
     };
 

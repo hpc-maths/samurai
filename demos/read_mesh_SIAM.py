@@ -68,15 +68,15 @@ filename = sys.argv[1]
 f = h5py.File(filename, 'r')
 
 
-#u = f['fields']['u_0']
+# u = f['fields']['u_0']
 
-# rho = f['fields']['rho_0']
-# q = f['fields']['q_0']
-# E = f['fields']['E_0']
-
-
-h = f['fields']['h_0']
+rho = f['fields']['rho_0']
 q = f['fields']['q_0']
+E = f['fields']['e_0']
+
+
+# h = f['fields']['h_0']
+# q = f['fields']['q_0']
 
 
 level = np.repeat(f['fields']['level_0'], 2)
@@ -101,15 +101,15 @@ ax1.autoscale()
 
 
 
-# ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), rho, s=lw, color=colors[0], label = "$\\rho$")
-# ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), q, s=lw, color=colors[1], label = "$\\rho u$")
-# ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), E, s=lw, color=colors[2], label = "$E$")
+ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), rho, s=lw, color=colors[0], label = "$\\rho$")
+ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), q, s=lw, color=colors[1], label = "$\\rho u$")
+ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), E, s=lw, color=colors[2], label = "$E$")
 
-ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), h, s=lw, color=colors[0], label = "$h$")
-ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), q, s=lw, color=colors[1], label = "$h u$")
+# ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), h, s=lw, color=colors[0], label = "$h$")
+# ax2.scatter(.5*(mesh[::2, 0] + mesh[1::2, 0]), q, s=lw, color=colors[1], label = "$h u$")
 ax2.legend(fontsize = 6, ncol = 1)
 
-ax2.set_xlabel("$x$")
+# ax2.set_xlabel("$x$")
 
 ax2.set_ylabel("$m^{h, n}$")
 
