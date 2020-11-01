@@ -5,11 +5,16 @@
 
 namespace mure
 {
+
+    ////////////////////
+    // Box definition //
+    ////////////////////
+
     /** @class Box
      *  @brief Define a box in multi dimensions.
-     * 
+     *
      *  A box is defined by its minimum and maximum corners.
-     * 
+     *
      *  @tparam value_t The type of the box corners.
      *  @tparam dim_ The dimension of the box
      */
@@ -17,7 +22,6 @@ namespace mure
     class Box
     {
     public:
-
         static constexpr std::size_t dim = dim_;
         using point_t = xt::xtensor_fixed<value_t, xt::xshape<dim>>;
 
@@ -27,13 +31,13 @@ namespace mure
         Box& operator=(Box const&) = default;
         Box& operator=(Box&&) = default;
 
-        Box(point_t const& min_corner, point_t const& max_corner);
+        Box(const point_t& min_corner, const point_t& max_corner);
 
-        auto const& min_corner() const;
-        auto& min_corner();
+        const point_t& min_corner() const;
+        point_t& min_corner();
 
-        auto const& max_corner() const;
-        auto& max_corner();
+        const point_t& max_corner() const;
+        point_t& max_corner();
 
         auto length() const;
         bool is_valid() const;
@@ -41,25 +45,31 @@ namespace mure
         Box& operator*=(value_t v);
 
     private:
-
         point_t m_min_corner{0};
         point_t m_max_corner{0};
     };
 
-    /**********************
-     * Box implementation *
-     **********************/
+    ////////////////////////
+    // Box implementation //
+    ////////////////////////
 
-    template<class value_t, std::size_t dim_> 
-    inline Box<value_t, dim_>::
-    Box(point_t const& min_corner, point_t const& max_corner):
-        m_min_corner{min_corner}, m_max_corner{max_corner}{}
+    /**
+     * Construction of a bounded box.
+     *
+     * @param min_corner The vertex with the minimum coordinates
+     * @param max_corner The vertex with the maximum coordinates
+     */
+    template<class value_t, std::size_t dim_>
+    inline Box<value_t, dim_>::Box(const point_t& min_corner, const point_t& max_corner)
+    : m_min_corner{min_corner}
+    , m_max_corner{max_corner}
+    {}
 
     /**
      * Return the min corner of the box.
      */
     template<class value_t, std::size_t dim_>
-    inline auto const& Box<value_t, dim_>::min_corner() const
+    inline auto Box<value_t, dim_>::min_corner() const -> const point_t&
     {
         return m_min_corner;
     }
@@ -68,7 +78,7 @@ namespace mure
      * Return the min corner of the box.
      */
     template<class value_t, std::size_t dim_>
-    inline auto& Box<value_t, dim_>::min_corner()
+    inline auto Box<value_t, dim_>::min_corner() -> point_t&
     {
         return m_min_corner;
     }
@@ -77,7 +87,7 @@ namespace mure
      * Return the max corner of the box.
      */
     template<class value_t, std::size_t dim_>
-    inline auto const& Box<value_t, dim_>::max_corner() const
+    inline auto Box<value_t, dim_>::max_corner() const -> const point_t&
     {
         return m_max_corner;
     }
@@ -86,7 +96,7 @@ namespace mure
      * Return the max corner of the box.
      */
     template<class value_t, std::size_t dim_>
-    inline auto& Box<value_t, dim_>::max_corner()
+    inline auto Box<value_t, dim_>::max_corner() -> point_t&
     {
         return m_max_corner;
     }
@@ -110,7 +120,7 @@ namespace mure
     }
 
     template<class value_t, std::size_t dim_>
-    inline Box<value_t, dim_>& Box<value_t, dim_>::operator*=(value_t v)
+    inline auto Box<value_t, dim_>::operator*=(value_t v) -> Box&
     {
         m_min_corner *= v;
         m_max_corner *= v;
@@ -118,14 +128,14 @@ namespace mure
     }
 
     template<class value_t, std::size_t dim_>
-    inline auto operator*(Box<value_t, dim_> const& box, value_t v)
+    inline auto operator*(const Box<value_t, dim_>& box, value_t v)
     {
         Box<value_t, dim_> that(box);
         return that *= v;
     }
 
     template<class value_t, std::size_t dim_>
-    inline auto operator*(value_t v, Box<value_t, dim_> const& box)
+    inline auto operator*(value_t v, const Box<value_t, dim_>& box)
     {
         Box<value_t, dim_> that(box);
         return that *= v;

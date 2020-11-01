@@ -25,7 +25,7 @@ double max_detail(mure::Field<Config> &u)
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
                                    mesh[mure::MeshType::cells][level + 1])
                                 .on(level);
-        subset.apply_op(level, compute_detail(detail, u), max_detail_mr(detail, max_detail));
+        subset.apply_op(compute_detail(detail, u), max_detail_mr(detail, max_detail));
     }
 
     return max_detail;
@@ -64,7 +64,7 @@ bool coarsening(Field &u, double eps, std::size_t ite)
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
                                    mesh[mure::MeshType::cells][level + 1])
                      .on(level);
-        subset.apply_op(level, compute_detail(detail, u));
+        subset.apply_op(compute_detail(detail, u));
     }
 
 
@@ -84,15 +84,15 @@ bool coarsening(Field &u, double eps, std::size_t ite)
 
 
         // This operations flags the cells to coarsen
-        subset_1.apply_op(level, to_coarsen_mr(detail, tag, eps_l, min_level));
+        subset_1.apply_op(to_coarsen_mr(detail, tag, eps_l, min_level));
 
         auto subset_2 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);
         auto subset_3 = intersection(mesh[mure::MeshType::cells_and_ghosts][level],
                                      mesh[mure::MeshType::cells_and_ghosts][level]);
 
-        subset_2.apply_op(level, mure::enlarge(tag));
-        subset_3.apply_op(level, mure::tag_to_keep(tag));
+        subset_2.apply_op(mure::enlarge(tag));
+        subset_3.apply_op(mure::tag_to_keep(tag));
     }
 
     //h5file.add_field(tag);
@@ -105,7 +105,7 @@ bool coarsening(Field &u, double eps, std::size_t ite)
         auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
                                         mesh[mure::MeshType::all_cells][level - 1])
                           .on(level - 1);
-        keep_subset.apply_op(level - 1, maximum(tag));
+        keep_subset.apply_op(maximum(tag));
 
         xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
         for (std::size_t d = 0; d < dim; ++d)
@@ -119,13 +119,13 @@ bool coarsening(Field &u, double eps, std::size_t ite)
                     auto subset = intersection(mesh[mure::MeshType::cells][level],
                                                translate(mesh[mure::MeshType::cells][level - 1], stencil))
                                  .on(level - 1);
-                    subset.apply_op(level - 1, balance_2to1(tag, stencil));
+                    subset.apply_op(balance_2to1(tag, stencil));
                 }
             }
         }
     }
 
-    mure::CellList<Config> cell_list;
+    mure::CellList<dim, interval_t, max_refinement_level> cell_list;
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
         auto level_cell_array = mesh[mure::MeshType::cells][level];
@@ -162,7 +162,7 @@ bool coarsening(Field &u, double eps, std::size_t ite)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
                                    new_mesh[mure::MeshType::cells][level]);
-        subset.apply_op(level, copy(new_u, u));
+        subset.apply_op(copy(new_u, u));
     }
 
     u.mesh_ptr()->swap(new_mesh);

@@ -8,9 +8,9 @@
 namespace mure
 {
     template<template<class T> class OP, class... CT>
-    class field_operator_function
-        : public field_expression<field_operator_function<OP, CT...>> {
-      public:
+    class field_operator_function: public field_expression<field_operator_function<OP, CT...>>
+    {
+    public:
         static constexpr std::size_t dim = detail::compute_dim<CT...>();
 
         inline field_operator_function(CT &&... e) : m_e{std::forward<CT>(e)...}
@@ -24,15 +24,14 @@ namespace mure
         }
 
         template<class interval_t, class coord_index_t>
-        inline auto operator()(
-            std::size_t level, interval_t i,
-            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index) const
+        inline auto operator()(std::size_t level, interval_t i,
+                               xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index) const
         {
             OP<interval_t> op(level, i, index);
             return apply(op);
         }
 
-      private:
+    private:
         template<class interval_t>
         inline auto apply(OP<interval_t> &op) const
         {
@@ -56,8 +55,9 @@ namespace mure
     }
 
     template<class TInterval>
-    class field_operator_base {
-      public:
+    class field_operator_base
+    {
+    public:
         using interval_t = TInterval;
         using coord_index_t = typename interval_t::coord_index_t;
 
@@ -70,12 +70,11 @@ namespace mure
             return m_dx;
         }
 
-      protected:
+    protected:
         template<std::size_t dim>
-        inline field_operator_base(
-            std::size_t level, interval_t interval,
-            xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
-            : level{level}, i{interval}, m_dx{1. / (1 << level)}
+        inline field_operator_base(std::size_t level, interval_t interval,
+                                   xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
+        : level{level}, i{interval}, m_dx{1. / (1 << level)}
         {
             if (dim > 0)
                 j = index[0];
@@ -84,20 +83,18 @@ namespace mure
         }
 
         inline field_operator_base(std::size_t level, interval_t interval)
-            : level{level}, i{interval}, m_dx{1. / (1 << level)}
+        : level{level}, i{interval}, m_dx{1. / (1 << level)}
         {}
 
-        inline field_operator_base(std::size_t level, interval_t interval,
-                            coord_index_t j_)
-            : level{level}, m_dx{1. / (1 << level)}, i{interval}, j{j_}
+        inline field_operator_base(std::size_t level, interval_t interval, coord_index_t j_)
+        : level{level}, m_dx{1. / (1 << level)}, i{interval}, j{j_}
         {}
 
-        inline field_operator_base(std::size_t level, interval_t interval,
-                            coord_index_t j_, coord_index_t k_)
-            : level{level}, m_dx{1. / (1 << level)}, i{interval}, j{j_}, k{k_}
+        inline field_operator_base(std::size_t level, interval_t interval, coord_index_t j_, coord_index_t k_)
+        : level{level}, m_dx{1. / (1 << level)}, i{interval}, j{j_}, k{k_}
         {}
 
-      private:
+    private:
         double m_dx;
     };
 
@@ -113,12 +110,13 @@ namespace mure
     using base::dx;                                                            \
                                                                                \
     template<std::size_t dim>                                                  \
-    inline NAME(std::size_t level, interval_t interval,                               \
-         xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)              \
-        : base(level, interval, index)                                         \
+    inline NAME(std::size_t level, interval_t interval,                        \
+                xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)       \
+    : base(level, interval, index)                                             \
     {}                                                                         \
+                                                                               \
     template<class... index_t>                                                 \
-    inline NAME(std::size_t level, interval_t interval, index_t... index)             \
-        : base(level, interval, index...)                                      \
+    inline NAME(std::size_t level, interval_t interval, index_t... index)      \
+    : base(level, interval, index...)                                          \
     {}
 }

@@ -1,0 +1,39 @@
+.. MuRe documentation master file, created by
+   sphinx-quickstart on Mon Apr  8 17:23:19 2019.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to MuRe's documentation!
+================================
+
+.. toctree::
+   :caption: USAGE
+   :maxdepth: 2
+
+   philosophy
+
+
+.. toctree::
+   :caption: REFERENCE
+   :maxdepth: 2
+
+   philosophy
+   interval
+   subset
+   algorithm
+
+.. toctree::
+   :caption: API REFERENCE
+   :maxdepth: 2
+
+   api/algorithm
+   api/box
+   api/subset
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

@@ -22,8 +22,8 @@
 # add_executable(D2Q4_3_Euler D2Q4_3_Euler.cpp ${MURE_HEADERS})
 # target_link_libraries(D2Q4_3_Euler mure)
 
-# add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp ${MURE_HEADERS})
-# target_link_libraries(D2Q4_3_Euler_right_boundary_conditions mure)
+add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp ${MURE_HEADERS})
+target_link_libraries(D2Q4_3_Euler_right_boundary_conditions mure)
 # 
 # add_executable(D2Q4_3_ShallowWaters_right_boundary_conditions D2Q4_3_ShallowWaters_right_boundary_conditions.cpp ${MURE_HEADERS})
 # target_link_libraries(D2Q4_3_ShallowWaters_right_boundary_conditions mure)
@@ -49,15 +49,15 @@
 # add_executable(D2Q9_lid_driven_cavity D2Q9_lid_driven_cavity.cpp ${MURE_HEADERS})
 # target_link_libraries(D2Q9_lid_driven_cavity mure)
 
-add_executable(D2Q9_von_Karman_street_meshless D2Q9_von_Karman_street_meshless.cpp ${MURE_HEADERS})
-target_link_libraries(D2Q9_von_Karman_street_meshless mure)
+# add_executable(D2Q9_von_Karman_street_meshless D2Q9_von_Karman_street_meshless.cpp ${MURE_HEADERS})
+# target_link_libraries(D2Q9_von_Karman_street_meshless mure)
 
-add_executable(D2Q9_von_Karman_street_meshless_diffusion_correction D2Q9_von_Karman_street_meshless_diffusion_correction.cpp ${MURE_HEADERS})
-target_link_libraries(D2Q9_von_Karman_street_meshless_diffusion_correction mure)
+# add_executable(D2Q9_von_Karman_street_meshless_diffusion_correction D2Q9_von_Karman_street_meshless_diffusion_correction.cpp ${MURE_HEADERS})
+# target_link_libraries(D2Q9_von_Karman_street_meshless_diffusion_correction mure)
 
-add_executable(D2Q4_3_Emery_Dubois D2Q4_3_Emery_Dubois.cpp ${MURE_HEADERS})
-target_link_libraries(D2Q4_3_Emery_Dubois mure)
+# add_executable(D2Q4_3_Emery_Dubois D2Q4_3_Emery_Dubois.cpp ${MURE_HEADERS})
+# target_link_libraries(D2Q4_3_Emery_Dubois mure)
 
-add_executable(finest_reconstruction_2D finest_reconstruction_2D.cpp ${MURE_HEADERS})
-target_link_libraries(finest_reconstruction_2D mure)
+# add_executable(finest_reconstruction_2D finest_reconstruction_2D.cpp ${MURE_HEADERS})
+# target_link_libraries(finest_reconstruction_2D mure)
 

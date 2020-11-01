@@ -7,20 +7,27 @@
 
 namespace mure
 {
-    template<class InputIt, class UnaryPredicate>
-    inline constexpr std::pair<InputIt, InputIt>
-    forward_find_if(InputIt first, InputIt last, UnaryPredicate p)
+    namespace detail
     {
-        auto previous = first++;
-        for (; first != last; ++first, ++previous)
+        template<class InputIt, class UnaryPredicate>
+        inline constexpr std::pair<InputIt, InputIt>
+        forward_find_if(InputIt first, InputIt last, UnaryPredicate p)
         {
-            if (p(*first))
+            auto previous = first++;
+            for (; first != last; ++first, ++previous)
             {
-                break;
+                if (p(*first))
+                {
+                    break;
+                }
             }
+            return {previous, first};
         }
-        return {previous, first};
     }
+
+    ////////////////////////////////
+    // ListOfIntervals definition //
+    ////////////////////////////////
 
     /** @class ListOfIntervals
      *  @brief Forward list of intervals.
@@ -48,87 +55,69 @@ namespace mure
         using typename list_t::iterator;
         using typename list_t::value_type;
 
-        /// Number of intervals stored in the list.
-        inline std::size_t size() const
-        {
-            return static_cast<std::size_t>(std::distance(begin(), end()));
-        }
+        std::size_t size() const;
 
-        /// Add a point inside the list.
-        inline void add_point(value_t point)
-        {
-            add_interval({point, point + 1});
-        }
-
-        /// Add an interval inside the list.
-        inline void add_interval(interval_t &interval)
-        {
-            if (!interval.is_valid())
-                return;
-
-            auto predicate = [interval](auto const &value) {
-                return interval.start <= value.end;
-            };
-            auto it = forward_find_if(before_begin(), end(), predicate);
-
-            // if we are at the end just append the new interval or
-            // if we are between two intervals, insert it
-            if (it.second == end() || interval.end < it.second->start)
-            {
-                this->insert_after(it.first, interval);
-                return;
-            }
-
-            // else there is an overlap
-            it.second->start = std::min(it.second->start, interval.start);
-            it.second->end = std::max(it.second->end, interval.end);
-
-            auto it_end = std::next(it.second);
-            while (it_end != end() && interval.end >= it_end->start)
-            {
-                it.second->end = std::max(it_end->end, interval.end);
-                it_end = erase_after(it.second);
-            }
-        }
-
-        /// Add an interval inside the list.
-        inline void add_interval(interval_t &&interval)
-        {
-            if (!interval.is_valid())
-                return;
-
-            auto predicate = [interval](auto const &value) {
-                return interval.start <= value.end;
-            };
-            auto it = forward_find_if(before_begin(), end(), predicate);
-
-            // if we are at the end just append the new interval or
-            // if we are between two intervals, insert it
-            if (it.second == end() || interval.end < it.second->start)
-            {
-                this->insert_after(it.first, std::move(interval));
-                return;
-            }
-
-            // else there is an overlap
-            it.second->start = std::min(it.second->start, interval.start);
-            it.second->end = std::max(it.second->end, interval.end);
-
-            auto it_end = std::next(it.second);
-            while (it_end != end() && interval.end >= it_end->start)
-            {
-                it.second->end = std::max(it_end->end, interval.end);
-                it_end = erase_after(it.second);
-            }
-        }
+        void add_point(value_t point);
+        void add_interval(const interval_t& interval);
     };
 
-    template<typename value_t, typename index_t>
-    inline std::ostream &operator<<(std::ostream &out,
-                             ListOfIntervals<value_t, index_t> interval_list)
+    ////////////////////////////////////
+    // ListOfIntervals implementation //
+    ////////////////////////////////////
+
+    /// Number of intervals stored in the list.
+    template<typename TValue, typename TIndex>
+    inline std::size_t ListOfIntervals<TValue, TIndex>::size() const
     {
-        for (auto &interval : interval_list)
+        return static_cast<std::size_t>(std::distance(begin(), end()));
+    }
+
+    /// Add a point inside the list.
+    template<typename TValue, typename TIndex>
+    inline void ListOfIntervals<TValue, TIndex>::add_point(value_t point)
+    {
+        add_interval({point, point + 1});
+    }
+
+    /// Add an interval inside the list.
+    template<typename TValue, typename TIndex>
+    inline void ListOfIntervals<TValue, TIndex>::add_interval(const interval_t &interval)
+    {
+        if (!interval.is_valid())
+            return;
+
+        auto predicate = [interval](auto const &value) {
+            return interval.start <= value.end;
+        };
+        auto it = detail::forward_find_if(before_begin(), end(), predicate);
+
+        // if we are at the end just append the new interval or
+        // if we are between two intervals, insert it
+        if (it.second == end() || interval.end < it.second->start)
+        {
+            this->insert_after(it.first, interval);
+            return;
+        }
+
+        // else there is an overlap
+        it.second->start = std::min(it.second->start, interval.start);
+        it.second->end = std::max(it.second->end, interval.end);
+
+        auto it_end = std::next(it.second);
+        while (it_end != end() && interval.end >= it_end->start)
+        {
+            it.second->end = std::max(it_end->end, interval.end);
+            it_end = erase_after(it.second);
+        }
+    }
+
+    template<typename value_t, typename index_t>
+    inline std::ostream &operator<<(std::ostream& out, const ListOfIntervals<value_t, index_t>& interval_list)
+    {
+        for (auto& interval: interval_list)
+        {
             out << interval << " ";
+        }
         return out;
     }
 }

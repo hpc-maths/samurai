@@ -27,14 +27,14 @@ bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
                                         mesh[mure::MeshType::cells][level]);
-        subset.apply_op(level, compute_gradient(u, grad));
+        subset.apply_op(compute_gradient(u, grad));
     }
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
                                          mesh[mure::MeshType::all_cells][level-1])
                        .on(level-1);
-        subset.apply_op(level, to_refine_amr(grad, tag, max_level));
+        subset.apply_op(to_refine_amr(grad, tag, max_level));
     }
 
     for (std::size_t level = max_level; level > min_level; --level)
@@ -42,7 +42,7 @@ bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
         auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);
 
-        subset_1.apply_op(level, extend(tag));
+        subset_1.apply_op(extend(tag));
 
         xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
         for (std::size_t d = 0; d < dim; ++d)
@@ -59,7 +59,7 @@ bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
                                               mesh[mure::MeshType::cells][level-1])
                                 .on(level);
 
-                    subset.apply_op(level, make_graduation(tag));
+                    subset.apply_op(make_graduation(tag));
                 }
             }
         }
@@ -107,7 +107,7 @@ bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
                                    new_mesh[mure::MeshType::cells][level]);
-        subset.apply_op(level, copy(new_u, u));
+        subset.apply_op(copy(new_u, u));
     }
 
     for (std::size_t level = min_level; level < max_level; ++level)

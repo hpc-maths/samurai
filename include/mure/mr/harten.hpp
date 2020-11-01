@@ -1,748 +1,212 @@
 #pragma once
 
-#include "../field.hpp"
-#include "cell_flag.hpp"
+#include <cmath>
+
 #include "mesh.hpp"
+#include "operators.hpp"
+#include "criteria.hpp"
 
 namespace mure
 {
-    template<class MRConfig>
-    void harten(Field<MRConfig> &field, double eps, std::size_t ite)
+    template <class Field, class Func>
+    bool harten(Field &u, Field &uold, Func&& update_bc_for_level, double eps, double regularity, std::size_t ite)
     {
-        constexpr auto max_refinement_level = MRConfig::max_refinement_level;
-        constexpr auto dim = MRConfig::dim;
-        using interval_t = typename MRConfig::interval_t;
+        constexpr std::size_t dim = Field::dim;
+        constexpr std::size_t size = Field::size;
 
-        auto mesh = field.mesh();
-        std::size_t max_level =
-            mesh.initial_level(); // mesh[MeshType::cells].max_level();
-        std::size_t min_level = mesh[MeshType::cells].min_level();
+        using value_t = typename Field::value_type;
+        using mesh_t = typename Field::mesh_t;
+        using interval_t = typename Field::interval_t;
+        using coord_index_t = typename interval_t::coord_index_t;
+        using cl_type = typename mesh_t::cl_type;
 
-        xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>
-            max_detail;
-        max_detail.fill(std::numeric_limits<double>::min());
+        auto mesh = u.mesh();
+        std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
 
-        Field<MRConfig, double> detail{"detail", mesh};
-        Field<MRConfig, int> cell_flag{"flag", mesh};
+        auto detail = make_field<value_t, size>("detail", mesh);
 
-        cell_flag.array().fill(0);
-        mesh.for_each_cell([&](auto &cell) {
-            cell_flag[cell] = static_cast<int>(CellFlag::keep);
+        auto tag = make_field<int, 1>("tag", mesh);
+        tag.fill(0);
+
+        for_each_cell(mesh[MeshType::cells], [&](auto &cell)
+        {
+            tag[cell] = static_cast<int>(CellFlag::keep);
         });
 
-        // Compute the detail
-        for (std::size_t level = min_level - 1; level < max_level - ite;
-             ++level)
+        mr_projection(u);
+        for (std::size_t level = min_level - 1; level <= max_level; ++level)
+        {
+            update_bc_for_level(u, level);
+        }
+        mr_prediction(u, update_bc_for_level);
+
+        for (std::size_t level = min_level - 1; level < max_level - ite; ++level)
         {
             auto subset = intersection(mesh[MeshType::all_cells][level],
                                        mesh[MeshType::cells][level + 1])
-                              .on(level);
-
-            subset.apply_op(level, compute_detail(detail, field),
-                            compute_max_detail(detail, max_detail));
+                         .on(level);
+            subset.apply_op(compute_detail(detail, u));
         }
 
-        for (std::size_t level = 0; level < max_level - ite; ++level)
+        for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
-            int exponent = dim * (level - max_level + 1);
+            double exponent = dim * (max_level - level);
+            double eps_l = std::pow(2., -exponent) * eps;
 
-            auto eps_l = std::pow(2, exponent) * eps;
+            double regularity_to_use = std::min(regularity, 3.0) + dim;
 
-            auto subset_1 = intersection(mesh[MeshType::all_cells][level],
-                                         mesh[MeshType::cells][level + 1])
-                                .on(level);
+            auto subset_1 = intersection(mesh[MeshType::cells][level],
+                                         mesh[MeshType::all_cells][level-1])
+                           .on(level-1);
 
-            subset_1.apply_op(level,
-                              to_coarsen(cell_flag, detail, max_detail, eps_l));
+            subset_1.apply_op(to_coarsen_mr(detail, tag, eps_l, min_level)); // Derefinement
+            subset_1.apply_op(to_refine_mr(detail, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level)); // Refinement according to Harten
+        }
 
-            // Harten
-            auto subset_2 = intersection(mesh[MeshType::cells][level + 1],
-                                         mesh[MeshType::cells][level + 1]);
-            subset_2.apply_op(
-                level + 1,
-                to_refine(cell_flag, detail, max_detail, max_level, 4 * eps_l));
+        for (std::size_t level = min_level; level <= max_level - ite; ++level)
+        {
+            auto subset_2 = intersection(mesh[MeshType::cells][level],
+                                         mesh[MeshType::cells][level]);
+            auto subset_3 = intersection(mesh[MeshType::cells_and_ghosts][level],
+                                         mesh[MeshType::cells_and_ghosts][level]);
 
-            subset_2.apply_op(level + 1, enlarge(cell_flag, CellFlag::keep));
+            subset_2.apply_op(enlarge(tag));
+            subset_2.apply_op(keep_around_refine(tag));
+            subset_3.apply_op(tag_to_keep(tag));
+        }
 
-            auto subset_right =
-                intersection(
-                    mesh[MeshType::cells][level],
-                    translate_in_x<1>(mesh[MeshType::cells][level + 1]))
-                    .on(level);
+        // COARSENING GRADUATION
+        for (std::size_t level = max_level; level > 0; --level)
+        {
+            auto keep_subset = intersection(mesh[MeshType::cells][level],
+                                            mesh[MeshType::all_cells][level - 1])
+                              .on(level - 1);
 
-            subset_right([&](auto &index_yz, auto &interval, auto &) {
-                auto i = interval[0];
-                auto mask = cell_flag(level + 1, 2 * i) &
-                            static_cast<int>(CellFlag::keep);
-                xt::masked_view(cell_flag(level, i), mask) =
-                    static_cast<int>(CellFlag::refine);
-            });
+            keep_subset.apply_op(maximum(tag));
 
-            auto subset_left =
-                intersection(
-                    mesh[MeshType::cells][level],
-                    translate_in_x<-1>(mesh[MeshType::cells][level + 1]))
-                    .on(level);
+            xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                stencil.fill(0);
+                for (int s = -1; s <= 1; ++s)
+                {
+                    if (s != 0)
+                    {
+                        stencil[d] = s;
+                        auto subset = intersection(mesh[MeshType::cells][level],
+                                                translate(mesh[MeshType::cells][level - 1], stencil))
+                                    .on(level - 1);
+                        subset.apply_op(balance_2to1(tag, stencil));
+                    }
+                }
+            }
+        }
 
-            subset_left([&](auto &index_yz, auto &interval, auto &) {
-                auto i = interval[0];
-                auto mask = cell_flag(level + 1, 2 * i + 1) &
-                            static_cast<int>(CellFlag::keep);
-                xt::masked_view(cell_flag(level, i), mask) =
-                    static_cast<int>(CellFlag::refine);
+        // REFINEMENT GRADUATION
+        for (std::size_t level = max_level; level > min_level; --level)
+        {
+            auto subset_1 = intersection(mesh[MeshType::cells][level],
+                                        mesh[MeshType::cells][level]);
+
+            subset_1.apply_op(extend(tag));
+
+            static_nested_loop<dim, -1, 2>(
+                [&](auto stencil) {
+
+                auto subset = intersection(translate(mesh[MeshType::cells][level], stencil),
+                                           mesh[MeshType::cells][level-1])
+                             .on(level);
+
+                subset.apply_op(make_graduation(tag));
+
             });
         }
 
         for (std::size_t level = max_level; level > 0; --level)
         {
-            auto keep_subset =
-                intersection(mesh[MeshType::cells][level],
-                             mesh[MeshType::all_cells][level - 1])
-                    .on(level - 1);
+            auto keep_subset = intersection(mesh[MeshType::cells][level],
+                                            mesh[MeshType::all_cells][level - 1])
+                            .on(level - 1);
 
-            keep_subset.apply_op(level - 1, maximum(cell_flag));
-            // 1D
-            if (dim == 1)
-            {
-                auto subset_right =
-                    intersection(
-                        mesh[MeshType::cells][level],
-                        translate_in_x<1>(mesh[MeshType::cells][level - 1]))
-                        .on(level - 1);
-
-                subset_right([&](auto &index_yz, auto &interval, auto &) {
-                    auto i = interval[0];
-                    cell_flag(level - 1, i - 1) |= cell_flag(level - 1, i);
-                });
-
-                auto subset_left =
-                    intersection(
-                        mesh[MeshType::cells][level],
-                        translate_in_x<-1>(mesh[MeshType::cells][level - 1]))
-                        .on(level - 1);
-
-                subset_left([&](auto &index_yz, auto &interval, auto &) {
-                    auto i = interval[0];
-                    cell_flag(level - 1, i + 1) |= cell_flag(level - 1, i);
-                });
-            }
+            keep_subset.apply_op(maximum(tag));
         }
 
-        CellList<MRConfig> cell_list;
-        for (std::size_t level = 0; level <= max_level; ++level)
-        {
-            auto level_cell_array = mesh[MeshType::cells][level];
+        cl_type cell_list;
 
-            if (!level_cell_array.empty())
+        for_each_interval(mesh[MeshType::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        {
+            for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
-                level_cell_array.for_each_interval_in_x(
-                    [&](auto const &index_yz, auto const &interval) {
-                        for (int i = interval.start; i < interval.end; ++i)
-                        {
-                            if (cell_flag.array()[i + interval.index] &
-                                static_cast<int>(CellFlag::refine))
-                            {
-                                cell_list[level + 1][{}].add_point(2 * i);
-                                cell_list[level + 1][{}].add_point(2 * i + 1);
-                            }
-                            else if (cell_flag.array()[i + interval.index] &
-                                     static_cast<int>(CellFlag::keep))
-                            {
-                                cell_list[level][index_yz].add_point(i);
-                            }
-                            else if (cell_flag.array()[i + interval.index] &
-                                     static_cast<int>(CellFlag::coarsen))
-                            {
-                                cell_list[level - 1][index_yz >> 1].add_point(
-                                    i >> 1);
-                            }
-                        }
+                if (tag[i + interval.index] & static_cast<int>(CellFlag::refine))
+                {
+                    static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
+                    {
+                        auto index = 2 * index_yz + stencil;
+                        cell_list[level + 1][index].add_interval({2 * i, 2 * i + 2});
                     });
+                }
+                else if (tag[i + interval.index] & static_cast<int>(CellFlag::keep))
+                {
+                    cell_list[level][index_yz].add_point(i);
+                }
+                else
+                {
+                    cell_list[level-1][index_yz>>1].add_point(i>>1);
+                }
             }
-        }
-
-        Mesh<MRConfig> new_mesh{cell_list, mesh.initial_mesh(),
-                                mesh.initial_level()};
-
-        Field<MRConfig> new_field(field.name(), new_mesh);
-        new_field.array().fill(0);
-
-        for (std::size_t level = 0; level <= max_level; ++level)
-        {
-            auto subset = intersection(mesh[MeshType::all_cells][level],
-                                       new_mesh[MeshType::cells][level]);
-
-            subset.apply_op(level, copy(new_field, field));
-        }
-
-        for (std::size_t level = 0; level < max_level; ++level)
-        {
-            auto level_cell_array = mesh[MeshType::cells][level];
-
-            if (!level_cell_array.empty())
-            {
-                level_cell_array.for_each_interval_in_x(
-                    [&](auto const &index_yz, auto const &interval) {
-                        for (int i = interval.start; i < interval.end; ++i)
-                        {
-                            if (cell_flag.array()[i + interval.index] &
-                                static_cast<int>(CellFlag::refine))
-
-                            {
-                                auto ii = i << 1;
-                                interval_t i_levelp1 = {ii, ii + 1};
-                                interval_t i_level{i, i + 1};
-
-                                auto qs_i = Qs_i<1>(field, level, i_level);
-
-                                new_field(level + 1, i_levelp1) =
-                                    (field(level, i_level) + qs_i);
-
-                                new_field(level + 1, i_levelp1 + 1) =
-                                    (field(level, i_level) - qs_i);
-                            }
-                        }
-                    });
-            }
-        }
-
-        field.mesh_ptr()->swap(new_mesh);
-        field.array() = new_field.array();
-    }
-
-    template<class MRConfig>
-    void harten(std::vector<Field<MRConfig>> &field, double eps,
-                std::size_t ite, std::size_t min_level)
-    {
-        constexpr auto max_refinement_level = MRConfig::max_refinement_level;
-        constexpr auto dim = MRConfig::dim;
-        using interval_t = typename MRConfig::interval_t;
-
-        auto mesh = field[0].mesh();
-        std::size_t max_level =
-            mesh.initial_level(); // mesh[MeshType::cells].max_level();
-
-        std::size_t field_size = field.size();
-
-        std::vector<
-            xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>>
-            max_detail(field_size);
-
-        Field<MRConfig, int> cell_flag_global{"cell_flag_global", mesh};
-        cell_flag_global.array().fill(0);
-
-        std::vector<Field<MRConfig, double>> detail;
-        std::vector<Field<MRConfig, int>> cell_flag;
-
-        for (std::size_t i = 0; i < field_size; ++i)
-        {
-            max_detail[i].fill(std::numeric_limits<double>::min());
-            std::stringstream str;
-            str << "detail_" << i;
-            detail.push_back({str.str().data(), mesh});
-            detail[i].array().fill(0);
-            str << "cell_flag_" << i;
-            cell_flag.push_back({str.str().data(), mesh});
-            cell_flag[i].array().fill(0);
-        }
-
-        mesh.for_each_cell([&](auto &cell) {
-            for (std::size_t i = 0; i < field_size; ++i)
-                cell_flag[i][cell] = static_cast<int>(CellFlag::keep);
         });
 
-        // Compute the detail
-        for (std::size_t level = min_level - 1; level < max_level - ite;
-             ++level)
+        mesh_t new_mesh{cell_list, mesh.initial_mesh(), min_level, max_level};
+
+        if (new_mesh == mesh)
         {
-            auto subset = intersection(mesh[MeshType::all_cells][level],
-                                       mesh[MeshType::cells][level + 1])
-                              .on(level);
-            for (std::size_t i = 0; i < field.size(); ++i)
-            {
-                subset.apply_op(level, compute_detail(detail[i], field[i]),
-                                compute_max_detail(detail[i], max_detail[i]));
-            }
+            return true;
         }
 
-        for (std::size_t level = 0; level < max_level - ite; ++level)
-        {
-            int exponent = dim * (level - max_level + 1);
-
-            auto eps_l = std::pow(2, exponent) * eps;
-
-            auto subset_1 = intersection(mesh[MeshType::all_cells][level],
-                                         mesh[MeshType::cells][level + 1])
-                                .on(level);
-            // Harten
-            auto subset_2 = intersection(mesh[MeshType::cells][level + 1],
-                                         mesh[MeshType::cells][level + 1]);
-
-            for (std::size_t i = 0; i < field.size(); ++i)
-            {
-                subset_1.apply_op(level, to_coarsen(cell_flag[i], detail[i],
-                                                    max_detail[i], eps_l));
-
-                subset_2.apply_op(level + 1, to_refine(cell_flag[i], detail[i],
-                                                       max_detail[i], max_level,
-                                                       4 * eps_l));
-
-                subset_2.apply_op(level + 1,
-                                  enlarge(cell_flag[i], CellFlag::keep));
-            }
-
-            auto subset_right =
-                intersection(
-                    mesh[MeshType::cells][level],
-                    translate_in_x<1>(mesh[MeshType::cells][level + 1]))
-                    .on(level);
-
-            subset_right([&](auto &index_yz, auto &interval, auto &) {
-                auto i = interval[0];
-                for (std::size_t ii = 0; ii < field.size(); ++ii)
-                {
-                    auto mask = cell_flag[ii](level + 1, 2 * i) &
-                                static_cast<int>(CellFlag::keep);
-                    xt::masked_view(cell_flag[ii](level, i), mask) =
-                        static_cast<int>(CellFlag::refine);
-                }
-            });
-
-            auto subset_left =
-                intersection(
-                    mesh[MeshType::cells][level],
-                    translate_in_x<-1>(mesh[MeshType::cells][level + 1]))
-                    .on(level);
-
-            subset_left([&](auto &index_yz, auto &interval, auto &) {
-                auto i = interval[0];
-                for (std::size_t ii = 0; ii < field.size(); ++ii)
-                {
-                    auto mask = cell_flag[ii](level + 1, 2 * i + 1) &
-                                static_cast<int>(CellFlag::keep);
-                    xt::masked_view(cell_flag[ii](level, i), mask) =
-                        static_cast<int>(CellFlag::refine);
-                }
-            });
-        }
-
-        for (std::size_t level = max_level; level > 0; --level)
-        {
-            auto keep_subset =
-                intersection(mesh[MeshType::cells][level],
-                             mesh[MeshType::all_cells][level - 1])
-                    .on(level - 1);
-
-            for (std::size_t i = 0; i < field.size(); ++i)
-            {
-                keep_subset.apply_op(level - 1, maximum(cell_flag[i]));
-            }
-            // 1D
-            if (dim == 1)
-            {
-                auto subset_right =
-                    intersection(
-                        mesh[MeshType::cells][level],
-                        translate_in_x<1>(mesh[MeshType::cells][level - 1]))
-                        .on(level - 1);
-
-                subset_right([&](auto &index_yz, auto &interval, auto &) {
-                    auto i = interval[0];
-                    for (std::size_t ii = 0; ii < field.size(); ++ii)
-                    {
-                        cell_flag[ii](level - 1, i - 1) |=
-                            cell_flag[ii](level - 1, i);
-                    }
-                });
-
-                auto subset_left =
-                    intersection(
-                        mesh[MeshType::cells][level],
-                        translate_in_x<-1>(mesh[MeshType::cells][level - 1]))
-                        .on(level - 1);
-
-                subset_left([&](auto &index_yz, auto &interval, auto &) {
-                    auto i = interval[0];
-                    for (std::size_t ii = 0; ii < field.size(); ++ii)
-                    {
-                        cell_flag[ii](level - 1, i + 1) |=
-                            cell_flag[ii](level - 1, i);
-                    }
-                });
-            }
-        }
-
-        for (std::size_t i = 0; i < field.size(); ++i)
-        {
-            cell_flag_global.array() |= cell_flag[i].array();
-        }
-
-        CellList<MRConfig> cell_list;
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            auto level_cell_array = mesh[MeshType::cells][level];
-
-            if (!level_cell_array.empty())
-            {
-                level_cell_array.for_each_interval_in_x([&](auto const
-                                                                &index_yz,
-                                                            auto const
-                                                                &interval) {
-                    for (int i = interval.start; i < interval.end; ++i)
-                    {
-                        // std::cout
-                        //     << level << " " << i << " "
-                        //     << cell_flag_global.array()[i + interval.index]
-                        //     << "\n";
-                        if (cell_flag_global.array()[i + interval.index] &
-                            static_cast<int>(CellFlag::refine))
-                        {
-                            ;
-                            // std::cout << "refine\n";
-                            cell_list[level + 1][{}].add_point(2 * i);
-                            cell_list[level + 1][{}].add_point(2 * i + 1);
-                        }
-                        else if (cell_flag_global.array()[i + interval.index] &
-                                 static_cast<int>(CellFlag::keep))
-                        {
-                            // std::cout << "keep\n";
-                            cell_list[level][index_yz].add_point(i);
-                        }
-                        else if (cell_flag_global.array()[i + interval.index] &
-                                 static_cast<int>(CellFlag::coarsen))
-                        {
-                            if (level != min_level)
-                            {
-                                // std::cout << "coarsen\n";
-                                cell_list[level - 1][index_yz >> 1].add_point(
-                                    i >> 1);
-                            }
-                            else
-                            {
-                                // std::cout << "keep\n";
-                                cell_list[level][index_yz].add_point(i);
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
-        Mesh<MRConfig> new_mesh{cell_list, mesh.initial_mesh(),
-                                mesh.initial_level()};
-
-        std::vector<Field<MRConfig>> new_field;
-
-        for (std::size_t i = 0; i < field_size; ++i)
-        {
-            new_field.push_back({field[i].name(), new_mesh});
-            new_field[i].array().fill(0);
-        }
+        auto new_u = make_field<value_t, size>(u.name(), new_mesh);
+        new_u.fill(0.);
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto subset = intersection(mesh[MeshType::all_cells][level],
+            auto subset = intersection(union_(mesh[MeshType::cells][level],
+                                              mesh[MeshType::proj_cells][level]),
                                        new_mesh[MeshType::cells][level]);
-            for (std::size_t i = 0; i < field_size; ++i)
+
+            subset.apply_op(copy(new_u, u));
+        }
+
+        for_each_interval(mesh[MeshType::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        {
+            for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
-                subset.apply_op(level, copy(new_field[i], field[i]));
+                if (tag[i + interval.index] & static_cast<int>(CellFlag::refine))
+                {
+                    compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
+                }
             }
-        }
-
-        for (std::size_t level = min_level; level < max_level; ++level)
-        {
-            auto level_cell_array = mesh[MeshType::cells][level];
-
-            if (!level_cell_array.empty())
-            {
-                level_cell_array.for_each_interval_in_x(
-                    [&](auto const &index_yz, auto const &interval) {
-                        for (int i = interval.start; i < interval.end; ++i)
-                        {
-                            if (cell_flag_global.array()[i + interval.index] &
-                                static_cast<int>(CellFlag::refine))
-
-                            {
-                                auto ii = i << 1;
-                                interval_t i_levelp1 = {ii, ii + 1};
-                                interval_t i_level{i, i + 1};
-
-                                for (std::size_t i_f = 0; i_f < field_size;
-                                     ++i_f)
-                                {
-                                    auto qs_i =
-                                        Qs_i<1>(field[i_f], level, i_level);
-
-                                    new_field[i_f](level + 1, i_levelp1) =
-                                        (field[i_f](level, i_level) + qs_i);
-
-                                    new_field[i_f](level + 1, i_levelp1 + 1) =
-                                        (field[i_f](level, i_level) - qs_i);
-                                }
-                            }
-                        }
-                    });
-            }
-        }
-
-        field[0].mesh_ptr()->swap(new_mesh);
-        for (std::size_t i = 0; i < field_size; ++i)
-        {
-            field[i].array() = new_field[i].array();
-        }
-    }
-
-    template<class MRConfig>
-    void harten_2(std::vector<Field<MRConfig>> &field, double eps,
-                  std::size_t ite, std::size_t min_level)
-    {
-        constexpr auto max_refinement_level = MRConfig::max_refinement_level;
-        constexpr auto dim = MRConfig::dim;
-        using interval_t = typename MRConfig::interval_t;
-
-        auto mesh = field[0].mesh();
-        std::size_t max_level =
-            mesh.initial_level(); // mesh[MeshType::cells].max_level();
-
-        std::size_t field_size = field.size();
-
-        std::vector<
-            xt::xtensor_fixed<double, xt::xshape<max_refinement_level + 1>>>
-            max_detail(field_size);
-
-        Field<MRConfig, int> cell_flag_global{"cell_flag_global", mesh};
-        cell_flag_global.array().fill(0);
-
-        std::vector<Field<MRConfig, double>> detail;
-        std::vector<Field<MRConfig, int>> cell_flag;
-
-        for (std::size_t i = 0; i < field_size; ++i)
-        {
-            max_detail[i].fill(std::numeric_limits<double>::min());
-            std::stringstream str;
-            str << "detail_" << i;
-            detail.push_back({str.str().data(), mesh});
-            detail[i].array().fill(0);
-            str << "cell_flag_" << i;
-            cell_flag.push_back({str.str().data(), mesh});
-            cell_flag[i].array().fill(0);
-        }
-
-        mesh.for_each_cell([&](auto &cell) {
-            for (std::size_t i = 0; i < field_size; ++i)
-                cell_flag[i][cell] = static_cast<int>(CellFlag::keep);
         });
 
-        // Compute the detail
-        for (std::size_t level = min_level - 1; level < max_level - ite;
-             ++level)
-        {
-            auto subset = intersection(mesh[MeshType::all_cells][level],
-                                       mesh[MeshType::cells][level + 1])
-                              .on(level);
-            for (std::size_t i = 0; i < field.size(); ++i)
-            {
-                subset.apply_op(level, compute_detail(detail[i], field[i]),
-                                compute_max_detail(detail[i], max_detail[i]));
-            }
-        }
-
-        for (std::size_t level = 0; level < max_level - ite; ++level)
-        {
-            int exponent = dim * (level - max_level + 1);
-
-            auto eps_l = std::pow(2, exponent) * eps;
-
-            auto subset_1 = intersection(mesh[MeshType::all_cells][level],
-                                         mesh[MeshType::cells][level + 1])
-                                .on(level);
-            // Harten
-            auto subset_2 = intersection(mesh[MeshType::cells][level + 1],
-                                         mesh[MeshType::cells][level + 1]);
-
-            for (std::size_t i = 0; i < field.size(); ++i)
-            {
-                subset_1.apply_op(level, to_coarsen(cell_flag[i], detail[i],
-                                                    max_detail[i], eps_l));
-
-                subset_2.apply_op(level + 1, to_refine(cell_flag[i], detail[i],
-                                                       max_detail[i], max_level,
-                                                       4 * eps_l));
-
-                subset_2.apply_op(level + 1,
-                                  enlarge(cell_flag[i], CellFlag::keep));
-            }
-
-            auto subset = intersection(mesh[MeshType::cells][level],
-                                       expand(mesh[MeshType::cells][level + 1]))
-                              .on(level + 1);
-
-            subset([&](auto &index_yz, auto &interval, auto &) {
-                auto i = interval[0];
-                for (std::size_t ii = 0; ii < field.size(); ++ii)
-                {
-                    auto mask = cell_flag[ii](level + 1, i) &
-                                static_cast<int>(CellFlag::keep);
-                    xt::masked_view(cell_flag[ii](level, i / 2), mask) =
-                        static_cast<int>(CellFlag::refine);
-                }
-            });
-        }
-
-        for (std::size_t level = max_level; level > 0; --level)
-        {
-            auto keep_subset =
-                intersection(mesh[MeshType::cells][level],
-                             mesh[MeshType::all_cells][level - 1])
-                    .on(level - 1);
-
-            for (std::size_t i = 0; i < field.size(); ++i)
-            {
-                keep_subset.apply_op(level - 1, maximum(cell_flag[i]));
-            }
-            // 1D
-            if (dim == 1)
-            {
-                auto subset_right =
-                    intersection(
-                        mesh[MeshType::cells][level],
-                        translate_in_x<1>(mesh[MeshType::cells][level - 1]))
-                        .on(level - 1);
-
-                subset_right([&](auto &index_yz, auto &interval, auto &) {
-                    auto i = interval[0];
-                    for (std::size_t ii = 0; ii < field.size(); ++ii)
-                    {
-                        cell_flag[ii](level - 1, i - 1) |=
-                            cell_flag[ii](level - 1, i);
-                    }
-                });
-
-                auto subset_left =
-                    intersection(
-                        mesh[MeshType::cells][level],
-                        translate_in_x<-1>(mesh[MeshType::cells][level - 1]))
-                        .on(level - 1);
-
-                subset_left([&](auto &index_yz, auto &interval, auto &) {
-                    auto i = interval[0];
-                    for (std::size_t ii = 0; ii < field.size(); ++ii)
-                    {
-                        cell_flag[ii](level - 1, i + 1) |=
-                            cell_flag[ii](level - 1, i);
-                    }
-                });
-            }
-        }
-
-        for (std::size_t i = 0; i < field.size(); ++i)
-        {
-            cell_flag_global.array() |= cell_flag[i].array();
-        }
-
-        CellList<MRConfig> cell_list;
+        // START comment to the old fashion
+        // which eliminates details of cells first deleted and then re-added by the refinement
+        auto old_mesh = uold.mesh();
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto level_cell_array = mesh[MeshType::cells][level];
+            auto subset = intersection(intersection(old_mesh[MeshType::cells][level],
+                                                    difference(new_mesh[MeshType::cells][level],
+                                                               mesh[MeshType::cells][level])),
+                                       mesh[MeshType::cells][level-1])
+                         .on(level);
 
-            if (!level_cell_array.empty())
-            {
-                level_cell_array.for_each_interval_in_x([&](auto const
-                                                                &index_yz,
-                                                            auto const
-                                                                &interval) {
-                    for (int i = interval.start; i < interval.end; ++i)
-                    {
-                        if (cell_flag_global.array()[i + interval.index] &
-                            static_cast<int>(CellFlag::refine))
-                        {
-                            cell_list[level + 1][{}].add_point(2 * i);
-                            cell_list[level + 1][{}].add_point(2 * i + 1);
-                        }
-                        else if (cell_flag_global.array()[i + interval.index] &
-                                 static_cast<int>(CellFlag::keep))
-                        {
-                            cell_list[level][index_yz].add_point(i);
-                        }
-                        else if (cell_flag_global.array()[i + interval.index] &
-                                 static_cast<int>(CellFlag::coarsen))
-                        {
-                            if (level != min_level)
-                            {
-                                cell_list[level - 1][index_yz >> 1].add_point(
-                                    i >> 1);
-                            }
-                            else
-                            {
-                                cell_list[level][index_yz].add_point(i);
-                            }
-                        }
-                    }
-                });
-            }
+            subset.apply_op(copy(new_u, uold));
         }
+        // END comment
 
-        Mesh<MRConfig> new_mesh{cell_list, mesh.initial_mesh(),
-                                mesh.initial_level()};
+        u.mesh_ptr()->swap(new_mesh);
+        uold.mesh_ptr()->swap(new_mesh);
 
-        std::vector<Field<MRConfig>> new_field;
+        std::swap(u.array(), new_u.array());
+        std::swap(uold.array(), new_u.array());
 
-        for (std::size_t i = 0; i < field_size; ++i)
-        {
-            new_field.push_back({field[i].name(), new_mesh});
-            new_field[i].array().fill(0);
-        }
-
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            auto subset = intersection(mesh[MeshType::all_cells][level],
-                                       new_mesh[MeshType::cells][level]);
-            for (std::size_t i = 0; i < field_size; ++i)
-            {
-                subset.apply_op(level, copy(new_field[i], field[i]));
-            }
-        }
-
-        for (std::size_t level = min_level; level < max_level; ++level)
-        {
-            auto level_cell_array = mesh[MeshType::cells][level];
-
-            if (!level_cell_array.empty())
-            {
-                level_cell_array.for_each_interval_in_x(
-                    [&](auto const &index_yz, auto const &interval) {
-                        for (int i = interval.start; i < interval.end; ++i)
-                        {
-                            if (cell_flag_global.array()[i + interval.index] &
-                                static_cast<int>(CellFlag::refine))
-
-                            {
-                                auto ii = i << 1;
-                                interval_t i_levelp1 = {ii, ii + 1};
-                                interval_t i_level{i, i + 1};
-
-                                for (std::size_t i_f = 0; i_f < field_size;
-                                     ++i_f)
-                                {
-                                    auto qs_i =
-                                        Qs_i<1>(field[i_f], level, i_level);
-
-                                    new_field[i_f](level + 1, i_levelp1) =
-                                        (field[i_f](level, i_level) + qs_i);
-
-                                    new_field[i_f](level + 1, i_levelp1 + 1) =
-                                        (field[i_f](level, i_level) - qs_i);
-                                }
-                            }
-                        }
-                    });
-            }
-        }
-
-        field[0].mesh_ptr()->swap(new_mesh);
-        for (std::size_t i = 0; i < field_size; ++i)
-        {
-            field[i].array() = new_field[i].array();
-        }
+        return false;
     }
 }

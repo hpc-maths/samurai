@@ -17,27 +17,27 @@ namespace mure
 
         {
             constexpr auto size = T1::size;
+            std::size_t fine_level = level + 1;
 
-            if (level > min_lev)
+            if (fine_level > min_lev)
             {
                 // auto maxd = xt::view(max_detail, level);
 
                 if (size == 1)
                 {
                     //auto mask = xt::abs(detail(level, 2*i))/maxd < eps;
-                    auto mask = xt::abs(detail(level, 2*i)) < eps; // NO normalization
+                    auto mask = xt::abs(detail(fine_level, 2*i)) < eps; // NO normalization
 
-
-                    xt::masked_view(tag(level, 2*i), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i + 1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i + 1), mask) = static_cast<int>(mure::CellFlag::coarsen);
                 }
                 else
                 {
                     //auto mask = xt::sum((xt::abs(detail(level, 2*i))/maxd < eps), {1}) > (size-1);
-                    auto mask = xt::sum((xt::abs(detail(level, 2*i)) < eps), {1}) > (size-1); // No normalization
+                    auto mask = xt::sum((xt::abs(detail(fine_level, 2*i)) < eps), {1}) > (size-1); // No normalization
 
-                    xt::masked_view(tag(level, 2*i), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
                 }
             }            
         }
@@ -46,8 +46,9 @@ namespace mure
         inline void operator()(Dim<2>, const T1& detail, T2 &tag, double eps, std::size_t min_lev) const
         {
             constexpr auto size = T1::size;
+            std::size_t fine_level = level + 1;
 
-            if (level > min_lev)
+            if (fine_level > min_lev)
             {
                 // auto maxd = xt::view(max_detail, level);
 
@@ -57,15 +58,15 @@ namespace mure
                     //             (xt::abs(detail(level, 2*i+1,   2*j))/maxd < eps) and
                     //             (xt::abs(detail(level, 2*i  , 2*j+1))/maxd < eps) and
                     //             (xt::abs(detail(level, 2*i+1, 2*j+1))/maxd < eps);
-                    auto mask = (xt::abs(detail(level, 2*i  ,   2*j)) < eps) and
-                                (xt::abs(detail(level, 2*i+1,   2*j)) < eps) and
-                                (xt::abs(detail(level, 2*i  , 2*j+1)) < eps) and
-                                (xt::abs(detail(level, 2*i+1, 2*j+1)) < eps);
+                    auto mask = (xt::abs(detail(fine_level, 2*i  ,   2*j)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i+1,   2*j)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i  , 2*j+1)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i+1, 2*j+1)) < eps);
 
-                    xt::masked_view(tag(level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
                 }
                 else
                 {
@@ -73,15 +74,15 @@ namespace mure
                     //                     (xt::abs(detail(level, 2*i+1,   2*j))/maxd < eps) and
                     //                     (xt::abs(detail(level, 2*i  , 2*j+1))/maxd < eps) and
                     //                     (xt::abs(detail(level, 2*i+1, 2*j+1))/maxd < eps), {1}) > (size-1);
-                    auto mask = xt::sum((xt::abs(detail(level, 2*i  ,   2*j)) < eps) and
-                                        (xt::abs(detail(level, 2*i+1,   2*j)) < eps) and
-                                        (xt::abs(detail(level, 2*i  , 2*j+1)) < eps) and
-                                        (xt::abs(detail(level, 2*i+1, 2*j+1)) < eps), {1}) > (size-1);
+                    auto mask = xt::sum((xt::abs(detail(fine_level, 2*i  ,   2*j)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i+1,   2*j)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i  , 2*j+1)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1)) < eps), {1}) > (size-1);
 
-                    xt::masked_view(tag(level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
                 }
             }            
         }
@@ -92,8 +93,7 @@ namespace mure
     template<class... CT>
     inline auto to_coarsen_mr(CT &&... e)
     {
-        return make_field_operator_function<to_coarsen_mr_op>(
-            std::forward<CT>(e)...);
+        return make_field_operator_function<to_coarsen_mr_op>(std::forward<CT>(e)...);
     }
 
 
@@ -108,34 +108,35 @@ namespace mure
         inline void operator()(Dim<2>, const T1& detail, const T3&  max_detail, T2 &tag, double eps, std::size_t min_lev) const
         {
             constexpr auto size = T1::size;
+            std::size_t fine_level = level + 1;
 
             // CAVEAT : THIS CONTROL IS NECESSARY...MANY PROBLEMS WITHOUT
-            if (level > min_lev)
+            if (fine_level > min_lev)
             {
                 const double C_fourth_term = 2.0;
-                auto maxd = xt::view(max_detail, level);
+                auto maxd = xt::view(max_detail, fine_level);
 
                 if (size == 1)
                 {
-                    auto mask = (xt::abs(.25 * ( detail(level, 2*i, 2*j)-detail(level, 2*i+1, 2*j)-detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) < eps) and
-                                (xt::abs(.25 * (-detail(level, 2*i, 2*j)+detail(level, 2*i+1, 2*j)-detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd))                < eps and  
-                                (xt::abs(.25 * (-detail(level, 2*i, 2*j)-detail(level, 2*i+1, 2*j)+detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd))                < eps;
+                    auto mask = (xt::abs(.25 * ( detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) < eps) and
+                                (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)+detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                < eps and  
+                                (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)+detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                < eps;
 
-                    xt::masked_view(tag(level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
                 }
                 else
                 {
-                    auto mask = xt::sum((xt::abs(.25 * ( detail(level, 2*i, 2*j)-detail(level, 2*i+1, 2*j)-detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) < eps) and
-                                        (xt::abs(.25 * (-detail(level, 2*i, 2*j)+detail(level, 2*i+1, 2*j)-detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd))                < eps and  
-                                        (xt::abs(.25 * (-detail(level, 2*i, 2*j)-detail(level, 2*i+1, 2*j)+detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd))                < eps, {1}) > (size-1);
+                    auto mask = xt::sum((xt::abs(.25 * ( detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) < eps) and
+                                        (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)+detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                < eps and  
+                                        (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)+detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                < eps, {1}) > (size-1);
 
-                    xt::masked_view(tag(level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                    xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
                 }
            }
         }
@@ -159,32 +160,33 @@ namespace mure
                                T2 &tag, double eps, std::size_t max_level) const
         {
             constexpr auto size = T1::size;
+            std::size_t fine_level = level + 1;
 
-            if (level < max_level)
+            if (fine_level < max_level)
             {
-                // auto maxd = xt::view(max_detail, level);
+                // auto maxd = xt::view(max_detail, fine_level);
                 if (size == 1)
                 {
-                    // auto mask = ((xt::abs(detail(level, 2*i))/maxd) > eps) or 
-                    //             ((xt::abs(detail(level, 2*i+1))/maxd) > eps);
+                    // auto mask = ((xt::abs(detail(fine_level, 2*i))/maxd) > eps) or 
+                    //             ((xt::abs(detail(fine_level, 2*i+1))/maxd) > eps);
 
-                    auto mask = ((xt::abs(detail(level, 2*i))) > eps) or 
-                                ((xt::abs(detail(level, 2*i+1))) > eps); // No normalization
+                    auto mask = ((xt::abs(detail(fine_level, 2*i))) > eps) or 
+                                ((xt::abs(detail(fine_level, 2*i+1))) > eps); // No normalization
 
 
-                    xt::masked_view(tag(level, 2*i  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::refine);
                 }
                 else
                 {
-                    // auto mask = xt::sum(((xt::abs(detail(level, 2*i  ))/maxd) > eps) or 
-                    //                     ((xt::abs(detail(level, 2*i+1))/maxd) > eps), {1}) > 0;
+                    // auto mask = xt::sum(((xt::abs(detail(fine_level, 2*i  ))/maxd) > eps) or 
+                    //                     ((xt::abs(detail(fine_level, 2*i+1))/maxd) > eps), {1}) > 0;
 
-                    auto mask = xt::sum(((xt::abs(detail(level, 2*i  ))) > eps) or 
-                                        ((xt::abs(detail(level, 2*i+1))) > eps), {1}) > 0; // No normalization
+                    auto mask = xt::sum(((xt::abs(detail(fine_level, 2*i  ))) > eps) or 
+                                        ((xt::abs(detail(fine_level, 2*i+1))) > eps), {1}) > 0; // No normalization
 
-                    xt::masked_view(tag(level, 2*i  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::refine);
                 }
             }        
         }
@@ -194,41 +196,42 @@ namespace mure
                                T2 &tag, double eps, std::size_t max_level) const
         {
             constexpr auto size = T1::size;
+            std::size_t fine_level = level + 1;
 
-            if (level < max_level)
+            if (fine_level < max_level)
             {
-                // auto maxd = xt::view(max_detail, level);
+                // auto maxd = xt::view(max_detail, fine_level);
                 if (size == 1)
                 {
-                    // auto mask = ((xt::abs(detail(level, 2*i  , 2*j  ))/maxd) > eps) or 
-                    //             ((xt::abs(detail(level, 2*i+1, 2*j  ))/maxd) > eps) or
-                    //             ((xt::abs(detail(level, 2*i  , 2*j+1))/maxd) > eps) or
-                    //             ((xt::abs(detail(level, 2*i+1, 2*j+1))/maxd) > eps);
-                    auto mask = (xt::abs(detail(level, 2*i  , 2*j  )) > eps) or 
-                                (xt::abs(detail(level, 2*i+1, 2*j  )) > eps) or
-                                (xt::abs(detail(level, 2*i  , 2*j+1)) > eps) or
-                                (xt::abs(detail(level, 2*i+1, 2*j+1)) > eps);
+                    // auto mask = ((xt::abs(detail(fine_level, 2*i  , 2*j  ))/maxd) > eps) or 
+                    //             ((xt::abs(detail(fine_level, 2*i+1, 2*j  ))/maxd) > eps) or
+                    //             ((xt::abs(detail(fine_level, 2*i  , 2*j+1))/maxd) > eps) or
+                    //             ((xt::abs(detail(fine_level, 2*i+1, 2*j+1))/maxd) > eps);
+                    auto mask = (xt::abs(detail(fine_level, 2*i  , 2*j  )) > eps) or 
+                                (xt::abs(detail(fine_level, 2*i+1, 2*j  )) > eps) or
+                                (xt::abs(detail(fine_level, 2*i  , 2*j+1)) > eps) or
+                                (xt::abs(detail(fine_level, 2*i+1, 2*j+1)) > eps);
 
-                    xt::masked_view(tag(level, 2*i  , 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1, 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
                 }
                 else
                 {
-                    // auto mask = xt::sum(((xt::abs(detail(level, 2*i  , 2*j  ))/maxd) > eps) or 
-                    //                     ((xt::abs(detail(level, 2*i+1, 2*j  ))/maxd) > eps) or
-                    //                     ((xt::abs(detail(level, 2*i  , 2*j+1))/maxd) > eps) or
-                    //                     ((xt::abs(detail(level, 2*i+1, 2*j+1))/maxd) > eps), {1}) > 0;
-                    auto mask = xt::sum((xt::abs(detail(level, 2*i  , 2*j  )) > eps) or 
-                                        (xt::abs(detail(level, 2*i+1, 2*j  )) > eps) or
-                                        (xt::abs(detail(level, 2*i  , 2*j+1)) > eps) or
-                                        (xt::abs(detail(level, 2*i+1, 2*j+1)) > eps), {1}) > 0;
+                    // auto mask = xt::sum(((xt::abs(detail(fine_level, 2*i  , 2*j  ))/maxd) > eps) or 
+                    //                     ((xt::abs(detail(fine_level, 2*i+1, 2*j  ))/maxd) > eps) or
+                    //                     ((xt::abs(detail(fine_level, 2*i  , 2*j+1))/maxd) > eps) or
+                    //                     ((xt::abs(detail(fine_level, 2*i+1, 2*j+1))/maxd) > eps), {1}) > 0;
+                    auto mask = xt::sum((xt::abs(detail(fine_level, 2*i  , 2*j  )) > eps) or 
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j  )) > eps) or
+                                        (xt::abs(detail(fine_level, 2*i  , 2*j+1)) > eps) or
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1)) > eps), {1}) > 0;
 
-                    xt::masked_view(tag(level, 2*i  , 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1, 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
                 }
             }        
         }
@@ -252,35 +255,36 @@ namespace mure
                                T2 &tag, double eps, std::size_t max_level) const
         {
             constexpr auto size = T1::size;
+            std::size_t fine_level = level + 1;
 
-            if (level < max_level)  {
+            if (fine_level < max_level)  {
 
                 const double C_fourth_term = 2.0;
-                auto maxd = xt::view(max_detail, level);
+                auto maxd = xt::view(max_detail, fine_level);
 
                 if (size == 1)
                 {
-                    auto mask = (xt::abs(.25 * ( detail(level, 2*i, 2*j)-detail(level, 2*i+1, 2*j)-detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) > eps) or
-                                (xt::abs(.25 * (-detail(level, 2*i, 2*j)+detail(level, 2*i+1, 2*j)-detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd))                > eps  or  
-                                (xt::abs(.25 * (-detail(level, 2*i, 2*j)-detail(level, 2*i+1, 2*j)+detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd))                > eps;
+                    auto mask = (xt::abs(.25 * ( detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) > eps) or
+                                (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)+detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                > eps  or  
+                                (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)+detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                > eps;
 
 
-                    xt::masked_view(tag(level, 2*i  , 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1, 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
                 }
                 else
                 {
-                    auto mask = xt::sum((xt::abs(.25 * ( detail(level, 2*i, 2*j)-detail(level, 2*i+1, 2*j)-detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) > eps) or
-                                        (xt::abs(.25 * (-detail(level, 2*i, 2*j)+detail(level, 2*i+1, 2*j)-detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd))                > eps  or  
-                                        (xt::abs(.25 * (-detail(level, 2*i, 2*j)-detail(level, 2*i+1, 2*j)+detail(level, 2*i, 2*j+1)+detail(level, 2*i+1, 2*j+1)) / maxd))                > eps, {1}) > 0;
+                    auto mask = xt::sum((xt::abs(.25 * ( detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) > eps) or
+                                        (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)+detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                > eps  or  
+                                        (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)+detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                > eps, {1}) > 0;
 
 
-                    xt::masked_view(tag(level, 2*i  , 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1, 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
-                    xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);                    
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j  ), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::refine);                    
                 }
             }        
         }
