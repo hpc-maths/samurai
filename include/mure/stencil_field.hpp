@@ -2,6 +2,7 @@
 
 #include <xtensor/xfunction.hpp>
 #include <xtensor/xadapt.hpp>
+#include <xtensor/xmasked_view.hpp>
 
 #include "cell.hpp"
 #include "field_expression.hpp"

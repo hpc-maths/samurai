@@ -1,0 +1,25 @@
+before projection
+Field u
+	level: 0 coords: { 0.5} value:  0.
+	level: 0 coords: { 1.5} value:  1.
+	level: 0 coords: { 2.5} value:  2.
+	level: 0 coords: { 3.5} value:  3.
+	level: 1 coords: { 0.25} value:  0.
+	level: 1 coords: { 0.75} value:  1.
+	level: 1 coords: { 1.25} value:  2.
+	level: 1 coords: { 1.75} value:  3.
+	level: 1 coords: { 3.25} value:  6.
+	level: 1 coords: { 3.75} value:  7.
+
+after projection
+Field u
+	level: 0 coords: { 0.5} value:  0.5
+	level: 0 coords: { 1.5} value:  2.5
+	level: 0 coords: { 2.5} value:  2.
+	level: 0 coords: { 3.5} value:  6.5
+	level: 1 coords: { 0.25} value:  0.
+	level: 1 coords: { 0.75} value:  1.
+	level: 1 coords: { 1.25} value:  2.
+	level: 1 coords: { 1.75} value:  3.
+	level: 1 coords: { 3.25} value:  6.
+	level: 1 coords: { 3.75} value:  7.

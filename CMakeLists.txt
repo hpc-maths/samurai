@@ -24,6 +24,7 @@ find_package(HDF5 REQUIRED)
 find_package(xtensor-io REQUIRED)
 find_package(pugixml REQUIRED)
 find_package(spdlog REQUIRED)
+find_package(fmt)
 
 set(MURE_HEADERS
     ${MURE_INCLUDE_DIR}/mure/box.hpp
@@ -44,7 +45,7 @@ target_include_directories(mure INTERFACE $<BUILD_INTERFACE:${MURE_INCLUDE_DIR}>
 
 # target_link_libraries(mure INTERFACE xtensor pugixml spdlog
 # INTERFACE $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
-target_link_libraries(mure INTERFACE xtensor pugixml spdlog hdf5)
+target_link_libraries(mure INTERFACE xtensor pugixml spdlog hdf5 fmt::fmt)
 
 OPTION(BUILD_TESTS "mure test suite" OFF)
 OPTION(DOWNLOAD_GTEST "build gtest from downloaded sources" OFF)

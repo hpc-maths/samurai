@@ -2,8 +2,6 @@
 #include <array>
 #include <utility>
 
-#include "math.hpp"
-
 namespace mure
 {
     enum class BCType

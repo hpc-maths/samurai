@@ -2288,7 +2288,7 @@ int main(int argc, char *argv[])
                 CL<<CDCL.second<<std::endl;
 
                 num_leaves<<mesh.nb_cells(mure::MeshType::cells)<<std::endl;
-                num_cells<<mesh.nb_total_cells()<<std::endl;
+                num_cells<<mesh.nb_cells()<<std::endl;
 
                 
                 // save_solution(f, eps, nb_ite/1, std::string("_after")); // Before applying the scheme

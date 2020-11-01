@@ -1328,7 +1328,7 @@ int main(int argc, char *argv[])
 
                 auto mesh_process_plus_iteration = toc();
                 auto nb_of_leaves = mesh.nb_cells(mure::MeshType::cells);
-                auto nb_all_cells = mesh.nb_total_cells();
+                auto nb_all_cells = mesh.nb_cells();
 
                 std::cout<<std::endl<<"{{{{ ++++++ }}}} Number of cells = "<<nb_of_leaves<<" Total number of cells = "<<nb_all_cells<<" Time elapsed = "<<mesh_process_plus_iteration<<std::flush;
                 s_times<<(nb_ite * dt)<<std::endl;

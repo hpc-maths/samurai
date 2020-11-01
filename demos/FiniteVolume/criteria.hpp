@@ -361,7 +361,7 @@ namespace mure
                         mesh.initial_mesh())
                         .on(level);
 
-                expr.apply_op(level, amr_pred(field));
+                expr.apply_op(amr_pred(field));
             }
         }
     }

@@ -12,106 +12,69 @@ namespace mure
         spdlog::debug("Make projection");
 
         auto mesh = field.mesh();
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
         std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
 
         for (std::size_t level = max_level; level >= min_level; --level)
         {
-            auto expr = intersection(mesh[MeshType::all_cells][level],
-                                     mesh[MeshType::proj_cells][level - 1])
+            auto expr = intersection(mesh[mesh_id_t::all_cells][level],
+                                     mesh[mesh_id_t::proj_cells][level - 1])
                        .on(level - 1);
 
-            expr.apply_op(level - 1, projection(field));
+            expr.apply_op(projection(field));
         }
     }
 
-    template<class Field>
-    inline void mr_prediction(Field &field)
+    template<class Field, class Func>
+    inline void mr_prediction(Field &field, Func&& update_bc_for_level)
     {
         spdlog::debug("Make prediction");
 
         auto mesh = field.mesh();
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
         std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            // if (!mesh[MeshType::cells][level].empty())
-            // {
-            //     auto expr = intersection(difference(mesh[MeshType::all_cells][level],
-            //                              union_(mesh[MeshType::cells][level],
-            //                                     mesh[MeshType::proj_cells][level])),
-            //                              mesh.initial_mesh())
-            //                .on(level);
+            // We eliminate the overleaves from the computation since they
+            // are done separately
+            auto expr = difference(intersection(difference(mesh[mesh_id_t::all_cells][level],
+                                                           union_(mesh[mesh_id_t::cells][level],
+                                                                  mesh[mesh_id_t::proj_cells][level])),
+                                                mesh.domain()),
+                                   difference(mesh[mesh_id_t::overleaves][level],
+                                              union_(mesh[mesh_id_t::union_cells][level],
+                                                     mesh[mesh_id_t::cells_and_ghosts][level])))
+                        .on(level);
 
-            //     expr.apply_op(level, prediction(field));
-            // }
-
-            // if (!mesh[MeshType::all_cells][level].empty() && !mesh[MeshType::overleaves][level].empty() && !mesh[MeshType::cells][level].empty())
-            // {
-                // We eliminate the overleaves from the computation since they 
-                // are done separately
-                
-                auto expr = difference(intersection(difference(mesh[MeshType::all_cells][level],
-                                         union_(mesh[MeshType::cells][level],
-                                                mesh[MeshType::proj_cells][level])),
-                                         mesh.initial_mesh()), difference(mesh[MeshType::overleaves][level], union_(mesh[MeshType::union_cells][level], mesh[MeshType::cells_and_ghosts][level])))
-                           .on(level);
-
-                expr.apply_op(level, prediction(field));
-                field.update_bc_for_level(level);
-            // }
+            expr.apply_op(prediction(field));
+            update_bc_for_level(field, level);
         }
     }
-    
 
-    template<class Field>
-    inline void mr_prediction_overleaves(Field &field)
+    template<class Field, class Func>
+    inline void mr_prediction_overleaves(Field &field, Func&& update_bc_for_level)
     {
         spdlog::debug("Make prediction on the overleaves which are not already available");
 
         auto mesh = field.mesh();
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
         std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
-       
-            if (!mesh[MeshType::overleaves][level].empty()) {
-   
-                // These are the overleaves which are nothing else
-                // because when this procedure is called all the rest
-                // should be already with the right value.
-                // auto overleaves_to_predict = 
-                //     difference(difference(mesh[MeshType::overleaves][level], mesh[MeshType::cells][level]), mesh[MeshType::proj_cells][level]);
-                auto overleaves_to_predict = 
-                    difference(difference(mesh[MeshType::overleaves][level], mesh[MeshType::cells_and_ghosts][level]), mesh[MeshType::proj_cells][level]);
+            // These are the overleaves which are nothing else
+            // because when this procedure is called all the rest
+            // should be already with the right value.
+            auto overleaves_to_predict = difference(difference(mesh[mesh_id_t::overleaves][level],
+                                                               mesh[mesh_id_t::cells_and_ghosts][level]),
+                                                    mesh[mesh_id_t::proj_cells][level]);
 
-                overleaves_to_predict.apply_op(level, prediction(field));
-                field.update_bc_for_level(level);
-
-
-                // overleaves_to_predict([&](auto, auto &interval, auto) {
-                //     auto k = interval[0]; 
-                //     std::cout<<std::endl<<"[OL Update] Level "<<level<<" Coordinate = "<<k<<std::flush;
-
-                // });
-
-            }
-
+            overleaves_to_predict.apply_op(prediction(field));
+            update_bc_for_level(field, level);
         }
-    }
-
-
-    template<class Field>
-    inline void mr_prediction_for_debug(Field &field, std::size_t mx_lev)
-    {
-        std::cout<<"\n\nThe level is = "<<mx_lev<<std::endl;
-
-        spdlog::debug("Make prediction");
-
-        auto mesh = field.mesh();
-
-        auto set = intersection(mesh[MeshType::cells][mx_lev],
-                                mesh[MeshType::cells][mx_lev]);
-
-        set.apply_op(mx_lev, prediction(field));
     }
 }

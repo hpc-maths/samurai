@@ -4,6 +4,11 @@
 
 namespace mure
 {
+
+    /////////////////////////////////
+    // intersection implementation //
+    /////////////////////////////////
+
     struct intersect_fn
     {
         inline bool operator()(std::size_t /*dim*/, bool a) const
@@ -36,17 +41,19 @@ namespace mure
         return make_subset_operator<intersect_fn>(get_arg(std::forward<T>(t))...);
     }
 
+    //////////////////////////
+    // union implementation //
+    //////////////////////////
+
     struct union_fn
     {
-        template<class T>
-        inline bool operator()(std::size_t /*dim*/, const T &a) const
+        inline bool operator()(std::size_t /*dim*/, bool a) const
         {
             return a;
         }
 
-        template<class T, class... CT>
-        inline bool operator()(std::size_t dim, const T &a,
-                               const CT &... b) const
+        template<class... CT>
+        inline bool operator()(std::size_t dim, bool a, const CT&... b) const
         {
             return (a || operator()(dim, b...));
         }
@@ -69,32 +76,44 @@ namespace mure
         return make_subset_operator<union_fn>(get_arg(std::forward<T>(t))...);
     }
 
+    /////////////////////////////
+    // negation implementation //
+    /////////////////////////////
+
     struct not_fn
     {
-        template<class T>
-        inline bool operator()(std::size_t /*dim*/, const T &a) const
+        inline bool operator()(std::size_t /*dim*/, bool a) const
         {
             return !a;
         }
 
-        template<class T, class... CT>
-        inline bool operator()(std::size_t dim, const T &a,
-                               const CT &... b) const
+        template<class... CT>
+        inline bool operator()(std::size_t dim, bool a, const CT&... b) const
         {
             return (!a && operator()(dim, b...));
         }
     };
 
+    ///////////////////////////////
+    // difference implementation //
+    ///////////////////////////////
+
     struct difference_fn
     {
-        template<class T, class... CT>
-        inline bool operator()(std::size_t dim, const T &a,
-                               const CT &... b) const
+        template<class... CT>
+        inline bool operator()(std::size_t dim, bool a, const CT&... b) const
         {
+            // Since the algorithm is recursive (d = dim - 1,...,0)
+            // we have to construct the union for d > 0 before
+            // to find if the difference really exists.
             if (dim > 0)
+            {
                 return (a || union_fn{}(dim, b...));
+            }
             else
+            {
                 return (a && not_fn{}(dim, b...));
+            }
         }
 
         template<class... CT>
@@ -107,7 +126,6 @@ namespace mure
     template<class... T>
     auto difference(T &&... t)
     {
-        return make_subset_operator<difference_fn>(
-            get_arg(std::forward<T>(t))...);
+        return make_subset_operator<difference_fn>(get_arg(std::forward<T>(t))...);
     }
 }

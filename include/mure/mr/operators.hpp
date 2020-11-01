@@ -13,19 +13,19 @@ namespace mure
      ***********************/
 
     template<class TInterval>
-    class projection_op_ : public field_operator_base<TInterval> {
-      public:
+    class projection_op_: public field_operator_base<TInterval>
+    {
+    public:
         INIT_OPERATOR(projection_op_)
 
         template<class T>
-        inline void operator()(Dim<1>, T &field) const
+        inline void operator()(Dim<1>, T& field) const
         {
-            field(level, i) =
-                .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
+            field(level, i) = .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
         }
 
         template<class T>
-        inline void operator()(Dim<2>, T &field) const
+        inline void operator()(Dim<2>, T& field) const
         {
             field(level, i, j) = .25 * (field(level + 1, 2 * i, 2 * j) +
                                         field(level + 1, 2 * i, 2 * j + 1) +
@@ -34,23 +34,21 @@ namespace mure
         }
 
         template<class T>
-        inline void operator()(T &field, Dim<3>) const
+        inline void operator()(Dim<3>, T& field) const
         {
-            field(level, i, j, k) =
-                .125 * (field(level - 1, 2 * i, 2 * j, 2 * k) +
-                        field(level - 1, 2 * i + 1, 2 * j, 2 * k) +
-                        field(level - 1, 2 * i, 2 * j + 1, 2 * k) +
-                        field(level - 1, 2 * i + 1, 2 * j + 1, 2 * k) +
-                        field(level - 1, 2 * i, 2 * j + 1, 2 * k + 1) +
-                        field(level - 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
+            field(level, i, j, k) = .125 * (field(level - 1, 2 * i, 2 * j, 2 * k) +
+                                            field(level - 1, 2 * i + 1, 2 * j, 2 * k) +
+                                            field(level - 1, 2 * i, 2 * j + 1, 2 * k) +
+                                            field(level - 1, 2 * i + 1, 2 * j + 1, 2 * k) +
+                                            field(level - 1, 2 * i, 2 * j + 1, 2 * k + 1) +
+                                            field(level - 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
         }
     };
 
     template<class T>
-    inline auto projection(T &&field)
+    inline auto projection(T&& field)
     {
-        return make_field_operator_function<projection_op_>(
-            std::forward<T>(field));
+        return make_field_operator_function<projection_op_>(std::forward<T>(field));
     }
 
     /***********************
@@ -851,64 +849,100 @@ namespace mure
             std::forward<CT>(e)...);
     }
 
-
-
-
-
-
-
-
-
-
-
-
+    /*******************
+     * extend operator *
+     *******************/
     template<class TInterval>
-    class prediction_source_destination_op : public field_operator_base<TInterval> {
-      public:
-        INIT_OPERATOR(prediction_source_destination_op)
+    class extend_op : public field_operator_base<TInterval> {
+        public:
+        INIT_OPERATOR(extend_op)
 
-        template<class T1, class T2>
-        inline void operator()(Dim<1>, T1 &fieldsource, T2 &fielddest) const
+        template<class T>
+        inline void operator()(Dim<1>, T &tag) const
         {
-            auto qs_i = Qs_i<1>(fieldsource, level - 1, i >> 1);
+            auto refine_mask =
+                tag(level, i) & static_cast<int>(mure::CellFlag::refine);
 
-            auto dec_even = (i.start & 1) ? 1 : 0;
-            auto even_i = i;
-            even_i.start += dec_even;
-            even_i.step = 2;
 
-            auto coarse_even_i = i >> 1;
-            coarse_even_i.start += dec_even;
+            int added_cells = 1; // 1 by default
 
-            auto dec_odd = (i.end & 1) ? 1 : 0;
-            auto odd_i = i;
-            odd_i.start += (i.start & 1) ? 0 : 1;
-            odd_i.step = 2;
-
-            auto coarse_odd_i = i >> 1;
-            coarse_odd_i.end -= dec_odd;
-
-            if (even_i.is_valid())
+            for (int ii = -added_cells; ii < added_cells + 1; ++ii)
             {
-                
-                std::cout<<std::endl<<"Level = "<<level<<"  int = "<<even_i<<" / Dest = "<<fielddest(level, even_i)<<std::endl;
-
-                fielddest(level, even_i) = fieldsource(level - 1, coarse_even_i)
-                                     + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]));
+                xt::masked_view(tag(level, i + ii), refine_mask) |= static_cast<int>(mure::CellFlag::keep);
             }
+        }
 
-            if (odd_i.is_valid())
+        template<class T>
+        inline void operator()(Dim<2>, T &tag) const
+        {
+            auto refine_mask = tag(level, i, j) & static_cast<int>(mure::CellFlag::refine);
+
+            for (int jj = -1; jj < 2; ++jj)
             {
-                fielddest(level, odd_i) = fieldsource(level - 1, coarse_odd_i)
-                                    - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd));
+                for (int ii = -1; ii < 2; ++ii)
+                {
+                    xt::masked_view(tag(level, i + ii, j + jj), refine_mask) |= static_cast<int>(mure::CellFlag::keep);
+                }
             }
         }
     };
 
     template<class... CT>
-    inline auto prediction_source_destination(CT &&... e)
+    inline auto extend(CT &&... e)
     {
-        return make_field_operator_function<prediction_source_destination_op>(
+        return make_field_operator_function<extend_op>(
+            std::forward<CT>(e)...);
+    }
+    /****************************
+     * make_graduation operator *
+     ****************************/
+
+    template<class TInterval>
+    class make_graduation_op : public field_operator_base<TInterval> {
+        public:
+        INIT_OPERATOR(make_graduation_op)
+
+        template<class T>
+        inline void operator()(Dim<1>, T &tag) const
+        {
+            auto i_even = i.even_elements();
+            if (i_even.is_valid())
+            {
+                auto mask = tag(level, i_even) & static_cast<int>(CellFlag::keep);
+                xt::masked_view(tag(level-1, i_even>>1), mask) |= static_cast<int>(CellFlag::refine);
+            }
+
+            auto i_odd = i.odd_elements();
+            if (i_odd.is_valid())
+            {
+                auto mask = tag(level, i_odd) & static_cast<int>(CellFlag::keep);
+                xt::masked_view(tag(level-1, i_odd>>1), mask) |= static_cast<int>(CellFlag::refine);
+            }
+        }
+
+        template<class T>
+        inline void operator()(Dim<2>, T &tag) const
+        {
+            auto i_even = i.even_elements();
+            if (i_even.is_valid())
+            {
+                auto mask = tag(level, i_even, j) & static_cast<int>(CellFlag::keep);
+                xt::masked_view(tag(level-1, i_even>>1, j>>1), mask) |= static_cast<int>(CellFlag::refine);
+            }
+
+            auto i_odd = i.odd_elements();
+            if (i_odd.is_valid())
+            {
+                auto mask = tag(level, i_odd, j) & static_cast<int>(CellFlag::keep);
+                xt::masked_view(tag(level-1, i_odd>>1, j>>1), mask) |= static_cast<int>(CellFlag::refine);
+            }
+        }
+    };
+
+    template<class... CT>
+    inline auto make_graduation(CT &&... e)
+    {
+        return make_field_operator_function<make_graduation_op>(
             std::forward<CT>(e)...);
     }
 

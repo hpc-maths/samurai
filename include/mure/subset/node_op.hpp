@@ -8,6 +8,7 @@
 #include <xtl/xtype_traits.hpp>
 
 #include "../level_cell_array.hpp"
+#include "../algorithm.hpp"
 #include "../utils.hpp"
 
 namespace mure
@@ -45,6 +46,9 @@ namespace mure
         auto find(std::size_t dim, std::size_t start, std::size_t end,
                   T coord) const noexcept;
 
+        template<class T>
+        auto transform(std::size_t dim, T coord) const noexcept;
+
         auto offsets_size(std::size_t dim) const noexcept;
         auto data() const noexcept;
 
@@ -56,10 +60,7 @@ namespace mure
         auto create_index_yz() const noexcept;
 
         std::size_t level() const noexcept;
-        double dx() const noexcept;
-
-        template<class Func>
-        void for_each_interval_in_x(Func &&f) const;
+        bool is_empty() const noexcept;
 
       protected:
         node_op(){};
@@ -70,18 +71,6 @@ namespace mure
 
         node_op(node_op &&) = default;
         node_op &operator=(node_op &&) = default;
-
-        template<class Func, class index_t, std::size_t N>
-        void for_each_interval_in_x_impl(
-            Func &&f, index_t &index, std::size_t start_index,
-            std::size_t end_index,
-            std::integral_constant<std::size_t, N>) const;
-
-        template<class Func, class index_t>
-        void for_each_interval_in_x_impl(
-            Func &&f, index_t &index, std::size_t start_index,
-            std::size_t end_index,
-            std::integral_constant<std::size_t, 0>) const;
     };
 
     /**************************
@@ -151,6 +140,13 @@ namespace mure
     }
 
     template<class D>
+    template<class T>
+    inline auto node_op<D>::transform(std::size_t dim, T coord) const noexcept
+    {
+        return this->derived_cast().m_data.transform(dim, coord);
+    }
+
+    template<class D>
     inline auto node_op<D>::offsets_size(std::size_t dim) const noexcept
     {
         return this->derived_cast().m_data.offsets_size(dim);
@@ -176,9 +172,9 @@ namespace mure
     }
 
     template<class D>
-    inline double node_op<D>::dx() const noexcept
+    inline bool node_op<D>::is_empty() const noexcept
     {
-        return this->derived_cast().m_data.dx();
+        return this->derived_cast().m_data.is_empty();
     }
 
     template<class D>
@@ -192,56 +188,6 @@ namespace mure
     inline auto node_op<D>::create_index_yz() const noexcept
     {
         return this->derived_cast().create_index_yz();
-    }
-
-    template<class D>
-    template<class Func>
-    void node_op<D>::for_each_interval_in_x(Func &&f) const
-    {
-        constexpr std::size_t dim = derived_type::dim;
-        auto index_yz = this->derived_cast().create_index_yz();
-        for_each_interval_in_x_impl(
-            std::forward<Func>(f), index_yz, 0,
-            this->derived_cast().size(dim - 1),
-            std::integral_constant<std::size_t, dim - 1>{});
-    }
-
-    template<class D>
-    template<class Func, class index_t, std::size_t N>
-    void node_op<D>::for_each_interval_in_x_impl(
-        Func &&f, index_t &index, std::size_t start_index,
-        std::size_t end_index, std::integral_constant<std::size_t, N>) const
-    {
-        for (std::size_t i = start_index; i < end_index; ++i)
-        {
-            auto interval = this->derived_cast().interval(N, i);
-            auto start = this->derived_cast().start(N, i);
-            for (auto c = interval.start, cc = 0; c < interval.end; ++c, ++cc)
-            {
-                index[N - 1] = start + cc;
-                auto off_ind = static_cast<std::size_t>(interval.index + c);
-                for_each_interval_in_x_impl(
-                    std::forward<Func>(f), index,
-                    this->derived_cast().offset(N, off_ind),
-                    this->derived_cast().offset(N, off_ind + 1),
-                    std::integral_constant<std::size_t, N - 1>{});
-            }
-        }
-    }
-
-    template<class D>
-    template<class Func, class index_t>
-    void node_op<D>::for_each_interval_in_x_impl(
-        Func &&f, index_t &index, std::size_t start_index,
-        std::size_t end_index, std::integral_constant<std::size_t, 0>) const
-    {
-        for (std::size_t i = start_index; i < end_index; ++i)
-        {
-            auto interval = this->derived_cast().create_interval(
-                this->derived_cast().start(0, i),
-                this->derived_cast().end(0, i));
-            f(index, interval);
-        }
     }
 
     template<class E>
@@ -266,8 +212,8 @@ namespace mure
 
         mesh_node(const Mesh &v);
 
-        mesh_node() : m_data{nullptr}
-        {}
+        // mesh_node() : m_data{nullptr}
+        // {}
 
         mesh_node(const mesh_node &) = default;
         mesh_node &operator=(const mesh_node &) = default;
@@ -282,20 +228,21 @@ namespace mure
         auto offset(std::size_t dim, std::size_t off_ind) const noexcept;
         auto offsets_size(std::size_t dim) const noexcept;
         auto interval(std::size_t dim, std::size_t index) const noexcept;
-        auto find(std::size_t dim, std::size_t start, std::size_t end,
-                  coord_index_t coord) const noexcept;
+        auto find(std::size_t dim, std::size_t start, std::size_t end, coord_index_t coord) const noexcept;
+        auto transform(std::size_t dim, coord_index_t coord) const noexcept;
         const Mesh &data() const noexcept;
-        void data(Mesh &mesh) noexcept;
+        void data(const Mesh &mesh) noexcept;
         std::size_t level() const noexcept;
-        double dx() const noexcept;
+        bool is_empty() const noexcept;
 
         auto create_interval(coord_index_t start, coord_index_t end) const
             noexcept;
         auto create_index_yz() const noexcept;
 
       private:
-        std::shared_ptr<Mesh> m_data;
+        // std::shared_ptr<Mesh> m_data;
         // const Mesh* m_data;
+        const Mesh& m_data;
 
         friend class node_op<mesh_node<Mesh>>;
     };
@@ -306,8 +253,9 @@ namespace mure
 
     template<class Mesh>
     inline mesh_node<Mesh>::mesh_node(const Mesh &v)
-        : m_data{std::make_shared<Mesh>(v)}
+        // : m_data{std::make_shared<Mesh>(v)}
         // : m_data{&v}
+        : m_data(v)
     {}
 
     template<class Mesh>
@@ -319,49 +267,50 @@ namespace mure
     template<class Mesh>
     inline auto mesh_node<Mesh>::size(std::size_t dim) const noexcept
     {
-        return (*m_data)[dim].size();
+        // return (*m_data)[dim].size();
+        return m_data[dim].size();
     }
 
     template<class Mesh>
     inline auto mesh_node<Mesh>::start(std::size_t dim, std::size_t index) const
         noexcept
     {
-        if (m_data->empty())
+        if (m_data.empty())
         {
             return std::numeric_limits<coord_index_t>::max();
         }
-        return (*m_data)[dim][index].start;
+        return m_data[dim][index].start;
     }
 
     template<class Mesh>
     inline auto mesh_node<Mesh>::end(std::size_t dim, std::size_t index) const
         noexcept
     {
-        if (m_data->empty())
+        if (m_data.empty())
         {
             return std::numeric_limits<coord_index_t>::max();
         }
-        return (*m_data)[dim][index].end;
+        return m_data[dim][index].end;
     }
 
     template<class Mesh>
     inline auto mesh_node<Mesh>::offset(std::size_t dim,
                                         std::size_t off_ind) const noexcept
     {
-        return m_data->offsets(dim)[off_ind];
+        return m_data.offsets(dim)[off_ind];
     }
 
     template<class Mesh>
     inline auto mesh_node<Mesh>::offsets_size(std::size_t dim) const noexcept
     {
-        return m_data->offsets(dim).size();
+        return m_data.offsets(dim).size();
     }
 
     template<class Mesh>
     inline auto mesh_node<Mesh>::interval(std::size_t dim,
                                           std::size_t index) const noexcept
     {
-        return (*m_data)[dim][index];
+        return m_data[dim][index];
     }
 
     template<class Mesh>
@@ -369,26 +318,38 @@ namespace mure
                                       std::size_t end,
                                       coord_index_t coord) const noexcept
     {
-        return m_data->find_on_dim(dim, start, end, coord);
+        return find_on_dim(m_data, dim, start, end, coord);
+    }
+
+    template<class Mesh>
+    inline auto mesh_node<Mesh>::transform(std::size_t dim, coord_index_t coord) const noexcept
+    {
+        return coord;
     }
 
     template<class Mesh>
     inline const Mesh &mesh_node<Mesh>::data() const noexcept
     {
-        return *(m_data.get());
-        // return *(m_data);
+        // return *(m_data.get());
+        return m_data;
     }
 
     template<class Mesh>
-    inline void mesh_node<Mesh>::data(Mesh &mesh) noexcept
+    inline void mesh_node<Mesh>::data(const Mesh &mesh) noexcept
     {
-        m_data = std::make_shared<Mesh>(mesh);
+        m_data = mesh;
     }
 
     template<class Mesh>
     inline std::size_t mesh_node<Mesh>::level() const noexcept
     {
-        return m_data->level();
+        return m_data.level();
+    }
+
+    template<class Mesh>
+    inline bool mesh_node<Mesh>::is_empty() const noexcept
+    {
+        return m_data.empty();
     }
 
     template<class Mesh>
@@ -424,6 +385,8 @@ namespace mure
 
         auto start(std::size_t dim, std::size_t index) const noexcept;
         auto end(std::size_t dim, std::size_t index) const noexcept;
+
+        auto transform(std::size_t dim, coord_index_t coord) const noexcept;
 
         auto create_interval(coord_index_t start, coord_index_t end) const
             noexcept;
@@ -462,6 +425,13 @@ namespace mure
                                      std::size_t index) const noexcept
     {
         return m_data.end(dim, index) + m_stencil[dim];
+    }
+
+    template<class T>
+    inline auto
+    translate_op<T>::transform(std::size_t dim, coord_index_t coord) const noexcept
+    {
+        return coord - m_stencil[dim];
     }
 
     template<class T>
@@ -526,10 +496,9 @@ namespace mure
     }
 
     template<class T>
-    inline auto contraction_op<T>::end(std::size_t dim,
-                                       std::size_t index) const noexcept
-    {   
-        // std::cout<<std::endl<<"Debug contraction "<<m_data.end(dim, index)<<"    |   "<<m_data.end(dim, index) - 1<<std::endl;
+    inline auto contraction_op<T>::end(std::size_t dim, std::size_t index) const
+        noexcept
+    {
         return m_data.end(dim, index) - 1;
     }
 
@@ -598,7 +567,6 @@ namespace mure
     inline auto expand_op<T>::end(std::size_t dim, std::size_t index) const
         noexcept
     {
-        // std::cout<<std::endl<<"Debug expand "<<m_data.end(dim, index)<<"    |   "<<m_data.end(dim, index) + 1<<"  dim = "<<dim<<std::flush;
         return m_data.end(dim, index) + 1;
     }
 
@@ -613,223 +581,6 @@ namespace mure
     inline auto expand_op<T>::create_index_yz() const noexcept
     {
         return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
-    }
-
-    /****************************
-     * projection_op definition *
-     ****************************/
-
-    template<class T>
-    struct projection_op : public node_op<projection_op<T>>
-    {
-        using mesh_type = typename T::mesh_type;
-        static constexpr std::size_t dim = mesh_type::dim;
-        using interval_t = typename mesh_type::interval_t;
-        using coord_index_t = typename mesh_type::coord_index_t;
-
-        projection_op(std::size_t ref_level, T &&v);
-        projection_op(std::size_t ref_level, const T &v);
-
-        auto index(int i) const noexcept;
-        auto size(std::size_t dim) const noexcept;
-        auto start(std::size_t dim, std::size_t index) const noexcept;
-        auto end(std::size_t dim, std::size_t index) const noexcept;
-        auto offset(std::size_t dim, std::size_t off_ind) const noexcept;
-        auto offsets_size(std::size_t dim) const noexcept;
-        auto interval(std::size_t dim, std::size_t index) const noexcept;
-        auto find(std::size_t dim, std::size_t start, std::size_t end,
-                  coord_index_t coord) const noexcept;
-        const mesh_type &data() const noexcept;
-        std::size_t level() const noexcept;
-
-      private:
-        T m_data;
-        int m_shift;
-        std::size_t m_ref_level;
-        mesh_type m_mesh;
-        mesh_node<mesh_type> m_node;
-        void make_projection();
-
-        template<class LevelCellList, class index_t>
-        void add_nodes(LevelCellList &lcl, const index_t &index_yz,
-                       const interval_t &interval, Dim<1>) const;
-        template<class LevelCellList, class index_t>
-        void add_nodes(LevelCellList &lcl, const index_t &index_yz,
-                       const interval_t &interval, Dim<2>) const;
-        template<class LevelCellList, class index_t>
-        void add_nodes(LevelCellList &lcl, const index_t &index_yz,
-                       const interval_t &interval, Dim<3>) const;
-
-        friend class node_op<projection_op<T>>;
-    };
-
-    /********************************
-     * projection_op implementation *
-     ********************************/
-
-    template<class T>
-    inline projection_op<T>::projection_op(std::size_t ref_level, T &&v)
-        : m_ref_level{ref_level}, m_data{std::forward<T>(v)}
-    {
-        m_shift = m_data.level() - ref_level;
-        make_projection();
-    }
-
-    template<class T>
-    inline projection_op<T>::projection_op(std::size_t ref_level, const T &v)
-        : m_ref_level{ref_level}, m_data{v}
-    {
-        m_shift = m_data.level() - ref_level;
-        make_projection();
-    }
-
-    template<class T>
-    template<class LevelCellList, class index_t>
-    void projection_op<T>::add_nodes(LevelCellList &lcl,
-                                     const index_t &index_yz,
-                                     const interval_t &interval, Dim<1>) const
-    {
-        lcl[{}].add_interval(
-            {interval.start << -m_shift, interval.end << -m_shift});
-    }
-
-    template<class T>
-    template<class LevelCellList, class index_t>
-    void projection_op<T>::add_nodes(LevelCellList &lcl,
-                                     const index_t &index_yz,
-                                     const interval_t &interval, Dim<2>) const
-    {
-        for (int j = 0; j < (1<<(-m_shift)); ++j)
-        {
-            lcl[xt::eval((index_yz << -m_shift) + j)].add_interval(
-                {interval.start << -m_shift, interval.end << -m_shift});
-        }
-    }
-
-    template<class T>
-    template<class LevelCellList, class index_t>
-    void projection_op<T>::add_nodes(LevelCellList &lcl,
-                                     const index_t &index_yz,
-                                     const interval_t &interval, Dim<3>) const
-    {
-        for (int k = 0; k < (1 <<(-m_shift)); ++k)
-        {
-            for (int j = 0; j < (1 <<(-m_shift)); ++j)
-            {
-                xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> ind{j, k};
-                lcl[xt::eval((index_yz << -m_shift) + ind)].add_interval(
-                    {interval.start << -m_shift, interval.end << -m_shift});
-            }
-        }
-    }
-
-    template<class T>
-    inline void projection_op<T>::make_projection()
-    {
-        m_mesh = m_data.data();
-        if (m_shift > 0)
-        {
-            LevelCellList<dim, interval_t> lcl{m_ref_level};
-            m_data.for_each_interval_in_x([&](auto const &index_yz,
-                                              auto const &interval) {
-                auto new_start = interval.start >> m_shift;
-                auto new_end = (interval.end + (interval.end & 1)) >> m_shift;
-                if (new_start == new_end)
-                {
-                    new_end++;
-                }
-                lcl[index_yz >> m_shift].add_interval({new_start, new_end});
-            });
-            m_mesh = {lcl};
-            m_node = {m_mesh};
-        }
-        else if (m_shift < 0)
-        {
-            LevelCellList<dim, interval_t> lcl{m_ref_level};
-            m_data.for_each_interval_in_x(
-                [&](auto const &index_yz, auto const &interval) {
-                    add_nodes(lcl, index_yz, interval, Dim<dim>{});
-                });
-            m_mesh = {lcl};
-            m_node = {m_mesh};
-        }
-        else
-        {
-            LevelCellList<dim, interval_t> lcl{m_ref_level};
-            m_data.for_each_interval_in_x(
-                [&](auto const &index_yz, auto const &interval) {
-                    lcl[index_yz >> m_shift].add_interval(
-                        {interval.start, interval.end});
-                });
-            m_mesh = {lcl};
-            m_node = {m_mesh};
-        }
-    }
-
-    template<class T>
-    inline auto projection_op<T>::index(int i) const noexcept
-    {
-        return m_node.index(i);
-    }
-
-    template<class T>
-    inline auto projection_op<T>::size(std::size_t dim) const noexcept
-    {
-        return m_node.size(dim);
-    }
-
-    template<class T>
-    inline auto projection_op<T>::start(std::size_t dim,
-                                        std::size_t index) const noexcept
-    {
-        return m_node.start(dim, index);
-    }
-
-    template<class T>
-    inline auto projection_op<T>::end(std::size_t dim, std::size_t index) const
-        noexcept
-    {
-        return m_node.end(dim, index);
-    }
-
-    template<class T>
-    inline auto projection_op<T>::offset(std::size_t dim,
-                                         std::size_t off_ind) const noexcept
-    {
-        return m_node.offset(dim, off_ind);
-    }
-
-    template<class T>
-    inline auto projection_op<T>::offsets_size(std::size_t dim) const noexcept
-    {
-        return m_node.offsets_size(dim);
-    }
-
-    template<class T>
-    inline auto projection_op<T>::interval(std::size_t dim,
-                                           std::size_t index) const noexcept
-    {
-        return m_node.interval(dim, index);
-    }
-
-    template<class T>
-    inline auto projection_op<T>::find(std::size_t dim, std::size_t start,
-                                       std::size_t end,
-                                       coord_index_t coord) const noexcept
-    {
-        return m_node.find(dim, start, end, coord);
-    }
-
-    template<class T>
-    inline auto projection_op<T>::data() const noexcept -> const mesh_type &
-    {
-        return m_node.data();
-    }
-
-    template<class T>
-    inline std::size_t projection_op<T>::level() const noexcept
-    {
-        return m_node.level();
     }
 
     namespace detail
@@ -886,13 +637,5 @@ namespace mure
         auto arg = get_arg_node(std::forward<T>(t));
         using arg_t = decltype(arg);
         return expand_op<arg_t>{std::forward<arg_t>(arg)};
-    }
-
-    template<class T>
-    inline auto projection(std::size_t ref_level, T &&t)
-    {
-        auto arg = get_arg_node(std::forward<T>(t));
-        using arg_t = decltype(arg);
-        return projection_op<arg_t>{ref_level, std::forward<arg_t>(arg)};
     }
 }

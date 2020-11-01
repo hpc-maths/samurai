@@ -24,7 +24,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
     mure::Field<Config, int, 1> tag{"tag", mesh};
     tag.array().fill(0);
-    mesh.for_each_cell([&](auto &cell) {
+    mure::for_each_cell(mesh[mure::MeshType::cells], [&](auto &cell) {
         tag[cell] = static_cast<int>(mure::CellFlag::keep);
     });
 
@@ -85,11 +85,10 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
                                    mesh[mure::MeshType::cells][level + 1])
                      .on(level);
-        subset.apply_op(level, compute_detail(detail, u));
-
+        subset.apply_op(compute_detail(detail, u));
 
         // For entropy
-        // subset.apply_op(level, compute_detail(detail_entropy, entropy));
+        // subset.apply_op(compute_detail(detail_entropy, entropy));
     }
 
 
@@ -130,13 +129,12 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
                        .on(level-1);
 
 
-        subset_1.apply_op(level, to_coarsen_mr(detail, tag, eps_l, min_level)); // Derefinement
-        subset_1.apply_op(level, to_refine_mr(detail, tag, (std::pow(2.0, regularity_to_use)) * eps_l, max_level)); // Refinement according to Harten
+        subset_1.apply_op(to_coarsen_mr(detail, tag, eps_l, min_level)); // Derefinement
+        subset_1.apply_op(to_refine_mr(detail, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level)); // Refinement according to Harten
 
         // Entropy refinement
-        // subset_1.apply_op(level, to_coarsen_mr(detail_entropy, tag, eps_l, min_level)); // Derefinement
-        // subset_1.apply_op(level, to_refine_mr(detail_entropy, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level)); // Refinement according to Harten
-
+        // subset_1.apply_op(to_coarsen_mr(detail_entropy, tag, eps_l, min_level)); // Derefinement
+        // subset_1.apply_op(to_refine_mr(detail_entropy, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level)); // Refinement according to Harten
     }
 
 
@@ -187,9 +185,9 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
         auto subset_3 = intersection(mesh[mure::MeshType::cells_and_ghosts][level],
                                      mesh[mure::MeshType::cells_and_ghosts][level]);
 
-        subset_2.apply_op(level, mure::enlarge(tag)); // Add neighb as by Harten.
-        subset_2.apply_op(level, mure::keep_around_refine(tag));
-        subset_3.apply_op(level, mure::tag_to_keep(tag));
+        subset_2.apply_op(mure::enlarge(tag));
+        subset_2.apply_op(mure::keep_around_refine(tag));
+        subset_3.apply_op(mure::tag_to_keep(tag));
     }
 
 
@@ -240,7 +238,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
         auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
                                         mesh[mure::MeshType::all_cells][level - 1])
                         .on(level - 1);
-        keep_subset.apply_op(level - 1, maximum(tag));
+        keep_subset.apply_op(maximum(tag));
 
         xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
         for (std::size_t d = 0; d < dim; ++d)
@@ -254,7 +252,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
                     auto subset = intersection(mesh[mure::MeshType::cells][level],
                                             translate(mesh[mure::MeshType::cells][level - 1], stencil))
                                 .on(level - 1);
-                    subset.apply_op(level - 1, balance_2to1(tag, stencil));
+                    subset.apply_op(balance_2to1(tag, stencil));
                 }
             }
         }
@@ -285,7 +283,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
         auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
                                     mesh[mure::MeshType::cells][level]);
 
-        subset_1.apply_op(level, extend(tag));
+        subset_1.apply_op(extend(tag));
         
         mure::static_nested_loop<dim, -1, 2>(
             [&](auto stencil) {
@@ -293,7 +291,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
             auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
                                        mesh[mure::MeshType::cells][level-1]).on(level);
 
-            subset.apply_op(level, make_graduation(tag));
+            subset.apply_op(make_graduation(tag));
             
         });
     }
@@ -321,7 +319,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
         auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
                                         mesh[mure::MeshType::all_cells][level - 1])
                         .on(level - 1);
-        keep_subset.apply_op(level - 1, maximum(tag));
+        keep_subset.apply_op(maximum(tag));
     }
 
 
@@ -366,14 +364,14 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     //     h5file.add_field_by_level(mesh, tag);
     // }
 
-    mure::CellList<Config> cell_list;
+    mure::CellList<dim, interval_t, max_refinement_level> cell_list;
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
         auto level_cell_array = mesh[mure::MeshType::cells][level];
 
         if (!level_cell_array.empty())
         {
-            level_cell_array.for_each_interval_in_x([&](auto &index_yz, auto &interval)
+            mure::for_each_interval(level_cell_array, [&](const auto& interval, const auto& index_yz)
             {
                 for (int i = interval.start; i < interval.end; ++i)
                 {
@@ -425,8 +423,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
                                         new_mesh[mure::MeshType::cells][level]);
         // auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
         //                                  new_mesh[mure::MeshType::cells][level]);
-
-        subset.apply_op(level, copy(new_u, u));
+        subset.apply_op(copy(new_u, u));
     }
 
 
@@ -456,7 +453,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
         if (!level_cell_array.empty())
         {
 
-            level_cell_array.for_each_interval_in_x([&](auto const &index_yz, auto const &interval)
+            mure::for_each_interval(level_cell_array, [&](const auto& interval, const auto& index_yz)
             {
                 // std::cout << "tag on level " << level << " " << tag(level, interval)<< "\n";
                 for (int i = interval.start; i < interval.end; ++i)
@@ -503,10 +500,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
                                          difference(new_mesh[mure::MeshType::cells][level], mesh[mure::MeshType::cells][level])),
                                          mesh[mure::MeshType::cells][level-1]).on(level);
 
-        subset.apply_op(level, copy(new_u, uold));
+        subset.apply_op(copy(new_u, uold));
     }
-
-
 
     // if(global_iter == save_at_ite)
     // {
@@ -528,6 +523,9 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
     // END comment
 
+    // std::cout << uold.mesh() << "\n";
+    // std::cout << u.mesh() << "\n";
+    // std::cout << new_u.mesh() << "\n";
     u.mesh_ptr()->swap(new_mesh);
     uold.mesh_ptr()->swap(new_mesh);
 

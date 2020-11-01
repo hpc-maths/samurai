@@ -10,15 +10,14 @@
 
 namespace mure
 {
-    namespace details
+    namespace detail
     {
         /// Type helper to create nested std::map with final interval list
         template<typename TCoord, typename TIntervalList, std::size_t N>
         struct PartialGrid
         {
-            using type =
-                std::map<TCoord, typename PartialGrid<TCoord, TIntervalList,
-                                                      N - 1>::type>;
+            using next_type = typename PartialGrid<TCoord, TIntervalList, N - 1>::type;
+            using type = std::map<TCoord, next_type>;
         };
 
         template<typename TCoord, typename TIntervalList>
@@ -33,98 +32,108 @@ namespace mure
          * manage the constness of the context (avoid duplicated code).
          */
         template<typename GridYZ, typename Index>
-        inline decltype(auto)
-        access_grid_yz(GridYZ &grid_yz, Index const &,
-                       std::integral_constant<std::size_t, 0>)
+        inline decltype(auto) access_grid_yz(GridYZ& grid_yz, const Index&,
+                                             std::integral_constant<std::size_t, 0>)
         {
             // For the first dimension, we return the interval list
             return grid_yz;
         }
 
         template<typename GridYZ, typename Index, std::size_t dim>
-        inline decltype(auto)
-        access_grid_yz(GridYZ &grid_yz, Index const &index,
-                       std::integral_constant<std::size_t, dim>)
+        inline decltype(auto) access_grid_yz(GridYZ& grid_yz, const Index& index,
+                                             std::integral_constant<std::size_t, dim>)
         {
             // For other dimensions, we dive into the nested std::map
-            return access_grid_yz(
-                grid_yz[index[dim - 1]], index,
-                std::integral_constant<std::size_t, dim - 1>{});
+            return access_grid_yz(grid_yz[index[dim - 1]], index,
+                                  std::integral_constant<std::size_t, dim - 1>{});
         }
     }
 
+    //////////////////////////////
+    // LevelCellList definition //
+    //////////////////////////////
     template<std::size_t Dim, class TInterval = Interval<int>>
-    class LevelCellList {
-      public:
+    class LevelCellList
+    {
+    public:
         constexpr static auto dim = Dim;
         using interval_t = TInterval;
         using index_t = typename interval_t::index_t;
-        using coord_index_t = typename interval_t::value_t;
+        using coord_index_t = typename interval_t::coord_index_t;
+        using index_yz_t = xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>;
         using list_interval_t = ListOfIntervals<coord_index_t, index_t>;
 
-        /// Sparse dim-1 array that points to the interval lists along the x
-        /// axis.
-        using grid_t =
-            typename details::PartialGrid<coord_index_t, list_interval_t,
-                                          dim - 1>::type;
+        /// Sparse dim-1 array that points to the interval lists along the x axis.
+        using grid_t = typename detail::PartialGrid<coord_index_t, list_interval_t, dim - 1>::type;
 
-        inline LevelCellList(std::size_t level) : m_level{level}
-        {}
+        LevelCellList();
+        LevelCellList(std::size_t level);
 
-        LevelCellList() = default;
+        const list_interval_t& operator[](const index_yz_t& index) const;
+        list_interval_t& operator[](const index_yz_t& index);
 
-        /// Constant access to the interval list at given dim-1 coordinates
-        inline list_interval_t const &operator[](
-            xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index)
-            const
-        {
-            return details::access_grid_yz(
-                m_grid_yz, index,
-                std::integral_constant<std::size_t, dim - 1>{});
-        }
+        const grid_t& grid_yz() const;
 
-        /// Mutable access to the interval list at given dim-1 coordinates
-        inline list_interval_t &operator[](
-            xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> const &index)
-        {
-            return details::access_grid_yz(
-                m_grid_yz, index,
-                std::integral_constant<std::size_t, dim - 1>{});
-        }
+        std::size_t level() const;
 
-        /// Underlying sparse array
-        inline grid_t const &grid_yz() const
-        {
-            return m_grid_yz;
-        }
+        void to_stream(std::ostream &os) const;
 
-        inline std::size_t level() const
-        {
-            return m_level;
-        }
-
-        inline void set_level(std::size_t level)
-        {
-            m_level = level;
-        }
-
-        inline void to_stream(std::ostream &os) const
-        {
-            os << "LevelCellList\n";
-            os << "=============\n";
-            os << "TODO\n"; // TODO
-        }
-
-      private:
+    private:
         grid_t m_grid_yz; ///< Sparse dim-1 array that points to the interval
                           ///< lists along the x axis.
-        std::size_t m_level{0};
+        std::size_t m_level;
     };
 
+    //////////////////////////////////
+    // LevelCellList implementation //
+    //////////////////////////////////
     template<std::size_t Dim, class TInterval>
-    inline std::ostream &
-    operator<<(std::ostream &out,
-               const LevelCellList<Dim, TInterval> &level_cell_list)
+    inline LevelCellList<Dim, TInterval>::LevelCellList()
+    : m_level{0}
+    {}
+
+    template<std::size_t Dim, class TInterval>
+    inline LevelCellList<Dim, TInterval>::LevelCellList(std::size_t level)
+    : m_level{level}
+    {}
+
+    /// Constant access to the interval list at given dim-1 coordinates
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) const -> const list_interval_t&
+    {
+        return detail::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim - 1>{});
+    }
+
+    /// Mutable access to the interval list at given dim-1 coordinates
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) -> list_interval_t&
+    {
+        return detail::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim - 1>{});
+    }
+
+    /// Underlying sparse array
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellList<Dim, TInterval>::grid_yz() const -> const grid_t&
+    {
+        return m_grid_yz;
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline std::size_t LevelCellList<Dim, TInterval>::level() const
+    {
+        return m_level;
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline void LevelCellList<Dim, TInterval>::to_stream(std::ostream &os) const
+    {
+        os << "LevelCellList\n";
+        os << "=============\n";
+        os << "TODO\n"; // TODO
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline std::ostream& operator<<(std::ostream& out, const LevelCellList<Dim, TInterval>& level_cell_list)
     {
         level_cell_list.to_stream(out);
         return out;

@@ -23,14 +23,14 @@ bool coarsening(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
                                         mesh[mure::MeshType::cells][level]);
-        subset.apply_op(level, compute_gradient(u, grad));
+        subset.apply_op(compute_gradient(u, grad));
     }
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
                                          mesh[mure::MeshType::all_cells][level-1]).on(level-1);
-        subset.apply_op(level, to_coarsen_amr(grad, tag, min_level));
+        subset.apply_op(to_coarsen_amr(grad, tag, min_level));
     }
 
     for (std::size_t level = max_level; level > 0; --level)
@@ -40,7 +40,7 @@ bool coarsening(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
                          mesh[mure::MeshType::all_cells][level - 1])
                 .on(level - 1);
 
-        keep_subset.apply_op(level - 1, maximum(tag));
+        keep_subset.apply_op(maximum(tag));
 
         xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
         for (std::size_t d = 0; d < dim; ++d)
@@ -60,7 +60,7 @@ bool coarsening(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
                                 mesh[mure::MeshType::cells][level - 1], stencil))
                             .on(level - 1);
 
-                    subset.apply_op(level - 1, balance_2to1(tag, stencil));
+                    subset.apply_op(balance_2to1(tag, stencil));
                 }
             }
         }
@@ -100,7 +100,7 @@ bool coarsening(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
                                    new_mesh[mure::MeshType::cells][level]);
-        subset.apply_op(level, copy(new_u, u));
+        subset.apply_op(copy(new_u, u));
     }
 
     u.mesh_ptr()->swap(new_mesh);

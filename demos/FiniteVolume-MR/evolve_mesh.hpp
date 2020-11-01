@@ -47,7 +47,7 @@ bool evolve_mesh(mure::Field<Config> &u, double eps, std::size_t ite)
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
                                    mesh[mure::MeshType::cells][level + 1])
                                 .on(level);
-        subset.apply_op(level, compute_detail(detail, u),
+        subset.apply_op(compute_detail(detail, u),
                                compute_max_detail(detail, max_detail));
     }
 
@@ -78,21 +78,21 @@ bool evolve_mesh(mure::Field<Config> &u, double eps, std::size_t ite)
 
 
         // This operations flags the cells to coarsen
-        subset_1.apply_op(level, to_coarsen_mr(detail, max_detail, tag, eps_l, min_level));
+        subset_1.apply_op(to_coarsen_mr(detail, max_detail, tag, eps_l, min_level));
 
         auto subset_2 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);
         auto subset_3 = intersection(mesh[mure::MeshType::cells_and_ghosts][level],
                                      mesh[mure::MeshType::cells_and_ghosts][level]);
 
-        subset_2.apply_op(level, mure::enlarge(tag, mure::CellFlag::keep));
-        subset_3.apply_op(level, mure::tag_to_keep(tag));
+        subset_2.apply_op(mure::enlarge(tag, mure::CellFlag::keep));
+        subset_3.apply_op(mure::tag_to_keep(tag));
 
         auto subset_4 = mure::intersection(mesh[mure::MeshType::cells][level],
                                            mesh[mure::MeshType::cells][level])
                        .on(level);
 
-        subset_4.apply_op(level, to_refine_mr(detail, max_detail, tag, 8 * eps_l, max_level));
+        subset_4.apply_op(to_refine_mr(detail, max_detail, tag, 8 * eps_l, max_level));
 
     }
 
@@ -107,7 +107,7 @@ bool evolve_mesh(mure::Field<Config> &u, double eps, std::size_t ite)
         auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);
 
-        subset_1.apply_op(level, extend(tag));
+        subset_1.apply_op(extend(tag));
         
 
 
@@ -115,7 +115,7 @@ bool evolve_mesh(mure::Field<Config> &u, double eps, std::size_t ite)
             intersection(mesh[mure::MeshType::cells][level],
                          mesh[mure::MeshType::all_cells][level - 1])
                 .on(level - 1);
-        keep_subset.apply_op(level - 1, maximum(tag));
+        keep_subset.apply_op(maximum(tag));
         xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
         for (std::size_t d = 0; d < dim; ++d)
         {
@@ -132,14 +132,14 @@ bool evolve_mesh(mure::Field<Config> &u, double eps, std::size_t ite)
                             translate(
                                 mesh[mure::MeshType::cells][level - 1], stencil))
                             .on(level - 1);
-                    subset.apply_op(level - 1, balance_2to1(tag, stencil));
+                    subset.apply_op(balance_2to1(tag, stencil));
 
                     auto subset_bis = 
                             intersection(translate(mesh[mure::MeshType::cells][level], stencil),
                                                    mesh[mure::MeshType::cells][level-1])
                                 .on(level);
 
-                    subset_bis.apply_op(level, make_graduation(tag));
+                    subset_bis.apply_op(make_graduation(tag));
                 }
             }
         }
@@ -189,7 +189,7 @@ bool evolve_mesh(mure::Field<Config> &u, double eps, std::size_t ite)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
                                    new_mesh[mure::MeshType::cells][level]);
-        subset.apply_op(level, copy(new_u, u));
+        subset.apply_op(copy(new_u, u));
     }
 
     for (std::size_t level = min_level; level < max_level; ++level)

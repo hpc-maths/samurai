@@ -17,16 +17,18 @@ namespace mure
     {
         inline int shift_value(int value, int shift)
         {
+            // return (shift >= 0)? (value << shift): ((value + (value & 1)) >> (-shift));
             return (shift >= 0)? (value << shift): (value >> (-shift));
         }
     }
-    /**************************
-     * subset_node definition *
-     **************************/
+    ////////////////////////////
+    // subset_node definition //
+    ////////////////////////////
 
     template<class T>
-    class subset_node {
-      public:
+    class subset_node
+    {
+    public:
         using node_type = T;
         using mesh_type = typename node_type::mesh_type;
         static constexpr std::size_t dim = mesh_type::dim;
@@ -36,35 +38,47 @@ namespace mure
 
         subset_node(T &&node);
 
+        void reset();
+        bool eval(coord_index_t scan, std::size_t dim) const;
+        void update(coord_index_t scan, coord_index_t sentinel);
+
         bool is_valid() const;
         bool is_empty() const;
-        void reset();
-        auto eval(coord_index_t scan, std::size_t dim) const;
-        bool is_in(coord_index_t scan) const;
+
         void decrement_dim(coord_index_t i);
         void increment_dim();
-        void update(coord_index_t scan, coord_index_t sentinel);
+
         coord_index_t min() const;
         coord_index_t max() const;
         std::size_t common_level() const;
+
         void set_shift(std::size_t ref_level, std::size_t common_level);
+
         const node_type &get_node() const;
+        void get_interval_index(std::vector<std::size_t> &index) const;
 
-        void get_interval_index(std::vector<std::size_t> &index)
-        {
-            index.push_back(m_index[m_d] + m_ipos[m_d] - 1);
-        }
-
-      private:
-        int m_shift;
+    private:
+        //! Shift between the ref_level and the node level
         int m_shift_ref;
+        //! Shift between the common_level and the node level
         int m_shift_common;
+        //! Minimum value between shift_ref and shift_common
+        int m_shift;
+        //! The reference level where to compute the subset
         std::size_t m_ref_level;
+        //! The biggest level where all nodes of the subset can be compared
         std::size_t m_common_level;
+        //! The current dimension
         std::size_t m_d;
+        //! The position of the current interval for each dimension
         std::array<std::size_t, dim> m_index;
+        //! The position inside the current interval for each dimension
+        //! - ipos = 0 -> beginning
+        //! - ipos = 1 -> end
         std::array<std::size_t, dim> m_ipos;
+        //! The beginning of the portion of intervals to look for each dimension
         std::array<std::size_t, dim> m_start;
+        //! The end of the portion of intervals to look for each dimension
         std::array<std::size_t, dim> m_end;
         std::array<std::size_t, dim> m_start_offset;
         std::array<std::size_t, dim> m_end_offset;
@@ -73,26 +87,37 @@ namespace mure
         node_type m_node;
     };
 
-    /******************************
-     * subset_node implementation *
-     ******************************/
+    ////////////////////////////////
+    // subset_node implementation //
+    ////////////////////////////////
 
     template<class T>
-    inline subset_node<T>::subset_node(T &&node) : m_node(std::forward<T>(node))
+    inline subset_node<T>::subset_node(T &&node)
+    : m_node(std::forward<T>(node))
     {}
 
+    /**
+     * Check if the node is valid
+     */
     template<class T>
     inline bool subset_node<T>::is_valid() const
     {
-        return !(m_end == m_start);
+        return !(m_end[m_d] == m_start[m_d]);
     }
 
+    /**
+     * Check if the node has values
+     */
     template<class T>
     inline bool subset_node<T>::is_empty() const
     {
         return m_node.is_empty();
     }
 
+    /**
+     * Reset the internal data structures to replay
+     * the subset algorithm
+     */
     template<class T>
     inline void subset_node<T>::reset()
     {
@@ -103,6 +128,8 @@ namespace mure
         m_end_offset[m_d] = m_node.size(m_d);
         m_index[m_d] = m_start[m_d];
         m_ipos[m_d] = 0;
+
+
         if (m_start[m_d] != m_end[m_d])
         {
             m_current_value[m_d] = detail::shift_value(m_node.start(m_d, 0), m_shift);
@@ -111,18 +138,24 @@ namespace mure
         {
             m_current_value[m_d] = std::numeric_limits<coord_index_t>::max();
         }
-        //spdlog::debug("RESET: dim = {}, level = {}, current_value = {}, start = {}, end = {}", m_d, m_node.level(), m_current_value[m_d], m_start[m_d], m_end[m_d]);
+        // spdlog::debug("RESET: dim = {}, level = {}, current_value = {}, start = {}, end = {}", m_d, m_node.level(), m_current_value[m_d], m_start[m_d], m_end[m_d]);
     }
 
+    /**
+     * Check if scan is in the current interval for the dimension d
+     * @param scan the value to check
+     */
     template<class T>
-    inline auto subset_node<T>::eval(coord_index_t scan, std::size_t /*dim*/) const
+    inline bool subset_node<T>::eval(coord_index_t scan, std::size_t /*dim*/) const
     {
-        return is_in(scan);
-    }
-
-    template<class T>
-    inline bool subset_node<T>::is_in(coord_index_t scan) const
-    {
+        // Recall that we check if scan is inside an interval defined as [start, end[.
+        // The end of the interval is not included.
+        //
+        // if the current_value is the start of the interval which means ipos = 0
+        // then if scan is lower than current_value, scan is not in the interval.
+        //
+        // if the current_value is the end of the interval which means ipos = 1
+        // then if scan is lower than current_value, scan is in the interval.
         return !((scan < m_current_value[m_d]) ^ m_ipos[m_d]) & is_valid();
     }
 
@@ -130,24 +163,52 @@ namespace mure
     inline void subset_node<T>::decrement_dim(coord_index_t i)
     {
         std::size_t index;
+        // Shift the index i for the dimension d to the level of the node.
         auto shift_i = detail::shift_value(i, -m_shift);
-        //spdlog::debug("DECREMENT_DIM: level = {}, i = {}, shift_i = {}", m_node.level(), i, shift_i);
+        // spdlog::debug("DECREMENT_DIM: level = {}, i = {}, shift_i = {}", m_node.level(), i, shift_i);
         if (m_shift >= 0)
         {
+            // The level of this node is lower or equal to the min(ref_level, common_level)
+            //
+            // There can only be one correspondence between i and shift_i.
+            //
+            // For example, i = 16 at ref_level = 4 and the node is at level 2
+            // Thus the shift_i is equal to 16 >> (4 - 2 = 2) = 4 (only one value is possible).
+            // In the same way, i = 18 at ref_level = 4 and the node is at level 2
+            // shift_i is again equal to 4.
+            //
+            //   16   17   18   19
+            // |----|----|----|----| at level 4 (min(ref_level, common_level))
+            //
+            //      8         9
+            // |---------|---------| at level 3
+            //
+            //           4
+            // |-------------------| at level 2 (node level)
+            //
+
+            // Check if we find this index in the list of intervals between m_start_offset and m_end_offset
             index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i));
             if (index != std::numeric_limits<std::size_t>::max())
             {
+                // We find an interval where shift_i is in.
                 auto interval = m_node.interval(m_d, index);
+
+                // Find the list of intervals for the dimension d - 1 for shift_i
                 std::size_t off_ind = interval.index + m_node.transform(m_d, shift_i);
                 m_start[m_d - 1] = m_node.offset(m_d, off_ind);
                 m_end[m_d - 1] = m_node.offset(m_d, off_ind + 1);
                 m_start_offset[m_d - 1] = m_node.offset(m_d, off_ind);
                 m_end_offset[m_d - 1] = m_node.offset(m_d, off_ind + 1);
+
+                // Initialize the current_value for dimension d - 1 with the start value of the first interval
+                // shifted to the min(ref_level, common_level)
                 m_current_value[m_d - 1] = detail::shift_value(m_node.start(m_d - 1, m_start[m_d - 1]), m_shift);
                 m_index[m_d - 1] = m_start[m_d - 1];
             }
             else
             {
+                // We don't find any interval -> invalidate the data structure
                 m_start[m_d - 1] = 0;
                 m_end[m_d - 1] = 0;
 
@@ -157,8 +218,37 @@ namespace mure
         }
         else
         {
+            // The level of this node is greater than the min(ref_level, common_level)
+            //
+            // There can be multiple correspondences between i and shift_i.
+            //
+            // For example, i = 4 at ref_level = 2 and the node is at level 4
+            // Thus the shift_i can take multiple values x >> (4 - 2 = 2) = 4.
+            // So, x can be equal to 16, 17, 18, 19.
+            //
+            //
+            //           4
+            // |-------------------| at level 2 (min(ref_level, common_level))
+            //
+            //      8         9
+            // |---------|---------| at level 3
+            //
+            //   16   17   18   19
+            // |----|----|----|----| at level 4 (node level)
+            //
+            //
+            // The idea is to build a new list of intervals for the d - 1 projected
+            // at min(ref_level, common_level) with all the possible values for d
+            //
+            // Example:
+            //
+            // y: 16 -> x: [0, 6[, [8, 10[
+            // y: 18 -> x: [10, 16[
+            // y: 19 -> x: [-5, -3[, [26, 27[
+            //
+            // The new list of intervals is for y: 4 -> x: [-2, 5[, [6, 7[
+
             ListOfIntervals<coord_index_t, index_t> intervals;
-            m_work[m_d - 1].clear();
             for(std::size_t s=0; s< (1<<(-m_shift)); ++s)
             {
                 index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i + s));
@@ -173,10 +263,10 @@ namespace mure
                         first_found = false;
                     }
 
-                    for(coord_index_t o=m_node.offset(m_d, off_ind); o<m_node.offset(m_d, off_ind+1); ++o)
+                    for(coord_index_t o = m_node.offset(m_d, off_ind); o < m_node.offset(m_d, off_ind + 1); ++o)
                     {
-                        auto start = m_node.start(m_d - 1, o)>>(-m_shift);
-                        auto end = (m_node.end(m_d - 1, o) + (m_node.end(m_d - 1, o) & 1))>>(-m_shift);
+                        auto start = m_node.start(m_d - 1, o) >> (-m_shift);
+                        auto end = (m_node.end(m_d - 1, o) + (m_node.end(m_d - 1, o) & 1)) >> (-m_shift);
                         if (start == end)
                         {
                             end++;
@@ -186,7 +276,9 @@ namespace mure
                     m_end_offset[m_d - 1] = m_node.offset(m_d, off_ind + 1);
                 }
             }
-            //spdlog::debug("intervals -> {}", intervals);
+            // spdlog::debug("intervals -> {}", intervals);
+            m_work[m_d - 1].clear();
+
             if (intervals.size() != 0)
             {
                 std::copy(intervals.cbegin(), intervals.cend(), std::back_inserter(m_work[m_d - 1]));
@@ -204,7 +296,7 @@ namespace mure
                 m_index[m_d - 1] = std::numeric_limits<std::size_t>::max();
             }
         }
-        //spdlog::debug("For dimension {}, curent_value in decrement = {}", m_d - 1, m_current_value[m_d - 1]);
+        // spdlog::debug("For dimension {}, curent_value in decrement = {}", m_d - 1, m_current_value[m_d - 1]);
 
         m_ipos[m_d - 1] = 0;
         m_d--;
@@ -219,13 +311,13 @@ namespace mure
     template<class T>
     inline void subset_node<T>::update(coord_index_t scan, coord_index_t sentinel)
     {
-        //spdlog::debug("BEGIN UPDATE ****************************************************************");
+        // spdlog::debug("BEGIN UPDATE ****************************************************************");
         if (scan == m_current_value[m_d])
         {
-            //spdlog::debug("UPDATE: scan == current_value");
+            // spdlog::debug("UPDATE: scan == current_value");
             if (m_ipos[m_d] == 1)
             {
-                m_index[m_d] += 1;
+                ++m_index[m_d];
                 m_ipos[m_d] = 0;
                 if (m_shift >= 0 or m_d == (dim - 1))
                 {
@@ -239,7 +331,7 @@ namespace mure
                                                 ? sentinel
                                                 : m_work[m_d][m_index[m_d]].start);
                 }
-                //spdlog::debug("UPDATE: dim = {}, level = {}, start new interval with current_value = {}", m_d, m_node.level(), m_current_value[m_d]);
+                // spdlog::debug("UPDATE: dim = {}, level = {}, start new interval with current_value = {}", m_d, m_node.level(), m_current_value[m_d]);
             }
             else
             {
@@ -252,6 +344,7 @@ namespace mure
                     if (m_d == dim - 1)
                     {
                         coord_index_t value = detail::shift_value(m_node.end(m_d, m_index[m_d]) + (m_node.end(m_d, m_index[m_d]) & 1), m_shift);
+                        // coord_index_t value = detail::shift_value(m_node.end(m_d, m_index[m_d]), m_shift);
                         if (m_current_value[m_d] == value)
                         {
                             value++;
@@ -263,6 +356,7 @@ namespace mure
                             {
                                 m_index[m_d]++;
                                 value = detail::shift_value(m_node.end(m_d, m_index[m_d]) + (m_node.end(m_d, m_index[m_d]) & 1), m_shift);
+                                // value = detail::shift_value(m_node.end(m_d, m_index[m_d]), m_shift);
                             }
                             else
                             {
@@ -274,13 +368,13 @@ namespace mure
                     else
                     {
                         m_current_value[m_d] = m_work[m_d][m_index[m_d]].end;
-                    }                
+                    }
                 }
-                //spdlog::debug("UPDATE: dim = {}, level = {}, end interval with current_value = {}", m_d, m_node.level(), m_current_value[m_d]);
+                // spdlog::debug("UPDATE: dim = {}, level = {}, end interval with current_value = {}", m_d, m_node.level(), m_current_value[m_d]);
                 m_ipos[m_d] = 1;
             }
         }
-        //spdlog::debug("END UPDATE ******************************************************************");
+        // spdlog::debug("END UPDATE ******************************************************************");
     }
 
     template<class T>
@@ -296,7 +390,7 @@ namespace mure
         {
             if (m_shift >= 0 or m_d == (dim - 1))
             {
-                return detail::shift_value(m_node.end(m_d, m_end[m_d] - 1), m_shift);
+                return detail::shift_value(m_node.end(m_d, m_end[m_d] - 1) + (m_node.end(m_d, m_end[m_d] - 1) & 1), m_shift);
             }
             else
             {
@@ -330,12 +424,18 @@ namespace mure
         m_shift_ref = ref_level - m_node.level();
         m_shift_common = common_level - m_node.level();
         m_shift = std::min(m_shift_ref, m_shift_common);
-        //spdlog::debug("SET SHIFT: level = {}, ref_level = {}, common_level = {}, shift_ref = {}, shift_common = {}, shift = {}", m_node.level(), m_ref_level, m_common_level, m_shift_ref, m_shift_common, m_shift);
+        // spdlog::debug("SET SHIFT: level = {}, ref_level = {}, common_level = {}, shift_ref = {}, shift_common = {}, shift = {}", m_node.level(), m_ref_level, m_common_level, m_shift_ref, m_shift_common, m_shift);
     }
 
     template<class T>
     inline auto subset_node<T>::get_node() const -> const node_type &
     {
         return m_node;
+    }
+
+    template<class T>
+    inline void subset_node<T>::get_interval_index(std::vector<std::size_t> &index) const
+    {
+        index.push_back(m_index[m_d] + m_ipos[m_d] - 1);
     }
 }

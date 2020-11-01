@@ -41,7 +41,7 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
         auto subset = intersection(mesh[mure::MeshType::all_cells][level],
                                    mesh[mure::MeshType::cells][level + 1])
                                 .on(level);
-        subset.apply_op(level, compute_detail(detail, u));
+        subset.apply_op(compute_detail(detail, u));
     }
 
 
@@ -61,7 +61,7 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
 
         double regularity_to_use = std::min(regularity, 3.0) + dim;
 
-        subset.apply_op(level, to_refine_mr(detail, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level));
+        subset.apply_op(to_refine_mr(detail, tag, (pow(2.0, regularity_to_use)) * eps_l, max_level));
 
     }
     // With the static nested loop, we also grade along the diagonals
@@ -71,7 +71,7 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
         auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);
 
-        subset_1.apply_op(level, extend(tag));
+        subset_1.apply_op(extend(tag));
         
         mure::static_nested_loop<dim, -1, 2>(
             [&](auto stencil) {
@@ -79,7 +79,7 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
             auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
                                        mesh[mure::MeshType::cells][level-1]).on(level);
 
-            subset.apply_op(level, make_graduation(tag));
+            subset.apply_op(make_graduation(tag));
             
         });
     }
@@ -87,8 +87,7 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
 
 
 
-
-    mure::CellList<Config> cell_list;
+    mure::CellList<dim, interval_t, max_refinement_level> cell_list;
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
         auto level_cell_array = mesh[mure::MeshType::cells][level];
@@ -130,7 +129,7 @@ bool refinement(Field &u, double eps, double regularity, std::size_t ite)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
                                    new_mesh[mure::MeshType::cells][level]);
-        subset.apply_op(level, copy(new_u, u));
+        subset.apply_op(copy(new_u, u));
     }
     
 
@@ -244,7 +243,7 @@ void refinement_up_one_level(Field &u, Field &u_copy, std::size_t target_level)
         auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
                                      mesh[mure::MeshType::cells][level]);
 
-        subset_1.apply_op(level, extend(tag));
+        subset_1.apply_op(extend(tag));
         
         xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
         for (std::size_t d = 0; d < dim; ++d)
@@ -261,14 +260,14 @@ void refinement_up_one_level(Field &u, Field &u_copy, std::size_t target_level)
                                               mesh[mure::MeshType::cells][level-1])
                                 .on(level);
 
-                    subset.apply_op(level, make_graduation(tag));
+                    subset.apply_op(make_graduation(tag));
                 }
             }
         }
     }
 
 
-    mure::CellList<Config> cell_list;
+    mure::CellList<dim, interval_t, max_refinement_level> cell_list;
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
         auto level_cell_array = mesh[mure::MeshType::cells][level];
@@ -307,7 +306,7 @@ void refinement_up_one_level(Field &u, Field &u_copy, std::size_t target_level)
     {
         auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
                                    new_mesh[mure::MeshType::cells][level]);
-        subset.apply_op(level, copy(new_u, u));
+        subset.apply_op(copy(new_u, u));
     }
 
     for (std::size_t level = min_level; level < max_level; ++level)

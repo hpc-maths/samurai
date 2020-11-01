@@ -1,46 +1,82 @@
 #pragma once
 
-#include <xtensor/xfixed.hpp>
+#include <array>
 
 namespace mure
 {
     /** @class Cell
      *  @brief Define a mesh cell in multi dimensions.
-     * 
+     *
      *  A cell is defined by its level, its integer coordinates,
      *  and its index in the data array.
-     * 
+     *
      *  @tparam TCoord_index The type of the coordinates.
      *  @tparam dim_ The dimension of the cell.
      */
     template<class TCoord_index, std::size_t dim_>
     struct Cell
     {
-        using coord_index_t = TCoord_index;
         static constexpr auto dim = dim_;
+        using coord_index_t = TCoord_index;
+
+        Cell() = default;
+        Cell(const Cell&) = default;
+        Cell& operator=(const Cell&) = default;
+
+        Cell(Cell&&) = default;
+        Cell& operator=(Cell&&) = default;
+
+        template <class T>
+        Cell(std::size_t level, const T& indices, std::size_t index);
+
+        xt::xtensor_fixed<double, xt::xshape<dim>> first_corner() const;
+
+        /// The integer coordinates of the cell.
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> indices;
+
+        /// The center of the cell.
+        xt::xtensor_fixed<double, xt::xshape<dim>> center;
 
         /// The level of the cell.
         std::size_t level;
-        /// The integer coordinates of the cell.
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> indices;
+
         /// The index where the cell is in the data array.
         std::size_t index;
 
         /// The length of the cell.
-        inline double length() const {
-            return 1./(1 << level);
-        }
+        double length;
 
-        /// The center of the cell.
-        inline auto center() const
-        {
-            return xt::eval(length()*(indices + 0.5));
-        }
-
-        /// The minimum corner of the cell.
-        inline auto first_corner() const
-        {
-            return xt::eval(length()*indices);
-        }
+        void to_stream(std::ostream& os) const;
     };
+
+    template<class TCoord_index, std::size_t dim_>
+    template <class T>
+    inline Cell<TCoord_index, dim_>::Cell(std::size_t level, const T& indices, std::size_t index)
+    : level(level), indices(indices), index(index)
+    {
+        length = 1./(1 << level);
+        center = length*(indices + 0.5);
+    }
+
+    /**
+     * The minimum corner of the cell.
+     */
+    template<class TCoord_index, std::size_t dim_>
+    inline auto Cell<TCoord_index, dim_>::first_corner() const -> xt::xtensor_fixed<double, xt::xshape<dim>>
+    {
+        return xt::eval(length*indices);
+    }
+
+    template<class TCoord_index, std::size_t dim_>
+    inline void Cell<TCoord_index, dim_>::to_stream(std::ostream& os) const
+    {
+        os << "Cell -> level: " << level << " indices: " << indices << " center: " << center << " index: " << index;
+    }
+
+    template<class TCoord_index, std::size_t dim>
+    inline std::ostream &operator<<(std::ostream &out, const Cell<TCoord_index, dim>& cell)
+    {
+        cell.to_stream(out);
+        return out;
+    }
 }
