@@ -1,5 +1,7 @@
 // #include <mure/mure.hpp>
 #include <mure/mesh.hpp>
+#include <mure/mr/cell_flag.hpp>
+#include <mure/mr/operators.hpp>
 #include <mure/field.hpp>
 #include <mure/hdf5.hpp>
 // #include "coarsening.hpp"
@@ -99,7 +101,6 @@ public:
     template<class T>
     inline void operator()(mure::Dim<2>,T& new_field, const T& field) const
     {
-        std::cout << "projection on " << level << " " << i << " " << j << std::endl;
         new_field(level, i, j) = .25 * (field(level + 1, 2 * i, 2 * j) +
                                         field(level + 1, 2 * i, 2 * j + 1) +
                                         field(level + 1, 2 * i + 1, 2 * j) +
@@ -131,7 +132,7 @@ auto init_level_set(Mesh & mesh)
         double radius = .15;
         double x_center = 0.5, y_center = 0.75;
 
-        phi[cell] = std::sqrt(std::pow(x - x_center, 2.) + 
+        phi[cell] = std::sqrt(std::pow(x - x_center, 2.) +
                               std::pow(y - y_center, 2.)) - radius;
     });
 
@@ -141,7 +142,7 @@ auto init_level_set(Mesh & mesh)
 template <class Mesh>
 auto init_velocity(Mesh &mesh)
 {
-  
+
     using mesh_id_t = typename Mesh::mesh_id_t;
 
     auto u = mure::make_field<double, 2>("u", mesh);
@@ -295,9 +296,9 @@ void AMR_criteria(const Field& f, Tag& tag)
             // else
             // {
             //     tag[cell] = static_cast<int>(mure::CellFlag::coarsen);
-            // }            
+            // }
         }
-        
+
 
 
     });
@@ -369,13 +370,9 @@ bool update_mesh(Field& f, const Tag& tag)
 
     for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
     {
-        auto subset = mure::intersection(mesh[SimpleID::reference][level],
+        auto subset = mure::intersection(mesh[SimpleID::cells][level],
                                          new_mesh[SimpleID::cells][level - 1])
                      .on(level - 1);
-        subset([&](const auto& i, const auto& index)
-        {
-            std::cout << "proj on " << level << " " << i << " " << index[0] << std::endl;
-        });
         subset.apply_op(projection(new_f, f));
     }
 
@@ -390,8 +387,8 @@ int main(int argc, char *argv[])
     using Config = AMRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
-    std::size_t min_level = 8;
-    std::size_t max_level = min_level;
+    std::size_t min_level = 2;
+    std::size_t max_level = 8;
     mure::Box<double, dim> box({0, 0}, {1, 1});
     AMRMesh<Config> mesh{box, max_level, min_level, max_level};
 
@@ -446,7 +443,7 @@ int main(int argc, char *argv[])
         mure::save(s.str().data(), mesh, phi, u);
 
         for (std::size_t level = min_level - 1; level <= max_level; ++level)
-        {   
+        {
             update_bc_for_level(phi, level);
             update_bc_for_level(u, level);
         }
@@ -454,7 +451,7 @@ int main(int argc, char *argv[])
         auto phinp1 = mure::make_field<double, 1>("phi", mesh);
 
         phinp1 = phi - dt * mure::upwind_variable(u, phi);
-  
+
         // std::array<double, 2> vel {1., 0.1};
         // phinp1 = phi - dt * mure::upwind(vel, phi);
 
