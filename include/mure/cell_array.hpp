@@ -203,4 +203,24 @@ namespace mure
         cell_array.to_stream(out);
         return out;
     }
+
+    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline bool operator==(const CellArray<dim_, TInterval, max_size_> &ca1, const CellArray<dim_, TInterval, max_size_>& ca2)
+    {
+        if (ca1.max_level() != ca2.max_level() ||
+            ca1.min_level() != ca2.min_level())
+        {
+            return false;
+        }
+
+        for(std::size_t level=ca1.min_level(); level <= ca1.max_level(); ++level)
+        {
+            if (!(ca1[level] == ca2[level]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
 }
