@@ -45,6 +45,7 @@ namespace mure
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
 
         std::size_t nb_cells() const;
+        std::size_t nb_cells(std::size_t level) const;
 
         std::size_t max_level() const;
         std::size_t min_level() const;
@@ -133,6 +134,18 @@ namespace mure
             size += m_cells[level].nb_cells();
         }
         return size;
+    }
+
+    /**
+     * Return the number of cells which is the sum of each x-interval size
+     * for a given level.
+     *
+     * @param level The level where to compute the number of cells
+     */
+    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline std::size_t CellArray<dim_, TInterval, max_size_>::nb_cells(std::size_t level) const
+    {
+        return m_cells[level].nb_cells();
     }
 
     /**
