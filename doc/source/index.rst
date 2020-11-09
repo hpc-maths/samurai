@@ -21,6 +21,7 @@ Welcome to MuRe's documentation!
    interval
    subset
    algorithm
+   level_set
 
 .. toctree::
    :caption: API REFERENCE
