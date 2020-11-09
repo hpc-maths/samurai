@@ -22,14 +22,15 @@ Welcome to MuRe's documentation!
    interval
    subset
    algorithm
-   level_set
 
 .. toctree::
    :caption: API REFERENCE
    :maxdepth: 2
 
    api/algorithm
+   api/interval
    api/box
+   api/cell
    api/subset
 
 

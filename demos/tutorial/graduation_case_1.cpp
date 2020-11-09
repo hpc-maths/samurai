@@ -37,7 +37,7 @@ auto generate_mesh(std::size_t start_level, std::size_t max_level)
             }
         });
 
-        ca = cl;
+        ca = {cl, true};
     }
 
     return ca;
@@ -47,7 +47,7 @@ int main()
 {
     constexpr std::size_t dim = 2;
     std::size_t start_level = 1;
-    std::size_t max_refinement_level = 9;
+    std::size_t max_refinement_level = 7;
     auto ca = generate_mesh(start_level, max_refinement_level);
 
     std::size_t min_level = ca.min_level();
