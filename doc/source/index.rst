@@ -8,9 +8,10 @@ Welcome to MuRe's documentation!
 
 .. toctree::
    :caption: TUTORIAL
-   :maxdepth: 2
+   :maxdepth: 1
 
    tutorial/graduation
+   tutorial/level_set
 
 
 .. toctree::
