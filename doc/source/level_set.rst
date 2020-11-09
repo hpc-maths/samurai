@@ -300,10 +300,31 @@ We utilize the AMR mesh adaptation based on the following criterion directly ins
 
 where :math:`M \in \mathbb{N}` (we take :math:`M = 5`) and :math:`\text{Lip}(\phi)` is the Lipschitz constant of the level-set (we take :math:`\text{Lip}(\phi) = 1.2`).
 
-The criterion provides the following set of flags
+
+
+At each time step, the mesh is updated using
 
 .. code-block:: c++
 
+    while(true)
+    {
+        auto tag = mure::make_field<int, 1>("tag", mesh);
+        AMR_criteria(phi, tag);
+
+        make_graduation(tag);
+
+        update_ghosts(phi, u, update_bc_for_level);
+
+        if(update_mesh(phi, u, tag))
+        {
+            break;
+        }
+    }
+
+
+The criterion provides the following set of flags
+
+.. code-block:: c++
 
     template<class Field, class Tag>
     void AMR_criteria(const Field& f, Tag& tag)
@@ -331,6 +352,95 @@ The criterion provides the following set of flags
     }
 
 
+Then make_graduation(tag) graduates the corresponding tree and the mesh update is performed projecting the averages onto the father cell when the sons are eliminated and predicting the values using interpolations when four new cells are created
+
+.. code-block:: c++
+
+    template<class Field, class Field_u, class Tag>
+    bool update_mesh(Field& f, Field_u& u, const Tag& tag)
+    {
+        using mesh_t = typename Field::mesh_t;
+        using interval_t = typename mesh_t::interval_t;
+        using coord_index_t = typename interval_t::coord_index_t;
+        using cl_type = typename mesh_t::cl_type;
+
+        auto mesh = f.mesh();
+
+        cl_type cell_list;
+
+        mure::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        {
+            for (int i = interval.start; i < interval.end; ++i)
+            {
+                if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
+                {
+                    mure::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
+                    {
+                        auto index = 2 * index_yz + stencil;
+                        cell_list[level + 1][index].add_interval({2 * i, 2 * i + 2});
+                    });
+                }
+                else if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::keep))
+                {
+                    cell_list[level][index_yz].add_point(i);
+                }
+                else
+                {
+                    cell_list[level-1][index_yz>>1].add_point(i>>1);
+                }
+            }
+        });
+
+        mesh_t new_mesh(cell_list, mesh.min_level(), mesh.max_level());
+
+        if (new_mesh == mesh)
+        {
+            return true;
+        }
+
+        Field new_f{f.name(), new_mesh};
+        new_f.fill(0.);
+
+        Field_u new_u{u.name(), new_mesh};
+        new_u.fill(0.);
+
+        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+        {
+            auto subset = mure::intersection(mesh[SimpleID::cells][level],
+                                         new_mesh[SimpleID::cells][level]);
+
+            subset.apply_op(mure::copy(new_f, f));
+            subset.apply_op(mure::copy(new_u, u));
+        }
+
+        mure::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        {
+            for (coord_index_t i = interval.start; i < interval.end; ++i)
+            {
+                if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
+                {
+                    mure::compute_prediction(level, interval_t{i, i + 1}, index_yz, f, new_f);
+                    mure::compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
+                }
+            }
+        });
+
+        for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
+        {
+            auto subset = mure::intersection(mesh[SimpleID::cells][level],
+                                         new_mesh[SimpleID::cells][level - 1])
+                          .on(level - 1);
+            subset.apply_op(projection(new_f, f));
+            subset.apply_op(projection(new_u, u));
+        }
+
+        f.mesh_ptr()->swap(new_mesh);
+        std::swap(f.array(), new_f.array());
+        std::swap(u.array(), new_u.array());
+
+        return false;
+    }
+
 
 For the test, we consider the computational domain :math:`\Omega = [0, 1]^2` and a divergence-free velocity field
 
@@ -342,6 +452,35 @@ and the initial shape of the contour given by
 
 .. math::
     \phi(x, y) = \sqrt{(x-1/2)^2 + (y-3/4)^2} - 3/20.
+
+Just to show how to initialize the velocity field, we consider the following C++ code
+
+.. code-block:: c++
+
+
+    template <class Mesh>
+    auto init_velocity(Mesh &mesh)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto u = mure::make_field<double, 2>("u", mesh);
+        u.fill(0);
+
+        mure::for_each_cell(mesh[mesh_id_t::cells_and_ghosts], [&](auto &cell)
+        {
+            auto center = cell.center;
+            double x = center[0];
+            double y = center[1];
+
+            u[cell][0] = -std::pow(std::sin(M_PI*x), 2.) * std::sin(2.*M_PI*y);
+            u[cell][1] =  std::pow(std::sin(M_PI*y), 2.) * std::sin(2.*M_PI*x);
+        });
+
+        return u;
+    }
+
+the same is done for the level set, which is a scalar field.
+
 
 The time-step is chosen as :math:`\Delta t = 5\Delta x/8` and :math:`\Delta \tau = \Delta t/100` doing just two iterations with the fictitious time at each time step, which are perfomed only on the cells at the finest level (close to the interface).
 
