@@ -37,7 +37,7 @@ auto generate_mesh(std::size_t start_level, std::size_t max_level)
             }
         });
 
-        ca = {cl, true};
+        ca = cl;
     }
 
     return ca;
@@ -47,10 +47,9 @@ int main()
 {
     constexpr std::size_t dim = 2;
     std::size_t start_level = 1;
-    std::size_t max_refinement_level = 12;
+    std::size_t max_refinement_level = 9;
     auto ca = generate_mesh(start_level, max_refinement_level);
 
-    mure::CellList<dim> cl;
     std::size_t min_level = ca.min_level();
     std::size_t max_level = ca.max_level();
 
@@ -62,9 +61,9 @@ int main()
         auto tag = mure::make_field<bool, 1>("tag", ca);
         tag.fill(false);
 
-        for(std::size_t level = max_level; level>min_level - 1; --level)
+        for(std::size_t level = min_level + 2; level <= max_level; ++level)
         {
-            for(std::size_t level_below = level - 2; level_below>=min_level; --level_below)
+            for(std::size_t level_below = min_level; level_below < level - 1; ++level_below)
             {
                 for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
                 {
@@ -78,6 +77,7 @@ int main()
             }
         }
 
+        mure::CellList<dim> cl;
         mure::for_each_cell(ca, [&](auto cell)
         {
             auto i = cell.indices[0];
