@@ -76,6 +76,8 @@ namespace mure
 
         std::size_t level() const;
 
+        bool empty() const;
+
         void to_stream(std::ostream &os) const;
 
     private:
@@ -122,6 +124,12 @@ namespace mure
     inline std::size_t LevelCellList<Dim, TInterval>::level() const
     {
         return m_level;
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline bool LevelCellList<Dim, TInterval>::empty() const
+    {
+        return m_grid_yz.empty();
     }
 
     template<std::size_t Dim, class TInterval>

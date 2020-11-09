@@ -45,6 +45,7 @@ namespace mure
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
 
         std::size_t nb_cells() const;
+        std::size_t nb_cells(std::size_t level) const;
 
         std::size_t max_level() const;
         std::size_t min_level() const;
@@ -136,6 +137,18 @@ namespace mure
     }
 
     /**
+     * Return the number of cells which is the sum of each x-interval size
+     * for a given level.
+     *
+     * @param level The level where to compute the number of cells
+     */
+    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline std::size_t CellArray<dim_, TInterval, max_size_>::nb_cells(std::size_t level) const
+    {
+        return m_cells[level].nb_cells();
+    }
+
+    /**
      * Return the maximum level where the array entry is not empty.
      */
     template<std::size_t dim_, class TInterval, std::size_t max_size_>
@@ -203,4 +216,24 @@ namespace mure
         cell_array.to_stream(out);
         return out;
     }
+
+    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline bool operator==(const CellArray<dim_, TInterval, max_size_> &ca1, const CellArray<dim_, TInterval, max_size_>& ca2)
+    {
+        if (ca1.max_level() != ca2.max_level() ||
+            ca1.min_level() != ca2.min_level())
+        {
+            return false;
+        }
+
+        for(std::size_t level=ca1.min_level(); level <= ca1.max_level(); ++level)
+        {
+            if (!(ca1[level] == ca2[level]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
 }

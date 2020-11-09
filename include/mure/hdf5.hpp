@@ -97,7 +97,7 @@ namespace mure
                                         xt::range(0, dim));
             auto connectivity_view = xt::view(connectivity, index, xt::all());
 
-            coords_view = xt::eval(cell.first_corner() + cell.length * element);
+            coords_view = xt::eval(cell.corner() + cell.length * element);
             connectivity_view = xt::eval(nb_points_per_cell * index + range);
             index++;
         });

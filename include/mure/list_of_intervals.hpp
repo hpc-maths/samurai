@@ -48,6 +48,7 @@ namespace mure
         using list_t::cbegin;
         using list_t::cend;
         using list_t::end;
+        using list_t::empty;
         using typename list_t::forward_list;
 
         using list_t::erase_after;

@@ -54,8 +54,11 @@ namespace mure
 
         LevelCellArray() = default;
 
-        // LevelCellArray(const LevelCellArray&) = default;
-        // LevelCellArray& operator=(const LevelCellArray&) = default;
+        LevelCellArray(const LevelCellArray&) = default;
+        LevelCellArray& operator=(const LevelCellArray&) = default;
+
+        LevelCellArray(LevelCellArray&&) = default;
+        LevelCellArray& operator=(LevelCellArray&&) = default;
 
         LevelCellArray(const LevelCellList<Dim, TInterval> &lcl);
         LevelCellArray(std::size_t level, Box<coord_index_t, dim> box);
@@ -213,14 +216,16 @@ namespace mure
          * NOTE2: in fact, hard setting the optimal values for cnt_x and cnt_yz
          * doesn't speedup things, strang...
          */
-
-        // Filling cells and offsets from the level cell list
-        initFromLevelCellList(lcl.grid_yz(), {}, std::integral_constant<std::size_t, dim - 1>{});
         m_level = lcl.level();
-        // Additionnal offset so that [m_offset[i], m_offset[i+1][ is always valid.
-        for (std::size_t d = 0; d < dim - 1; ++d)
+        if (!lcl.empty())
         {
-            m_offsets[d].push_back(m_cells[d].size());
+            // Filling cells and offsets from the level cell list
+            initFromLevelCellList(lcl.grid_yz(), {}, std::integral_constant<std::size_t, dim - 1>{});
+            // Additionnal offset so that [m_offset[i], m_offset[i+1][ is always valid.
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                m_offsets[d].emplace_back(m_cells[d].size());
+            }
         }
     }
 
@@ -455,7 +460,7 @@ namespace mure
                 if (i > curr_interval.end)
                 {
                     // Adding the previous interval...
-                    m_cells[N].push_back(curr_interval);
+                    m_cells[N].emplace_back(curr_interval);
 
                     // ... and creating a new one.
                     curr_interval = interval_t(i, i + 1, static_cast<index_t>(m_offsets[N - 1].size()) - i);
@@ -475,13 +480,13 @@ namespace mure
 
             // Updating m_offsets (at each iteration since we are always
             // updating an interval)
-            m_offsets[N - 1].push_back(previous_offset);
+            m_offsets[N - 1].emplace_back(previous_offset);
         }
 
         // Adding the working interval if valid
         if (curr_interval.is_valid())
         {
-            m_cells[N].push_back(curr_interval);
+            m_cells[N].emplace_back(curr_interval);
         }
     }
 

@@ -7,10 +7,11 @@ Welcome to MuRe's documentation!
 ================================
 
 .. toctree::
-   :caption: USAGE
-   :maxdepth: 2
+   :caption: TUTORIAL
+   :maxdepth: 1
 
-   philosophy
+   tutorial/graduation
+   tutorial/level_set
 
 
 .. toctree::
@@ -21,14 +22,15 @@ Welcome to MuRe's documentation!
    interval
    subset
    algorithm
-   level_set
 
 .. toctree::
    :caption: API REFERENCE
    :maxdepth: 2
 
    api/algorithm
+   api/interval
    api/box
+   api/cell
    api/subset
 
 
