@@ -3,6 +3,8 @@
 #include <chrono>
 
 #include <cxxopts.hpp>
+#include <xtensor/xnoalias.hpp>
+#include <xtensor/xmasked_view.hpp>
 
 #include <mure/cell_list.hpp>
 #include <mure/cell_array.hpp>
@@ -40,13 +42,9 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
 
         mure::for_each_cell(mesh, [&](auto cell)
         {
-            auto corner = cell.first_corner();
-            auto x = corner[0];
-            auto y = corner[1];
-
             if (cell.level < max_level)
             {
-                if (x < 0.25 or (x == 0.75 and y == 0.75))
+                if (cell.corner(0) < 0.25 or (cell.corner(0) == 0.75 and cell.corner(1) == 0.75))
                 {
                     cell_tag[cell] = true;
                 }
@@ -86,25 +84,42 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 
     for (std::size_t l = 0; l < max_level; ++l)
     {
+        // tic();
         auto cell_tag = mure::make_field<bool, 1>("tag", mesh);
         cell_tag.fill(false);
+        // auto duration = toc();
+        // std::cout << "allocation: " << duration << std::endl;
 
+        // tic();
         mure::for_each_cell(mesh, [&](auto cell)
         {
-            auto corner = cell.first_corner();
-            auto x = corner[0];
-            auto y = corner[1];
-
             if (cell.level < max_level)
             {
-                if (x < 0.25 or (x == 0.75 and y == 0.75))
+                if (cell.corner(0) < 0.25 or (cell.corner(0) == 0.75 and cell.corner(1) == 0.75))
                 {
                     cell_tag[cell] = true;
                 }
             }
         });
 
+        // mure::for_each_interval(mesh, [&](std::size_t level, const auto& i, const auto& index)
+        // {
+        //     if (level < max_level)
+        //     {
+        //         double dx = 1./(1<<level);
+        //         auto j = index[0];
+        //         auto x = dx*xt::arange(i.start, i.end);
+        //         auto y = index[0]*dx;
+
+        //         auto mask = x < 0.25 || (xt::equal(x, 0.75) && y == 0.75);
+        //         xt::masked_view(cell_tag(level, i, j), mask) = true;
+        //     }
+        // });
+        // duration = toc();
+        // std::cout << "init tag field: " << duration << std::endl;
+
         // graduation
+        // tic();
         for (std::size_t level = max_level; level > 1; --level)
         {
             // xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -127,7 +142,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 
                         auto i_c = i_f >> 1;
                         auto j_c = j_f >> 1;
-                        cell_tag(level - 1, i_c, j_c) |= cell_tag(level, i_f  - s[0], j_f - s[1]);
+                        xt::noalias(cell_tag(level - 1, i_c, j_c)) |= cell_tag(level, i_f  - s[0], j_f - s[1]);
                     }
 
                     i_f = interval.odd_elements();
@@ -136,12 +151,15 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
                         auto i_c = i_f >> 1;
                         auto j_c = j_f >> 1;
 
-                        cell_tag(level - 1, i_c, j_c) |= cell_tag(level, i_f  - s[0], j_f - s[1]);
+                        xt::noalias(cell_tag(level - 1, i_c, j_c)) |= cell_tag(level, i_f  - s[0], j_f - s[1]);
                     }
                 });
             }
         }
+        // duration = toc();
+        // std::cout << "make_graduation: " << duration << std::endl;
 
+        // tic();
         cl_type cl;
         mure::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
@@ -163,6 +181,9 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
         });
 
         mesh = {cl};
+        // duration = toc();
+        // std::cout << "create_new_mesh: " << duration << std::endl << std::endl;
+
     }
 }
 
@@ -199,20 +220,19 @@ int main(int argc, char *argv[])
     std::cout << "Version 1: " << duration << "s" << std::endl;toc();
     std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
 
-    mure::CellArray<dim> mesh_2(cl);
-
     tic();
+    mure::CellArray<dim> mesh_2(cl);
     refine_2(mesh_2, max_level);
     duration = toc();
-    std::cout << "Version 2: " << duration << "s" << std::endl;toc();
+    std::cout << "Version 2: " << duration << "s" << std::endl;
     std::cout << "nb_cells: " << mesh_2.nb_cells() << "\n";
 
-    auto level = mure::make_field<std::size_t, 1>("level", mesh_2);
-    mure::for_each_cell(mesh_2, [&](auto cell)
-    {
-        level[cell] = cell.level;
-    });
-    mure::save("simple_2d", mesh_2, level);
+    // auto level = mure::make_field<std::size_t, 1>("level", mesh_2);
+    // mure::for_each_cell(mesh_2, [&](auto cell)
+    // {
+    //     level[cell] = cell.level;
+    // });
+    // mure::save("simple_2d", mesh_2, level);
 
     return 0;
 }
