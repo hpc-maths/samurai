@@ -7,10 +7,10 @@ Welcome to MuRe's documentation!
 ================================
 
 .. toctree::
-   :caption: USAGE
+   :caption: TUTORIAL
    :maxdepth: 2
 
-   philosophy
+   tutorial/graduation
 
 
 .. toctree::
