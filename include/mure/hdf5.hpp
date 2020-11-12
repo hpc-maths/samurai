@@ -8,6 +8,7 @@
 #include <pugixml.hpp>
 #include <xtensor-io/xhighfive.hpp>
 #include <xtensor/xarray.hpp>
+#include <xtensor/xadapt.hpp>
 #include <xtensor/xio.hpp>
 #include <xtensor/xview.hpp>
 
@@ -40,19 +41,21 @@ namespace mure
 
     inline auto get_element(std::integral_constant<std::size_t, 1>)
     {
-        return xt::xtensor<double, 1>{0, 1};
+        return std::array<double, 2> {{ 0, 1 }};
     }
 
     inline auto get_element(std::integral_constant<std::size_t, 2>)
     {
-        return xt::xtensor<double, 2>{{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+        return std::array<xt::xtensor_fixed<std::size_t, xt::xshape<2>>, 4>
+                {{ {0, 0}, {1, 0}, {1, 1}, {0, 1} }};
     }
 
     inline auto get_element(std::integral_constant<std::size_t, 3>)
     {
-        return xt::xtensor<double, 2>{{0, 0, 0}, {1, 0, 0}, {1, 1, 0},
-                                      {0, 1, 0}, {0, 0, 1}, {1, 0, 1},
-                                      {1, 1, 1}, {0, 1, 1}};
+        return std::array<xt::xtensor_fixed<std::size_t, xt::xshape<3>>, 8>
+                {{ {0, 0, 0}, {1, 0, 0}, {1, 1, 0},
+                   {0, 1, 0}, {0, 0, 1}, {1, 0, 1},
+                   {1, 1, 1}, {0, 1, 1}}};
     }
 
     template<class Field, class SubMesh>
@@ -78,30 +81,51 @@ namespace mure
         std::size_t nb_cells = mesh.nb_cells();
 
         std::size_t nb_points_per_cell = std::pow(2, dim);
-        auto range = xt::arange(nb_points_per_cell);
+
+        std::map<std::array<double, dim>, std::size_t> points_id;
+        auto element = get_element(std::integral_constant<std::size_t, dim>{});
 
         xt::xtensor<std::size_t, 2> connectivity;
         connectivity.resize({nb_cells, nb_points_per_cell});
 
-        xt::xtensor<double, 2> coords;
-        coords.resize({nb_points_per_cell * nb_cells, 3});
-        coords.fill(0);
-
-        auto element = get_element(std::integral_constant<std::size_t, dim>{});
-
+        std::size_t id = 0;
         std::size_t index = 0;
         for_each_cell(mesh, [&](auto cell)
         {
-            auto coords_view = xt::view(coords,
-                                        xt::range(nb_points_per_cell * index, nb_points_per_cell * (index + 1)),
-                                        xt::range(0, dim));
-            auto connectivity_view = xt::view(connectivity, index, xt::all());
+            auto start_corner = cell.corner();
+            auto c = xt::xtensor<std::size_t, 1>::from_shape({element.size()});;
 
-            coords_view = xt::eval(cell.corner() + cell.length * element);
-            connectivity_view = xt::eval(nb_points_per_cell * index + range);
+            for(std::size_t i = 0; i<element.size(); ++i)
+            {
+                auto corner = start_corner + cell.length * element[i];
+
+                std::array<double, dim> a;
+                std::copy(corner.cbegin(), corner.cend(), a.begin());
+                auto search = points_id.find(a);
+                if (search == points_id.end())
+                {
+                    points_id.emplace(std::make_pair(a, id));
+                    c[i] = id++;
+                }
+                else
+                {
+                    c[i] = search->second;
+                }
+            }
+            auto connectivity_view = xt::view(connectivity, index, xt::all());
+            connectivity_view = c;
             index++;
         });
 
+        auto coords = xt::xtensor<double, 2>::from_shape({points_id.size(), 3});
+        for(auto& e: points_id)
+        {
+            std::size_t index = e.second;
+            auto coords_view = xt::view(coords,
+                                        index,
+                                        xt::range(0, dim));
+            coords_view = xt::adapt(e.first);
+        }
         return std::make_pair(coords, connectivity);
     }
 
