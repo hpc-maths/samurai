@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <xtensor/xarray.hpp>
 
-#include <mure/level_cell_list.hpp>
+#include <samurai/level_cell_list.hpp>
 
-namespace mure
+namespace samurai
 {
     TEST(level_cell_list, add_interval)
     {

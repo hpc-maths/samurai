@@ -1,13 +1,13 @@
 #include <iostream>
 
-#include <mure/cell_array.hpp>
-#include <mure/cell_list.hpp>
-#include <mure/hdf5.hpp>
+#include <samurai/cell_array.hpp>
+#include <samurai/cell_list.hpp>
+#include <samurai/hdf5.hpp>
 
 int main()
 {
     constexpr std::size_t dim = 2;
-    mure::CellList<dim> cl;
+    samurai::CellList<dim> cl;
 
     cl[0][{0}].add_interval({0, 4});
     cl[0][{1}].add_interval({0, 1});
@@ -30,10 +30,10 @@ int main()
     cl[2][{14}].add_interval({14, 16});
     cl[2][{15}].add_interval({14, 16});
 
-    mure::CellArray<dim> ca{cl};
+    samurai::CellArray<dim> ca{cl};
 
     std::cout << ca << std::endl;
 
-    mure::save("2d_mesh_representation", ca);
+    samurai::save("2d_mesh_representation", ca);
     return 0;
 }

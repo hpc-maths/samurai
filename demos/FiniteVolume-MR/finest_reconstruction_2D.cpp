@@ -5,7 +5,7 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
@@ -13,16 +13,16 @@
 
 
 template<class Config>
-auto init_f(mure::Mesh<Config> &mesh, double t)
+auto init_f(samurai::Mesh<Config> &mesh, double t)
 {
 
-    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0}
+    samurai::BC<2> bc{ {{ {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0}
                     }} };
 
-    mure::Field<Config, double, 2> f("f", mesh, bc);
+    samurai::Field<Config, double, 2> f("f", mesh, bc);
     f.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -60,9 +60,9 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     str << "Finest_Reconstruction_2D_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> level_{"level", mesh};
 
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
@@ -76,8 +76,8 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 // Attention : the number 2 as second template parameter does not mean
 // that we are dealing with two fields!!!!
 template<class Field, class interval_t, class ordinates_t, class ordinates_t_bis>
-xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std::size_t level, 
-                                      const interval_t & k, const ordinates_t & h, 
+xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std::size_t level,
+                                      const interval_t & k, const ordinates_t & h,
                                       std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>, xt::xtensor<double, 2>> & mem_map)
 {
 
@@ -92,31 +92,31 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
     if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())    {
 
         // std::cout<<std::endl<<"From map level_g = "<<level_g<<" level = "<<level<<"  k = "<<std::get<2>(it->first)<<"  h = "<<std::get<3>(it->first)<<"  shape = "<<xt::adapt(it->second.shape())<<std::flush;
-        
-    
+
+
         // std::cout<<std::endl<<"*"<<std::flush;
-    
+
         // std::cout<<std::endl<<"Interval = "<<k<<"   Size = "<<k.size()<<"  Size before returning map = "<<xt::adapt(it->second.shape())<<std::endl;
 
         return it->second;
     }
     else
     {
-        
+
 
     auto mesh = f.mesh();
 
     // We put only the size in x (k.size()) because in y
-    // we only have slices of size 1. 
-    // The second term (1) should be adapted according to the 
+    // we only have slices of size 1.
+    // The second term (1) should be adapted according to the
     // number of fields that we have.
     std::vector<std::size_t> shape_x = {k.size(), 2};
     xt::xtensor<double, 2> out = xt::empty<double>(shape_x);
 
-    auto mask = mesh.exists(mure::MeshType::cells_and_ghosts, level_g + level, k, h); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
+    auto mask = mesh.exists(samurai::MeshType::cells_and_ghosts, level_g + level, k, h); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
 
     xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
-        
+
     xt::view(mask_all, xt::all(), 0) = mask; // We have only this because we only have one field
     xt::view(mask_all, xt::all(), 1) = mask; // We have only this because we only have one field
 
@@ -124,9 +124,9 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
 
     // Recursion finished
     if (xt::all(mask))
-    {         
+    {
         // std::cout<<std::endl<<"Data found - level_g = "<<level_g<<"  level = "<<level<<"   k = "<<k<<"   h = "<<h;//" Value = "<<xt::adapt(xt::eval(f(0, level_g + level, k, h)).shape());
-        
+
         return xt::eval(f(level_g + level, k, h));
     }
 
@@ -179,13 +179,13 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
 
 
     // This is to deal with odd/even indices in the x direction
-    std::size_t start_even = (k.start & 1) ?     1         :     0        ; 
-    std::size_t start_odd  = (k.start & 1) ?     0         :     1        ; 
+    std::size_t start_even = (k.start & 1) ?     1         :     0        ;
+    std::size_t start_odd  = (k.start & 1) ?     0         :     1        ;
     std::size_t end_even   = (k.end & 1)   ? kg.size()     : kg.size() - 1;
     std::size_t end_odd    = (k.end & 1)   ? kg.size() - 1 : kg.size()    ;
 
     int delta_y = (h & 1) ? 1 : 0;
-    int m1_delta_y = (delta_y == 0) ? 1 : -1; // (-1)^(delta_y) 
+    int m1_delta_y = (delta_y == 0) ? 1 : -1; // (-1)^(delta_y)
 
     // We recall the formula before doing everything
     /*
@@ -220,7 +220,7 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
     //     xt::view(val, xt::range(start_even, _, 2)) = xt::view(data, xt::range(start_even, _));
     //     xt::view(val, xt::range(start_odd, _, 2)) = xt::view(data, xt::range(_, end_odd));
     // }
-    
+
     // else if (icase == 1) // W
     // {
     //     auto data = xt::eval(prediction_all(icase, f, level_g, level - 1, kg - 1, (h>>1)    , mem_map));
@@ -295,15 +295,15 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
     //                     <<"  Dim NW = "<<xt::adapt(NW.shape())
     //                     <<"  Dim NE = "<<xt::adapt(NE.shape())<<std::flush;
 
-    xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth 
-                                                          + 1./8               * (W - E) 
-                                                          + 1./8  * m1_delta_y * (S - N) 
+    xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth
+                                                          + 1./8               * (W - E)
+                                                          + 1./8  * m1_delta_y * (S - N)
                                                           - 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(start_even, _));
 
 
 
-    xt::view(val, xt::range(start_odd, _, 2))  = xt::view(                        earth 
-                                                          - 1./8               * (W - E) 
+    xt::view(val, xt::range(start_odd, _, 2))  = xt::view(                        earth
+                                                          - 1./8               * (W - E)
                                                           + 1./8  * m1_delta_y * (S - N)
                                                           + 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(_, end_odd));
 
@@ -333,30 +333,30 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
 }
 
 template<class Config, class Field>
-void save_reconstructed(Field & f, mure::Mesh<Config> & init_mesh, 
+void save_reconstructed(Field & f, samurai::Mesh<Config> & init_mesh,
                         double eps, std::size_t ite, std::string ext="")
 {
 
-    
+
     auto mesh = f.mesh();
     auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
 
 
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     f.update_bc();
-    mure::mr_prediction(f);
+    samurai::mr_prediction(f);
 
 
 
-    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0}
+    samurai::BC<2> bc{ {{ {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0}
                     }} };
 
-  
-    mure::Field<Config, double, 2> f_reconstructed("f_reconstructed", init_mesh, bc);
+
+    samurai::Field<Config, double, 2> f_reconstructed("f_reconstructed", init_mesh, bc);
     f_reconstructed.array().fill(0.);
 
 
@@ -369,15 +369,15 @@ void save_reconstructed(Field & f, mure::Mesh<Config> & init_mesh,
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto number_leaves = mesh.nb_cells(level, mure::MeshType::cells);
+        auto number_leaves = mesh.nb_cells(level, samurai::MeshType::cells);
 
         std::cout<<std::endl<<"Level = "<<level<<"   Until the end = "<<(max_level - level)
                             <<"  Num cells = "<<number_leaves<<"  At finest = "<<number_leaves * (1 << (max_level - level))<<std::endl;
 
 
-        auto leaves_on_finest = mure::intersection(mesh[mure::MeshType::cells][level],
-                                                    mesh[mure::MeshType::cells][level]);
-            
+        auto leaves_on_finest = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                                    mesh[samurai::MeshType::cells][level]);
+
         leaves_on_finest.on(max_level)([&](auto& index, auto &interval, auto) {
             auto k = interval[0];
             auto h = index[0];
@@ -396,7 +396,7 @@ void save_reconstructed(Field & f, mure::Mesh<Config> & init_mesh,
     str << "Finest_Reconstruction_2D_reconstructed_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(init_mesh);
     h5file.add_field(f_reconstructed);
 
@@ -431,15 +431,15 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 2;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = samurai::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
 
-            mure::Box<double, dim> box({0, 0}, {1, 1});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
+            samurai::Box<double, dim> box({0, 0}, {1, 1});
+            samurai::Mesh<Config> mesh{box, min_level, max_level};
 
             auto f = init_f(mesh, 0);
 
@@ -458,7 +458,7 @@ int main(int argc, char *argv[])
                     break;
             }
 
-            mure::mr_prediction_overleaves(f);
+            samurai::mr_prediction_overleaves(f);
 
             save_solution(f, eps, 0);
             save_solution(f_everywhere_refined, eps, 0, std::string("original"));
@@ -466,7 +466,7 @@ int main(int argc, char *argv[])
 
             save_reconstructed(f, mesh_everywhere_refined, eps, 0);
 
-            
+
         }
     }
     catch (const cxxopts::OptionException &e)

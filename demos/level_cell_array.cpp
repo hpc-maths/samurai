@@ -1,21 +1,21 @@
 #include <cstddef>
 #include <iostream>
 
-#include <mure/mr_config.hpp>
-#include <mure/level_cell_list.hpp>
-#include <mure/level_cell_array.hpp>
+#include <samurai/mr_config.hpp>
+#include <samurai/level_cell_list.hpp>
+#include <samurai/level_cell_array.hpp>
 
 #include <xtensor/xview.hpp>
 
 int main()
 {
     constexpr std::size_t dim = 3;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
     using coord_index_t = Config::coord_index_t;
     const coord_index_t cross_size = 5;
 
     // Creating the level cell list
-    mure::LevelCellList<Config> dcl;
+    samurai::LevelCellList<Config> dcl;
 
     Config::index_t cnt = 0;
     for (Config::coord_index_t i = 0; i < cross_size; ++i)
@@ -31,7 +31,7 @@ int main()
 
     // Converting it to a level cell array
     std::cout << "The level cell array:" << std::endl;
-    mure::LevelCellArray<Config> dca(dcl);
+    samurai::LevelCellArray<Config> dca(dcl);
 
     std::cout << dca << std::endl;
 

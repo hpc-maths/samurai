@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 #include <xtensor/xarray.hpp>
 
-// #include <mure/field.hpp>
-// #include <mure/mr/mesh.hpp>
-// #include <mure/mr/mr_config.hpp>
-// #include <mure/mr/pred_and_proj.hpp>
+// #include <samurai/field.hpp>
+// #include <samurai/mr/mesh.hpp>
+// #include <samurai/mr/mr_config.hpp>
+// #include <samurai/mr/pred_and_proj.hpp>
 
-namespace mure
+namespace samurai
 {
     TEST(cell, projection)
     {
@@ -61,11 +61,11 @@ namespace mure
         // mesh.for_each_cell([&](auto &cell) { u[cell] = 0; },
         //                    MeshType::proj_cells);
 
-        // auto h5file = mure::Hdf5("test_proj");
+        // auto h5file = samurai::Hdf5("test_proj");
         // h5file.add_mesh(mesh);
         // h5file.add_field(u);
 
-        // mure::Field<Config> level_end{"level", mesh};
+        // samurai::Field<Config> level_end{"level", mesh};
         // mesh.for_each_cell([&](auto &cell) {
         //     level_end[cell] = static_cast<double>(cell.level);
         // });

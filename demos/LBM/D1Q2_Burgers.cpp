@@ -4,13 +4,13 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 
 template<class Config>
-auto init_f(mure::Mesh<Config> &mesh, double t)
+auto init_f(samurai::Mesh<Config> &mesh, double t)
 {
     std::size_t nvel = 2;
-    std::vector<mure::Field<Config>> f;
+    std::vector<samurai::Field<Config>> f;
     for (std::size_t i = 0; i < nvel; ++i)
     {
         std::stringstream str;
@@ -44,20 +44,20 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 }
 
 template<class Config>
-void one_time_step(std::vector<mure::Field<Config>> &f)
+void one_time_step(std::vector<samurai::Field<Config>> &f)
 {
     double lambda = 1., s = 1.;
     auto mesh = f[0].mesh();
     std::size_t nvel = f.size();
-    auto max_level = mesh[mure::MeshType::cells].max_level();
+    auto max_level = mesh[samurai::MeshType::cells].max_level();
 
     for (std::size_t nv = 0; nv < nvel; ++nv)
     {
-        mure::mr_projection(f[nv]);
-        mure::mr_prediction(f[nv]);
+        samurai::mr_projection(f[nv]);
+        samurai::mr_prediction(f[nv]);
     }
 
-    std::vector<mure::Field<Config>> new_f;
+    std::vector<samurai::Field<Config>> new_f;
     for (std::size_t i = 0; i < nvel; ++i)
     {
         std::stringstream str;
@@ -95,8 +95,8 @@ void one_time_step(std::vector<mure::Field<Config>> &f)
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
-                                      mesh[mure::MeshType::cells][level]);
+        auto exp = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                      mesh[samurai::MeshType::cells][level]);
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
@@ -142,7 +142,7 @@ void one_time_step(std::vector<mure::Field<Config>> &f)
 }
 
 template<class Config, class interval_t>
-auto prediction(mure::Field<Config>& f, std::size_t level_g, std::size_t level, const interval_t &i)
+auto prediction(samurai::Field<Config>& f, std::size_t level_g, std::size_t level, const interval_t &i)
 {
     auto step = i.step;
     auto ig = i / 2;
@@ -158,25 +158,25 @@ auto prediction(mure::Field<Config>& f, std::size_t level_g, std::size_t level, 
     {
         return xt::eval(f(level_g, ig) - 1./8  * d * (f(level_g, ig+1) - f(level_g, ig-1)));
     }
-    return xt::eval(prediction(f, level_g, level-1, ig) - 1./8 * d * (prediction(f, level_g, level-1, ig+1) 
+    return xt::eval(prediction(f, level_g, level-1, ig) - 1./8 * d * (prediction(f, level_g, level-1, ig+1)
                                                                     - prediction(f, level_g, level-1, ig-1)));
 }
 
 template<class Config>
-void one_time_step_new(std::vector<mure::Field<Config>> &f)
+void one_time_step_new(std::vector<samurai::Field<Config>> &f)
 {
     double lambda = 1., s = 1.;
     auto mesh = f[0].mesh();
     std::size_t nvel = f.size();
-    auto max_level = mesh[mure::MeshType::cells].max_level();
+    auto max_level = mesh[samurai::MeshType::cells].max_level();
 
     for (std::size_t nv = 0; nv < nvel; ++nv)
     {
-        mure::mr_projection(f[nv]);
-        mure::mr_prediction(f[nv]);
+        samurai::mr_projection(f[nv]);
+        samurai::mr_prediction(f[nv]);
     }
 
-    std::vector<mure::Field<Config>> new_f;
+    std::vector<samurai::Field<Config>> new_f;
     for (std::size_t i = 0; i < nvel; ++i)
     {
         std::stringstream str;
@@ -187,8 +187,8 @@ void one_time_step_new(std::vector<mure::Field<Config>> &f)
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
-                                      mesh[mure::MeshType::cells][level]);
+        auto exp = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                      mesh[samurai::MeshType::cells][level]);
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
@@ -224,7 +224,7 @@ void one_time_step_new(std::vector<mure::Field<Config>> &f)
 }
 
 template<class Config>
-void save_solution(std::vector<mure::Field<Config>> &f, double eps, std::size_t ite)
+void save_solution(std::vector<samurai::Field<Config>> &f, double eps, std::size_t ite)
 {
     auto mesh = f[0].mesh();
     std::size_t min_level = mesh.min_level();
@@ -234,10 +234,10 @@ void save_solution(std::vector<mure::Field<Config>> &f, double eps, std::size_t 
     str << "LBM_D1Q2_Burders_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
-    mure::Field<Config> u{"u", mesh};
+    samurai::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> u{"u", mesh};
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
         u[cell] = f[0][cell] + f[1][cell];
@@ -271,15 +271,15 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 1;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = samurai::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
 
-            mure::Box<double, dim> box({-3}, {3});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
+            samurai::Box<double, dim> box({-3}, {3});
+            samurai::Mesh<Config> mesh{box, min_level, max_level};
 
             // Initialization
             auto f = init_f(mesh, 0);
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
             for (std::size_t nb_ite = 0; nb_ite < 100; ++nb_ite)
             {
                 std::cout << nb_ite << "\n";
-                mure::adapt(f, eps);
+                samurai::adapt(f, eps);
                 one_time_step(f);
                 save_solution(f, eps, nb_ite);
             }

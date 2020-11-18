@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 #include <rapidcheck/gtest.h>
 
-#include <mure/box.hpp>
-#include <mure/field.hpp>
-#include <mure/mr/coarsening.hpp>
-#include <mure/mr/mesh.hpp>
-#include <mure/mr/mr_config.hpp>
-#include <mure/mr/pred_and_proj.hpp>
+#include <samurai/box.hpp>
+#include <samurai/field.hpp>
+#include <samurai/mr/coarsening.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mr_config.hpp>
+#include <samurai/mr/pred_and_proj.hpp>
 
 #include "test_common.hpp"
 
@@ -31,9 +31,9 @@ INSTANTIATE_TEST_CASE_P(
     StringParamTestSuffix);
 
 template<class Config>
-auto get_init_field_1d(mure::Mesh<Config> &mesh, std::size_t test_case)
+auto get_init_field_1d(samurai::Mesh<Config> &mesh, std::size_t test_case)
 {
-    mure::Field<Config> u("u", mesh);
+    samurai::Field<Config> u("u", mesh);
     u.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -62,9 +62,9 @@ auto get_init_field_1d(mure::Mesh<Config> &mesh, std::size_t test_case)
 }
 
 template<class Config>
-auto get_init_field_2d(mure::Mesh<Config> &mesh, std::size_t test_case)
+auto get_init_field_2d(samurai::Mesh<Config> &mesh, std::size_t test_case)
 {
-    mure::Field<Config> u("u", mesh);
+    samurai::Field<Config> u("u", mesh);
     u.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -107,27 +107,27 @@ TEST_P(CoarseningTest, 1D)
     double eps = 1. / std::get<2>(GetParam());
 
     constexpr size_t dim = 1;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
 
-    mure::Box<double, dim> box({-1}, {1});
-    mure::Mesh<Config> mesh{box, init_level};
+    samurai::Box<double, dim> box({-1}, {1});
+    samurai::Mesh<Config> mesh{box, init_level};
 
     auto u = get_init_field_1d(mesh, test_case);
 
     for (std::size_t i = 0; i < init_level; ++i)
     {
-        mure::Field<Config> detail{"detail", mesh};
+        samurai::Field<Config> detail{"detail", mesh};
         detail.array().fill(0);
-        mure::mr_projection(u);
-        mure::coarsening(detail, u, eps, i);
+        samurai::mr_projection(u);
+        samurai::coarsening(detail, u, eps, i);
     }
 
     for (int level1 = init_level; level1 > 0; --level1)
     {
         for (int level2 = level1 - 1; level2 > 0; --level2)
         {
-            auto expr = mure::intersection(mesh[mure::MeshType::cells][level1],
-                                           mesh[mure::MeshType::cells][level2])
+            auto expr = samurai::intersection(mesh[samurai::MeshType::cells][level1],
+                                           mesh[samurai::MeshType::cells][level2])
                             .on(level1);
             expr([](auto &, auto &, auto &) { RC_ASSERT(false); });
         }
@@ -141,27 +141,27 @@ TEST_P(CoarseningTest, 2D)
     double eps = 1. / std::get<2>(GetParam());
 
     constexpr size_t dim = 2;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
 
-    mure::Box<double, dim> box({-1, -1}, {1, 1});
-    mure::Mesh<Config> mesh{box, init_level};
+    samurai::Box<double, dim> box({-1, -1}, {1, 1});
+    samurai::Mesh<Config> mesh{box, init_level};
 
     auto u = get_init_field_2d(mesh, test_case);
 
     for (std::size_t i = 0; i < init_level; ++i)
     {
-        mure::Field<Config> detail{"detail", mesh};
+        samurai::Field<Config> detail{"detail", mesh};
         detail.array().fill(0);
-        mure::mr_projection(u);
-        mure::coarsening(detail, u, eps, i);
+        samurai::mr_projection(u);
+        samurai::coarsening(detail, u, eps, i);
     }
 
     for (int level1 = init_level; level1 > 0; --level1)
     {
         for (int level2 = level1 - 1; level2 > 0; --level2)
         {
-            auto expr = mure::intersection(mesh[mure::MeshType::cells][level1],
-                                           mesh[mure::MeshType::cells][level2])
+            auto expr = samurai::intersection(mesh[samurai::MeshType::cells][level1],
+                                           mesh[samurai::MeshType::cells][level2])
                             .on(level1);
             expr([](auto &, auto &, auto &) { RC_ASSERT(false); });
         }

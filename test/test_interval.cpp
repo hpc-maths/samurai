@@ -3,11 +3,11 @@
 
 #include <xtensor/xarray.hpp>
 
-#include <mure/interval.hpp>
+#include <samurai/interval.hpp>
 
 #include "test_common.hpp"
 
-namespace mure
+namespace samurai
 {
     TEST(interval, size)
     {

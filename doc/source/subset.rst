@@ -31,7 +31,7 @@ The relevant part in this code is these few lines
 .. code-block:: c++
 
     // Make projection on the intersection
-    auto subset = mure::intersection(ca[0], ca[1]).on(0);
+    auto subset = samurai::intersection(ca[0], ca[1]).on(0);
     subset([&](const auto& i, auto)
     {
         u(0, i) = 0.5*(u(1, 2 * i) + u(1, 2 * i + 1));
@@ -43,7 +43,7 @@ There are two different parts:
 
 .. code-block:: c++
 
-    auto subset = mure::intersection(ca[0], ca[1]).on(0);
+    auto subset = samurai::intersection(ca[0], ca[1]).on(0);
 
 In |project|, you already have an algebra of set operators implemented (`intersection`, `difference`, `union`, `translation`, ...). And you can easily create your operator as we will see in the following. The subset can be made up of sets of different levels. Since the intervals of these sets are represented by integers, it is important to be able to compare these integers at the same level. By default, the common level is the finest (here `level = 1`). But we want to apply our operator on another level. This is why we specify it using `.on(0)`.
 

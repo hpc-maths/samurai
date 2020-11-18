@@ -1,4 +1,4 @@
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
@@ -6,15 +6,15 @@
 
 
 template <class Config>
-auto init(mure::Mesh<Config> &mesh)
+auto init(samurai::Mesh<Config> &mesh)
 {
-    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0},
-                       {mure::BCType::neumann, 0},
-                       {mure::BCType::neumann, 0},
-                       {mure::BCType::neumann, 0}
+    samurai::BC<2> bc{ {{ {samurai::BCType::neumann, 0},
+                       {samurai::BCType::neumann, 0},
+                       {samurai::BCType::neumann, 0},
+                       {samurai::BCType::neumann, 0}
                     }} };
 
-    mure::Field<Config> u{"u", mesh, bc};
+    samurai::Field<Config> u{"u", mesh, bc};
     u.array().fill(0);
 
 
@@ -32,25 +32,25 @@ auto init(mure::Mesh<Config> &mesh)
 int main(int argc, char *argv[])
 {
     constexpr size_t dim = 2;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
     std::size_t min_level = 6, max_level = 6;
-    mure::Box<double, dim> box({0, 0}, {1, 1});
-    mure::Mesh<Config> mesh{box, min_level, max_level};
+    samurai::Box<double, dim> box({0, 0}, {1, 1});
+    samurai::Mesh<Config> mesh{box, min_level, max_level};
 
     auto u = init(mesh);
 
     spdlog::set_level(spdlog::level::warn);
 
 
-    mure::mr_projection(u);
+    samurai::mr_projection(u);
     {
         std::stringstream s;
         s << "debug_prediction_after_projection_datum";
-        auto h5file = mure::Hdf5(s.str().data());
+        auto h5file = samurai::Hdf5(s.str().data());
         h5file.add_mesh(mesh);
-        mure::Field<Config> level_{"level", mesh};
+        samurai::Field<Config> level_{"level", mesh};
         mesh.for_each_cell([&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
         //h5file.add_field(u);
         h5file.add_field(level_);
@@ -58,14 +58,14 @@ int main(int argc, char *argv[])
 
     }
 
-    mure::mr_prediction_for_debug(u, max_level);
+    samurai::mr_prediction_for_debug(u, max_level);
 
     {
         std::stringstream s;
         s << "debug_prediction_after_prediction_datum";
-        auto h5file = mure::Hdf5(s.str().data());
+        auto h5file = samurai::Hdf5(s.str().data());
         h5file.add_mesh(mesh);
-        mure::Field<Config> level_{"level", mesh};
+        samurai::Field<Config> level_{"level", mesh};
         mesh.for_each_cell([&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
         //h5file.add_field(u);
         h5file.add_field(level_);

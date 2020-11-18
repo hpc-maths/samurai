@@ -11,7 +11,7 @@ First, we need an initial mesh with overlap between levels. We will generate it 
     {
         constexpr std::size_t dim = 2;
 
-        mure::CellList<dim> cl;
+        samurai::CellList<dim> cl;
         cl[0][{0}].add_point(0);
 
         for(std::size_t s = 0; s < nsamples; ++s)
@@ -23,7 +23,7 @@ First, we need an initial mesh with overlap between levels. We will generate it 
             cl[level][{y}].add_point(x);
         }
 
-        return mure::CellArray<dim>(cl, true);
+        return samurai::CellArray<dim>(cl, true);
     }
 
 Let's explain step by step this function. There are three parameters: `min_level` is the minimum level where a cell can be added, `max_level` is the maximum level where a cell can be added, and `nsamples` is the number of cells which will be randomly added to the final mesh.
@@ -33,7 +33,7 @@ We first create a `CellList` to add new cells or intervals efficiently. We add i
 
 .. code-block:: c++
 
-    mure::CellList<dim> cl;
+    samurai::CellList<dim> cl;
     cl[0][{0}].add_point(0);
 
 And then, we create randomly `nsamples` cells.
@@ -53,7 +53,7 @@ Now, we can construct the `Cellarray` from this `CellList` and return it.
 
 .. code-block:: c++
 
-    return mure::CellArray<dim>(cl, true);
+    return samurai::CellArray<dim>(cl, true);
 
 The figure below is an example of an initial mesh with start_level = 1 and max_level = 7.
 
@@ -71,7 +71,7 @@ So, we try to find an intersection using subset construction between a level `le
 
 .. code-block:: c++
 
-    auto set = mure::intersection(ca[level], ca[level_below])
+    auto set = samurai::intersection(ca[level], ca[level_below])
               .on(level_below);
 
     set([&](const auto& i, const auto& index)
@@ -88,14 +88,14 @@ And we reconstruct a new mesh using `tag` and `CellList` using the following alg
 
     while(true)
     {
-        auto tag = mure::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_field<bool, 1>("tag", ca);
         tag.fill(false);
 
         for(std::size_t level = min_level + 1; level <= max_level; ++level)
         {
             for(std::size_t level_below = min_level; level_below < level; ++level_below)
             {
-                auto set = mure::intersection(ca[level], ca[level_below]).on(level_below);
+                auto set = samurai::intersection(ca[level], ca[level_below]).on(level_below);
                 set([&](const auto& i, const auto& index)
                 {
                     tag(level_below, i, index[0]) = true;
@@ -103,8 +103,8 @@ And we reconstruct a new mesh using `tag` and `CellList` using the following alg
             }
         }
 
-        mure::CellList<dim> cl;
-        mure::for_each_cell(ca, [&](auto cell)
+        samurai::CellList<dim> cl;
+        samurai::for_each_cell(ca, [&](auto cell)
         {
             auto i = cell.indices[0];
             auto j = cell.indices[1];
@@ -118,7 +118,7 @@ And we reconstruct a new mesh using `tag` and `CellList` using the following alg
                 cl[cell.level][{j}].add_point(i);
             }
         });
-        mure::CellArray<dim> new_ca = {cl, true};
+        samurai::CellArray<dim> new_ca = {cl, true};
 
         if(new_ca == ca)
         {

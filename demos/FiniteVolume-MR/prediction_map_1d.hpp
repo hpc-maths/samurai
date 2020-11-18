@@ -3,7 +3,7 @@
 #include <xtensor/xarray.hpp>
 #include <xtensor/xio.hpp>
 #include <xtensor/xsemantic.hpp>
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 
 template<class index_t>
 class prediction_map
@@ -136,8 +136,8 @@ auto prediction(std::size_t level, const index_t &i, bool reset=false)
     {
         auto ig = i >> 1;
         double d_x = (i & 1)? -1./8: 1./8;
- 
-        return values[{level, i}] = prediction(level-1, ig) - d_x * (prediction(level-1, ig+1) 
+
+        return values[{level, i}] = prediction(level-1, ig) - d_x * (prediction(level-1, ig+1)
                                                                    - prediction(level-1, ig-1));
     }
     else

@@ -1,0 +1,5 @@
+#pragma once
+
+#define SAMURAI_VERSION_MAJOR 0
+#define SAMURAI_VERSION_MINOR 1
+#define SAMURAI_VERSION_PATCH 0

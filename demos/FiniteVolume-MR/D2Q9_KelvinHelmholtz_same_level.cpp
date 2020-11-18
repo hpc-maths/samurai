@@ -1,5 +1,5 @@
 /*
-    The choice of the momenti is that 
+    The choice of the momenti is that
     of Geier as testesd in pyLBM and working properly
 */
 
@@ -8,9 +8,9 @@
 
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
-#include <math.h> 
+#include <math.h>
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
@@ -26,16 +26,16 @@ double delta  = 0.05;
 
 
 template<class Config>
-auto init_f(mure::Mesh<Config> &mesh, double t)
+auto init_f(samurai::Mesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 9;
-    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0},
-                       {mure::BCType::neumann, 0},
-                       {mure::BCType::neumann, 0},
-                       {mure::BCType::neumann, 0}
+    samurai::BC<2> bc{ {{ {samurai::BCType::neumann, 0},
+                       {samurai::BCType::neumann, 0},
+                       {samurai::BCType::neumann, 0},
+                       {samurai::BCType::neumann, 0}
                     }} };
 
-    mure::Field<Config, double, nvel> f("f", mesh, bc);
+    samurai::Field<Config, double, nvel> f("f", mesh, bc);
     f.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -47,7 +47,7 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         double qx = 0.0;
         double qy = U_0 * delta * sin(2. * M_PI * (x + .25));
 
-        if (y <= 0.5)  
+        if (y <= 0.5)
             qx = U_0 * tanh(k * (y - .25));
         else
             qx = U_0 * tanh(k * (.75 - y));
@@ -110,10 +110,10 @@ auto prediction(const Field& f, std::size_t level_g, std::size_t level, const in
         d_x[iii] = (ii & 1)? -1.: 1.;
         d_xy[iii] = ((ii+h) & 1)? -1.: 1.;
     }
-  
-    return xt::eval(prediction(f, level_g, level-1, kg, hg, item) - 1./8 * d_x * (prediction(f, level_g, level-1, kg+1, hg, item) 
+
+    return xt::eval(prediction(f, level_g, level-1, kg, hg, item) - 1./8 * d_x * (prediction(f, level_g, level-1, kg+1, hg, item)
                                                                                - prediction(f, level_g, level-1, kg-1, hg, item))
-                                                                  - 1./8 * d_y * (prediction(f, level_g, level-1, kg, hg+1, item) 
+                                                                  - 1./8 * d_y * (prediction(f, level_g, level-1, kg, hg+1, item)
                                                                                - prediction(f, level_g, level-1, kg, hg-1, item))
                                                                   - 1./64 * d_xy * (prediction(f, level_g, level-1, kg+1, hg+1, item)
                                                                                  - prediction(f, level_g, level-1, kg+1, hg-1, item)
@@ -131,22 +131,22 @@ void one_time_step(Field &f)
 
     double space_step = 1.0 / (1 << max_level);
 
-    mure::mr_projection(f);
-    mure::mr_prediction(f);
+    samurai::mr_projection(f);
+    samurai::mr_prediction(f);
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
-                                      mesh[mure::MeshType::cells][level]);
+        auto exp = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                      mesh[samurai::MeshType::cells][level]);
         exp([&](auto& index, auto &interval, auto) {
             auto k = interval[0]; // Logical index in x
             auto h = index[0];    // Logical index in y
 
-            std::size_t j = max_level - level; 
-            double coeff = 1. / (1 << (2*j)); // The factor 2 comes from the 2D 
+            std::size_t j = max_level - level;
+            double coeff = 1. / (1 << (2*j)); // The factor 2 comes from the 2D
 
             // auto f0 = xt::eval(f(0, level, k-1, h  ));
             // auto f1 = xt::eval(f(1, level, k  , h-1));
@@ -156,17 +156,17 @@ void one_time_step(Field &f)
             double coeff_new = 1. / (1 << (j));
 
 
-            // auto debugging = xt::eval(f(0, level, k, h) + 
+            // auto debugging = xt::eval(f(0, level, k, h) +
             //                           f(1, level, k, h) +
             //                           f(2, level, k, h) +
-            //                           f(3, level, k, h) + 
-            //                           f(4, level, k, h) + 
-            //                           f(5, level, k, h) + 
-            //                           f(6, level, k, h) + 
-            //                           f(7, level, k, h) + 
+            //                           f(3, level, k, h) +
+            //                           f(4, level, k, h) +
+            //                           f(5, level, k, h) +
+            //                           f(6, level, k, h) +
+            //                           f(7, level, k, h) +
             //                           f(8, level, k, h));
 
-            
+
             // std::cout<<"\n"<<debugging;
 
             // Uniform mesh for the moment
@@ -251,23 +251,23 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     str << "LBM_D2Q9_KelvinHelmholtz_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
-    mure::Field<Config> rho{"rho", mesh};
-    mure::Field<Config> qx{"qx", mesh};
-    mure::Field<Config> qy{"qy", mesh};
-    mure::Field<Config> vel_mod{"vel_modulus", mesh};
+    samurai::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> rho{"rho", mesh};
+    samurai::Field<Config> qx{"qx", mesh};
+    samurai::Field<Config> qy{"qy", mesh};
+    samurai::Field<Config> vel_mod{"vel_modulus", mesh};
 
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
-        rho[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3] 
+        rho[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3]
                   + f[cell][4] + f[cell][5] + f[cell][6] + f[cell][7] + f[cell][8];
 
         qx[cell] = lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]);
         qy[cell] = lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]);
 
-        vel_mod[cell] = xt::sqrt((qx[cell] / rho[cell]) * (qx[cell] / rho[cell]) 
+        vel_mod[cell] = xt::sqrt((qx[cell] / rho[cell]) * (qx[cell] / rho[cell])
                                 + (qy[cell] / rho[cell]) * (qy[cell] / rho[cell]));
 
     });
@@ -303,15 +303,15 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 2;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = samurai::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
 
-            mure::Box<double, dim> box({0, 0}, {1, 1});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
+            samurai::Box<double, dim> box({0, 0}, {1, 1});
+            samurai::Mesh<Config> mesh{box, min_level, max_level};
 
             // Initialization
             auto f = init_f(mesh, 0);
@@ -353,9 +353,9 @@ int main(int argc, char *argv[])
                     std::stringstream str;
                     str << "debug_KH";
 
-                    auto h5file = mure::Hdf5(str.str().data());
+                    auto h5file = samurai::Hdf5(str.str().data());
                     h5file.add_mesh(mesh);
-                
+
                     // We save with the levels
                     h5file.add_field_by_level(mesh, f);
 

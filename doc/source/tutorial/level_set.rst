@@ -17,7 +17,7 @@ It can be shown \cite{osher2004level} that the outward normal vector :math:`\mat
 
 
 
-We consider a level-set function :math:`\phi: \mathbb{R} \times \mathbb{R}^2 \to \mathbb{R}` which evolves according to the passive transport equation (also known as ``color equation'') given by
+We consider a level-set function :math:`\phi: \mathbb{R} \times \mathbb{R}^2 \to \mathbb{R}` which evolves according to the passive transport equation (also known as "color equation") given by
 
 .. math::
     \partial_t \phi + \mathbf{u} \cdot \nabla \phi = 0,
@@ -35,9 +35,9 @@ In terms of C++ code, this reads
 .. code-block:: c++
 
     update_ghosts(phi, u, update_bc_for_level);
-    auto phinp1 = mure::make_field<double, 1>("phi", mesh);
-    phinp1 = phi - dt * mure::upwind_variable(u, phi, dt);
-    
+    auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
+    phinp1 = phi - dt * samurai::upwind_variable(u, phi, dt);
+
 where the sum of the fluxes through each boundary is defined by
 
 .. code-block:: c++
@@ -80,7 +80,7 @@ We provide the example of the left flux for the :math:`x`-axis. It is given by t
      &+ \frac{1}{2} \left | u_{j, k-1/2, h}^n \right | \left (1 - \left | u_{j, k-1/2, h}^n \right | \frac{\Delta t}{\Delta x_j} \right ) \psi \left ( \theta_{j, k-1/2, h}^n  \right ) \left (\phi_{j, k, h}^n - \phi_{j, k-1, h}^n \right ),
 
 
-from \cite{leveque2002} (see (6.32) at page 113), where we have the positive part :math:`a^+ := \max{(0, a)}` and the negative part :math:`a^- := \min{(0, a)}`. We take the MR limiter introduced by Van Leer \cite{van1977} 
+from \cite{leveque2002} (see (6.32) at page 113), where we have the positive part :math:`a^+ := \max{(0, a)}` and the negative part :math:`a^- := \min{(0, a)}`. We take the MR limiter introduced by Van Leer \cite{van1977}
 
 .. math::
     \psi(\theta) = \max{(0, \min{(2\theta, (1+\theta)/2, 2)})},
@@ -131,11 +131,11 @@ Translated into C++ code, we have
                 return xt::minimum(0, a);
             };
 
-            return xt::eval((neg_part(std::forward<T0>(vel))*std::forward<T2>(ur)  // Upwind part 
+            return xt::eval((neg_part(std::forward<T0>(vel))*std::forward<T2>(ur)  // Upwind part
                            + pos_part(std::forward<T0>(vel))*std::forward<T1>(ul)) // of the flux
                            + 0.5 * mc(std::forward<T3>(r))*xt::abs(std::forward<T0>(vel))
                                                 *(1.-lb*xt::abs(std::forward<T0>(vel)))
-                                                *(std::forward<T2>(ur)-std::forward<T1>(ul)));    
+                                                *(std::forward<T2>(ur)-std::forward<T1>(ul)));
         }
 
         // 2D
@@ -176,7 +176,7 @@ Translated into C++ code, we have
     }
 
 
-At each time-step :math:`t^n`, it is customary \cite{gibou2018} to reinitialize the level set :math:`\phi(t^n)` to be a signed distance function by solving the eikonal equation 
+At each time-step :math:`t^n`, it is customary \cite{gibou2018} to reinitialize the level set :math:`\phi(t^n)` to be a signed distance function by solving the eikonal equation
 
 .. math::
     \begin{cases}
@@ -184,9 +184,9 @@ At each time-step :math:`t^n`, it is customary \cite{gibou2018} to reinitialize 
         \phi(\tau = 0) \equiv \phi(t^n),
     \end{cases}
 
-with fictitious time :math:`\tau` until reaching the steady state. 
+with fictitious time :math:`\tau` until reaching the steady state.
 
-Traditionally one employs a semi-discretization using the Godunov Hamiltonian 
+Traditionally one employs a semi-discretization using the Godunov Hamiltonian
 
 .. math::
     H(a,b,c,d) = \text{sign}(\phi(t^n)) \begin{cases}
@@ -201,7 +201,7 @@ with a time stepping achieved by a TVD Runge Kutta scheme. In our case, we take 
     \overline{\overline{\phi}}_{j, k, h}^{\eta + 1} &=  \overline{\phi}_{j, k, h}^{\eta} - \Delta \tau H(\partial_x^+ \overline{\phi}_{j, k, h}^{\eta}, \partial_x^- \overline{\phi}_{j, k, h}^{\eta}, \partial_y^+ \overline{\phi}_{j, k, h}^{\eta}, \partial_y^- \overline{\phi}_{j, k, h}^{\eta}),\\
     \phi_{j, k, h}^{\eta + 1} &= \dfrac{1}{2} \phi_{j, k, h}^{\eta} + \dfrac{1}{2} \overline{\overline{\phi}}_{j, k, h}^{\eta + 1},
 
-where :math:`\partial_x^{\pm} \phi` and :math:`\partial_y^{\pm} \phi` are one-sided discretizations of the partial derivatives obtained by WENO discretizations. 
+where :math:`\partial_x^{\pm} \phi` and :math:`\partial_y^{\pm} \phi` are one-sided discretizations of the partial derivatives obtained by WENO discretizations.
 In our implementation, we keep things simple and the use of
 
 .. math::
@@ -217,7 +217,7 @@ In C++, the time stepping for such a scheme is
     {
         // TVD-RK2
         update_ghosts(phi, u, update_bc_for_level);
-        auto phihat = mure::make_field<double, 1>("phi", mesh);
+        auto phihat = samurai::make_field<double, 1>("phi", mesh);
         phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
 
         update_ghosts(phihat, u, update_bc_for_level); // Crucial !!!
@@ -269,16 +269,16 @@ where the Hamiltonian flux is encoded by
 
                 xt::xtensor<bool, 1> mask = xt::sign(phi_0(level, i, j)) >= 0.;
 
-                xt::masked_view(out, mask) = xt::sqrt(xt::maximum(xt::pow(pos_part(dxp), 2.), 
+                xt::masked_view(out, mask) = xt::sqrt(xt::maximum(xt::pow(pos_part(dxp), 2.),
                                                                   xt::pow(neg_part(dxm), 2.))
-                                                     +xt::maximum(xt::pow(pos_part(dyp), 2.), 
-                                                                  xt::pow(neg_part(dym), 2.))) 
+                                                     +xt::maximum(xt::pow(pos_part(dyp), 2.),
+                                                                  xt::pow(neg_part(dym), 2.)))
                                              -1.;
 
-                xt::masked_view(out, !mask) = -(xt::sqrt(xt::maximum(xt::pow(neg_part(dxp), 2.), 
+                xt::masked_view(out, !mask) = -(xt::sqrt(xt::maximum(xt::pow(neg_part(dxp), 2.),
                                                                      xt::pow(pos_part(dxm), 2.))
-                                                        +xt::maximum(xt::pow(neg_part(dyp), 2.), 
-                                                                     xt::pow(pos_part(dym), 2.))) 
+                                                        +xt::maximum(xt::pow(neg_part(dyp), 2.),
+                                                                     xt::pow(pos_part(dym), 2.)))
                                                 -1.);
 
             }
@@ -308,7 +308,7 @@ At each time step, the mesh is updated using
 
     while(true)
     {
-        auto tag = mure::make_field<int, 1>("tag", mesh);
+        auto tag = samurai::make_field<int, 1>("tag", mesh);
         AMR_criteria(phi, tag);
 
         make_graduation(tag);
@@ -333,20 +333,20 @@ The criterion provides the following set of flags
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
-        mure::for_each_cell(mesh[SimpleID::cells], [&](auto cell)
+        samurai::for_each_cell(mesh[SimpleID::cells], [&](auto cell)
         {
 
             double dx = 1./(1 << (max_level));
 
             if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)
             {
-                tag[cell] = (cell.level == max_level) ? static_cast<int>(mure::CellFlag::keep)
-                                                      : static_cast<int>(mure::CellFlag::refine);
+                tag[cell] = (cell.level == max_level) ? static_cast<int>(samurai::CellFlag::keep)
+                                                      : static_cast<int>(samurai::CellFlag::refine);
             }
             else
             {
-                tag[cell] = (cell.level == min_level) ? static_cast<int>(mure::CellFlag::keep)
-                                                      : static_cast<int>(mure::CellFlag::coarsen);
+                tag[cell] = (cell.level == min_level) ? static_cast<int>(samurai::CellFlag::keep)
+                                                      : static_cast<int>(samurai::CellFlag::coarsen);
             }
         });
     }
@@ -368,19 +368,19 @@ Then make_graduation(tag) graduates the corresponding tree and the mesh update i
 
         cl_type cell_list;
 
-        mure::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        samurai::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             for (int i = interval.start; i < interval.end; ++i)
             {
-                if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
+                if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
                 {
-                    mure::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
+                    samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                     {
                         auto index = 2 * index_yz + stencil;
                         cell_list[level + 1][index].add_interval({2 * i, 2 * i + 2});
                     });
                 }
-                else if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::keep))
+                else if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
                 {
                     cell_list[level][index_yz].add_point(i);
                 }
@@ -406,28 +406,28 @@ Then make_graduation(tag) graduates the corresponding tree and the mesh update i
 
         for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
         {
-            auto subset = mure::intersection(mesh[SimpleID::cells][level],
+            auto subset = samurai::intersection(mesh[SimpleID::cells][level],
                                          new_mesh[SimpleID::cells][level]);
 
-            subset.apply_op(mure::copy(new_f, f));
-            subset.apply_op(mure::copy(new_u, u));
+            subset.apply_op(samurai::copy(new_f, f));
+            subset.apply_op(samurai::copy(new_u, u));
         }
 
-        mure::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        samurai::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
-                if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
+                if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
                 {
-                    mure::compute_prediction(level, interval_t{i, i + 1}, index_yz, f, new_f);
-                    mure::compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
+                    samurai::compute_prediction(level, interval_t{i, i + 1}, index_yz, f, new_f);
+                    samurai::compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
                 }
             }
         });
 
         for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
         {
-            auto subset = mure::intersection(mesh[SimpleID::cells][level],
+            auto subset = samurai::intersection(mesh[SimpleID::cells][level],
                                          new_mesh[SimpleID::cells][level - 1])
                           .on(level - 1);
             subset.apply_op(projection(new_f, f));
@@ -463,10 +463,10 @@ Just to show how to initialize the velocity field, we consider the following C++
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
-        auto u = mure::make_field<double, 2>("u", mesh);
+        auto u = samurai::make_field<double, 2>("u", mesh);
         u.fill(0);
 
-        mure::for_each_cell(mesh[mesh_id_t::cells_and_ghosts], [&](auto &cell)
+        samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts], [&](auto &cell)
         {
             auto center = cell.center;
             double x = center[0];

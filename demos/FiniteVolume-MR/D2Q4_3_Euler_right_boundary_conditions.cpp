@@ -5,12 +5,12 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/stopwatch.h>
 
-// #include <mure/mure.hpp>
-#include <mure/mr/coarsening.hpp>
-#include <mure/mr/refinement.hpp>
-#include <mure/mr/criteria.hpp>
-#include <mure/mr/harten.hpp>
-#include <mure/mr/adapt.hpp>
+// #include <samurai/samurai.hpp>
+#include <samurai/mr/coarsening.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/mr/criteria.hpp>
+#include <samurai/mr/harten.hpp>
+#include <samurai/mr/adapt.hpp>
 #include "prediction_map_2d.hpp"
 #include "boundary_conditions.hpp"
 
@@ -50,21 +50,21 @@ double gm = 1.4;
 
 
 template<class Config>
-auto init_f(mure::MRMesh<Config> &mesh, double t)
+auto init_f(samurai::MRMesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 16;
-    using mesh_id_t = typename mure::MRMesh<Config>::mesh_id_t;
+    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
 
-    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0}
+    samurai::BC<2> bc{ {{ {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0}
                     }} };
 
-    auto f = mure::make_field<double, nvel>("f", mesh);
+    auto f = samurai::make_field<double, nvel>("f", mesh);
     f.fill(0);
 
-    mure::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell) {
+    samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell) {
         auto center = cell.center;
         auto x = center[0];
         auto y = center[1];
@@ -438,9 +438,9 @@ auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, typename Mesh::m
 
     std::size_t coeff = 1 << (mesh.max_level() - level); // When we are not at the finest level, we must translate more
 
-    return mure::intersection(mure::difference(mure::difference(mure::difference(mesh.domain(), mure::translate(mesh.domain(), - xp)),
-                                              mure::difference(mesh.domain(), mure::translate(mesh.domain(), -coeff * yp))), // Removing NE
-                                   mure::difference(mesh.domain(), mure::translate(mesh.domain(), coeff * yp))), // Removing SE
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), - xp)),
+                                              samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * yp))), // Removing NE
+                                   samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * yp))), // Removing SE
                         mesh[type][level]);//.on(level);
 }
 template<class Mesh>
@@ -451,9 +451,9 @@ auto get_adjacent_boundary_north(Mesh & mesh, std::size_t level, typename Mesh::
 
     std::size_t coeff = 1 << (mesh.max_level() - level);
 
-    return mure::intersection(mure::difference(mure::difference(mure::difference(mesh.domain(), mure::translate(mesh.domain(), -coeff * yp)),
-                                              mure::difference(mesh.domain(), mure::translate(mesh.domain(), -coeff * xp))), // Removing NE
-                                   mure::difference(mesh.domain(), mure::translate(mesh.domain(), coeff * xp))), // Removing NW
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * yp)),
+                                              samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * xp))), // Removing NE
+                                   samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * xp))), // Removing NW
                         mesh[type][level]);//.on(level);
 }
 template<class Mesh>
@@ -464,9 +464,9 @@ auto get_adjacent_boundary_west(Mesh & mesh, std::size_t level, typename Mesh::m
 
     std::size_t coeff = 1 << (mesh.max_level() - level);
 
-    return mure::intersection(mure::difference(mure::difference(mure::difference(mesh.domain(), mure::translate(mesh.domain(), coeff * xp)),
-                                              mure::difference(mesh.domain(), mure::translate(mesh.domain(), -coeff * yp))), // Removing NW
-                                   mure::difference(mesh.domain(), mure::translate(mesh.domain(), coeff * yp))), // Removing SW
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * xp)),
+                                              samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * yp))), // Removing NW
+                                   samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * yp))), // Removing SW
                         mesh[type][level]);//.on(level);
 }
 template<class Mesh>
@@ -477,9 +477,9 @@ auto get_adjacent_boundary_south(Mesh & mesh, std::size_t level, typename Mesh::
 
     std::size_t coeff = 1 << (mesh.max_level() - level);
 
-    return mure::intersection(mure::difference(mure::difference(mure::difference(mesh.domain(), mure::translate(mesh.domain(), coeff * yp)),
-                                              mure::difference(mesh.domain(), mure::translate(mesh.domain(), -coeff * xp))), // Removing SE
-                                   mure::difference(mesh.domain(), mure::translate(mesh.domain(), coeff * xp))), // Removing SW
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * yp)),
+                                              samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * xp))), // Removing SE
+                                   samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * xp))), // Removing SW
                         mesh[type][level]);//.on(level);
 }
 template<class Mesh>
@@ -491,9 +491,9 @@ auto get_adjacent_boundary_northeast(Mesh & mesh, std::size_t level, typename Me
 
     std::size_t coeff = 1 << (mesh.max_level() - level);
 
-    return mure::intersection(mure::difference(mure::difference(mure::difference(mesh.domain(), mure::translate(mesh.domain(), -coeff * d11)),
-                                              mure::translate(mesh.domain(), - coeff * yp)), // Removing vertical strip
-                                   mure::translate(mesh.domain(), - coeff * xp)), // Removing horizontal strip
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * d11)),
+                                              samurai::translate(mesh.domain(), - coeff * yp)), // Removing vertical strip
+                                   samurai::translate(mesh.domain(), - coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
 template<class Mesh>
@@ -505,9 +505,9 @@ auto get_adjacent_boundary_northwest(Mesh & mesh, std::size_t level, typename Me
 
     std::size_t coeff = 1 << (mesh.max_level() - level);
 
-    return mure::intersection(mure::difference(mure::difference(mure::difference(mesh.domain(), mure::translate(mesh.domain(), coeff * d1m1)),
-                                              mure::translate(mesh.domain(), - coeff * yp)), // Removing vertical strip
-                                   mure::translate(mesh.domain(), coeff * xp)), // Removing horizontal strip
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * d1m1)),
+                                              samurai::translate(mesh.domain(), - coeff * yp)), // Removing vertical strip
+                                   samurai::translate(mesh.domain(), coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
 template<class Mesh>
@@ -519,9 +519,9 @@ auto get_adjacent_boundary_southwest(Mesh & mesh, std::size_t level, typename Me
 
     std::size_t coeff = 1 << (mesh.max_level() - level);
 
-    return mure::intersection(mure::difference(mure::difference(mure::difference(mesh.domain(), mure::translate(mesh.domain(), coeff * d11)),
-                                              mure::translate(mesh.domain(), coeff * yp)), // Removing vertical strip
-                                   mure::translate(mesh.domain(), coeff * xp)), // Removing horizontal strip
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * d11)),
+                                              samurai::translate(mesh.domain(), coeff * yp)), // Removing vertical strip
+                                   samurai::translate(mesh.domain(), coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
 template<class Mesh>
@@ -533,9 +533,9 @@ auto get_adjacent_boundary_southeast(Mesh & mesh, std::size_t level, typename Me
 
     std::size_t coeff = 1 << (mesh.max_level() - level);
 
-    return mure::intersection(mure::difference(mure::difference(mure::difference(mesh.domain(), mure::translate(mesh.domain(), -coeff * d1m1)),
-                                              mure::translate(mesh.domain(), coeff * yp)), // Removing vertical strip
-                                   mure::translate(mesh.domain(), -coeff * xp)), // Removing horizontal strip
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * d1m1)),
+                                              samurai::translate(mesh.domain(), coeff * yp)), // Removing vertical strip
+                                   samurai::translate(mesh.domain(), -coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
 
@@ -556,11 +556,11 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
     auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
 
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     // if (max_level != min_level && iter == 105){
     //     std::stringstream s;
     //     s << "before_LB_scheme_projection_"<<iter;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, f);
     // }
     for (std::size_t level = min_level - 1; level <= max_level; ++level)
@@ -570,25 +570,25 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
     // if (max_level != min_level && iter == 105){
     //     std::stringstream s;
     //     s << "before_LB_scheme_update_bc_"<<iter;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, f);
     // }
-    mure::mr_prediction(f, update_bc_for_level);
+    samurai::mr_prediction(f, update_bc_for_level);
     // if (max_level != min_level && iter == 105){
     //     std::stringstream s;
     //     s << "before_LB_scheme_prediction_"<<iter;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, f);
     // }
     // f.update_bc(); // It is important to do so
 
-    mure::mr_prediction_overleaves(f, update_bc_for_level);
+    samurai::mr_prediction_overleaves(f, update_bc_for_level);
     // f.update_bc(); // It is important to do so
 
     // if (max_level != min_level && iter == 105){
     //     std::stringstream s;
     //     s << "before_LB_scheme_overleaves_"<<iter;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, f);
     // }
 
@@ -761,10 +761,10 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
             sw.reset();
 
             // Advection far from the boundary
-            auto tmp1 = mure::union_(mure::union_(mure::union_(leaves_east, leaves_north), leaves_west), leaves_south);
-            auto tmp2 = mure::union_(mure::union_(mure::union_(leaves_northeast, leaves_northwest), leaves_southwest), leaves_southeast);
-            auto all_leaves_boundary = mure::union_(tmp1, tmp2);
-            auto internal_leaves = mure::difference(mesh[mesh_id_t::cells][max_level],
+            auto tmp1 = samurai::union_(samurai::union_(samurai::union_(leaves_east, leaves_north), leaves_west), leaves_south);
+            auto tmp2 = samurai::union_(samurai::union_(samurai::union_(leaves_northeast, leaves_northwest), leaves_southwest), leaves_southeast);
+            auto all_leaves_boundary = samurai::union_(tmp1, tmp2);
+            auto internal_leaves = samurai::difference(mesh[mesh_id_t::cells][max_level],
                                       all_leaves_boundary).on(max_level); // It is very important to project at this point
 
             internal_leaves([&](auto& interval, auto& index) {
@@ -784,7 +784,7 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
             sw.reset();
 
             // Its time for collision which is local
-            auto leaves = mure::intersection(mesh[mesh_id_t::cells][max_level],
+            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
                                        mesh[mesh_id_t::cells][max_level]);
 
             leaves([&](auto& interval, auto& index) {
@@ -886,16 +886,16 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
             // This is necessary because the only overleaves we have to advect
             // on are the ones superposed with the leaves to which we come back
             // eventually in the process
-            auto overleaves_east = mure::intersection(get_adjacent_boundary_east(mesh, lev_p_1, mesh_id_t::overleaves),
+            auto overleaves_east = samurai::intersection(get_adjacent_boundary_east(mesh, lev_p_1, mesh_id_t::overleaves),
                                                 mesh[mesh_id_t::cells][level]);
 
-            auto overleaves_northeast = mure::intersection(get_adjacent_boundary_northeast(mesh, lev_p_1, mesh_id_t::overleaves),
+            auto overleaves_northeast = samurai::intersection(get_adjacent_boundary_northeast(mesh, lev_p_1, mesh_id_t::overleaves),
                                                 mesh[mesh_id_t::cells][level]);
 
-            auto overleaves_southeast = mure::intersection(get_adjacent_boundary_southeast(mesh, lev_p_1, mesh_id_t::overleaves),
+            auto overleaves_southeast = samurai::intersection(get_adjacent_boundary_southeast(mesh, lev_p_1, mesh_id_t::overleaves),
                                                 mesh[mesh_id_t::cells][level]);
 
-            auto touching_east = mure::union_(mure::union_(overleaves_east, overleaves_northeast),
+            auto touching_east = samurai::union_(samurai::union_(overleaves_east, overleaves_northeast),
                                         overleaves_southeast);
 
             // General
@@ -1013,16 +1013,16 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
             });
 
 
-            auto overleaves_west = mure::intersection(get_adjacent_boundary_west(mesh, lev_p_1, mesh_id_t::overleaves),
+            auto overleaves_west = samurai::intersection(get_adjacent_boundary_west(mesh, lev_p_1, mesh_id_t::overleaves),
                                                 mesh[mesh_id_t::cells][level]);
 
-            auto overleaves_northwest = mure::intersection(get_adjacent_boundary_northwest(mesh, lev_p_1, mesh_id_t::overleaves),
+            auto overleaves_northwest = samurai::intersection(get_adjacent_boundary_northwest(mesh, lev_p_1, mesh_id_t::overleaves),
                                                 mesh[mesh_id_t::cells][level]);
 
-            auto overleaves_southwest = mure::intersection(get_adjacent_boundary_southwest(mesh, lev_p_1, mesh_id_t::overleaves),
+            auto overleaves_southwest = samurai::intersection(get_adjacent_boundary_southwest(mesh, lev_p_1, mesh_id_t::overleaves),
                                                 mesh[mesh_id_t::cells][level]);
 
-            auto touching_west = mure::union_(mure::union_(overleaves_west, overleaves_northwest),
+            auto touching_west = samurai::union_(samurai::union_(overleaves_west, overleaves_northwest),
                                         overleaves_southwest);
 
             touching_west.on(lev_p_1)([&](auto& interval, auto& index) {
@@ -1140,14 +1140,14 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
             });
 
 
-            auto overleaves_south = mure::intersection(get_adjacent_boundary_south(mesh, lev_p_1, mesh_id_t::overleaves),
+            auto overleaves_south = samurai::intersection(get_adjacent_boundary_south(mesh, lev_p_1, mesh_id_t::overleaves),
                                                 mesh[mesh_id_t::cells][level]);
 
-            auto overleaves_north = mure::intersection(get_adjacent_boundary_north(mesh, lev_p_1, mesh_id_t::overleaves),
+            auto overleaves_north = samurai::intersection(get_adjacent_boundary_north(mesh, lev_p_1, mesh_id_t::overleaves),
                                                 mesh[mesh_id_t::cells][level]);
 
 
-            auto north_and_south = mure::union_(overleaves_south, overleaves_north);
+            auto north_and_south = samurai::union_(overleaves_south, overleaves_north);
 
             north_and_south.on(lev_p_1)([&](auto& interval, auto& index) {
                 auto k = interval; // Logical index in x
@@ -1258,8 +1258,8 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
 
 
             // // To update
-            auto overleaves_far_boundary = mure::difference(mesh[mesh_id_t::cells][level],
-                                                      mure::union_(mure::union_(touching_east, touching_west),
+            auto overleaves_far_boundary = samurai::difference(mesh[mesh_id_t::cells][level],
+                                                      samurai::union_(samurai::union_(touching_east, touching_west),
                                                              north_and_south)).on(lev_p_1);  // Again, it is very important to project before using
 
             overleaves_far_boundary([&](auto& interval, auto& index) {
@@ -1313,7 +1313,7 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
             sw.reset();
 
             // Now that projection has been done, we have to come back on the leaves below the overleaves
-            auto leaves = mure::intersection(mesh[mesh_id_t::cells][level],
+            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                              mesh[mesh_id_t::cells][level]);
 
             leaves([&](auto& interval, auto& index) {
@@ -1527,14 +1527,14 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     str << "LBM_D2Q4_3_Euler_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto level = mure::make_field<std::size_t, 1>("level", mesh);
-    auto rho = mure::make_field<value_t, 1>("rho", mesh);
-    auto qx = mure::make_field<value_t, 1>("qx", mesh);
-    auto qy = mure::make_field<value_t, 1>("qy", mesh);
-    auto e = mure::make_field<value_t, 1>("e", mesh);
-    auto s = mure::make_field<value_t, 1>("entropy", mesh);
+    auto level = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto rho = samurai::make_field<value_t, 1>("rho", mesh);
+    auto qx = samurai::make_field<value_t, 1>("qx", mesh);
+    auto qy = samurai::make_field<value_t, 1>("qy", mesh);
+    auto e = samurai::make_field<value_t, 1>("e", mesh);
+    auto s = samurai::make_field<value_t, 1>("entropy", mesh);
 
-    mure::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell) {
+    samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell) {
         level[cell] = cell.level;
         rho[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3];
         qx[cell]  = f[cell][4] + f[cell][5] + f[cell][6] + f[cell][7];
@@ -1546,7 +1546,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
         s[cell] = std::log(p / std::pow(rho[cell], gm));
     });
 
-    mure::save(str.str().data(), mesh, rho, qx, qy, e, s, f, level);
+    samurai::save(str.str().data(), mesh, rho, qx, qy, e, s, f, level);
 }
 
 
@@ -1705,14 +1705,14 @@ double compute_error(Field & f, FieldFull & f_full, Func&& update_bc_for_level)
 
     auto init_mesh = f_full.mesh();
 
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     for (std::size_t level = min_level - 1; level <= max_level; ++level)
     {
         update_bc_for_level(f, level); // It is important to do so
     }
-    mure::mr_prediction(f, update_bc_for_level);
+    samurai::mr_prediction(f, update_bc_for_level);
 
-    auto f_reconstructed = mure::make_field<value_t, size>("f_reconstructed", init_mesh);
+    auto f_reconstructed = samurai::make_field<value_t, size>("f_reconstructed", init_mesh);
     f_reconstructed.fill(0.);
 
     // For memoization
@@ -1729,7 +1729,7 @@ double compute_error(Field & f, FieldFull & f_full, Func&& update_bc_for_level)
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto leaves_on_finest = mure::intersection(mesh[mesh_id_t::cells][level],
+        auto leaves_on_finest = samurai::intersection(mesh[mesh_id_t::cells][level],
                                                    mesh[mesh_id_t::cells][level]);
 
         leaves_on_finest.on(max_level)([&](auto &interval, auto& index) {
@@ -1778,27 +1778,27 @@ void save_reconstructed(Field & f, FieldFull & f_full, Func&& update_bc_for_leve
 
     auto init_mesh = f_full.mesh();
 
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     for (std::size_t level = min_level - 1; level <= max_level; ++level)
     {
         update_bc_for_level(f, level); // It is important to do so
     }
-    mure::mr_prediction(f, update_bc_for_level);
+    samurai::mr_prediction(f, update_bc_for_level);
 
-    auto f_reconstructed = mure::make_field<value_t, size>("f_reconstructed", init_mesh); // To reconstruct all and see entropy
+    auto f_reconstructed = samurai::make_field<value_t, size>("f_reconstructed", init_mesh); // To reconstruct all and see entropy
     f_reconstructed.fill(0.);
 
-    auto rho_reconstructed = mure::make_field<value_t, 1>("rho_reconstructed", init_mesh);
-    auto qx_reconstructed = mure::make_field<value_t, 1>("qx_reconstructed", init_mesh);
-    auto qy_reconstructed = mure::make_field<value_t, 1>("qy_reconstructed", init_mesh);
-    auto E_reconstructed = mure::make_field<value_t, 1>("E_reconstructed", init_mesh);
-    auto s_reconstructed = mure::make_field<value_t, 1>("s_reconstructed", init_mesh);
+    auto rho_reconstructed = samurai::make_field<value_t, 1>("rho_reconstructed", init_mesh);
+    auto qx_reconstructed = samurai::make_field<value_t, 1>("qx_reconstructed", init_mesh);
+    auto qy_reconstructed = samurai::make_field<value_t, 1>("qy_reconstructed", init_mesh);
+    auto E_reconstructed = samurai::make_field<value_t, 1>("E_reconstructed", init_mesh);
+    auto s_reconstructed = samurai::make_field<value_t, 1>("s_reconstructed", init_mesh);
 
-    auto rho = mure::make_field<value_t, 1>("rho", init_mesh);
-    auto qx = mure::make_field<value_t, 1>("qx", init_mesh);
-    auto qy = mure::make_field<value_t, 1>("qy", init_mesh);
-    auto E = mure::make_field<value_t, 1>("E", init_mesh);
-    auto s = mure::make_field<value_t, 1>("s", init_mesh);
+    auto rho = samurai::make_field<value_t, 1>("rho", init_mesh);
+    auto qx = samurai::make_field<value_t, 1>("qx", init_mesh);
+    auto qy = samurai::make_field<value_t, 1>("qy", init_mesh);
+    auto E = samurai::make_field<value_t, 1>("E", init_mesh);
+    auto s = samurai::make_field<value_t, 1>("s", init_mesh);
 
 
     // For memoization
@@ -1813,7 +1813,7 @@ void save_reconstructed(Field & f, FieldFull & f_full, Func&& update_bc_for_leve
         auto number_leaves = mesh.nb_cells(level, mesh_id_t::cells);
 
 
-        auto leaves_on_finest = mure::intersection(mesh[mesh_id_t::cells][level],
+        auto leaves_on_finest = samurai::intersection(mesh[mesh_id_t::cells][level],
                                                     mesh[mesh_id_t::cells][level]);
 
         leaves_on_finest.on(max_level)([&](auto& interval, auto& index) {
@@ -1883,7 +1883,7 @@ void save_reconstructed(Field & f, FieldFull & f_full, Func&& update_bc_for_leve
     str << "Euler_Reconstruction_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    mure::save(str.str().data(), init_mesh, rho_reconstructed,s_reconstructed, rho, s);
+    samurai::save(str.str().data(), init_mesh, rho_reconstructed,s_reconstructed, rho, s);
 }
 
 
@@ -1920,7 +1920,7 @@ int main(int argc, char *argv[])
                                                                {"warning", spdlog::level::warn},
                                                                {"info", spdlog::level::info}};
             constexpr size_t dim = 2;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = samurai::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
@@ -1929,15 +1929,15 @@ int main(int argc, char *argv[])
             double eps = result["epsilon"].as<double>();
             double regularity = result["reg"].as<double>();
 
-            mure::Box<double, dim> box({0, 0}, {1, 1});
-            mure::MRMesh<Config> mesh(box, min_level, max_level);
-            using mesh_id_t = typename mure::MRMesh<Config>::mesh_id_t;
+            samurai::Box<double, dim> box({0, 0}, {1, 1});
+            samurai::MRMesh<Config> mesh(box, min_level, max_level);
+            using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
 
-            // mure::Mesh<Config> mesh_old{box, min_level, max_level};
-            mure::MRMesh<Config> mesh_ref{box, max_level, max_level};
+            // samurai::Mesh<Config> mesh_old{box, min_level, max_level};
+            samurai::MRMesh<Config> mesh_ref{box, max_level, max_level};
 
 
-            using coord_index_t = typename mure::MRMesh<Config>::coord_index_t;
+            using coord_index_t = typename samurai::MRMesh<Config>::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
 
 
@@ -1986,7 +1986,7 @@ int main(int argc, char *argv[])
                 update_bc_D2Q4_3_Euler_constant_extension(field, level);
             };
 
-            auto MRadaptation = mure::make_MRAdapt(f, update_bc_for_level);
+            auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
             for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
@@ -2013,7 +2013,7 @@ int main(int argc, char *argv[])
 
                     MRadaptation(eps, regularity);
                     // auto mesh_old = mesh;
-                    // mure::Field<Config, double, 16> f_old{"u", mesh_old};
+                    // samurai::Field<Config, double, 16> f_old{"u", mesh_old};
                     // f_old.array() = f.array();
                     // for (std::size_t i=0; i<max_level-min_level; ++i)
                     // {
@@ -2033,7 +2033,7 @@ int main(int argc, char *argv[])
                 // if (nb_ite == 0)   {
                 //     std::stringstream s;
                 //     s << "u_by_level_beginning_"<<nb_ite;
-                //     auto h5file = mure::Hdf5(s.str().data());
+                //     auto h5file = samurai::Hdf5(s.str().data());
                 //     h5file.add_field_by_level(f.mesh(), f);
 
                 // }

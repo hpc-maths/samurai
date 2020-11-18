@@ -4,20 +4,20 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
 
 template<class Config>
-auto init_f(mure::Mesh<Config> &mesh, double t)
+auto init_f(samurai::Mesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 2;
-    mure::BC<1> bc{ {{ {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
+    samurai::BC<1> bc{ {{ {samurai::BCType::dirichlet, 0},
+                       {samurai::BCType::dirichlet, 0},
                     }} };
 
-    mure::Field<Config, double, nvel> f("f", mesh, bc);
+    samurai::Field<Config, double, nvel> f("f", mesh, bc);
     f.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -36,7 +36,7 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 
         //double u = exp(-20.0 * x * x);
 
-        //double v = .5 * u; 
+        //double v = .5 * u;
         double v = .5 * u * u;
 
         f[cell][0] = .5 * (u + v);
@@ -63,8 +63,8 @@ auto prediction(const Field& f, std::size_t level_g, std::size_t level, const in
     {
         d[iii] = (ii & 1)? -1.: 1.;
     }
-  
-    return xt::eval(prediction(f, level_g, level-1, ig, item) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item) 
+
+    return xt::eval(prediction(f, level_g, level-1, ig, item) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item)
                                                                           - prediction(f, level_g, level-1, ig-1, item)));
 }
 
@@ -76,16 +76,16 @@ void one_time_step(Field &f)
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
 
-    mure::mr_projection(f);
-    mure::mr_prediction(f);
+    samurai::mr_projection(f);
+    samurai::mr_prediction(f);
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
-                                      mesh[mure::MeshType::cells][level]);
+        auto exp = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                      mesh[samurai::MeshType::cells][level]);
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
@@ -141,10 +141,10 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext)
     str << "LBM_D1Q2_Burgers_same_level_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
-    mure::Field<Config> u{"u", mesh};
+    samurai::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> u{"u", mesh};
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
         u[cell] = f[cell][0] + f[cell][1];
@@ -177,21 +177,21 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 1;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = samurai::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
 
-            mure::Box<double, dim> box({-3}, {3});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
-            // mure::Mesh<Config> mesh_old{box, min_level, max_level};
+            samurai::Box<double, dim> box({-3}, {3});
+            samurai::Mesh<Config> mesh{box, min_level, max_level};
+            // samurai::Mesh<Config> mesh_old{box, min_level, max_level};
 
-            // mure::CellList<Config> cl;
+            // samurai::CellList<Config> cl;
             // cl[6][{}].add_interval({-192, 0});
             // cl[5][{}].add_interval({0, 96});
-            // mure::Mesh<Config> mesh{cl, mesh_old.initial_mesh(), min_level, max_level};
+            // samurai::Mesh<Config> mesh{cl, mesh_old.initial_mesh(), min_level, max_level};
 
             // Initialization
             auto f = init_f(mesh, 0);

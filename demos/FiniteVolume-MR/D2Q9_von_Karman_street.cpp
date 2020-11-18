@@ -4,7 +4,7 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
@@ -26,17 +26,17 @@ double zeta = 10. * mu; // Shear viscosity
 // because they depend on the space step of the scheme
 
 
-// This construct the mesh with a hole inside corresponding 
+// This construct the mesh with a hole inside corresponding
 // to the obstacle
 template<class Config>
 auto build_mesh(std::size_t min_level, std::size_t max_level)
 {
     constexpr std::size_t dim = Config::dim;
 
-    mure::Box<double, dim> box({0, 0}, {2, 1});
-    mure::Mesh<Config> mesh{box, min_level, max_level};
+    samurai::Box<double, dim> box({0, 0}, {2, 1});
+    samurai::Mesh<Config> mesh{box, min_level, max_level};
 
-    mure::CellList<Config> cl;
+    samurai::CellList<Config> cl;
     mesh.for_each_cell([&](auto &cell) {
         auto center = cell.center();
         auto x = center[0];
@@ -45,7 +45,7 @@ auto build_mesh(std::size_t min_level, std::size_t max_level)
         double radius = 1./32.;
         double x_center = 5./16., y_center = 0.5;
 
-        if ((   std::max(std::abs(x - x_center), 
+        if ((   std::max(std::abs(x - x_center),
                 std::abs(y - y_center)))
                 > radius)
         {
@@ -56,22 +56,22 @@ auto build_mesh(std::size_t min_level, std::size_t max_level)
     // It is important to add the initial mesh argument
     // in order to have it available during the simuation, especially
     // to deal with the boundary
-    mure::Mesh<Config> new_mesh(cl, mesh.initial_mesh(), min_level, max_level);
+    samurai::Mesh<Config> new_mesh(cl, mesh.initial_mesh(), min_level, max_level);
     return new_mesh;
 }
 
 
 template<class Config>
-auto init_f(mure::Mesh<Config> &mesh)
+auto init_f(samurai::Mesh<Config> &mesh)
 {
     constexpr std::size_t nvel = 9;
-    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0}
+    samurai::BC<2> bc{ {{ {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0}
                     }} };
 
-    mure::Field<Config, double, nvel> f("f", mesh, bc);
+    samurai::Field<Config, double, nvel> f("f", mesh, bc);
     f.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -119,10 +119,10 @@ auto init_f(mure::Mesh<Config> &mesh)
 
 
 // I do many separate functions because the return type
-// is not necessarely the same between directions and I want to avoid 
+// is not necessarely the same between directions and I want to avoid
 // using a template, which indeed comes back to the same than this.
-template<class Mesh> 
-auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -132,23 +132,23 @@ auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, mure::MeshType t
     return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), -coeff * xp)),
                                               difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), -coeff * yp))), // Removing NE
                                    difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), coeff * yp))), // Removing SE
-                        mesh[type][level]);        
+                        mesh[type][level]);
 }
 
-template<class Mesh> 
+template<class Mesh>
 auto get_adjacent_hole_west(Mesh & mesh)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
 
-    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], -xp)),
-                                              difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], -yp))),
-                                   difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], yp))),
-                        contraction(mesh.initial_mesh()));        
+    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], -xp)),
+                                              difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], -yp))),
+                                   difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], yp))),
+                        contraction(mesh.initial_mesh()));
 }
 
-template<class Mesh> 
-auto get_adjacent_boundary_north(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_north(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -161,33 +161,33 @@ auto get_adjacent_boundary_north(Mesh & mesh, std::size_t level, mure::MeshType 
                         mesh[type][level]);//.on(level);
 }
 
-// template<class Mesh> 
+// template<class Mesh>
 // auto get_adjacent_hole_south(Mesh & mesh)
 // {
 //     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
 //     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
 
-//     return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], -yp)),
-//                                               difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], -xp))),
-//                                    difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], xp))),
-//                         contraction(mesh.initial_mesh()));        
+//     return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], -yp)),
+//                                               difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], -xp))),
+//                                    difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], xp))),
+//                         contraction(mesh.initial_mesh()));
 // }
 
-template<class Mesh> 
+template<class Mesh>
 auto get_adjacent_hole_south(Mesh & mesh)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
 
-    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], -yp)),
-                                              difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], -xp))),
-                                   difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], xp))),
-                        contraction(mesh.initial_mesh()));        
+    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], -yp)),
+                                              difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], -xp))),
+                                   difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], xp))),
+                        contraction(mesh.initial_mesh()));
 }
 
 
-template<class Mesh> 
-auto get_adjacent_boundary_west(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_west(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -200,21 +200,21 @@ auto get_adjacent_boundary_west(Mesh & mesh, std::size_t level, mure::MeshType t
                         mesh[type][level]);//.on(level);
 }
 
-template<class Mesh> 
+template<class Mesh>
 auto get_adjacent_hole_east(Mesh & mesh)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
 
-    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], xp)),
-                                              difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], -yp))),
-                                   difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], yp))),
-                        contraction(mesh.initial_mesh()));        
+    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], xp)),
+                                              difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], -yp))),
+                                   difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], yp))),
+                        contraction(mesh.initial_mesh()));
 }
 
 
-template<class Mesh> 
-auto get_adjacent_boundary_south(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_south(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -227,21 +227,21 @@ auto get_adjacent_boundary_south(Mesh & mesh, std::size_t level, mure::MeshType 
                         mesh[type][level]);//.on(level);
 }
 
-template<class Mesh> 
+template<class Mesh>
 auto get_adjacent_hole_north(Mesh & mesh)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
 
-    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], yp)),
-                                              difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], -xp))),
-                                   difference(mesh.initial_mesh(), translate(mesh[mure::MeshType::cells][mesh.max_level()], xp))),
-                        contraction(mesh.initial_mesh()));        
+    return intersection(difference(difference(difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], yp)),
+                                              difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], -xp))),
+                                   difference(mesh.initial_mesh(), translate(mesh[samurai::MeshType::cells][mesh.max_level()], xp))),
+                        contraction(mesh.initial_mesh()));
 }
 
 
-template<class Mesh> 
-auto get_adjacent_boundary_northeast(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_northeast(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -254,8 +254,8 @@ auto get_adjacent_boundary_northeast(Mesh & mesh, std::size_t level, mure::MeshT
                                    translate(mesh.initial_mesh(), - coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_northwest(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_northwest(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -268,8 +268,8 @@ auto get_adjacent_boundary_northwest(Mesh & mesh, std::size_t level, mure::MeshT
                                    translate(mesh.initial_mesh(), coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_southwest(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_southwest(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -282,8 +282,8 @@ auto get_adjacent_boundary_southwest(Mesh & mesh, std::size_t level, mure::MeshT
                                    translate(mesh.initial_mesh(), coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_southeast(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_southeast(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -317,21 +317,21 @@ void verification_boundary(Field &f)
     auto full = intersection(mesh.initial_mesh(), mesh.initial_mesh());
     full.on(max_level)([&](auto& index, auto &interval, auto) {
         auto k = interval[0]; // Logical index in x
-        auto h = index[0];    // Logical index in y 
-        
+        auto h = index[0];    // Logical index in y
+
         std::cout<<std::endl<<"Full k = "<<k<<" h = "<<h<<std::endl;
-            
-    }); 
+
+    });
 
 
     std::cout<<std::endl<<"Expansion"<<std::endl<<std::endl;
     auto red = intersection(mesh.initial_mesh(), expand(mesh.initial_mesh()));
     red.on(max_level)([&](auto& index, auto &interval, auto) {
         auto k = interval[0]; // Logical index in x
-        auto h = index[0];    // Logical index in y 
-        
+        auto h = index[0];    // Logical index in y
+
         std::cout<<std::endl<<"Exp k = "<<k<<" h = "<<h<<std::endl;
-            
+
     });
 
     return;
@@ -341,38 +341,38 @@ void verification_boundary(Field &f)
     auto leaves_west_hole = get_adjacent_hole_west(mesh);
     leaves_west_hole.on(max_level)([&](auto& index, auto &interval, auto) {
         auto k = interval[0]; // Logical index in x
-        auto h = index[0];    // Logical index in y 
-        
+        auto h = index[0];    // Logical index in y
+
         std::cout<<std::endl<<"West hole last cells k = "<<k<<" h = "<<h<<std::endl;
-            
-    }); 
+
+    });
 
     auto leaves_east_hole = get_adjacent_hole_east(mesh);
     leaves_east_hole.on(max_level)([&](auto& index, auto &interval, auto) {
         auto k = interval[0]; // Logical index in x
-        auto h = index[0];    // Logical index in y 
-        
+        auto h = index[0];    // Logical index in y
+
         std::cout<<std::endl<<"East hole last cells k = "<<k<<" h = "<<h<<std::endl;
-            
-    }); 
+
+    });
 
     auto leaves_east_north = get_adjacent_hole_north(mesh);
     leaves_east_north.on(max_level)([&](auto& index, auto &interval, auto) {
         auto k = interval[0]; // Logical index in x
-        auto h = index[0];    // Logical index in y 
-        
+        auto h = index[0];    // Logical index in y
+
         std::cout<<std::endl<<"North hole last cells k = "<<k<<" h = "<<h<<std::endl;
-            
-    }); 
+
+    });
 
     auto leaves_east_south = get_adjacent_hole_south(mesh);
     leaves_east_south.on(max_level)([&](auto& index, auto &interval, auto) {
         auto k = interval[0]; // Logical index in x
-        auto h = index[0];    // Logical index in y 
-        
+        auto h = index[0];    // Logical index in y
+
         std::cout<<std::endl<<"South hole last cells k = "<<k<<" h = "<<h<<std::endl;
-            
-    }); 
+
+    });
 }
 
 
@@ -388,23 +388,23 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     str << "LBM_D2Q9_von_Karman_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
-    mure::Field<Config> rho{"rho", mesh};
-    mure::Field<Config> qx{"qx", mesh};
-    mure::Field<Config> qy{"qy", mesh};
-    mure::Field<Config> vel_mod{"vel_modulus", mesh};
+    samurai::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> rho{"rho", mesh};
+    samurai::Field<Config> qx{"qx", mesh};
+    samurai::Field<Config> qy{"qy", mesh};
+    samurai::Field<Config> vel_mod{"vel_modulus", mesh};
 
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
-        rho[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3] + f[cell][4] 
+        rho[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3] + f[cell][4]
                                + f[cell][5] + f[cell][6] + f[cell][7] + f[cell][8];
 
         qx[cell] = lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]);
         qy[cell] = lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]);
 
-        vel_mod[cell] = xt::sqrt(qx[cell] * qx[cell] 
+        vel_mod[cell] = xt::sqrt(qx[cell] * qx[cell]
                                + qy[cell] * qy[cell]) / rho[cell];
 
     });
@@ -444,7 +444,7 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 2;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = samurai::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();

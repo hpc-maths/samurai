@@ -20,7 +20,7 @@ import sphinx_rtd_theme
 
 # -- Project information -----------------------------------------------------
 
-project = 'MuRe'
+project = 'Samurai'
 copyright = '2019, Loic Gouarin'
 author = 'Loic Gouarin'
 
@@ -46,7 +46,7 @@ extensions = [
     'sphinx_rtd_theme',
 ]
 
-breathe_projects = { 'mure': '../xml' }
+breathe_projects = { 'samurai': '../xml' }
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -113,7 +113,7 @@ html_css_files = [
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'MuRedoc'
+htmlhelp_basename = 'Samuraidoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -140,7 +140,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'MuRe.tex', 'MuRe Documentation',
+    (master_doc, 'samurai.tex', 'Samurai Documentation',
      'Loic Gouarin', 'manual'),
 ]
 
@@ -150,7 +150,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'mure', 'MuRe Documentation',
+    (master_doc, 'samurai', 'Samurai Documentation',
      [author], 1)
 ]
 
@@ -161,8 +161,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'MuRe', 'MuRe Documentation',
-     author, 'MuRe', 'One line description of project.',
+    (master_doc, 'Samurai', 'Samurai Documentation',
+     author, 'Samurai developers', 'One line description of project.',
      'Miscellaneous'),
 ]
 

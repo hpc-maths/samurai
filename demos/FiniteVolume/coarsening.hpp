@@ -1,43 +1,43 @@
 #pragma once
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "criteria.hpp"
 
 template <class Config>
-bool coarsening(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
+bool coarsening(samurai::Field<Config> &u, std::size_t ite, std::size_t nt)
 {
     constexpr auto dim = Config::dim;
     using interval_t = typename Config::interval_t;
 
     auto mesh = u.mesh();
     std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
-    mure::Field<Config> grad{"grad", mesh};
-    mure::Field<Config, int> tag{"tag", mesh};
-    tag.array().fill(static_cast<int>(mure::CellFlag::keep));
+    samurai::Field<Config> grad{"grad", mesh};
+    samurai::Field<Config, int> tag{"tag", mesh};
+    tag.array().fill(static_cast<int>(samurai::CellFlag::keep));
 
-    mure::mr_projection(u);
-    mure::amr_prediction(u);
+    samurai::mr_projection(u);
+    samurai::amr_prediction(u);
     u.update_bc();
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
-                                        mesh[mure::MeshType::cells][level]);
+        auto subset = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                        mesh[samurai::MeshType::cells][level]);
         subset.apply_op(compute_gradient(u, grad));
     }
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
-                                         mesh[mure::MeshType::all_cells][level-1]).on(level-1);
+        auto subset = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                         mesh[samurai::MeshType::all_cells][level-1]).on(level-1);
         subset.apply_op(to_coarsen_amr(grad, tag, min_level));
     }
 
     for (std::size_t level = max_level; level > 0; --level)
     {
         auto keep_subset =
-            intersection(mesh[mure::MeshType::cells][level],
-                         mesh[mure::MeshType::all_cells][level - 1])
+            intersection(mesh[samurai::MeshType::cells][level],
+                         mesh[samurai::MeshType::all_cells][level - 1])
                 .on(level - 1);
 
         keep_subset.apply_op(maximum(tag));
@@ -55,9 +55,9 @@ bool coarsening(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
 
                     auto subset =
                         intersection(
-                            mesh[mure::MeshType::cells][level],
+                            mesh[samurai::MeshType::cells][level],
                             translate(
-                                mesh[mure::MeshType::cells][level - 1], stencil))
+                                mesh[samurai::MeshType::cells][level - 1], stencil))
                             .on(level - 1);
 
                     subset.apply_op(balance_2to1(tag, stencil));
@@ -66,17 +66,17 @@ bool coarsening(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
         }
     }
 
-    mure::CellList<Config> cell_list;
+    samurai::CellList<Config> cell_list;
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto level_cell_array = mesh[mure::MeshType::cells][level];
+        auto level_cell_array = mesh[samurai::MeshType::cells][level];
 
         if (!level_cell_array.empty())
         {
             level_cell_array.for_each_interval_in_x([&](auto const &index_yz, auto const &interval) {
                 for (int i = interval.start; i < interval.end; ++i)
                 {
-                    if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::keep))
+                    if (tag.array()[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
                     {
                         cell_list[level][index_yz].add_point(i);
                     }
@@ -88,18 +88,18 @@ bool coarsening(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
             });
         }
     }
-    mure::Mesh<Config> new_mesh{cell_list, mesh.initial_mesh(),
+    samurai::Mesh<Config> new_mesh{cell_list, mesh.initial_mesh(),
                             min_level, max_level};
 
     if (new_mesh == mesh)
         return true;
 
-    mure::Field<Config> new_u{u.name(), new_mesh, u.bc()};
+    samurai::Field<Config> new_u{u.name(), new_mesh, u.bc()};
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
-                                   new_mesh[mure::MeshType::cells][level]);
+        auto subset = samurai::intersection(mesh[samurai::MeshType::all_cells][level],
+                                   new_mesh[samurai::MeshType::cells][level]);
         subset.apply_op(copy(new_u, u));
     }
 

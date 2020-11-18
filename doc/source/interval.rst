@@ -27,7 +27,7 @@ For each level, the intervals are:
 
 - level 0: :math:`[0, 2[`, :math:`[5, 6[`
 - level 1: :math:`[4, 7[`, :math:`[8, 10[`
-- level 2: :math:`[15, 17[`
+- level 2: :math:`[14, 16[`
 
 And the real intervals given by the level and :math:`\Delta x` are
 
@@ -45,7 +45,7 @@ For each interval, the index plus the start of the interval must be equal to the
 
 - level 0: :math:`[0, 2[@0`, :math:`[5, 6[@-3`
 - level 1: :math:`[4, 7[@-1`, :math:`[8, 10[@-2`
-- level 2: :math:`[15, 17[@-7`
+- level 2: :math:`[14, 16[@-7`
 
 The following code uses |project| to make exactly the 1D domain described previously
 

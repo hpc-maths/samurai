@@ -2,15 +2,15 @@
 
 #include <array>
 
-#include <mure/box.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
-#include <mure/mr/coarsening.hpp>
-#include <mure/mr/mesh.hpp>
-#include <mure/mr/mr_config.hpp>
-#include <mure/mr/pred_and_proj.hpp>
-#include <mure/mr/refinement.hpp>
-#include <mure/stencil_field.hpp>
+#include <samurai/box.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
+#include <samurai/mr/coarsening.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mr_config.hpp>
+#include <samurai/mr/pred_and_proj.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/stencil_field.hpp>
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -30,9 +30,9 @@ double toc()
 }
 
 template<class Config>
-mure::Field<Config> init_u(mure::Mesh<Config> &mesh)
+samurai::Field<Config> init_u(samurai::Mesh<Config> &mesh)
 {
-    mure::Field<Config> u("u", mesh);
+    samurai::Field<Config> u("u", mesh);
     u.array().fill(0);
 
     // mesh.for_each_cell([&](auto &cell) {
@@ -67,13 +67,13 @@ mure::Field<Config> init_u(mure::Mesh<Config> &mesh)
 int main()
 {
     constexpr size_t dim = 2;
-    using Config = mure::MRConfig<dim, 1, 1, 8>;
+    using Config = samurai::MRConfig<dim, 1, 1, 8>;
 
     double dt = .001;
     std::array<double, dim> a{1, 0};
 
-    mure::Box<double, dim> box({-1, -1}, {1, 1});
-    mure::Mesh<Config> mesh{box, 5};
+    samurai::Box<double, dim> box({-1, -1}, {1, 1});
+    samurai::Mesh<Config> mesh{box, 5};
 
     // Initialization
     auto u = init_u(mesh);
@@ -83,20 +83,20 @@ int main()
     tic();
     for (std::size_t i = 0; i < 2; ++i)
     {
-        mure::Field<Config> detail{"detail", mesh};
+        samurai::Field<Config> detail{"detail", mesh};
         detail.array().fill(0);
-        mure::mr_projection(u);
-        mure::mr_prediction(u);
-        mure::coarsening(detail, u, eps, i);
+        samurai::mr_projection(u);
+        samurai::mr_prediction(u);
+        samurai::coarsening(detail, u, eps, i);
     }
     std::cout << "coarsening " << toc() << "\n";
 
-    mure::mr_projection(u);
-    mure::mr_prediction(u);
+    samurai::mr_projection(u);
+    samurai::mr_prediction(u);
 
-    auto h5file = mure::Hdf5("advection_coarsening");
+    auto h5file = samurai::Hdf5("advection_coarsening");
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> level_{"level", mesh};
     mesh.for_each_cell(
         [&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
     h5file.add_field(u);
@@ -107,15 +107,15 @@ int main()
     tic();
     for (std::size_t i = 0; i < 1; ++i)
     {
-        mure::Field<Config> detail{"detail", mesh};
+        samurai::Field<Config> detail{"detail", mesh};
         detail.array().fill(0);
-        mure::mr_projection(u);
-        mure::mr_prediction(u);
-        mure::refinement(detail, u, eps);
+        samurai::mr_projection(u);
+        samurai::mr_prediction(u);
+        samurai::refinement(detail, u, eps);
     }
     std::cout << "refinement " << toc() << "\n";
 
-    auto h5file_1 = mure::Hdf5("advection_refinement");
+    auto h5file_1 = samurai::Hdf5("advection_refinement");
     h5file_1.add_mesh(mesh);
     h5file_1.add_field(u);
 
@@ -126,11 +126,11 @@ int main()
     // // {
     // //     mesh.make_projection(u);
     // //     mesh.make_prediction(u);
-    // //     u = u - dt * mure::upwind(a, u);
+    // //     u = u - dt * samurai::upwind(a, u);
 
     // //     for (std::size_t i = 0; i < 10; ++i)
     // //     {
-    // //         mure::Field<Config> detail{"detail", mesh};
+    // //         samurai::Field<Config> detail{"detail", mesh};
     // //         detail.array().fill(0);
     // //         mesh.make_projection(u);
     // //         mesh.make_prediction(u);
@@ -139,7 +139,7 @@ int main()
 
     // //     for (std::size_t i = 0; i < 1; ++i)
     // //     {
-    // //         mure::Field<Config> detail{"detail", mesh};
+    // //         samurai::Field<Config> detail{"detail", mesh};
     // //         detail.array().fill(0);
     // //         mesh.make_projection(u);
     // //         mesh.make_prediction(u);
@@ -148,7 +148,7 @@ int main()
     // // }
     // // std::cout << toc() << "\n";
 
-    // // auto h5file_final = mure::Hdf5("advection");
+    // // auto h5file_final = samurai::Hdf5("advection");
     // // h5file_final.add_mesh(mesh);
     // // h5file_final.add_field(u);
     return 0;

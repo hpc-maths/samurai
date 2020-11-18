@@ -1,11 +1,11 @@
 #pragma once
 
-#include <mure/operators_base.hpp>
+#include <samurai/operators_base.hpp>
 
 #define EPS_G 5.e-5
 #define EPS_F 1e-1
 
-namespace mure
+namespace samurai
 {
     template<class TInterval>
     class compute_gradient_op : public field_operator_base<TInterval> {
@@ -108,8 +108,8 @@ namespace mure
 
             if (level > min_level)
             {
-                xt::masked_view(tag(level, 2*i  ), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                xt::masked_view(tag(level, 2*i+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                xt::masked_view(tag(level, 2*i  ), mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                xt::masked_view(tag(level, 2*i+1), mask) = static_cast<int>(samurai::CellFlag::coarsen);
             }
         }
 
@@ -123,10 +123,10 @@ namespace mure
 
             if (level > min_level)
             {
-                xt::masked_view(tag(level, 2*i  ,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                xt::masked_view(tag(level, 2*i+1,   2*j), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
-                xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(mure::CellFlag::coarsen);
+                xt::masked_view(tag(level, 2*i  ,   2*j), mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                xt::masked_view(tag(level, 2*i+1,   2*j), mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                xt::masked_view(tag(level, 2*i  , 2*j+1), mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                xt::masked_view(tag(level, 2*i+1, 2*j+1), mask) = static_cast<int>(samurai::CellFlag::coarsen);
             }
         }
     };
@@ -149,9 +149,9 @@ namespace mure
             if (level < max_level)
             {
                 auto mask1 = grad(level, 2*i) > EPS_F;
-                xt::masked_view(tag(level, 2*i), mask1) = static_cast<int>(mure::CellFlag::refine);
+                xt::masked_view(tag(level, 2*i), mask1) = static_cast<int>(samurai::CellFlag::refine);
                 auto mask2 = grad(level, 2*i+1) > EPS_F;
-                xt::masked_view(tag(level, 2*i+1), mask2) = static_cast<int>(mure::CellFlag::refine);
+                xt::masked_view(tag(level, 2*i+1), mask2) = static_cast<int>(samurai::CellFlag::refine);
             }
         }
 
@@ -161,13 +161,13 @@ namespace mure
             if (level < max_level)
             {
                 auto mask1 = grad(level, 2*i, 2*j) > EPS_F;
-                xt::masked_view(tag(level, 2*i, 2*j), mask1) = static_cast<int>(mure::CellFlag::refine);
+                xt::masked_view(tag(level, 2*i, 2*j), mask1) = static_cast<int>(samurai::CellFlag::refine);
                 auto mask2 = grad(level, 2*i+1, 2*j) > EPS_F;
-                xt::masked_view(tag(level, 2*i+1, 2*j), mask2) = static_cast<int>(mure::CellFlag::refine);
+                xt::masked_view(tag(level, 2*i+1, 2*j), mask2) = static_cast<int>(samurai::CellFlag::refine);
                 auto mask3 = grad(level, 2*i, 2*j+1) > EPS_F;
-                xt::masked_view(tag(level, 2*i, 2*j+1), mask3) = static_cast<int>(mure::CellFlag::refine);
+                xt::masked_view(tag(level, 2*i, 2*j+1), mask3) = static_cast<int>(samurai::CellFlag::refine);
                 auto mask4 = grad(level, 2*i+1, 2*j+1) > EPS_F;
-                xt::masked_view(tag(level, 2*i+1, 2*j+1), mask4) = static_cast<int>(mure::CellFlag::refine);
+                xt::masked_view(tag(level, 2*i+1, 2*j+1), mask4) = static_cast<int>(samurai::CellFlag::refine);
             }
         }
     };
@@ -188,14 +188,14 @@ namespace mure
         inline void operator()(Dim<1>, T &tag) const
         {
             auto refine_mask =
-                tag(level, i) & static_cast<int>(mure::CellFlag::refine);
+                tag(level, i) & static_cast<int>(samurai::CellFlag::refine);
 
 
             int added_cells = 2; // 1 by default
 
             for (int ii = -added_cells; ii < added_cells + 1; ++ii)
             {
-                xt::masked_view(tag(level, i + ii), refine_mask) |= static_cast<int>(mure::CellFlag::keep);
+                xt::masked_view(tag(level, i + ii), refine_mask) |= static_cast<int>(samurai::CellFlag::keep);
             }
         }
 
@@ -203,13 +203,13 @@ namespace mure
         inline void operator()(Dim<2>, T &tag) const
         {
             auto refine_mask =
-                tag(level, i, j) & static_cast<int>(mure::CellFlag::refine);
+                tag(level, i, j) & static_cast<int>(samurai::CellFlag::refine);
 
             for (int jj = -1; jj < 2; ++jj)
             {
                 for (int ii = -1; ii < 2; ++ii)
                 {
-                    xt::masked_view(tag(level, i + ii, j + jj), refine_mask) |= static_cast<int>(mure::CellFlag::keep);
+                    xt::masked_view(tag(level, i + ii, j + jj), refine_mask) |= static_cast<int>(samurai::CellFlag::keep);
                 }
             }
         }

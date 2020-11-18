@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.1)
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    project(mure-test)
+    project(samurai-test)
 
-    find_package(mure REQUIRED CONFIG)
-    set(MURE_INCLUDE_DIR ${xtensor_INCLUDE_DIRS})
+    find_package(samurai REQUIRED CONFIG)
+    set(SAMURAI_INCLUDE_DIR ${xtensor_INCLUDE_DIRS})
 endif ()
 
 message(STATUS "Forcing tests build type to Release")
@@ -81,7 +81,7 @@ set(COMMON_BASE
     main.cpp
 )
 
-set(MURE_TESTS
+set(SAMURAI_TESTS
     test_box.cpp
     test_cell.cpp
     test_cell_list.cpp
@@ -98,12 +98,12 @@ include(GoogleTest)
 
 find_package(rapidcheck)
 
-foreach(filename IN LISTS MURE_TESTS)
+foreach(filename IN LISTS SAMURAI_TESTS)
     string(REPLACE ".cpp" "" targetname ${filename})
-    add_executable(${targetname} ${COMMON_BASE} ${filename} ${MURE_HEADERS})
-    target_include_directories(${targetname} PRIVATE ${MURE_INCLUDE_DIR})
-    target_link_libraries(${targetname} mure ${GTEST_BOTH_LIBRARIES} rapidcheck)
-    # target_link_libraries(${targetname} mure ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+    add_executable(${targetname} ${COMMON_BASE} ${filename} ${SAMURAI_HEADERS})
+    target_include_directories(${targetname} PRIVATE ${SAMURAI_INCLUDE_DIR})
+    target_link_libraries(${targetname} samurai ${GTEST_BOTH_LIBRARIES} rapidcheck)
+    # target_link_libraries(${targetname} samurai ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
     # if(DOWNLOAD_GTEST OR GTEST_SRC_DIR)
     #     add_dependencies(${targetname} gtest_main)
     # endif()
@@ -111,15 +111,15 @@ foreach(filename IN LISTS MURE_TESTS)
     # add_custom_target(
     #     x${targetname}
     #     COMMAND ${targetname}
-    #     DEPENDS ${targetname} ${filename} ${XMURE_HEADERS})
+    #     DEPENDS ${targetname} ${filename} ${XSAMURAI_HEADERS})
 endforeach()
 
-add_executable(test_mure_lib ${COMMON_BASE} ${MURE_TESTS} ${MURE_HEADERS})
-target_include_directories(test_mure_lib PRIVATE ${MURE_INCLUDE_DIR})
+add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${SAMURAI_HEADERS})
+target_include_directories(test_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
 if(DOWNLOAD_GTEST OR GTEST_SRC_DIR)
-    add_dependencies(test_mure_lib gtest_main)
+    add_dependencies(test_samurai_lib gtest_main)
 endif()
-target_link_libraries(test_mure_lib mure ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} rapidcheck)
+target_link_libraries(test_samurai_lib samurai ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} rapidcheck)
 
-# # add_custom_target(mure_test COMMAND test_mure_lib DEPENDS test_mure_lib)
-# add_test(NAME mure_test COMMAND test_mure_lib DEPENDS test_mure_lib)
+# # add_custom_target(samurai_test COMMAND test_samurai_lib DEPENDS test_samurai_lib)
+# add_test(NAME samurai_test COMMAND test_samurai_lib DEPENDS test_samurai_lib)

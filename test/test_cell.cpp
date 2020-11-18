@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <xtensor/xarray.hpp>
 
-#include <mure/cell.hpp>
+#include <samurai/cell.hpp>
 
-namespace mure
+namespace samurai
 {
     TEST(cell, length)
     {

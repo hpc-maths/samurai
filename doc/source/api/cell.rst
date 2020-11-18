@@ -1,6 +1,6 @@
 Cell class
 ==========
 
-.. doxygenclass:: mure::Cell
-   :project: mure
+.. doxygenclass:: samurai::Cell
+   :project: samurai
    :members:

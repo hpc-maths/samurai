@@ -10,16 +10,16 @@ First, we need an initial mesh with this property. We will generate it randomly 
     auto generate_mesh(std::size_t start_level, std::size_t max_level)
     {
         constexpr std::size_t dim = 2;
-        mure::Box<int, dim> box({0, 0}, {1<<start_level, 1<<start_level});
-        mure::CellArray<dim> ca;
+        samurai::Box<int, dim> box({0, 0}, {1<<start_level, 1<<start_level});
+        samurai::CellArray<dim> ca;
 
         ca[start_level] = {start_level, box};
 
         for(std::size_t ite = 0; ite < max_level - start_level; ++ite)
         {
-            mure::CellList<dim> cl;
+            samurai::CellList<dim> cl;
 
-            mure::for_each_interval(ca, [&](std::size_t level, const auto& interval, const auto& index)
+            samurai::for_each_interval(ca, [&](std::size_t level, const auto& interval, const auto& index)
             {
                 auto choice = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false}, interval.size());
                 for(int i = interval.start, ic = 0; i<interval.end; ++i, ++ic)
@@ -48,8 +48,8 @@ The first part is the construction of the uniform initial mesh
 
 .. code-block:: c++
 
-        mure::Box<int, dim> box({0, 0}, {1<<start_level, 1<<start_level});
-        mure::CellArray<dim> ca;
+        samurai::Box<int, dim> box({0, 0}, {1<<start_level, 1<<start_level});
+        samurai::CellArray<dim> ca;
         ca[start_level] = {start_level, box};
 
 We construct here a `CellArray` from a box. In |project|, a box is defined by its minimum and its maximum coordinates. `CellArray` contains integers describing the mesh. The relation between the space step and the level is :math:`dx=\frac{1}{1<<level}`. We recall that our domain is :math:`[0, 1] \times [0, 1]`. Then, our box starts at :math:`[0, 0]` and needs :math:`1<<level` points to reach the maximum coordinates :math:`[0, 1]`. In the end, we assign this box to the `start_level` of the `CellArray`.
@@ -58,7 +58,7 @@ Now that we have our initial mesh, we can begin to refine it randomly. Let's sta
 
 .. code-block: c++
 
-    mure::for_each_interval(ca, [&](std::size_t level, const auto& interval, const auto& index)
+    samurai::for_each_interval(ca, [&](std::size_t level, const auto& interval, const auto& index)
     {
         auto choice = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false}, interval.size());
         for(int i = interval.start, ic = 0; i<interval.end; ++i, ++ic)
@@ -103,7 +103,7 @@ For this algorithm, we use a field named `tag` attached to the mesh. This field 
 
 .. code-block:: c++
 
-    auto tag = mure::make_field<bool, 1>("tag", ca);
+    auto tag = samurai::make_field<bool, 1>("tag", ca);
     tag.fill(false);
 
 We initialize all the entries of the field `tag` to `false` meaning that all the cells are kept.
@@ -112,7 +112,7 @@ Now we try to find an intersection as described previously using subset construc
 
 .. code-block:: c++
 
-    auto set = mure::intersection(mure::translate(ca[level], s), ca[level_below])
+    auto set = samurai::intersection(samurai::translate(ca[level], s), ca[level_below])
               .on(level_below);
 
     set([&](const auto& i, const auto& index)
@@ -124,7 +124,7 @@ Now we try to find an intersection as described previously using subset construc
 
 .. code-block:: c++
 
-    auto set = mure::intersection(mure::translate(ca[level], s), ca[level_below]);
+    auto set = samurai::intersection(samurai::translate(ca[level], s), ca[level_below]);
 
 `set` will be calculated on the largest level namely `level`. This not what we want since we want to tag the cell corresponding to this intersection at level `level_below`. This is why `on(level_below` was added.
 
@@ -156,7 +156,7 @@ We can now apply this kernel for different stencils and different levels of the 
             {
                 auto s = xt::view(stencil, i);
 
-                auto set = mure::intersection(mure::translate(ca[level], s), ca[level_below])
+                auto set = samurai::intersection(samurai::translate(ca[level], s), ca[level_below])
                           .on(level_below);
 
                 set([&](const auto& i, const auto& index)
@@ -171,9 +171,9 @@ At the end of this kernel, we know which cell must be refined and which cell mus
 
 .. code-block:: c++
 
-    mure::CellList<dim> cl;
+    samurai::CellList<dim> cl;
 
-    mure::for_each_cell(ca, [&](auto cell)
+    samurai::for_each_cell(ca, [&](auto cell)
     {
         auto i = cell.indices[0];
         auto j = cell.indices[1];
@@ -187,7 +187,7 @@ At the end of this kernel, we know which cell must be refined and which cell mus
             cl[cell.level][{j}].add_point(i);
         }
     });
-    mure::CellArray<dim> new_ca = {cl, true};
+    samurai::CellArray<dim> new_ca = {cl, true};
 
 The refinement is done for a cell at `L < l - 1` but imagine that `L = 1` and `l = 5`, then we will refine the cell at level `L = 1` which will become four cells at level `L + 1 = 2`. This is not enough to have the graduation of the mesh since there is still a gap of 2 levels. So, we have to iterate over this process until the mesh is graduated.
 
@@ -202,7 +202,7 @@ The graduation procedure can be written as
 
     while(true)
     {
-        auto tag = mure::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_field<bool, 1>("tag", ca);
         tag.fill(false);
 
         for(std::size_t level = min_level + 2; level <= max_level; ++level)
@@ -212,7 +212,7 @@ The graduation procedure can be written as
                 for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
                 {
                     auto s = xt::view(stencil, i);
-                    auto set = mure::intersection(mure::translate(ca[level], s), ca[level_below]).on(level_below);
+                    auto set = samurai::intersection(samurai::translate(ca[level], s), ca[level_below]).on(level_below);
                     set([&](const auto& i, const auto& index)
                     {
                         tag(level_below, i, index[0]) = true;
@@ -221,8 +221,8 @@ The graduation procedure can be written as
             }
         }
 
-        mure::CellList<dim> cl;
-        mure::for_each_cell(ca, [&](auto cell)
+        samurai::CellList<dim> cl;
+        samurai::for_each_cell(ca, [&](auto cell)
         {
             auto i = cell.indices[0];
             auto j = cell.indices[1];
@@ -236,7 +236,7 @@ The graduation procedure can be written as
                 cl[cell.level][{j}].add_point(i);
             }
         });
-        mure::CellArray<dim> new_ca = {cl, true};
+        samurai::CellArray<dim> new_ca = {cl, true};
 
         if(new_ca == ca)
         {

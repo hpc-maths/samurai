@@ -2,22 +2,22 @@
 
 #include <xtensor/xfixed.hpp>
 
-#include <mure/operators_base.hpp>
+#include <samurai/operators_base.hpp>
 
 template<class TInterval>
-class update_boundary_D2Q4_flat_op : public mure::field_operator_base<TInterval>
+class update_boundary_D2Q4_flat_op : public samurai::field_operator_base<TInterval>
 {
 public:
     INIT_OPERATOR(update_boundary_D2Q4_flat_op)
 
     template<class T, class stencil_t>
-    inline void operator()(mure::Dim<1>, T &field, const stencil_t& stencil) const
+    inline void operator()(samurai::Dim<1>, T &field, const stencil_t& stencil) const
     {
         field(level, i) = field(level, i - stencil[0]);
     }
 
     template<class T, class stencil_t>
-    inline void operator()(mure::Dim<2>, T &field, const stencil_t& stencil) const
+    inline void operator()(samurai::Dim<2>, T &field, const stencil_t& stencil) const
     {
         field(level, i, j) = field(level, i - stencil[0], j - stencil[1]);
     }
@@ -26,7 +26,7 @@ public:
 template<class T, class stencil_t>
 inline auto update_boundary_D2Q4_flat(T &&field, stencil_t &&stencil)
 {
-    return mure::make_field_operator_function<update_boundary_D2Q4_flat_op>(
+    return samurai::make_field_operator_function<update_boundary_D2Q4_flat_op>(
         std::forward<T>(field), std::forward<stencil_t>(stencil));
 }
 
@@ -41,12 +41,12 @@ inline void update_bc_1D_constant_extension(Field& field, std::size_t level)
     size_t j = max_level - level;
 
     // E first rank (not projected on the level for future use)
-    auto east_1 = mure::intersection(mure::difference(mure::translate(mesh.domain(), (1<<j) * xp),
+    auto east_1 = samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), (1<<j) * xp),
                                             mesh.domain()),
                                 mesh[mesh_id_t::all_cells][level]);
 
     // E second rank
-    auto east_2 = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 * (1<<j) * xp),
+    auto east_2 = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 * (1<<j) * xp),
                                                         mesh.domain()),
                                             mesh[mesh_id_t::all_cells][level]),
                                 east_1);
@@ -56,12 +56,12 @@ inline void update_bc_1D_constant_extension(Field& field, std::size_t level)
 
 
     // W first rank
-    auto west_1 = mure::intersection(mure::difference(mure::translate(mesh.domain(), (-1) * (1<<j) * xp),
+    auto west_1 = samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), (-1) * (1<<j) * xp),
                                             mesh.domain()),
                                 mesh[mesh_id_t::all_cells][level]);
 
     // W second rank
-    auto west_2 = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 * (-1) * (1<<j) * xp),
+    auto west_2 = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 * (-1) * (1<<j) * xp),
                                                         mesh.domain()),
                                             mesh[mesh_id_t::all_cells][level]),
                                 west_1);
@@ -88,12 +88,12 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
         size_t j = max_level - level;
 
         // E first rank (not projected on the level for future use)
-        auto east_1 = mure::intersection(mure::difference(mure::translate(mesh.domain(), (1<<j) * xp),
+        auto east_1 = samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), (1<<j) * xp),
                                               mesh.domain()),
                                     mesh[mesh_id_t::all_cells][level]);
 
         // E second rank
-        auto east_2 = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 * (1<<j) * xp),
+        auto east_2 = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 * (1<<j) * xp),
                                                          mesh.domain()),
                                               mesh[mesh_id_t::all_cells][level]),
                                  east_1);
@@ -103,12 +103,12 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
 
 
         // W first rank
-        auto west_1 = mure::intersection(mure::difference(mure::translate(mesh.domain(), (-1) * (1<<j) * xp),
+        auto west_1 = samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), (-1) * (1<<j) * xp),
                                               mesh.domain()),
                                    mesh[mesh_id_t::all_cells][level]);
 
         // W second rank
-        auto west_2 = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 * (-1) * (1<<j) * xp),
+        auto west_2 = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 * (-1) * (1<<j) * xp),
                                                          mesh.domain()),
                                               mesh[mesh_id_t::all_cells][level]),
                                  west_1);
@@ -116,12 +116,12 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
         west_2.on(level).apply_op(update_boundary_D2Q4_flat(field, (-1) * xp));
 
         // N first rank
-        auto north_1 = mure::intersection(mure::difference(mure::translate(mesh.domain(), (1<<j) * yp),
+        auto north_1 = samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), (1<<j) * yp),
                                                 mesh.domain()),
                                     mesh[mesh_id_t::all_cells][level]);
 
         // N second rank
-        auto north_2 = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 * (1<<j) * yp),
+        auto north_2 = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 * (1<<j) * yp),
                                                             mesh.domain()),
                                                 mesh[mesh_id_t::all_cells][level]),
                                     north_1);
@@ -129,12 +129,12 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
         north_2.on(level).apply_op(update_boundary_D2Q4_flat(field, yp));
 
         // S first rank
-        auto south_1 = mure::intersection(mure::difference(mure::translate(mesh.domain(), (-1) * (1<<j) * yp),
+        auto south_1 = samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), (-1) * (1<<j) * yp),
                                                 mesh.domain()),
                                     mesh[mesh_id_t::all_cells][level]);
 
         // S second rank
-        auto south_2 = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 * (-1) * (1<<j) * yp),
+        auto south_2 = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 * (-1) * (1<<j) * yp),
                                                             mesh.domain()),
                                                 mesh[mesh_id_t::all_cells][level]),
                                     south_1);
@@ -143,16 +143,16 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
 
 
 
-        auto east  = mure::union_(east_1,  east_2);
-        auto west  = mure::union_(west_1,  west_2);
-        auto north = mure::union_(north_1, north_2);
-        auto south = mure::union_(south_1, south_2);
+        auto east  = samurai::union_(east_1,  east_2);
+        auto west  = samurai::union_(west_1,  west_2);
+        auto north = samurai::union_(north_1, north_2);
+        auto south = samurai::union_(south_1, south_2);
 
 
-        auto north_east = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 * (1<<j) * pp),
+        auto north_east = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 * (1<<j) * pp),
                                                                 mesh.domain()),
                                                     mesh[mesh_id_t::all_cells][level]),
-                                    mure::union_(east, north));
+                                    samurai::union_(east, north));
 
         north_east.on(level).apply_op(update_boundary_D2Q4_flat(field, 2 * pp)); // Come back inside
 
@@ -160,10 +160,10 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
 
 
 
-        auto south_east = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 * (1<<j) * pm),
+        auto south_east = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 * (1<<j) * pm),
                                                                 mesh.domain()),
                                                     mesh[mesh_id_t::all_cells][level]),
-                                        mure::union_(east, south));
+                                        samurai::union_(east, south));
 
         south_east.on(level).apply_op(update_boundary_D2Q4_flat(field, 2 * pm)); // Come back inside
 
@@ -171,19 +171,19 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
 
 
 
-        auto north_west = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 *  (-1) * (1<<j) * pm),
+        auto north_west = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 *  (-1) * (1<<j) * pm),
                                                                 mesh.domain()),
                                                     mesh[mesh_id_t::all_cells][level]),
-                                    mure::union_(west, north));
+                                    samurai::union_(west, north));
 
 
         north_west.on(level).apply_op(update_boundary_D2Q4_flat(field, 2 * (-1) * pm)); // Come back inside
 
 
-        auto south_west = mure::difference(mure::intersection(mure::difference(mure::translate(mesh.domain(), 2 *  (-1) * (1<<j) * pp),
+        auto south_west = samurai::difference(samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), 2 *  (-1) * (1<<j) * pp),
                                                                 mesh.domain()),
                                                     mesh[mesh_id_t::all_cells][level]),
-                                    mure::union_(south, west));
+                                    samurai::union_(south, west));
 
         south_west.on(level).apply_op(update_boundary_D2Q4_flat(field, 2 * (-1) * pp)); // Come back inside
 

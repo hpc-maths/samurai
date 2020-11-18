@@ -7,11 +7,11 @@
 
 #include <xtensor/xio.hpp>
 
-#include <mure/mr/coarsening.hpp>
-#include <mure/mr/refinement.hpp>
-#include <mure/mr/criteria.hpp>
-#include <mure/mr/harten.hpp>
-#include <mure/mr/adapt.hpp>
+#include <samurai/mr/coarsening.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/mr/criteria.hpp>
+#include <samurai/mr/harten.hpp>
+#include <samurai/mr/adapt.hpp>
 
 #include "prediction_map_1d.hpp"
 #include "boundary_conditions.hpp"
@@ -170,15 +170,15 @@ double flux(double u)   {
 }
 
 template<class Config>
-auto init_f(mure::MRMesh<Config> &mesh, double t)
+auto init_f(samurai::MRMesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 2;
-    using mesh_id_t = typename mure::MRMesh<Config>::mesh_id_t;
+    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
 
-    auto f = mure::make_field<double, nvel>("f", mesh);
+    auto f = samurai::make_field<double, nvel>("f", mesh);
     f.fill(0);
 
-    mure::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
+    samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
     {
         auto center = cell.center;
         auto x = center[0];
@@ -428,12 +428,12 @@ void one_time_step(Field &f, Func&& update_bc_for_level, const FieldTag & tag, d
     auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
 
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     for (std::size_t level = min_level - 1; level <= max_level; ++level)
     {
         update_bc_for_level(f, level); // It is important to do so
     }
-    mure::mr_prediction(f, update_bc_for_level);
+    samurai::mr_prediction(f, update_bc_for_level);
 
 
     // MEMOIZATION
@@ -441,12 +441,12 @@ void one_time_step(Field &f, Func&& update_bc_for_level, const FieldTag & tag, d
     std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
     memoization_map.clear(); // Just to be sure...
 
-    auto new_f = mure::make_field<double, nvel>("new_f", mesh);
+    auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
     new_f.fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(mesh[mesh_id_t::cells][level],
+        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
                                       mesh[mesh_id_t::cells][level]);
         exp([&](auto &interval, auto) {
             auto i = interval;
@@ -509,21 +509,21 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
     auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
 
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     for (std::size_t level = min_level - 1; level <= max_level; ++level)
     {
         update_bc_for_level(f, level); // It is important to do so
     }
-    mure::mr_prediction(f, update_bc_for_level);
+    samurai::mr_prediction(f, update_bc_for_level);
 
 
     // After that everything is ready, we predict what is remaining
-    mure::mr_prediction_overleaves(f, update_bc_for_level);
+    samurai::mr_prediction_overleaves(f, update_bc_for_level);
 
-    auto new_f = mure::make_field<double, nvel>("new_f", mesh);
+    auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
     new_f.fill(0.);
 
-    auto help_f = mure::make_field<double, nvel>("help_f", mesh);
+    auto help_f = samurai::make_field<double, nvel>("help_f", mesh);
     help_f.fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)
@@ -538,11 +538,11 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
 
             // Left boundary
             xt::xtensor_fixed<int, xt::xshape<1>> stencil{1};
-            // auto leaf_lb = mure::difference(mesh[mesh_id_t::cells][max_level],
+            // auto leaf_lb = samurai::difference(mesh[mesh_id_t::cells][max_level],
             //                           translate(mesh[mesh_id_t::cells][max_level], stencil));
 
-            auto leaf_lb = mure::intersection(mure::difference(mesh.domain(),
-                                                   mure::translate(mesh.domain(), stencil)),
+            auto leaf_lb = samurai::intersection(samurai::difference(mesh.domain(),
+                                                   samurai::translate(mesh.domain(), stencil)),
                                         mesh[mesh_id_t::cells][max_level]);
             leaf_lb.on(max_level)([&](auto &interval, auto) {
 
@@ -572,11 +572,11 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
                 new_f(1, max_level, k) = .5 * (uu - 1. / lambda * vv);
             });
 
-            // auto leaves = mure::intersection(mesh[mesh_id_t::cells][max_level],
+            // auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
             //                           mesh[mesh_id_t::cells][max_level]);
 
 
-            auto leaves = mure::difference(mesh[mesh_id_t::cells][max_level],
+            auto leaves = samurai::difference(mesh[mesh_id_t::cells][max_level],
                                       leaf_lb);
             leaves.on(max_level)([&](auto &interval, auto) {
 
@@ -614,7 +614,7 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
 
 
             xt::xtensor_fixed<int, xt::xshape<1>> stencil{1};
-            // auto overleaves_lb = mure::difference(mesh[mesh_id_t::cells][level],
+            // auto overleaves_lb = samurai::difference(mesh[mesh_id_t::cells][level],
             //                           translate(mesh[mesh_id_t::overleaves][level + 1], stencil)).on(level + 1);
 
 
@@ -623,8 +623,8 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
 
 
 
-            auto overleaves_lb = mure::intersection(mure::difference(mesh.domain(),
-                                                         mure::translate(mesh.domain(), stencil_new)),
+            auto overleaves_lb = samurai::intersection(samurai::difference(mesh.domain(),
+                                                         samurai::translate(mesh.domain(), stencil_new)),
                                               mesh[mesh_id_t::cells][level]);
 
             overleaves_lb.on(level+1)([&](auto &interval, auto) {
@@ -685,12 +685,12 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
 
 
             // We take the overleaves corresponding to the existing leaves
-            // auto overleaves = mure::intersection(mesh[mesh_id_t::cells][level],
+            // auto overleaves = samurai::intersection(mesh[mesh_id_t::cells][level],
             //                                      mesh[mesh_id_t::cells][level]).on(level + 1);
 
-            auto ol = mure::intersection(mesh[mesh_id_t::cells][level],
+            auto ol = samurai::intersection(mesh[mesh_id_t::cells][level],
                                                  mesh[mesh_id_t::cells][level]).on(level + 1);
-            auto overleaves_far = mure::difference(mesh[mesh_id_t::cells][level], overleaves_lb);
+            auto overleaves_far = samurai::difference(mesh[mesh_id_t::cells][level], overleaves_lb);
 
             overleaves_far.on(level+1)([&](auto& interval, auto) {
                 auto k = interval; // Logical index in x
@@ -757,7 +757,7 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
             });
 
             // Now that projection has been done, we have to come back on the leaves below the overleaves
-            auto leaves = mure::intersection(mesh[mesh_id_t::cells][level],
+            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                              mesh[mesh_id_t::cells][level]);
 
             leaves([&](auto &interval, auto) {
@@ -792,7 +792,7 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
 
 // template<class Field, class FieldR>
 template<class Config, class FieldR, class Func>
-std::array<double, 2> compute_error(mure::Field<Config, double, 2> &f, FieldR & fR, Func&& update_bc_for_level, double t)
+std::array<double, 2> compute_error(samurai::Field<Config, double, 2> &f, FieldR & fR, Func&& update_bc_for_level, double t)
 {
 
     auto mesh = f.mesh();
@@ -803,12 +803,12 @@ std::array<double, 2> compute_error(mure::Field<Config, double, 2> &f, FieldR & 
 
     update_bc_for_level(fR, max_level); // It is important to do so
 
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     for (std::size_t level = mesh.min_level() - 1; level <= mesh.max_level(); ++level)
     {
         update_bc_for_level(f, level); // It is important to do so
     }
-    mure::mr_prediction(f, update_bc_for_level);
+    samurai::mr_prediction(f, update_bc_for_level);
 
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;
@@ -825,7 +825,7 @@ std::array<double, 2> compute_error(mure::Field<Config, double, 2> &f, FieldR & 
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(mesh[mesh_id_t::cells][level],
+        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
                                       mesh[mesh_id_t::cells][level])
                   .on(max_level);
 
@@ -891,8 +891,8 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 1;
-            using Config = mure::MRConfig<dim, 2>;
-            using mesh_t = mure::MRMesh<Config>;
+            using Config = samurai::MRConfig<dim, 2>;
+            using mesh_t = samurai::MRMesh<Config>;
             using mesh_id_t = typename mesh_t::mesh_id_t;
             using coord_index_t = typename mesh_t::interval_t::coord_index_t;
 
@@ -942,7 +942,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            mure::Box<double, dim> box({-3}, {3});
+            samurai::Box<double, dim> box({-3}, {3});
 
             std::vector<double> s_vect {0.75, 1.0, 1.25, 1.5, 1.75};
 
@@ -962,8 +962,8 @@ int main(int argc, char *argv[])
                 {
                     double eps = 1.0e-4; // This remains fixed
 
-                    mure::MRMesh<Config> mesh{box, min_level, max_level};
-                    mure::MRMesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
+                    samurai::MRMesh<Config> mesh{box, min_level, max_level};
+                    samurai::MRMesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
 
 
                     // Initialization
@@ -988,7 +988,7 @@ int main(int argc, char *argv[])
                     out_diff_ref_adap.open   ("./d1q2/time/"+prefix+"diff.dat");
                     out_compression.open     ("./d1q2/time/"+prefix+"comp.dat");
 
-                    auto MRadaptation = mure::make_MRAdapt(f, update_bc_for_level);
+                    auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
                     for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
                     {
@@ -1006,7 +1006,7 @@ int main(int argc, char *argv[])
                         MRadaptation(eps, sol_reg);
 
                         // auto mesh_old = mesh;
-                        // auto f_old = mure::make_field<double , 2>("u", mesh_old);
+                        // auto f_old = samurai::make_field<double , 2>("u", mesh_old);
                         // f_old.array() = f.array();
                         // for (std::size_t i=0; i<max_level-min_level; ++i)
                         // {
@@ -1014,13 +1014,13 @@ int main(int argc, char *argv[])
                         //         break;
                         // }
 
-                        // mure::Field<Config, int, 1> tag_leaf{"tag_leaf", mesh};
+                        // samurai::Field<Config, int, 1> tag_leaf{"tag_leaf", mesh};
                         // tag_leaf.array().fill(0);
                         // mesh.for_each_cell([&](auto &cell) {
                         //     tag_leaf[cell] = static_cast<int>(1);
                         // });
 
-                        // mure::Field<Config, int, 1> tag_leafR{"tag_leafR", meshR};
+                        // samurai::Field<Config, int, 1> tag_leafR{"tag_leafR", meshR};
                         // tag_leafR.array().fill(0);
                         // meshR.for_each_cell([&](auto &cell) {
                         //     tag_leafR[cell] = static_cast<int>(1);
@@ -1093,7 +1093,7 @@ int main(int argc, char *argv[])
 
                         double foo_diff = 0.0;
 
-                        auto MRadaptation = mure::make_MRAdapt(f, update_bc_for_level);
+                        auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
                         for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
                         {
@@ -1113,7 +1113,7 @@ int main(int argc, char *argv[])
                             MRadaptation(eps, sol_reg);
 
                             // auto mesh_old = mesh;
-                            // mure::Field<Config, double, 2> f_old{"u", mesh_old};
+                            // samurai::Field<Config, double, 2> f_old{"u", mesh_old};
                             // f_old.array() = f.array();
                             // for (std::size_t i=0; i<max_level-min_level; ++i)
                             // {
