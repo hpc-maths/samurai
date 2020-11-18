@@ -2,16 +2,16 @@
 
 #include <xtensor/xmasked_view.hpp>
 
-#include <mure/box.hpp>
-#include <mure/cell_array.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
+#include <samurai/box.hpp>
+#include <samurai/cell_array.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
 
 auto generate_mesh(std::size_t start_level)
 {
     constexpr std::size_t dim = 2;
-    mure::Box<int, dim> box({-2<<start_level, -2<<start_level}, {2<<start_level, 2<<start_level});
-    mure::CellArray<dim> ca;
+    samurai::Box<int, dim> box({-2<<start_level, -2<<start_level}, {2<<start_level, 2<<start_level});
+    samurai::CellArray<dim> ca;
 
     ca[start_level] = {start_level, box};
 
@@ -31,10 +31,10 @@ int main()
     {
         std::cout << "Iteration for remove intersection: " << ite++ << "\n";
 
-        auto tag = mure::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_field<bool, 1>("tag", ca);
         tag.fill(false);
 
-        mure::for_each_cell(ca, [&](auto cell)
+        samurai::for_each_cell(ca, [&](auto cell)
         {
             auto corner = cell.corner();
             double dx = cell.length;
@@ -70,7 +70,7 @@ int main()
                 for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
                 {
                     auto s = xt::view(stencil, i);
-                    auto subset = mure::intersection(mure::translate(ca[level], s), ca[level - 1]);
+                    auto subset = samurai::intersection(samurai::translate(ca[level], s), ca[level - 1]);
 
                     subset([&](const auto& interval, const auto& index)
                     {
@@ -98,8 +98,8 @@ int main()
             }
         }
 
-        mure::CellList<dim> cl;
-        mure::for_each_interval(ca, [&](std::size_t level, const auto& interval, const auto& index)
+        samurai::CellList<dim> cl;
+        samurai::for_each_interval(ca, [&](std::size_t level, const auto& interval, const auto& index)
         {
             auto j = index[0];
             for (int i = interval.start; i < interval.end; ++i)
@@ -116,7 +116,7 @@ int main()
             }
         });
 
-        mure::CellArray<dim> new_ca = {cl, true};
+        samurai::CellArray<dim> new_ca = {cl, true};
 
         if(new_ca == ca)
         {
@@ -125,7 +125,7 @@ int main()
 
         std::swap(ca, new_ca);
     }
-    mure::save("mesh_case3", ca);
+    samurai::save("mesh_case3", ca);
 
     return 0;
 }

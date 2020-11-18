@@ -1,4 +1,4 @@
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "../FiniteVolume/refinement.hpp"
@@ -26,17 +26,17 @@ double toc()
 }
 
 template <class Config>
-auto init(mure::Mesh<Config> &mesh)
+auto init(samurai::Mesh<Config> &mesh)
 {
-    mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 1},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0},
-                       {mure::BCType::dirichlet, 0}
+    samurai::BC<2> bc{ {{ {samurai::BCType::dirichlet, 1},
+                       {samurai::BCType::dirichlet, 0},
+                       {samurai::BCType::dirichlet, 0},
+                       {samurai::BCType::dirichlet, 0}
                     }} };
-    mure::Field<Config> u{"u", mesh, bc};
+    samurai::Field<Config> u{"u", mesh, bc};
     u.array().fill(0);
 
-    
+
     // mesh.for_each_cell([&](auto &cell) {
     //     auto center = cell.center();
     //     double len = .1;
@@ -48,12 +48,12 @@ auto init(mure::Mesh<Config> &mesh)
     //         u[cell] = 0;
     // });
 
-        
+
     mesh.for_each_cell([&](auto &cell) {
         auto center = cell.center();
         double radius = .1;
         double x_center = 0.5, y_center = 0.5;
-        if (((center[0] - x_center) * (center[0] - x_center) + 
+        if (((center[0] - x_center) * (center[0] - x_center) +
                 (center[1] - y_center) * (center[1] - y_center))
                 <= radius * radius)
             u[cell] = 1;
@@ -67,7 +67,7 @@ auto init(mure::Mesh<Config> &mesh)
     //     auto y = center[1] - 0.5;
     //     u[cell] = exp(-500.0 * (x * x + y * y));
     // });
-    
+
 
     return u;
 }
@@ -75,17 +75,17 @@ auto init(mure::Mesh<Config> &mesh)
 int main(int argc, char *argv[])
 {
     constexpr size_t dim = 2;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
     std::size_t min_level = 2, max_level = 12;
-    // mure::Box<double, dim> box({-2, -2}, {2, 2});
-    mure::Box<double, dim> box({0, 0}, {1, 1});
+    // samurai::Box<double, dim> box({-2, -2}, {2, 2});
+    samurai::Box<double, dim> box({0, 0}, {1, 1});
 
-    mure::Mesh<Config> mesh1{box, min_level, max_level};
-    mure::Mesh<Config> mesh2{box, min_level, max_level};
+    samurai::Mesh<Config> mesh1{box, min_level, max_level};
+    samurai::Mesh<Config> mesh2{box, min_level, max_level};
 
-    
+
     auto u1 = init(mesh1);
     auto u2 = init(mesh2);
 
@@ -99,13 +99,13 @@ int main(int argc, char *argv[])
     for (std::size_t i = 0; i < max_level - min_level; ++i)
     {
         if (coarsening(u1, eps, i))
-            break;        
+            break;
     }
 
     for (std::size_t i = 0; i < max_level - min_level; ++i)
     {
         //if(refinement(u1, eps, i))
-        //    break;     
+        //    break;
     }
 
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
     {
         std::stringstream s;
         s << "after_separated";
-        auto h5file = mure::Hdf5(s.str().data());
+        auto h5file = samurai::Hdf5(s.str().data());
         h5file.add_mesh(mesh1);
         h5file.add_field(u1);
     }
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
     {
         std::stringstream s;
         s << "after_merged";
-        auto h5file = mure::Hdf5(s.str().data());
+        auto h5file = samurai::Hdf5(s.str().data());
         h5file.add_mesh(mesh2);
         h5file.add_field(u2);
     }

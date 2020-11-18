@@ -1,15 +1,13 @@
-.. MuRe documentation master file, created by
-   sphinx-quickstart on Mon Apr  8 17:23:19 2019.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Samurai
+=======
 
-Welcome to MuRe's documentation!
-================================
+Structured Adaptive mesh and MUlti-Resolution based on Algebra of Intervals
 
 .. toctree::
    :caption: TUTORIAL
    :maxdepth: 1
 
+   tutorial/operator_on_subset
    tutorial/graduation
    tutorial/level_set
 
@@ -32,7 +30,6 @@ Welcome to MuRe's documentation!
    api/box
    api/cell
    api/subset
-
 
 Indices and tables
 ==================

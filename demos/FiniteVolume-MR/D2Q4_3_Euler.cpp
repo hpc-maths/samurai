@@ -4,30 +4,30 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
 #include "prediction_map_2d.hpp"
 
 double lambda = 4.0;
-double sigma_q = 0.5; 
+double sigma_q = 0.5;
 double sigma_xy = 0.5;
 
 double sq = 1.5;//1./(.5 + sigma_q);
 double sxy = 1./(.5 + sigma_xy);
 
 template<class Config>
-auto init_f(mure::Mesh<Config> &mesh, double t)
+auto init_f(samurai::Mesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 16;
-    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0}
+    samurai::BC<2> bc{ {{ {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0}
                     }} };
 
-    mure::Field<Config, double, nvel> f("f", mesh, bc);
+    samurai::Field<Config, double, nvel> f("f", mesh, bc);
     f.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -41,11 +41,11 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
         double e = 0.0;
 
         double p = 1.0;
-        
+
         double gm = 1.4;
 
-        // rho = (y < 0.5 + 0.002 * cos(2.*M_PI*2*x)) ? 0.5 : 1.0; 
-        // qx  = rho * (y < 0.5 + 0.025 * sin(2*M_PI*2*x)) ? -0.5 : 0.5; 
+        // rho = (y < 0.5 + 0.002 * cos(2.*M_PI*2*x)) ? 0.5 : 1.0;
+        // qx  = rho * (y < 0.5 + 0.025 * sin(2*M_PI*2*x)) ? -0.5 : 0.5;
         // // qx = - 0.5 * rho * (tanh(60 * (y - 0.5 + 0.025 * sin(2*M_PI*4*x))));
         // qy = -0.05;
         // p = (y < 0.5 + 0.002 * cos(2.*M_PI*2*x)) ? 0.5 : 0.1;
@@ -71,7 +71,7 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
             }
             else
             {
-                // 2   
+                // 2
                 rho = 2.0;
                 qx = rho * (-0.75);
                 qy = rho * (0.5);
@@ -114,22 +114,22 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
                 qx = rho * (-0.75);
                 qy = rho * (-0.5);
                 double p = 1.0;
-                
+
                 // rho = 0.5313;
                 // qx = rho * 0.0;
                 // qy = rho * 0.0;
                 // p = 0.4;
 
-                                
+
                 // rho = 1.;
                 // qx = rho * 0.1;
                 // qy = rho * 0.0;
                 // p = 1.;
             }
         }
-        
-        
-        e = p / (gm - 1.) + 0.5 * (qx*qx + qy*qy) / rho;     
+
+
+        e = p / (gm - 1.) + 0.5 * (qx*qx + qy*qy) / rho;
 
         // Conserved momenti
         double m0_0 = rho;
@@ -214,10 +214,10 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
 
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     f.update_bc(); // It is important to do so
-    mure::mr_prediction(f);
-    mure::mr_prediction_overleaves(f);
+    samurai::mr_prediction(f);
+    samurai::mr_prediction_overleaves(f);
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
@@ -231,12 +231,12 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
     {
 
         if (level == max_level) {
-            auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
-                                             mesh[mure::MeshType::cells][level]);
+            auto leaves = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                             mesh[samurai::MeshType::cells][level]);
 
             leaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
                 auto f0 = xt::eval(f(0, level, k - 1, h    ));
                 auto f1 = xt::eval(f(1, level, k,     h - 1));
@@ -284,20 +284,20 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
                 m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
                 m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
-                m0_3 = (1 - sxy) * m0_3; 
+                m0_3 = (1 - sxy) * m0_3;
 
 
                 m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
                 m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
-                m1_3 = (1 - sxy) * m1_3; 
+                m1_3 = (1 - sxy) * m1_3;
 
                 m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
                 m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
-                m2_3 = (1 - sxy) * m2_3; 
+                m2_3 = (1 - sxy) * m2_3;
 
                 m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
                 m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
-                m3_3 = (1 - sxy) * m3_3; 
+                m3_3 = (1 - sxy) * m3_3;
 
 
                 new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
@@ -325,17 +325,17 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
         else
         {
             // We do the advection on the overleaves
-            std::size_t j = max_level - (level + 1); 
+            std::size_t j = max_level - (level + 1);
             double coeff = 1. / (1 << (2*j));
 
             // We take the overleaves corresponding to the existing leaves
-            auto overleaves = mure::intersection(mesh[mure::MeshType::overleaves][level + 1],
-                                                 mesh[mure::MeshType::cells][level]).on(level + 1);
+            auto overleaves = samurai::intersection(mesh[samurai::MeshType::overleaves][level + 1],
+                                                 mesh[samurai::MeshType::cells][level]).on(level + 1);
 
 
             overleaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
                 // Just to provide the shape : WE CAN DO BETTER
                 auto f0 = xt::eval(0.0 * f(0, level + 1, k, h));
@@ -367,7 +367,7 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
                     f4  += coeff*c.second*f(4 , level + 1, k + stencil_x, h + stencil_y);
                     f8  += coeff*c.second*f(8 , level + 1, k + stencil_x, h + stencil_y);
                     f12 += coeff*c.second*f(12, level + 1, k + stencil_x, h + stencil_y);
-                    
+
                 }
 
                 for(auto &c: pred_coeff[j][1].coeff)
@@ -426,92 +426,92 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
             });
 
             // Now that projection has been done, we have to come back on the leaves below the overleaves
-            auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
-                                             mesh[mure::MeshType::cells][level]);
+            auto leaves = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                             mesh[samurai::MeshType::cells][level]);
 
             leaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
-                auto f0 = xt::eval(f(0, level, k, h)) + 0.25 * (fluxes(0, level + 1, 2*k,     2*h) 
+                auto f0 = xt::eval(f(0, level, k, h)) + 0.25 * (fluxes(0, level + 1, 2*k,     2*h)
                                                               + fluxes(0, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(0, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(0, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f1 = xt::eval(f(1, level, k, h)) + 0.25 * (fluxes(1, level + 1, 2*k,     2*h) 
+                auto f1 = xt::eval(f(1, level, k, h)) + 0.25 * (fluxes(1, level + 1, 2*k,     2*h)
                                                               + fluxes(1, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(1, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(1, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f2 = xt::eval(f(2, level, k, h)) + 0.25 * (fluxes(2, level + 1, 2*k,     2*h) 
+                auto f2 = xt::eval(f(2, level, k, h)) + 0.25 * (fluxes(2, level + 1, 2*k,     2*h)
                                                               + fluxes(2, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(2, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(2, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f3 = xt::eval(f(3, level, k, h)) + 0.25 * (fluxes(3, level + 1, 2*k,     2*h) 
+                auto f3 = xt::eval(f(3, level, k, h)) + 0.25 * (fluxes(3, level + 1, 2*k,     2*h)
                                                               + fluxes(3, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(3, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(3, level + 1, 2*k + 1, 2*h + 1));
 
 
-                auto f4 = xt::eval(f(4, level, k, h)) + 0.25 * (fluxes(4, level + 1, 2*k,     2*h) 
+                auto f4 = xt::eval(f(4, level, k, h)) + 0.25 * (fluxes(4, level + 1, 2*k,     2*h)
                                                               + fluxes(4, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(4, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(4, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f5 = xt::eval(f(5, level, k, h)) + 0.25 * (fluxes(5, level + 1, 2*k,     2*h) 
+                auto f5 = xt::eval(f(5, level, k, h)) + 0.25 * (fluxes(5, level + 1, 2*k,     2*h)
                                                               + fluxes(5, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(5, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(5, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f6 = xt::eval(f(6, level, k, h)) + 0.25 * (fluxes(6, level + 1, 2*k,     2*h) 
+                auto f6 = xt::eval(f(6, level, k, h)) + 0.25 * (fluxes(6, level + 1, 2*k,     2*h)
                                                               + fluxes(6, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(6, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(6, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f7 = xt::eval(f(7, level, k, h)) + 0.25 * (fluxes(7, level + 1, 2*k,     2*h) 
+                auto f7 = xt::eval(f(7, level, k, h)) + 0.25 * (fluxes(7, level + 1, 2*k,     2*h)
                                                               + fluxes(7, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(7, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(7, level + 1, 2*k + 1, 2*h + 1));
 
 
-                auto f8 = xt::eval(f(8, level, k, h)) + 0.25 * (fluxes(8, level + 1, 2*k,     2*h) 
+                auto f8 = xt::eval(f(8, level, k, h)) + 0.25 * (fluxes(8, level + 1, 2*k,     2*h)
                                                               + fluxes(8, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(8, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(8, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f9 = xt::eval(f(9, level, k, h)) + 0.25 * (fluxes(9, level + 1, 2*k,     2*h) 
+                auto f9 = xt::eval(f(9, level, k, h)) + 0.25 * (fluxes(9, level + 1, 2*k,     2*h)
                                                               + fluxes(9, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(9, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(9, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f10 = xt::eval(f(10, level, k, h)) + 0.25 * (fluxes(10, level + 1, 2*k,     2*h) 
+                auto f10 = xt::eval(f(10, level, k, h)) + 0.25 * (fluxes(10, level + 1, 2*k,     2*h)
                                                                 + fluxes(10, level + 1, 2*k + 1, 2*h)
                                                                 + fluxes(10, level + 1, 2*k,     2*h + 1)
                                                                 + fluxes(10, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f11 = xt::eval(f(11, level, k, h)) + 0.25 * (fluxes(11, level + 1, 2*k,     2*h) 
+                auto f11 = xt::eval(f(11, level, k, h)) + 0.25 * (fluxes(11, level + 1, 2*k,     2*h)
                                                                 + fluxes(11, level + 1, 2*k + 1, 2*h)
                                                                 + fluxes(11, level + 1, 2*k,     2*h + 1)
                                                                 + fluxes(11, level + 1, 2*k + 1, 2*h + 1));
 
 
-                auto f12 = xt::eval(f(12, level, k, h)) + 0.25 * (fluxes(12, level + 1, 2*k,     2*h) 
+                auto f12 = xt::eval(f(12, level, k, h)) + 0.25 * (fluxes(12, level + 1, 2*k,     2*h)
                                                                 + fluxes(12, level + 1, 2*k + 1, 2*h)
                                                                 + fluxes(12, level + 1, 2*k,     2*h + 1)
                                                                 + fluxes(12, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f13 = xt::eval(f(13, level, k, h)) + 0.25 * (fluxes(13, level + 1, 2*k,     2*h) 
+                auto f13 = xt::eval(f(13, level, k, h)) + 0.25 * (fluxes(13, level + 1, 2*k,     2*h)
                                                                 + fluxes(13, level + 1, 2*k + 1, 2*h)
                                                                 + fluxes(13, level + 1, 2*k,     2*h + 1)
                                                                 + fluxes(13, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f14 = xt::eval(f(14, level, k, h)) + 0.25 * (fluxes(14, level + 1, 2*k,     2*h) 
+                auto f14 = xt::eval(f(14, level, k, h)) + 0.25 * (fluxes(14, level + 1, 2*k,     2*h)
                                                                 + fluxes(14, level + 1, 2*k + 1, 2*h)
                                                                 + fluxes(14, level + 1, 2*k,     2*h + 1)
                                                                 + fluxes(14, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f15 = xt::eval(f(15, level, k, h)) + 0.25 * (fluxes(15, level + 1, 2*k,     2*h) 
+                auto f15 = xt::eval(f(15, level, k, h)) + 0.25 * (fluxes(15, level + 1, 2*k,     2*h)
                                                                 + fluxes(15, level + 1, 2*k + 1, 2*h)
                                                                 + fluxes(15, level + 1, 2*k,     2*h + 1)
                                                                 + fluxes(15, level + 1, 2*k + 1, 2*h + 1));
@@ -542,20 +542,20 @@ void one_time_step_overleaves_corrected(Field &f, const pred& pred_coeff, std::s
 
                 m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
                 m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
-                m0_3 = (1 - sxy) * m0_3; 
+                m0_3 = (1 - sxy) * m0_3;
 
 
                 m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
                 m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
-                m1_3 = (1 - sxy) * m1_3; 
+                m1_3 = (1 - sxy) * m1_3;
 
                 m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
                 m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
-                m2_3 = (1 - sxy) * m2_3; 
+                m2_3 = (1 - sxy) * m2_3;
 
                 m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
                 m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
-                m3_3 = (1 - sxy) * m3_3; 
+                m3_3 = (1 - sxy) * m3_3;
 
 
                 new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
@@ -599,13 +599,13 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     str << "LBM_D2Q4_3_Euler_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
-    mure::Field<Config> rho{"rho", mesh};
-    mure::Field<Config> qx{"qx", mesh};
-    mure::Field<Config> qy{"qy", mesh};
-    mure::Field<Config> e{"e", mesh};
+    samurai::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> rho{"rho", mesh};
+    samurai::Field<Config> qx{"qx", mesh};
+    samurai::Field<Config> qy{"qy", mesh};
+    samurai::Field<Config> e{"e", mesh};
 
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
@@ -652,15 +652,15 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 2;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = samurai::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
 
-            mure::Box<double, dim> box({0, 0}, {1, 1});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
+            samurai::Box<double, dim> box({0, 0}, {1, 1});
+            samurai::Mesh<Config> mesh{box, min_level, max_level};
 
             using coord_index_t = typename Config::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
@@ -691,7 +691,7 @@ int main(int argc, char *argv[])
                     if (refinement(f, eps, 0.0, i))
                         break;
                 }
-                mure::mr_prediction_overleaves(f); // Before saving
+                samurai::mr_prediction_overleaves(f); // Before saving
 
 
 
@@ -701,7 +701,7 @@ int main(int argc, char *argv[])
                 //save_solution(f, eps, nb_ite);
 
                 save_solution(f, eps, nb_ite, save_string+std::string("_before")); // Before applying the scheme
-       
+
                 //save_solution(f, eps, nb_ite,std::string("bback") );
 
 
@@ -711,7 +711,7 @@ int main(int argc, char *argv[])
                 //     std::stringstream str;
                 //     str << "debug_by_level_"<<save_string<<"_before_"<<nb_ite;
 
-                //     auto h5file = mure::Hdf5(str.str().data());
+                //     auto h5file = samurai::Hdf5(str.str().data());
                 //     h5file.add_field_by_level(mesh, f);
                 // }
                 //return 0;
@@ -727,12 +727,12 @@ int main(int argc, char *argv[])
                 //     std::stringstream str;
                 //     str << "debug_by_level_"<<save_string<<"_after_"<<nb_ite;
 
-                //     auto h5file = mure::Hdf5(str.str().data());
+                //     auto h5file = samurai::Hdf5(str.str().data());
                 //     h5file.add_field_by_level(mesh, f);
                 // }
 
             }
-            
+
         }
     }
     catch (const cxxopts::OptionException &e)

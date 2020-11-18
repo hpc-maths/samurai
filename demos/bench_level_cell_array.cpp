@@ -3,9 +3,9 @@
 #include <chrono>
 #include <string>
 
-#include <mure/mr_config.hpp>
-#include <mure/level_cell_list.hpp>
-#include <mure/level_cell_array.hpp>
+#include <samurai/mr_config.hpp>
+#include <samurai/level_cell_list.hpp>
+#include <samurai/level_cell_array.hpp>
 
 #include <xtensor/xview.hpp>
 
@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
 {
     constexpr std::size_t N_run = 5;
     constexpr std::size_t dim = 3;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
     using coord_index_t = Config::coord_index_t;
     const coord_index_t cross_size      = std::stoull(argv[1]);
     const coord_index_t cross_tickness  = std::stoull(argv[2]);
@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
         std::cout << "Run #" << i << std::endl;
 
         tic();
-        mure::LevelCellList<Config> dcl;
+        samurai::LevelCellList<Config> dcl;
 
         Config::index_t cnt = 0;
         for (Config::coord_index_t i = 0; i < cross_size; ++i)
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
         std::cout << "\tCreating level cell list in " << duration << "s" << std::endl;
 
         tic();
-        mure::LevelCellArray<Config> dca(dcl);
+        samurai::LevelCellArray<Config> dca(dcl);
         duration = toc();
         std::cout << "\tConvertion in " << duration << "s" << std::endl;
 

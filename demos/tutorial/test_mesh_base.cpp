@@ -5,12 +5,12 @@
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xmasked_view.hpp>
 
-#include <mure/box.hpp>
-#include <mure/cell_array.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
-#include <mure/mr/cell_flag.hpp>
-#include <mure/mesh.hpp>
+#include <samurai/box.hpp>
+#include <samurai/cell_array.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
+#include <samurai/mr/cell_flag.hpp>
+#include <samurai/mesh.hpp>
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -59,15 +59,15 @@ struct MyConfig
     static constexpr std::size_t max_refinement_level = 20;
     static constexpr std::size_t ghost_width = 1;
 
-    using interval_t = mure::Interval<int>;
+    using interval_t = samurai::Interval<int>;
     using mesh_id_t = SimpleID;
 };
 
 template <class Config>
-class MyMesh: public mure::Mesh_base<MyMesh<Config>, Config>
+class MyMesh: public samurai::Mesh_base<MyMesh<Config>, Config>
 {
 public:
-    using base_type = mure::Mesh_base<MyMesh<Config>, Config>;
+    using base_type = samurai::Mesh_base<MyMesh<Config>, Config>;
     using config = typename base_type::config;
     static constexpr std::size_t dim = config::dim;
 
@@ -85,7 +85,7 @@ public:
     : base_type(cl, min_level, max_level)
     {}
 
-    inline MyMesh(const mure::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
+    inline MyMesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
     : base_type(b, start_level, min_level, max_level)
     {}
 
@@ -95,7 +95,7 @@ public:
         for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             lcl_type& lcl = cl[level];
-            mure::static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
+            samurai::static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
             {
                 auto index = xt::eval(index_yz + stencil);
                 lcl[index].add_interval({interval.start - static_cast<int>(config::ghost_width),
@@ -120,7 +120,7 @@ bool check_overlap(const Mesh& mesh)
     {
         for( std::size_t level2 = level1 + 1; level2 <= max_level; ++level2)
         {
-            auto subset = mure::intersection(mesh[mesh_id_t::cells][level1],
+            auto subset = samurai::intersection(mesh[mesh_id_t::cells][level1],
                                              mesh[mesh_id_t::cells][level2]);
             subset([&](const auto& interval, const auto& index)
             {
@@ -157,7 +157,7 @@ int main()
     omega = 0.5*xt::random::rand<double>({nb_bubbles});
     aa = 0.05*xt::random::rand<double>({nb_bubbles});
 
-    mure::Box<double, dim> box({0, 0}, {1, 3});
+    samurai::Box<double, dim> box({0, 0}, {1, 3});
     mesh_t mesh(box, start_level, 0, 9);
 
     std::cout << mesh << std::endl;
@@ -183,25 +183,25 @@ int main()
                 std::cout << mesh << std::endl;
                 std::stringstream str;
                 str << "bubble_2d_overlap_" << nite;
-                mure::save(str.str().data(), mesh);
+                samurai::save(str.str().data(), mesh);
                 return 0;
             };
 
             std::size_t min_level = mesh.min_level();
             std::size_t max_level = mesh.max_level();
-            auto tag = mure::make_field<int, 1>("tag", mesh);
-            auto level_data = mure::make_field<std::size_t, 1>("level", mesh);
-            mure::for_each_cell(mesh[SimpleID::cells], [&](auto cell)
+            auto tag = samurai::make_field<int, 1>("tag", mesh);
+            auto level_data = samurai::make_field<std::size_t, 1>("level", mesh);
+            samurai::for_each_cell(mesh[SimpleID::cells], [&](auto cell)
             {
                 level_data[cell] = cell.level;
             });
 
-            mure::for_each_cell(mesh[SimpleID::cells], [&](auto cell)
+            samurai::for_each_cell(mesh[SimpleID::cells], [&](auto cell)
             {
                 bool inside = false;
                 std::size_t ib = 0;
 
-                tag[cell] = static_cast<int>(mure::CellFlag::keep);
+                tag[cell] = static_cast<int>(samurai::CellFlag::keep);
 
                 while (!inside && ib < nb_bubbles)
                 {
@@ -226,7 +226,7 @@ int main()
                             {
                                 if (cell.level < 9)
                                 {
-                                    tag[cell] = static_cast<int>(mure::CellFlag::refine);
+                                    tag[cell] = static_cast<int>(samurai::CellFlag::refine);
                                 }
                                 inside = true;
                             }
@@ -237,20 +237,20 @@ int main()
 
                 if (cell.level > 0 && !inside)
                 {
-                    tag[cell] = static_cast<int>(mure::CellFlag::coarsen);
+                    tag[cell] = static_cast<int>(samurai::CellFlag::coarsen);
                 }
             });
 
             for (std::size_t level = mesh.max_level(); level >= 1; --level)
             {
 
-                auto ghost_subset = mure::intersection(mesh[SimpleID::cells][level],
+                auto ghost_subset = samurai::intersection(mesh[SimpleID::cells][level],
                                                       mesh[SimpleID::reference][level-1])
                               .on(level - 1);
                 ghost_subset([&](const auto& i, const auto& index)
                 {
                     auto j = index[0];
-                    tag(level - 1, i, j) |= static_cast<int>(mure::CellFlag::keep);
+                    tag(level - 1, i, j) |= static_cast<int>(samurai::CellFlag::keep);
                 });
 
                 auto subset_2 = intersection(mesh[SimpleID::cells][level],
@@ -260,18 +260,18 @@ int main()
                 {
                     auto i = interval;
                     auto j = index[0];
-                    xt::xtensor<bool, 1> mask = (tag(level, i, j) & static_cast<int>(mure::CellFlag::refine));
+                    xt::xtensor<bool, 1> mask = (tag(level, i, j) & static_cast<int>(samurai::CellFlag::refine));
 
                     for(int jj = -1; jj < 2; ++jj)
                     {
                         for(int ii = -1; ii < 2; ++ii)
                         {
-                            xt::masked_view(tag(level, i + ii, j + jj), mask) |= static_cast<int>(mure::CellFlag::keep);
+                            xt::masked_view(tag(level, i + ii, j + jj), mask) |= static_cast<int>(samurai::CellFlag::keep);
                         }
                     }
                 });
 
-                auto keep_subset = mure::intersection(mesh[SimpleID::cells][level],
+                auto keep_subset = samurai::intersection(mesh[SimpleID::cells][level],
                                                       mesh[SimpleID::cells][level])
                               .on(level - 1);
                 keep_subset([&](const auto& interval, const auto& index)
@@ -279,15 +279,15 @@ int main()
                     auto i = interval;
                     auto j = index[0];
 
-                    xt::xtensor<bool, 1> mask = (tag(level,     2 * i,     2 * j) & static_cast<int>(mure::CellFlag::keep))
-                                              | (tag(level, 2 * i + 1,     2 * j) & static_cast<int>(mure::CellFlag::keep))
-                                              | (tag(level,     2 * i, 2 * j + 1) & static_cast<int>(mure::CellFlag::keep))
-                                              | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(mure::CellFlag::keep));
+                    xt::xtensor<bool, 1> mask = (tag(level,     2 * i,     2 * j) & static_cast<int>(samurai::CellFlag::keep))
+                                              | (tag(level, 2 * i + 1,     2 * j) & static_cast<int>(samurai::CellFlag::keep))
+                                              | (tag(level,     2 * i, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep))
+                                              | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep));
 
-                    xt::masked_view(tag(level,     2 * i,     2 * j), mask) |= static_cast<int>(mure::CellFlag::keep);
-                    xt::masked_view(tag(level, 2 * i + 1,     2 * j), mask) |= static_cast<int>(mure::CellFlag::keep);
-                    xt::masked_view(tag(level,     2 * i, 2 * j + 1), mask) |= static_cast<int>(mure::CellFlag::keep);
-                    xt::masked_view(tag(level, 2 * i + 1, 2 * j + 1), mask) |= static_cast<int>(mure::CellFlag::keep);
+                    xt::masked_view(tag(level,     2 * i,     2 * j), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                    xt::masked_view(tag(level, 2 * i + 1,     2 * j), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                    xt::masked_view(tag(level,     2 * i, 2 * j + 1), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                    xt::masked_view(tag(level, 2 * i + 1, 2 * j + 1), mask) |= static_cast<int>(samurai::CellFlag::keep);
 
                 });
 
@@ -297,7 +297,7 @@ int main()
                 for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
                 {
                     auto s = xt::view(stencil, i);
-                    auto subset = mure::intersection(mure::translate(mesh[SimpleID::cells][level], s),
+                    auto subset = samurai::intersection(samurai::translate(mesh[SimpleID::cells][level], s),
                                                     mesh[SimpleID::cells][level - 1])
                                 .on(level);
 
@@ -308,27 +308,27 @@ int main()
 
                         if (i_f.is_valid())
                         {
-                            auto mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(mure::CellFlag::refine);
+                            auto mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::refine);
                             auto i_c = i_f >> 1;
                             auto j_c = j_f >> 1;
-                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(mure::CellFlag::refine);
+                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::refine);
 
-                            mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(mure::CellFlag::keep);
-                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(mure::CellFlag::keep);
-                            // tag(level - 1, i_c, j_c) |= static_cast<int>(mure::CellFlag::keep);
+                            mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::keep);
+                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                            // tag(level - 1, i_c, j_c) |= static_cast<int>(samurai::CellFlag::keep);
                         }
 
                         i_f = interval.odd_elements();
                         if (i_f.is_valid())
                         {
-                            auto mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(mure::CellFlag::refine);
+                            auto mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::refine);
                             auto i_c = i_f >> 1;
                             auto j_c = j_f >> 1;
-                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(mure::CellFlag::refine);
+                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::refine);
 
-                            mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(mure::CellFlag::keep);
-                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(mure::CellFlag::keep);
-                            // tag(level - 1, i_c, j_c) |= static_cast<int>(mure::CellFlag::keep);
+                            mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::keep);
+                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                            // tag(level - 1, i_c, j_c) |= static_cast<int>(samurai::CellFlag::keep);
                         }
                     });
                 }
@@ -336,19 +336,19 @@ int main()
 
             cl_type cell_list;
 
-            mure::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+            samurai::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
             {
                 for (int i = interval.start; i < interval.end; ++i)
                 {
-                    if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
+                    if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
                     {
-                        mure::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
+                        samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                         {
                             auto index = 2 * index_yz + stencil;
                             cell_list[level + 1][index].add_interval({2 * i, 2 * i + 2});
                         });
                     }
-                    else if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::keep))
+                    else if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
                     {
                         cell_list[level][index_yz].add_point(i);
                     }
@@ -372,6 +372,6 @@ int main()
 
         std::stringstream str;
         str << "bubble_2d_" << nite;
-        mure::save(str.str().data(), mesh);
+        samurai::save(str.str().data(), mesh);
     }
 }

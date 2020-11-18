@@ -1,22 +1,22 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(mure)
+project(samurai)
 
-set(MURE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(SAMURAI_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Versionning
 # ===========
 
-file(STRINGS "${MURE_INCLUDE_DIR}/mure/mure_config.hpp" mure_version_defines
-     REGEX "#define MURE_VERSION_(MAJOR|MINOR|PATCH)")
-foreach(ver ${mure_version_defines})
-    if(ver MATCHES "#define MURE_VERSION_(MAJOR|MINOR|PATCH) +([^ ]+)$")
-        set(MURE_VERSION_${CMAKE_MATCH_1} "${CMAKE_MATCH_2}" CACHE INTERNAL "")
+file(STRINGS "${SAMURAI_INCLUDE_DIR}/samurai/samurai_config.hpp" samurai_version_defines
+     REGEX "#define SAMURAI_VERSION_(MAJOR|MINOR|PATCH)")
+foreach(ver ${samurai_version_defines})
+    if(ver MATCHES "#define SAMURAI_VERSION_(MAJOR|MINOR|PATCH) +([^ ]+)$")
+        set(SAMURAI_VERSION_${CMAKE_MATCH_1} "${CMAKE_MATCH_2}" CACHE INTERNAL "")
     endif()
 endforeach()
 set(${PROJECT_NAME}_VERSION
-    ${MURE_VERSION_MAJOR}.${MURE_VERSION_MINOR}.${MURE_VERSION_PATCH})
-message(STATUS "Building mure v${${PROJECT_NAME}_VERSION}")
+    ${SAMURAI_VERSION_MAJOR}.${SAMURAI_VERSION_MINOR}.${SAMURAI_VERSION_PATCH})
+message(STATUS "Building samurai v${${PROJECT_NAME}_VERSION}")
 
 
 find_package(xtensor REQUIRED)
@@ -26,28 +26,28 @@ find_package(pugixml REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt)
 
-set(MURE_HEADERS
-    ${MURE_INCLUDE_DIR}/mure/box.hpp
-    ${MURE_INCLUDE_DIR}/mure/cell.hpp
-    ${MURE_INCLUDE_DIR}/mure/cell_array.hpp
-    ${MURE_INCLUDE_DIR}/mure/cell_list.hpp
-    ${MURE_INCLUDE_DIR}/mure/field.hpp
-    ${MURE_INCLUDE_DIR}/mure/hdf5.hpp
-    ${MURE_INCLUDE_DIR}/mure/interval.hpp
-    ${MURE_INCLUDE_DIR}/mure/level_cell_array.hpp
-    ${MURE_INCLUDE_DIR}/mure/level_cell_list.hpp
-    ${MURE_INCLUDE_DIR}/mure/static_algorithm.hpp
+set(SAMURAI_HEADERS
+    ${SAMURAI_INCLUDE_DIR}/samurai/box.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/cell.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/cell_array.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/cell_list.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/field.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/hdf5.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/interval.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/level_cell_array.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/level_cell_list.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/static_algorithm.hpp
 )
 
-add_library(mure INTERFACE)
-target_include_directories(mure INTERFACE $<BUILD_INTERFACE:${MURE_INCLUDE_DIR}>
+add_library(samurai INTERFACE)
+target_include_directories(samurai INTERFACE $<BUILD_INTERFACE:${SAMURAI_INCLUDE_DIR}>
                                           $<INSTALL_INTERFACE:include>)
 
-# target_link_libraries(mure INTERFACE xtensor pugixml spdlog
+# target_link_libraries(samurai INTERFACE xtensor pugixml spdlog
 # INTERFACE $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
-target_link_libraries(mure INTERFACE xtensor pugixml spdlog hdf5 fmt::fmt)
+target_link_libraries(samurai INTERFACE xtensor pugixml spdlog hdf5 fmt::fmt)
 
-OPTION(BUILD_TESTS "mure test suite" OFF)
+OPTION(BUILD_TESTS "samurai test suite" OFF)
 OPTION(DOWNLOAD_GTEST "build gtest from downloaded sources" OFF)
 
 if(DOWNLOAD_GTEST)
@@ -66,38 +66,38 @@ add_subdirectory(demos)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-install(TARGETS mure
+install(TARGETS samurai
         EXPORT ${PROJECT_NAME}-targets)
 
 # Makes the project importable from the build directory
 export(EXPORT ${PROJECT_NAME}-targets
        FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
 
-install(FILES ${MURE_HEADERS}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mure)
+install(FILES ${SAMURAI_HEADERS}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/samurai)
 
-set(MURE_CMAKECONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}" CACHE
-    STRING "install path for mureConfig.cmake")
+set(SAMURAI_CMAKECONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}" CACHE
+    STRING "install path for samuraiConfig.cmake")
 
 configure_package_config_file(${PROJECT_NAME}Config.cmake.in
                               "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-                              INSTALL_DESTINATION ${MURE_CMAKECONFIG_INSTALL_DIR})
+                              INSTALL_DESTINATION ${SAMURAI_CMAKECONFIG_INSTALL_DIR})
 
 # xtensor is header-only and does not depend on the architecture.
 # generated for a 64 bit target can be used for 32 bit targets and vice versa.
-# Remove CMAKE_SIZEOF_VOID_P from xtensorConfigVersion.cmake so that an mureConfig.cmake
-set(_MURE_CMAKE_SIZEOF_VOID_P ${CMAKE_SIZEOF_VOID_P})
+# Remove CMAKE_SIZEOF_VOID_P from xtensorConfigVersion.cmake so that an samuraiConfig.cmake
+set(_SAMURAI_CMAKE_SIZEOF_VOID_P ${CMAKE_SIZEOF_VOID_P})
 unset(CMAKE_SIZEOF_VOID_P)
 write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
                                  VERSION ${${PROJECT_NAME}_VERSION}
                                  COMPATIBILITY AnyNewerVersion)
-set(CMAKE_SIZEOF_VOID_P ${_MURE_CMAKE_SIZEOF_VOID_P})
+set(CMAKE_SIZEOF_VOID_P ${_SAMURAI_CMAKE_SIZEOF_VOID_P})
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-        DESTINATION ${MURE_CMAKECONFIG_INSTALL_DIR})
+        DESTINATION ${SAMURAI_CMAKECONFIG_INSTALL_DIR})
 install(EXPORT ${PROJECT_NAME}-targets
         FILE ${PROJECT_NAME}Targets.cmake
-        DESTINATION ${MURE_CMAKECONFIG_INSTALL_DIR})
+        DESTINATION ${SAMURAI_CMAKECONFIG_INSTALL_DIR})
 
 configure_file(${PROJECT_NAME}.pc.in
                "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc"

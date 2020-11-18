@@ -1,46 +1,46 @@
 #pragma once
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "criteria.hpp"
 
 template <class Config>
-bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
+bool refinement(samurai::Field<Config> &u, std::size_t ite, std::size_t nt)
 {
     constexpr auto dim = Config::dim;
     using interval_t = typename Config::interval_t;
 
     auto mesh = u.mesh();
     std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
-    mure::Field<Config> grad{"grad", mesh};
-    mure::Field<Config, int> tag{"tag", mesh};
+    samurai::Field<Config> grad{"grad", mesh};
+    samurai::Field<Config, int> tag{"tag", mesh};
     tag.array().fill(0);
-    
+
     mesh.for_each_cell([&](auto &cell) {
-        tag[cell] = static_cast<int>(mure::CellFlag::keep);
+        tag[cell] = static_cast<int>(samurai::CellFlag::keep);
     });
 
-    mure::mr_projection(u);
-    mure::amr_prediction(u);
+    samurai::mr_projection(u);
+    samurai::amr_prediction(u);
     u.update_bc();
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
-                                        mesh[mure::MeshType::cells][level]);
+        auto subset = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                        mesh[samurai::MeshType::cells][level]);
         subset.apply_op(compute_gradient(u, grad));
     }
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
-                                         mesh[mure::MeshType::all_cells][level-1])
+        auto subset = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                         mesh[samurai::MeshType::all_cells][level-1])
                        .on(level-1);
         subset.apply_op(to_refine_amr(grad, tag, max_level));
     }
 
     for (std::size_t level = max_level; level > min_level; --level)
     {
-        auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
-                                     mesh[mure::MeshType::cells][level]);
+        auto subset_1 = intersection(mesh[samurai::MeshType::cells][level],
+                                     mesh[samurai::MeshType::cells][level]);
 
         subset_1.apply_op(extend(tag));
 
@@ -55,8 +55,8 @@ bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
                 {
                     stencil[d] = s;
 
-                   auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
-                                              mesh[mure::MeshType::cells][level-1])
+                   auto subset = intersection(translate(mesh[samurai::MeshType::cells][level], stencil),
+                                              mesh[samurai::MeshType::cells][level-1])
                                 .on(level);
 
                     subset.apply_op(make_graduation(tag));
@@ -65,10 +65,10 @@ bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
         }
     }
 
-    mure::CellList<Config> cell_list;
+    samurai::CellList<Config> cell_list;
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto level_cell_array = mesh[mure::MeshType::cells][level];
+        auto level_cell_array = mesh[samurai::MeshType::cells][level];
 
         if (!level_cell_array.empty())
         {
@@ -78,9 +78,9 @@ bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
                                                                     &interval) {
                 for (int i = interval.start; i < interval.end; ++i)
                 {
-                    if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
+                    if (tag.array()[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
                     {
-                        mure::static_nested_loop<dim - 1, 0, 2>(
+                        samurai::static_nested_loop<dim - 1, 0, 2>(
                             [&](auto stencil) {
                                 auto index = 2 * index_yz + stencil;
                                 cell_list[level + 1][index].add_point(2 * i);
@@ -95,24 +95,24 @@ bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
             });
         }
     }
-    mure::Mesh<Config> new_mesh{cell_list, mesh.initial_mesh(),
+    samurai::Mesh<Config> new_mesh{cell_list, mesh.initial_mesh(),
                             min_level, max_level};
 
     if (new_mesh == mesh)
         return true;
 
-    mure::Field<Config> new_u{u.name(), new_mesh, u.bc()};
+    samurai::Field<Config> new_u{u.name(), new_mesh, u.bc()};
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
-                                   new_mesh[mure::MeshType::cells][level]);
+        auto subset = samurai::intersection(mesh[samurai::MeshType::all_cells][level],
+                                   new_mesh[samurai::MeshType::cells][level]);
         subset.apply_op(copy(new_u, u));
     }
 
     for (std::size_t level = min_level; level < max_level; ++level)
     {
-        auto level_cell_array = mesh[mure::MeshType::cells][level];
+        auto level_cell_array = mesh[samurai::MeshType::cells][level];
 
         if (!level_cell_array.empty())
         {
@@ -121,9 +121,9 @@ bool refinement(mure::Field<Config> &u, std::size_t ite, std::size_t nt)
                     for (int i = interval.start; i < interval.end; ++i)
                     {
                         if (tag.array()[i + interval.index] &
-                            static_cast<int>(mure::CellFlag::refine))
+                            static_cast<int>(samurai::CellFlag::refine))
                         {
-                            mure::compute_new_u(level, interval_t{i, i+1}, index_yz, u, new_u);
+                            samurai::compute_new_u(level, interval_t{i, i+1}, index_yz, u, new_u);
                         }
                     }
                 });

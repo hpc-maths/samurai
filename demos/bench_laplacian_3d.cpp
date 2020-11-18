@@ -8,9 +8,9 @@
 #include <xtensor/xview.hpp>
 #include "xtensor/xnoalias.hpp"
 
-#include <mure/box.hpp>
-#include <mure/level_cell_array.hpp>
-#include <mure/mr_config.hpp>
+#include <samurai/box.hpp>
+#include <samurai/level_cell_array.hpp>
+#include <samurai/mr_config.hpp>
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -36,17 +36,17 @@ int main()
     constexpr size_t level = 8 ;
     constexpr size_t nrun = 10;
     const size_t end = std::pow(2, level);
-    using Config = mure::MRConfig<dim>;
-    mure::Box<int, dim> box({0, 0, 0}, {(int) end, (int) end, (int) end});
+    using Config = samurai::MRConfig<dim>;
+    samurai::Box<int, dim> box({0, 0, 0}, {(int) end, (int) end, (int) end});
 
 
-    mure::LevelCellArray<Config> lca = {box};
+    samurai::LevelCellArray<Config> lca = {box};
 
     auto array_1 = xt::xtensor<double, 1>::from_shape({lca.nb_cells()});
     array_1.fill(1.);
     auto array_2 = xt::xtensor<double, 1>::from_shape({lca.nb_cells()});
 
-    std::cout << "Mure:\n";
+    std::cout << "Samurai:\n";
     for(size_t n=0; n<nrun; ++n)
     {
         tic();

@@ -1,7 +1,7 @@
-#include <mure/box.hpp>
+#include <samurai/box.hpp>
 
 int main()
 {
-    mure::Box<double, 2> box{{0,0}, {1, 1}};
+    samurai::Box<double, 2> box{{0,0}, {1, 1}};
     return 0;
 }

@@ -5,9 +5,9 @@
 
 #include <xtensor/xarray.hpp>
 
-#include <mure/box.hpp>
+#include <samurai/box.hpp>
 
-namespace mure
+namespace samurai
 {
 
     RC_GTEST_PROP(Box, corner,

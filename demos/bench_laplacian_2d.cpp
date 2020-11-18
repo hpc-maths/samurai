@@ -9,7 +9,7 @@
 #include <xtensor/xview.hpp>
 #include "xtensor/xnoalias.hpp"
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -44,21 +44,21 @@ int main(int argc, char* argv[])
         nrun = std::stoull(argv[2]);
 
     const size_t end = std::pow(2, level) +2;
-    using Config = mure::MRConfig<dim>;
-    mure::Box<double, dim> box({0, 0}, {1, 1});
-    mure::Mesh<Config> mesh{box, 0, level};
+    using Config = samurai::MRConfig<dim>;
+    samurai::Box<double, dim> box({0, 0}, {1, 1});
+    samurai::Mesh<Config> mesh{box, 0, level};
 
-    mure::Field<Config> array_1{"array_1", mesh};
+    samurai::Field<Config> array_1{"array_1", mesh};
     array_1.array().fill(1.);
-    mure::Field<Config> array_2{"array_2", mesh};
+    samurai::Field<Config> array_2{"array_2", mesh};
     array_2.array().fill(0.);
 
-    std::cout << "Mure:\n";
+    std::cout << "Samurai:\n";
     for(size_t n=0; n<nrun; ++n)
     {
         tic();
-        auto subset = mure::intersection(mesh[mure::MeshType::cells][level],
-                                         mesh[mure::MeshType::cells][level]);
+        auto subset = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                         mesh[samurai::MeshType::cells][level]);
 
         subset([&](auto &index, auto &interval, auto)
         {
@@ -66,9 +66,9 @@ int main(int argc, char* argv[])
             auto j = index[0];
             xt::noalias(array_2(level, i, j)) = 2.*array_1(level, i , j)
                                               - array_1(level, i - 1 , j)
-                                              - array_1(level, i + 1 , j)                                 
+                                              - array_1(level, i + 1 , j)
                                               - array_1(level, i     , j - 1)
-                                              - array_1(level, i     , j + 1);                                 
+                                              - array_1(level, i     , j + 1);
         });
         auto duration = toc();
 

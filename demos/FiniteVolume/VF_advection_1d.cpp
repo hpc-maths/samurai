@@ -1,4 +1,4 @@
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
@@ -25,13 +25,13 @@ double toc()
 }
 
 template <class Config>
-auto init(mure::Mesh<Config> &mesh)
+auto init(samurai::Mesh<Config> &mesh)
 {
-    mure::BC<1> bc{ {{ {mure::BCType::dirichlet, 1},
-                       {mure::BCType::dirichlet, 0},
+    samurai::BC<1> bc{ {{ {samurai::BCType::dirichlet, 1},
+                       {samurai::BCType::dirichlet, 0},
                     }} };
 
-    mure::Field<Config> u{"u", mesh, bc};
+    samurai::Field<Config> u{"u", mesh, bc};
     u.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -50,12 +50,12 @@ auto init(mure::Mesh<Config> &mesh)
 int main(int argc, char *argv[])
 {
     constexpr size_t dim = 1;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
     std::size_t min_level = 4, max_level = 10;
-    mure::Box<double, dim> box({-2}, {2});
-    mure::Mesh<Config> mesh{box, min_level, max_level};
+    samurai::Box<double, dim> box({-2}, {2});
+    samurai::Mesh<Config> mesh{box, min_level, max_level};
 
     double a = 1.;
     double dt = .95/(1<<max_level);
@@ -85,23 +85,23 @@ int main(int argc, char *argv[])
         duration = toc();
         std::cout << "refinement: " << duration << "s\n";
 
-        mure::mr_projection(u);
-        mure::amr_prediction(u);
+        samurai::mr_projection(u);
+        samurai::amr_prediction(u);
         u.update_bc();
 
         tic();
-        mure::Field<Config> unp1{"u", mesh, u.bc()};
-        unp1 = u - dt * mure::upwind(a, u);
+        samurai::Field<Config> unp1{"u", mesh, u.bc()};
+        unp1 = u - dt * samurai::upwind(a, u);
 
-        
+
         for (std::size_t level = mesh.min_level(); level < mesh.max_level(); ++level)
         {
             xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
 
             stencil = {{-1}};
 
-            auto subset_right = intersection(translate(mesh[mure::MeshType::cells][level+1], stencil),
-                                             mesh[mure::MeshType::cells][level])
+            auto subset_right = intersection(translate(mesh[samurai::MeshType::cells][level+1], stencil),
+                                             mesh[samurai::MeshType::cells][level])
                                .on(level);
 
             subset_right([&](auto, auto& interval, auto)
@@ -111,14 +111,14 @@ int main(int argc, char *argv[])
 
                 // TODO: remove xt::eval bug. If we change the sign into the brackets, it works. Check why we can't set a minus at the first place.
                 //       xtensor bug ??
-                unp1(level, i) = unp1(level, i) - dt/dx * (-mure::upwind_op<interval_t>(level, i).right_flux(a, u)
-                                                           +mure::upwind_op<interval_t>(level+1, 2*i+1).right_flux(a, u));
+                unp1(level, i) = unp1(level, i) - dt/dx * (-samurai::upwind_op<interval_t>(level, i).right_flux(a, u)
+                                                           +samurai::upwind_op<interval_t>(level+1, 2*i+1).right_flux(a, u));
             });
 
             stencil = {{1}};
 
-            auto subset_left = intersection(translate(mesh[mure::MeshType::cells][level+1], stencil),
-                                       mesh[mure::MeshType::cells][level])
+            auto subset_left = intersection(translate(mesh[samurai::MeshType::cells][level+1], stencil),
+                                       mesh[samurai::MeshType::cells][level])
                                .on(level);
 
             subset_left([&](auto, auto& interval, auto)
@@ -126,11 +126,11 @@ int main(int argc, char *argv[])
                 auto i = interval[0];
                 double dx = 1./(1<<level);
 
-                unp1(level, i) = unp1(level, i) - dt/dx * (mure::upwind_op<interval_t>(level, i).left_flux(a, u)
-                                                          -mure::upwind_op<interval_t>(level+1, 2*i).left_flux(a, u));
+                unp1(level, i) = unp1(level, i) - dt/dx * (samurai::upwind_op<interval_t>(level, i).left_flux(a, u)
+                                                          -samurai::upwind_op<interval_t>(level+1, 2*i).left_flux(a, u));
             });
         }
-        
+
         std::swap(u.array(), unp1.array());
 
         duration = toc();
@@ -139,9 +139,9 @@ int main(int argc, char *argv[])
         tic();
         std::stringstream s;
         s << "VFadvection_1d_ite_" << nt;
-        auto h5file = mure::Hdf5(s.str().data());
+        auto h5file = samurai::Hdf5(s.str().data());
         h5file.add_mesh(mesh);
-        mure::Field<Config> level_{"level", mesh};
+        samurai::Field<Config> level_{"level", mesh};
         mesh.for_each_cell([&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
         h5file.add_field(u);
         h5file.add_field(level_);

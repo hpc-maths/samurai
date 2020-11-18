@@ -4,7 +4,7 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
@@ -43,24 +43,24 @@ bool inside_obstacle (double x, double y)
 {
      double x_center = 5./16., y_center = 0.5;
 
-    // if ((   std::max(std::abs(x - x_center), 
+    // if ((   std::max(std::abs(x - x_center),
     //                  std::abs(y - y_center)))
     //             > radius)
-    if ((   std::sqrt(std::pow(x - x_center, 2.)+ 
+    if ((   std::sqrt(std::pow(x - x_center, 2.)+
                       std::pow(y - y_center, 2.)))
                 > radius)
         return false;
     else
     {
         return true;
-    }    
+    }
 }
 
 double level_set_obstacle (double x, double y)
 {
      double x_center = 5./16., y_center = 0.5;
 
-    return ((   std::sqrt(std::pow(x - x_center, 2.)+ 
+    return ((   std::sqrt(std::pow(x - x_center, 2.)+
                           std::pow(y - y_center, 2.))) - radius);
 }
 
@@ -111,7 +111,7 @@ double length_obstacle_inside_cell(double xLL, double yLL, double dx)
 
         }
     }
-    
+
     return dx * dx * (static_cast<double>(volume_in) / static_cast<double>(volume)) / delta;
 
 }
@@ -119,7 +119,7 @@ double length_obstacle_inside_cell(double xLL, double yLL, double dx)
 std::array<double, 9> inlet_bc()
 {
 
-    std::array<double, 9> to_return;    
+    std::array<double, 9> to_return;
 
     double rho = rho0;
     double qx = rho0 * u0;
@@ -161,7 +161,7 @@ std::array<double, 9> inlet_bc()
         to_return[6] =                                     -.25*r3*m4 + .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
         to_return[7] =                                     -.25*r3*m4 - .25*r3*m5 + .25*r4*m6             + .25*r2*m8 ;
         to_return[8] =                                      .25*r3*m4 - .25*r3*m5 + .25*r4*m6             - .25*r2*m8 ;
-    
+
     }
 
     if  (! momenti.compare(std::string("Lallemand")))    {
@@ -194,16 +194,16 @@ std::array<double, 9> inlet_bc()
 
 
 template<class Config>
-auto init_f(mure::Mesh<Config> &mesh)
+auto init_f(samurai::Mesh<Config> &mesh)
 {
     constexpr std::size_t nvel = 9;
-    mure::BC<2> bc{ {{ {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0},
-                       {mure::BCType::neumann, 0.0}
+    samurai::BC<2> bc{ {{ {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0},
+                       {samurai::BCType::neumann, 0.0}
                     }} };
 
-    mure::Field<Config, double, nvel> f("f", mesh, bc);
+    samurai::Field<Config, double, nvel> f("f", mesh, bc);
     f.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -278,7 +278,7 @@ auto init_f(mure::Mesh<Config> &mesh)
             f[cell][7] = (1./9)*m0   - (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 -(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             + .25*r2*m8 ;
             f[cell][8] = (1./9)*m0   + (1./6)*r1*m1 -  (1./6)*r1*m2 + (1./18)*r2*m3 +(1./12)*r3*m4 - (1./12)*r3*m5 +  (1./36)*r4*m6             - .25*r2*m8 ;
         }
-        
+
     });
 
     return f;
@@ -300,7 +300,7 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
         int cosinus = static_cast<int>(std::round(std::cos(alpha * M_PI / 2.)));
         int sinus   = static_cast<int>(std::round(std::sin(alpha * M_PI / 2.)));
 
-        return std::pair<int, int> (cosinus * k - sinus   * h, 
+        return std::pair<int, int> (cosinus * k - sinus   * h,
                                       sinus * k + cosinus * h);
     };
 
@@ -325,7 +325,7 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
         else
         {
             auto tmp = (1 << (delta - 1));
-            return static_cast<int>((k < 0) ? (k + tmp) : (k + tmp - 1));   
+            return static_cast<int>((k < 0) ? (k + tmp) : (k + tmp - 1));
         }
     };
 
@@ -337,15 +337,15 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
         // 4 are moving along the axis, thus needing only 2 fluxes each (entering-exiting)
         // and 4 along the diagonals, thus needing  6 fluxes
 
-        // 4 * 2 + 4 * 6 = 8 + 24 = 32 
+        // 4 * 2 + 4 * 6 = 8 + 24 = 32
         // Now we also add 4 corrective fluxes for the correction
         // of the diffusion structure of the adaptive method
 
         data[k].resize(36);
-    
+
 
         // Parallel velocities
-        
+
         for (int alpha = 0; alpha <= 3; ++alpha)
         {
 
@@ -354,7 +354,7 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
             // auto rot_0_1 = rotation_of_pi_over_two(alpha, 0, 1);
 
             // std::cout<<rot_1_0.first<<"  "<<rot_1_0.second<<"\n"<<rot_0_1.first<<"  "<<rot_0_1.second<<std::endl;
-            
+
             for (int l = 0; l < size; ++l)
             {
                 // The reference direction from which the other ones are computed
@@ -382,10 +382,10 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
             {
                 auto rotated_in  = rotation_of_pi_over_two(alpha, tau(k,  i   * size - 1), tau(k, j * size + l));
                 auto rotated_out = rotation_of_pi_over_two(alpha, tau(k, (i+1)* size - 1), tau(k, j * size + l));
-                
+
                 data[k][offset + 6 * alpha + 0] += prediction(k, tau_inverse(k, rotated_in.first ),  tau_inverse(k, rotated_in.second ));
                 data[k][offset + 6 * alpha + 3] += prediction(k, tau_inverse(k, rotated_out.first),  tau_inverse(k, rotated_out.second));
-   
+
             }
 
             // Cell on the diagonal
@@ -395,16 +395,16 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 
                 data[k][offset + 6 * alpha + 1] += prediction(k, tau_inverse(k, rotated_in.first ),  tau_inverse(k, rotated_in.second ));
                 data[k][offset + 6 * alpha + 4] += prediction(k, tau_inverse(k, rotated_out.first),  tau_inverse(k, rotated_out.second));
-   
+
             }
             // Second side
             for (int l = 0; l < size - 1; ++l)
             {
                 auto rotated_in  = rotation_of_pi_over_two(alpha,  tau(k, i*size + l), tau(k,  j    * size - 1));
                 auto rotated_out = rotation_of_pi_over_two(alpha,  tau(k, i*size + l), tau(k, (j+1) * size - 1));
-                
+
                 data[k][offset + 6 * alpha + 2] += prediction(k, tau_inverse(k, rotated_in.first ),  tau_inverse(k, rotated_in.second ));
-                data[k][offset + 6 * alpha + 5] += prediction(k, tau_inverse(k, rotated_out.first),  tau_inverse(k, rotated_out.second));                
+                data[k][offset + 6 * alpha + 5] += prediction(k, tau_inverse(k, rotated_out.first),  tau_inverse(k, rotated_out.second));
             }
 
 
@@ -413,10 +413,10 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
             {
 
                 // I could be done better but it does not matter
-                data[k][32] += prediction(k,  i   *size    ,  j   *size + l); 
-                data[k][33] += prediction(k, (i+1)*size    ,  j   *size + l); 
-                data[k][34] += prediction(k,  i   *size + l,  j   *size    ); 
-                data[k][35] += prediction(k,  i   *size + l, (j+1)*size    ); 
+                data[k][32] += prediction(k,  i   *size    ,  j   *size + l);
+                data[k][33] += prediction(k, (i+1)*size    ,  j   *size + l);
+                data[k][34] += prediction(k,  i   *size + l,  j   *size    );
+                data[k][35] += prediction(k,  i   *size + l, (j+1)*size    );
             }
 
         }
@@ -426,10 +426,10 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 }
 
 // I do many separate functions because the return type
-// is not necessarely the same between directions and I want to avoid 
+// is not necessarely the same between directions and I want to avoid
 // using a template, which indeed comes back to the same than this.
-template<class Mesh> 
-auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -441,8 +441,8 @@ auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, mure::MeshType t
                                    difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), coeff * yp))), // Removing SE
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_north(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_north(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -454,8 +454,8 @@ auto get_adjacent_boundary_north(Mesh & mesh, std::size_t level, mure::MeshType 
                                    difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), coeff * xp))), // Removing NW
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_west(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_west(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -467,8 +467,8 @@ auto get_adjacent_boundary_west(Mesh & mesh, std::size_t level, mure::MeshType t
                                    difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), coeff * yp))), // Removing SW
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_south(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_south(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -480,8 +480,8 @@ auto get_adjacent_boundary_south(Mesh & mesh, std::size_t level, mure::MeshType 
                                    difference(mesh.initial_mesh(), translate(mesh.initial_mesh(), coeff * xp))), // Removing SW
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_northeast(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_northeast(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -494,8 +494,8 @@ auto get_adjacent_boundary_northeast(Mesh & mesh, std::size_t level, mure::MeshT
                                    translate(mesh.initial_mesh(), - coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_northwest(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_northwest(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -508,8 +508,8 @@ auto get_adjacent_boundary_northwest(Mesh & mesh, std::size_t level, mure::MeshT
                                    translate(mesh.initial_mesh(), coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_southwest(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_southwest(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -522,8 +522,8 @@ auto get_adjacent_boundary_southwest(Mesh & mesh, std::size_t level, mure::MeshT
                                    translate(mesh.initial_mesh(), coeff * xp)), // Removing horizontal strip
                         mesh[type][level]);//.on(level);
 }
-template<class Mesh> 
-auto get_adjacent_boundary_southeast(Mesh & mesh, std::size_t level, mure::MeshType type)
+template<class Mesh>
+auto get_adjacent_boundary_southeast(Mesh & mesh, std::size_t level, samurai::MeshType type)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -556,15 +556,15 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
     auto min_level = mesh.min_level();
-    
+
     std::cout<<std::endl<<"[+] Projecting"<<std::flush;
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     std::cout<<std::endl<<"[+] Updating BC"<<std::flush;
     f.update_bc(); // It is important to do so
     std::cout<<std::endl<<"[+] Predicting"<<std::flush;
-    mure::mr_prediction(f);
+    samurai::mr_prediction(f);
     std::cout<<std::endl<<"[+] Predicting overleaves"<<std::flush;
-    mure::mr_prediction_overleaves(f);
+    samurai::mr_prediction_overleaves(f);
 
 
     Field new_f{"new_f", mesh};
@@ -590,13 +590,13 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
 
             std::cout<<std::endl<<"[+] Advecting at finest"<<std::flush;
-            
+
             std::cout<<std::endl<<"[=] East"<<std::flush;
-            auto leaves_east = get_adjacent_boundary_east(mesh, max_level, mure::MeshType::cells);
+            auto leaves_east = get_adjacent_boundary_east(mesh, max_level, samurai::MeshType::cells);
             leaves_east.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
-                
+                auto h = index[0];    // Logical index in y
+
                 // // BC
                 // advected(3, level, k, h) =  f(3, level, k, h);
                 // advected(6, level, k, h) =  f(6, level, k, h);
@@ -618,15 +618,15 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 advected(5, level, k, h) =  f(5, level, k - 1, h - 1);
                 advected(8, level, k, h) =  f(8, level, k - 1, h + 1);
 
-                
+
 
             });
-            
+
             std::cout<<std::endl<<"[=] North"<<std::flush;
-            auto leaves_north = get_adjacent_boundary_north(mesh, max_level, mure::MeshType::cells);
+            auto leaves_north = get_adjacent_boundary_north(mesh, max_level, samurai::MeshType::cells);
             leaves_north.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
                 // // Working
                 advected(0, level, k, h) =  f(0, level, k, h);
@@ -658,10 +658,10 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
             });
 
             std::cout<<std::endl<<"[=] NorthEast"<<std::flush;
-            auto leaves_northeast = get_adjacent_boundary_northeast(mesh, max_level, mure::MeshType::cells);
+            auto leaves_northeast = get_adjacent_boundary_northeast(mesh, max_level, samurai::MeshType::cells);
             leaves_northeast.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
                 // advected(0, level, k, h) =  f(0, level, k, h);
                 // advected(1, level, k, h) =  f(1, level, k - 1, h);
@@ -714,10 +714,10 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
             });
 
             std::cout<<std::endl<<"[=] West"<<std::flush;
-            auto leaves_west = get_adjacent_boundary_west(mesh, max_level, mure::MeshType::cells);
+            auto leaves_west = get_adjacent_boundary_west(mesh, max_level, samurai::MeshType::cells);
             leaves_west.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
                 advected(0, level, k, h) =  f(0, level, k, h);
                 advected(1, level, k, h) =  inlet_condition[1];
@@ -744,10 +744,10 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
             });
 
             std::cout<<std::endl<<"[=] NorthWest"<<std::flush;
-            auto leaves_northwest = get_adjacent_boundary_northwest(mesh, max_level, mure::MeshType::cells);
+            auto leaves_northwest = get_adjacent_boundary_northwest(mesh, max_level, samurai::MeshType::cells);
             leaves_northwest.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
 
                 // // Working
@@ -786,10 +786,10 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
             });
 
             std::cout<<std::endl<<"[=] South"<<std::flush;
-            auto leaves_south = get_adjacent_boundary_south(mesh, max_level, mure::MeshType::cells);
+            auto leaves_south = get_adjacent_boundary_south(mesh, max_level, samurai::MeshType::cells);
             leaves_south.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
 
                 // // Working
@@ -830,11 +830,11 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
             });
 
             std::cout<<std::endl<<"[=] SouthWest"<<std::flush;
-            auto leaves_southwest = get_adjacent_boundary_southwest(mesh, max_level, mure::MeshType::cells);
+            auto leaves_southwest = get_adjacent_boundary_southwest(mesh, max_level, samurai::MeshType::cells);
             leaves_southwest.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
-                
+                auto h = index[0];    // Logical index in y
+
                 // // WOrking
                 advected(0, level, k, h) =  f(0, level, k, h);
                 advected(1, level, k, h) =  inlet_condition[1];
@@ -870,11 +870,11 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
             });
 
             std::cout<<std::endl<<"[=] SouthEast"<<std::flush;
-            auto leaves_southeast = get_adjacent_boundary_southeast(mesh, max_level, mure::MeshType::cells);
+            auto leaves_southeast = get_adjacent_boundary_southeast(mesh, max_level, samurai::MeshType::cells);
             leaves_southeast.on(max_level)([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
-                
+                auto h = index[0];    // Logical index in y
+
                 // // Working
                 advected(0, level, k, h) =  f(0, level, k, h);
                 advected(1, level, k, h) =  f(1, level, k - 1, h);
@@ -918,13 +918,13 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
             auto tmp1 = union_(union_(union_(leaves_east, leaves_north), leaves_west), leaves_south);
             auto tmp2 = union_(union_(union_(leaves_northeast, leaves_northwest), leaves_southwest), leaves_southeast);
             auto all_leaves_boundary = union_(tmp1, tmp2);
-            auto internal_leaves = mure::difference(mesh[mure::MeshType::cells][max_level],
+            auto internal_leaves = samurai::difference(mesh[samurai::MeshType::cells][max_level],
                                       all_leaves_boundary).on(max_level); // It is very important to project at this point
 
             std::cout<<std::endl<<"[=] Far from the boundary"<<std::flush;
             internal_leaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
                 advected(0, level, k, h) =  f(0, level, k, h);
                 advected(1, level, k, h) =  f(1, level, k - 1, h);
@@ -937,16 +937,16 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 advected(8, level, k, h) =  f(8, level, k - 1, h + 1);
             });
 
-            
+
 
             // Its time for collision which is local
-            auto leaves = intersection(mesh[mure::MeshType::cells][max_level], 
-                                       mesh[mure::MeshType::cells][max_level]);
+            auto leaves = intersection(mesh[samurai::MeshType::cells][max_level],
+                                       mesh[samurai::MeshType::cells][max_level]);
 
             std::cout<<std::endl<<"[+] Colliding at finest"<<std::flush;
             leaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y  
+                auto h = index[0];    // Logical index in y
 
                 auto f0 = xt::eval(advected(0, level, k, h));
                 auto f1 = xt::eval(advected(1, level, k, h));
@@ -957,8 +957,8 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                 auto f6 = xt::eval(advected(6, level, k, h));
                 auto f7 = xt::eval(advected(7, level, k, h));
                 auto f8 = xt::eval(advected(8, level, k, h));
-                
-              
+
+
                 // // We compute the advected momenti
                 double l1 = lambda;
                 double l2 = l1 * lambda;
@@ -1008,7 +1008,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                     // // We come back to the distributions
 
-  
+
 
                     new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                           ;
                     new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
@@ -1063,9 +1063,9 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                 }
 
-            });                       
+            });
 
-        
+
 
         }
 
@@ -1080,16 +1080,16 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
             // Touching west
 
-            auto overleaves_west = intersection(get_adjacent_boundary_west(mesh, level + 1, mure::MeshType::overleaves), 
-                                                mesh[mure::MeshType::cells][level]); 
+            auto overleaves_west = intersection(get_adjacent_boundary_west(mesh, level + 1, samurai::MeshType::overleaves),
+                                                mesh[samurai::MeshType::cells][level]);
 
-            auto overleaves_northwest = intersection(get_adjacent_boundary_northwest(mesh, level + 1, mure::MeshType::overleaves), 
-                                                mesh[mure::MeshType::cells][level]); 
-                                                
-            auto overleaves_southwest = intersection(get_adjacent_boundary_southwest(mesh, level + 1, mure::MeshType::overleaves), 
-                                                mesh[mure::MeshType::cells][level]); 
-                                                                                    
-            auto touching_west = union_(union_(overleaves_west, overleaves_northwest), 
+            auto overleaves_northwest = intersection(get_adjacent_boundary_northwest(mesh, level + 1, samurai::MeshType::overleaves),
+                                                mesh[samurai::MeshType::cells][level]);
+
+            auto overleaves_southwest = intersection(get_adjacent_boundary_southwest(mesh, level + 1, samurai::MeshType::overleaves),
+                                                mesh[samurai::MeshType::cells][level]);
+
+            auto touching_west = union_(union_(overleaves_west, overleaves_northwest),
                                         overleaves_southwest);
 
 
@@ -1110,7 +1110,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
                 }
-            }); 
+            });
 
             std::cout<<std::endl<<"[=] West"<<std::flush;
             overleaves_west.on(level + 1)([&](auto& index, auto &interval, auto) {
@@ -1129,7 +1129,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                }         
+                }
 
                 // Working
                 // // h = 1
@@ -1164,10 +1164,10 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                }         
+                }
 
-                // To correct   
-            
+                // To correct
+
                 // Bounce back to velocity (0, 0)
                 // // h = 1
                 // fluxes(1, level + 1, k, h) += (1 << j) * coeff * (f(3, level + 1, k, h) + (inlet_condition[1] - inlet_condition[3]));
@@ -1225,10 +1225,10 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                }         
+                }
 
-                // To correct   
-            
+                // To correct
+
                 // // Bounce back to velocity (0, 0)
                 // // h = 1
                 // fluxes(1, level + 1, k, h) += (1 << j) * coeff * (f(3, level + 1, k, h) + (inlet_condition[1] - inlet_condition[3]));
@@ -1277,16 +1277,16 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
             // This is necessary because the only overleaves we have to advect
             // on are the ones superposed with the leaves to which we come back
             // eventually in the process
-            auto overleaves_east = intersection(get_adjacent_boundary_east(mesh, level + 1, mure::MeshType::overleaves), 
-                                                mesh[mure::MeshType::cells][level]); 
+            auto overleaves_east = intersection(get_adjacent_boundary_east(mesh, level + 1, samurai::MeshType::overleaves),
+                                                mesh[samurai::MeshType::cells][level]);
 
-            auto overleaves_northeast = intersection(get_adjacent_boundary_northeast(mesh, level + 1, mure::MeshType::overleaves), 
-                                                mesh[mure::MeshType::cells][level]); 
-                                                
-            auto overleaves_southeast = intersection(get_adjacent_boundary_southeast(mesh, level + 1, mure::MeshType::overleaves), 
-                                                mesh[mure::MeshType::cells][level]); 
-                                                                                    
-            auto touching_east = union_(union_(overleaves_east, overleaves_northeast), 
+            auto overleaves_northeast = intersection(get_adjacent_boundary_northeast(mesh, level + 1, samurai::MeshType::overleaves),
+                                                mesh[samurai::MeshType::cells][level]);
+
+            auto overleaves_southeast = intersection(get_adjacent_boundary_southeast(mesh, level + 1, samurai::MeshType::overleaves),
+                                                mesh[samurai::MeshType::cells][level]);
+
+            auto touching_east = union_(union_(overleaves_east, overleaves_northeast),
                                         overleaves_southeast);
 
 
@@ -1327,9 +1327,9 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                }         
+                }
 
-                // To correct   
+                // To correct
 
                 // h = 3
                 fluxes(3, level + 1, k, h) += (1 << j) * coeff * f(3, level + 1, k, h);
@@ -1346,7 +1346,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                 // Regular
                 std::vector<int> flx_num {2, 9, 10, 14};
-                std::vector<int> flx_vel {2, 5, 5,  6 };     
+                std::vector<int> flx_vel {2, 5, 5,  6 };
 
 
                 for (int idx = 0; idx < flx_num.size(); ++idx)  {
@@ -1357,9 +1357,9 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                }         
+                }
 
-                // To correct   
+                // To correct
 
                 // Bounce back to velocity (0, 0) and moving lid as well
                 auto rho = f(0, level + 1, k, h) + f(1, level + 1, k, h) + f(2, level + 1, k, h) + f(3, level + 1, k, h) + f(4, level + 1, k, h)
@@ -1413,10 +1413,10 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                }         
+                }
 
-                // To correct   
-           
+                // To correct
+
                 // // Bounce back to velocity (0, 0)
                 // // h = 2
                 // fluxes(2, level + 1, k, h) += (1 << j) * coeff * (f(4, level + 1, k, h) + (inlet_condition[2] - inlet_condition[4]));
@@ -1449,11 +1449,11 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
 
 
-            auto overleaves_south = intersection(get_adjacent_boundary_south(mesh, level + 1, mure::MeshType::overleaves), 
-                                                mesh[mure::MeshType::cells][level]); 
+            auto overleaves_south = intersection(get_adjacent_boundary_south(mesh, level + 1, samurai::MeshType::overleaves),
+                                                mesh[samurai::MeshType::cells][level]);
 
-            auto overleaves_north = intersection(get_adjacent_boundary_north(mesh, level + 1, mure::MeshType::overleaves), 
-                                                mesh[mure::MeshType::cells][level]); 
+            auto overleaves_north = intersection(get_adjacent_boundary_north(mesh, level + 1, samurai::MeshType::overleaves),
+                                                mesh[samurai::MeshType::cells][level]);
 
             auto north_and_south = union_(overleaves_south, overleaves_north);
 
@@ -1475,10 +1475,10 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                }         
+                }
 
-                // To correct   
-            
+                // To correct
+
                 // Bounce back to velocity of the top lid
                 auto rho = f(0, level + 1, k, h) + f(1, level + 1, k, h) + f(2, level + 1, k, h) + f(3, level + 1, k, h) + f(4, level + 1, k, h)
                                                  + f(5, level + 1, k, h) + f(6, level + 1, k, h) + f(7, level + 1, k, h) + f(8, level + 1, k, h);
@@ -1520,10 +1520,10 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                }         
+                }
 
-                // // To correct   
-            
+                // // To correct
+
                 // // h = 2
                 // fluxes(2, level + 1, k, h) += (1 << j) * coeff * (f(4, level + 1, k, h) + (inlet_condition[2] - inlet_condition[4]));
                 // // h = 5
@@ -1547,15 +1547,15 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
             // All the exiting fluxes are valid, thus we perform them
             // once for all
 
-            auto all_overleaves = intersection(mesh[mure::MeshType::cells][level], 
-                                               mesh[mure::MeshType::cells][level]).on(level + 1);  
+            auto all_overleaves = intersection(mesh[samurai::MeshType::cells][level],
+                                               mesh[samurai::MeshType::cells][level]).on(level + 1);
 
             std::cout<<std::endl<<"[=] All the exiting fluxes"<<std::flush;
             all_overleaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
-                                
+
                 std::vector<int> flx_num {1, 3, 5, 7, 11, 12, 13, 17, 18, 19, 23, 24, 25, 29, 30, 31};
                 std::vector<int> flx_vel {1, 2, 3, 4, 5,  5,  5,  6,  6,  6,  7,  7,  7,  8,  8,  8};
 
@@ -1565,11 +1565,11 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                         coord_index_t stencil_x, stencil_y;
                         std::tie(stencil_x, stencil_y) = c.first;
 
-                        // Be careful about the - sign because we are dealing 
+                        // Be careful about the - sign because we are dealing
                         // with exiting fluxes
                         fluxes(flx_vel[idx], level + 1, k, h) -= coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                } 
+                }
 
 
 
@@ -1653,21 +1653,21 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                 //         fluxes(vel_idx, level + 1, k, h) -= prefactor * c.second * f(vel_idx, level + 1, k + stencil_x, h + stencil_y);
                 //     }
-                // }                
+                // }
 
 
-            });                              
+            });
 
             std::cout<<std::endl<<"[=] Far from the boundary"<<std::flush;
-            auto overleaves_far_boundary = difference(mesh[mure::MeshType::cells][level], 
-                                                      union_(union_(touching_east, touching_west), 
+            auto overleaves_far_boundary = difference(mesh[samurai::MeshType::cells][level],
+                                                      union_(union_(touching_east, touching_west),
                                                              north_and_south)).on(level + 1);  // Again, it is very important to project before using
 
             // We are just left to add the incoming fluxes to to the internal overleaves
             overleaves_far_boundary([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
-                
+                auto h = index[0];    // Logical index in y
+
                 std::vector<int> flx_num {0, 2, 4, 6, 8, 9, 10, 14, 15, 16, 20, 21, 22, 26, 27, 28};
                 std::vector<int> flx_vel {1, 2, 3, 4, 5, 5, 5,  6,  6,  6,  7,  7,  7,  8,  8,  8};
 
@@ -1679,64 +1679,64 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         fluxes(flx_vel[idx], level + 1, k, h) += coeff * c.second * f(flx_vel[idx], level + 1, k + stencil_x, h + stencil_y);
                     }
-                } 
+                }
 
 
 
 
             });
 
-            auto leaves = mure::intersection(mesh[mure::MeshType::cells][level],
-                                             mesh[mure::MeshType::cells][level]);
+            auto leaves = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                             mesh[samurai::MeshType::cells][level]);
 
             std::cout<<std::endl<<"[+] Projection of the overleaves on their leaves and collision"<<std::flush;
             leaves([&](auto& index, auto &interval, auto) {
                 auto k = interval[0]; // Logical index in x
-                auto h = index[0];    // Logical index in y 
+                auto h = index[0];    // Logical index in y
 
                 auto f0 = xt::eval(f(0, level, k, h));
 
-                auto f1 = xt::eval(f(1, level, k, h)) + 0.25 * (fluxes(1, level + 1, 2*k,     2*h) 
+                auto f1 = xt::eval(f(1, level, k, h)) + 0.25 * (fluxes(1, level + 1, 2*k,     2*h)
                                                               + fluxes(1, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(1, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(1, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f2 = xt::eval(f(2, level, k, h)) + 0.25 * (fluxes(2, level + 1, 2*k,     2*h) 
+                auto f2 = xt::eval(f(2, level, k, h)) + 0.25 * (fluxes(2, level + 1, 2*k,     2*h)
                                                               + fluxes(2, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(2, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(2, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f3 = xt::eval(f(3, level, k, h)) + 0.25 * (fluxes(3, level + 1, 2*k,     2*h) 
+                auto f3 = xt::eval(f(3, level, k, h)) + 0.25 * (fluxes(3, level + 1, 2*k,     2*h)
                                                               + fluxes(3, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(3, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(3, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f4 = xt::eval(f(4, level, k, h)) + 0.25 * (fluxes(4, level + 1, 2*k,     2*h) 
+                auto f4 = xt::eval(f(4, level, k, h)) + 0.25 * (fluxes(4, level + 1, 2*k,     2*h)
                                                               + fluxes(4, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(4, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(4, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f5 = xt::eval(f(5, level, k, h)) + 0.25 * (fluxes(5, level + 1, 2*k,     2*h) 
+                auto f5 = xt::eval(f(5, level, k, h)) + 0.25 * (fluxes(5, level + 1, 2*k,     2*h)
                                                               + fluxes(5, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(5, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(5, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f6 = xt::eval(f(6, level, k, h)) + 0.25 * (fluxes(6, level + 1, 2*k,     2*h) 
+                auto f6 = xt::eval(f(6, level, k, h)) + 0.25 * (fluxes(6, level + 1, 2*k,     2*h)
                                                               + fluxes(6, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(6, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(6, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f7 = xt::eval(f(7, level, k, h)) + 0.25 * (fluxes(7, level + 1, 2*k,     2*h) 
+                auto f7 = xt::eval(f(7, level, k, h)) + 0.25 * (fluxes(7, level + 1, 2*k,     2*h)
                                                               + fluxes(7, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(7, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(7, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f8 = xt::eval(f(8, level, k, h)) + 0.25 * (fluxes(8, level + 1, 2*k,     2*h) 
+                auto f8 = xt::eval(f(8, level, k, h)) + 0.25 * (fluxes(8, level + 1, 2*k,     2*h)
                                                               + fluxes(8, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(8, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(8, level + 1, 2*k + 1, 2*h + 1));
 
-                auto f9 = xt::eval(f(9, level, k, h)) + 0.25 * (fluxes(9, level + 1, 2*k,     2*h) 
+                auto f9 = xt::eval(f(9, level, k, h)) + 0.25 * (fluxes(9, level + 1, 2*k,     2*h)
                                                               + fluxes(9, level + 1, 2*k + 1, 2*h)
                                                               + fluxes(9, level + 1, 2*k,     2*h + 1)
                                                               + fluxes(9, level + 1, 2*k + 1, 2*h + 1));
@@ -1793,7 +1793,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                     // // We come back to the distributions
 
-  
+
 
                     new_f(0, level, k, h) = m0                      -     r2*m3                        +     r4*m6                           ;
                     new_f(1, level, k, h) =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
@@ -1869,7 +1869,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
             //         Fx += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]));
             //         Fy += dx_cell * (dx_cell * dx_cell / dt * lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]));
-            //     }            
+            //     }
 
             // });
 
@@ -1918,7 +1918,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                         inside_obstacle(x + .5*dx, y - .5*dx) &&
                         inside_obstacle(x + .5*dx, y + .5*dx) &&
                         inside_obstacle(x - .5*dx, y + .5*dx))  {
-                    
+
                         new_f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
                         new_f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
                         new_f[cell][2] =                .5*r1*m2 + .25*r2*m3            -  .5*r3*m5 -  .5*r4*m6 - .25*r2*m7             ;
@@ -1984,7 +1984,7 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
                         inside_obstacle(x + .5*dx, y - .5*dx) &&
                         inside_obstacle(x + .5*dx, y + .5*dx) &&
                         inside_obstacle(x - .5*dx, y + .5*dx))  {
-                    
+
                         new_f[cell][0] = (1./9)*m0                                  -  (1./9)*r2*m3                                +   (1./9)*r4*m6                        ;
                         new_f[cell][1] = (1./9)*m0   + (1./6)*r1*m1                 - (1./36)*r2*m3 - (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7            ;
                         new_f[cell][2] = (1./9)*m0                  +  (1./6)*r1*m2 - (1./36)*r2*m3                -  (1./6)*r3*m5 -  (1./18)*r4*m6 - .25*r2*m7            ;
@@ -2028,12 +2028,12 @@ std::pair<double, double> one_time_step_overleaves_corrected(Field &f, const pre
 
                         }
                     }
-                }            
-                
+                }
+
             });
 
 
-        
+
     }
 
     std::swap(f.array(), new_f.array());
@@ -2056,24 +2056,24 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     str << "LBM_D2Q9_von_Karman_meshless_diffusion_correction_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
-    mure::Field<Config> rho{"rho", mesh};
-    mure::Field<Config> qx{"qx", mesh};
-    mure::Field<Config> qy{"qy", mesh};
-    mure::Field<Config> vel_mod{"vel_modulus", mesh};
-    mure::Field<Config> vort{"vorticity", mesh};
+    samurai::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> rho{"rho", mesh};
+    samurai::Field<Config> qx{"qx", mesh};
+    samurai::Field<Config> qy{"qy", mesh};
+    samurai::Field<Config> vel_mod{"vel_modulus", mesh};
+    samurai::Field<Config> vort{"vorticity", mesh};
 
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
-        rho[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3] + f[cell][4] 
+        rho[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3] + f[cell][4]
                                + f[cell][5] + f[cell][6] + f[cell][7] + f[cell][8];
 
         qx[cell] = lambda * (f[cell][1] - f[cell][3] + f[cell][5] - f[cell][6] - f[cell][7] + f[cell][8]);
         qy[cell] = lambda * (f[cell][2] - f[cell][4] + f[cell][5] + f[cell][6] - f[cell][7] - f[cell][8]);
 
-        vel_mod[cell] = xt::sqrt(qx[cell] * qx[cell] 
+        vel_mod[cell] = xt::sqrt(qx[cell] * qx[cell]
                                + qy[cell] * qy[cell]) / rho[cell];
 
     });
@@ -2082,14 +2082,14 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 
     // In order to have information accessible on the ghosts
     // to compute derivatives
-    mure::mr_projection(f);
+    samurai::mr_projection(f);
     f.update_bc();
-    mure::mr_prediction(f);
+    samurai::mr_prediction(f);
 
     for (auto level = min_level; level <= max_level; ++level)   {
 
-        auto leaves = mure::intersection(mesh[mure::MeshType::cells][level], 
-                                         mesh[mure::MeshType::all_cells][level]).on(level);
+        auto leaves = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                         mesh[samurai::MeshType::all_cells][level]).on(level);
 
         double dx = 1./(1<<(max_level - level));
 
@@ -2101,20 +2101,20 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
             auto kminus = k - 1;
 
             auto hplus = h + 1;
-            auto hminus = h - 1; 
+            auto hminus = h - 1;
 
-            auto dvdx = (((lambda * (f(2, level, kplus, h)  - f(4, level, kplus, h) + f(5, level, kplus, h) + f(6, level, kplus, h) - f(7, level, kplus, h) - f(8, level, kplus, h))) / 
+            auto dvdx = (((lambda * (f(2, level, kplus, h)  - f(4, level, kplus, h) + f(5, level, kplus, h) + f(6, level, kplus, h) - f(7, level, kplus, h) - f(8, level, kplus, h))) /
                                     (f(0, level, kplus, h)  + f(1, level, kplus, h) + f(2, level, kplus, h) + f(3, level, kplus, h) + f(4, level, kplus, h)
-                                                            + f(5, level, kplus, h) + f(6, level, kplus, h) + f(7, level, kplus, h) + f(8, level, kplus, h)) ) - 
-                         ((lambda * (f(2, level, kminus, h) - f(4, level, kminus, h) + f(5, level, kminus, h) + f(6, level, kminus, h) - f(7, level, kminus, h) - f(8, level, kminus, h))) / 
+                                                            + f(5, level, kplus, h) + f(6, level, kplus, h) + f(7, level, kplus, h) + f(8, level, kplus, h)) ) -
+                         ((lambda * (f(2, level, kminus, h) - f(4, level, kminus, h) + f(5, level, kminus, h) + f(6, level, kminus, h) - f(7, level, kminus, h) - f(8, level, kminus, h))) /
                                     (f(0, level, kminus, h) + f(1, level, kminus, h) + f(2, level, kminus, h) + f(3, level, kminus, h) + f(4, level, kminus, h)
                                                             + f(5, level, kminus, h) + f(6, level, kminus, h) + f(7, level, kminus, h) + f(8, level, kminus, h)) ))
                         / (2.*dx);
 
-            auto dudy = (((lambda * (f(1, level, k, hplus) - f(3, level, k, hplus) + f(5, level, k, hplus) - f(6, level, k, hplus) - f(7, level, k, hplus) + f(8, level, k, hplus))) / 
+            auto dudy = (((lambda * (f(1, level, k, hplus) - f(3, level, k, hplus) + f(5, level, k, hplus) - f(6, level, k, hplus) - f(7, level, k, hplus) + f(8, level, k, hplus))) /
                                     (f(0, level, k, hplus) + f(1, level, k, hplus) + f(2, level, k, hplus) + f(3, level, k, hplus) + f(4, level, k, hplus)
-                                                           + f(5, level, k, hplus) + f(6, level, k, hplus) + f(7, level, k, hplus) + f(8, level, k, hplus)) ) - 
-                         ((lambda * f(1, level, k, hminus) - f(3, level, k, hminus) + f(5, level, k, hminus) - f(6, level, k, hminus) - f(7, level, k, hminus) + f(8, level, k, hminus))) / 
+                                                           + f(5, level, k, hplus) + f(6, level, k, hplus) + f(7, level, k, hplus) + f(8, level, k, hplus)) ) -
+                         ((lambda * f(1, level, k, hminus) - f(3, level, k, hminus) + f(5, level, k, hminus) - f(6, level, k, hminus) - f(7, level, k, hminus) + f(8, level, k, hminus))) /
                                    (f(0, level, k, hminus) + f(1, level, k, hminus) + f(2, level, k, hminus) + f(3, level, k, hminus) + f(4, level, k, hminus)
                                                            + f(5, level, k, hminus) + f(6, level, k, hminus) + f(7, level, k, hminus) + f(8, level, k, hminus)) )
                         / (2.*dx);
@@ -2122,10 +2122,10 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
 
 
             vort(level, k, h) =  dvdx - dudy;
-                
+
         });
-        
-    } 
+
+    }
 
 
 
@@ -2166,7 +2166,7 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 2;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = samurai::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
@@ -2175,9 +2175,9 @@ int main(int argc, char *argv[])
             double regularity = result["reg"].as<double>();
 
 
-            mure::Box<double, dim> box({0, 0}, {2, 1});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
-            mure::Mesh<Config> mesh_old{box, min_level, max_level};
+            samurai::Box<double, dim> box({0, 0}, {2, 1});
+            samurai::Mesh<Config> mesh{box, min_level, max_level};
+            samurai::Mesh<Config> mesh_old{box, min_level, max_level};
 
 
 
@@ -2193,11 +2193,11 @@ int main(int argc, char *argv[])
             //     for (auto cf : pred_coeff[k][idx].coeff){
             //         coord_index_t stencil_x, stencil_y;
             //         std::tie(stencil_x, stencil_y) = cf.first;
-                    
-                    
+
+
             //         std::cout<<"k = "<<k<<"  Offset x = "<<stencil_x<<"   Offset y = "<<stencil_y<<"   Value = "<<cf.second<<std::endl;
             //     }
-                   
+
             // }
             // }
 
@@ -2260,12 +2260,12 @@ int main(int argc, char *argv[])
                 }
 
                 std::cout<<std::endl<<"[*] Prediction overleaves before saving"<<std::flush;
-                mure::mr_prediction_overleaves(f); // Before saving
+                samurai::mr_prediction_overleaves(f); // Before saving
 
                 // f.update_bc(0);
                 // std::stringstream str;
                 // str << "D2Q9_lid_driven_debug_by_level_"<<nb_ite;
-                // auto h5file = mure::Hdf5(str.str().data());
+                // auto h5file = samurai::Hdf5(str.str().data());
                 // h5file.add_field_by_level(mesh, f);
 
 
@@ -2278,7 +2278,7 @@ int main(int argc, char *argv[])
                     save_solution(f, eps, nb_ite/howoften, std::string("_before")); // Before applying the scheme
                     time_frames_saved<<(nb_ite*dt)<<std::endl;
                 }
-                    
+
 
                 auto CDCL = one_time_step_overleaves_corrected(f, pred_coeff, nb_ite);
 
@@ -2287,10 +2287,10 @@ int main(int argc, char *argv[])
                 CD<<CDCL.first<<std::endl;
                 CL<<CDCL.second<<std::endl;
 
-                num_leaves<<mesh.nb_cells(mure::MeshType::cells)<<std::endl;
+                num_leaves<<mesh.nb_cells(samurai::MeshType::cells)<<std::endl;
                 num_cells<<mesh.nb_cells()<<std::endl;
 
-                
+
                 // save_solution(f, eps, nb_ite/1, std::string("_after")); // Before applying the scheme
 
             }

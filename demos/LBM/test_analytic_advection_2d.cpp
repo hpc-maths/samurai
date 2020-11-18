@@ -3,19 +3,19 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <mure/box.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
-#include <mure/mr/adapt.hpp>
-#include <mure/mr/mesh.hpp>
-#include <mure/mr/mr_config.hpp>
+#include <samurai/box.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
+#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mr_config.hpp>
 
 template <class Config>
-auto init_u(mure::Mesh<Config> &mesh,
+auto init_u(samurai::Mesh<Config> &mesh,
             double dx,
             std::size_t test_case)
 {
-    std::vector<mure::Field<Config>> u;
+    std::vector<samurai::Field<Config>> u;
     u.push_back({"u", mesh});
     u[0].array().fill(0);
 
@@ -39,7 +39,7 @@ auto init_u(mure::Mesh<Config> &mesh,
             double y_corner = -(0.1 - dx);
             double length = 0.2;
 
-            if ((x_corner <= x) and (x <= x_corner + length) and 
+            if ((x_corner <= x) and (x <= x_corner + length) and
                 (y_corner <= y) and (y <= y_corner + length))
                 u[0][cell] = 1;
             else
@@ -51,7 +51,7 @@ auto init_u(mure::Mesh<Config> &mesh,
             auto center = cell.center();
             double radius = .2;
             double x_center = dx, y_center = dx;
-            if (((center[0] - x_center) * (center[0] - x_center) + 
+            if (((center[0] - x_center) * (center[0] - x_center) +
                  (center[1] - y_center) * (center[1] - y_center))
                  <= radius * radius)
                 u[0][cell] = 1;
@@ -69,7 +69,7 @@ auto init_u(mure::Mesh<Config> &mesh,
 int main(int argc, char *argv[])
 {
     constexpr size_t dim = 2;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
 
     std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
@@ -99,20 +99,20 @@ int main(int argc, char *argv[])
             double dx = 1. / (1 << max_level);
             std::cout << "dx = " << dx << "\n";
 
-            mure::Box<double, dim> box({-2, -2}, {2, 2});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
+            samurai::Box<double, dim> box({-2, -2}, {2, 2});
+            samurai::Mesh<Config> mesh{box, min_level, max_level};
 
             for (std::size_t ite = 0; ite < 100; ++ite)
             {
                 std::cout << "iteration: " << ite << "\n";
                 auto u = init_u(mesh, ite * dx, test_case);
-                mure::adapt(u, eps);
+                samurai::adapt(u, eps);
 
                 std::stringstream s;
                 s << "advection_" << ite;
-                auto h5file = mure::Hdf5(s.str().data());
+                auto h5file = samurai::Hdf5(s.str().data());
                 h5file.add_mesh(mesh);
-                mure::Field<Config> level_{"level", mesh};
+                samurai::Field<Config> level_{"level", mesh};
                 mesh.for_each_cell([&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
                 h5file.add_field(u[0]);
                 h5file.add_field(level_);

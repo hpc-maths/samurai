@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 
-#include <mure/cell_list.hpp>
-#include <mure/mr/mr_config.hpp>
+#include <samurai/cell_list.hpp>
+#include <samurai/mr/mr_config.hpp>
 
-namespace mure
+namespace samurai
 {
     TEST(cell_list, constructor)
     {

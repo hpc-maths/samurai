@@ -1,11 +1,11 @@
 #include <chrono>
 // #include <math.h>
-#include <mure/box.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
-#include <mure/mesh.hpp>
-#include <mure/mr_config.hpp>
-#include <mure/stencil_field.hpp>
+#include <samurai/box.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
+#include <samurai/mesh.hpp>
+#include <samurai/mr_config.hpp>
+#include <samurai/stencil_field.hpp>
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -27,14 +27,14 @@ double toc()
 int main()
 {
     constexpr size_t dim = 2;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
 
-    mure::Box<double, dim> box({-1, -1, -1}, {1, 1, 1});
+    samurai::Box<double, dim> box({-1, -1, -1}, {1, 1, 1});
 
-    mure::Mesh<Config> mesh{box, 5};
-    // mure::Mesh<Config> mesh{box, 5};
-    mure::Field<Config> u{"u", mesh};
-    mure::Field<Config> v{"v", mesh};
+    samurai::Mesh<Config> mesh{box, 5};
+    // samurai::Mesh<Config> mesh{box, 5};
+    samurai::Field<Config> u{"u", mesh};
+    samurai::Field<Config> v{"v", mesh};
     u.array().fill(0);
     v.array().fill(0);
 
@@ -141,7 +141,7 @@ int main()
     tic();
     for (std::size_t i = 0; i < 20; ++i)
     {
-        mure::Field<Config> detail{"detail", mesh};
+        samurai::Field<Config> detail{"detail", mesh};
         detail.array().fill(0);
 
         // std::cout << "iteration -> " << i << "\n";
@@ -151,7 +151,7 @@ int main()
         //     std::stringstream ss1;
         //     ss1 << "solution_" << i;
         //     auto h5file =
-        //         mure::Hdf5(ss1.str().data(), mure::MeshType::all_cells);
+        //         samurai::Hdf5(ss1.str().data(), samurai::MeshType::all_cells);
         //     h5file.add_field_by_level(mesh, u);
         // }
         mesh.coarsening(detail, u, i);
@@ -162,12 +162,12 @@ int main()
 
     std::cout << toc() << "\n";
 
-    mure::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> level_{"level", mesh};
     mesh.for_each_cell(
         [&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
     // std::cout << u << "\n";
 
-    // auto h5file = mure::Hdf5("heaviside");
+    // auto h5file = samurai::Hdf5("heaviside");
     // h5file.add_mesh(mesh);
     // h5file.add_field(u);
     // h5file.add_field(level_);

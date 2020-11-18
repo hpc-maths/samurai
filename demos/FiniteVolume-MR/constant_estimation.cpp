@@ -7,7 +7,7 @@
 
 #include <xtensor/xio.hpp>
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
@@ -41,13 +41,13 @@ double function_to_compress(double x)   {
 
 
 template<class Config>
-auto init_f(mure::Mesh<Config> &mesh, double t)
+auto init_f(samurai::Mesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 1;
-    mure::BC<1> bc{ {{ {mure::BCType::dirichlet, 0},
+    samurai::BC<1> bc{ {{ {samurai::BCType::dirichlet, 0},
                     }} };
 
-    mure::Field<Config, double, nvel> f("f", mesh, bc);
+    samurai::Field<Config, double, nvel> f("f", mesh, bc);
     f.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -62,8 +62,8 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 
 
 template<class Field, class interval_t>
-xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, 
-                                  std::map<std::tuple<std::size_t, std::size_t, interval_t>, 
+xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i,
+                                  std::map<std::tuple<std::size_t, std::size_t, interval_t>,
                                   xt::xtensor<double, 2>> & mem_map)
 {
 
@@ -79,13 +79,13 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
         auto mesh = f.mesh();
         std::vector<std::size_t> shape = {i.size(), 1};
         xt::xtensor<double, 2> out = xt::empty<double>(shape);
-        auto mask = mesh.exists(level_g + level, i, mure::MeshType::cells_and_ghosts);
+        auto mask = mesh.exists(level_g + level, i, samurai::MeshType::cells_and_ghosts);
 
         xt::xtensor<double, 2> mask_all = xt::empty<double>(shape);
         xt::view(mask_all, xt::all(), 0) = mask;
 
         if (xt::all(mask))
-        {         
+        {
             return xt::eval(f(level_g + level, i));
         }
 
@@ -120,18 +120,18 @@ xt::xtensor<double, 2> prediction_all(const Field& f, std::size_t level_g, std::
 
 
 template<class Config, class FieldR>
-double compute_error(mure::Field<Config, double, 1> &f, FieldR & fR, double t)
+double compute_error(samurai::Field<Config, double, 1> &f, FieldR & fR, double t)
 {
 
     auto mesh = f.mesh();
     auto meshR = fR.mesh();
     auto max_level = meshR.max_level();
 
-    mure::mr_projection(f);
-    mure::mr_prediction(f);  // C'est supercrucial de le faire.
+    samurai::mr_projection(f);
+    samurai::mr_prediction(f);  // C'est supercrucial de le faire.
 
     f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
-    fR.update_bc();    
+    fR.update_bc();
 
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;
@@ -145,8 +145,8 @@ double compute_error(mure::Field<Config, double, 1> &f, FieldR & fR, double t)
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(meshR[mure::MeshType::cells][max_level],
-                                      mesh[mure::MeshType::cells][level])
+        auto exp = samurai::intersection(meshR[samurai::MeshType::cells][max_level],
+                                      mesh[samurai::MeshType::cells][level])
                   .on(max_level);
 
         exp([&](auto, auto &interval, auto) {
@@ -164,7 +164,7 @@ double compute_error(mure::Field<Config, double, 1> &f, FieldR & fR, double t)
     }
 
     return dx * error; // Normalization by dx before returning
-    // I think it is better to do the normalization at the very end ... especially for round-offs    
+    // I think it is better to do the normalization at the very end ... especially for round-offs
 }
 
 
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 1;
-            using Config = mure::MRConfig<dim, 1>;
+            using Config = samurai::MRConfig<dim, 1>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
@@ -202,9 +202,9 @@ int main(int argc, char *argv[])
             double s = result["s"].as<double>();
 
 
-            mure::Box<double, dim> box({-3}, {3});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
-            mure::Mesh<Config> meshR{box, max_level, max_level};
+            samurai::Box<double, dim> box({-3}, {3});
+            samurai::Mesh<Config> mesh{box, min_level, max_level};
+            samurai::Mesh<Config> meshR{box, max_level, max_level};
 
             // Initialization
             auto f   = init_f(mesh , 0.0);
@@ -225,16 +225,16 @@ int main(int argc, char *argv[])
                 auto mesh = f.mesh();
                 std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
 
-                mure::Field<Config, double, 1> detail{"detail", mesh};
+                samurai::Field<Config, double, 1> detail{"detail", mesh};
 
-                mure::Field<Config, int, 1> tag{"tag", mesh};
+                samurai::Field<Config, int, 1> tag{"tag", mesh};
                 tag.array().fill(0);
                 mesh.for_each_cell([&](auto &cell) {
-                    tag[cell] = static_cast<int>(mure::CellFlag::keep);
+                    tag[cell] = static_cast<int>(samurai::CellFlag::keep);
                 });
 
-                mure::mr_projection(f);
-                mure::mr_prediction(f);
+                samurai::mr_projection(f);
+                samurai::mr_prediction(f);
                 f.update_bc();
 
 
@@ -248,8 +248,8 @@ int main(int argc, char *argv[])
 
                 // What are the data it uses at min_level - 1 ???
                 for (std::size_t level = min_level - 1; level < max_level - ite; ++level)   {
-                    auto subset = intersection(mesh[mure::MeshType::all_cells][level],
-                                               mesh[mure::MeshType::cells][level + 1])
+                    auto subset = intersection(mesh[samurai::MeshType::all_cells][level],
+                                               mesh[samurai::MeshType::cells][level + 1])
                                  .on(level);
                     subset.apply_op(level, compute_detail(detail, f), compute_max_detail(detail, max_detail));
                 }
@@ -265,8 +265,8 @@ int main(int argc, char *argv[])
 
                     // COMPRESSION
 
-                    auto subset_1 = mure::intersection(mesh[mure::MeshType::cells][level],
-                                                       mesh[mure::MeshType::all_cells][level-1])
+                    auto subset_1 = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                                       mesh[samurai::MeshType::all_cells][level-1])
                                    .on(level-1);
 
 
@@ -274,13 +274,13 @@ int main(int argc, char *argv[])
                     subset_1.apply_op(level, to_coarsen_mr(detail, max_detail, tag, eps_l, min_level));
                     //subset_1.apply_op(level, to_coarsen_mr_BH(detail, max_detail, tag, eps_l, min_level));
 
-                    auto subset_2 = intersection(mesh[mure::MeshType::cells][level],
-                                                 mesh[mure::MeshType::cells][level]);
-                    auto subset_3 = intersection(mesh[mure::MeshType::cells_and_ghosts][level],
-                                                 mesh[mure::MeshType::cells_and_ghosts][level]);
+                    auto subset_2 = intersection(mesh[samurai::MeshType::cells][level],
+                                                 mesh[samurai::MeshType::cells][level]);
+                    auto subset_3 = intersection(mesh[samurai::MeshType::cells_and_ghosts][level],
+                                                 mesh[samurai::MeshType::cells_and_ghosts][level]);
 
-                    subset_2.apply_op(level, mure::enlarge(tag, mure::CellFlag::keep));
-                    subset_3.apply_op(level, mure::tag_to_keep(tag));
+                    subset_2.apply_op(level, samurai::enlarge(tag, samurai::CellFlag::keep));
+                    subset_3.apply_op(level, samurai::tag_to_keep(tag));
 
 
                     // I now sum the discarded details with a weight
@@ -290,8 +290,8 @@ int main(int argc, char *argv[])
                     subset_1([&](auto, auto &interval, auto) {
                         auto i = interval[0];
 
-                        auto mask = (tag(level, i) <= static_cast<int>(mure::CellFlag::coarsen)) and
-                                    (tag(level, i) >= static_cast<int>(mure::CellFlag::coarsen));
+                        auto mask = (tag(level, i) <= static_cast<int>(samurai::CellFlag::coarsen)) and
+                                    (tag(level, i) >= static_cast<int>(samurai::CellFlag::coarsen));
 
                         xt::masked_view(detail(level, i), !mask) = 0.0;
 
@@ -314,8 +314,8 @@ int main(int argc, char *argv[])
 
                 for (std::size_t level = max_level; level > 0; --level)
                 {
-                    auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
-                                                    mesh[mure::MeshType::all_cells][level - 1])
+                    auto keep_subset = intersection(mesh[samurai::MeshType::cells][level],
+                                                    mesh[samurai::MeshType::all_cells][level - 1])
                                       .on(level - 1);
                     keep_subset.apply_op(level - 1, maximum(tag));
 
@@ -328,8 +328,8 @@ int main(int argc, char *argv[])
                             if (s != 0)
                             {
                                 stencil[d] = s;
-                                auto subset = intersection(mesh[mure::MeshType::cells][level],
-                                                           translate(mesh[mure::MeshType::cells][level - 1], stencil))
+                                auto subset = intersection(mesh[samurai::MeshType::cells][level],
+                                                           translate(mesh[samurai::MeshType::cells][level - 1], stencil))
                                              .on(level - 1);
                                 subset.apply_op(level - 1, balance_2to1(tag, stencil));
                             }
@@ -337,16 +337,16 @@ int main(int argc, char *argv[])
                     }
                 }
 
-                mure::CellList<Config> cell_list;
+                samurai::CellList<Config> cell_list;
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    auto level_cell_array = mesh[mure::MeshType::cells][level];
+                    auto level_cell_array = mesh[samurai::MeshType::cells][level];
                     if (!level_cell_array.empty())
                     {
                         level_cell_array.for_each_interval_in_x([&](auto const &index_yz, auto const &interval) {
                             for (int i = interval.start; i < interval.end; ++i)
                             {
-                                if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::keep))
+                                if (tag.array()[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
                                     {
                                         cell_list[level][index_yz].add_point(i);
                                     }
@@ -359,16 +359,16 @@ int main(int argc, char *argv[])
                     }
                 }
 
-                mure::Mesh<Config> new_mesh{cell_list, mesh.initial_mesh(),
+                samurai::Mesh<Config> new_mesh{cell_list, mesh.initial_mesh(),
                                         min_level, max_level};
 
 
-                mure::Field<Config, double, 1> new_f{f.name(), new_mesh, f.bc()};
+                samurai::Field<Config, double, 1> new_f{f.name(), new_mesh, f.bc()};
 
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
-                                               new_mesh[mure::MeshType::cells][level]);
+                    auto subset = samurai::intersection(mesh[samurai::MeshType::all_cells][level],
+                                               new_mesh[samurai::MeshType::cells][level]);
                     subset.apply_op(level, copy(new_f, f));
                 }
 

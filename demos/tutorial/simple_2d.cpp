@@ -6,10 +6,10 @@
 #include <xtensor/xnoalias.hpp>
 #include <xtensor/xmasked_view.hpp>
 
-#include <mure/cell_list.hpp>
-#include <mure/cell_array.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
+#include <samurai/cell_list.hpp>
+#include <samurai/cell_array.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -37,10 +37,10 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
 
     for (std::size_t l = 0; l < max_level; ++l)
     {
-        auto cell_tag = mure::make_field<bool, 1>("tag", mesh);
+        auto cell_tag = samurai::make_field<bool, 1>("tag", mesh);
         cell_tag.fill(false);
 
-        mure::for_each_cell(mesh, [&](auto cell)
+        samurai::for_each_cell(mesh, [&](auto cell)
         {
             if (cell.level < max_level)
             {
@@ -52,13 +52,13 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
         });
 
         cl_type cl;
-        mure::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
+        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
                 if (cell_tag[i + interval.index])
                 {
-                    mure::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
+                    samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                     {
                         auto index = 2 * index_yz + stencil;
                         cl[level + 1][index].add_interval({2 * i, 2 * i + 2});
@@ -85,13 +85,13 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
     for (std::size_t l = 0; l < max_level; ++l)
     {
         // tic();
-        auto cell_tag = mure::make_field<bool, 1>("tag", mesh);
+        auto cell_tag = samurai::make_field<bool, 1>("tag", mesh);
         cell_tag.fill(false);
         // auto duration = toc();
         // std::cout << "allocation: " << duration << std::endl;
 
         // tic();
-        mure::for_each_cell(mesh, [&](auto cell)
+        samurai::for_each_cell(mesh, [&](auto cell)
         {
             if (cell.level < max_level)
             {
@@ -102,7 +102,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
             }
         });
 
-        // mure::for_each_interval(mesh, [&](std::size_t level, const auto& i, const auto& index)
+        // samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, const auto& index)
         // {
         //     if (level < max_level)
         //     {
@@ -128,7 +128,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
             for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
             {
                 auto s = xt::view(stencil, i);
-                auto subset = mure::intersection(mure::translate(mesh[level], s),
+                auto subset = samurai::intersection(samurai::translate(mesh[level], s),
                                                  mesh[level - 1])
                              .on(level);
 
@@ -161,13 +161,13 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 
         // tic();
         cl_type cl;
-        mure::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
+        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
                 if (cell_tag[i + interval.index])
                 {
-                    mure::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
+                    samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                     {
                         auto index = 2 * index_yz + stencil;
                         cl[level + 1][index].add_interval({2 * i, 2 * i + 2});
@@ -190,7 +190,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 int main(int argc, char *argv[])
 {
     constexpr size_t dim = 2;
-    mure::CellList<dim> cl;
+    samurai::CellList<dim> cl;
 
     cxxopts::Options options("simple_2d", "simple 2d p4est examples");
 
@@ -211,7 +211,7 @@ int main(int argc, char *argv[])
     cl[2][{2}].add_interval({2, 4});
     cl[2][{3}].add_interval({2, 4});
 
-    mure::CellArray<dim> mesh_1(cl);
+    samurai::CellArray<dim> mesh_1(cl);
     std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
 
     tic();
@@ -221,18 +221,18 @@ int main(int argc, char *argv[])
     std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
 
     tic();
-    mure::CellArray<dim> mesh_2(cl);
+    samurai::CellArray<dim> mesh_2(cl);
     refine_2(mesh_2, max_level);
     duration = toc();
     std::cout << "Version 2: " << duration << "s" << std::endl;
     std::cout << "nb_cells: " << mesh_2.nb_cells() << "\n";
 
-    // auto level = mure::make_field<std::size_t, 1>("level", mesh_2);
-    // mure::for_each_cell(mesh_2, [&](auto cell)
+    // auto level = samurai::make_field<std::size_t, 1>("level", mesh_2);
+    // samurai::for_each_cell(mesh_2, [&](auto cell)
     // {
     //     level[cell] = cell.level;
     // });
-    // mure::save("simple_2d", mesh_2, level);
+    // samurai::save("simple_2d", mesh_2, level);
 
     return 0;
 }

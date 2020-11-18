@@ -1,14 +1,14 @@
 #include <gtest/gtest.h>
 #include <rapidcheck/gtest.h>
 
-#include <mure/interval.hpp>
-#include <mure/level_cell_array.hpp>
-#include <mure/level_cell_list.hpp>
-#include <mure/subset/subset_op.hpp>
+#include <samurai/interval.hpp>
+#include <samurai/level_cell_array.hpp>
+#include <samurai/level_cell_list.hpp>
+#include <samurai/subset/subset_op.hpp>
 
 #include "test_common.hpp"
 
-namespace mure
+namespace samurai
 {
     // RC_GTEST_PROP(operator, creation,(std::vector<Interval<int>> i))
     // {

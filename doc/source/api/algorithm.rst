@@ -2,4 +2,4 @@ Algorithm
 =========
 
 .. doxygenfile:: algorithm.hpp
-   :project: mure
+   :project: samurai

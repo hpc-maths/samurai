@@ -2,8 +2,8 @@
 
 #include <cmath>
 
-#include <mure/mure.hpp>
-#include <mure/mr/mesh.hpp>
+#include <samurai/samurai.hpp>
+#include <samurai/mr/mesh.hpp>
 #include "criteria.hpp"
 
 template <class Field>
@@ -22,17 +22,17 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
     Field detail{"detail", mesh};
 
-    mure::Field<Config, int, 1> tag{"tag", mesh};
+    samurai::Field<Config, int, 1> tag{"tag", mesh};
     tag.array().fill(0);
-    mure::for_each_cell(mesh[mure::MeshType::cells], [&](auto &cell) {
-        tag[cell] = static_cast<int>(mure::CellFlag::keep);
+    samurai::for_each_cell(mesh[samurai::MeshType::cells], [&](auto &cell) {
+        tag[cell] = static_cast<int>(samurai::CellFlag::keep);
     });
 
 
 
     // //For an entropy criterion
-    // mure::Field<Config, double, 1> detail_entropy{"entropy detail", mesh};
-    // mure::Field<Config, double, 1> entropy{"entropy", mesh};
+    // samurai::Field<Config, double, 1> detail_entropy{"entropy detail", mesh};
+    // samurai::Field<Config, double, 1> entropy{"entropy", mesh};
     // entropy.array().fill(0);
     // mesh.for_each_cell([&](auto &cell) {
     //     double gm = 1.4;
@@ -46,18 +46,18 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     //     auto p = (gm - 1.) * (e - .5 * (std::pow(qx, 2.) + std::pow(qy, 2.)) / rho);
     //     entropy[cell] = std::log(p / std::pow(rho, gm));
     // });
-    // mure::mr_projection(entropy);
+    // samurai::mr_projection(entropy);
     // entropy.update_bc();
-    // mure::mr_prediction(entropy);
+    // samurai::mr_prediction(entropy);
 
     std::size_t save_at_ite = 61;
-    mure::mr_projection(u);
+    samurai::mr_projection(u);
 
     // if (global_iter == save_at_ite)
     // {
     //     std::stringstream s;
     //     s << "u0_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, u);
     // }
     u.update_bc();
@@ -66,15 +66,15 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // {
     //     std::stringstream s;
     //     s << "u1_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, u);
     // }
-    mure::mr_prediction(u);
+    samurai::mr_prediction(u);
     // if (global_iter == save_at_ite)
     // {
     //     std::stringstream s;
     //     s << "u2_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, u);
     // }
 
@@ -82,8 +82,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
     for (std::size_t level = min_level - 1; level < max_level - ite; ++level)
     {
-        auto subset = intersection(mesh[mure::MeshType::all_cells][level],
-                                   mesh[mure::MeshType::cells][level + 1])
+        auto subset = intersection(mesh[samurai::MeshType::all_cells][level],
+                                   mesh[samurai::MeshType::cells][level + 1])
                      .on(level);
         subset.apply_op(compute_detail(detail, u));
 
@@ -97,8 +97,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
     // for (std::size_t level = min_level; level <= max_level - ite; ++level)
     // {
-    //     auto leaves = intersection(mesh[mure::MeshType::cells][level],
-    //                                mesh[mure::MeshType::cells][level]);
+    //     auto leaves = intersection(mesh[samurai::MeshType::cells][level],
+    //                                mesh[samurai::MeshType::cells][level]);
 
     //     leaves([&](auto, auto &interval, auto) {
 
@@ -124,8 +124,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
         double regularity_to_use = std::min(regularity, 3.0) + dim;
 
-        auto subset_1 = mure::intersection(mesh[mure::MeshType::cells][level],
-                                           mesh[mure::MeshType::all_cells][level-1])
+        auto subset_1 = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                           mesh[samurai::MeshType::all_cells][level-1])
                        .on(level-1);
 
 
@@ -142,8 +142,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // std::cout<<std::endl<<"Tag after refinement"<<std::endl;
     // for (std::size_t level = min_level; level <= max_level - ite; ++level)
     // {
-    //     auto leaves = intersection(mesh[mure::MeshType::cells][level],
-    //                                mesh[mure::MeshType::cells][level]);
+    //     auto leaves = intersection(mesh[samurai::MeshType::cells][level],
+    //                                mesh[samurai::MeshType::cells][level]);
 
     //     leaves([&](auto, auto &interval, auto) {
 
@@ -158,12 +158,12 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     //     std::cout << "Au debut : u en -20, -19 " << u(7, interval_t{-20, -18}) << "\n";
     //     std::stringstream s;
     //     s << "tagify_before_enlarge_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_mesh(mesh);
     //     h5file.add_field(tag);
     //     h5file.add_field(detail);
     //     h5file.add_field(u);
-    //     mure::Field<Config> level_{"level", mesh};
+    //     samurai::Field<Config> level_{"level", mesh};
     //     mesh.for_each_cell([&](auto &cell) {
     //         level_[cell] = static_cast<double>(cell.level);
     //     });
@@ -174,20 +174,20 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // {
     //     std::stringstream s;
     //     s << "tagify_before_enlarge_by_level"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, tag);
     // }
 
     for (std::size_t level = min_level; level <= max_level - ite; ++level)
     {
-        auto subset_2 = intersection(mesh[mure::MeshType::cells][level],
-                                     mesh[mure::MeshType::cells][level]);
-        auto subset_3 = intersection(mesh[mure::MeshType::cells_and_ghosts][level],
-                                     mesh[mure::MeshType::cells_and_ghosts][level]);
+        auto subset_2 = intersection(mesh[samurai::MeshType::cells][level],
+                                     mesh[samurai::MeshType::cells][level]);
+        auto subset_3 = intersection(mesh[samurai::MeshType::cells_and_ghosts][level],
+                                     mesh[samurai::MeshType::cells_and_ghosts][level]);
 
-        subset_2.apply_op(mure::enlarge(tag));
-        subset_2.apply_op(mure::keep_around_refine(tag));
-        subset_3.apply_op(mure::tag_to_keep(tag));
+        subset_2.apply_op(samurai::enlarge(tag));
+        subset_2.apply_op(samurai::keep_around_refine(tag));
+        subset_3.apply_op(samurai::tag_to_keep(tag));
     }
 
 
@@ -196,8 +196,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // std::cout<<std::endl<<"Tag after keepa around and tag to keep"<<std::endl;
     // for (std::size_t level = min_level; level <= max_level - ite; ++level)
     // {
-    //     auto leaves = intersection(mesh[mure::MeshType::cells][level],
-    //                                mesh[mure::MeshType::cells][level]);
+    //     auto leaves = intersection(mesh[samurai::MeshType::cells][level],
+    //                                mesh[samurai::MeshType::cells][level]);
 
     //     leaves([&](auto, auto &interval, auto) {
 
@@ -212,12 +212,12 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // {
     //     std::stringstream s;
     //     s << "tagify_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_mesh(mesh);
     //     h5file.add_field(tag);
     //     h5file.add_field(detail);
     //     h5file.add_field(u);
-    //     mure::Field<Config> level_{"level", mesh};
+    //     samurai::Field<Config> level_{"level", mesh};
     //     mesh.for_each_cell([&](auto &cell) {
     //         level_[cell] = static_cast<double>(cell.level);
     //     });
@@ -228,15 +228,15 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // {
     //     std::stringstream s;
     //     s << "tagify_by_level"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, tag);
     // }
 
     // COARSENING GRADUATION
     for (std::size_t level = max_level; level > 0; --level)
     {
-        auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
-                                        mesh[mure::MeshType::all_cells][level - 1])
+        auto keep_subset = intersection(mesh[samurai::MeshType::cells][level],
+                                        mesh[samurai::MeshType::all_cells][level - 1])
                         .on(level - 1);
         keep_subset.apply_op(maximum(tag));
 
@@ -249,8 +249,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
                 if (s != 0)
                 {
                     stencil[d] = s;
-                    auto subset = intersection(mesh[mure::MeshType::cells][level],
-                                            translate(mesh[mure::MeshType::cells][level - 1], stencil))
+                    auto subset = intersection(mesh[samurai::MeshType::cells][level],
+                                            translate(mesh[samurai::MeshType::cells][level - 1], stencil))
                                 .on(level - 1);
                     subset.apply_op(balance_2to1(tag, stencil));
                 }
@@ -265,8 +265,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // std::cout<<std::endl<<"Tag after balance_to_one"<<std::endl;
     // for (std::size_t level = min_level; level <= max_level - ite; ++level)
     // {
-    //     auto leaves = intersection(mesh[mure::MeshType::cells][level],
-    //                                mesh[mure::MeshType::cells][level]);
+    //     auto leaves = intersection(mesh[samurai::MeshType::cells][level],
+    //                                mesh[samurai::MeshType::cells][level]);
 
     //     leaves([&](auto, auto &interval, auto) {
 
@@ -280,19 +280,19 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // REFINEMENT GRADUATION
     for (std::size_t level = max_level; level > min_level; --level)
     {
-        auto subset_1 = intersection(mesh[mure::MeshType::cells][level],
-                                    mesh[mure::MeshType::cells][level]);
+        auto subset_1 = intersection(mesh[samurai::MeshType::cells][level],
+                                    mesh[samurai::MeshType::cells][level]);
 
         subset_1.apply_op(extend(tag));
-        
-        mure::static_nested_loop<dim, -1, 2>(
+
+        samurai::static_nested_loop<dim, -1, 2>(
             [&](auto stencil) {
-            
-            auto subset = intersection(translate(mesh[mure::MeshType::cells][level], stencil),
-                                       mesh[mure::MeshType::cells][level-1]).on(level);
+
+            auto subset = intersection(translate(mesh[samurai::MeshType::cells][level], stencil),
+                                       mesh[samurai::MeshType::cells][level-1]).on(level);
 
             subset.apply_op(make_graduation(tag));
-            
+
         });
     }
 
@@ -302,8 +302,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // std::cout<<std::endl<<"Tag after make gradutation"<<std::endl;
     // for (std::size_t level = min_level; level <= max_level - ite; ++level)
     // {
-    //     auto leaves = intersection(mesh[mure::MeshType::cells][level],
-    //                                mesh[mure::MeshType::cells][level]);
+    //     auto leaves = intersection(mesh[samurai::MeshType::cells][level],
+    //                                mesh[samurai::MeshType::cells][level]);
 
     //     leaves([&](auto, auto &interval, auto) {
 
@@ -316,8 +316,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
     for (std::size_t level = max_level; level > 0; --level)
     {
-        auto keep_subset = intersection(mesh[mure::MeshType::cells][level],
-                                        mesh[mure::MeshType::all_cells][level - 1])
+        auto keep_subset = intersection(mesh[samurai::MeshType::cells][level],
+                                        mesh[samurai::MeshType::all_cells][level - 1])
                         .on(level - 1);
         keep_subset.apply_op(maximum(tag));
     }
@@ -328,8 +328,8 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // std::cout<<std::endl<<"Tag after maximum"<<std::endl;
     // for (std::size_t level = min_level; level <= max_level - ite; ++level)
     // {
-    //     auto leaves = intersection(mesh[mure::MeshType::cells][level],
-    //                                mesh[mure::MeshType::cells][level]);
+    //     auto leaves = intersection(mesh[samurai::MeshType::cells][level],
+    //                                mesh[samurai::MeshType::cells][level]);
 
     //     leaves([&](auto, auto &interval, auto) {
 
@@ -344,11 +344,11 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // {
     //     std::stringstream s;
     //     s << "graduation_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_mesh(mesh);
     //     h5file.add_field(tag);
     //     h5file.add_field(u);
-    //     mure::Field<Config> level_{"level", mesh};
+    //     samurai::Field<Config> level_{"level", mesh};
     //     mesh.for_each_cell([&](auto &cell) {
     //         level_[cell] = static_cast<double>(cell.level);
     //     });
@@ -360,18 +360,18 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // {
     //     std::stringstream s;
     //     s << "graduation_by_level"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(mesh, tag);
     // }
 
-    mure::CellList<dim, interval_t, max_refinement_level> cell_list;
+    samurai::CellList<dim, interval_t, max_refinement_level> cell_list;
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto level_cell_array = mesh[mure::MeshType::cells][level];
+        auto level_cell_array = mesh[samurai::MeshType::cells][level];
 
         if (!level_cell_array.empty())
         {
-            mure::for_each_interval(level_cell_array, [&](const auto& interval, const auto& index_yz)
+            samurai::for_each_interval(level_cell_array, [&](const auto& interval, const auto& index_yz)
             {
                 for (int i = interval.start; i < interval.end; ++i)
                 {
@@ -379,9 +379,9 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
                     // {
                     //     std::cout << "level: " << level << " interval " << interval << " i: " << i << " j: " << index_yz[0] << " tag: " << tag.array()[i + interval.index] << "\n";
                     // }
-                    if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
+                    if (tag.array()[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
                     {
-                        mure::static_nested_loop<dim - 1, 0, 2>(
+                        samurai::static_nested_loop<dim - 1, 0, 2>(
                             [&](auto stencil) {
                                 auto index = 2 * index_yz + stencil;
                                 cell_list[level + 1][index].add_point(2 * i);
@@ -392,7 +392,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
                                 // }
                             });
                     }
-                    else if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::keep))
+                    else if (tag.array()[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
                     {
                         cell_list[level][index_yz].add_point(i);
                     }
@@ -405,7 +405,7 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
         }
     }
 
-    mure::Mesh<Config> new_mesh{cell_list, mesh.initial_mesh(), min_level, max_level};
+    samurai::Mesh<Config> new_mesh{cell_list, mesh.initial_mesh(), min_level, max_level};
 
 
 
@@ -419,10 +419,10 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto subset = mure::intersection(mure::union_(mesh[mure::MeshType::cells][level], mesh[mure::MeshType::proj_cells][level]),
-                                        new_mesh[mure::MeshType::cells][level]);
-        // auto subset = mure::intersection(mesh[mure::MeshType::all_cells][level],
-        //                                  new_mesh[mure::MeshType::cells][level]);
+        auto subset = samurai::intersection(samurai::union_(mesh[samurai::MeshType::cells][level], mesh[samurai::MeshType::proj_cells][level]),
+                                        new_mesh[samurai::MeshType::cells][level]);
+        // auto subset = samurai::intersection(mesh[samurai::MeshType::all_cells][level],
+        //                                  new_mesh[samurai::MeshType::cells][level]);
         subset.apply_op(copy(new_u, u));
     }
 
@@ -434,10 +434,10 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     //     std::cout << "new_u en -20, -19 " << new_u(7, interval_t{-20, -18}) << "\n";
     //     std::stringstream s;
     //     s << "copy_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_mesh(new_mesh);
     //     h5file.add_field(new_u);
-    //     mure::Field<Config> level_{"level", new_mesh};
+    //     samurai::Field<Config> level_{"level", new_mesh};
     //     new_mesh.for_each_cell([&](auto &cell) {
     //         level_[cell] = static_cast<double>(cell.level);
     //     });
@@ -447,24 +447,24 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
     for (std::size_t level = min_level; level < max_level; ++level)
     {
-        auto level_cell_array = mesh[mure::MeshType::cells][level];
-        
+        auto level_cell_array = mesh[samurai::MeshType::cells][level];
+
 
         if (!level_cell_array.empty())
         {
 
-            mure::for_each_interval(level_cell_array, [&](const auto& interval, const auto& index_yz)
+            samurai::for_each_interval(level_cell_array, [&](const auto& interval, const auto& index_yz)
             {
                 // std::cout << "tag on level " << level << " " << tag(level, interval)<< "\n";
                 for (int i = interval.start; i < interval.end; ++i)
                 {
-                    if (tag.array()[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
+                    if (tag.array()[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
                     {
 
-                        mure::compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
+                        samurai::compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
 
                         // std::cout<<std::endl<<"#### Predicting on new leaf at level "<<level<<" interval = "<<i<<std::flush;
-       
+
                     }
                 }
             });
@@ -480,10 +480,10 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     //     std::cout << "new_u en -20, -19 " << new_u(7, interval_t{-20, -18}) << "\n";
     //     std::stringstream s;
     //     s << "prediction_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_mesh(new_mesh);
     //     h5file.add_field(new_u);
-    //     mure::Field<Config> level_{"level", new_mesh};
+    //     samurai::Field<Config> level_{"level", new_mesh};
     //     new_mesh.for_each_cell([&](auto &cell) {
     //         level_[cell] = static_cast<double>(cell.level);
     //     });
@@ -496,9 +496,9 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     auto old_mesh = uold.mesh();
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto subset = mure::intersection(mure::intersection(old_mesh[mure::MeshType::cells][level],
-                                         difference(new_mesh[mure::MeshType::cells][level], mesh[mure::MeshType::cells][level])),
-                                         mesh[mure::MeshType::cells][level-1]).on(level);
+        auto subset = samurai::intersection(samurai::intersection(old_mesh[samurai::MeshType::cells][level],
+                                         difference(new_mesh[samurai::MeshType::cells][level], mesh[samurai::MeshType::cells][level])),
+                                         mesh[samurai::MeshType::cells][level-1]).on(level);
 
         subset.apply_op(copy(new_u, uold));
     }
@@ -511,10 +511,10 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
 
     //     std::stringstream s;
     //     s << "copy_uold_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_mesh(new_mesh);
     //     h5file.add_field(new_u);
-    //     mure::Field<Config> level_{"level", new_mesh};
+    //     samurai::Field<Config> level_{"level", new_mesh};
     //     new_mesh.for_each_cell([&](auto &cell) {
     //         level_[cell] = static_cast<double>(cell.level);
     //     });
@@ -545,16 +545,16 @@ bool harten(Field &u, Field &uold, double eps, double regularity, std::size_t it
     // if (global_iter == save_at_ite)   {
     //     std::stringstream s;
     //     s << "new_u_by_level_"<< ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     h5file.add_field_by_level(u.mesh(), u);
-    // } 
+    // }
 
     // {
     //     std::stringstream s;
     //     s << "new_u_"<<ite;
-    //     auto h5file = mure::Hdf5(s.str().data());
+    //     auto h5file = samurai::Hdf5(s.str().data());
     //     auto mesh = u.mesh();
-    //     mure::Field<Config> level_{"level", mesh};
+    //     samurai::Field<Config> level_{"level", mesh};
     //     mesh.for_each_cell([&](auto &cell) {
     //         level_[cell] = static_cast<double>(cell.level);
     //     });

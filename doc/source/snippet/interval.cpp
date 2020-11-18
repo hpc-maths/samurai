@@ -1,12 +1,12 @@
 #include <iostream>
 
-#include <mure/cell_array.hpp>
-#include <mure/cell_list.hpp>
+#include <samurai/cell_array.hpp>
+#include <samurai/cell_list.hpp>
 
 int main()
 {
     constexpr std::size_t dim = 2;
-    mure::CellList<dim> cl;
+    samurai::CellList<dim> cl;
 
     cl[0][{}].add_interval({ 0,  2});
     cl[0][{}].add_interval({ 5,  6});
@@ -14,7 +14,7 @@ int main()
     cl[1][{}].add_interval({ 8, 10});
     cl[2][{}].add_interval({15, 17});
 
-    mure::CellArray<dim> ca{cl};
+    samurai::CellArray<dim> ca{cl};
 
     std::cout << ca << std::endl;
 

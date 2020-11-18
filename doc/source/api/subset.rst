@@ -1,7 +1,7 @@
 Define a subset of intervals
 ============================
 
-.. doxygenclass:: mure::subset_operator
-   :project: mure
+.. doxygenclass:: samurai::subset_operator
+   :project: samurai
    :members:
    :private-members:

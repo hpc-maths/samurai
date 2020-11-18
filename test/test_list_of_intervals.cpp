@@ -2,12 +2,12 @@
 #include <xtensor/xarray.hpp>
 #include <xtensor/xrandom.hpp>
 
-#include <mure/interval.hpp>
-#include <mure/list_of_intervals.hpp>
+#include <samurai/interval.hpp>
+#include <samurai/list_of_intervals.hpp>
 
 #include "test_common.hpp"
 
-namespace mure
+namespace samurai
 {
     TEST(list_of_intervals, add_interval)
     {

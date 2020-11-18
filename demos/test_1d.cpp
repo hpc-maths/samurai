@@ -1,18 +1,18 @@
 #include <array>
 #include <math.h>
 
-#include <mure/box.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
-#include <mure/mr/coarsening.hpp>
-#include <mure/mr/mesh.hpp>
-#include <mure/mr/mr_config.hpp>
-#include <mure/mr/pred_and_proj.hpp>
+#include <samurai/box.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
+#include <samurai/mr/coarsening.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mr_config.hpp>
+#include <samurai/mr/pred_and_proj.hpp>
 
 template<class Config>
-mure::Field<Config> init_u(mure::Mesh<Config> &mesh, int test_case)
+samurai::Field<Config> init_u(samurai::Mesh<Config> &mesh, int test_case)
 {
-    mure::Field<Config> u("u", mesh);
+    samurai::Field<Config> u("u", mesh);
     u.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -46,10 +46,10 @@ mure::Field<Config> init_u(mure::Mesh<Config> &mesh, int test_case)
 }
 
 template<class Config>
-mure::Field<Config> compute_error(mure::Mesh<Config> &mesh,
-                                  mure::Field<Config> solution, int test_case)
+samurai::Field<Config> compute_error(samurai::Mesh<Config> &mesh,
+                                  samurai::Field<Config> solution, int test_case)
 {
-    mure::Field<Config> error("error", mesh);
+    samurai::Field<Config> error("error", mesh);
     error.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -98,10 +98,10 @@ int main(int argc, char *argv[])
     }
 
     constexpr size_t dim = 1;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
 
-    mure::Box<double, dim> box({-1}, {1});
-    mure::Mesh<Config> mesh{box, atoi(argv[2])};
+    samurai::Box<double, dim> box({-1}, {1});
+    samurai::Mesh<Config> mesh{box, atoi(argv[2])};
 
     // Initialization
     auto u = init_u(mesh, atoi(argv[1]));
@@ -115,10 +115,10 @@ int main(int argc, char *argv[])
         // std::cout << "#################################\n";
         // std::cout << mesh << "\n";
         // std::cout << "#################################\n";
-        mure::Field<Config> detail{"detail", mesh};
+        samurai::Field<Config> detail{"detail", mesh};
         detail.array().fill(0);
-        mure::mr_projection(u);
-        mure::coarsening(detail, u, eps, i);
+        samurai::mr_projection(u);
+        samurai::coarsening(detail, u, eps, i);
     }
 
     // Error computation
@@ -127,9 +127,9 @@ int main(int argc, char *argv[])
     std::stringstream str;
     str << "coarsening1d_case-" << argv[1] << "_lmax-" << argv[2] << "_eps-"
         << argv[3];
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> level_{"level", mesh};
     mesh.for_each_cell(
         [&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
     h5file.add_field(u);

@@ -4,10 +4,10 @@
 
 #include <rapidcheck.h>
 
-#include <mure/interval.hpp>
-#include <mure/list_of_intervals.hpp>
+#include <samurai/interval.hpp>
+#include <samurai/list_of_intervals.hpp>
 
-namespace mure
+namespace samurai
 {
     template<typename coord_t, typename index_t>
     bool operator==(ListOfIntervals<coord_t, index_t> const &li,
@@ -35,15 +35,15 @@ namespace rc
 
     template<>
     template<class TValue>
-    struct Arbitrary<mure::Interval<TValue>>
+    struct Arbitrary<samurai::Interval<TValue>>
     {
-        static Gen<mure::Interval<TValue>> arbitrary()
+        static Gen<samurai::Interval<TValue>> arbitrary()
         {
             auto start = gen::inRange(-100, 100);
             auto end = gen::inRange(-100, 100);
-            return gen::build<mure::Interval<TValue>>(
-                gen::set(&mure::Interval<TValue>::start, start),
-                gen::set(&mure::Interval<TValue>::end, end));
+            return gen::build<samurai::Interval<TValue>>(
+                gen::set(&samurai::Interval<TValue>::start, start),
+                gen::set(&samurai::Interval<TValue>::end, end));
         }
     };
 

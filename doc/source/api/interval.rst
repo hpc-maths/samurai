@@ -1,6 +1,6 @@
 Interval class
 ==============
 
-.. doxygenclass:: mure::Interval
-   :project: mure
+.. doxygenclass:: samurai::Interval
+   :project: samurai
    :members:

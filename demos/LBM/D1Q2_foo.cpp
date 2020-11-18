@@ -2,22 +2,22 @@
 #include <math.h>
 #include <vector>
 
-#include <mure/box.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
-#include <mure/mr/coarsening.hpp>
-#include <mure/mr/refinement.hpp>
-#include <mure/mr/mesh.hpp>
-#include <mure/mr/mr_config.hpp>
-#include <mure/mr/pred_and_proj.hpp>
+#include <samurai/box.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
+#include <samurai/mr/coarsening.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mr_config.hpp>
+#include <samurai/mr/pred_and_proj.hpp>
 
 template<class TInterval>
-class projection_lbm_op_ : public mure::field_operator_base<TInterval> {
+class projection_lbm_op_ : public samurai::field_operator_base<TInterval> {
   public:
     INIT_OPERATOR(projection_lbm_op_)
 
     template<class T>
-    void operator()(mure::Dim<1>, T &field) const
+    void operator()(samurai::Dim<1>, T &field) const
     {
         field(level, i) =
             .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
@@ -27,17 +27,17 @@ class projection_lbm_op_ : public mure::field_operator_base<TInterval> {
 template<class T>
 auto projection_lbm(T &&field)
 {
-    return mure::make_field_operator_function<projection_lbm_op_>(
+    return samurai::make_field_operator_function<projection_lbm_op_>(
         std::forward<T>(field));
 }
 
 template<class TInterval>
-class prediction_lbm_op_ : public mure::field_operator_base<TInterval> {
+class prediction_lbm_op_ : public samurai::field_operator_base<TInterval> {
   public:
     INIT_OPERATOR(prediction_lbm_op_)
 
     template<class T>
-    void operator()(mure::Dim<1>, T &field) const
+    void operator()(samurai::Dim<1>, T &field) const
     {
         field(level, i) = field(level - 1, i>>1);
     }
@@ -46,12 +46,12 @@ class prediction_lbm_op_ : public mure::field_operator_base<TInterval> {
 template<class T>
 auto prediction_lbm(T &&field)
 {
-    return mure::make_field_operator_function<prediction_lbm_op_>(
+    return samurai::make_field_operator_function<prediction_lbm_op_>(
         std::forward<T>(field));
 }
 
 template<class Config>
-void init_u(std::vector<mure::Field<Config>> &u, mure::Mesh<Config> &mesh)
+void init_u(std::vector<samurai::Field<Config>> &u, samurai::Mesh<Config> &mesh)
 {
     for (auto &uu : u)
         uu.array().fill(0);
@@ -66,23 +66,23 @@ void init_u(std::vector<mure::Field<Config>> &u, mure::Mesh<Config> &mesh)
 }
 
 template<class Config>
-void one_time_step(std::vector<mure::Field<Config>> &u)
+void one_time_step(std::vector<samurai::Field<Config>> &u)
 {
     double lambda = 1.;
     auto mesh = u[0].mesh();
     std::size_t nvel = u.size();
-    auto max_level = mesh[mure::MeshType::cells].max_level();
-    auto min_level = mesh[mure::MeshType::cells].min_level();
-    auto min_union = mesh[mure::MeshType::union_cells].min_level();
+    auto max_level = mesh[samurai::MeshType::cells].max_level();
+    auto min_level = mesh[samurai::MeshType::cells].min_level();
+    auto min_union = mesh[samurai::MeshType::union_cells].min_level();
 
     for (std::size_t level = min_level+1; level <= max_level; ++level)
     {
         auto subset_right =
-                mure::intersection(
-                    mure::difference(
-                        mure::translate_in_x<1>(mesh[mure::MeshType::cells][level]),
-                        mesh[mure::MeshType::cells][level]),
-                    mesh[mure::MeshType::cells][level-1]).on(level);
+                samurai::intersection(
+                    samurai::difference(
+                        samurai::translate_in_x<1>(mesh[samurai::MeshType::cells][level]),
+                        mesh[samurai::MeshType::cells][level]),
+                    mesh[samurai::MeshType::cells][level-1]).on(level);
 
         for (std::size_t i = 0; i < nvel; ++i)
         {
@@ -90,11 +90,11 @@ void one_time_step(std::vector<mure::Field<Config>> &u)
         }
 
         auto subset_left =
-                mure::intersection(
-                    mure::difference(
-                        mure::translate_in_x<-1>(mesh[mure::MeshType::cells][level]),
-                        mesh[mure::MeshType::cells][level]),
-                    mesh[mure::MeshType::cells][level-1]).on(level);
+                samurai::intersection(
+                    samurai::difference(
+                        samurai::translate_in_x<-1>(mesh[samurai::MeshType::cells][level]),
+                        mesh[samurai::MeshType::cells][level]),
+                    mesh[samurai::MeshType::cells][level-1]).on(level);
 
         for (std::size_t i = 0; i < nvel; ++i)
         {
@@ -102,8 +102,8 @@ void one_time_step(std::vector<mure::Field<Config>> &u)
         }
 
         // auto exp =
-        //     mure::intersection(mesh[mure::MeshType::cells_and_ghosts][level],
-        //                        mesh[mure::MeshType::cells][level - 1])
+        //     samurai::intersection(mesh[samurai::MeshType::cells_and_ghosts][level],
+        //                        mesh[samurai::MeshType::cells][level - 1])
         //         .on(level);
         // for (std::size_t i = 0; i < nvel; ++i)
         // {
@@ -114,11 +114,11 @@ void one_time_step(std::vector<mure::Field<Config>> &u)
     for (std::size_t level = 0; level < max_level; ++level)
     {
         auto subset_right =
-                mure::intersection(
-                    mure::difference(
-                        mure::translate_in_x<1>(mesh[mure::MeshType::cells][level]),
-                        mesh[mure::MeshType::cells][level]),
-                    mesh[mure::MeshType::cells][level+1]).on(level);
+                samurai::intersection(
+                    samurai::difference(
+                        samurai::translate_in_x<1>(mesh[samurai::MeshType::cells][level]),
+                        mesh[samurai::MeshType::cells][level]),
+                    mesh[samurai::MeshType::cells][level+1]).on(level);
 
         for (std::size_t i = 0; i < nvel; ++i)
         {
@@ -126,11 +126,11 @@ void one_time_step(std::vector<mure::Field<Config>> &u)
         }
 
         auto subset_left =
-                mure::intersection(
-                    mure::difference(
-                        mure::translate_in_x<-1>(mesh[mure::MeshType::cells][level]),
-                        mesh[mure::MeshType::cells][level]),
-                    mesh[mure::MeshType::cells][level+1]).on(level);
+                samurai::intersection(
+                    samurai::difference(
+                        samurai::translate_in_x<-1>(mesh[samurai::MeshType::cells][level]),
+                        mesh[samurai::MeshType::cells][level]),
+                    mesh[samurai::MeshType::cells][level+1]).on(level);
 
         for (std::size_t i = 0; i < nvel; ++i)
         {
@@ -138,8 +138,8 @@ void one_time_step(std::vector<mure::Field<Config>> &u)
         }
 
         // auto exp =
-        //     mure::intersection(mesh[mure::MeshType::cells_and_ghosts][level],
-        //                        mesh[mure::MeshType::cells][level + 1])
+        //     samurai::intersection(mesh[samurai::MeshType::cells_and_ghosts][level],
+        //                        mesh[samurai::MeshType::cells][level + 1])
         //         .on(level);
         // for (std::size_t i = 0; i < nvel; ++i)
         // {
@@ -147,7 +147,7 @@ void one_time_step(std::vector<mure::Field<Config>> &u)
         // }
     }
 
-    std::vector<mure::Field<Config>> new_u;
+    std::vector<samurai::Field<Config>> new_u;
     for (std::size_t i = 0; i < nvel; ++i)
     {
         std::stringstream str;
@@ -157,8 +157,8 @@ void one_time_step(std::vector<mure::Field<Config>> &u)
     }
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
-                                      mesh[mure::MeshType::cells][level]);
+        auto exp = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                      mesh[samurai::MeshType::cells][level]);
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
             std::size_t j = max_level - level;
@@ -196,14 +196,14 @@ int main(int argc, char *argv[])
     }
 
     constexpr size_t dim = 1;
-    using Config = mure::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim>;
 
-    mure::Box<double, dim> box({-2}, {2});
-    mure::Mesh<Config> mesh{box, atoi(argv[1])};
+    samurai::Box<double, dim> box({-2}, {2});
+    samurai::Mesh<Config> mesh{box, atoi(argv[1])};
 
     std::size_t nvel = 2;
 
-    std::vector<mure::Field<Config>> u;
+    std::vector<samurai::Field<Config>> u;
     for (std::size_t i = 0; i < nvel; ++i)
     {
         std::stringstream str;
@@ -219,25 +219,25 @@ int main(int argc, char *argv[])
 
     for (std::size_t ite = 0; ite < 20; ++ite)
     {
-        std::vector<mure::Field<Config>> detail;
+        std::vector<samurai::Field<Config>> detail;
         for (std::size_t i = 0; i < nvel; ++i)
         {
             std::stringstream str;
             str << "detail_" << i;
             detail.push_back({str.str().data(), mesh});
             detail[i].array().fill(0);
-            mure::mr_projection(u[i]);
+            samurai::mr_projection(u[i]);
         }
-        mure::coarsening(detail, u, eps, ite);
+        samurai::coarsening(detail, u, eps, ite);
     }
 
     {
     std::stringstream str;
     str << "LBM_D1Q2_init_lmax-" << argv[1] << "_eps-" << argv[2];
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     auto mesh_field = u[0].mesh();
     h5file.add_mesh(mesh_field);
-    mure::Field<Config> level_{"level", mesh_field};
+    samurai::Field<Config> level_{"level", mesh_field};
     mesh_field.for_each_cell(
         [&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
     h5file.add_field(u[0]);
@@ -248,50 +248,50 @@ int main(int argc, char *argv[])
     {
         // for (std::size_t i = 0; i < nvel; ++i)
         // {
-        //     mure::mr_projection(u[i]);
-        //     mure::mr_prediction(u[i]);
+        //     samurai::mr_projection(u[i]);
+        //     samurai::mr_prediction(u[i]);
         // }
         one_time_step(u);
         std::cout<<"Iteration = "<<nb_ite<<std::endl;
         // coarsening
         for (std::size_t ite = 0; ite < 10; ++ite)
         {
-            std::vector<mure::Field<Config>> detail;
+            std::vector<samurai::Field<Config>> detail;
             for (std::size_t i = 0; i < nvel; ++i)
             {
                 std::stringstream str;
                 str << "detail_" << i;
                 detail.push_back({str.str().data(), mesh});
                 detail[i].array().fill(0);
-                mure::mr_projection(u[i]);
+                samurai::mr_projection(u[i]);
             }
-            mure::coarsening(detail, u, eps, ite);
+            samurai::coarsening(detail, u, eps, ite);
         }
 
         // refinement
         /*
         for (std::size_t ite = 0; ite < 10; ++ite)
         {
-            std::vector<mure::Field<Config>> detail;
+            std::vector<samurai::Field<Config>> detail;
             for (std::size_t i = 0; i < nvel; ++i)
             {
                 std::stringstream str;
                 str << "detail_" << i;
                 detail.push_back({str.str().data(), mesh});
                 detail[i].array().fill(0);
-                mure::mr_projection(u[i]);
-                mure::mr_prediction(u[i]);
+                samurai::mr_projection(u[i]);
+                samurai::mr_prediction(u[i]);
             }
-            mure::refinement(detail, u, eps);
+            samurai::refinement(detail, u, eps);
         } */
     }
 
     std::stringstream str;
     str << "LBM_D1Q2_lmax-" << argv[1] << "_eps-" << argv[2];
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     auto mesh_field = u[0].mesh();
     h5file.add_mesh(mesh_field);
-    mure::Field<Config> level_{"level", mesh_field};
+    samurai::Field<Config> level_{"level", mesh_field};
     mesh_field.for_each_cell(
         [&](auto &cell) { level_[cell] = static_cast<double>(cell.level); });
     h5file.add_field(u[0]);

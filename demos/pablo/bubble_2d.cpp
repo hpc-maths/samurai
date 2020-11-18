@@ -3,10 +3,10 @@
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xrandom.hpp>
 
-#include <mure/box.hpp>
-#include <mure/cell_array.hpp>
-#include <mure/field.hpp>
-#include <mure/hdf5.hpp>
+#include <samurai/box.hpp>
+#include <samurai/cell_array.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
 
 int main()
 {
@@ -32,9 +32,9 @@ int main()
     omega = 0.5*xt::random::rand<double>({nb_bubbles});
     aa = 0.15*xt::random::rand<double>({nb_bubbles});
 
-    mure::CellArray<dim> mesh;
+    samurai::CellArray<dim> mesh;
 
-    mesh[start_level] = {start_level, mure::Box<int, dim>({0, 0}, {1<<start_level, 1<<start_level})};
+    mesh[start_level] = {start_level, samurai::Box<int, dim>({0, 0}, {1<<start_level, 1<<start_level})};
 
     double t0 = 0;
     double t = t0;
@@ -50,10 +50,10 @@ int main()
 
         for(std::size_t rep = 0; rep < 10; ++rep)
         {
-            auto tag = mure::make_field<int, 1>("tag", mesh);
-            tag.fill(static_cast<int>(mure::CellFlag::keep));
+            auto tag = samurai::make_field<int, 1>("tag", mesh);
+            tag.fill(static_cast<int>(samurai::CellFlag::keep));
 
-            mure::for_each_cell(mesh, [&](auto cell)
+            samurai::for_each_cell(mesh, [&](auto cell)
             {
                 bool inside = false;
                 std::size_t ib = 0;
@@ -81,7 +81,7 @@ int main()
                             {
                                 if (cell.level < 9)
                                 {
-                                    tag[cell] = static_cast<int>(mure::CellFlag::refine);
+                                    tag[cell] = static_cast<int>(samurai::CellFlag::refine);
                                 }
                                 inside = true;
                             }
@@ -92,27 +92,27 @@ int main()
 
                 // if (cell.level > 0 && !inside)
                 // {
-                //     tag[cell] = static_cast<int>(mure::CellFlag::coarsen);
+                //     tag[cell] = static_cast<int>(samurai::CellFlag::coarsen);
                 // }
             });
 
             // for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
             // {
-            //     auto subset = mure::intersection(mesh[level], mesh[level])
+            //     auto subset = samurai::intersection(mesh[level], mesh[level])
             //                  .on(level - 1);
             //     subset([&](const auto& interval, const auto& index)
             //     {
             //         auto i = interval;
             //         auto j = index[0];
-            //         xt::xtensor<bool, 1> mask = (tag(level,     2*i,     2*j) & static_cast<int>(mure::CellFlag::keep))
-            //                                   | (tag(level, 2*i + 1,     2*j) & static_cast<int>(mure::CellFlag::keep))
-            //                                   | (tag(level,     2*i, 2*j + 1) & static_cast<int>(mure::CellFlag::keep))
-            //                                   | (tag(level, 2*i + 1, 2*j + 1) & static_cast<int>(mure::CellFlag::keep));
+            //         xt::xtensor<bool, 1> mask = (tag(level,     2*i,     2*j) & static_cast<int>(samurai::CellFlag::keep))
+            //                                   | (tag(level, 2*i + 1,     2*j) & static_cast<int>(samurai::CellFlag::keep))
+            //                                   | (tag(level,     2*i, 2*j + 1) & static_cast<int>(samurai::CellFlag::keep))
+            //                                   | (tag(level, 2*i + 1, 2*j + 1) & static_cast<int>(samurai::CellFlag::keep));
 
-            //         xt::masked_view(tag(level,     2*i,     2*j), mask) |= static_cast<int>(mure::CellFlag::keep);
-            //         xt::masked_view(tag(level, 2*i + 1,     2*j), mask) |= static_cast<int>(mure::CellFlag::keep);
-            //         xt::masked_view(tag(level,     2*i, 2*j + 1), mask) |= static_cast<int>(mure::CellFlag::keep);
-            //         xt::masked_view(tag(level, 2*i + 1, 2*j + 1), mask) |= static_cast<int>(mure::CellFlag::keep);
+            //         xt::masked_view(tag(level,     2*i,     2*j), mask) |= static_cast<int>(samurai::CellFlag::keep);
+            //         xt::masked_view(tag(level, 2*i + 1,     2*j), mask) |= static_cast<int>(samurai::CellFlag::keep);
+            //         xt::masked_view(tag(level,     2*i, 2*j + 1), mask) |= static_cast<int>(samurai::CellFlag::keep);
+            //         xt::masked_view(tag(level, 2*i + 1, 2*j + 1), mask) |= static_cast<int>(samurai::CellFlag::keep);
             //     });
             // }
 
@@ -125,7 +125,7 @@ int main()
                 for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
                 {
                     auto s = xt::view(stencil, i);
-                    auto subset = mure::intersection(mure::translate(mesh[level], s),
+                    auto subset = samurai::intersection(samurai::translate(mesh[level], s),
                                                     mesh[level - 1])
                                 .on(level);
 
@@ -136,40 +136,40 @@ int main()
 
                         if (i_f.is_valid())
                         {
-                            auto mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(mure::CellFlag::refine);
+                            auto mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::refine);
                             auto i_c = i_f >> 1;
                             auto j_c = j_f >> 1;
-                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(mure::CellFlag::refine);
+                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::refine);
                         }
 
                         i_f = interval.odd_elements();
                         if (i_f.is_valid())
                         {
-                            auto mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(mure::CellFlag::refine);
+                            auto mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::refine);
                             auto i_c = i_f >> 1;
                             auto j_c = j_f >> 1;
-                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(mure::CellFlag::refine);
+                            xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::refine);
                         }
                     });
                 }
             }
 
 
-            mure::CellList<dim> cell_list;
+            samurai::CellList<dim> cell_list;
 
-            mure::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
+            samurai::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
             {
                 for (int i = interval.start; i < interval.end; ++i)
                 {
-                    if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::refine))
+                    if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
                     {
-                        mure::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
+                        samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                         {
                             auto index = 2 * index_yz + stencil;
                             cell_list[level + 1][index].add_interval({2 * i, 2 * i + 2});
                         });
                     }
-                    else if (tag[i + interval.index] & static_cast<int>(mure::CellFlag::keep))
+                    else if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
                     {
                         cell_list[level][index_yz].add_point(i);
                     }
@@ -184,7 +184,7 @@ int main()
         }
         std::stringstream str;
         str << "bubble_2d_" << nite;
-        mure::save(str.str().data(), mesh);
+        samurai::save(str.str().data(), mesh);
     }
     return 0;
 }

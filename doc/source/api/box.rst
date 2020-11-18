@@ -1,6 +1,6 @@
 Box class
 =========
 
-.. doxygenclass:: mure::Box
-   :project: mure
+.. doxygenclass:: samurai::Box
+   :project: samurai
    :members:

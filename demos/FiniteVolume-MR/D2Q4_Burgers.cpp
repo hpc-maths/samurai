@@ -4,14 +4,14 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <mure/mure.hpp>
+#include <samurai/samurai.hpp>
 #include "coarsening.hpp"
 #include "refinement.hpp"
 #include "criteria.hpp"
 #include "prediction_map_2d.hpp"
 
 double lambda = 2.;
-double sigma_q = 0.5; 
+double sigma_q = 0.5;
 double sigma_xy = 0.5;
 
 double sq = 1.2;//1./(.5 + sigma_q);
@@ -21,16 +21,16 @@ double kx = 0.0;
 double ky = 1.5;
 
 template<class Config>
-auto init_f(mure::Mesh<Config> &mesh, double t)
+auto init_f(samurai::Mesh<Config> &mesh, double t)
 {
     constexpr std::size_t nvel = 4;
-    mure::BC<2> bc{ {{ {mure::BCType::dirichlet, 1},
-                       {mure::BCType::dirichlet, 1},
-                       {mure::BCType::dirichlet, 1},
-                       {mure::BCType::dirichlet, 1}
+    samurai::BC<2> bc{ {{ {samurai::BCType::dirichlet, 1},
+                       {samurai::BCType::dirichlet, 1},
+                       {samurai::BCType::dirichlet, 1},
+                       {samurai::BCType::dirichlet, 1}
                     }} };
 
-    mure::Field<Config, double, nvel> f("f", mesh, bc);
+    samurai::Field<Config, double, nvel> f("f", mesh, bc);
     f.array().fill(0);
 
     mesh.for_each_cell([&](auto &cell) {
@@ -42,7 +42,7 @@ auto init_f(mure::Mesh<Config> &mesh, double t)
 
         double radius = .1;
         double x_center = 0.5, y_center = 0.5;
-        if ((   (x - x_center) * (x - x_center) + 
+        if ((   (x - x_center) * (x - x_center) +
                 (y - y_center) * (y - y_center))
                 <= radius * radius)
             m0 = 1;
@@ -92,22 +92,22 @@ void one_time_step(Field &f, const pred& pred_coeff)
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
 
-    mure::mr_projection(f);
-    mure::mr_prediction(f);
+    samurai::mr_projection(f);
+    samurai::mr_prediction(f);
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = mure::intersection(mesh[mure::MeshType::cells][level],
-                                      mesh[mure::MeshType::cells][level]);
+        auto exp = samurai::intersection(mesh[samurai::MeshType::cells][level],
+                                      mesh[samurai::MeshType::cells][level]);
         exp([&](auto& index, auto &interval, auto) {
             auto k = interval[0]; // Logical index in x
             auto h = index[0];    // Logical index in y
 
-            std::size_t j = max_level - level; 
-            double coeff = 1. / (1 << (2*j)); // The factor 2 comes from the 2D 
+            std::size_t j = max_level - level;
+            double coeff = 1. / (1 << (2*j)); // The factor 2 comes from the 2D
 
             auto f0 = xt::eval(f(0, level, k, h));
             auto f1 = xt::eval(f(1, level, k, h));
@@ -151,7 +151,7 @@ void one_time_step(Field &f, const pred& pred_coeff)
 
             m1 = (1 - sq) * m1 + sq * 0.5 * kx * m0 * m0;
             m2 = (1 - sq) * m2 + sq * 0.5 * ky * m0 * m0;
-            m3 = (1 - sxy) * m3; 
+            m3 = (1 - sxy) * m3;
 
             // We come back to the distributions
             new_f(0, level, k, h) = .25 * m0 + .5/lambda * m1                    + .25/(lambda*lambda) * m3;
@@ -176,10 +176,10 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
     str << "LBM_D2Q4_burgers_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    auto h5file = mure::Hdf5(str.str().data());
+    auto h5file = samurai::Hdf5(str.str().data());
     h5file.add_mesh(mesh);
-    mure::Field<Config> level_{"level", mesh};
-    mure::Field<Config> u{"u", mesh};
+    samurai::Field<Config> level_{"level", mesh};
+    samurai::Field<Config> u{"u", mesh};
     mesh.for_each_cell([&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
         u[cell] = f[cell][0] + f[cell][1] + f[cell][2] + f[cell][3];
@@ -212,15 +212,15 @@ int main(int argc, char *argv[])
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 2;
-            using Config = mure::MRConfig<dim, 2>;
+            using Config = samurai::MRConfig<dim, 2>;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
 
-            mure::Box<double, dim> box({0, 0}, {1, 1});
-            mure::Mesh<Config> mesh{box, min_level, max_level};
+            samurai::Box<double, dim> box({0, 0}, {1, 1});
+            samurai::Mesh<Config> mesh{box, min_level, max_level};
 
             using coord_index_t = typename Config::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
                     std::stringstream str;
                     str << "debug_BG";
 
-                    auto h5file = mure::Hdf5(str.str().data());
+                    auto h5file = samurai::Hdf5(str.str().data());
                     h5file.add_mesh(mesh);
                     // We save with the levels
                     h5file.add_field_by_level(mesh, f);

@@ -21,8 +21,8 @@ Let's start by creating a mesh at level `start_level` for a 2D domain :math:`[-2
 
 .. code-block:: c++
 
-    mure::Box<int, dim> box({-2<<start_level, -2<<start_level}, {2<<start_level, 2<<start_level});
-    mure::CellArray<dim> ca;
+    samurai::Box<int, dim> box({-2<<start_level, -2<<start_level}, {2<<start_level, 2<<start_level});
+    samurai::CellArray<dim> ca;
 
     ca[start_level] = {start_level, box};
 
@@ -34,7 +34,7 @@ We create a field named `tag` attached to the mesh. This field is an array of bo
 
 .. code-block:: c++
 
-    auto tag = mure::make_field<bool, 1>("tag", ca);
+    auto tag = samurai::make_field<bool, 1>("tag", ca);
     tag.fill(false);
 
 We initialize all the entries of the field `tag` to `false` meaning that all the cells are kept.
@@ -43,7 +43,7 @@ We apply the criteria on each cell.
 
 .. code-block:: c++
 
-    mure::for_each_cell(ca, [&](auto cell)
+    samurai::for_each_cell(ca, [&](auto cell)
     {
         auto corner = cell.corner();
         double dx = cell.length;
@@ -68,14 +68,14 @@ We apply the criteria on each cell.
         }
     });
 
-The :cpp:func:`mure::for_each_cell` function takes two parameters: the first one is the `CellArray` defining the cells where we want to apply an algorithm, the second one is a lambda function with a `cell` parameter. This `cell` parameter is of type :cpp:class:`mure::Cell`. We use the method :cpp:func:`corner` to have the bottom left point of the cell.
+The :cpp:func:`samurai::for_each_cell` function takes two parameters: the first one is the `CellArray` defining the cells where we want to apply an algorithm, the second one is a lambda function with a `cell` parameter. This `cell` parameter is of type :cpp:class:`samurai::Cell`. We use the method :cpp:func:`corner` to have the bottom left point of the cell.
 
 We have tagged the cells and we can now recreate a new mesh from the `tag` field by creating four new cells if it is set to true. We use `CellList` to add new points and new intervals efficiently.
 
 .. code-block: c++
 
-    mure::CellList<dim> cl;
-    mure::for_each_interval(ca, [&](std::size_t level, const auto& interval, const auto& index)
+    samurai::CellList<dim> cl;
+    samurai::for_each_interval(ca, [&](std::size_t level, const auto& interval, const auto& index)
     {
         auto j = index[0];
         for (int i = interval.start; i < interval.end; ++i)
@@ -92,7 +92,7 @@ We have tagged the cells and we can now recreate a new mesh from the `tag` field
         }
     });
 
-    mure::CellArray<dim> new_ca = {cl, true};
+    samurai::CellArray<dim> new_ca = {cl, true};
 
 At this point, we haven't paid attention to the graduation of the mesh even if the initial mesh was graduated since it was composed of only one level.
 
@@ -115,7 +115,7 @@ The idea is the following: we take the cells of a level `l` and we translate the
         for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
         {
             auto s = xt::view(stencil, i);
-            auto subset = mure::intersection(mure::translate(ca[level], s), ca[level - 1]);
+            auto subset = samurai::intersection(samurai::translate(ca[level], s), ca[level - 1]);
 
             subset([&](const auto& interval, const auto& index)
             {

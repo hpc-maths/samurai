@@ -1,24 +1,24 @@
 #include <iostream>
 
-#include <mure/cell_array.hpp>
-#include <mure/cell_list.hpp>
-#include <mure/field.hpp>
+#include <samurai/cell_array.hpp>
+#include <samurai/cell_list.hpp>
+#include <samurai/field.hpp>
 
 int main()
 {
     constexpr std::size_t dim = 1;
 
     // Mesh creation
-    mure::CellList<dim> cl;
+    samurai::CellList<dim> cl;
     cl[0][{}].add_interval({ 0,  4});
     cl[1][{}].add_interval({ 0,  4});
     cl[1][{}].add_interval({ 6,  8});
 
-    mure::CellArray<dim> ca{cl};
+    samurai::CellArray<dim> ca{cl};
 
     // Initialize field u on this mesh
-    auto u = mure::make_field<double, 1>("u", ca);
-    mure::for_each_cell(ca, [&](auto cell)
+    auto u = samurai::make_field<double, 1>("u", ca);
+    samurai::for_each_cell(ca, [&](auto cell)
     {
         u[cell] = cell.indices[0];
     });
@@ -27,7 +27,7 @@ int main()
     std::cout << u << std::endl;
 
     // Make projection on the intersection
-    auto subset = mure::intersection(ca[0], ca[1]).on(0);
+    auto subset = samurai::intersection(ca[0], ca[1]).on(0);
     subset([&](const auto& i, auto)
     {
         u(0, i) = 0.5*(u(1, 2 * i) + u(1, 2 * i + 1));
