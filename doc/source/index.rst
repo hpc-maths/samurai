@@ -7,19 +7,17 @@ Structured Adaptive mesh and MUlti-Resolution based on Algebra of Intervals
    :caption: TUTORIAL
    :maxdepth: 1
 
+   tutorial/interval
+   tutorial/algorithm
    tutorial/operator_on_subset
    tutorial/graduation
    tutorial/level_set
-
 
 .. toctree::
    :caption: REFERENCE
    :maxdepth: 2
 
-   philosophy
-   interval
-   subset
-   algorithm
+   reference/subset
 
 .. toctree::
    :caption: API REFERENCE
