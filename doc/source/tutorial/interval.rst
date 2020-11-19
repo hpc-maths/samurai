@@ -1,6 +1,9 @@
 Interval and cartesian grid representation
 ==========================================
 
+Interval definition
+-------------------
+
 The data structure widely used by |project| is an interval. An interval is described as follows
 
 .. image:: ./figures/interval.png
@@ -17,10 +20,13 @@ Another important point is that the start and the end values are integers but th
 
 Therefore, the space step is fixed by the level and the same in each direction. An interval at :math:`level + 1` is two more refined than at :math:`level`.
 
+1D mesh example
+---------------
+
 Let's take a 1D example with various levels.
 
 .. image:: ./figures/interval_example_1D.png
-    :width: 100%
+    :width: 80%
     :align: center
 
 For each level, the intervals are:
@@ -35,17 +41,19 @@ And the real intervals given by the level and :math:`\Delta x` are
 - level 1: :math:`[3., 3.5[`, :math:`[4., 5.[`
 - level 2: :math:`[3.5, 4.[`
 
+.. _field index:
+
 The discretization of the 1D domain is done and you want to compute a solution on it. That is where the index comes in. The entries of the solution are contiguous in the x-direction which is obvious for 1D problem and contiguous by level beginning by the lower level (here at :math:`level = 0`).
 
 .. image:: ./figures/interval_example_1D_field.png
-    :width: 100%
+    :width: 80%
     :align: center
 
 For each interval, the index plus the start of the interval must be equal to the entry of the solution. Therefore, the intervals can be rewritten as
 
 - level 0: :math:`[0, 2[@0`, :math:`[5, 6[@-3`
 - level 1: :math:`[4, 7[@-1`, :math:`[8, 10[@-2`
-- level 2: :math:`[14, 16[@-7`
+- level 2: :math:`[14, 16[@-6`
 
 The following code uses |project| to make exactly the 1D domain described previously
 
@@ -56,19 +64,22 @@ The output is
 
 .. literalinclude:: snippet/interval_output.txt
 
-Two new data structures are used in this example `CellList` and `CellArray` which are arrays of size `max_level` defined as a template parameter. The default size is 16.
+CellList and CellArray
+----------------------
 
-`CellList` is used to efficiently add new intervals when the mesh is constructed. As its name suggest, `CellList` is nothing more than a list of intervals in the x-direction. This list is stored into a map where the keys are the index in the other dimensions and the values are the list. This data structure is efficient to add new elements in :math:`O(1)`. But when you want to browse the intervals and apply scientific computing algorithms such as numerical schemes with a stencil, it's no more efficient.
+Two new data structures are used in this example :cpp:class:`samurai::CellList` and :cpp:class:`samurai::CellArray` which are arrays of size `max_level` defined as a template parameter. The default size is 16.
 
-`CellArray` is used to compress the representation of the mesh where each dimension has its own interval list and an offset array to point to the corresponding intervals of the lower dimension `d-1` for each element of the interval of dimension `d`.
+:cpp:class:`samurai::CellList` is used to efficiently add new intervals when the mesh is constructed. As its name suggest, :cpp:class:`samurai::CellList` is nothing more than a list of intervals in the x-direction. This list is stored into a map where the keys are the index in the other dimensions and the values are the list. This data structure is efficient to add new elements in :math:`O(1)`. But when you want to browse the intervals and apply scientific computing algorithms such as numerical schemes with a stencil, it's no more efficient.
+
+:cpp:class:`samurai::CellArray` is used to compress the representation of the mesh where each dimension has its own interval list and an offset array to point to the corresponding intervals of the lower dimension `d-1` for each element of the interval of dimension `d`.
 
 The example below will help to better understand the idea.
 
 .. image:: ./figures/2D_mesh.png
-    :width: 80%
+    :width: 60%
     :align: center
 
-The `CellList` associated with this mesh is
+The :cpp:class:`samurai::CellList` associated with this mesh is
 
 .. code::
 
@@ -106,7 +117,7 @@ The `CellList` associated with this mesh is
         y: 15
             x: [14, 16[
 
-And the `CellArray` is
+And the :cpp:class:`samurai::CellArray` is
 
 .. code::
 
@@ -132,10 +143,10 @@ Let's take level 2 and choose `y=14`. Thus, y-offset entry should be 2. This why
 Now, we want to attach a field to this mesh to perform numerical computations on it. The number of cells for the field is defined by the sum of the size of each x-interval for each level. The numbering is done by starting at the coarsest level.
 
 .. image:: ./figures/2D_mesh_numbering.png
-    :width: 80%
+    :width: 60%
     :align: center
 
-Once again, the index represented by the `@` operator will be used to navigate into the field entries. But this time, we modify this index in the x-intervals. `CellArray` becomes
+Once again, the index represented by the `@` operator will be used to navigate into the field entries. But this time, we modify this index in the x-intervals. :cpp:class:`samurai::CellArray` becomes
 
 .. code::
 
@@ -162,3 +173,22 @@ The implementation of this example is
 And the output is
 
 .. literalinclude:: snippet/2d_mesh_representation_output.txt
+
+
+Build a mesh from a box
+-----------------------
+
+We can easily initialize a :cpp:class:`samurai::CellArray` at a given level with a uniform cartesian grid by defining a box. The box can be 1D, 2D, or 3D.
+
+.. literalinclude:: snippet/2d_mesh_box.cpp
+  :language: c++
+
+The box is defined by its minimum and maximum corners. In this example, the box is therefore :math:`[-1, 1] \times [-1, 1]`. The space step is chosen from the given level which means :math:`\Delta x = 2^-{3} = 0.125`. The number of cells is defined by the length of the box and the space step.
+
+.. literalinclude:: snippet/2d_mesh_box_output.txt
+
+We obtain the following mesh
+
+.. image:: ./figures/2D_mesh_box.png
+    :width: 60%
+    :align: center

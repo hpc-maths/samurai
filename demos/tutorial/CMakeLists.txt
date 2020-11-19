@@ -1,5 +1,5 @@
-# add_executable(test interval.cpp)
-# target_link_libraries(test PRIVATE samurai)
+add_executable(test interval.cpp)
+target_link_libraries(test PRIVATE samurai)
 
 # add_executable(2D_mesh 2D_mesh.cpp)
 # target_link_libraries(2D_mesh PRIVATE samurai)

@@ -61,7 +61,8 @@ namespace samurai
         LevelCellArray& operator=(LevelCellArray&&) = default;
 
         LevelCellArray(const LevelCellList<Dim, TInterval> &lcl);
-        LevelCellArray(std::size_t level, Box<coord_index_t, dim> box);
+        LevelCellArray(std::size_t level, const Box<coord_index_t, dim>& box);
+        LevelCellArray(std::size_t level, const Box<double, dim>& box);
         LevelCellArray(std::size_t level);
 
         iterator begin();
@@ -96,15 +97,17 @@ namespace samurai
     private:
         /// Recursive construction from a level cell list along dimension > 0
         template<typename TGrid, std::size_t N>
-        void initFromLevelCellList(TGrid const &grid,
-                                   std::array<coord_index_t, dim - 1> index,
-                                   std::integral_constant<std::size_t, N>);
+        void init_from_level_cell_list(TGrid const &grid,
+                                       std::array<coord_index_t, dim - 1> index,
+                                       std::integral_constant<std::size_t, N>);
 
         /// Recursive construction from a level cell list for the dimension 0
         template<typename TIntervalList>
-        void initFromLevelCellList(TIntervalList const &interval_list,
-                                   const std::array<coord_index_t, dim - 1>& index,
-                                   std::integral_constant<std::size_t, 0>);
+        void init_from_level_cell_list(TIntervalList const &interval_list,
+                                       const std::array<coord_index_t, dim - 1>& index,
+                                       std::integral_constant<std::size_t, 0>);
+
+        void init_from_box(const Box<coord_index_t, dim>& box);
 
     private:
         std::array<std::vector<interval_t>, dim> m_cells; ///< All intervals in every direction
@@ -220,7 +223,7 @@ namespace samurai
         if (!lcl.empty())
         {
             // Filling cells and offsets from the level cell list
-            initFromLevelCellList(lcl.grid_yz(), {}, std::integral_constant<std::size_t, dim - 1>{});
+            init_from_level_cell_list(lcl.grid_yz(), {}, std::integral_constant<std::size_t, dim - 1>{});
             // Additionnal offset so that [m_offset[i], m_offset[i+1][ is always valid.
             for (std::size_t d = 0; d < dim - 1; ++d)
             {
@@ -230,38 +233,22 @@ namespace samurai
     }
 
     template<std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, Box<coord_index_t, dim> box)
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<coord_index_t, dim>& box)
     : m_level{level}
     {
-        auto dimensions = box.length();
-        auto start = box.min_corner();
-        auto end = box.max_corner();
+        init_from_box(box);
+    }
 
-        std::size_t size = 1;
-        for (std::size_t d = dim - 1; d > 0; --d)
-        {
-            m_offsets[d - 1].resize((dimensions[d] * size) + 1);
-            for (std::size_t i = 0; i < (dimensions[d] * size) + 1; ++i)
-            {
-                m_offsets[d - 1][i] = i;
-            }
-            m_cells[d].resize(size);
-            for (std::size_t i = 0; i < size; ++i)
-            {
-                m_cells[d][i] = { start[d], end[d],
-                                  static_cast<index_t>(m_offsets[d - 1][i * dimensions[d]]) - start[d]
-                                };
-            }
-            size *= dimensions[d];
-        }
+    template<std::size_t Dim, class TInterval>
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<double, dim>& box)
+    : m_level(level)
+    {
+        using box_t = Box<coord_index_t, dim>;
+        using point_t = typename box_t::point_t;
 
-        m_cells[0].resize(size);
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            m_cells[0][i] = { start[0], end[0],
-                              static_cast<index_t>(i * dimensions[0]) - start[0]
-                            };
-        }
+        point_t start = box.min_corner() * std::pow(2, level);
+        point_t end = box.max_corner() * std::pow(2, level);
+        init_from_box(box_t{start, end});
     }
 
     template<std::size_t Dim, class TInterval>
@@ -427,9 +414,9 @@ namespace samurai
 
     template<std::size_t Dim, class TInterval>
     template<typename TGrid, std::size_t N>
-    inline void LevelCellArray<Dim, TInterval>::initFromLevelCellList(TGrid const &grid,
-                                                                      std::array<coord_index_t, dim - 1> index,
-                                                                      std::integral_constant<std::size_t, N>)
+    inline void LevelCellArray<Dim, TInterval>::init_from_level_cell_list(TGrid const &grid,
+                                                                          std::array<coord_index_t, dim - 1> index,
+                                                                          std::integral_constant<std::size_t, N>)
     {
         // Working interval
         interval_t curr_interval(0, 0, 0);
@@ -443,7 +430,7 @@ namespace samurai
             // Recursive call on the current position for the (N-1)th dimension
             index[N - 1] = i;
             const std::size_t previous_offset = m_cells[N - 1].size();
-            initFromLevelCellList(point.second, index, std::integral_constant<std::size_t, N - 1>{});
+            init_from_level_cell_list(point.second, index, std::integral_constant<std::size_t, N - 1>{});
 
             /* Since we move on a sparse storage, each coordinate have non-empty
              * co-dimensions So the question is, are we continuing an existing
@@ -492,12 +479,46 @@ namespace samurai
 
     template<std::size_t Dim, class TInterval>
     template<typename TIntervalList>
-    inline void LevelCellArray<Dim, TInterval>::initFromLevelCellList(TIntervalList const &interval_list,
-                                                                      const std::array<coord_index_t, dim - 1>& /* index */,
-                                                                      std::integral_constant<std::size_t, 0>)
+    inline void LevelCellArray<Dim, TInterval>::init_from_level_cell_list(TIntervalList const &interval_list,
+                                                                          const std::array<coord_index_t, dim - 1>& /* index */,
+                                                                          std::integral_constant<std::size_t, 0>)
     {
         // Along the X axis, simply copy the intervals in cells[0]
         std::copy(interval_list.begin(), interval_list.end(), std::back_inserter(m_cells[0]));
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::init_from_box(const Box<coord_index_t, dim>& box)
+    {
+        auto dimensions = box.length();
+        auto start = box.min_corner();
+        auto end = box.max_corner();
+
+        std::size_t size = 1;
+        for (std::size_t d = dim - 1; d > 0; --d)
+        {
+            m_offsets[d - 1].resize((dimensions[d] * size) + 1);
+            for (std::size_t i = 0; i < (dimensions[d] * size) + 1; ++i)
+            {
+                m_offsets[d - 1][i] = i;
+            }
+            m_cells[d].resize(size);
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                m_cells[d][i] = { start[d], end[d],
+                                  static_cast<index_t>(m_offsets[d - 1][i * dimensions[d]]) - start[d]
+                                };
+            }
+            size *= dimensions[d];
+        }
+
+        m_cells[0].resize(size);
+        for (std::size_t i = 0; i < size; ++i)
+        {
+            m_cells[0][i] = { start[0], end[0],
+                              static_cast<index_t>(i * dimensions[0]) - start[0]
+                            };
+        }
     }
 
     template<std::size_t Dim, class TInterval>

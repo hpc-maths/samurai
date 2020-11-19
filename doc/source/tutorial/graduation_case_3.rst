@@ -26,7 +26,7 @@ Let's start by creating a mesh at level `start_level` for a 2D domain :math:`[-2
 
     ca[start_level] = {start_level, box};
 
-We first create a box of integers that contains the indices of the domain and then we create the `start_level` of the `CellArray` from this box.
+We first create a box of integers that contains the indices of the domain and then we create the `start_level` of the :cpp:class:`samurai::CellArray` from this box.
 
 Now, we want to apply our criteria on this mesh to tag cells to refine if the criteria is true. We will apply the `for_each_cell` function for that.
 
@@ -68,9 +68,9 @@ We apply the criteria on each cell.
         }
     });
 
-The :cpp:func:`samurai::for_each_cell` function takes two parameters: the first one is the `CellArray` defining the cells where we want to apply an algorithm, the second one is a lambda function with a `cell` parameter. This `cell` parameter is of type :cpp:class:`samurai::Cell`. We use the method :cpp:func:`corner` to have the bottom left point of the cell.
+The :cpp:func:`samurai::for_each_cell` function takes two parameters: the first one is the :cpp:class:`samurai::CellArray` defining the cells where we want to apply an algorithm, the second one is a lambda function with a `cell` parameter. This `cell` parameter is of type :cpp:class:`samurai::Cell`. We use the method :cpp:func:`corner` to have the bottom left point of the cell.
 
-We have tagged the cells and we can now recreate a new mesh from the `tag` field by creating four new cells if it is set to true. We use `CellList` to add new points and new intervals efficiently.
+We have tagged the cells and we can now recreate a new mesh from the `tag` field by creating four new cells if it is set to true. We use :cpp:class:`samurai::CellList` to add new points and new intervals efficiently.
 
 .. code-block: c++
 
@@ -99,10 +99,10 @@ At this point, we haven't paid attention to the graduation of the mesh even if t
 The figure below gives the result with a start level set to 1 and a maximum level set to 6. As we can observe, this mesh is not graduated.
 
 .. image:: ./figures/graduation_case_3_without_graduation.png
-    :width: 80%
+    :width: 60%
     :align: center
 
-So, we have to add a step between the criteria and the creation of the new mesh from a `CellList` to ensure the graduation.
+So, we have to add a step between the criteria and the creation of the new mesh from a :cpp:class:`samurai::CellList` to ensure the graduation.
 
 The idea is the following: we take the cells of a level `l` and we translate them in each direction with a stencil of 1. If an intersection exists with a cell at the level :math:`l - 1` and if the cell at level `l` is tagged as refined then we have to tag the cell at level `l-1` to be refined too. We have to start from the largest level to propagate the tag correctly.
 
@@ -145,5 +145,5 @@ The idea is the following: we take the cells of a level `l` and we translate the
 The figure below gives the result of the graduation at each step of the refinement process.
 
 .. image:: ./figures/graduation_case_3_with_graduation.png
-    :width: 80%
+    :width: 60%
     :align: center
