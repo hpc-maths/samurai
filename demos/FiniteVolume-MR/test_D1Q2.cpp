@@ -50,7 +50,7 @@ auto compute_prediction_separate_inout(std::size_t min_level, std::size_t max_le
 5 : Burgers - probleme de Riemann
 */
 
-const int test_number = 5   ;
+const int test_number = 4   ;
 
 const double ad_vel = 0.75; // Should be < lambda
 
@@ -159,6 +159,8 @@ double exact_solution(double x, double t)   {
 double flux(double u)   {
 
     if (test_number == 1 or test_number == 2)   {
+    // if (test_number == 1 or test_number == 2 or test_number == 4)   {
+
         return ad_vel * u;
     }
     else
@@ -180,8 +182,10 @@ auto init_f(samurai::MRMesh<Config> &mesh, double t)
 
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
     {
-        auto center = cell.center;
-        auto x = center[0];
+        auto corner = cell.corner();
+        double dx = cell.length;
+
+        auto x = corner[0] + .5*dx;
         double u = 0;
 
         u = exact_solution(x, 0.0);
@@ -474,6 +478,8 @@ void one_time_step(Field &f, Func&& update_bc_for_level, const FieldTag & tag, d
             auto vv = xt::eval(lambda * (fp - fm));
 
             if (test_number == 1 or test_number == 2)   {
+            // if (test_number == 1 or test_number == 2 or test_number == 4)   {
+
                 vv = (1 - s) * vv + s * ad_vel * uu;
             }
             else
@@ -492,10 +498,11 @@ void one_time_step(Field &f, Func&& update_bc_for_level, const FieldTag & tag, d
 
 
 template<class Field, class Func, class Pred>
-void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const Pred& pred_coeff, double s_rel)
+void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, 
+                            const Pred& pred_coeff, double s_rel, 
+                            bool finest_collision = false)
 {
 
-    double value_dirichlet = 0.;
 
     double lambda = 1.;
 
@@ -505,6 +512,7 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
     using mesh_t = typename Field::mesh_t;
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using coord_index_t = typename mesh_t::interval_t::coord_index_t;
+    using interval_t = typename mesh_t::interval_t;
 
     auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
@@ -523,84 +531,31 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
     auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
     new_f.fill(0.);
 
+    auto advected_f = samurai::make_field<double, nvel>("advected_f", mesh);
+    advected_f.fill(0.);
+
     auto help_f = samurai::make_field<double, nvel>("help_f", mesh);
     help_f.fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
 
-
-
         // If we are at the finest level, we no not need to correct
+
         if (level == max_level) {
             std::size_t j = 0;
             double coeff = 1.;
 
-            // Left boundary
-            xt::xtensor_fixed<int, xt::xshape<1>> stencil{1};
-            // auto leaf_lb = samurai::difference(mesh[mesh_id_t::cells][max_level],
-            //                           translate(mesh[mesh_id_t::cells][max_level], stencil));
 
-            auto leaf_lb = samurai::intersection(samurai::difference(mesh.domain(),
-                                                   samurai::translate(mesh.domain(), stencil)),
-                                        mesh[mesh_id_t::cells][max_level]);
-            leaf_lb.on(max_level)([&](auto &interval, auto) {
-
-                auto k = interval;
-                // Anti bounce back to enforce density 1
-                // auto fp = 1. - xt::eval(f(1, max_level, k));
-                // auto fp = xt::eval(value_dirichlet - f(1, max_level, k));
-
-                auto fp = xt::eval(f(0, max_level, k));
-                auto fm = xt::eval(f(1, max_level, k + 1));
-
-                // COLLISION
-
-                auto uu = xt::eval(fp + fm);
-                auto vv = xt::eval(lambda * (fp - fm));
-
-                if (test_number == 1 or test_number == 2)   {
-                    vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
-                }
-                else
-                {
-                    vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
-                }
-
-
-                new_f(0, max_level, k) = .5 * (uu + 1. / lambda * vv);
-                new_f(1, max_level, k) = .5 * (uu - 1. / lambda * vv);
-            });
-
-            // auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
-            //                           mesh[mesh_id_t::cells][max_level]);
-
-
-            auto leaves = samurai::difference(mesh[mesh_id_t::cells][max_level],
-                                      leaf_lb);
-            leaves.on(max_level)([&](auto &interval, auto) {
+            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
+                                             mesh[mesh_id_t::cells][max_level]);
+            leaves([&](auto &interval, auto) {
 
                 auto k = interval;
 
-                auto fp = xt::eval(f(0, max_level, k - 1));
-                auto fm = xt::eval(f(1, max_level, k + 1));
+                advected_f(0, max_level, k) = xt::eval(f(0, max_level, k - 1));
+                advected_f(1, max_level, k) = xt::eval(f(1, max_level, k + 1));
 
-                // COLLISION
-
-                auto uu = xt::eval(fp + fm);
-                auto vv = xt::eval(lambda * (fp - fm));
-
-                if (test_number == 1 or test_number == 2)   {
-                    vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
-                }
-                else
-                {
-                    vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
-                }
-
-
-                new_f(0, max_level, k) = .5 * (uu + 1. / lambda * vv);
-                new_f(1, max_level, k) = .5 * (uu - 1. / lambda * vv);
             });
         }
 
@@ -613,109 +568,21 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
             double coeff = 1. / (1 << j);
 
 
-            xt::xtensor_fixed<int, xt::xshape<1>> stencil{1};
-            // auto overleaves_lb = samurai::difference(mesh[mesh_id_t::cells][level],
-            //                           translate(mesh[mesh_id_t::overleaves][level + 1], stencil)).on(level + 1);
-
-
-
-            xt::xtensor_fixed<int, xt::xshape<1>> stencil_new{(1 << j)};
-
-
-
-            auto overleaves_lb = samurai::intersection(samurai::difference(mesh.domain(),
-                                                         samurai::translate(mesh.domain(), stencil_new)),
-                                              mesh[mesh_id_t::cells][level]);
-
-            overleaves_lb.on(level+1)([&](auto &interval, auto) {
-                auto k = interval; // Logical index in x
-
-                auto fp = xt::eval(f(0, level + 1, k));
-                auto fm = xt::eval(f(1, level + 1, k));
-
-                // We have to correct it.
-                // for(auto &c: pred_coeff[j][0].coeff)
-                // {
-                //     coord_index_t stencil = c.first;
-                //     double weight = c.second;
-
-                //     fp += coeff * weight * f(0, level + 1, k + stencil);
-                // }
-
-
-                // Anti bounce back
-                // fp += coeff * (1.0 - xt::eval(f(1, level + 1, k)));
-                // fp += coeff * (value_dirichlet - xt::eval(f(1, level + 1, k)));
-
-                fp += coeff * (xt::eval(f(0, level + 1, k)));
-
-                auto sortant = xt::eval(0.0 * f(0, level + 1, k));
-
-                for(auto &c: pred_coeff[j][1].coeff)
-                {
-                    coord_index_t stencil = c.first;
-                    double weight = c.second;
-
-                    sortant += weight * f(0, level + 1, k + stencil);
-
-                    fp -= coeff * weight * f(0, level + 1, k + stencil);
-                }
-
-                for(auto &c: pred_coeff[j][2].coeff)
-                {
-                    coord_index_t stencil = c.first;
-                    double weight = c.second;
-
-                    fm += coeff * weight * f(1, level + 1, k + stencil);
-                }
-
-                for(auto &c: pred_coeff[j][3].coeff)
-                {
-                    coord_index_t stencil = c.first;
-                    double weight = c.second;
-
-                    fm -= coeff * weight * f(1, level + 1, k + stencil);
-                }
-
-                // Save it
-                help_f(0, level + 1, k) = fp;
-                help_f(1, level + 1, k) = fm;
-
-            });
-
-
             // We take the overleaves corresponding to the existing leaves
             // auto overleaves = samurai::intersection(mesh[mesh_id_t::cells][level],
             //                                      mesh[mesh_id_t::cells][level]).on(level + 1);
 
             auto ol = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                                 mesh[mesh_id_t::cells][level]).on(level + 1);
-            auto overleaves_far = samurai::difference(mesh[mesh_id_t::cells][level], overleaves_lb);
+                                         mesh[mesh_id_t::cells][level]).on(level + 1);
 
-            overleaves_far.on(level+1)([&](auto& interval, auto) {
+            ol([&](auto& interval, auto) {
                 auto k = interval; // Logical index in x
 
-                //std::cout<<std::endl<<"Level + 1 "<<(level + 1)<<" interval = "<<k<<" Values "<<std::endl<<f(0, level + 1, k - 2)<<std::flush;
 
 
                 auto fp = xt::eval(f(0, level + 1, k));
                 auto fm = xt::eval(f(1, level + 1, k));
 
-                // for(auto &c: pred_coeff[j][0].coeff)
-                // {
-                //     coord_index_t stencil = c.first;
-                //     double weight = c.second;
-
-                //     fp += coeff * weight * f(0, level + 1, k + stencil);
-                // }
-
-                // for(auto &c: pred_coeff[j][1].coeff)
-                // {
-                //     coord_index_t stencil = c.first;
-                //     double weight = c.second;
-
-                //     fm += coeff * weight * f(1, level + 1, k + stencil);
-                // }
 
 
                 for(auto &c: pred_coeff[j][0].coeff)
@@ -751,8 +618,17 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
                 }
 
                 // Save it
+
                 help_f(0, level + 1, k) = fp;
                 help_f(1, level + 1, k) = fm;
+
+                // auto uu = xt::eval(fp + fm);
+                // auto vv = xt::eval(lambda*(fp - fm));
+
+                // vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+
+                // help_f(0, level + 1, k) = .5 * (uu + 1. / lambda * vv);
+                // help_f(1, level + 1, k) = .5 * (uu - 1. / lambda * vv);
 
             });
 
@@ -764,13 +640,115 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
                 auto k = interval;
 
                 // Projection
-                auto fp_advected = 0.5 * (help_f(0, level + 1, 2*k) + help_f(0, level + 1, 2*k + 1));
-                auto fm_advected = 0.5 * (help_f(1, level + 1, 2*k) + help_f(1, level + 1, 2*k + 1));
+                advected_f(0, level, k) = xt::eval(0.5 * (help_f(0, level + 1, 2*k) + help_f(0, level + 1, 2*k + 1)));
+                advected_f(1, level, k) = xt::eval(0.5 * (help_f(1, level + 1, 2*k) + help_f(1, level + 1, 2*k + 1)));
+                // new_f(0, level, k) = xt::eval(0.5 * (help_f(0, level + 1, 2*k) + help_f(0, level + 1, 2*k + 1)));
+                // new_f(1, level, k) = xt::eval(0.5 * (help_f(1, level + 1, 2*k) + help_f(1, level + 1, 2*k + 1)));
+            });
+        }
+    }
 
-                auto uu = xt::eval(fp_advected + fm_advected);
-                auto vv = xt::eval(lambda * (fp_advected - fm_advected));
+
+    // Collision
+
+
+    if (!finest_collision)  {
+        // for (std::size_t level = max_level; level <= max_level; ++level)    {
+
+        for (std::size_t level = 0; level <= max_level; ++level)    {
+
+            double dx = 1./(1 << level);
+
+            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                             mesh[mesh_id_t::cells][level]);
+        
+            leaves([&](auto &interval, auto) {
+                auto k = interval;
+                auto uu = xt::eval(          advected_f(0, level, k) + advected_f(1, level, k));
+                auto vv = xt::eval(lambda * (advected_f(0, level, k) - advected_f(1, level, k)));
+
+
+                if (level < max_level)  {
+                    // We compute the cells centers
+                    auto uum1 = xt::eval(advected_f(0, level, k-1) + advected_f(1, level, k-1));
+                    auto uup1 = xt::eval(advected_f(0, level, k+1) + advected_f(1, level, k+1));
+
+
+                    auto cc = dx*(k.start + 0.5) + dx * xt::arange(k.size());
+
+            
+
+                    auto pol_at_centers = (.5/(dx*dx)*(uum1+uup1)-1./(dx*dx)*uu) * xt::pow(cc, 2.)
+                                + (-(.5*dx+cc)/(dx*dx)*uum1+2.*cc/(dx*dx)*uu+(.5*dx-cc)/(dx*dx)*uup1) * cc
+                                + ((-1./24+.5*xt::pow(cc, 2.)/(dx*dx))*(uum1+uup1)+(.5*cc/dx)*(uum1-uup1)+(13./12-xt::pow(cc, 2.)/(dx*dx))*uu);
+
+                    vv = (1 - s_rel) * vv + s_rel * .5 * xt::pow(pol_at_centers, 2.);
+
+                }
+                else
+                {
+                    vv = (1 - s_rel) * vv + s_rel * .5 * xt::pow(uu, 2.);
+
+                }
+                
+                // if (test_number == 1 or test_number == 2)   {
+                
+                //     vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
+                // }
+                // else
+                // {
+                //     vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+                // }
+
+
+                // vv = (1 - s_rel) * vv + s_rel * .5 * xt::pow(cc, 2.);
+                new_f(0, level, k) = .5 * (uu + 1. / lambda * vv);
+                new_f(1, level, k) = .5 * (uu - 1. / lambda * vv);
+
+            });
+        }
+    }
+
+    else {
+
+        samurai::mr_projection(advected_f);
+        for (std::size_t level = mesh.min_level() - 1; level <= mesh.max_level(); ++level)
+        {
+            update_bc_for_level(advected_f, level); 
+        }
+        samurai::mr_prediction(advected_f, update_bc_for_level);
+
+
+            
+        std::map<std::tuple<std::size_t, std::size_t, interval_t>, 
+                                        xt::xtensor<double, 2>> memoization_map;
+
+        for (std::size_t level = 0; level <= max_level; ++level)    {
+                
+                
+                
+            // std::cout<<std::endl<<"Level = "<<level<<std::endl;
+
+
+            auto leaves_on_finest = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                                       mesh[mesh_id_t::cells][level])
+                                                .on(max_level);
+
+            leaves_on_finest([&](auto &interval, auto) {
+                auto i = interval;
+                auto j = max_level - level;
+                
+                auto f_on_finest  = prediction_all(advected_f, level, j, i, memoization_map);
+
+
+                auto uu = xt::eval(xt::view(f_on_finest, xt::all(), 0) 
+                                 + xt::view(f_on_finest, xt::all(), 1));
+
+                auto vv = xt::eval(lambda*(xt::view(f_on_finest, xt::all(), 0) 
+                                         - xt::view(f_on_finest, xt::all(), 1))); 
 
                 if (test_number == 1 or test_number == 2)   {
+                
                     vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
                 }
                 else
@@ -778,10 +756,22 @@ void one_time_step_matrix_overleaves(Field &f, Func&& update_bc_for_level, const
                     vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
                 }
 
+                auto f_0_post_coll = .5 * (uu + 1. / lambda * vv);
+                auto f_1_post_coll = .5 * (uu - 1. / lambda * vv);
 
-                new_f(0, level, k) = .5 * (uu + 1. / lambda * vv);
-                new_f(1, level, k) = .5 * (uu - 1. / lambda * vv);
+                // std::cout<<std::endl<<"i = "<<i<<" Tableau = "<<f_0_post_coll<<std::endl;
 
+
+
+                int step = 1 << j;
+
+                for (auto i_start = 0; i_start < (i.end - i.start); i_start = i_start + step)    {
+
+                    // std::cout<<"Mean = "<<xt::mean(xt::view(f_0_post_coll, xt::range(i_start, i_start + step)))<<std::endl;
+                    
+                    new_f(0, level, {(i.start + i_start)/step, (i.start + i_start)/step + 1}) = xt::mean(xt::view(f_0_post_coll, xt::range(i_start, i_start + step)));
+                    new_f(1, level, {(i.start + i_start)/step, (i.start + i_start)/step + 1}) = xt::mean(xt::view(f_1_post_coll, xt::range(i_start, i_start + step)));
+                }
             });
         }
     }
@@ -931,6 +921,8 @@ int main(int argc, char *argv[])
                 case 4 : {
                     sol_reg = 0.0;
                     T = 1.3; // Let it develop the discontinuity
+                    // T = 0.1; // CHANGE
+
                     case_name = std::string("b_c");
                     break;
                 }
@@ -1038,7 +1030,7 @@ int main(int argc, char *argv[])
 
 
                         // one_time_step(f, tag_leaf, s);
-                        one_time_step_matrix_overleaves(f, update_bc_for_level, pred_coeff_separate, s);
+                        one_time_step_matrix_overleaves(f, update_bc_for_level, pred_coeff_separate, s, false);
                         one_time_step_matrix_overleaves(fR, update_bc_for_level, pred_coeff_separate, s);
 
                         // one_time_step(fR, tag_leafR, s);
@@ -1095,33 +1087,15 @@ int main(int argc, char *argv[])
 
                         auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
+                        // for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
                         for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+
                         {
-
-                            // for (std::size_t i=0; i<max_level-min_level; ++i)
-                            // {
-                            //     if (coarsening(f, eps, i))
-                            //         break;
-                            // }
-
-                            // for (std::size_t i=0; i<max_level-min_level; ++i)
-                            // {
-                            //     if (refinement(f, eps, sol_reg, i))
-                            //         break;
-                            // }
 
                             MRadaptation(eps, sol_reg);
 
-                            // auto mesh_old = mesh;
-                            // samurai::Field<Config, double, 2> f_old{"u", mesh_old};
-                            // f_old.array() = f.array();
-                            // for (std::size_t i=0; i<max_level-min_level; ++i)
-                            // {
-                            //     if (harten(f, f_old, eps, sol_reg, i, nb_ite))
-                            //         break;
-                            // }
 
-                            one_time_step_matrix_overleaves(f, update_bc_for_level, pred_coeff_separate, s);
+                            one_time_step_matrix_overleaves(f, update_bc_for_level, pred_coeff_separate, s, false);
                             one_time_step_matrix_overleaves(fR, update_bc_for_level, pred_coeff_separate, s);
 
 
