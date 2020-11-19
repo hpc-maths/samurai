@@ -6,13 +6,13 @@ The second core ingredient of |project| is the possibility to construct a subset
 Imagine the following 1D mesh
 
 .. image:: ./figures/subset_1d.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 And we want to make the projection of the cells from level 1 to level 0 by computing the mean of the values as illustrate by this figure
 
 .. image:: ./figures/subset_1d_proj.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 Using an algebra of set, we can describe the subset as the intersection of the cells of level 1 with the cells of level 0.
@@ -66,7 +66,7 @@ The 1d algorithm with intervals at the same level is really simple to understand
 **Initialization step**
 
 .. image:: ./figures/subset_algorithm-init.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 We want to create the subset of two sets A and B which is their intersection. Each set starts at the beginning of their first interval. We define two other variables: `scan` which will navigate in the sets and `sentinel` which will tell us that we are at the end of the set. At the beginning of the algorithm, `scan` is the minimum value of the starts of the first interval of each set and `sentinel` the maximum value of the ends of the last interval of each set + 1.
@@ -74,7 +74,7 @@ We want to create the subset of two sets A and B which is their intersection. Ea
 **Step 1**
 
 .. image:: ./figures/subset_algorithm-step1.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 We begin the algorithm to see if `scan` is in the current interval of each set. Here, `scan` is only in A. We want the intersection of A and B which means that `scan` must be in A and B. This is not the case here so we update `scan`: if the current value of a set is equal to `scan`, we move the current value to the next value (the end of the current interval or the beginning of a new one). Then, we update `scan` with the minimum value of the current value of each set.
@@ -84,7 +84,7 @@ Note that `out` is the possible result of this subset and needs to be populated 
 **Step 2**
 
 .. image:: ./figures/subset_algorithm-step2.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 This time, `scan` is in A and B and thus the intersection expression is valid. We can start the possible result of the subset materialized by `out`. Therefore, `out` starts by 4. And we update the current value of each set and `scan` accordingly.
@@ -92,7 +92,7 @@ This time, `scan` is in A and B and thus the intersection expression is valid. W
 **Step 3**
 
 .. image:: ./figures/subset_algorithm-step3.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 `scan` is no more in A which means that we are outside the interval result. Since it is the first outside value encountered, we can close `out` with this one. We now have our first result: the intersection of A and B contains the interval `[4, 5[`. We can apply a function to it if defined like in your first example with the `operator()`.
@@ -102,7 +102,7 @@ And we update again the current value of each interval and `scan` accordingly.
 **Step 4**
 
 .. image:: ./figures/subset_algorithm-step4.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 We can continue the algorithm. Since `out` was populated previously, we have to begin a new interval result. We can see in this example that there are no more intervals that can be in the intersection of A and B. The current value of each interval will be updated until the sentinel value is reached. Then, `scan` will be equal to `sentinel` and the algorithm will stop.
@@ -115,7 +115,7 @@ How to manage the level ?
 The sets used to define the subset can be at different levels. Since the mesh is described using integers, we need to project each set on the same level to be able to compare the intervals and the subset makes sense. This figure illustrates the purpose
 
 .. image:: ./figures/subset_level.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 On level 0, we have the interval :math:`[1, 3[` and on level 1 the interval :math:`[0, 5[`. We want to compute the intersection of these two sets. Without projection, the result is :math:`[1, 3[` and we can see that it is wrong.

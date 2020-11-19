@@ -52,7 +52,7 @@ The first part is the construction of the uniform initial mesh
         samurai::CellArray<dim> ca;
         ca[start_level] = {start_level, box};
 
-We construct here a `CellArray` from a box. In |project|, a box is defined by its minimum and its maximum coordinates. `CellArray` contains integers describing the mesh. The relation between the space step and the level is :math:`dx=\frac{1}{1<<level}`. We recall that our domain is :math:`[0, 1] \times [0, 1]`. Then, our box starts at :math:`[0, 0]` and needs :math:`1<<level` points to reach the maximum coordinates :math:`[0, 1]`. In the end, we assign this box to the `start_level` of the `CellArray`.
+We construct here a :cpp:class:`samurai::CellArray` from a box. In |project|, a box is defined by its minimum and its maximum coordinates. :cpp:class:`samurai::CellArray` contains integers describing the mesh. The relation between the space step and the level is :math:`dx=\frac{1}{1<<level}`. We recall that our domain is :math:`[0, 1] \times [0, 1]`. Then, our box starts at :math:`[0, 0]` and needs :math:`1<<level` points to reach the maximum coordinates :math:`[0, 1]`. In the end, we assign this box to the `start_level` of the :cpp:class:`samurai::CellArray`.
 
 Now that we have our initial mesh, we can begin to refine it randomly. Let's start with the inner loop.
 
@@ -75,11 +75,11 @@ Now that we have our initial mesh, we can begin to refine it randomly. Let's sta
         }
     });
 
-Here we make a loop on the 1D intervals of each level of `ca`. The `for_each_interval` function takes a `CellArray` and a lambda function with the parameters `interval` which is the interval in the x-direction and an array `index` with the coordinates of the other dimensions. Since our domain is 2D, `index` is an array of size :math:`1` and contains the y-coordinate.
+Here we make a loop on the 1D intervals of each level of `ca`. The `for_each_interval` function takes a :cpp:class:`samurai::CellArray` and a lambda function with the parameters `interval` which is the interval in the x-direction and an array `index` with the coordinates of the other dimensions. Since our domain is 2D, `index` is an array of size :math:`1` and contains the y-coordinate.
 
-Then, from the size of the interval, we construct a xtensor container with random values `true` or `false` and make a loop over these values. If it is true, we refine our cell and we add it to a `CellList` for better performance during a construction of a mesh. If it is false, we just add this cell to the new mesh.
+Then, from the size of the interval, we construct a xtensor container with random values `true` or `false` and make a loop over these values. If it is true, we refine our cell and we add it to a :cpp:class:`samurai::CellList` for better performance during a construction of a mesh. If it is false, we just add this cell to the new mesh.
 
-Our `CellList` contains the new mesh and we have now to assign it to our `CellArray`.
+Our :cpp:class:`samurai::CellList` contains the new mesh and we have now to assign it to our :cpp:class:`samurai::CellArray`.
 
 .. code-block:: c++
 
@@ -94,7 +94,7 @@ And we make this process `max_level - start_level` to have cells on the `max_lev
 The figure below is an example of an initial mesh with `start_level = 1` and `max_level = 7`.
 
 .. image:: ./figures/graduation_case_1_before.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 Now, we want to make this mesh graduated. We will use the subset mechanism of |project| to graduate the mesh. The idea is the following: we take the cells of a given level :math:`l`, we translate them in each direction with a stencil of 1. If an intersection exists with a cell at the level :math:`L < l - 1`, it means that the mesh is not graduated and we need to refine the cell at the level :math:`L`.
@@ -167,7 +167,7 @@ We can now apply this kernel for different stencils and different levels of the 
         }
     }
 
-At the end of this kernel, we know which cell must be refined and which cell must be kept. We can construct the new mesh using `tag` field and a `CellList`.
+At the end of this kernel, we know which cell must be refined and which cell must be kept. We can construct the new mesh using `tag` field and a :cpp:class:`samurai::CellList`.
 
 .. code-block:: c++
 
@@ -249,7 +249,7 @@ The graduation procedure can be written as
 The figure below is the graduation of our initial mesh. The red cells are the cells added by the graduation.
 
 .. image:: ./figures/graduation_case_1_after.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 .. note::

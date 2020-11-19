@@ -18,4 +18,13 @@ int main()
     samurai::CellArray<dim> ca{cl};
 
     std::cout << ca << std::endl;
+
+    constexpr std::size_t start_level = 3;
+    samurai::Box<double, dim> box({-1, -1}, {1, 1});
+    samurai::CellArray<dim> ca_box;
+
+    ca_box[start_level] = {start_level, box};
+
+    std::cout << ca_box << std::endl;
+
 }

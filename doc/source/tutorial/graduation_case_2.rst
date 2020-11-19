@@ -29,7 +29,7 @@ First, we need an initial mesh with overlap between levels. We will generate it 
 Let's explain step by step this function. There are three parameters: `min_level` is the minimum level where a cell can be added, `max_level` is the maximum level where a cell can be added, and `nsamples` is the number of cells which will be randomly added to the final mesh.
 
 
-We first create a `CellList` to add new cells or intervals efficiently. We add into it the cell `{0, 0}` at level `0` which corresponds to the square :math:`[0, 1] \times [0, 1]` to be sure that we have at the end the entire domain :math:`[0, 1] \times [0, 1]`.
+We first create a :cpp:class:`samurai::CellList` to add new cells or intervals efficiently. We add into it the cell `{0, 0}` at level `0` which corresponds to the square :math:`[0, 1] \times [0, 1]` to be sure that we have at the end the entire domain :math:`[0, 1] \times [0, 1]`.
 
 .. code-block:: c++
 
@@ -49,7 +49,7 @@ And then, we create randomly `nsamples` cells.
         cl[level][{y}].add_point(x);
     }
 
-Now, we can construct the `Cellarray` from this `CellList` and return it.
+Now, we can construct the :cpp:class:`samurai::CellArray` from this :cpp:class:`samurai::CellList` and return it.
 
 .. code-block:: c++
 
@@ -58,7 +58,7 @@ Now, we can construct the `Cellarray` from this `CellList` and return it.
 The figure below is an example of an initial mesh with start_level = 1 and max_level = 7.
 
 .. image:: ./figures/graduation_case_2_before.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 The next step is to remove all possible intersections between two levels. We will use the subset mechanism of |project| as for the previous tutorial :doc:`graduation case 1 <./graduation_case_1>`. The idea is the following: we make the intersection of the cells at a level `l` with the previous levels. If this intersection exists, then we refine the cells at the previous levels. We repeat this process until no intersections are detected.
@@ -79,7 +79,7 @@ So, we try to find an intersection using subset construction between a level `le
         tag(level_below, i, index[0]) = true;
     });
 
-And we reconstruct a new mesh using `tag` and `CellList` using the following algorithm.
+And we reconstruct a new mesh using `tag` and :cpp:class:`samurai::CellList` using the following algorithm.
 
 .. code-block:: c++
 
@@ -131,7 +131,7 @@ And we reconstruct a new mesh using `tag` and `CellList` using the following alg
 The figure below is the initial mesh without intersections. The blue cells are the cells added to remove the intersections.
 
 .. image:: ./figures/graduation_case_2_after.png
-    :width: 80%
+    :width: 60%
     :align: center
 
 The graduation of this new mesh is straightforward since this is exactly the algorithm described in the previous case.
@@ -139,5 +139,5 @@ The graduation of this new mesh is straightforward since this is exactly the alg
 The figure below is the graduation of our initial mesh. The red cells are the cells added by the graduation.
 
 .. image:: ./figures/graduation_case_2_after_graduated.png
-    :width: 80%
+    :width: 60%
     :align: center
