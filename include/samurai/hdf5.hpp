@@ -118,6 +118,7 @@ namespace samurai
         });
 
         auto coords = xt::xtensor<double, 2>::from_shape({points_id.size(), 3});
+        coords.fill(0.);
         for(auto& e: points_id)
         {
             std::size_t index = e.second;
