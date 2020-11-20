@@ -66,6 +66,7 @@ namespace samurai
         std::size_t max_level() const;
         std::size_t min_level() const;
         const lca_type& domain() const;
+        const ca_type& get_union() const;
 
         void swap(Mesh_base& mesh) noexcept;
 
@@ -87,9 +88,11 @@ namespace samurai
 
         mesh_t m_cells;
         lca_type m_domain;
+        ca_type m_union;
 
     private:
         void construct_domain();
+        void construct_union();
         void update_sub_mesh();
         void renumbering();
 
@@ -119,14 +122,17 @@ namespace samurai
     inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
     : m_min_level{min_level}, m_max_level{max_level}
     {
-        using box_t = samurai::Box<coord_index_t, dim>;
-        using point_t = typename box_t::point_t;
+        // using box_t = samurai::Box<coord_index_t, dim>;
+        // using point_t = typename box_t::point_t;
 
-        point_t start = b.min_corner() * std::pow(2, start_level);
-        point_t end = b.max_corner() * std::pow(2, start_level);
+        // point_t start = b.min_corner() * std::pow(2, start_level);
+        // point_t end = b.max_corner() * std::pow(2, start_level);
 
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, box_t{start, end}};
-        m_domain = {start_level, box_t{start, end}};
+        // this->m_cells[mesh_id_t::cells][start_level] = {start_level, box_t{start, end}};
+        // m_domain = {start_level, box_t{start, end}};
+
+        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
+        m_domain = {start_level, b};
 
         update_sub_mesh();
         renumbering();
@@ -180,6 +186,12 @@ namespace samurai
     }
 
     template<class D, class Config>
+    inline auto Mesh_base<D, Config>::get_union() const -> const ca_type&
+    {
+        return m_union;
+    }
+
+    template<class D, class Config>
     template<typename... T>
     inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
     {
@@ -192,6 +204,7 @@ namespace samurai
         using std::swap;
         swap(m_cells, mesh.m_cells);
         swap(m_domain, mesh.m_domain);
+        swap(m_union, mesh.m_union);
         swap(m_max_level, mesh.m_max_level);
         swap(m_min_level, mesh.m_min_level);
     }
@@ -245,6 +258,26 @@ namespace samurai
             });
         });
         m_domain = {lcl};
+    }
+
+    template<class D, class Config>
+    inline void Mesh_base<D, Config>::construct_union()
+    {
+        m_union[m_max_level] = m_cells[mesh_id_t::cells][m_max_level];
+        for (std::size_t level = m_cells[mesh_id_t::cells].max_level() - 1; level >= ((m_cells[mesh_id_t::cells].min_level() == 0) ? 1 : this->min_level()); --level)
+        {
+            lcl_type lcl{level};
+            auto expr = union_(this->m_cells[mesh_id_t::cells][level],
+                               m_union[level+1])
+                       .on(level);
+
+            expr([&](auto& interval, auto& index_yz)
+            {
+                lcl[index_yz].add_interval({interval.start, interval.end});
+            });
+
+            m_union[level] = {lcl};
+        }        
     }
 
     template<class D, class Config>

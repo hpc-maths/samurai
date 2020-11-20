@@ -7,7 +7,10 @@
 // #include "coarsening.hpp"
 // #include "refinement.hpp"
 // #include "criteria.hpp"
-#include <samurai/stencil_field.hpp>
+// #include <samurai/stencil_field.hpp>
+
+
+#include "stencil_field.hpp"
 
 #include "../FiniteVolume-MR/boundary_conditions.hpp"
 
@@ -44,6 +47,7 @@ struct AMRConfig
     static constexpr std::size_t dim = dim_;
     static constexpr std::size_t max_refinement_level = 20;
     static constexpr std::size_t ghost_width = 1;
+    // static constexpr std::size_t ghost_width = 2;
 
     using interval_t = samurai::Interval<int>;
     using mesh_id_t = SimpleID;
@@ -61,6 +65,8 @@ public:
     using cl_type = typename base_type::cl_type;
     using lcl_type = typename base_type::lcl_type;
 
+    using ca_type = typename base_type::ca_type;
+
     AMRMesh(const AMRMesh&) = default;
     AMRMesh& operator=(const AMRMesh&) = default;
 
@@ -75,7 +81,7 @@ public:
     : base_type(b, start_level, min_level, max_level)
     {}
 
-    void update_sub_mesh_impl()
+    inline void update_sub_mesh_impl()
     {
         cl_type cl;
         for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
@@ -90,6 +96,14 @@ public:
         });
         this->m_cells[mesh_id_t::cells_and_ghosts] = {cl, false};
     }
+
+//     inline const ca_type& get_union() const
+//     {
+//         return m_union;
+//     }
+
+// private:
+//     ca_type m_union;
 };
 
 template<class TInterval>
@@ -125,7 +139,8 @@ auto init_level_set(Mesh & mesh)
 
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
     {
-        auto center = cell.center;
+        auto center = cell.center();
+
 
         double x = center[0];
         double y = center[1];
@@ -134,6 +149,8 @@ auto init_level_set(Mesh & mesh)
 
         phi[cell] = std::sqrt(std::pow(x - x_center, 2.) +
                               std::pow(y - y_center, 2.)) - radius;
+        // phi[cell] = std::sqrt(std::pow(x - x_center, 2.) +
+                            //   std::pow(y - y_center, 2.)) - radius > 0. ? 0. : 1.;
     });
 
     return phi;
@@ -151,13 +168,15 @@ auto init_velocity(Mesh &mesh)
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts], [&](auto &cell)
     {
-        auto center = cell.center;
+        auto center = cell.center();
 
         double x = center[0];
         double y = center[1];
 
         u[cell][0] =    -std::pow(std::sin(M_PI*x), 2.) * std::sin(2.*M_PI*y);
         u[cell][1] =     std::pow(std::sin(M_PI*y), 2.) * std::sin(2.*M_PI*x);
+        // u[cell][0] =   .3;
+        // u[cell][1] =   .3;
     });
 
     return u;
@@ -265,20 +284,37 @@ template<class Field, class Tag>
 void AMR_criteria(const Field& f, Tag& tag)
 {
     auto mesh = f.mesh();
+    std::size_t min_level = mesh.min_level();
     std::size_t max_level = mesh.max_level();
 
     samurai::for_each_cell(mesh[SimpleID::cells], [&](auto cell)
     {
 
-        double dx = 1./(1 << (cell.level));
+        // double dx = 1./(1 << (cell.level));
+        double dx = 1./(1 << (max_level));
 
-        if (std::abs(f[cell]) < 5.*dx && cell.level == max_level)
+        // if (std::abs(f[cell]) < 1.3 * 10.* std::sqrt(2.) * dx)// && cell.level == max_level)
+        if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)// && cell.level == max_level)
         {
-            tag[cell] = static_cast<int>(samurai::CellFlag::keep);
+            if (cell.level == max_level)
+            {
+                tag[cell] = static_cast<int>(samurai::CellFlag::keep);
+            }
+            else
+            {
+                tag[cell] = static_cast<int>(samurai::CellFlag::refine);
+            }
         }
         else
         {
-            tag[cell] = static_cast<int>(samurai::CellFlag::coarsen);
+            if (cell.level == min_level)
+            {
+                tag[cell] = static_cast<int>(samurai::CellFlag::keep);
+            }
+            else
+            {
+                tag[cell] = static_cast<int>(samurai::CellFlag::coarsen);
+            }
             // if (cell.level > 0)
             // {
             //     tag[cell] = static_cast<int>(samurai::CellFlag::coarsen);
@@ -304,8 +340,8 @@ void AMR_criteria(const Field& f, Tag& tag)
     });
 }
 
-template<class Field, class Tag>
-bool update_mesh(Field& f, const Tag& tag)
+template<class Field, class Field_u, class Tag>
+bool update_mesh(Field& f, Field_u& u, const Tag& tag)
 {
     using mesh_t = typename Field::mesh_t;
     using interval_t = typename mesh_t::interval_t;
@@ -349,12 +385,26 @@ bool update_mesh(Field& f, const Tag& tag)
     Field new_f{f.name(), new_mesh};
     new_f.fill(0.);
 
+    Field_u new_u{u.name(), new_mesh};
+    new_u.fill(0.);
+
+    // make projection
+    // for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
+    // {
+    //     auto subset = samurai::intersection(mesh[SimpleID::cells][level],
+    //                                      mesh[SimpleID::cells_and_ghosts][level - 1])
+    //                  .on(level - 1);
+    //     subset.apply_op(samurai::projection(f));
+    //     subset.apply_op(samurai::projection(u));
+    // }
+
     for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
     {
         auto subset = samurai::intersection(mesh[SimpleID::cells][level],
                                          new_mesh[SimpleID::cells][level]);
 
         subset.apply_op(samurai::copy(new_f, f));
+        subset.apply_op(samurai::copy(new_u, u));
     }
 
     samurai::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
@@ -364,6 +414,7 @@ bool update_mesh(Field& f, const Tag& tag)
             if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
             {
                 samurai::compute_prediction(level, interval_t{i, i + 1}, index_yz, f, new_f);
+                samurai::compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
             }
         }
     });
@@ -374,12 +425,149 @@ bool update_mesh(Field& f, const Tag& tag)
                                          new_mesh[SimpleID::cells][level - 1])
                      .on(level - 1);
         subset.apply_op(projection(new_f, f));
+        subset.apply_op(projection(new_u, u));
     }
 
     f.mesh_ptr()->swap(new_mesh);
     std::swap(f.array(), new_f.array());
+    std::swap(u.array(), new_u.array());
 
     return false;
+}
+
+template<class Field>
+inline void amr_projection(Field &field)
+{
+    auto mesh = field.mesh();
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+    std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
+
+    for (std::size_t level = max_level; level >= min_level; --level)
+    {
+        auto expr = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                       mesh[mesh_id_t::cells_and_ghosts][level - 1])
+                   .on(level - 1);
+
+        expr.apply_op(projection(field));
+    }
+}
+
+template<class Field, class Func>
+inline void amr_prediction(Field &field, Func&& update_bc_for_level)
+{
+    auto mesh = field.mesh();
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+    std::size_t min_level = mesh[mesh_id_t::cells].min_level(), max_level = mesh[mesh_id_t::cells].max_level();
+
+    for (std::size_t level = min_level + 1; level < max_level; ++level)
+    {
+        auto expr = samurai::intersection(mesh.domain(),
+                                         samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level],
+                                                             mesh.get_union()[level]))
+                   .on(level);
+
+        expr.apply_op(prediction(field));
+        update_bc_for_level(field, level);
+    }
+}
+
+template <class Field, class Field_u, class Func>
+void update_ghosts(Field& phi, Field_u& u, Func&& update_bc_for_level)
+{
+    auto mesh = phi.mesh();
+    std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
+
+    amr_projection(phi);
+    amr_projection(u);
+
+    for (std::size_t level = min_level; level <= max_level; ++level)
+    {
+        update_bc_for_level(phi, level);
+        update_bc_for_level(u, level);
+    }
+
+    amr_prediction(phi, std::forward<Func>(update_bc_for_level));
+    amr_prediction(u, std::forward<Func>(update_bc_for_level));
+}
+
+template <class Field, class Field_u>
+void flux_correction(Field& phi_np1, Field& phi_n, const Field_u& u, double dt)
+{
+    using mesh_t = typename Field::mesh_t;
+    using mesh_id_t = typename mesh_t::mesh_id_t;
+    using interval_t = typename mesh_t::interval_t;
+
+    auto mesh = phi_np1.mesh();
+    for (std::size_t level = mesh.min_level(); level < mesh.max_level(); ++level)
+    {
+        xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
+
+        stencil = {{-1, 0}};
+
+        auto subset_right = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level+1], stencil),
+                                               mesh[mesh_id_t::cells][level])
+                           .on(level);
+
+        subset_right([&](const auto& i, const auto& index)
+        {
+            auto j = index[0];
+            double dx = 1./(1<<level);
+
+            phi_np1(level, i, j) = phi_np1(level, i, j) + dt/dx * (samurai::upwind_variable_op<interval_t>(level, i, j).right_flux(u, phi_n, dt)
+                                                            - .5*samurai::upwind_variable_op<interval_t>(level+1, 2*i+1, 2*j).right_flux(u, phi_n, dt)
+                                                            - .5*samurai::upwind_variable_op<interval_t>(level+1, 2*i+1, 2*j+1).right_flux(u, phi_n, dt));
+        });
+
+        stencil = {{1, 0}};
+
+        auto subset_left = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level+1], stencil),
+                                        mesh[mesh_id_t::cells][level])
+                            .on(level);
+
+        subset_left([&](const auto& i, const auto& index)
+        {
+            auto j = index[0];
+            double dx = 1./(1<<level);
+
+            phi_np1(level, i, j) = phi_np1(level, i, j) - dt/dx * (samurai::upwind_variable_op<interval_t>(level, i, j).left_flux(u, phi_n, dt)
+                                                            - .5 * samurai::upwind_variable_op<interval_t>(level+1, 2*i, 2*j).left_flux(u, phi_n, dt)
+                                                            - .5 * samurai::upwind_variable_op<interval_t>(level+1, 2*i, 2*j+1).left_flux(u, phi_n, dt));
+        });
+
+        stencil = {{0, -1}};
+
+        auto subset_up = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level+1], stencil),
+                                    mesh[mesh_id_t::cells][level])
+                            .on(level);
+
+        subset_up([&](const auto& i, const auto& index)
+        {
+            auto j = index[0];
+            double dx = 1./(1<<level);
+
+            phi_np1(level, i, j) = phi_np1(level, i, j) + dt/dx * (samurai::upwind_variable_op<interval_t>(level, i, j).up_flux(u, phi_n, dt)
+                                                            - .5 * samurai::upwind_variable_op<interval_t>(level+1, 2*i, 2*j+1).up_flux(u, phi_n, dt)
+                                                            - .5 * samurai::upwind_variable_op<interval_t>(level+1, 2*i+1, 2*j+1).up_flux(u, phi_n, dt));
+        });
+
+        stencil = {{0, 1}};
+
+        auto subset_down = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level+1], stencil),
+                                    mesh[mesh_id_t::cells][level])
+                            .on(level);
+
+        subset_down([&](const auto& i, const auto& index)
+        {
+            auto j = index[0];
+            double dx = 1./(1<<level);
+
+            phi_np1(level, i, j) = phi_np1(level, i, j) - dt/dx * (samurai::upwind_variable_op<interval_t>(level, i, j).down_flux(u, phi_n, dt)
+                                                            - .5 * samurai::upwind_variable_op<interval_t>(level+1, 2*i, 2*j).down_flux(u, phi_n, dt)
+                                                            - .5 * samurai::upwind_variable_op<interval_t>(level+1, 2*i+1, 2*j).down_flux(u, phi_n, dt));
+        });
+    }
 }
 
 int main(int argc, char *argv[])
@@ -387,13 +575,20 @@ int main(int argc, char *argv[])
     using Config = AMRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
-    std::size_t min_level = 2;
+    std::size_t min_level = 4;
+    // std::size_t min_level = 8;
+
     std::size_t max_level = 8;
     samurai::Box<double, dim> box({0, 0}, {1, 1});
     AMRMesh<Config> mesh{box, max_level, min_level, max_level};
 
+    std::cout << mesh << "\n";
+    // double Tf = 1.; // Final time
+    double Tf = 3.14; // Final time
 
-    double dt = 1./std::sqrt(2.) * 1./(1<<max_level);
+
+    // double dt = 1./std::sqrt(2.) * 1./(1<<max_level);
+    double dt = 1/(1.8) * 1./(1<<max_level);
 
     // We initialize the level set function
     // We initialize the velocity field
@@ -406,58 +601,77 @@ int main(int argc, char *argv[])
         update_bc_D2Q4_3_Euler_constant_extension(field, level);
     };
 
-    std::size_t ite = 0;
-    while(true)
-    {
-        std::cout << "Mesh adaptation iteration " << ite++ << std::endl;
-        auto tag = samurai::make_field<int, 1>("tag", mesh);
-        AMR_criteria(phi, tag);
-        make_graduation(tag);
-        if(update_mesh(phi, tag))
-        {
-            break;
-        }
-    }
-    samurai::save("AMR_mesh", mesh, phi);
+    // for (std::size_t nt=0; nt<2; ++nt)
 
-    return 0;
-    for (std::size_t nt=0; nt<500; ++nt)
+    std::size_t Ntot = Tf/dt;
+    for (std::size_t nt=0; nt <= 0; ++nt)
+
     {
         std::cout<<std::endl<<"Iteration "<< nt <<std::endl;
 
         std::size_t ite = 0;
         while(true)
         {
+            
+
             std::cout << "Mesh adaptation iteration " << ite++ << std::endl;
+
+            std::cout<<mesh<<std::endl;
             auto tag = samurai::make_field<int, 1>("tag", mesh);
             AMR_criteria(phi, tag);
             make_graduation(tag);
-            if(update_mesh(phi, tag))
+            update_ghosts(phi, u, update_bc_for_level);
+            if(update_mesh(phi, u, tag))
             {
                 break;
             }
         }
 
+
         std::stringstream s;
         s << "LevelSet_Advection_ite_" << nt;
-        samurai::save(s.str().data(), mesh, phi, u);
+        auto level_field = samurai::make_field<std::size_t, 1>("level", mesh);
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+        samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell) {
+            level_field[cell] = cell.level;
+        });
+        samurai::save(s.str().data(), mesh, phi, u, level_field);
 
-        for (std::size_t level = min_level - 1; level <= max_level; ++level)
-        {
-            update_bc_for_level(phi, level);
-            update_bc_for_level(u, level);
-        }
+        update_ghosts(phi, u, update_bc_for_level);
 
         auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
 
-        phinp1 = phi - dt * samurai::upwind_variable(u, phi);
-
-        // std::array<double, 2> vel {1., 0.1};
-        // phinp1 = phi - dt * samurai::upwind(vel, phi);
+        phinp1 = phi - dt * samurai::upwind_variable(u, phi, dt);
+        flux_correction(phinp1, phi, u, dt);
 
         std::swap(phi.array(), phinp1.array());
 
+        // Reinitialization of the level set
 
+        std::size_t fict_iteration = 2; // Number of fictitious iterations
+        double dt_fict = 0.01 * dt; // Fictitious Time step 
+
+        auto phi_0 = phi;
+        for (std::size_t k = 0; k < fict_iteration; ++k)
+        {
+            // std::stringstream s2;
+            // s2 << "LevelSet_Advection_reinit_ite_" << nt<<"_"<<k;
+            // samurai::save(s2.str().data(), mesh, phi);
+
+            // //Forward Euler - OK
+            // update_ghosts(phi, u, update_bc_for_level);
+            // phinp1 = phi - dt_fict * H_wrap(phi, phi_0, max_level);
+            // std::swap(phi.array(), phinp1.array());
+
+
+            // TVD-RK2
+            update_ghosts(phi, u, update_bc_for_level);
+            auto phihat = samurai::make_field<double, 1>("phi", mesh);
+            phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
+            update_ghosts(phihat, u, update_bc_for_level); // Crucial !!!
+            phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, max_level));
+            std::swap(phi.array(), phinp1.array());
+        }
     }
     return 0;
 }

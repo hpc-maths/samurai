@@ -255,16 +255,15 @@ namespace samurai
     template<class E>
     inline auto Field<mesh_t, value_t, size_>::operator=(const field_expression<E> &e) -> Field&
     {
-        // mesh->for_each_cell(
-        //     [&](auto &cell) { (*this)[cell] = e.derived_cast()(cell); });
+        using mesh_id_t = typename mesh_t::mesh_id_t;
 
-        auto min_level = (*p_mesh)[MeshType::cells].min_level();
-        auto max_level = (*p_mesh)[MeshType::cells].max_level();
+        auto min_level = (*p_mesh)[mesh_id_t::cells].min_level();
+        auto max_level = (*p_mesh)[mesh_id_t::cells].max_level();
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto subset = intersection((*p_mesh)[MeshType::cells][level],
-                                       (*p_mesh)[MeshType::cells][level]);
+            auto subset = intersection((*p_mesh)[mesh_id_t::cells][level],
+                                       (*p_mesh)[mesh_id_t::cells][level]);
 
             subset.apply_op(apply_expr(*this, e));
         }
@@ -277,12 +276,15 @@ namespace samurai
                                                             const interval_t &interval, const T... index) const -> const interval_t&
     {
         const interval_t& interval_tmp = p_mesh->get_interval(level, interval, index...);
+
         if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
             (interval_tmp.start > interval.start))
         {
+            std::cout<<std::endl<<"Problem = " <<interval_tmp<<std::endl;    
             spdlog::critical("{} FIELD ERROR on level {}: try to find interval {}",
                              rw, level, interval);
         }
+
         return interval_tmp;
     }
 
