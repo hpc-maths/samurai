@@ -2,6 +2,7 @@
 
 #include <xtensor/xtensor.hpp>
 #include <xtensor/xview.hpp>
+#include <xtensor/xmasked_view.hpp>
 
 #include "../operators_base.hpp"
 #include "cell_flag.hpp"
