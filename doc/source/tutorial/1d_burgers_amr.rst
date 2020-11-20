@@ -38,22 +38,37 @@ We consider to work on a bounded domain, with cells of size :math:`\Delta x > 0`
 We consider that 
 
 .. math::
-    \overline{u}_{j}^n \simeq \frac{1}{\Delta x} \int_{x_j - \Delta x/2}^{x_j + \Delta x/2} u(t^n, x) \text{d}x.
+    \overline{u}_{k}^n \simeq \frac{1}{\Delta x} \int_{x_k - \Delta x/2}^{x_k + \Delta x/2} u(t^n, x) \text{d}x.
 
 The numerical Finite Volumes scheme is comes under the form
 
 .. math::
-    \overline{u}^{n+1}_j = \overline{u}^{n}_j + \frac{\Delta t}{\Delta x} (F_{j - 1/2}^n - F_{j+1/2}^n), 
+    \overline{u}^{n+1}_k = \overline{u}^{n}_k + \frac{\Delta t}{\Delta x} (F_{k - 1/2}^n - F_{k+1/2}^n), 
 
 where we utilize the upwind fluxes given by
 
 .. math::
-    F_{j - 1/2}^n = \mathcal{F}(\overline{u}^{n}_{j-1}, \overline{u}^{n}_j), \qquad \text{with} \quad 
+    F_{k - 1/2}^n = \mathcal{F}(\overline{u}^{n}_{k-1}, \overline{u}^{n}_k), \qquad \text{with} \quad 
      \mathcal{F}(\overline{u}_L, \overline{u}_R) = \begin{cases}
                                                         \varphi(\overline{u}_L), \qquad \text{if} \quad \frac{\varphi'(\overline{u}_L) + \varphi'(\overline{u}_R)}{2} &\geq 0, \\
                                                         \varphi(\overline{u}_R), \qquad \text{if} \quad \frac{\varphi'(\overline{u}_L) + \varphi'(\overline{u}_R)}{2} &< 0.
                                                   \end{cases}
 
+Another possible choice for the flux is given by the Lax-Friedrichs, which is generally more diffusive than the upwind flux
+
+.. math::
+    \mathcal{F}(\overline{u}_L, \overline{u}_R) = \frac{1}{2} (\varphi(\overline{u}_L) + \varphi(\overline{u}_R)) - \frac{\Delta t}{2\Delta x} (\overline{u}_R - \overline{u}_L).
+
+
+To perform the AMR adaptation, we employ the following criterion
+
+.. math::
+    \text{Split }C_{j, k} \quad \text{if} \quad |\partial_x \overline{u}_{j, k}| > \delta,
+
+where the derivative on the cell is estimated with the following centered formula
+
+.. math::
+    \partial_x \overline{u}_{j, k} \simeq \frac{\overline{u}_{j, k + 1} - \overline{u}_{j, k - 1}}{2\Delta x_j}
 
 
 
