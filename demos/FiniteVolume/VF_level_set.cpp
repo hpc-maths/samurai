@@ -46,8 +46,8 @@ struct AMRConfig
 {
     static constexpr std::size_t dim = dim_;
     static constexpr std::size_t max_refinement_level = 20;
-    static constexpr std::size_t ghost_width = 1;
-    // static constexpr std::size_t ghost_width = 2;
+    // static constexpr std::size_t ghost_width = 1;
+    static constexpr std::size_t ghost_width = 2;
 
     using interval_t = samurai::Interval<int>;
     using mesh_id_t = SimpleID;
@@ -604,7 +604,7 @@ int main(int argc, char *argv[])
     // for (std::size_t nt=0; nt<2; ++nt)
 
     std::size_t Ntot = Tf/dt;
-    for (std::size_t nt=0; nt <= 0; ++nt)
+    for (std::size_t nt=0; nt <= Ntot; ++nt)
 
     {
         std::cout<<std::endl<<"Iteration "<< nt <<std::endl;

@@ -134,6 +134,8 @@ namespace samurai
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
         m_domain = {start_level, b};
 
+        construct_domain();
+        construct_union();
         update_sub_mesh();
         renumbering();
     }
@@ -145,6 +147,7 @@ namespace samurai
         m_cells[mesh_id_t::cells] = {cl, false};
 
         construct_domain();
+        construct_union();
         update_sub_mesh();
         renumbering();
     }
@@ -263,8 +266,11 @@ namespace samurai
     template<class D, class Config>
     inline void Mesh_base<D, Config>::construct_union()
     {
-        m_union[m_max_level] = m_cells[mesh_id_t::cells][m_max_level];
-        for (std::size_t level = m_cells[mesh_id_t::cells].max_level() - 1; level >= ((m_cells[mesh_id_t::cells].min_level() == 0) ? 1 : this->min_level()); --level)
+        std::size_t min_level = m_cells[mesh_id_t::cells].min_level();
+        std::size_t max_level = m_cells[mesh_id_t::cells].max_level();
+
+        m_union[max_level] = m_cells[mesh_id_t::cells][max_level];
+        for (std::size_t level = max_level - 1; level >= ((min_level == 0) ? 1 : min_level); --level)
         {
             lcl_type lcl{level};
             auto expr = union_(this->m_cells[mesh_id_t::cells][level],
@@ -277,7 +283,7 @@ namespace samurai
             });
 
             m_union[level] = {lcl};
-        }        
+        }
     }
 
     template<class D, class Config>

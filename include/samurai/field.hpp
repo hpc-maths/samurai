@@ -280,7 +280,6 @@ namespace samurai
         if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
             (interval_tmp.start > interval.start))
         {
-            std::cout<<std::endl<<"Problem = " <<interval_tmp<<std::endl;    
             spdlog::critical("{} FIELD ERROR on level {}: try to find interval {}",
                              rw, level, interval);
         }
