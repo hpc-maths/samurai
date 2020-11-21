@@ -241,67 +241,40 @@ namespace samurai
 
 
 
-    // template<class TInterval>
-    // class upwind_Burgers_op : public field_operator_base<TInterval>,
-    //                         public finite_volume<upwind_Burgers_op<TInterval>> {
-    //     public:
-    //     INIT_OPERATOR(upwind_Burgers_op)
+    template<class TInterval>
+    class upwind_Burgers_op : public field_operator_base<TInterval>,
+                            public finite_volume<upwind_Burgers_op<TInterval>> {
+        public:
+        INIT_OPERATOR(upwind_Burgers_op)
 
-    //     template<class T1, class T2>
-    //     inline auto flux(T1&& ul, T2&& ur) const
-    //     {
+        template<class T1, class T2>
+        inline auto flux(T1&& ul, T2&& ur, double lb) const
+        {
+            return xt::eval(.5*(.5*xt::pow(std::forward<T1>(ul), 2.) + .5*xt::pow(std::forward<T2>(ur), 2.)) - .5*lb*(std::forward<T2>(ur) - std::forward<T1>(ul))); // Lax-Friedrichs
+            // return xt::eval(0.5 * xt::pow(std::forward<T1>(ul), 2.)); // Upwing - it works for positive solution
+        }
 
-    //         auto avg = .5 * (std::forward<T2>(ur) + std::forward<T1>(ul));
+        // 1D
+        template<class T1>
+        inline auto left_flux(const T1 &u, double lb) const
+        {
+            return flux(u(level, i-1), u(level, i), lb);
+        }
 
-    //         auto pos_part = [] (auto & a)
-    //         {
-    //             return xt::maximum(0, a);
-    //         };
+        template<class T1>
+        inline auto right_flux(const T1 &u, double lb) const
+        {
 
-    //         auto neg_part = [](auto & a)
-    //         {
-    //             return xt::minimum(0, a);
-    //         };
+            return flux(u(level, i), u(level, i+1), lb);
+        }
 
-    //         return xt::eval((neg_part(avg)*std::forward<T2>(ur) + pos_part(avg)*std::forward<T1>(ul));
-    //     }
+    };
 
-    //     // 1D
-    //     template<class T1>
-    //     inline auto left_flux(const T1 &u) const
-    //     {
-    //         return flux(vel_at_interface, u(level, i-1, j), u(level, i, j), dt/dx(), rm12);
-    //     }
-
-    //     template<class T0, class T1>
-    //     inline auto right_flux(const T0 & vel, const T1 &u, double dt) const
-    //     {
-    //         // auto vel_at_interface = xt::eval(.5 * (vel(0, level, i, j) + vel(0, level, i+1, j)));
-    //         auto vel_at_interface = xt::eval(3./8 * vel(0, level, i+1, j)
-    //                                         +3./4 * vel(0, level, i  , j)
-    //                                         -1./8 * vel(0, level, i-1, j));
-
-
-    //         auto denom = xt::eval(u(level, i+1, j)-u(level, i+2, j));
-    //         auto mask = xt::abs(denom) < 1.e-8;
-    //         xt::masked_view(denom, mask) = 1.e-8;
-
-    //         xt::xtensor<bool, 1> mask_sign = vel_at_interface >= 0.;
-
-    //         auto rp12 = xt::eval(1. / denom);
-    //         xt::masked_view(rp12, mask_sign)  = rp12 * (u(level, i, j)-u(level, i-1, j));
-    //         xt::masked_view(rp12, !mask_sign) = rp12 * (u(level, i+2, j)-u(level, i+1  , j));
-
-    //         return flux(vel_at_interface, u(level, i, j), u(level, i+1, j), dt/dx(), rp12);
-    //     }
-
-    // };
-
-    // template<class... CT>
-    // inline auto upwind_Burgers(CT &&... e)
-    // {
-    //     return make_field_operator_function<upwind_Burgers_op>(std::forward<CT>(e)...);
-    // }
+    template<class... CT>
+    inline auto upwind_Burgers(CT &&... e)
+    {
+        return make_field_operator_function<upwind_Burgers_op>(std::forward<CT>(e)...);
+    }
 
 
 

@@ -37,6 +37,7 @@ Tutorial
    tutorial/operator_on_subset
    tutorial/graduation
    tutorial/level_set
+   tutorial/1d_burgers_amr
 
 .. :doc:`tutorial/interval`
 
@@ -47,6 +48,8 @@ Tutorial
 .. :doc:`tutorial/graduation`
 
 .. :doc:`tutorial/level_set`
+
+.. :doc:`tutorial/1d_burgers_amr`
 
 Reference
 =========
