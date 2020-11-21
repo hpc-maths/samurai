@@ -32,7 +32,16 @@ so that we can say that the solution blows up at time :math:`T^{\star}` in the s
     \end{cases}
 
 
-We consider to work on a bounded domain, with cells of size :math:`\Delta x > 0` given by  ....
+We consider to work on a bounded domain :math:`[a, b]`, with :math:`2^{\overline{J}}` cells of size :math:`\Delta x = (b-a)/2^{\overline{J}}` given by 
+
+.. math::
+    C_{k} = [x_{k-1/2}, x_{k+1/2}], \qquad x_{k-1/2} = a + (b-a) k \Delta x.
+
+Time is discretized by considering :math:`N \in \mathbb{N}` time steps of step :math:`\Delta t` so that :math:`t^n = n\Delta t` for :math:`n = 0, \dots, N-1`.
+We assume that the time step has been selected to fulfill the CFL condition
+
+.. math::
+    \Delta t \leq \frac{\Delta x}{\sup_{x \in \mathbb{R}}{|\varphi'(u_0(x))|}}.
 
 
 We consider that 
@@ -40,7 +49,7 @@ We consider that
 .. math::
     \overline{u}_{k}^n \simeq \frac{1}{\Delta x} \int_{x_k - \Delta x/2}^{x_k + \Delta x/2} u(t^n, x) \text{d}x.
 
-The numerical Finite Volumes scheme is comes under the form
+The numerical Finite Volumes scheme comes under the form
 
 .. math::
     \overline{u}^{n+1}_k = \overline{u}^{n}_k + \frac{\Delta t}{\Delta x} (F_{k - 1/2}^n - F_{k+1/2}^n), 
