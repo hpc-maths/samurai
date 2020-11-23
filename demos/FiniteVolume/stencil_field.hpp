@@ -58,7 +58,7 @@ namespace samurai
                 xt::masked_view(out, !mask) = -(xt::sqrt(xt::maximum(xt::pow(neg_part(dxp), 2.), xt::pow(pos_part(dxm), 2.))
                                                         +xt::maximum(xt::pow(neg_part(dyp), 2.), xt::pow(pos_part(dym), 2.))) - 1.);
 
-                                                
+
             // xt::xtensor<bool, 1> mask_close = xt::abs(phi_0(level, i, j)) > 10.*dx;
 
 
@@ -93,15 +93,15 @@ namespace samurai
         {
             // // Upwind
             // return xt::eval(.5*std::forward<T0>(vel)*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
-                    // .5*xt::abs(std::forward<T0>(vel))*(std::forward<T1>(ul) - std::forward<T2>(ur)));
+            //         .5*xt::abs(std::forward<T0>(vel))*(std::forward<T1>(ul) - std::forward<T2>(ur)));
 
             // // Lax Wendroff
 
-    // 
+    //
             // return xt::eval(.5 * std::forward<T0>(vel) * (std::forward<T1>(ul) + std::forward<T2>(ur))
-                    // -.5*lb*xt::pow(std::forward<T0>(vel), 2.)*(std::forward<T2>(ur)-std::forward<T1>(ul)));    
+                    // -.5*lb*xt::pow(std::forward<T0>(vel), 2.)*(std::forward<T2>(ur)-std::forward<T1>(ul)));
 
-                
+
 
 
             // // Lax Wendroff with minmod limiter
@@ -135,11 +135,11 @@ namespace samurai
             // return xt::eval((1. - minmod(std::forward<T3>(r))) * (neg_part(std::forward<T0>(vel))*std::forward<T2>(ur)
             //                                    +pos_part(std::forward<T0>(vel))*std::forward<T1>(ul)) // Upwind part of the flux
             //                     + minmod(std::forward<T3>(r)) * (.5 * std::forward<T0>(vel) * (std::forward<T1>(ul) + std::forward<T2>(ur))
-            //                                 -.5*lb*xt::pow(std::forward<T0>(vel), 2.)*(std::forward<T2>(ur)-std::forward<T1>(ul))));    
+            //                                 -.5*lb*xt::pow(std::forward<T0>(vel), 2.)*(std::forward<T2>(ur)-std::forward<T1>(ul))));
 
 
             return xt::eval((neg_part(std::forward<T0>(vel))*std::forward<T2>(ur) + pos_part(std::forward<T0>(vel))*std::forward<T1>(ul)) // Upwind part of the flux
-                                + 0.5 * mc(std::forward<T3>(r))*xt::abs(std::forward<T0>(vel))*(1.-lb*xt::abs(std::forward<T0>(vel)))*(std::forward<T2>(ur)-std::forward<T1>(ul)));    
+                                + 0.5 * mc(std::forward<T3>(r))*xt::abs(std::forward<T0>(vel))*(1.-lb*xt::abs(std::forward<T0>(vel)))*(std::forward<T2>(ur)-std::forward<T1>(ul)));
         }
 
         // 2D
@@ -179,7 +179,7 @@ namespace samurai
             xt::masked_view(denom, mask) = 1.e-8;
 
             xt::xtensor<bool, 1> mask_sign = vel_at_interface >= 0.;
-            
+
             auto rp12 = xt::eval(1. / denom);
             xt::masked_view(rp12, mask_sign)  = rp12 * (u(level, i, j)-u(level, i-1, j));
             xt::masked_view(rp12, !mask_sign) = rp12 * (u(level, i+2, j)-u(level, i+1  , j));
@@ -222,7 +222,7 @@ namespace samurai
             xt::masked_view(denom, mask) = 1.e-8;
 
             xt::xtensor<bool, 1> mask_sign = vel_at_interface >= 0.;
-            
+
             auto rp12 = xt::eval(1. / denom);
             xt::masked_view(rp12, mask_sign)  = rp12 * (u(level, i, j)-u(level, i, j-1));
             xt::masked_view(rp12, !mask_sign) = rp12 * (u(level, i, j+2)-u(level, i , j+1));
@@ -250,7 +250,7 @@ namespace samurai
     //     template<class T1, class T2>
     //     inline auto flux(T1&& ul, T2&& ur) const
     //     {
-            
+
     //         auto avg = .5 * (std::forward<T2>(ur) + std::forward<T1>(ul));
 
     //         auto pos_part = [] (auto & a)
@@ -263,7 +263,7 @@ namespace samurai
     //             return xt::minimum(0, a);
     //         };
 
-    //         return xt::eval((neg_part(avg)*std::forward<T2>(ur) + pos_part(avg)*std::forward<T1>(ul));    
+    //         return xt::eval((neg_part(avg)*std::forward<T2>(ur) + pos_part(avg)*std::forward<T1>(ul));
     //     }
 
     //     // 1D
@@ -287,7 +287,7 @@ namespace samurai
     //         xt::masked_view(denom, mask) = 1.e-8;
 
     //         xt::xtensor<bool, 1> mask_sign = vel_at_interface >= 0.;
-            
+
     //         auto rp12 = xt::eval(1. / denom);
     //         xt::masked_view(rp12, mask_sign)  = rp12 * (u(level, i, j)-u(level, i-1, j));
     //         xt::masked_view(rp12, !mask_sign) = rp12 * (u(level, i+2, j)-u(level, i+1  , j));
