@@ -249,7 +249,7 @@ namespace samurai
 
         template<class T1, class T2>
         inline auto flux(T1&& ul, T2&& ur, double lb) const
-        {
+        {            
             return xt::eval(.5*(.5*xt::pow(std::forward<T1>(ul), 2.) + .5*xt::pow(std::forward<T2>(ur), 2.)) - .5*lb*(std::forward<T2>(ur) - std::forward<T1>(ul))); // Lax-Friedrichs
             // return xt::eval(0.5 * xt::pow(std::forward<T1>(ul), 2.)); // Upwing - it works for positive solution
         }
