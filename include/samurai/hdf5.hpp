@@ -12,6 +12,8 @@
 #include <xtensor/xio.hpp>
 #include <xtensor/xview.hpp>
 
+#include <fmt/core.h>
+
 #include "cell.hpp"
 #include "algorithm.hpp"
 #include "mr/mesh_type.hpp"
@@ -59,7 +61,7 @@ namespace samurai
     }
 
     template<class Field, class SubMesh>
-    auto extract_data(const Field& field, const SubMesh& submesh)
+    xt::xtensor<double, 2> extract_data(const Field& field, const SubMesh& submesh)
     {
         auto data_field = field.array();
         std::array<std::size_t, 2> shape = {submesh.nb_cells(), field.size};
@@ -67,8 +69,8 @@ namespace samurai
         std::size_t index = 0;
         for_each_cell(submesh, [&](auto cell)
         {
-            auto view = xt::view(data, index++);
-            view = xt::view(data_field, cell.index);
+            xt::view(data, index) = xt::view(data_field, cell.index);
+            index++;
         });
 
         return data;
@@ -130,16 +132,27 @@ namespace samurai
         return std::make_pair(coords, connectivity);
     }
 
-    template <class D, class Mesh, class... T>
+    struct Hdf5Options
+    {
+        Hdf5Options(bool level = false, bool mesh_id = false)
+        : by_level(level), by_mesh_id(mesh_id)
+        {}
+
+        bool by_level;
+        bool by_mesh_id;
+    };
+
+    template <class D, class Options, class Mesh, class... T>
     class Hdf5
     {
     public:
 
         using derived_type = D;
+        using options_t = Options;
         using mesh_t = Mesh;
         static constexpr std::size_t dim = mesh_t::dim;
 
-        Hdf5(std::string filename, const Mesh& mesh, const T&... fields);
+        Hdf5(std::string filename, const Options& options, const Mesh& mesh, const T&... fields);
 
         ~Hdf5();
 
@@ -149,60 +162,44 @@ namespace samurai
         Hdf5(Hdf5 &&) = default;
         Hdf5 &operator=(Hdf5 &&) = default;
 
-        void save_mesh();
+        void save();
 
-        template<class Field>
-        inline void save_field(const Field& field);
-
-        inline void save_fields()
-        {
-            save_fields_impl(std::make_index_sequence<sizeof...(T)>());
-        }
-
-        template <std::size_t... I>
-        inline void save_fields_impl(std::index_sequence<I...>)
-        {
-            (void)std::initializer_list<int>{(save_field(std::get<I>(m_fields)), 0)...};
-        }
-
-        derived_type &derived_cast() & noexcept
-        {
-            return *static_cast<derived_type *>(this);
-        }
-
-        const derived_type &derived_cast() const &noexcept
-        {
-            return *static_cast<const derived_type *>(this);
-        }
-
-        derived_type derived_cast() && noexcept
-        {
-            return *static_cast<derived_type *>(this);
-        }
-        // template<class MRConfig, class Field>
-        // inline void add_field_by_level(const Mesh<MRConfig>& mesh, const Field& field);
-
-        // template<class MRConfig, class Field>
-        // inline void _add_on_level(const Mesh<MRConfig>& mesh, const Field& field, std::size_t level);
+        derived_type &derived_cast() & noexcept;
+        const derived_type &derived_cast() const &noexcept;
+        derived_type derived_cast() && noexcept;
 
     protected:
-        mesh_t m_mesh;
+        const mesh_t& m_mesh;
 
     private:
-        using fields_type = std::tuple<T...>;
+        using fields_type = std::tuple<const T&...>;
+
+        template <class Submesh>
+        void save_on_mesh(pugi::xml_node& grid, const std::string& prefix, const Submesh& mesh, const std::string& mesh_name);
+
+        template <class Submesh, class Field>
+        inline void save_field(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, const Field& field);
+
+        template<class Submesh>
+        void save_fields(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh);
+
+        template <class Submesh, std::size_t... I>
+        void save_fields_impl(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, std::index_sequence<I...>);
 
         HighFive::File h5_file;
         std::string filename;
         pugi::xml_document doc;
         pugi::xml_node domain;
         std::ofstream xdmf_file;
+        options_t m_options;
         fields_type m_fields;
     };
 
-    template <class D, class Mesh, class... T>
-    inline Hdf5<D, Mesh, T...>::Hdf5(std::string filename, const Mesh& mesh, const T&... fields)
+    template <class D, class Options, class Mesh, class... T>
+    inline Hdf5<D, Options, Mesh, T...>::Hdf5(std::string filename, const Options& options, const Mesh& mesh, const T&... fields)
     : h5_file(filename + ".h5", HighFive::File::Overwrite)
     , filename(filename)
+    , m_options(options)
     , m_mesh(mesh)
     , m_fields(fields...)
     {
@@ -211,26 +208,89 @@ namespace samurai
         domain = xdmf.append_child("Domain");
     }
 
-    template <class D, class Mesh, class... T>
-    inline Hdf5<D, Mesh, T...>::~Hdf5()
+    template <class D, class Options, class Mesh, class... T>
+    inline Hdf5<D, Options, Mesh, T...>::~Hdf5()
     {
-        std::stringstream xdmf_str;
-        xdmf_str << filename << ".xdmf";
-        doc.save_file(xdmf_str.str().data());
+        doc.save_file(fmt::format("{}.xdmf", filename).data());
     }
 
-    template <class D, class Mesh, class... T>
-    inline void Hdf5<D, Mesh, T...>::save_mesh()
+    template <class D, class Options, class Mesh, class... T>
+    inline void Hdf5<D, Options, Mesh, T...>::save()
     {
-        auto mesh = this->derived_cast().get_mesh();
+        if (m_options.by_level)
+        {
+            auto min_level = m_mesh.min_level();
+            auto max_level = m_mesh.max_level();
+            for(std::size_t level = min_level; level <= max_level; ++level)
+            {
+                auto grid_level = domain.append_child("Grid");
+                grid_level.append_attribute("Name") = fmt::format("Level {}", level).data();
+                grid_level.append_attribute("GridType") = "Collection";
+
+                if (m_options.by_mesh_id)
+                {
+                    for(std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
+                    {
+                        auto& submesh = this->derived_cast().get_submesh(im);
+
+                        if (!submesh[level].empty())
+                        {
+                            std::string mesh_name = this->derived_cast().get_submesh_name(im);
+                            std::string prefix = fmt::format("/level/{}/mesh/{}", level, mesh_name);
+                            save_on_mesh(grid_level, prefix, submesh[level], mesh_name);
+                        }
+                    }
+                }
+                else
+                {
+                    auto& mesh = this->derived_cast().get_mesh();
+
+                    std::string prefix = fmt::format("/level/{}/mesh", level);
+                    save_on_mesh(grid_level, prefix, mesh[level], "mesh");
+                }
+            }
+        }
+        else
+        {
+            if (m_options.by_mesh_id)
+            {
+                for(std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
+                {
+                    auto& submesh = this->derived_cast().get_submesh(im);
+                    std::string mesh_name = this->derived_cast().get_submesh_name(im);
+                    std::string prefix = fmt::format("/mesh/{}", mesh_name);
+
+                    auto grid_mesh_id = domain.append_child("Grid");
+                    grid_mesh_id.append_attribute("Name") = mesh_name.data();
+                    grid_mesh_id.append_attribute("GridType") = "Collection";
+
+                    save_on_mesh(grid_mesh_id, prefix, submesh, mesh_name);
+                }
+            }
+            else
+            {
+                auto& mesh = this->derived_cast().get_mesh();
+
+                std::string prefix = fmt::format("/mesh");
+                save_on_mesh(domain, prefix, mesh, "mesh");
+            }
+        }
+
+    }
+
+    template <class D, class Options, class Mesh, class... T>
+    template <class Submesh>
+    inline void Hdf5<D, Options, Mesh, T...>::save_on_mesh(pugi::xml_node& grid_parent, const std::string& prefix, const Submesh& mesh, const std::string& mesh_name)
+    {
         xt::xtensor<std::size_t, 2> connectivity;
         xt::xtensor<double, 2> coords;
         std::tie(coords, connectivity) = extract_coords_and_connectivity(mesh);
 
-        xt::dump(h5_file, "mesh/connectivity", connectivity);
-        xt::dump(h5_file, "mesh/points", coords);
+        xt::dump(h5_file, prefix + "/connectivity", connectivity);
+        xt::dump(h5_file, prefix + "/points", coords);
 
-        auto grid = domain.append_child("Grid");
+        auto grid = grid_parent.append_child("Grid");
+        grid.append_attribute("Name") = mesh_name.data();
 
         auto topo = grid.append_child("Topology");
         topo.append_attribute("TopologyType") = element_type(dim).c_str();
@@ -239,7 +299,7 @@ namespace samurai
         auto topo_data = topo.append_child("DataItem");
         topo_data.append_attribute("Dimensions") = connectivity.size();
         topo_data.append_attribute("Format") = "HDF";
-        topo_data.text() = (filename + ".h5:/mesh/connectivity").c_str();
+        topo_data.text() = fmt::format("{}.h5:{}/connectivity", filename, prefix).data();
 
         auto geom = grid.append_child("Geometry");
         geom.append_attribute("GeometryType") = "XYZ";
@@ -247,190 +307,167 @@ namespace samurai
         auto geom_data = geom.append_child("DataItem");
         geom_data.append_attribute("Dimensions") = coords.size();
         geom_data.append_attribute("Format") = "HDF";
-        geom_data.text() = (filename + ".h5:/mesh/points").c_str();
+        geom_data.text() = fmt::format("{}.h5:{}/points", filename, prefix).data();
+
+        save_fields(grid, prefix, mesh);
     }
 
-    template <class D, class Mesh, class... T>
-    template<class Field>
-    inline void Hdf5<D, Mesh, T...>::save_field(const Field& field)
+    template <class D, class Options, class Mesh, class... T>
+    template<class Submesh, class Field>
+    inline void Hdf5<D, Options, Mesh, T...>::save_field(pugi::xml_node& grid, const std::string& prefix, const Submesh& mesh, const Field& field)
     {
-        auto mesh = this->derived_cast().get_mesh();
-        auto grid = domain.child("Grid");
         auto data = extract_data(field, mesh);
 
         for(std::size_t i = 0; i < field.size; ++i)
         {
-            std::stringstream s;
-            s << field.name() << "_" << i;
-            xt::dump(h5_file, "fields/" + s.str(), xt::eval(xt::view(data, xt::all(), i)));
+            std::string field_name;
+            if (field.size == 1)
+            {
+                field_name = field.name();
+            }
+            else
+            {
+                field_name = fmt::format("{}_{}", field.name(), i);
+            }
+            std::string path = fmt::format("{}/fields/{}", prefix, field_name);
+            xt::dump(h5_file, path, xt::eval(xt::view(data, xt::all(), i)));
 
             auto attribute = grid.append_child("Attribute");
-            attribute.append_attribute("Name") = s.str().c_str();
+            attribute.append_attribute("Name") = field_name.data();
             attribute.append_attribute("Center") = "Cell";
 
             auto dataitem = attribute.append_child("DataItem");
             dataitem.append_attribute("Dimensions") = mesh.nb_cells();
             dataitem.append_attribute("Format") = "HDF";
-            dataitem.text() = (filename + ".h5:/fields/" + s.str()).c_str();
+            dataitem.text() = fmt::format("{}.h5:{}", filename, path).data();
         }
     }
 
-    // template<class MRConfig, class Field>
-    // inline void Hdf5::add_field_by_level(const Mesh<MRConfig>& mesh, const Field& field)
-    // {
-    //     constexpr std::size_t max_refinement_level = Mesh<MRConfig>::max_refinement_level;
+    template <class D, class Options, class Mesh, class... T>
+    template<class Submesh>
+    inline void Hdf5<D, Options, Mesh, T...>::save_fields(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh)
+    {
+        save_fields_impl(grid, prefix, submesh, std::make_index_sequence<sizeof...(T)>());
+    }
 
-    //     for (std::size_t level = 0; level <= max_refinement_level; ++level)
-    //     {
-    //         _add_on_level(mesh, field, level);
-    //     }
-    // }
+    template <class D, class Options, class Mesh, class... T>
+    template <class Submesh, std::size_t... I>
+    inline void Hdf5<D, Options, Mesh, T...>::save_fields_impl(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, std::index_sequence<I...>)
+    {
+        (void)std::initializer_list<int>{(save_field(grid, prefix, submesh, std::get<I>(m_fields)), 0)...};
+    }
 
+    template <class D, class Options, class Mesh, class... T>
+    inline auto Hdf5<D, Options, Mesh, T...>::derived_cast() & noexcept -> derived_type &
+    {
+        return *static_cast<derived_type *>(this);
+    }
 
-    // template<class MRConfig, class Field>
-    // inline void Hdf5::_add_on_level(const Mesh<MRConfig>& mesh, const Field& field, std::size_t level)
-    // {
-    //     std::size_t nb_points = std::pow(2, Mesh<MRConfig>::dim);
-    //     constexpr std::size_t dim = Mesh<MRConfig>::dim;
+    template <class D, class Options, class Mesh, class... T>
+    inline auto Hdf5<D, Options, Mesh, T...>::derived_cast() const & noexcept -> const derived_type &
+    {
+        return *static_cast<const derived_type *>(this);
+    }
 
-    //     // std::array<std::string, 5> mesh_name{"cells", "cells_and_ghosts",
-    //     //                                      "proj", "all", "union"};
+    template <class D, class Options, class Mesh, class... T>
+    inline auto Hdf5<D, Options, Mesh, T...>::derived_cast() && noexcept -> derived_type
+    {
+        return *static_cast<derived_type *>(this);
+    }
 
-    //     std::array<std::string, 6> mesh_name{"cells", "cells_and_ghosts",
-    //                                             "proj", "all", "union", "overleaves"};
-
-
-    //     auto range = xt::arange(nb_points);
-
-    //     auto grid_parent = domain.append_child("Grid");
-    //     grid_parent.append_attribute("Name") = ("level " + std::to_string(level)).c_str();
-    //     grid_parent.append_attribute("GridType") = "Collection";
-
-    //     for (std::size_t imesh_type = 0; imesh_type < 6; ++imesh_type)
-    //     {
-    //         auto mesh_type = static_cast<MeshType>(imesh_type);
-    //         if (mesh.nb_cells(level, mesh_type) != 0)
-    //         {
-    //             xt::xtensor<std::size_t, 2> connectivity;
-    //             xt::xtensor<double, 2> coords;
-    //             std::tie(coords, connectivity) = extract_coords_and_connectivity(mesh[mesh_type][level]);
-
-    //             std::stringstream ss1;
-    //             ss1 << "level/" << level << "/mesh/" << imesh_type << "/connectivity";
-    //             xt::dump(h5_file, ss1.str().data(), connectivity);
-    //             std::stringstream ss2;
-    //             ss2 << "level/" << level << "/mesh/" << imesh_type << "/points";
-    //             xt::dump(h5_file, ss2.str().data(), coords);
-
-    //             auto grid = grid_parent.append_child("Grid");
-    //             grid.append_attribute("Name") = mesh_name[imesh_type].c_str();
-
-    //             auto topo = grid.append_child("Topology");
-    //             topo.append_attribute("TopologyType") = element_type(dim).c_str();
-    //             topo.append_attribute("NumberOfElements") = connectivity.shape()[0];
-
-    //             auto topo_data = topo.append_child("DataItem");
-    //             topo_data.append_attribute("Dimensions") = connectivity.size();
-    //             topo_data.append_attribute("Format") = "HDF";
-    //             topo_data.text() = (filename + ".h5:" + ss1.str()).c_str();
-
-    //             auto geom = grid.append_child("Geometry");
-    //             geom.append_attribute("GeometryType") = "XYZ";
-
-    //             auto geom_data = geom.append_child("DataItem");
-    //             geom_data.append_attribute("Dimensions") = coords.size();
-    //             geom_data.append_attribute("Format") = "HDF";
-    //             geom_data.text() = (filename + ".h5:" + ss2.str()).c_str();
-
-    //             // Modified to handle multiple components of the field
-    //             auto mesh = field.mesh();
-    //             for (std::size_t h = 0; h <field.size; ++h)
-    //             {
-    //                 std::stringstream new_field_name;
-    //                 new_field_name << field.name()<< "_" << h;
-
-    //                 std::stringstream ss;
-    //                 ss << "level/" << level << "/" << imesh_type << "/fields/" << new_field_name.str();
-
-    //                 auto all_fields = extract_data(field, mesh[mesh_type][level]);
-
-    //                 xt::dump(h5_file, ss.str().data(), xt::eval(xt::view(all_fields, xt::all(), h)));
-
-    //                 auto attribute = grid.append_child("Attribute");
-    //                 attribute.append_attribute("Name") = new_field_name.str().c_str();
-    //                 attribute.append_attribute("Center") = "Cell";
-
-    //                 auto dataitem = attribute.append_child("DataItem");
-    //                 dataitem.append_attribute("Dimensions") = mesh.nb_cells(level, mesh_type);
-    //                 dataitem.append_attribute("Format") = "HDF";
-    //                 dataitem.text() = ((filename + ".h5:/level/" + std::to_string(level)
-    //                                 + "/" + std::to_string(imesh_type) + "/fields/"
-    //                                 + new_field_name.str()).c_str());
-    //             }
-    //         }
-    //     }
-    // }
-
-    template <class Mesh, class... T>
-    class Hdf5_CellArray: public Hdf5<Hdf5_CellArray<Mesh, T...>, Mesh, T...>
+    template <class Options, class Mesh, class... T>
+    class Hdf5_CellArray: public Hdf5<Hdf5_CellArray<Options, Mesh, T...>, Options, Mesh, T...>
     {
     public:
-        using base_type = Hdf5<Hdf5_CellArray<Mesh, T...>, Mesh, T...>;
+        using base_type = Hdf5<Hdf5_CellArray<Options, Mesh, T...>, Options, Mesh, T...>;
         using mesh_t = Mesh;
 
-        Hdf5_CellArray(std::string filename, const Mesh& mesh, const T&... fields)
-        : base_type(filename, mesh, fields...)
+        Hdf5_CellArray(std::string filename, const Options& options, const Mesh& mesh, const T&... fields)
+        : base_type(filename, options, mesh, fields...)
         {}
 
         const mesh_t& get_mesh()
         {
             return this->m_mesh;
         }
+
+        const mesh_t& get_submesh(std::size_t i)
+        {
+            return this->m_mesh;
+        }
+
+        std::string get_submesh_name(std::size_t i)
+        {
+            return "cell_array";
+        }
+
+        const std::size_t nb_submesh()
+        {
+            return 1;
+        }
+
     };
 
-    template <class Config>
-    class Mesh;
-
-    template <class Mesh, class... T>
-    class Hdf5_MR: public Hdf5<Hdf5_MR<Mesh, T...>, Mesh, T...>
+    template <class Options, class Mesh, class... T>
+    class Hdf5_mesh_base: public Hdf5<Hdf5_mesh_base<Options, Mesh, T...>, Options, Mesh, T...>
     {
     public:
-        using base_type = Hdf5<Hdf5_MR<Mesh, T...>, Mesh, T...>;
+        using base_type = Hdf5<Hdf5_mesh_base<Options, Mesh, T...>, Options, Mesh, T...>;
         using mesh_t = Mesh;
         using mesh_id_t = typename Mesh::mesh_id_t;
         using ca_type = typename mesh_t::ca_type;
 
-        Hdf5_MR(std::string filename, const Mesh& mesh, const T&... fields)
-        : base_type(filename, mesh, fields...)
+        Hdf5_mesh_base(std::string filename, const Options& options, const Mesh& mesh, const T&... fields)
+        : base_type(filename, options, mesh, fields...)
         {}
 
         const ca_type& get_mesh()
         {
             return this->m_mesh[mesh_id_t::cells];
         }
+
+        const ca_type& get_submesh(std::size_t i)
+        {
+            return this->m_mesh[static_cast<mesh_id_t>(i)];
+        }
+
+        std::string get_submesh_name(std::size_t i)
+        {
+            return fmt::format("{}", static_cast<mesh_id_t>(i));
+        }
+
+        const std::size_t nb_submesh()
+        {
+            return static_cast<std::size_t>(mesh_id_t::count);
+        }
+
     };
 
     template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
     void save(std::string name, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
     {
-        auto h5 = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>(name, mesh, fields...);
-        h5.save_mesh();
-        h5.save_fields();
+        auto h5 = Hdf5_CellArray<Hdf5Options, CellArray<dim, TInterval, max_size>, T...>(name, Hdf5Options(), mesh, fields...);
+        h5.save();
     }
 
-    template <class Config, class... T>
-    void save(std::string name, const Mesh<Config>& mesh, const T&... fields)
+    template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
+    void save(std::string name, const Hdf5Options& options, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
     {
-        auto h5 = Hdf5_MR<Mesh<Config>, T...>(name, mesh, fields...);
-        h5.save_mesh();
-        h5.save_fields();
+        auto h5 = Hdf5_CellArray<Hdf5Options, CellArray<dim, TInterval, max_size>, T...>(name, options, mesh, fields...);
+        h5.save();
     }
 
     template <class D, class Config, class... T>
     void save(std::string name, const Mesh_base<D, Config>& mesh, const T&... fields)
     {
-        auto h5 = Hdf5_MR<Mesh_base<D, Config>, T...>(name, mesh, fields...);
-        h5.save_mesh();
-        h5.save_fields();
+        auto h5 = Hdf5_mesh_base<Hdf5Options, Mesh_base<D, Config>, T...>(name, Hdf5Options(), mesh, fields...);
+        h5.save();
+    }
+
+    template <class D, class Config, class... T>
+    void save(std::string name, const Hdf5Options& options, const Mesh_base<D, Config>& mesh, const T&... fields)
+    {
+        auto h5 = Hdf5_mesh_base<Hdf5Options, Mesh_base<D, Config>, T...>(name, options, mesh, fields...);
+        h5.save();
     }
 }
