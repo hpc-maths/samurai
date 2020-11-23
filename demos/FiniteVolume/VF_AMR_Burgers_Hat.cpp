@@ -102,10 +102,9 @@ auto init_solution(Mesh & mesh)
 
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
     {
-        auto corner = cell.corner();
-        double dx = cell.length;
+        auto center = cell.center();
+        double x = center[0];
 
-        double x = corner[0] + .5 * dx;
         double u = 0.;
 
         // Initial hat solution
@@ -161,6 +160,9 @@ int main(int argc, char *argv[])
     
     samurai::Box<double, dim> box({-3}, {3});
     AMRMesh<Config> mesh{box, max_level, min_level, max_level};
+
+
+    std::cout<<std::endl<<mesh<<std::endl;
 
 
     auto phi = init_solution(mesh);

@@ -524,29 +524,29 @@ namespace samurai
     template<std::size_t Dim, class TInterval>
     inline void LevelCellArray<Dim, TInterval>::to_stream(std::ostream& os) const
     {
-        for(int j = 0; j<m_offsets[0].size()-1; ++j)
-        {
-            fmt::print(os, fmt::format("{:>20}", fmt::format("j = {} -> ", m_cells[1][0].start + j)));
-            for(std::size_t o = m_offsets[0][j]; o < m_offsets[0][j + 1]; ++o)
-            {
-                fmt::print(os, fmt::format("{}",m_cells[0][o]));
-            }
-            os << std::endl << std::endl;
-        }
-
-        // for (std::size_t d = 0; d < dim; ++d)
+        // for(int j = 0; j<m_offsets[0].size()-1; ++j)
         // {
-        //     fmt::print(os, fmt::format(fmt::emphasis::bold, "{:>10}", fmt::format("dim {}\n", d)));
-
-        //     fmt::print(os, fmt::format("{:>20}", "cells = "));
-        //     fmt::print(os, fmt::format("{}\n\n", fmt::join(m_cells[d], " ")));
-
-        //     if (d > 0)
+        //     fmt::print(os, fmt::format("{:>20}", fmt::format("j = {} -> ", m_cells[1][0].start + j)));
+        //     for(std::size_t o = m_offsets[0][j]; o < m_offsets[0][j + 1]; ++o)
         //     {
-        //         fmt::print(os, fmt::format("{:>20}", "offsets = "));
-        //         fmt::print(os, fmt::format("{}\n\n", fmt::join(m_offsets[d-1], " ")));
+        //         fmt::print(os, fmt::format("{}",m_cells[0][o]));
         //     }
+        //     os << std::endl << std::endl;
         // }
+
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            fmt::print(os, fmt::format(fmt::emphasis::bold, "{:>10}", fmt::format("dim {}\n", d)));
+
+            fmt::print(os, fmt::format("{:>20}", "cells = "));
+            fmt::print(os, fmt::format("{}\n\n", fmt::join(m_cells[d], " ")));
+
+            if (d > 0)
+            {
+                fmt::print(os, fmt::format("{:>20}", "offsets = "));
+                fmt::print(os, fmt::format("{}\n\n", fmt::join(m_offsets[d-1], " ")));
+            }
+        }
     }
 
     template<std::size_t Dim, class TInterval>
