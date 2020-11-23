@@ -66,30 +66,20 @@ namespace samurai
         {
             auto qs_i = Qs_i<1>(field, level - 1, i >> 1);
 
-            auto dec_even = (i.start & 1) ? 1 : 0;
-            auto even_i = i;
-            even_i.start += dec_even;
-            even_i.step = 2;
-
-            auto coarse_even_i = i >> 1;
-            coarse_even_i.start += dec_even;
-
-            auto dec_odd = (i.end & 1) ? 1 : 0;
-            auto odd_i = i;
-            odd_i.start += (i.start & 1) ? 0 : 1;
-            odd_i.step = 2;
-
-            auto coarse_odd_i = i >> 1;
-            coarse_odd_i.end -= dec_odd;
-
+            auto even_i = i.even_elements();
             if (even_i.is_valid())
             {
+                auto coarse_even_i = even_i >> 1;
+                auto dec_even = (i.start & 1) ? 1 : 0;
                 field(level, even_i) = field(level - 1, coarse_even_i)
                                      + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]));
             }
 
+            auto odd_i = i.odd_elements();
             if (odd_i.is_valid())
             {
+                auto coarse_odd_i = odd_i >> 1;
+                auto dec_odd = (i.end & 1) ? 1 : 0;
                 field(level, odd_i) = field(level - 1, coarse_odd_i)
                                     - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd));
             }
@@ -102,91 +92,52 @@ namespace samurai
             auto qs_j = Qs_j<1>(field, level - 1, i >> 1, j >> 1);
             auto qs_ij = Qs_ij<1>(field, level - 1, i >> 1, j >> 1);
 
-            auto dec_even = (i.start & 1) ? 1 : 0;
-            auto even_i = i;
-            even_i.start += dec_even;
-            even_i.step = 2;
-
-            auto coarse_even_i = i >> 1;
-            coarse_even_i.start += dec_even;
-
-            auto dec_odd = (i.end & 1) ? 1 : 0;
-            auto odd_i = i;
-            odd_i.start += (i.start & 1) ? 0 : 1;
-            odd_i.step = 2;
-
-            auto coarse_odd_i = i >> 1;
-            coarse_odd_i.end -= dec_odd;
-
             if (j & 1)
             {
+                auto even_i = i.even_elements();
                 if (even_i.is_valid())
                 {
-                    field(level, even_i, j) =
-                        field(level - 1, coarse_even_i, j >> 1) +
-                        xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0])) -
-                        xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0])) +
-                        xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
-
-                    // field(level, even_i, j) =
-                    //     field(level - 1, coarse_even_i, j >> 1) -
-                    //     xt::view(qs_i, xt::range(dec_even, qs_i.size())) +
-                    //     xt::view(qs_j, xt::range(dec_even, qs_j.size())) -
-                    //     xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
-
-
+                    auto coarse_even_i = even_i >> 1;
+                    auto dec_even = (i.start & 1) ? 1 : 0;
+                    field(level, even_i, j) = field(level - 1, coarse_even_i, j >> 1)
+                                            + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
+                                            - xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
+                                            + xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
                 }
 
+                auto odd_i = i.odd_elements();
                 if (odd_i.is_valid())
                 {
-                    field(level, odd_i, j) =
-                        field(level - 1, coarse_odd_i, j >> 1) -
-                        xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd)) -
-                        xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd)) -
-                        xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
-
-                    // field(level, odd_i, j) =
-                    //     field(level - 1, coarse_odd_i, j >> 1) +
-                    //     xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) +
-                    //     xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) +
-                    //     xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
-
-
+                    auto coarse_odd_i = odd_i >> 1;
+                    auto dec_odd = (i.end & 1) ? 1 : 0;
+                    field(level, odd_i, j) = field(level - 1, coarse_odd_i, j >> 1)
+                                           - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd))
+                                           - xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd))
+                                           - xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
                 }
             }
             else
             {
+                auto even_i = i.even_elements();
                 if (even_i.is_valid())
                 {
-                    field(level, even_i, j) =
-                        field(level - 1, coarse_even_i, j >> 1) +
-                        xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0])) +
-                        xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0])) -
-                        xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
-
-                    // field(level, even_i, j) =
-                    //     field(level - 1, coarse_even_i, j >> 1) -
-                    //     xt::view(qs_i, xt::range(dec_even, qs_i.size())) -
-                    //     xt::view(qs_j, xt::range(dec_even, qs_j.size())) +
-                    //     xt::view(qs_ij, xt::range(dec_even, qs_ij.size()));
-
-
+                    auto coarse_even_i = even_i >> 1;
+                    auto dec_even = (i.start & 1) ? 1 : 0;
+                    field(level, even_i, j) = field(level - 1, coarse_even_i, j >> 1)
+                                            + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
+                                            + xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
+                                            - xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
                 }
 
+                auto odd_i = i.odd_elements();
                 if (odd_i.is_valid())
                 {
-                    field(level, odd_i, j) =
-                        field(level - 1, coarse_odd_i, j >> 1) -
-                        xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd)) +
-                        xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd)) +
-                        xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
-
-                    // field(level, odd_i, j) =
-                    //     field(level - 1, coarse_odd_i, j >> 1) +
-                    //     xt::view(qs_i, xt::range(0, qs_i.size() - dec_odd)) -
-                    //     xt::view(qs_j, xt::range(0, qs_j.size() - dec_odd)) -
-                    //     xt::view(qs_ij, xt::range(0, qs_ij.size() - dec_odd));
-
+                    auto coarse_odd_i = odd_i >> 1;
+                    auto dec_odd = (i.end & 1) ? 1 : 0;
+                    field(level, odd_i, j) = field(level - 1, coarse_odd_i, j >> 1)
+                                           - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd))
+                                           + xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd))
+                                           + xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
                 }
             }
         }
