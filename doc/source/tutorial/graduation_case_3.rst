@@ -1,8 +1,8 @@
 Graduation example: case 3
 ==========================
 
-In this tutorial, the mesh we start from is already graded and a mesh adaptation algorithm is performed on it. 
-A tag array indicates which cells has to be refined or kept to build the new mesh. 
+In this tutorial, the mesh we start from is already graded and a mesh adaptation algorithm is performed on it.
+A tag array indicates which cells has to be refined or kept to build the new mesh.
 We want to modify the tag array to ensure that the new mesh created from this object will be graded.
 The complete example can be downloaded here: :download:`graduation case 3 <../../../demos/tutorial/graduation_case_3.cpp>`
 
@@ -24,7 +24,7 @@ Let us start by creating a mesh at level `start_level` for a 2D domain :math:`[-
 
 .. code-block:: c++
 
-    samurai::Box<int, dim> box({-2<<start_level, -2<<start_level}, 
+    samurai::Box<int, dim> box({-2<<start_level, -2<<start_level},
                                 {2<<start_level,  2<<start_level});
     samurai::CellArray<dim> ca;
 
@@ -35,8 +35,8 @@ We first create a box of integers that contains the indices of the domain and th
 Now, we want to apply our criterion on this mesh to tag the cells to refine when the criterion is true.
 We shall apply the `for_each_cell` function to this end.
 
-We create a field named `tag` attached to the mesh. 
-Again, this field is an array of booleans. 
+We create a field named `tag` attached to the mesh.
+Again, this field is an array of booleans.
 If the value is set to true, the correspoding cell must be refined, otherwise, it must be kept .
 
 .. code-block:: c++
@@ -74,7 +74,7 @@ We apply the criterion on each cell.
         }
     });
 
-The :cpp:func:`samurai::for_each_cell` function takes two parameters: the first one is the :cpp:class:`samurai::CellArray` defining the cells on which we want to apply the algorithm, the second one is a lambda function with a `cell` parameter. 
+The :cpp:func:`samurai::for_each_cell` function takes two parameters: the first one is the :cpp:class:`samurai::CellArray` defining the cells on which we want to apply the algorithm, the second one is a lambda function with a `cell` parameter.
 This `cell` parameter is of type :cpp:class:`samurai::Cell`.
 We use the method :cpp:func:`corner` to recover the bottom left point of each cell.
 
@@ -101,11 +101,11 @@ We use :cpp:class:`samurai::CellList` to add new intervals efficiently.
         }
     });
 
-    samurai::CellArray<dim> new_ca = {cl, true};
+    samurai::CellArray<dim> new_ca = cl;
 
 Until now, we have not paid attention to the graduation of the mesh even if the initial mesh was graded since it was made up by only one level.
 
-The figure below gives the result with a start level set to 1 and a maximum level set to 6. 
+The figure below gives the result with a start level set to 1 and a maximum level set to 6.
 As we can observe, this mesh is not graded.
 
 .. image:: ./figures/graduation_case_3_without_graduation.png
@@ -115,7 +115,7 @@ As we can observe, this mesh is not graded.
 Thus, we have to add a step between the criteria and the creation of the new mesh from a :cpp:class:`samurai::CellList` to ensure the graduation.
 
 Again, the idea is the following: we take the cells of a level `l` and we translate them in each direction with a stencil of width 1.
-If the intersection with the cells at the level :math:`l - 1`  is non-empty and the cell at level `l` is tagged as to refine, then we have to tag the corresponding cells at level `l-1` to be refined as well. 
+If the intersection with the cells at the level :math:`l - 1`  is non-empty and the cell at level `l` is tagged as to refine, then we have to tag the corresponding cells at level `l-1` to be refined as well.
 We have to start from the largest level in order to "propagate" the tag correctly.
 
 .. code-block:: c++

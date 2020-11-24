@@ -1,12 +1,12 @@
 Graduation example: case 2
 ==========================
 
-In this tutorial, the mesh is constituted of cells at different levels with overlaps and we want to end up with a graded mesh. 
+In this tutorial, the mesh is constituted of cells at different levels with overlaps and we want to end up with a graded mesh.
 The complete example can be downloaded here: :download:`graduation case 2 <../../../demos/tutorial/graduation_case_2.cpp>`
 
-First, we need an initial mesh with overlaps between levels. 
-We generate it randomly in the 2D domain :math:`[0, 1] \times [0, 1]`. 
-The idea is to add cells randomly at different levels. 
+First, we need an initial mesh with overlaps between levels.
+We generate it randomly in the 2D domain :math:`[0, 1] \times [0, 1]`.
+The idea is to add cells randomly at different levels.
 The implementation of the initial mesh is described in the following code.
 
 .. code-block:: c++
@@ -30,11 +30,11 @@ The implementation of the initial mesh is described in the following code.
         return samurai::CellArray<dim>(cl, true);
     }
 
-Let us explain the code step by step. 
+Let us explain the code step by step.
 We use three parameters: `min_level` is the minimum level at which a cell can be added, `max_level` is the maximum level at which a cell can be added, and finally `nsamples` is the number of cells which are randomly added to the final mesh.
 
 
-We first create a :cpp:class:`samurai::CellList` to add new cells (i.e. intervals) efficiently. 
+We first create a :cpp:class:`samurai::CellList` to add new cells (i.e. intervals) efficiently.
 We first insert the cell `{0, 0}` at level `0` which corresponds to the square :math:`[0, 1] \times [0, 1]` to be sure that at the end we have the entire domain :math:`[0, 1] \times [0, 1]`.
 
 .. code-block:: c++
@@ -67,13 +67,13 @@ The following figure is an example of such initial mesh with start_level = 1 and
     :width: 60%
     :align: center
 
-The next step is to remove any possible intersection between two levels. 
-We again utilize the subset mechanism of |project| as for the previous tutorial :doc:`graduation case 1 <./graduation_case_1>`. 
+The next step is to remove any possible intersection between two levels.
+We again utilize the subset mechanism of |project| as for the previous tutorial :doc:`graduation case 1 <./graduation_case_1>`.
 The idea is the following: we make the intersection of the cells at a level `l` with that of the previous levels.
-If this intersection is non-empty, then we refine the corresponding cells at the previous levels. 
+If this intersection is non-empty, then we refine the corresponding cells at the previous levels.
 Then, we repeat this process until no intersection is detected.
 
-For this algorithm, we use a field named `tag` linked to the mesh as in the previous case. 
+For this algorithm, we use a field named `tag` linked to the mesh as in the previous case.
 This field is an array of booleans. If a value is true, the corresponding cell must be refined. Otherwise, it must be kept.
 
 The algorithm is similar to the algorithm described in :doc:`graduation case 1 <./graduation_case_1>`: only the subset definition is changed.
@@ -129,7 +129,7 @@ And we reconstruct a new mesh using `tag` and :cpp:class:`samurai::CellList` usi
                 cl[cell.level][{j}].add_point(i);
             }
         });
-        samurai::CellArray<dim> new_ca = {cl, true};
+        samurai::CellArray<dim> new_ca = cl;
 
         if(new_ca == ca)
         {
@@ -139,7 +139,7 @@ And we reconstruct a new mesh using `tag` and :cpp:class:`samurai::CellList` usi
         std::swap(ca, new_ca);
     }
 
-The figure below depicts the initial mesh cleared from intersections. 
+The figure below depicts the initial mesh cleared from intersections.
 The blue cells are the cells added in order to remove the intersections.
 
 .. image:: ./figures/graduation_case_2_after.png
@@ -147,7 +147,7 @@ The blue cells are the cells added in order to remove the intersections.
     :align: center
 
 The graduation of this new mesh is straightforward since this is exactly the algorithm described in the previous case.
-The figure below is the graded version of our initial mesh. 
+The figure below is the graded version of our initial mesh.
 The red cells are those added by the graduation.
 
 .. image:: ./figures/graduation_case_2_after_graduated.png

@@ -5,13 +5,13 @@ When adaptive mesh algorithms are deployed, it is common to apply a certain oper
 The possible operations include the updating the ghosts, the application of a projection operator between level `l` and `l-1`, ..., etc.
 A simple procedure is therefore needed to identify these portions even when the mesh structure is complex.
 
-|project| is made up of two key elements to easily achieve this goal: the intervals and a set algebra. 
+|project| is made up of two key elements to easily achieve this goal: the intervals and a set algebra.
 
 
 Intervals
-########
+---------
 
-As seen before, the class :cpp:class:`samurai::CellArray` is used to store a mesh with several cartesian grids at different levels of resolution. 
+As seen before, the class :cpp:class:`samurai::CellArray` is used to store a mesh with several cartesian grids at different levels of resolution.
 These sub-meshes are stored as nothing but arrays of intervals in each direction.
 
 To illustrate this purpose, let us create two sub-meshes using :cpp:class:`samurai::CellList` and :cpp:class:`samurai::CellArray`.
@@ -25,19 +25,13 @@ To illustrate this purpose, let us create two sub-meshes using :cpp:class:`samur
     cl[1][{}].add_interval({2, 6});
     cl[1][{}].add_interval({11, 15});
 
-    samurai::CellArray<dim> ca(cl, true);
+    samurai::CellArray<dim> ca = cl;
 
 In this example, two 1D intervals are created on two different levels.
 
 .. image:: ./figures/subset_op.png
     :width: 80%
     :align: center
-
-
-.. note::
-
-    The boolean in the second argument for the construction of `ca` indicates indicates that we want to update the index of the intervals in the x-direction. 
-    The index is crucial if one wants to attach a field to the mesh. It gives the portion in the data array corresponding to a given interval.
 
 The output of
 
@@ -64,15 +58,15 @@ is
 
 
 Set algebra
-########
+-----------
 
-Now, we want to find the intersection between the cells belonging to these two levels. 
+Now, we want to find the intersection between the cells belonging to these two levels.
 In |project|, several set algebra operators are built-in and ready to use.
 They include:
 
 * the intersection,
 * the union,
-* the difference. 
+* the difference.
 
 Moreover, one can easily add custom operators to perform more complicated tasks.
 
@@ -83,7 +77,7 @@ It can be computed by
 
     auto set = samurai::intersection(ca[0], ca[1]);
 
-Eventually, we could apply an operator on this subset to ensure that we obtained the actual intersection. 
+Eventually, we could apply an operator on this subset to ensure that we obtained the actual intersection.
 Once again, we use the `operator()` of the subset
 
 .. code-block:: c++
@@ -93,7 +87,7 @@ Once again, we use the `operator()` of the subset
         std::cout << "Intersection found in " << i << std::endl;
     });
 
-This operator takes a lambda function with two parameters: the first one is the interval in the x-direction, whereas the second argument is an array of size `dim - 1` with the coordinates of the other dimensions. 
+This operator takes a lambda function with two parameters: the first one is the interval in the x-direction, whereas the second argument is an array of size `dim - 1` with the coordinates of the other dimensions.
 Since we study a 1D problem, we do not utilize this second parameter.
 
 The output we obtain is
@@ -103,8 +97,8 @@ The output we obtain is
     intersection found in [2,6[@0:1
     intersection found in [11,15[@0:1
 
-Remark that the result is automatically computed on level `1`. 
-Once constructing a subset, the largest available level between the different terms of the expression (`0` and `1` in the example) is chosen to compute the result. 
+Remark that the result is automatically computed on level `1`.
+Once constructing a subset, the largest available level between the different terms of the expression (`0` and `1` in the example) is chosen to compute the result.
 Nevertheless, it is possible to modify this default behavior by indicating with `on(this_level)` the level where we want the result.
 
 Then if we want the result on level `0`, we employ
@@ -139,7 +133,7 @@ The corresponding output is
     intersection found in [8,24[@0:1
     intersection found in [44,60[@0:1
 
-The remaining set algebra operators work exactly in the same fashion. 
+The remaining set algebra operators work exactly in the same fashion.
 For example, the difference can be written as
 
 .. code-block:: c++
@@ -156,7 +150,7 @@ And the corresponding output is
 
 
 Again on operators over sets of cells
-########
+-------------------------------------
 
 Now, we want to create a field on the mesh and to apply an operator modifying this field on a portion of the mesh, using the operators introduced previously.
 
@@ -218,11 +212,8 @@ Considering the previous figure, this allows us to avoid considering cells on le
         u(0, i) = 0.5 * (u(1, 2 * i) + u(1, 2 * i + 1));
     });
 
-
-
 Operators working in many dimensions
-########
-
+------------------------------------
 
 We now want to create an operator, similar to the previous projection operator, that works for different spatial dimensions.
 This can be done in the following way, using template specialization
