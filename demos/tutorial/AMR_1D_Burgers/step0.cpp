@@ -21,11 +21,17 @@ int main()
 
     mesh[min_level] = {min_level, box};
 
-    double sigma = .05;
+    double sigma = .1;
 
     auto my_function = [sigma] (auto x)
     {
-        return -2*x/(sigma*sigma)*exp(-pow(x, 2.)/pow(sigma, 2.));
+        return exp(-pow(x, 2.)/pow(sigma, 2.));
+    };
+
+    auto my_function_der = [sigma, &my_function] (auto x)
+    {   
+        // Derivative of a gaussian with standard deviation sigma
+        return -2*x*my_function(x)/pow(sigma, 2.);
     };
 
     for(std::size_t nite = 0; nite < max_level - min_level; ++nite)
@@ -36,9 +42,9 @@ int main()
             if (cell.level == min_level + nite)
             {
                 double x = cell.center(0);
-
     
-                if (cell.level < max_level and std::abs(my_function(x))*cell.length > 0.01)
+                if (cell.level < max_level and 
+                    std::abs(my_function_der(x))*cell.length > 0.01)
                 {
                     cl[cell.level + 1][{}].add_interval({2*cell.indices[0], 2*cell.indices[0] + 2});
                 } 
@@ -51,16 +57,18 @@ int main()
             {
                 cl[cell.level][{}].add_point(cell.indices[0]);
             }
-            
         });
+
         mesh = cl;
     }
 
+
+    // Saving mesh before grading
     {
         auto level_field = samurai::make_field<std::size_t, 1>("level", mesh);
         auto u = samurai::make_field<double, 1>("u", mesh);
 
-        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, auto)
+        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, auto &)
         {
             level_field(level, i) = level;
             double dx = 1./(1<<level);
@@ -87,7 +95,10 @@ int main()
                 for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
                 {
                     auto s = xt::view(stencil, i);
-                    auto set = samurai::intersection(samurai::translate(mesh[level], s), mesh[level_below]).on(level_below);
+                    auto set = samurai::intersection(samurai::translate(mesh[level], s), 
+                                                     mesh[level_below])
+                              .on(level_below);
+
                     set([&](const auto& i, const auto& )
                     {
                         tag(level_below, i) = true;
@@ -109,23 +120,21 @@ int main()
                 cl[cell.level][{}].add_point(i);
             }
         });
+
         samurai::CellArray<dim> new_mesh = {cl, true};
 
         if(new_mesh == mesh)
-        {
             break;
-        }
 
         std::swap(mesh, new_mesh);
     }
 
-
-
+    // Saving graded mesh
     {
         auto level_field = samurai::make_field<std::size_t, 1>("level", mesh);
         auto u = samurai::make_field<double, 1>("u", mesh);
 
-        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, auto)
+        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, auto &)
         {
             level_field(level, i) = level;
             double dx = 1./(1<<level);

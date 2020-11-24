@@ -10,6 +10,43 @@ import sys
 rc('text', usetex=True)
 rc('font', family='serif')
 
+
+def set_size(width, myratio, fraction=1):
+    """ Set figure dimensions to avoid scaling in LaTeX.
+
+    Parameters
+    ----------
+    width: float
+            Document textwidth or columnwidth in pts
+    fraction: float, optional
+            Fraction of the width which you wish the figure to occupy
+
+    Returns
+    -------
+    fig_dim: tuple
+            Dimensions of figure in inches
+    """
+    # Width of figure (in pts)
+    fig_width_pt = width * fraction
+
+    # Convert from pt to inches
+    inches_per_pt = 1 / 72.27
+
+    # Golden ratio to set aesthetic figure height
+    golden_ratio = (5**.5 - 1) / 2
+
+    # Figure width in inches
+    fig_width_in = fig_width_pt * inches_per_pt
+    # Figure height in inches
+    fig_height_in = fig_width_in * myratio
+
+    fig_dim = (fig_width_in, fig_height_in)
+
+    return fig_dim
+
+width = 452.9679
+fig1 = plt.figure(figsize=set_size(width, 0.35))
+
 filename = sys.argv[1]
 
 f = h5py.File(filename, 'r')
