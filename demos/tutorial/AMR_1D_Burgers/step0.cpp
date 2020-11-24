@@ -56,18 +56,86 @@ int main()
         mesh = cl;
     }
 
-    auto level_field = samurai::make_field<std::size_t, 1>("level", mesh);
-    auto u = samurai::make_field<double, 1>("u", mesh);
-
-    samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, auto)
     {
-        level_field(level, i) = level;
-        double dx = 1./(1<<level);
-        auto coords = (xt::arange(i.start, i.end) + .5)*dx;
-        u(level, i) = my_function(coords);
-    });
+        auto level_field = samurai::make_field<std::size_t, 1>("level", mesh);
+        auto u = samurai::make_field<double, 1>("u", mesh);
 
-    samurai::save("Step0", mesh, level_field, u);
+        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, auto)
+        {
+            level_field(level, i) = level;
+            double dx = 1./(1<<level);
+            auto coords = (xt::arange(i.start, i.end) + .5)*dx;
+            u(level, i) = my_function(coords);
+        });
+
+        samurai::save("Step0_before", mesh, level_field, u);
+    }
+
+
+    // Grading 
+    xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil{{1}, {-1}};
+
+    while(true)
+    {
+        auto tag = samurai::make_field<bool, 1>("tag", mesh);
+        tag.fill(false);
+
+        for(std::size_t level = min_level + 2; level <= max_level; ++level)
+        {
+            for(std::size_t level_below = min_level; level_below < level - 1; ++level_below)
+            {
+                for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
+                {
+                    auto s = xt::view(stencil, i);
+                    auto set = samurai::intersection(samurai::translate(mesh[level], s), mesh[level_below]).on(level_below);
+                    set([&](const auto& i, const auto& )
+                    {
+                        tag(level_below, i) = true;
+                    });
+                }
+            }
+        }
+
+        samurai::CellList<1> cl;
+        samurai::for_each_cell(mesh, [&](auto cell)
+        {
+            auto i = cell.indices[0];
+            if (tag[cell])
+            {
+                cl[cell.level + 1][{}].add_interval({2*i, 2*i+2});
+            }
+            else
+            {
+                cl[cell.level][{}].add_point(i);
+            }
+        });
+        samurai::CellArray<dim> new_mesh = {cl, true};
+
+        if(new_mesh == mesh)
+        {
+            break;
+        }
+
+        std::swap(mesh, new_mesh);
+    }
+
+
+
+    {
+        auto level_field = samurai::make_field<std::size_t, 1>("level", mesh);
+        auto u = samurai::make_field<double, 1>("u", mesh);
+
+        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, auto)
+        {
+            level_field(level, i) = level;
+            double dx = 1./(1<<level);
+            auto coords = (xt::arange(i.start, i.end) + .5)*dx;
+            u(level, i) = my_function(coords);
+        });
+
+        samurai::save("Step0_after", mesh, level_field, u);
+    }
+    
 
     return 0;
 }
