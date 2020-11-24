@@ -1,3 +1,5 @@
+.. _AlgebraOfSet:
+
 Algebra of set
 ==============
 
