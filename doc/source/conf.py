@@ -56,7 +56,13 @@ templates_path = ['_templates']
 # source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
 
-rst_epilog = f".. |project| replace:: {project}"
+rst_epilog = f"""
+.. |project| replace:: {project}
+
+.. role:: cpp_code(code)
+   :language: c++
+
+"""
 
 # The master toctree document.
 master_doc = 'index'
