@@ -1,20 +1,23 @@
 Algorithm
 =========
 
-In |project|, two different algorithms are implemented to browse all the cells of the mesh. The choice depends if you have a local operator or an operator with a stencil.
+In |project|, two different algorithms are implemented to browse all the cells of the mesh in order to apply some operator on them. 
+The choice depends on whether one has a local operator, that is, utilizing information belonging only to one cell without interaction with the neighbors; or an operator encoding some interaction with the surrounding cells.
 
-If the operator is local, we can use :cpp:func:`samurai::for_each_cell`, :cpp:func:`samurai::for_each_interval` otherwise.
+If the operator is local, one can use :cpp:func:`samurai::for_each_cell`, otherwise, when the operator has an extended stencil, one can employ :cpp:func:`samurai::for_each_interval`.
 
 .. note::
 
-    :cpp:func:`samurai::for_each_interval` can be used easily in every situations.
+    :cpp:func:`samurai::for_each_interval` can be used easily in every situation.
 
 Apply a function on all cells
 -----------------------------
 
-We saw in the previous section that we can access the data field using :cpp:class:`Cell`. The :cpp:func:`samurai::for_each_cell` algorithm browses all the cells of the mesh and applies a lambda function on it. It can be useful when we want to initialize the field.
+In the previous section, we have seen that we can access the data field using :cpp:class:`Cell`. 
+The algorithm in :cpp:func:`samurai::for_each_cell` browses all the cells of the mesh and applies a lambda function on them.
+It can be useful, for example, when one wants to initialize a field.
 
-Let's give an example
+Let us give an example
 
 .. code-block:: c++
 
@@ -28,12 +31,13 @@ Let's give an example
         u[cell] = cos(x)*sin(y);
     });
 
-The first parameter is the mesh where we want to browse all the cells and the second parameter is a lambda function with one parameter: the cell.
+The first parameter is the mesh we want to navigate through and the second parameter is a lambda function with one parameter: the cell.
+We have used the procedure :cpp:func:`center` of the :cpp:class:`Cell` class to recover the spatial coordinates of the cell center.
 
 Apply a function using intervals
 --------------------------------
 
-We can also apply a function on a given interval using :cpp:func:`samurai::for_each_interval` as illustrated in the following example
+As suggested before, we can also evaluate a function on a given interval using :cpp:func:`samurai::for_each_interval` as illustrated in the following example
 
 .. code-block:: c++
 
@@ -46,6 +50,7 @@ We can also apply a function on a given interval using :cpp:func:`samurai::for_e
         u(level, i, j) = i;
     });
 
-The first parameter is the mesh where we want to browse all the intervals and the second parameter is a lambda function. Tis lambda function has three parameters: the level of the interval, the interval in the x-direction, and `index[dim-1]`
+The first parameter is the mesh where we want to browse all the intervals and the second parameter is again a lambda function. 
+This function takes three parameters: the level of the intervals we want to pick, the interval in the x-direction, and `index[dim-1]`
 an array with the index for the other dimensions.
 
