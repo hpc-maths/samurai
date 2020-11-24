@@ -101,6 +101,7 @@ int main()
 
                     set([&](const auto& i, const auto& )
                     {
+                        std::cout<<std::endl<<"Level belo "<<level_below<<"  i = "<<i<<std::endl;
                         tag(level_below, i) = true;
                     });
                 }
@@ -111,7 +112,7 @@ int main()
         samurai::for_each_cell(mesh, [&](auto cell)
         {
             auto i = cell.indices[0];
-            if (tag[cell])
+            if (tag[cell])// and cell.level < max_level)
             {
                 cl[cell.level + 1][{}].add_interval({2*i, 2*i+2});
             }
