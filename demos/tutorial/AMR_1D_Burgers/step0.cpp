@@ -36,8 +36,9 @@ int main()
             if (cell.level == min_level + nite)
             {
                 double x = cell.center(0);
+
     
-                if (cell.level < max_level and 1./std::abs(my_function(x)) < 10*cell.length)
+                if (cell.level < max_level and std::abs(my_function(x))*cell.length > 0.01)
                 {
                     cl[cell.level + 1][{}].add_interval({2*cell.indices[0], 2*cell.indices[0] + 2});
                 } 
@@ -57,11 +58,6 @@ int main()
 
     auto level_field = samurai::make_field<std::size_t, 1>("level", mesh);
     auto u = samurai::make_field<double, 1>("u", mesh);
-
-    // samurai::for_each_cell(mesh, [&](auto cell)
-    // {
-    //     level_field[cell] = cell.level;
-    // });
 
     samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, auto)
     {
