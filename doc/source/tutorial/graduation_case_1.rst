@@ -219,7 +219,7 @@ We can construct the new mesh using `tag` field and :cpp:class:`samurai::CellLis
     });
     samurai::CellArray<dim> new_ca = cl;
 
-The refinement is done for a cell at `L \leq l - 2` but imagine that `L = 1` and `l = 5`.
+The refinement is done for a cell at :math:`L \leq l - 2` but imagine that `L = 1` and `l = 5`.
 Then we would refine the cell at level `L = 1` which will transform into four cells at level `L + 1 = 2`.
 This is not enough to have the grading of the mesh since there is still a gap of 2 levels.
 Therefore, we have to iterate this process until it yields a graded mesh.
