@@ -21,7 +21,7 @@ import sphinx_rtd_theme
 # -- Project information -----------------------------------------------------
 
 project = 'Samurai'
-author = 'Thomas Bellotti, Loic Gouarin'
+author = 'samurai developers'
 
 # The short X.Y version
 version = '0.0'
