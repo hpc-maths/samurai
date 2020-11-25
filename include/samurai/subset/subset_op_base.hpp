@@ -416,12 +416,12 @@ namespace samurai
         coord_index_t scan = min();
         coord_index_t sentinel = max() + 1;
 
-        // spdlog::debug("scan -> {} sentinel -> {}", scan, sentinel);
+        spdlog::debug("scan -> {} sentinel -> {}", scan, sentinel);
         while (scan < sentinel)
         {
             // Check if scan is in the subset
             bool in_res = eval(scan, d);
-            // spdlog::debug("in_res for {} -> {}", d, in_res);
+            spdlog::debug("in_res for {} -> {}", d, in_res);
 
             // Two cases:
             //
@@ -446,7 +446,7 @@ namespace samurai
                     result.end = scan;
                     r_ipos = 0;
 
-                    // spdlog::debug("result found {}", result);
+                    spdlog::debug("result found {}", result);
                     if (result.is_valid())
                     {
                         m_result[d] = result;

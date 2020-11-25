@@ -83,14 +83,22 @@ int main()
     // Grading 
     xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil{{1}, {-1}};
 
+    int tourdeboucle = 0;
+
+    spdlog::set_level(spdlog::level::debug);
     while(true)
     {
         auto tag = samurai::make_field<bool, 1>("tag", mesh);
         tag.fill(false);
 
+        std::cout<<std::endl<<"Tour de boucle "<< tourdeboucle++ << mesh << std::endl;
+
         for(std::size_t level = min_level + 2; level <= max_level; ++level)
         {
+            std::cout<<std::endl<<"Level = "<<level<<std::endl;
+
             for(std::size_t level_below = min_level; level_below < level - 1; ++level_below)
+
             {
                 for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
                 {

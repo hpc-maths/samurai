@@ -4,10 +4,10 @@
 #include <array>
 #include <iterator>
 
-// #include <xtensor/xadapt.hpp>
-// #include <xtensor/xio.hpp>
-// #include <spdlog/spdlog.h>
-// #include <spdlog/fwd.h>
+#include <xtensor/xadapt.hpp>
+#include <xtensor/xio.hpp>
+#include <spdlog/spdlog.h>
+#include <spdlog/fwd.h>
 
 #include "node_op.hpp"
 
@@ -137,7 +137,7 @@ namespace samurai
         {
             m_current_value[m_d] = std::numeric_limits<coord_index_t>::max();
         }
-        // spdlog::debug("RESET: dim = {}, level = {}, current_value = {}, start = {}, end = {}", m_d, m_node.level(), m_current_value[m_d], m_start[m_d], m_end[m_d]);
+        spdlog::debug("RESET: dim = {}, level = {}, current_value = {}, start = {}, end = {}", m_d, m_node.level(), m_current_value[m_d], m_start[m_d], m_end[m_d]);
     }
 
     /**
@@ -164,7 +164,7 @@ namespace samurai
         std::size_t index;
         // Shift the index i for the dimension d to the level of the node.
         auto shift_i = detail::shift_value(i, -m_shift);
-        // spdlog::debug("DECREMENT_DIM: level = {}, i = {}, shift_i = {}", m_node.level(), i, shift_i);
+        spdlog::debug("DECREMENT_DIM: level = {}, i = {}, shift_i = {}", m_node.level(), i, shift_i);
         if (m_shift >= 0)
         {
             // The level of this node is lower or equal to the min(ref_level, common_level)
@@ -275,7 +275,7 @@ namespace samurai
                     m_end_offset[m_d - 1] = m_node.offset(m_d, off_ind + 1);
                 }
             }
-            // spdlog::debug("intervals -> {}", intervals);
+            spdlog::debug("intervals -> {}", intervals);
             m_work[m_d - 1].clear();
 
             if (intervals.size() != 0)
@@ -295,7 +295,7 @@ namespace samurai
                 m_index[m_d - 1] = std::numeric_limits<std::size_t>::max();
             }
         }
-        // spdlog::debug("For dimension {}, curent_value in decrement = {}", m_d - 1, m_current_value[m_d - 1]);
+        spdlog::debug("For dimension {}, curent_value in decrement = {}", m_d - 1, m_current_value[m_d - 1]);
 
         m_ipos[m_d - 1] = 0;
         m_d--;
@@ -310,10 +310,10 @@ namespace samurai
     template<class T>
     inline void subset_node<T>::update(coord_index_t scan, coord_index_t sentinel)
     {
-        // spdlog::debug("BEGIN UPDATE ****************************************************************");
+        spdlog::debug("BEGIN UPDATE ****************************************************************");
         if (scan == m_current_value[m_d])
         {
-            // spdlog::debug("UPDATE: scan == current_value");
+            spdlog::debug("UPDATE: scan == current_value");
             if (m_ipos[m_d] == 1)
             {
                 ++m_index[m_d];
@@ -330,7 +330,7 @@ namespace samurai
                                                 ? sentinel
                                                 : m_work[m_d][m_index[m_d]].start);
                 }
-                // spdlog::debug("UPDATE: dim = {}, level = {}, start new interval with current_value = {}", m_d, m_node.level(), m_current_value[m_d]);
+                spdlog::debug("UPDATE: dim = {}, level = {}, start new interval with current_value = {}", m_d, m_node.level(), m_current_value[m_d]);
             }
             else
             {
@@ -367,11 +367,11 @@ namespace samurai
                         m_current_value[m_d] = m_work[m_d][m_index[m_d]].end;
                     }
                 }
-                // spdlog::debug("UPDATE: dim = {}, level = {}, end interval with current_value = {}", m_d, m_node.level(), m_current_value[m_d]);
+                spdlog::debug("UPDATE: dim = {}, level = {}, end interval with current_value = {}", m_d, m_node.level(), m_current_value[m_d]);
                 m_ipos[m_d] = 1;
             }
         }
-        // spdlog::debug("END UPDATE ******************************************************************");
+        spdlog::debug("END UPDATE ******************************************************************");
     }
 
     template<class T>
@@ -425,7 +425,7 @@ namespace samurai
         m_shift_ref = ref_level - m_node.level();
         m_shift_common = common_level - m_node.level();
         m_shift = std::min(m_shift_ref, m_shift_common);
-        // spdlog::debug("SET SHIFT: level = {}, ref_level = {}, common_level = {}, shift_ref = {}, shift_common = {}, shift = {}", m_node.level(), m_ref_level, m_common_level, m_shift_ref, m_shift_common, m_shift);
+        spdlog::debug("SET SHIFT: level = {}, ref_level = {}, common_level = {}, shift_ref = {}, shift_common = {}, shift = {}", m_node.level(), m_ref_level, m_common_level, m_shift_ref, m_shift_common, m_shift);
     }
 
     template<class T>

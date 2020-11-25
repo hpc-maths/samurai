@@ -1,3 +1,6 @@
+add_executable(step0 ./AMR_1D_Burgers/step0.cpp)
+target_link_libraries(step0 PRIVATE samurai)
+
 add_executable(test interval.cpp)
 target_link_libraries(test PRIVATE samurai)
 
