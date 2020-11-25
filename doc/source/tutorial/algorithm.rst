@@ -8,7 +8,7 @@ If the operator is local, one can use :cpp:func:`samurai::for_each_cell`, otherw
 
 .. note::
 
-    :cpp:func:`samurai::for_each_interval` can be used easily in every situation.
+    :cpp:func:`samurai::for_each_interval` can be easily used in every situation.
 
 Apply a function on all cells
 -----------------------------
