@@ -129,8 +129,9 @@ Constraints on the grid representation
 
 As stressed before, there are some contraints on the grid representation allowed by |project|.
 
+Since the extremal values for each interval (and thus the cells) are constrained to be integers and the corresponding real coordinates are reconstructed from these values via :math:`\Delta x `, the latter will take only certains values following this principle.
+Therefore, not every real coordinate can be represented with this system.
 
-Since the grid is made up by a set of intervals defined by the cell numbering on a given cell, the possible coordinates are fixed. 
 Suppose we are considering level 1 with associated step :math:`\Delta x = 0.5` for a 1D problem.
 It is therefore impossible by definition to have a cell at this level with center at :math:`\frac{1}{3}`.
 
@@ -302,7 +303,8 @@ Therefore, the x array at level 2 representing the intervals in the x-direction 
 
     x: [8, 10[, [8, 10[, [14, 16[, [14, 16[
 
-Then, we try to construct intervals in the y-direction from the keys. For level 2, we have `y = 8, 9, 14, 15`. Therefore, we can construct two intervals: :math:`[8, 10[` and :math:`[14, 16[`.
+Then, we try to construct intervals in the y-direction from the keys. For level 2, we have the keys `y = 8, 9, 14, 15`. 
+Therefore, we can construct two intervals with consecutive elements: :math:`[8, 10[` and :math:`[14, 16[`.
 
 The compressed view of the :cpp:class:`samurai::CellList` at level 2 is as follows
 
@@ -311,16 +313,16 @@ The compressed view of the :cpp:class:`samurai::CellList` at level 2 is as follo
     x: [8, 10[, [8, 10[, [14, 16[, [14, 16[
     y: [8, 10[, [14, 16[
 
-Now, we have to connect each y entry to the corresponding intervals in the x-direction. To this end we utilize a new array called `y-offset` and the index of the interval represented by the operator `@`.
+Now, we have to connect each `y` entry to the corresponding intervals in the x-direction. To this end we utilize a new array called `y-offset` and the index of the `y` interval represented by the operator `@`.
 
-Each y has one interval in the x-direction. The `y-offset` indicates for each y where are the corresponding intervals in the x-direction in the array x.
-
+Each y has one corresponding interval in the x-direction. The `y-offset` indicates for each y where are the corresponding intervals in the x-direction inside the array x.
+ 
 - for `y = 8`, there is one interval in x-direction,
 - for `y = 9`, there is one interval in x-direction,
 - for `y = 14`, there is one interval in x-direction,
 - for `y = 15`, there is one interval in x-direction.
 
-The `y-offset` is the array `[0, 1, 2, 3, 4]`. The size of this array is the number of y + 1 and indicates that :math:`y[i]` corresponds to the intervals in the x-direction between :math:`y-offset[i]` and :math:`y-offset[i+1]` in the x array.
+Thus the `y-offset` is the array `[0, 1, 2, 3, 4]`. The size of this array is the number of y + 1 and indicates that :math:`y[i]` corresponds to the intervals in the x-direction between :math:`y-offset[i]` and :math:`y-offset[i+1]` in the x array.
 
 One point still has to be clarified: how many elements y have we already gone through to know where to look in the `y-offsets`? 
 This is where the index comes into play. 

@@ -8,7 +8,7 @@ Field storage
 
 The previous tutorial introduced the data structure used to represent a cartesian grid with different resolutions using intervals.
 
-Now, we would like to construct a field (either scalar of vectorial) on this grid to deploy scientific computing algorithms such as numerical schemes with stencils.
+Now, we would like to construct a field (either scalar or vectorial) on this grid to deploy scientific computing algorithms such as numerical schemes with stencils.
 In particular, we want to be able to access the field using a syntax like `field(level, i, j, k)` to recover its value on interval of cells at `level` with coordinates `(i, j, k)`.
 To this end, one must devise a way of making the link between the actual data structure where `field` is stored and the mesh represented by a :cpp:class:`samurai::CellArray`.
 
@@ -108,7 +108,7 @@ The construction of a field is made using a :cpp:class:`samurai::CellArray` or a
 :cpp:class:`samurai::Mesh` is used to describe grids with several :cpp:class:`samurai::CellArray` and offers useful methods such as :cpp_code::`operator[]`, :cpp_code::`nb_cells`, ... 
 We shall describe more precisely how to use it in a next tutorial.
 
-The example below shows how to initialize a vectorial field of type `double`with 2 components, over a mesh `mesh`.
+The example below shows how to initialize a vectorial field of type `double` with 2 components, over a mesh `mesh`.
 
 .. code-block:: c++
 
@@ -121,7 +121,7 @@ The field access
 
 In |project|, there are several ways to access a given field.
 
-The first (and naive) one is to use a :cpp:class:`samurai::Cell` together with the `[]` operator, as in this example
+The first one is to use a :cpp:class:`samurai::Cell` together with the `[]` operator, as in this example
 
 .. code-block:: c++
 
