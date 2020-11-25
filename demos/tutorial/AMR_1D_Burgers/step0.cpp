@@ -14,7 +14,7 @@ int main()
 {
     std::size_t max_level = 8;
     std::size_t min_level = 2;
-    
+
     constexpr std::size_t dim = 1;
     samurai::Box<double, dim> box({-3}, {3});
     samurai::CellArray<dim> mesh;
@@ -29,7 +29,7 @@ int main()
     };
 
     auto my_function_der = [sigma, &my_function] (auto x)
-    {   
+    {
         // Derivative of a gaussian with standard deviation sigma
         return -2*x*my_function(x)/pow(sigma, 2.);
     };
@@ -42,12 +42,12 @@ int main()
             if (cell.level == min_level + nite)
             {
                 double x = cell.center(0);
-    
-                if (cell.level < max_level and 
+
+                if (cell.level < max_level and
                     std::abs(my_function_der(x))*cell.length > 0.01)
                 {
                     cl[cell.level + 1][{}].add_interval({2*cell.indices[0], 2*cell.indices[0] + 2});
-                } 
+                }
                 else
                 {
                     cl[cell.level][{}].add_point(cell.indices[0]);
@@ -80,36 +80,27 @@ int main()
     }
 
 
-    // Grading 
+    // Grading
     xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil{{1}, {-1}};
 
-    int tourdeboucle = 0;
-
-    spdlog::set_level(spdlog::level::debug);
     while(true)
     {
         auto tag = samurai::make_field<bool, 1>("tag", mesh);
         tag.fill(false);
 
-        std::cout<<std::endl<<"Tour de boucle "<< tourdeboucle++ << mesh << std::endl;
-
         for(std::size_t level = min_level + 2; level <= max_level; ++level)
         {
-            std::cout<<std::endl<<"Level = "<<level<<std::endl;
-
             for(std::size_t level_below = min_level; level_below < level - 1; ++level_below)
-
             {
                 for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
                 {
                     auto s = xt::view(stencil, i);
-                    auto set = samurai::intersection(samurai::translate(mesh[level], s), 
+                    auto set = samurai::intersection(samurai::translate(mesh[level], s),
                                                      mesh[level_below])
                               .on(level_below);
 
                     set([&](const auto& i, const auto& )
                     {
-                        std::cout<<std::endl<<"Level belo "<<level_below<<"  i = "<<i<<std::endl;
                         tag(level_below, i) = true;
                     });
                 }
@@ -120,7 +111,7 @@ int main()
         samurai::for_each_cell(mesh, [&](auto cell)
         {
             auto i = cell.indices[0];
-            if (tag[cell])// and cell.level < max_level)
+            if (tag[cell])
             {
                 cl[cell.level + 1][{}].add_interval({2*i, 2*i+2});
             }
@@ -153,7 +144,7 @@ int main()
 
         samurai::save("Step0_after", mesh, level_field, u);
     }
-    
+
 
     return 0;
 }
