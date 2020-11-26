@@ -1,8 +1,14 @@
 add_executable(step0 ./AMR_1D_Burgers/step0.cpp)
 target_link_libraries(step0 PRIVATE samurai)
 
-add_executable(test interval.cpp)
-target_link_libraries(test PRIVATE samurai)
+add_executable(step1 ./AMR_1D_Burgers/step1.cpp)
+target_link_libraries(step1 PRIVATE samurai)
+
+add_executable(step2 ./AMR_1D_Burgers/step2.cpp)
+target_link_libraries(step2 PRIVATE samurai)
+
+# add_executable(test interval.cpp)
+# target_link_libraries(test PRIVATE samurai)
 
 # add_executable(2D_mesh 2D_mesh.cpp)
 # target_link_libraries(2D_mesh PRIVATE samurai)
@@ -16,8 +22,8 @@ target_link_libraries(test PRIVATE samurai)
 # add_executable(fix_bug fix_bug.cpp)
 # target_link_libraries(fix_bug PRIVATE samurai)
 
-add_executable(graduation_case_3 graduation_case_3.cpp)
-target_link_libraries(graduation_case_3 PRIVATE samurai)
+# add_executable(graduation_case_3 graduation_case_3.cpp)
+# target_link_libraries(graduation_case_3 PRIVATE samurai)
 
 # add_executable(set_operator set_operator.cpp)
 # target_link_libraries(set_operator PRIVATE samurai)
