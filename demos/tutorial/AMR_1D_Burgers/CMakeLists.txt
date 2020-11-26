@@ -1,0 +1,7 @@
+add_subdirectory(step_0)
+add_subdirectory(step_1)
+add_subdirectory(step_2)
+add_subdirectory(step_3)
+add_subdirectory(step_4)
+add_subdirectory(step_5)
+add_subdirectory(step_6)

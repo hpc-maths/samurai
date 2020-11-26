@@ -1,18 +1,10 @@
-#include <samurai/box.hpp>
-#include <samurai/cell_array.hpp>
+#pragma once
+
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
 
-int main()
+template <class Mesh>
+auto init_sol(Mesh& mesh)
 {
-    constexpr std::size_t dim = 1;
-    std::size_t init_level = 4;
-
-    samurai::Box<double, dim> box({-2}, {2});
-    samurai::CellArray<dim> mesh;
-
-    mesh[init_level] = {init_level, box};
-
     auto phi = samurai::make_field<double, 1>("phi", mesh);
 
     samurai::for_each_cell(mesh, [&](auto &cell)
@@ -30,9 +22,5 @@ int main()
         }
     });
 
-    std::cout << mesh << "\n";
-
-    samurai::save("Step1", mesh, phi);
-
-    return 0;
+    return phi;
 }

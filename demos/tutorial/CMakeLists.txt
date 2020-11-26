@@ -1,11 +1,21 @@
-add_executable(step0 ./AMR_1D_Burgers/step0.cpp)
-target_link_libraries(step0 PRIVATE samurai)
+add_subdirectory(AMR_1D_Burgers)
+# add_executable(step0 ./AMR_1D_Burgers/step0.cpp)
+# target_link_libraries(step0 PRIVATE samurai)
 
-add_executable(step1 ./AMR_1D_Burgers/step1.cpp)
-target_link_libraries(step1 PRIVATE samurai)
+# add_executable(step1 ./AMR_1D_Burgers/step1.cpp)
+# target_link_libraries(step1 PRIVATE samurai)
 
-add_executable(step2 ./AMR_1D_Burgers/step2.cpp)
-target_link_libraries(step2 PRIVATE samurai)
+# add_executable(step2 ./AMR_1D_Burgers/step2.cpp)
+# target_link_libraries(step2 PRIVATE samurai)
+
+# add_executable(step3 ./AMR_1D_Burgers/step3.cpp)
+# target_link_libraries(step3 PRIVATE samurai)
+
+# add_executable(step4 ./AMR_1D_Burgers/step4.cpp)
+# target_link_libraries(step4 PRIVATE samurai)
+
+# add_executable(step5 ./AMR_1D_Burgers/step5.cpp)
+# target_link_libraries(step5 PRIVATE samurai)
 
 # add_executable(test interval.cpp)
 # target_link_libraries(test PRIVATE samurai)
