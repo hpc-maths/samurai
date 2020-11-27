@@ -6,6 +6,15 @@
 #include "../step_1/init_sol.hpp"
 #include "update_sol.hpp"
 
+/**
+ * What will we learn ?
+ * ====================
+ *
+ * - Apply a finite volume scheme
+ * - save and plot a field
+ *
+ */
+
 int main()
 {
     constexpr std::size_t dim = 1;
@@ -36,7 +45,7 @@ int main()
 
         t += dt;
 
-        samurai::save(fmt::format("Step2_ite-{}", it++), mesh, phi);
+        samurai::save(fmt::format("step_2-{}", it++), mesh, phi);
     }
     /////////////////////////////////
 

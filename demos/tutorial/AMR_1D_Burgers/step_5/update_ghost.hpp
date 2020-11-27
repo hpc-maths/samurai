@@ -14,6 +14,8 @@ void update_ghost(Field& phi)
     std::size_t max_level = mesh.max_level();
 
     /**
+     * Projection
+     * ~~~~~~~~~~
      *
      *   |------|------|
      *
@@ -31,6 +33,13 @@ void update_ghost(Field& phi)
         });
     }
 
+    /**
+     * Boundary conditions
+     * ~~~~~~~~~~~~~~~~~~~
+     *
+     *   phi = 0
+     *
+     */
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
         auto expr = samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.domain())
@@ -43,6 +52,8 @@ void update_ghost(Field& phi)
     }
 
     /**
+     * Prediction
+     * ~~~~~~~~~~
      *
      *          |======|------|------|
      *

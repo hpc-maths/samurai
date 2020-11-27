@@ -7,6 +7,16 @@
 #include "init_sol.hpp"
 #include "update_sol.hpp"
 
+/**
+ * What will we learn ?
+ * ====================
+ *
+ * - create a new mesh data structure with 2 CellArray
+ * - how to modify init_sol and update_sol accordingly
+ * - save and plot a field on this mesh
+ *
+ */
+
 int main()
 {
     constexpr std::size_t dim = 1;
@@ -36,7 +46,7 @@ int main()
 
         t += dt;
 
-        samurai::save(fmt::format("step3-{}", it++), mesh, phi);
+        samurai::save(fmt::format("step_3-{}", it++), mesh, phi);
     }
 
     return 0;

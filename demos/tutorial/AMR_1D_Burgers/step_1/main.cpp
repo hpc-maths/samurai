@@ -5,6 +5,16 @@
 
 #include "init_sol.hpp"
 
+/**
+ * What will we learn ?
+ * ====================
+ *
+ * - create a field
+ * - initialize this field
+ * - save and plot a field
+ *
+ */
+
 int main()
 {
     constexpr std::size_t dim = 1;
@@ -21,7 +31,7 @@ int main()
 
     std::cout << mesh << "\n";
 
-    samurai::save("Step1", mesh, phi);
+    samurai::save("step_1", mesh, phi);
 
     return 0;
 }

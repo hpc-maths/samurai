@@ -13,6 +13,15 @@
 #include "update_ghost.hpp"
 #include "make_graduation.hpp"
 
+/**
+ * What will we learn ?
+ * ====================
+ *
+ * - update the ghost cells
+ * - make the graduation of the mesh
+ *
+ */
+
 int main()
 {
     constexpr std::size_t dim = 1;
@@ -25,7 +34,8 @@ int main()
 
     auto phi = init_sol(mesh);
 
-    while(true)
+    std::size_t i_adapt = 0;
+    while(i_adapt < (max_level - min_level + 1))
     {
         auto tag = samurai::make_field<std::size_t, 1>("tag", mesh);
 
@@ -33,7 +43,7 @@ int main()
         AMR_criterion(phi, tag);
         make_graduation(tag);                                          // <--------------------------------
 
-        samurai::save("step5_criterion", mesh, phi, tag);
+        samurai::save(fmt::format("step_5_criterion-{}", i_adapt++), mesh, phi, tag);
 
         if (update_mesh(phi, tag))
         {
@@ -46,8 +56,7 @@ int main()
     {
         level(l, i) = l;
     });
-
-    samurai::save("step5", mesh, phi, level);
+    samurai::save("step_5", mesh, phi, level);
 
     return 0;
 }

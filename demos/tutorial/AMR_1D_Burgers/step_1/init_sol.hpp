@@ -5,6 +5,7 @@
 template <class Mesh>
 auto init_sol(Mesh& mesh)
 {
+    // create a field from the mesh
     auto phi = samurai::make_field<double, 1>("phi", mesh);
 
     samurai::for_each_cell(mesh, [&](auto &cell)

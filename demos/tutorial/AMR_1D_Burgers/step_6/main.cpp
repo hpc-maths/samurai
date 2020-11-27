@@ -16,6 +16,16 @@
 
 #include "update_sol.hpp" // with flux correction
 
+/**
+ * What will we learn ?
+ * ====================
+ *
+ * - add the time loop
+ * - adapt the mesh at each time iteration
+ * - solve the 1D Burgers equation on the adapted mesh
+ *
+ */
+
 int main()
 {
     constexpr std::size_t dim = 1;

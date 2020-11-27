@@ -16,6 +16,19 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
     });
 
     /////////////////////////
+
+    /**
+     * Flux correction
+     * ~~~~~~~~~~~~~~~
+     *
+     * Left flux example
+     *
+     * |----|----|                                  |----|----|
+     *                          ----------------->         x
+     * |=========|---------|                        |=========|---------|
+     *      x         x                                            x
+     *
+     */
     for (std::size_t level = mesh.min_level(); level < mesh.max_level(); ++level)
     {
         double dx = 1./(1<<level);

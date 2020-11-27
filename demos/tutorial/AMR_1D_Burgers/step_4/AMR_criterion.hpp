@@ -6,6 +6,19 @@
 #include <samurai/mr/cell_flag.hpp>
 #include <samurai/algorithm.hpp>
 
+/**
+ * AMR criterion
+ *
+ * Split the cell (level, i) if |\partial_x f(level, i)| > \delta
+ *
+ * with \delta = 0.01
+ *
+ * and \partial_x f(level, i) = (f(level, i+1) - f(level, i-1))/(2 \Delta x)
+ *
+ * \Delta x = 2^{-level}
+ *
+ */
+
 template<class Field, class Tag>
 void AMR_criterion(const Field& f, Tag& tag)
 {

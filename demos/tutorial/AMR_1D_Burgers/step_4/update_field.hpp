@@ -15,6 +15,20 @@ void update_field(Field& f, const Tag& tag, Mesh& new_mesh)
     Field new_f{f.name(), new_mesh};
     new_f.fill(0.);
 
+    /**
+     *
+     * mesh     : -----
+     * new mesh : =====
+     *
+     * level: 3                               |==|==|
+     *
+     * level: 2                         |-----|-----|-----|-----|-----|
+     *                                  |=====|     |=====|
+     *
+     * level: 1              |----------|
+     *                       |==========|                 |===========|
+     */
+
     for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
     {
         auto common_leaves = samurai::intersection(mesh[mesh_id_t::cells][level],

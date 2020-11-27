@@ -10,6 +10,16 @@
 #include "AMR_criterion.hpp"
 #include "update_mesh.hpp"
 
+/**
+ * What will we learn ?
+ * ====================
+ *
+ * - apply a criterion to tag the cell as keep, refine, or coarsen
+ * - create a new mesh from these tags
+ * - update the solution on this new mesh
+ *
+ */
+
 int main()
 {
     constexpr std::size_t dim = 1;
@@ -23,13 +33,14 @@ int main()
     auto phi = init_sol(mesh);
 
     ////////////////////////////////
-    while(true)
+    std::size_t i_adapt = 0;
+    while(i_adapt < (max_level - min_level + 1))
     {
         auto tag = samurai::make_field<std::size_t, 1>("tag", mesh);
 
         AMR_criterion(phi, tag);
 
-        samurai::save("step4_criterion", mesh, phi, tag);
+        samurai::save(fmt::format("step_4_criterion-{}", i_adapt++), mesh, phi, tag);
 
         if (update_mesh(phi, tag))
         {
@@ -42,8 +53,7 @@ int main()
     {
         level(l, i) = l;
     });
-
-    samurai::save("step4", mesh, phi, level);
+    samurai::save("step_4", mesh, phi, level);
     ////////////////////////////////
 
     return 0;

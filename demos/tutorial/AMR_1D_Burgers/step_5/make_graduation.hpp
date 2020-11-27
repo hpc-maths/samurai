@@ -16,7 +16,15 @@ void make_graduation(Field& tag)
     auto mesh = tag.mesh();
     for (std::size_t level = mesh.max_level(); level >= 1; --level)
     {
-        // We project the cells at level j back on level j-1
+
+        /**
+         *
+         *        |-----|-----|                                  |-----|-----|
+         *                                    --------------->
+         *                                                             K
+         *        |===========|-----------|                      |===========|-----------|
+         */
+
         auto ghost_subset = samurai::intersection(mesh[mesh_id_t::cells][level],
                                                   mesh[mesh_id_t::reference][level-1])
                             .on(level - 1);
@@ -26,6 +34,12 @@ void make_graduation(Field& tag)
             tag(level - 1, i) |= static_cast<int>(samurai::CellFlag::keep);
         });
 
+
+        /**
+         *                 R                                 K     R     K
+         *        |-----|-----|=====|   --------------->  |-----|-----|=====|
+         *
+         */
         auto leaves = intersection(mesh[mesh_id_t::cells][level],
                                    mesh[mesh_id_t::cells][level]);
 
@@ -39,6 +53,13 @@ void make_graduation(Field& tag)
             }
         });
 
+        /**
+         *      K     C                          K     K
+         *   |-----|-----|   -------------->  |-----|-----|
+         *
+         *   |-----------|
+         *
+         */
         leaves.on(level - 1)([&](const auto& i, const auto& )
         {
             xt::xtensor<bool, 1> mask = (  tag(level, 2 * i)     & static_cast<int>(samurai::CellFlag::keep))
@@ -50,6 +71,24 @@ void make_graduation(Field& tag)
         });
 
         std::array<int, 2> stencil{1, -1};
+
+        /**
+         * Case 1
+         * ======
+         *                   R     K                                             R     K
+         *                |-----|-----|   -------------->                     |-----|-----|
+         *       C or K                                                 R
+         *   |-----------|                                        |-----------|
+         *
+         * Case 2
+         * ======
+         *                   K     K                                             K     K
+         *                |-----|-----|   -------------->                     |-----|-----|
+         *         C                                                    K
+         *   |-----------|                                        |-----------|
+         *
+         */
+
 
         for(auto s: stencil)
         {

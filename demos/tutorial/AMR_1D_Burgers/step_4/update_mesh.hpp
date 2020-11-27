@@ -9,6 +9,28 @@ bool update_mesh(Field& f, const Tag& tag)
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using cl_type = typename mesh_t::cl_type;
 
+    /**
+     *
+     * mesh with tag:
+     * ==============
+     *
+     *                                     K     R     K     C     C
+     * level: 2                         |-----|-----|-----|-----|-----|
+     *                            K
+     * level: 1              |----------|
+     *
+     * New mesh:
+     * =========
+     *
+     * level: 3                               |==|==|
+     *
+     * level: 2                         |=====|     |=====|
+     *
+     * level: 1              |==========|                 |===========|
+     *
+     */
+
+
     auto mesh = f.mesh();
 
     cl_type cell_list;

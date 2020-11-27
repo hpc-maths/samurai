@@ -87,6 +87,7 @@ parser.add_argument('--field', nargs="+", type=str, required=False, help='list o
 parser.add_argument('--start', type=int, required=False, default=0, help='iteration start')
 parser.add_argument('--end', type=int, required=False, default=None, help='iteration end')
 parser.add_argument('--save', type=str, required=False, help='output file')
+parser.add_argument('--wait', type=int, default=200, required=False, help='time between two plot in ms')
 args = parser.parse_args()
 
 if args.end is None:
@@ -98,7 +99,7 @@ else:
         p.fig.suptitle("iteration " + str(i))
         p.update(args.filename + '-' + str(i))
         return p.get_artist()
-    ani = animation.FuncAnimation(p.fig, animate, frames=args.end-args.start, interval=50, repeat=True)
+    ani = animation.FuncAnimation(p.fig, animate, frames=args.end-args.start, interval=args.wait, repeat=True)
 
 if args.save:
     if args.end is None:
