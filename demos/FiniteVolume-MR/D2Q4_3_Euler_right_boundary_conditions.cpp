@@ -5,7 +5,6 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/stopwatch.h>
 
-// #include <samurai/samurai.hpp>
 #include <samurai/mr/coarsening.hpp>
 #include <samurai/mr/refinement.hpp>
 #include <samurai/mr/criteria.hpp>
@@ -181,7 +180,6 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
     {
         // Returns the rotation of (k, h) of an angle alpha * pi / 2.
         // All the operations are performed on integer, to be exact
-
         int cosinus = static_cast<int>(std::round(std::cos(alpha * M_PI / 2.)));
         int sinus   = static_cast<int>(std::round(std::sin(alpha * M_PI / 2.)));
 
@@ -266,7 +264,6 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff, 
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-
         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                             mesh[mesh_id_t::cells][level]);
         
