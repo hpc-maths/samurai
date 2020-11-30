@@ -12,40 +12,10 @@
 #include "prediction_map_2d.hpp"
 #include "boundary_conditions.hpp"
 
-// We use the Geier scheme because
-// it seems to work pretty well
 
-double radius = 1./32.; // Radius of the obstacle
-
-// double Re = 1600.;
-double Re = 1200;
-
-// const double lambda = 2.; // Lattice velocity of the scheme
-const double lambda = 1.;
-
-const double rho0 = 1.; // Reference density
-// const double u0 = 0.1; // Reference x-velocity
-// const double u0 = 0.05; // Reference x-velocity
-
-const double mu = 5.e-6; // Bulk viscosity
-const double zeta = 10. * mu; // Shear viscosity
-
-const double u0 = mu * Re / (2. * rho0 * radius);
-
-// std::string momenti("Geier");
-std::string momenti("Lallemand");
-
-
-// The relaxation parameters will be computed in the sequel
-// because they depend on the space step of the scheme
-
-bool inside_obstacle (double x, double y)
+bool inside_obstacle (double x, double y, const double radius)
 {
      double x_center = 5./16., y_center = 0.5;
-
-    // if ((   std::max(std::abs(x - x_center),
-    //                  std::abs(y - y_center)))
-    //             > radius)
     if ((   std::sqrt(std::pow(x - x_center, 2.)+
                       std::pow(y - y_center, 2.)))
                 > radius)
@@ -56,7 +26,7 @@ bool inside_obstacle (double x, double y)
     }
 }
 
-double level_set_obstacle (double x, double y)
+double level_set_obstacle (double x, double y, const double radius)
 {
      double x_center = 5./16., y_center = 0.5;
 
@@ -64,7 +34,7 @@ double level_set_obstacle (double x, double y)
                           std::pow(y - y_center, 2.))) - radius);
 }
 
-double volume_inside_obstacle_estimation(double xLL, double yLL, double dx)
+double volume_inside_obstacle_estimation(double xLL, double yLL, double dx, const double radius)
 {
     // Super stupid way of
     // computing the volume of the cell inside the obstacle
@@ -80,7 +50,7 @@ double volume_inside_obstacle_estimation(double xLL, double yLL, double dx)
 
             volume++;
 
-            if (inside_obstacle(xLL + i * step, yLL + j * step))
+            if (inside_obstacle(xLL + i * step, yLL + j * step, radius))
                 volume_in++;
 
         }
@@ -90,7 +60,7 @@ double volume_inside_obstacle_estimation(double xLL, double yLL, double dx)
     return static_cast<double>(volume_in) / static_cast<double>(volume);
 }
 
-double length_obstacle_inside_cell(double xLL, double yLL, double dx)
+double length_obstacle_inside_cell(double xLL, double yLL, double dx, const double radius)
 {
 
     double delta = 0.05 * dx;
@@ -106,7 +76,7 @@ double length_obstacle_inside_cell(double xLL, double yLL, double dx)
 
             volume++;
 
-            if (std::abs(level_set_obstacle(xLL + i * step, yLL + j * step)) < 0.5 * delta)
+            if (std::abs(level_set_obstacle(xLL + i * step, yLL + j * step, radius)) < 0.5 * delta)
                 volume_in++;
 
         }
@@ -116,7 +86,7 @@ double length_obstacle_inside_cell(double xLL, double yLL, double dx)
 
 }
 
-std::array<double, 9> inlet_bc()
+std::array<double, 9> inlet_bc(double rho0, double u0, double lambda, std::string & momenti)
 {
 
     std::array<double, 9> to_return;
@@ -194,7 +164,7 @@ std::array<double, 9> inlet_bc()
 
 
 template<class Config>
-auto init_f(samurai::MRMesh<Config> & mesh)
+auto init_f(samurai::MRMesh<Config> & mesh, const double radius, double rho0, double u0, double lambda, std::string & momenti)
 {
     using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
     constexpr std::size_t nvel = 9;
@@ -207,9 +177,9 @@ auto init_f(samurai::MRMesh<Config> & mesh)
         auto x = center[0];
         auto y = center[1];
 
-        double rho = inside_obstacle(x, y) ? rho0 : rho0;
-        double qx = inside_obstacle(x, y) ? 0. : rho0 * u0;
-        double qy = inside_obstacle(x, y) ? 0. : 0.01 * rho0 * u0;//0.; // TO start instability earlier
+        double rho = inside_obstacle(x, y, radius) ? rho0 : rho0;
+        double qx = inside_obstacle(x, y, radius) ? 0. : rho0 * u0;
+        double qy = inside_obstacle(x, y, radius) ? 0. : 0.01 * rho0 * u0;//0.; // TO start instability earlier
 
         double r1 = 1.0 / lambda;
         double r2 = 1.0 / (lambda*lambda);
@@ -491,8 +461,8 @@ auto get_adjacent_boundary_southeast(Mesh & mesh, std::size_t level, typename Me
 
 // We have to average only the fluxes
 template<class Field, class Func, class pred>
-std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level, 
-                                                        const pred & pred_coeff)
+std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level, const pred & pred_coeff, 
+                double rho0, double u0, double lambda, double mu, double zeta, double radius, std::string & momenti)
 {
     constexpr std::size_t nvel = Field::size;
     using coord_index_t = typename Field::interval_t::coord_index_t;
@@ -520,7 +490,7 @@ std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level,
     Field advected{"advected", mesh};
     advected.array().fill(0.);
 
-    auto inlet_condition = inlet_bc();
+    auto inlet_condition = inlet_bc(rho0, u0, lambda, momenti);
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
@@ -1178,10 +1148,10 @@ std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level,
                 double m8 = qx*qy/rho;
 
                 // The cell is fully inside the obstacle
-                if (inside_obstacle(x - .5*dx, y - .5*dx) &&
-                    inside_obstacle(x + .5*dx, y - .5*dx) &&
-                    inside_obstacle(x + .5*dx, y + .5*dx) &&
-                    inside_obstacle(x - .5*dx, y + .5*dx))  {
+                if (inside_obstacle(x - .5*dx, y - .5*dx, radius) &&
+                    inside_obstacle(x + .5*dx, y - .5*dx, radius) &&
+                    inside_obstacle(x + .5*dx, y + .5*dx, radius) &&
+                    inside_obstacle(x - .5*dx, y + .5*dx, radius))  {
 
                     new_f[cell][0] = m0                      -     r2*m3                        +     r4*m6                         ;
                     new_f[cell][1] =     .5*r1*m1            + .25*r2*m3 - .5*r3*m4             -  .5*r4*m6 + .25*r2*m7             ;
@@ -1196,14 +1166,14 @@ std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level,
                 else
                 {
                     // The cell has the interface cutting through it
-                    if (inside_obstacle(x - .5*dx, y - .5*dx) ||
-                        inside_obstacle(x + .5*dx, y - .5*dx) ||
-                        inside_obstacle(x + .5*dx, y + .5*dx) ||
-                        inside_obstacle(x - .5*dx, y + .5*dx))  {
+                    if (inside_obstacle(x - .5*dx, y - .5*dx, radius) ||
+                        inside_obstacle(x + .5*dx, y - .5*dx, radius) ||
+                        inside_obstacle(x + .5*dx, y + .5*dx, radius) ||
+                        inside_obstacle(x - .5*dx, y + .5*dx, radius))  {
 
                         // We compute the volume fraction
-                        double vol_fraction = volume_inside_obstacle_estimation(x - .5*dx, y - .5*dx, dx);
-                        double len_boundary =       length_obstacle_inside_cell(x - .5*dx, y - .5*dx, dx);
+                        double vol_fraction = volume_inside_obstacle_estimation(x - .5*dx, y - .5*dx, dx, radius);
+                        double len_boundary =       length_obstacle_inside_cell(x - .5*dx, y - .5*dx, dx, radius);
 
                         double dt = 1./(1<<max_level) / lambda;
                         Fx += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][1] - new_f[cell][3] + new_f[cell][5] - new_f[cell][6] - new_f[cell][7] + new_f[cell][8]);
@@ -1233,10 +1203,10 @@ std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level,
                 double m8 = qx*qy/rho;
 
                 // The cell is fully inside the obstacle
-                if (inside_obstacle(x - .5*dx, y - .5*dx) &&
-                    inside_obstacle(x + .5*dx, y - .5*dx) &&
-                    inside_obstacle(x + .5*dx, y + .5*dx) &&
-                    inside_obstacle(x - .5*dx, y + .5*dx))  {
+                if (inside_obstacle(x - .5*dx, y - .5*dx, radius) &&
+                    inside_obstacle(x + .5*dx, y - .5*dx, radius) &&
+                    inside_obstacle(x + .5*dx, y + .5*dx, radius) &&
+                    inside_obstacle(x - .5*dx, y + .5*dx, radius))  {
 
                     new_f[cell][0] = (1./9)*m0                                  -  (1./9)*r2*m3                                +   (1./9)*r4*m6                        ;
                     new_f[cell][1] = (1./9)*m0   + (1./6)*r1*m1                 - (1./36)*r2*m3 - (1./6)*r3*m4                 -  (1./18)*r4*m6 + .25*r2*m7            ;
@@ -1251,14 +1221,14 @@ std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level,
                 else
                 {
                     // The cell has the interface cutting through it
-                    if (inside_obstacle(x - .5*dx, y - .5*dx) ||
-                        inside_obstacle(x + .5*dx, y - .5*dx) ||
-                        inside_obstacle(x + .5*dx, y + .5*dx) ||
-                        inside_obstacle(x - .5*dx, y + .5*dx))  {
+                    if (inside_obstacle(x - .5*dx, y - .5*dx, radius) ||
+                        inside_obstacle(x + .5*dx, y - .5*dx, radius) ||
+                        inside_obstacle(x + .5*dx, y + .5*dx, radius) ||
+                        inside_obstacle(x - .5*dx, y + .5*dx, radius))  {
 
                         // We compute the volume fraction
-                        double vol_fraction = volume_inside_obstacle_estimation(x - .5*dx, y - .5*dx, dx);
-                        double len_boundary =       length_obstacle_inside_cell(x - .5*dx, y - .5*dx, dx);
+                        double vol_fraction = volume_inside_obstacle_estimation(x - .5*dx, y - .5*dx, dx, radius);
+                        double len_boundary =       length_obstacle_inside_cell(x - .5*dx, y - .5*dx, dx, radius);
 
                         double dt = 1./(1<<max_level) / lambda;
                         Fx += dx / dt * (1./(1 << max_level)) * vol_fraction * lambda * (new_f[cell][1] - new_f[cell][3] + new_f[cell][5] - new_f[cell][6] - new_f[cell][7] + new_f[cell][8]);
@@ -1285,7 +1255,7 @@ std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level,
 
 
 template<class Field>
-void save_solution(Field & f, double eps, std::size_t ite, std::string ext="")
+void save_solution(Field & f, double eps, std::size_t ite, double lambda, std::string ext="")
 {
     using value_t = typename Field::value_type;
     auto mesh = f.mesh();
@@ -1359,7 +1329,21 @@ int main(int argc, char *argv[])
             using coord_index_t = typename samurai::MRMesh<Config>::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
 
-            auto f = init_f(mesh);
+
+            const double radius = 1./32.; // Radius of the obstacle
+            const double Re = 1200; // Reynolds number
+            const double rho0 = 1.; // Reference density
+            const double mu = 5.e-6; // Bulk viscosity
+            const double zeta = 10. * mu; // Shear viscosity
+            const double u0 = mu * Re / (2. * rho0 * radius); // Reference velocity
+            
+            // std::string momenti("Geier"); // Momenta by Geier
+            std::string momenti("Lallemand"); // Momenta by Lallemand
+
+            const double lambda = 1.; // Lattice velocity
+
+
+            auto f = init_f(mesh, radius, rho0, u0, lambda, momenti);
 
             double T = 1000.;
             double dx = 1.0 / (1 << max_level);
@@ -1404,12 +1388,11 @@ int main(int argc, char *argv[])
                 }
 
                 if (nb_ite % howoften == 0) {
-                    save_solution(f, eps, nb_ite/howoften); // Before applying the scheme
+                    save_solution(f, eps, nb_ite/howoften, lambda, "Re_"+std::to_string(Re)); // Before applying the scheme
                     time_frames_saved<<(nb_ite*dt)<<std::endl;
                 }
 
-                auto CDCL = one_time_step(f, update_bc_for_level, pred_coeff);
-
+                auto CDCL = one_time_step(f, update_bc_for_level, pred_coeff, rho0, u0, lambda, mu, zeta, radius, momenti);
                 std::cout<<std::endl<<"CD = "<<CDCL.first<<"   CL = "<<CDCL.second<<std::endl;
                 CD<<CDCL.first<<std::endl;
                 CL<<CDCL.second<<std::endl;
