@@ -45,7 +45,7 @@ double sq = 1.75;//1./(.5 + sigma_q);
 double sxy = 1.5;//1./(.5 + sigma_xy);
 
 
-double gm = 1.4;
+double gm = 1.4; // Gas constant
 
 
 
