@@ -16,13 +16,11 @@
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
-
 /// Launching the timer
 void tic()
 {
     tic_timer = std::chrono::high_resolution_clock::now();
 }
-
 /// Stopping the timer and returning the duration in seconds
 double toc()
 {
@@ -31,35 +29,13 @@ double toc()
     return time_span.count();
 }
 
-// double lambda = 1./0.3; //4.0; // We always used it
-// double lambda = 1./0.2499; //4.0;
-
-double lambda = 1./0.2;
-
-double sigma_q = 0.5;
-double sigma_xy = 0.5;
-
-// double sq = 1.6;// For the sod tube
-double sq = 1.75;//1./(.5 + sigma_q);
-// double sxy = 0.5;//1./(.5 + sigma_xy);
-double sxy = 1.5;//1./(.5 + sigma_xy);
-
-
 double gm = 1.4; // Gas constant
 
-
-
 template<class Config>
-auto init_f(samurai::MRMesh<Config> &mesh, double t)
+auto init_f(samurai::MRMesh<Config> &mesh, int config, double lambda)
 {
     constexpr std::size_t nvel = 16;
     using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
-
-    samurai::BC<2> bc{ {{ {samurai::BCType::neumann, 0.0},
-                       {samurai::BCType::neumann, 0.0},
-                       {samurai::BCType::neumann, 0.0},
-                       {samurai::BCType::neumann, 0.0}
-                    }} };
 
     auto f = samurai::make_field<double, nvel>("f", mesh);
     f.fill(0);
@@ -73,191 +49,75 @@ auto init_f(samurai::MRMesh<Config> &mesh, double t)
         double qx = 0.0; // x-momentum
         double qy = 0.0; // y-momentum
         double e = 0.0;
-
         double p = 1.0;
 
-        // rho = (y < 0.5 + 0.002 * cos(2.*M_PI*2*x)) ? 0.5 : 1.0;
-        // qx  = rho * (y < 0.5 + 0.025 * sin(2*M_PI*2*x)) ? -0.5 : 0.5;
-        // // qx = - 0.5 * rho * (tanh(60 * (y - 0.5 + 0.025 * sin(2*M_PI*4*x))));
-        // qy = -0.05;
-        // p = (y < 0.5 + 0.002 * cos(2.*M_PI*2*x)) ? 0.5 : 0.1;
+        std::array<double, 4> rho_quad, u_x_quad, u_y_quad, p_quad;
+
+        switch(config)  {
+            case 11: {
+                rho_quad = {0.8, 0.5313, 0.5313, 1.};
+                u_x_quad = {0.1, 0.8276, 0.1, 0.1};
+                u_y_quad = {0., 0.,  0.7276, 0.0};
+                p_quad   = {0.4, 0.4,  0.4, 1.}; break;
+            }
+            case 12:    {
+                rho_quad = {0.8, 1., 1., 0.5313};
+                u_x_quad = {0., 0.7276, 0., 0.0};
+                u_y_quad = {0., 0.,  0.7276, 0.0};
+                p_quad   = {1., 1.,  1., 0.4}; break;
+            }
+            case 17:    {
+                rho_quad = {1.0625, 2., 0.5197, 1.};
+                u_x_quad = {0., 0., 0., 0.0};
+                u_y_quad = {0.2145, -0.3,  -1.1259, 0.0};
+                p_quad   = {0.4, 1.,  0.4, 1.5}; break;               
+            }
+            case 3: {
+                rho_quad = {0.138, 0.5323, 0.5323, 1.5};
+                u_x_quad = {1.206, 1.206, 0., 0.0};
+                u_y_quad = {1.206, 0.,  1.206, 0.0};
+                p_quad   = {0.029, 0.3, 0.3, 1.5}; break;               
+            }
+            default:    {
+                rho_quad = {0.8, 1., 1., 0.5313};
+                u_x_quad = {0., 0.7276, 0., 0.0};
+                u_y_quad = {0., 0.,  0.7276, 0.0};
+                p_quad   = {1., 1.,  1., 0.4};              
+            }
+        }
 
         if (x < 0.5)    {
             if (y < 0.5)    {
-                // 3
-                // rho = 1.0;
-                // qx = rho * 0.75;
-                // qy = rho * 0.5;
-                // double p = 1.0;
-
-                // rho = 0.5;
-                // qx = rho * 0.0;
-                // qy = rho * 0.0;
-                // p = 1.0;
-
-                // // Configuration 11
-                // rho = 0.8;
-                // qx = rho * 0.1;
-                // qy = rho * 0.0;
-                // p = 0.4;
-
-
-                // // Configuration 12
-                rho = 0.8;
-                qx = rho * 0.0;
-                qy = rho * 0.0;
-                p = 1.;
-
-                //// Configuration 17
-                // rho = 1.0625;
-                // qx = rho * 0.;
-                // qy = rho * 0.2145;
-                // p = 0.4;
-
-                //// Configuration 3
-                // rho = 0.138;
-                // qx = rho * 1.206;
-                // qy = rho * 1.206;
-                // p = 0.029;
-
+                rho =       rho_quad[0];
+                qx  = rho * u_x_quad[0];
+                qy  = rho * u_y_quad[0];
+                p   =         p_quad[0];
             }
             else
             {
-                // 2
-                // rho = 2.0;
-                // qx = rho * (-0.75);
-                // qy = rho * (0.5);
-                // double p = 1.0;
-
-                // rho = 0.5;
-                // qx = rho * 0.7276;
-                // qy = rho * 0.0;
-                // p = 1.0;
-
-                // // Configuration 11
-
-                // rho = 0.5313;
-                // qx = rho * 0.8276;
-                // qy = rho * 0.0;
-                // p = 0.4;
-
-
-                // // Configuration 12
-
-                rho = 1.;
-                qx = rho * 0.7276;
-                qy = rho * 0.0;
-                p = 1.;
-
-
-                //// Configuration 17
-                // rho = 2.;
-                // qx = rho * 0.;
-                // qy = rho * (-0.3);
-                // p = 1.;
-
-                // // Configuration 3
-                // rho = 0.5323;
-                // qx = rho * 1.206;
-                // qy = rho * 0.;
-                // p = 0.3;
+                rho =       rho_quad[1];
+                qx  = rho * u_x_quad[1];
+                qy  = rho * u_y_quad[1];
+                p   =         p_quad[1];              
             }
         }
         else
         {
             if (y < 0.5)    {
-                // 4
-                // rho = 3.0;
-                // qx = rho * (0.75);
-                // qy = rho * (-0.5);
-                // double p = 1.0;
-
-                // rho = 1.0;
-                // qx = rho * 0.0;
-                // qy = rho * 0.7276;
-                // p = 1.0;
-
-                // // Configuration 11
-                // rho = 0.5313;
-                // qx = rho * 0.1;
-                // qy = rho * 0.7276;
-                // p = 0.4;
-
-                // // // Configuration 12
-                rho = 1.;
-                qx = rho * 0.0;
-                qy = rho * 0.7276;
-                p = 1.;
-
-                //// Configuration 17
-                // rho = 0.5197;
-                // qx = rho * 0.;
-                // qy = rho * (-1.1259);
-                // p = 0.4;
-
-                //// Configuration 3
-                // rho = 0.5323;
-                // qx = rho * 0.;
-                // qy = rho * 1.206;
-                // p = 0.3;
+                rho =       rho_quad[2];
+                qx  = rho * u_x_quad[2];
+                qy  = rho * u_y_quad[2];
+                p   =         p_quad[2];
+            
             }
             else
             {
-                // 1
-                // rho = 1.0;
-                // qx = rho * (-0.75);
-                // qy = rho * (-0.5);
-                // double p = 1.0;
-
-                // rho = 0.5313;
-                // qx = rho * 0.0;
-                // qy = rho * 0.0;
-                // p = 0.4;
-
-                // // Configuration 11
-                // rho = 1.;
-                // qx = rho * 0.1;
-                // qy = rho * 0.0;
-                // p = 1.;
-
-                // // // Configuration 12
-                rho = 0.5313;
-                qx = rho * 0.0;
-                qy = rho * 0.0;
-                p = 0.4;
-
-
-                //// Configuration 17
-                // rho = 1.;
-                // qx = rho * 0.;
-                // qy = rho * (-0.4);
-                // p = 1.;
-
-                //// Configuration 3
-                // rho = 1.5;
-                // qx = rho * 0.;
-                // qy = rho * 0.;
-                // p = 1.5;
+                rho =       rho_quad[3];
+                qx  = rho * u_x_quad[3];
+                qy  = rho * u_y_quad[3];
+                p   =         p_quad[3];
             }
         }
-
-        // A sort of sod shock tube
-
-        // if (x < 0.5)    {
-        //     rho = 1.;
-        //     qx = 0.;
-        //     qy = 0.;
-        //     p = 1.;
-        // }
-        // else
-        // {
-        //     rho = 0.125;
-        //     qx = 0.;
-        //     qy = 0.;
-        //     p = 0.1;
-        // }
-
-
 
         e = p / (gm - 1.) + 0.5 * (qx*qx + qy*qy) / rho;
 
@@ -283,8 +143,8 @@ auto init_f(samurai::MRMesh<Config> &mesh, double t)
                         + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0;
         double m2_3 = 0.0;
 
-        double m3_1 = gm*(m1_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0);
-        double m3_2 = gm*(m2_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0);
+        double m3_1 = gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0);
+        double m3_2 = gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0);
         double m3_3 = 0.0;
 
         // We come back to the distributions
@@ -307,49 +167,15 @@ auto init_f(samurai::MRMesh<Config> &mesh, double t)
         f[cell][13] = .25 * m3_0                    + .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
         f[cell][14] = .25 * m3_0 - .5/lambda * (m3_1)                    + .25/(lambda*lambda) * m3_3;
         f[cell][15] = .25 * m3_0                    - .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
-
     });
-
     return f;
 }
-
-// template<class coord_index_t>
-// auto compute_prediction(std::size_t min_level, std::size_t max_level)
-// {
-//     coord_index_t i = 0, j = 0;
-//     std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
-
-//     for(std::size_t k=0; k<max_level-min_level+1; ++k)
-//     {
-//         int size = (1<<k);
-//         data[k].resize(8);
-//         for (int l = 0; l < size; ++l)
-//         {
-//             // Be careful, there is no sign on this fluxes
-
-//             // Along x (vertical edge)
-//             data[k][0] += prediction(k, i*size - 1, j*size + l); // In W
-//             data[k][1] += prediction(k, (i+1)*size - 1, j*size + l); // Out E
-//             data[k][2] += prediction(k, i*size + l, j*size - 1); // In S
-//             data[k][3] += prediction(k, i*size + l, (j+1)*size - 1); // Out N
-
-//             // Along y (horizontal edge)
-//             data[k][4] += prediction(k, (i+1)*size, j*size + l); // In E
-//             data[k][5] += prediction(k, i*size, j*size + l); // Out W
-//             data[k][6] += prediction(k, i*size + l, (j+1)*size); // In N
-//             data[k][7] += prediction(k, i*size + l, j*size); // Out S
-//         }
-//     }
-//     return data;
-// }
-
 
 template<class coord_index_t>
 auto compute_prediction(std::size_t min_level, std::size_t max_level)
 {
     coord_index_t i = 0, j = 0;
     std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
-
 
     auto rotation_of_pi_over_two = [] (int alpha, int k, int h)
     {
@@ -391,161 +217,28 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
     for(std::size_t k = 0; k < max_level - min_level + 1; ++k)
     {
         int size = (1<<k);
+        data[k].resize(4);
 
-
-        data[k].resize(12);
-
-
-        // Parallel velocities
-
-        for (int alpha = 0; alpha <= 3; ++alpha)
+        for (int alpha = 0; alpha < 4; ++alpha)
         {
-
-            // std::
-
             for (int l = 0; l < size; ++l)
             {
-                // The reference direction from which the other ones are computed
-                // is that of (1, 0)
+                // The reference direction from which the other ones are computed is that of (1, 0)
                 auto rotated_in  = rotation_of_pi_over_two(alpha, tau(k,  i   * size - 1), tau(k, j * size + l));
                 auto rotated_out = rotation_of_pi_over_two(alpha, tau(k, (i+1)* size - 1), tau(k, j * size + l));
 
-                data[k][0 + 2 * alpha] += prediction(k, tau_inverse(k, rotated_in.first ), tau_inverse(k, rotated_in.second ));
-                data[k][1 + 2 * alpha] += prediction(k, tau_inverse(k, rotated_out.first), tau_inverse(k, rotated_out.second));
-
-                // For the cells inside the domain, we can already
-                // Combine entering and exiting fluxes and
+                // For the cells inside the domain, we can already combine entering and exiting fluxes and
                 // we have a compensation of many cells.
-                data[k][8 + alpha] += (prediction(k, tau_inverse(k, rotated_in.first ), tau_inverse(k, rotated_in.second ))
-                                     - prediction(k, tau_inverse(k, rotated_out.first), tau_inverse(k, rotated_out.second)));
-
+                data[k][alpha] += (prediction(k, tau_inverse(k, rotated_in.first ), tau_inverse(k, rotated_in.second ))
+                                 - prediction(k, tau_inverse(k, rotated_out.first), tau_inverse(k, rotated_out.second)));
             }
         }
-
     }
     return data;
 }
 
-
-// I do many separate functions because the return type
-// is not necessarely the same between directions and I want to avoid
-// using a template, which indeed comes back to the same than this.
-template<class Mesh>
-auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, typename Mesh::mesh_id_t type)
-{
-    const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
-    const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
-
-    std::size_t coeff = 1 << (mesh.max_level() - level); // When we are not at the finest level, we must translate more
-
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), - coeff*xp)),
-                                              samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * yp))), // Removing NE
-                                   samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * yp))), // Removing SE
-                        mesh[type][level]);//.on(level);
-}
-template<class Mesh>
-auto get_adjacent_boundary_north(Mesh & mesh, std::size_t level, typename Mesh::mesh_id_t type)
-{
-    const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
-    const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
-
-    std::size_t coeff = 1 << (mesh.max_level() - level);
-
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * yp)),
-                                              samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * xp))), // Removing NE
-                                   samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * xp))), // Removing NW
-                        mesh[type][level]);//.on(level);
-}
-template<class Mesh>
-auto get_adjacent_boundary_west(Mesh & mesh, std::size_t level, typename Mesh::mesh_id_t type)
-{
-    const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
-    const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
-
-    std::size_t coeff = 1 << (mesh.max_level() - level);
-
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * xp)),
-                                              samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * yp))), // Removing NW
-                                   samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * yp))), // Removing SW
-                        mesh[type][level]);//.on(level);
-}
-template<class Mesh>
-auto get_adjacent_boundary_south(Mesh & mesh, std::size_t level, typename Mesh::mesh_id_t type)
-{
-    const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
-    const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
-
-    std::size_t coeff = 1 << (mesh.max_level() - level);
-
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * yp)),
-                                              samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * xp))), // Removing SE
-                                   samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * xp))), // Removing SW
-                        mesh[type][level]);//.on(level);
-}
-template<class Mesh>
-auto get_adjacent_boundary_northeast(Mesh & mesh, std::size_t level, typename Mesh::mesh_id_t type)
-{
-    const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
-    const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
-    const xt::xtensor_fixed<int, xt::xshape<2>> d11{1, 1};
-
-    std::size_t coeff = 1 << (mesh.max_level() - level);
-
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * d11)),
-                                              samurai::translate(mesh.domain(), - coeff * yp)), // Removing vertical strip
-                                   samurai::translate(mesh.domain(), - coeff * xp)), // Removing horizontal strip
-                        mesh[type][level]);//.on(level);
-}
-template<class Mesh>
-auto get_adjacent_boundary_northwest(Mesh & mesh, std::size_t level, typename Mesh::mesh_id_t type)
-{
-    const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
-    const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
-    const xt::xtensor_fixed<int, xt::xshape<2>> d1m1{1, -1};
-
-    std::size_t coeff = 1 << (mesh.max_level() - level);
-
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * d1m1)),
-                                              samurai::translate(mesh.domain(), - coeff * yp)), // Removing vertical strip
-                                   samurai::translate(mesh.domain(), coeff * xp)), // Removing horizontal strip
-                        mesh[type][level]);//.on(level);
-}
-template<class Mesh>
-auto get_adjacent_boundary_southwest(Mesh & mesh, std::size_t level, typename Mesh::mesh_id_t type)
-{
-    const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
-    const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
-    const xt::xtensor_fixed<int, xt::xshape<2>> d11{1, 1};
-
-    std::size_t coeff = 1 << (mesh.max_level() - level);
-
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * d11)),
-                                              samurai::translate(mesh.domain(), coeff * yp)), // Removing vertical strip
-                                   samurai::translate(mesh.domain(), coeff * xp)), // Removing horizontal strip
-                        mesh[type][level]);//.on(level);
-}
-template<class Mesh>
-auto get_adjacent_boundary_southeast(Mesh & mesh, std::size_t level, typename Mesh::mesh_id_t type)
-{
-    const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
-    const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
-    const xt::xtensor_fixed<int, xt::xshape<2>> d1m1{1, -1};
-
-    std::size_t coeff = 1 << (mesh.max_level() - level);
-
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * d1m1)),
-                                              samurai::translate(mesh.domain(), coeff * yp)), // Removing vertical strip
-                                   samurai::translate(mesh.domain(), -coeff * xp)), // Removing horizontal strip
-                        mesh[type][level]);//.on(level);
-}
-
-
-
-
-
-// We have to average only the fluxes
 template<class Field, class Func, class pred>
-void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, const pred& pred_coeff, std::size_t iter)
+void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff, double lambda, double sq, double sxy)
 {
     constexpr std::size_t nvel = Field::size;
     using coord_index_t = typename Field::interval_t::coord_index_t;
@@ -557,960 +250,147 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
     auto max_level = mesh.max_level();
 
     samurai::mr_projection(f);
-    // if (max_level != min_level && iter == 105){
-    //     std::stringstream s;
-    //     s << "before_LB_scheme_projection_"<<iter;
-    //     auto h5file = samurai::Hdf5(s.str().data());
-    //     h5file.add_field_by_level(mesh, f);
-    // }
     for (std::size_t level = min_level - 1; level <= max_level; ++level)
     {
         update_bc_for_level(f, level); // It is important to do so
     }
-    // if (max_level != min_level && iter == 105){
-    //     std::stringstream s;
-    //     s << "before_LB_scheme_update_bc_"<<iter;
-    //     auto h5file = samurai::Hdf5(s.str().data());
-    //     h5file.add_field_by_level(mesh, f);
-    // }
     samurai::mr_prediction(f, update_bc_for_level);
-    // if (max_level != min_level && iter == 105){
-    //     std::stringstream s;
-    //     s << "before_LB_scheme_prediction_"<<iter;
-    //     auto h5file = samurai::Hdf5(s.str().data());
-    //     h5file.add_field_by_level(mesh, f);
-    // }
-    // f.update_bc(); // It is important to do so
-
     samurai::mr_prediction_overleaves(f, update_bc_for_level);
-    // f.update_bc(); // It is important to do so
-
-    // if (max_level != min_level && iter == 105){
-    //     std::stringstream s;
-    //     s << "before_LB_scheme_overleaves_"<<iter;
-    //     auto h5file = samurai::Hdf5(s.str().data());
-    //     h5file.add_field_by_level(mesh, f);
-    // }
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
-
-    // This stored the fluxes computed at the level
-    // of the overleaves
-    Field fluxes{"fluxes", mesh};
+    Field fluxes{"fluxes", mesh}; // This stored the fluxes computed at the level of the overleaves
     fluxes.array().fill(0.);
-
-
     Field advected{"advected", mesh};
     advected.array().fill(0.);
-
-
-    double time_advection_overleaves_boundary = 0.;
-    double time_advection_overleaves_inside = 0.;
-    double time_collision_overleaves = 0.;
-
-    spdlog::stopwatch sw;
-
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
 
-        if (level == max_level) {
-            spdlog::info("Finest level treatment");
-
-            sw.reset();
-
-            spdlog::stopwatch sw_boundary;
-
-            sw_boundary.reset();
-
-            auto leaves_east = get_adjacent_boundary_east(mesh, max_level, mesh_id_t::cells);
-            leaves_east.on(max_level)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                // We enforce a flat BC
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
-                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k - 1, h    );
-                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h - 1);
-                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k    , h    ); // Direct evaluation of the BC
-                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
-                }
-            });
-            spdlog::info("COMPUTATION ADJACENT EAST FINEST = {:.3}", sw_boundary);
-            sw_boundary.reset();
-
-            auto leaves_north = get_adjacent_boundary_north(mesh, max_level, mesh_id_t::cells);
-            leaves_north.on(max_level)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                // We enforce a flat BC
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
-                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k - 1, h    );
-                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h - 1);
-                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k + 1 ,h    );
-                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h    );
-                }
-            });
-            spdlog::info("COMPUTATION ADJACENT NORTH FINEST = {:.3}", sw_boundary);
-            sw_boundary.reset();
-
-            auto leaves_northeast = get_adjacent_boundary_northeast(mesh, max_level, mesh_id_t::cells);
-            leaves_northeast.on(max_level)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                // We enforce a bounce-back
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
-                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k - 1, h    );
-                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h - 1);
-                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k    , h    );
-                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h    );
-                }
-            });
-            spdlog::info("COMPUTATION ADJACENT NORTH EAST FINEST = {:.3}", sw_boundary);
-            sw_boundary.reset();
-
-            auto leaves_west = get_adjacent_boundary_west(mesh, max_level, mesh_id_t::cells);
-            leaves_west.on(max_level)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                // We enforce a bounce-back
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
-                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k    , h    );
-                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h - 1);
-                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k + 1, h    );
-                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
-                }
-            });
-            spdlog::info("COMPUTATION ADJACENT WEST FINEST = {:.3}", sw_boundary);
-            sw_boundary.reset();
-
-            auto leaves_northwest = get_adjacent_boundary_northwest(mesh, max_level, mesh_id_t::cells);
-            leaves_northwest.on(max_level)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                // We enforce a bounce-back
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
-                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k    , h    );
-                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h - 1);
-                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k + 1, h    );
-                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h    );
-                }
-            });
-            spdlog::info("COMPUTATION ADJACENT NORTH WEST FINEST = {:.3}", sw_boundary);
-            sw_boundary.reset();
-
-
-            auto leaves_south = get_adjacent_boundary_south(mesh, max_level, mesh_id_t::cells);
-            leaves_south.on(max_level)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                // We enforce a bounce-back
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
-                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k - 1, h    );
-                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h    );
-                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k + 1, h    );
-                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
-                }
-            });
-            spdlog::info("COMPUTATION ADJACENT SOUTH FINEST = {:.3}", sw_boundary);
-            sw_boundary.reset();
-
-
-            auto leaves_southwest = get_adjacent_boundary_southwest(mesh, max_level, mesh_id_t::cells);
-            leaves_southwest.on(max_level)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                // We enforce a bounce-back
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
-                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k    , h    );
-                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h    );
-                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k + 1, h    );
-                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
-                }
-            });
-
-            spdlog::info("COMPUTATION ADJACENT SOUTH WEST FINEST = {:.3}", sw_boundary);
-            sw_boundary.reset();
-
-
-            auto leaves_southeast = get_adjacent_boundary_southeast(mesh, max_level, mesh_id_t::cells);
-            leaves_southeast.on(max_level)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                // We enforce a bounce-back
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
-                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k - 1, h    );
-                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h    );
-                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k    , h    );
-                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
-                }
-            });
-
-            spdlog::info("COMPUTATION ADJACENT SOUTH EAST FINEST = {:.3}", sw_boundary);
-            sw_boundary.reset();
-
-            spdlog::info("Advection boundary finest level = {:.3} s", sw);
-            sw.reset();
-
-            // Advection far from the boundary
-            auto tmp1 = samurai::union_(samurai::union_(samurai::union_(leaves_east, leaves_north), leaves_west), leaves_south);
-            auto tmp2 = samurai::union_(samurai::union_(samurai::union_(leaves_northeast, leaves_northwest), leaves_southwest), leaves_southeast);
-            auto all_leaves_boundary = samurai::union_(tmp1, tmp2);
-            auto internal_leaves = samurai::difference(mesh[mesh_id_t::cells][max_level],
-                                      all_leaves_boundary).on(max_level); // It is very important to project at this point
-
-            internal_leaves([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                // We enforce a bounce-back
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
-                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k - 1, h    );
-                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h - 1);
-                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k + 1, h    );
-                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
-                }
-            });
-
-            spdlog::info("Advection inside finest level = {:.3}", sw);
-            sw.reset();
-
-            // Its time for collision which is local
-            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
-                                       mesh[mesh_id_t::cells][max_level]);
+        auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                            mesh[mesh_id_t::cells][level]);
+        
+        if (level == max_level) { // Advection at the finest level
 
             leaves([&](auto& interval, auto& index) {
                 auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
+                auto h = index[0]; // Logical index in y
 
-                auto f0 = xt::eval(advected(0, level, k, h));
-                auto f1 = xt::eval(advected(1, level, k, h));
-                auto f2 = xt::eval(advected(2, level, k, h));
-                auto f3 = xt::eval(advected(3, level, k, h));
-
-                auto f4 = xt::eval(advected(4, level, k, h));
-                auto f5 = xt::eval(advected(5, level, k, h));
-                auto f6 = xt::eval(advected(6, level, k, h));
-                auto f7 = xt::eval(advected(7, level, k, h));
-
-                auto f8  = xt::eval(advected(8,  level, k, h));
-                auto f9  = xt::eval(advected(9,  level, k, h));
-                auto f10 = xt::eval(advected(10, level, k, h));
-                auto f11 = xt::eval(advected(11, level, k, h));
-
-                auto f12 = xt::eval(advected(12, level, k, h));
-                auto f13 = xt::eval(advected(13, level, k, h));
-                auto f14 = xt::eval(advected(14, level, k, h));
-                auto f15 = xt::eval(advected(15, level, k, h));
-
-                // We compute the advected momenti
-                auto m0_0 = xt::eval(                 f0 + f1 + f2 + f3) ;
-                auto m0_1 = xt::eval(lambda        * (f0      - f2      ));
-                auto m0_2 = xt::eval(lambda        * (     f1      - f3));
-                auto m0_3 = xt::eval(lambda*lambda * (f0 - f1 + f2 - f3));
-
-                auto m1_0 = xt::eval(                 f4 + f5 + f6 + f7) ;
-                auto m1_1 = xt::eval(lambda        * (f4      - f6      ));
-                auto m1_2 = xt::eval(lambda        * (     f5      - f7));
-                auto m1_3 = xt::eval(lambda*lambda * (f4 - f5 + f6 - f7));
-
-                auto m2_0 = xt::eval(                 f8 + f9 + f10 + f11) ;
-                auto m2_1 = xt::eval(lambda        * (f8      - f10      ));
-                auto m2_2 = xt::eval(lambda        * (     f9       - f11));
-                auto m2_3 = xt::eval(lambda*lambda * (f8 - f9 + f10 - f11));
-
-                auto m3_0 = xt::eval(                 f12 + f13 + f14 + f15) ;
-                auto m3_1 = xt::eval(lambda        * (f12       - f14      ));
-                auto m3_2 = xt::eval(lambda        * (      f13       - f15));
-                auto m3_3 = xt::eval(lambda*lambda * (f12 - f13 + f14 - f15));
-
-
-                m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
-                m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
-                m0_3 = (1 - sxy) * m0_3;
-
-
-                m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
-                m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
-                m1_3 = (1 - sxy) * m1_3;
-
-                m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
-                m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
-                m2_3 = (1 - sxy) * m2_3;
-
-                m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-                m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
-                m3_3 = (1 - sxy) * m3_3;
-
-
-                new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
-                new_f(1, level, k, h) =  .25 * m0_0                    + .5/lambda * (m0_2) - .25/(lambda*lambda) * m0_3;
-                new_f(2, level, k, h) =  .25 * m0_0 - .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
-                new_f(3, level, k, h) =  .25 * m0_0                    - .5/lambda * (m0_2) - .25/(lambda*lambda) * m0_3;
-
-                new_f(4, level, k, h) =  .25 * m1_0 + .5/lambda * (m1_1)                    + .25/(lambda*lambda) * m1_3;
-                new_f(5, level, k, h) =  .25 * m1_0                    + .5/lambda * (m1_2) - .25/(lambda*lambda) * m1_3;
-                new_f(6, level, k, h) =  .25 * m1_0 - .5/lambda * (m1_1)                    + .25/(lambda*lambda) * m1_3;
-                new_f(7, level, k, h) =  .25 * m1_0                    - .5/lambda * (m1_2) - .25/(lambda*lambda) * m1_3;
-
-                new_f(8, level, k, h)  =  .25 * m2_0 + .5/lambda * (m2_1)                    + .25/(lambda*lambda) * m2_3;
-                new_f(9, level, k, h)  =  .25 * m2_0                    + .5/lambda * (m2_2) - .25/(lambda*lambda) * m2_3;
-                new_f(10, level, k, h) =  .25 * m2_0 - .5/lambda * (m2_1)                    + .25/(lambda*lambda) * m2_3;
-                new_f(11, level, k, h) =  .25 * m2_0                    - .5/lambda * (m2_2) - .25/(lambda*lambda) * m2_3;
-
-                new_f(12, level, k, h) =  .25 * m3_0 + .5/lambda * (m3_1)                    + .25/(lambda*lambda) * m3_3;
-                new_f(13, level, k, h) =  .25 * m3_0                    + .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
-                new_f(14, level, k, h) =  .25 * m3_0 - .5/lambda * (m3_1)                    + .25/(lambda*lambda) * m3_3;
-                new_f(15, level, k, h) =  .25 * m3_0                    - .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
-
-
+                // We enforce a bounce-back
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    { // We have 4 schemes
+                    advected(0 + 4 * scheme_n, level, k, h) =  f(0 + 4 * scheme_n, level, k - 1, h    );
+                    advected(1 + 4 * scheme_n, level, k, h) =  f(1 + 4 * scheme_n, level, k,     h - 1);
+                    advected(2 + 4 * scheme_n, level, k, h) =  f(2 + 4 * scheme_n, level, k + 1, h    );
+                    advected(3 + 4 * scheme_n, level, k, h) =  f(3 + 4 * scheme_n, level, k,     h + 1);
+                }
             });
-
-            spdlog::info("Collision finest level = {:.3}", sw);
         }
-        else
+        else // Advection at the coarse levels using the overleaves
         {
             auto lev_p_1 = level + 1;
             std::size_t j = max_level - (lev_p_1);
+            double coeff = 1. / (1 << (2*j)); // ATTENTION A LA DIMENSION 2 !!!!
 
-            spdlog::info("Overleaves treatment");
-            sw.reset();
-            // This is necessary because the only overleaves we have to advect
-            // on are the ones superposed with the leaves to which we come back
-            // eventually in the process
-            auto overleaves_east = samurai::intersection(get_adjacent_boundary_east(mesh, lev_p_1, mesh_id_t::overleaves),
-                                                mesh[mesh_id_t::cells][level]);
 
-            auto overleaves_northeast = samurai::intersection(get_adjacent_boundary_northeast(mesh, lev_p_1, mesh_id_t::overleaves),
-                                                mesh[mesh_id_t::cells][level]);
-
-            auto overleaves_southeast = samurai::intersection(get_adjacent_boundary_southeast(mesh, lev_p_1, mesh_id_t::overleaves),
-                                                mesh[mesh_id_t::cells][level]);
-
-            auto touching_east = samurai::union_(samurai::union_(overleaves_east, overleaves_northeast),
-                                        overleaves_southeast);
-
-            // General
-            touching_east.on(lev_p_1)([&](auto& interval, auto& index) {
+            leaves.on(level + 1)([&](auto& interval, auto& index) { // This are overleaves
                 auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-
-                    for(auto &c: pred_coeff[j][0].coeff) // In W
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][1].coeff) // Out E
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][3].coeff) // Out N
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][5].coeff) // Out W
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-
-                    for(auto &c: pred_coeff[j][7].coeff) // Out S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-                }
-            });
-            // Corrections
-            overleaves_east.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-                    for(auto &c: pred_coeff[j][2].coeff) // In S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][6].coeff) // In N
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    fluxes(2 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(2 + 4 * scheme_n, lev_p_1, k, h);
-                }
-            });
-
-            overleaves_northeast.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-                    for(auto &c: pred_coeff[j][2].coeff) // In S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    fluxes(3 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(3 + 4 * scheme_n, lev_p_1, k, h);
-                    fluxes(2 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(2 + 4 * scheme_n, lev_p_1, k, h);
-                }
-            });
-
-            overleaves_southeast.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-
-                    fluxes(1 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(1 + 4 * scheme_n, lev_p_1, k, h);
-
-                    for(auto &c: pred_coeff[j][6].coeff) // In N
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    fluxes(2 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(2 + 4 * scheme_n, lev_p_1, k, h);
-                }
-
-            });
-
-
-            auto overleaves_west = samurai::intersection(get_adjacent_boundary_west(mesh, lev_p_1, mesh_id_t::overleaves),
-                                                mesh[mesh_id_t::cells][level]);
-
-            auto overleaves_northwest = samurai::intersection(get_adjacent_boundary_northwest(mesh, lev_p_1, mesh_id_t::overleaves),
-                                                mesh[mesh_id_t::cells][level]);
-
-            auto overleaves_southwest = samurai::intersection(get_adjacent_boundary_southwest(mesh, lev_p_1, mesh_id_t::overleaves),
-                                                mesh[mesh_id_t::cells][level]);
-
-            auto touching_west = samurai::union_(samurai::union_(overleaves_west, overleaves_northwest),
-                                        overleaves_southwest);
-
-            touching_west.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-
-                    for(auto &c: pred_coeff[j][1].coeff) // Out E
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][3].coeff) // Out N
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-
-                    for(auto &c: pred_coeff[j][4].coeff) // In E
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][5].coeff) // Out W
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][7].coeff) // Out S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-                }
-            });
-
-            overleaves_west.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-                    fluxes(0 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(0 + 4 * scheme_n, lev_p_1, k, h);
-
-                    for(auto &c: pred_coeff[j][2].coeff) // In S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][6].coeff) // In N
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-                }
-            });
-
-            overleaves_northwest.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-                    fluxes(0 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(0 + 4 * scheme_n, lev_p_1, k, h);
-
-                    for(auto &c: pred_coeff[j][2].coeff) // In S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    fluxes(3 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(3 + 4 * scheme_n, lev_p_1, k, h);
-
-                }
-            });
-
-            overleaves_southwest.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-                    fluxes(0 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(0 + 4 * scheme_n, lev_p_1, k, h);
-
-                    fluxes(1 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(1 + 4 * scheme_n, lev_p_1, k, h);
-
-
-                    for(auto &c: pred_coeff[j][6].coeff) // In N
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-                }
-            });
-
-
-            auto overleaves_south = samurai::intersection(get_adjacent_boundary_south(mesh, lev_p_1, mesh_id_t::overleaves),
-                                                mesh[mesh_id_t::cells][level]);
-
-            auto overleaves_north = samurai::intersection(get_adjacent_boundary_north(mesh, lev_p_1, mesh_id_t::overleaves),
-                                                mesh[mesh_id_t::cells][level]);
-
-
-            auto north_and_south = samurai::union_(overleaves_south, overleaves_north);
-
-            north_and_south.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-
-                    for(auto &c: pred_coeff[j][0].coeff) // In W
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][1].coeff) // Out E
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(0 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(0 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][3].coeff) // Out N
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-
-                    for(auto &c: pred_coeff[j][4].coeff) // In E
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][5].coeff) // Out W
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(2 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(2 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-                    for(auto &c: pred_coeff[j][7].coeff) // Out S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) -=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-                }
-
-            });
-
-
-            overleaves_south.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-
-                    fluxes(1 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(1 + 4 * scheme_n, lev_p_1, k, h);
-
-
-                    for(auto &c: pred_coeff[j][6].coeff) // In N
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(3 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-                }
-
-            });
-
-            overleaves_north.on(lev_p_1)([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
-
-                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-                    for(auto &c: pred_coeff[j][2].coeff) // In S
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f(1 + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-
-                    fluxes(3 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) *  f(3 + 4 * scheme_n, lev_p_1, k, h);
-
-                }
-
-            });
-
-            // time_advection_overleaves_boundary += toc();
-
-            // tic();
-
-
-            time_advection_overleaves_boundary += sw.elapsed().count();
-            sw.reset();
-
-
-            // // To update
-            auto overleaves_far_boundary = samurai::difference(mesh[mesh_id_t::cells][level],
-                                                      samurai::union_(samurai::union_(touching_east, touching_west),
-                                                             north_and_south)).on(lev_p_1);  // Again, it is very important to project before using
-
-            overleaves_far_boundary([&](auto& interval, auto& index) {
-                auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
+                auto h = index[0]; // Logical index in y
 
                 for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
 
                     auto shift = 4 * scheme_n;
 
-                    for(auto &c: pred_coeff[j][8].coeff)
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
+                    for (std::size_t alpha = 0; alpha < 4; ++alpha) {
+                        for(auto &c: pred_coeff[j][alpha].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
 
-                        fluxes(0 + shift, lev_p_1, k, h) +=  c.second * f(0 + shift, lev_p_1, k + stencil_x, h + stencil_y);
+                            fluxes(alpha + shift, lev_p_1, k, h) +=  c.second * f(alpha + shift, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
                     }
-
-                    for(auto &c: pred_coeff[j][9].coeff)
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(1 + shift, lev_p_1, k, h) +=  c.second * f(1 + shift, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-
-                    for(auto &c: pred_coeff[j][10].coeff)
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(2 + shift, lev_p_1, k, h) +=  c.second * f(2 + shift, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
-
-                    for(auto &c: pred_coeff[j][11].coeff)
-                    {
-                        coord_index_t stencil_x, stencil_y;
-                        std::tie(stencil_x, stencil_y) = c.first;
-
-                        fluxes(3 + shift, lev_p_1, k, h) +=  c.second * f(3 + shift, lev_p_1, k + stencil_x, h + stencil_y);
-                    }
-
                 }
-
             });
-
-
-            time_advection_overleaves_inside += sw.elapsed().count();
-            sw.reset();
-
-            // Now that projection has been done, we have to come back on the leaves below the overleaves
-            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                             mesh[mesh_id_t::cells][level]);
-
+            
             leaves([&](auto& interval, auto& index) {
                 auto k = interval; // Logical index in x
-                auto h = index[0];    // Logical index in y
+                auto h = index[0]; // Logical index in y
 
-                auto two_k = 2*k;
-                auto two_k_p_1 = 2*k+1;
-                auto two_h = 2*h;
-                auto two_h_p_1 = 2*h+1;
+                for (int alpha = 0; alpha < 16; ++alpha)    {
+                    advected(alpha, level, k, h) = f(alpha, level, k, h) + coeff * 0.25 * (fluxes(alpha, lev_p_1, 2*k,   2*h  )
+                                                                                         + fluxes(alpha, lev_p_1, 2*k+1, 2*h  )
+                                                                                         + fluxes(alpha, lev_p_1, 2*k,   2*h+1)
+                                                                                         + fluxes(alpha, lev_p_1, 2*k+1, 2*h+1));
+                }
+            });
+        }
+        
+        leaves([&](auto& interval, auto& index) {
+            auto k = interval; // Logical index in x
+            auto h = index[0]; // Logical index in y
 
-                double coeff = 1. / (1 << (2*j)); // ATTENTION A LA DIMENSION 2 !!!!
+            // We compute the advected momenti
+            auto m0_0 = xt::eval(                 advected(0, level, k, h) + advected(1, level, k, h) + advected(2, level, k, h) + advected(3,  level, k, h ));
+            auto m0_1 = xt::eval(lambda        * (advected(0, level, k, h)                            - advected(2, level, k, h)                            ));
+            auto m0_2 = xt::eval(lambda        * (                           advected(1, level, k, h)                            - advected(3,  level, k, h)));
+            auto m0_3 = xt::eval(lambda*lambda * (advected(0, level, k, h) - advected(1, level, k, h) + advected(2, level, k, h) - advected(3,  level, k, h)));
 
+            auto m1_0 = xt::eval(                 advected(4, level, k, h) + advected(5, level, k, h) + advected(6, level, k, h) + advected(7,  level, k, h ));
+            auto m1_1 = xt::eval(lambda        * (advected(4, level, k, h)                            - advected(6, level, k, h)                            ));
+            auto m1_2 = xt::eval(lambda        * (                           advected(5, level, k, h)                            - advected(7,  level, k, h)));
+            auto m1_3 = xt::eval(lambda*lambda * (advected(4, level, k, h) - advected(5, level, k, h) + advected(6, level, k, h) - advected(7,  level, k, h)));
 
-                auto f0 = xt::eval(f(0, level, k, h) + coeff * 0.25 * (fluxes(0, lev_p_1, two_k,     two_h)
-                                                                     + fluxes(0, lev_p_1, two_k + 1, two_h)
-                                                                     + fluxes(0, lev_p_1, two_k,     two_h_p_1)
-                                                                     + fluxes(0, lev_p_1, two_k_p_1, two_h_p_1)));
+            auto m2_0 = xt::eval(                 advected(8, level, k, h) + advected(9, level, k, h) + advected(10, level, k, h) + advected(11,  level, k, h ));
+            auto m2_1 = xt::eval(lambda        * (advected(8, level, k, h)                            - advected(10, level, k, h)                            ));
+            auto m2_2 = xt::eval(lambda        * (                           advected(9, level, k, h)                             - advected(11,  level, k, h)));
+            auto m2_3 = xt::eval(lambda*lambda * (advected(8, level, k, h) - advected(9, level, k, h) + advected(10, level, k, h) - advected(11,  level, k, h)));
 
-                auto f1 = xt::eval(f(1, level, k, h) + coeff * 0.25 * (fluxes(1, lev_p_1, two_k,     two_h)
-                                                              + fluxes(1, lev_p_1, two_k_p_1, two_h)
-                                                              + fluxes(1, lev_p_1, two_k,     two_h_p_1)
-                                                              + fluxes(1, lev_p_1, two_k_p_1, two_h_p_1)));
+            auto m3_0 = xt::eval(                 advected(12, level, k, h) + advected(13, level, k, h) + advected(14, level, k, h) + advected(15,  level, k, h ));
+            auto m3_1 = xt::eval(lambda        * (advected(12, level, k, h)                             - advected(14, level, k, h)                            ));
+            auto m3_2 = xt::eval(lambda        * (                            advected(13, level, k, h)                             - advected(15,  level, k, h)));
+            auto m3_3 = xt::eval(lambda*lambda * (advected(12, level, k, h) - advected(13, level, k, h) + advected(14, level, k, h) - advected(15,  level, k, h)));
 
-                auto f2 = xt::eval(f(2, level, k, h) + coeff * 0.25 * (fluxes(2, lev_p_1, two_k,     two_h)
-                                                              + fluxes(2, lev_p_1, two_k_p_1, two_h)
-                                                              + fluxes(2, lev_p_1, two_k,     two_h_p_1)
-                                                              + fluxes(2, lev_p_1, two_k_p_1, two_h_p_1)));
-
-                auto f3 = xt::eval(f(3, level, k, h) + coeff * 0.25 * (fluxes(3, lev_p_1, two_k,     two_h)
-                                                              + fluxes(3, lev_p_1, two_k_p_1, two_h)
-                                                              + fluxes(3, lev_p_1, two_k,     two_h_p_1)
-                                                              + fluxes(3, lev_p_1, two_k_p_1, two_h_p_1)));
-
-
-                auto f4 = xt::eval(f(4, level, k, h) + coeff * 0.25 * (fluxes(4, lev_p_1, two_k,     two_h)
-                                                              + fluxes(4, lev_p_1, two_k_p_1, two_h)
-                                                              + fluxes(4, lev_p_1, two_k,     two_h_p_1)
-                                                              + fluxes(4, lev_p_1, two_k_p_1, two_h_p_1)));
-
-                auto f5 = xt::eval(f(5, level, k, h) + coeff * 0.25 * (fluxes(5, lev_p_1, two_k,     two_h)
-                                                              + fluxes(5, lev_p_1, two_k_p_1, two_h)
-                                                              + fluxes(5, lev_p_1, two_k,     two_h_p_1)
-                                                              + fluxes(5, lev_p_1, two_k_p_1, two_h_p_1)));
-
-                auto f6 = xt::eval(f(6, level, k, h) + coeff * 0.25 * (fluxes(6, lev_p_1, two_k,     two_h)
-                                                              + fluxes(6, lev_p_1, two_k_p_1, two_h)
-                                                              + fluxes(6, lev_p_1, two_k,     two_h_p_1)
-                                                              + fluxes(6, lev_p_1, two_k_p_1, two_h_p_1)));
-
-                auto f7 = xt::eval(f(7, level, k, h) + coeff * 0.25 * (fluxes(7, lev_p_1, two_k,     two_h)
-                                                              + fluxes(7, lev_p_1, two_k_p_1, two_h)
-                                                              + fluxes(7, lev_p_1, two_k,     two_h_p_1)
-                                                              + fluxes(7, lev_p_1, two_k_p_1, two_h_p_1)));
+            m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
+            m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
+            m0_3 = (1 - sxy) * m0_3;
 
 
-                auto f8 = xt::eval(f(8, level, k, h) + coeff * 0.25 * (fluxes(8, lev_p_1, two_k,     two_h)
-                                                              + fluxes(8, lev_p_1, two_k_p_1, two_h)
-                                                              + fluxes(8, lev_p_1, two_k,     two_h_p_1)
-                                                              + fluxes(8, lev_p_1, two_k_p_1, two_h_p_1)));
+            m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
+            m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
+            m1_3 = (1 - sxy) * m1_3;
 
-                auto f9 = xt::eval(f(9, level, k, h) + coeff * 0.25 * (fluxes(9, lev_p_1, two_k,     two_h)
-                                                              + fluxes(9, lev_p_1, two_k_p_1, two_h)
-                                                              + fluxes(9, lev_p_1, two_k,     two_h_p_1)
-                                                              + fluxes(9, lev_p_1, two_k_p_1, two_h_p_1)));
+            m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
+            m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
+            m2_3 = (1 - sxy) * m2_3;
 
-                auto f10 = xt::eval(f(10, level, k, h) + coeff * 0.25 * (fluxes(10, lev_p_1, two_k,     two_h)
-                                                                + fluxes(10, lev_p_1, two_k_p_1, two_h)
-                                                                + fluxes(10, lev_p_1, two_k,     two_h_p_1)
-                                                                + fluxes(10, lev_p_1, two_k_p_1, two_h_p_1)));
+            m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
+            m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
+            m3_3 = (1 - sxy) * m3_3;
 
-                auto f11 = xt::eval(f(11, level, k, h) + coeff * 0.25 * (fluxes(11, lev_p_1, two_k,     two_h)
-                                                                + fluxes(11, lev_p_1, two_k_p_1, two_h)
-                                                                + fluxes(11, lev_p_1, two_k,     two_h_p_1)
-                                                                + fluxes(11, lev_p_1, two_k_p_1, two_h_p_1)));
+            new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
+            new_f(1, level, k, h) =  .25 * m0_0                    + .5/lambda * (m0_2) - .25/(lambda*lambda) * m0_3;
+            new_f(2, level, k, h) =  .25 * m0_0 - .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
+            new_f(3, level, k, h) =  .25 * m0_0                    - .5/lambda * (m0_2) - .25/(lambda*lambda) * m0_3;
 
+            new_f(4, level, k, h) =  .25 * m1_0 + .5/lambda * (m1_1)                    + .25/(lambda*lambda) * m1_3;
+            new_f(5, level, k, h) =  .25 * m1_0                    + .5/lambda * (m1_2) - .25/(lambda*lambda) * m1_3;
+            new_f(6, level, k, h) =  .25 * m1_0 - .5/lambda * (m1_1)                    + .25/(lambda*lambda) * m1_3;
+            new_f(7, level, k, h) =  .25 * m1_0                    - .5/lambda * (m1_2) - .25/(lambda*lambda) * m1_3;
 
-                auto f12 = xt::eval(f(12, level, k, h) + coeff * 0.25 * (fluxes(12, lev_p_1, two_k,     two_h)
-                                                                + fluxes(12, lev_p_1, two_k_p_1, two_h)
-                                                                + fluxes(12, lev_p_1, two_k,     two_h_p_1)
-                                                                + fluxes(12, lev_p_1, two_k_p_1, two_h_p_1)));
+            new_f(8, level, k, h)  =  .25 * m2_0 + .5/lambda * (m2_1)                    + .25/(lambda*lambda) * m2_3;
+            new_f(9, level, k, h)  =  .25 * m2_0                    + .5/lambda * (m2_2) - .25/(lambda*lambda) * m2_3;
+            new_f(10, level, k, h) =  .25 * m2_0 - .5/lambda * (m2_1)                    + .25/(lambda*lambda) * m2_3;
+            new_f(11, level, k, h) =  .25 * m2_0                    - .5/lambda * (m2_2) - .25/(lambda*lambda) * m2_3;
 
-                auto f13 = xt::eval(f(13, level, k, h) + coeff * 0.25 * (fluxes(13, lev_p_1, two_k,     two_h)
-                                                                + fluxes(13, lev_p_1, two_k_p_1, two_h)
-                                                                + fluxes(13, lev_p_1, two_k,     two_h_p_1)
-                                                                + fluxes(13, lev_p_1, two_k_p_1, two_h_p_1)));
-
-                auto f14 = xt::eval(f(14, level, k, h) + coeff * 0.25 * (fluxes(14, lev_p_1, two_k,     two_h)
-                                                                + fluxes(14, lev_p_1, two_k_p_1, two_h)
-                                                                + fluxes(14, lev_p_1, two_k,     two_h_p_1)
-                                                                + fluxes(14, lev_p_1, two_k_p_1, two_h_p_1)));
-
-                auto f15 = xt::eval(f(15, level, k, h) + coeff * 0.25 * (fluxes(15, lev_p_1, two_k,     two_h)
-                                                                + fluxes(15, lev_p_1, two_k_p_1, two_h)
-                                                                + fluxes(15, lev_p_1, two_k,     two_h_p_1)
-                                                                + fluxes(15, lev_p_1, two_k_p_1, two_h_p_1)));
-
-
-                // We compute the advected momenti
-                auto m0_0 = xt::eval(                 f0 + f1 + f2 + f3) ;
-                auto m0_1 = xt::eval(lambda        * (f0      - f2      ));
-                auto m0_2 = xt::eval(lambda        * (     f1      - f3));
-                auto m0_3 = xt::eval(lambda*lambda * (f0 - f1 + f2 - f3));
-
-                auto m1_0 = xt::eval(                 f4 + f5 + f6 + f7) ;
-                auto m1_1 = xt::eval(lambda        * (f4      - f6      ));
-                auto m1_2 = xt::eval(lambda        * (     f5      - f7));
-                auto m1_3 = xt::eval(lambda*lambda * (f4 - f5 + f6 - f7));
-
-                auto m2_0 = xt::eval(                 f8 + f9 + f10 + f11) ;
-                auto m2_1 = xt::eval(lambda        * (f8      - f10      ));
-                auto m2_2 = xt::eval(lambda        * (     f9       - f11));
-                auto m2_3 = xt::eval(lambda*lambda * (f8 - f9 + f10 - f11));
-
-                auto m3_0 = xt::eval(                 f12 + f13 + f14 + f15) ;
-                auto m3_1 = xt::eval(lambda        * (f12       - f14      ));
-                auto m3_2 = xt::eval(lambda        * (      f13       - f15));
-                auto m3_3 = xt::eval(lambda*lambda * (f12 - f13 + f14 - f15));
-
-
-
-                m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
-                m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
-                m0_3 = (1 - sxy) * m0_3;
-
-
-                m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
-                m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
-                m1_3 = (1 - sxy) * m1_3;
-
-                m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
-                m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
-                m2_3 = (1 - sxy) * m2_3;
-
-                m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-                m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
-                m3_3 = (1 - sxy) * m3_3;
-
-
-                // std::size_t how_often = 1 << (max_level - level);
-
-                // double sq_real  = (iter % how_often == 0) ? sq  : 0.;
-                // double sxy_real = (iter % how_often == 0) ? sxy : 0.;
-
-                // m0_1 = (1 - sq_real) *  m0_1 + sq_real * (m1_0);
-                // m0_2 = (1 - sq_real) *  m0_2 + sq_real * (m2_0);
-                // m0_3 = (1 - sxy_real) * m0_3;
-
-
-                // m1_1 = (1 - sq_real) *  m1_1 + sq_real * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
-                // m1_2 = (1 - sq_real) *  m1_2 + sq_real * (m1_0*m2_0/m0_0);
-                // m1_3 = (1 - sxy_real) * m1_3;
-
-                // m2_1 = (1 - sq_real) *  m2_1 + sq_real * (m1_0*m2_0/m0_0);
-                // m2_2 = (1 - sq_real) *  m2_2 + sq_real * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
-                // m2_3 = (1 - sxy_real) * m2_3;
-
-                // m3_1 = (1 - sq_real) *  m3_1 + sq_real * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-                // m3_2 = (1 - sq_real) *  m3_2 + sq_real * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
-                // m3_3 = (1 - sxy_real) * m3_3;
-
-
-                new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
-                new_f(1, level, k, h) =  .25 * m0_0                    + .5/lambda * (m0_2) - .25/(lambda*lambda) * m0_3;
-                new_f(2, level, k, h) =  .25 * m0_0 - .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
-                new_f(3, level, k, h) =  .25 * m0_0                    - .5/lambda * (m0_2) - .25/(lambda*lambda) * m0_3;
-
-                new_f(4, level, k, h) =  .25 * m1_0 + .5/lambda * (m1_1)                    + .25/(lambda*lambda) * m1_3;
-                new_f(5, level, k, h) =  .25 * m1_0                    + .5/lambda * (m1_2) - .25/(lambda*lambda) * m1_3;
-                new_f(6, level, k, h) =  .25 * m1_0 - .5/lambda * (m1_1)                    + .25/(lambda*lambda) * m1_3;
-                new_f(7, level, k, h) =  .25 * m1_0                    - .5/lambda * (m1_2) - .25/(lambda*lambda) * m1_3;
-
-                new_f(8, level, k, h)  =  .25 * m2_0 + .5/lambda * (m2_1)                    + .25/(lambda*lambda) * m2_3;
-                new_f(9, level, k, h)  =  .25 * m2_0                    + .5/lambda * (m2_2) - .25/(lambda*lambda) * m2_3;
-                new_f(10, level, k, h) =  .25 * m2_0 - .5/lambda * (m2_1)                    + .25/(lambda*lambda) * m2_3;
-                new_f(11, level, k, h) =  .25 * m2_0                    - .5/lambda * (m2_2) - .25/(lambda*lambda) * m2_3;
-
-                new_f(12, level, k, h) =  .25 * m3_0 + .5/lambda * (m3_1)                    + .25/(lambda*lambda) * m3_3;
-                new_f(13, level, k, h) =  .25 * m3_0                    + .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
-                new_f(14, level, k, h) =  .25 * m3_0 - .5/lambda * (m3_1)                    + .25/(lambda*lambda) * m3_3;
-                new_f(15, level, k, h) =  .25 * m3_0                    - .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
+            new_f(12, level, k, h) =  .25 * m3_0 + .5/lambda * (m3_1)                    + .25/(lambda*lambda) * m3_3;
+            new_f(13, level, k, h) =  .25 * m3_0                    + .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
+            new_f(14, level, k, h) =  .25 * m3_0 - .5/lambda * (m3_1)                    + .25/(lambda*lambda) * m3_3;
+            new_f(15, level, k, h) =  .25 * m3_0                    - .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
 
             });
-
-            time_collision_overleaves += sw.elapsed().count();
-        }
-    }
-
-    spdlog::info("Advection overleaves boundary = {:.3} s", time_advection_overleaves_boundary);
-    spdlog::info("Advection overleaves inside = {:.3} s", time_advection_overleaves_inside);
-    spdlog::info("Collision overleaves = {:.3} s", time_collision_overleaves);
+        }    
     std::swap(f.array(), new_f.array());
 }
-
-
-
-
 
 template<class Field>
 void save_solution(Field &f, double eps, std::size_t ite, std::string ext="")
@@ -1558,138 +438,88 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
                                       const interval_t & k, const ordinates_t & h,
                                       std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>, xt::xtensor<double, 2>> & mem_map)
 {
-
     // That is used to employ _ with xtensor
     using namespace xt::placeholders;
 
-    // mem_map.clear();
-
+    // mem_map.clear(); // To be activated if we want to avoid memoization
     auto it = mem_map.find({level_g, level, k, h});
 
-
-    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())    {
-
+    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size()) 
         return it->second;
-    }
     else
     {
+        auto mesh = f.mesh();
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
+        // We put only the size in x (k.size()) because in y we only have slices of size 1.
+        // The second term (1) should be adapted according to the number of fields that we have.
+        std::vector<std::size_t> shape_x = {k.size(), 16};
+        xt::xtensor<double, 2> out = xt::empty<double>(shape_x);
+        auto mask = mesh.exists(mesh_id_t::cells_and_ghosts, level_g + level, k, h); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
+        xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
 
-    auto mesh = f.mesh();
-    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
-
-    // We put only the size in x (k.size()) because in y
-    // we only have slices of size 1.
-    // The second term (1) should be adapted according to the
-    // number of fields that we have.
-    // std::vector<std::size_t> shape_x = {k.size(), 4};
-    std::vector<std::size_t> shape_x = {k.size(), 16};
-    xt::xtensor<double, 2> out = xt::empty<double>(shape_x);
-
-    auto mask = mesh.exists(mesh_id_t::cells_and_ghosts, level_g + level, k, h); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
-
-    xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
-
-    // for (int h_field = 0; h_field < 4; ++h_field)  {
-    for (int h_field = 0; h_field < 16; ++h_field)  {
-        xt::view(mask_all, xt::all(), h_field) = mask;
-    }
-
-    // Recursion finished
-    if (xt::all(mask))
-    {
-        // return xt::eval(f(0, 4, level_g + level, k, h));
-        return xt::eval(f(0, 16, level_g + level, k, h));
-
-    }
-
-    // If we cannot stop here
-
-    auto kg = k >> 1;
-    kg.step = 1;
-
-    xt::xtensor<double, 2> val = xt::empty<double>(shape_x);
-
-
-    /*
-    --------------------
-    NW   |   N   |   NE
-    --------------------
-     W   | EARTH |   E
-    --------------------
-    SW   |   S   |   SE
-    --------------------
-    */
-
-
-    auto earth  = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1)    , mem_map));
-    auto W      = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1)    , mem_map));
-    auto E      = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1)    , mem_map));
-    auto S      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) - 1, mem_map));
-    auto N      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) + 1, mem_map));
-    auto SW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) - 1, mem_map));
-    auto SE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) - 1, mem_map));
-    auto NW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) + 1, mem_map));
-    auto NE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) + 1, mem_map));
-
-
-    // This is to deal with odd/even indices in the x direction
-    std::size_t start_even = (k.start & 1) ?     1         :     0        ;
-    std::size_t start_odd  = (k.start & 1) ?     0         :     1        ;
-    std::size_t end_even   = (k.end & 1)   ? kg.size()     : kg.size() - 1;
-    std::size_t end_odd    = (k.end & 1)   ? kg.size() - 1 : kg.size()    ;
-
-    int delta_y = (h & 1) ? 1 : 0;
-    int m1_delta_y = (delta_y == 0) ? 1 : -1; // (-1)^(delta_y)
-
-    // We recall the formula before doing everything
-    /*
-    f[j + 1][2k + dx][2h + dy] = f[j][k][h] + 1/8 * (-1)^dx * (f[j][k - 1][h] - f[j][k + 1][h])
-                                            + 1/8 * (-1)^dy * (f[j][k][h - 1] - f[j][k][h + 1])
-                                - 1/64 * (-1)^(dx+dy) * (f[j][k + 1][h + 1] - f[j][k - 1][h + 1]
-                                                         f[j][k - 1][h - 1] - f[j][k + 1][h - 1])
-
-    dx = 0, 1
-    dy = 0, 1
-    */
-
-
-    xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth
-                                                          + 1./8               * (W - E)
-                                                          + 1./8  * m1_delta_y * (S - N)
-                                                          - 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(start_even, _));
-
-
-
-    xt::view(val, xt::range(start_odd, _, 2))  = xt::view(                        earth
-                                                          - 1./8               * (W - E)
-                                                          + 1./8  * m1_delta_y * (S - N)
-                                                          + 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(_, end_odd));
-
-    xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
-
-    for(int k_mask = 0, k_int = k.start; k_int < k.end; ++k_mask, ++k_int)
-    {
-        if (mask[k_mask])
-        {
-            // xt::view(out, k_mask) = xt::view(f(0, 4, level_g + level, {k_int, k_int + 1}, h), 0);
-            xt::view(out, k_mask) = xt::view(f(0, 16, level_g + level, {k_int, k_int + 1}, h), 0);
-
+        for (int h_field = 0; h_field < 16; ++h_field)  {
+            xt::view(mask_all, xt::all(), h_field) = mask;
         }
-    }
 
-    // It is crucial to use insert and not []
-    // in order not to update the value in case of duplicated (same key)
-    mem_map.insert(std::make_pair(std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>{level_g, level, k, h}
-                                  ,out));
+        if (xt::all(mask)) // Recursion finished
+            return xt::eval(f(0, 16, level_g + level, k, h));
 
+        // If we cannot stop here
+        auto kg = k >> 1;
+        kg.step = 1;
+        xt::xtensor<double, 2> val = xt::empty<double>(shape_x);
+        /*
+        --------------------
+        NW   |   N   |   NE
+        --------------------
+         W   | EARTH |   E
+        --------------------
+        SW   |   S   |   SE
+        --------------------
+        */
 
-    return out;
+        auto earth  = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1)    , mem_map));
+        auto W      = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1)    , mem_map));
+        auto E      = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1)    , mem_map));
+        auto S      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) - 1, mem_map));
+        auto N      = xt::eval(prediction_all(f, level_g, level - 1, kg    , (h>>1) + 1, mem_map));
+        auto SW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) - 1, mem_map));
+        auto SE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) - 1, mem_map));
+        auto NW     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h>>1) + 1, mem_map));
+        auto NE     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h>>1) + 1, mem_map));
 
+        // This is to deal with odd/even indices in the x direction
+        std::size_t start_even = (k.start & 1) ?     1         :     0        ;
+        std::size_t start_odd  = (k.start & 1) ?     0         :     1        ;
+        std::size_t end_even   = (k.end & 1)   ? kg.size()     : kg.size() - 1;
+        std::size_t end_odd    = (k.end & 1)   ? kg.size() - 1 : kg.size()    ;
+
+        int delta_y = (h & 1) ? 1 : 0;
+        int m1_delta_y = (delta_y == 0) ? 1 : -1; // (-1)^(delta_y)
+
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(                        earth
+                                                              + 1./8               * (W - E)
+                                                              + 1./8  * m1_delta_y * (S - N)
+                                                              - 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2))  = xt::view(                        earth
+                                                              - 1./8               * (W - E)
+                                                              + 1./8  * m1_delta_y * (S - N)
+                                                              + 1./64 * m1_delta_y * (NE - NW - SE + SW), xt::range(_, end_odd));
+
+        xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
+
+        for(int k_mask = 0, k_int = k.start; k_int < k.end; ++k_mask, ++k_int)
+        {
+            if (mask[k_mask])
+                xt::view(out, k_mask) = xt::view(f(0, 16, level_g + level, {k_int, k_int + 1}, h), 0);
+        }
+
+        // It is crucial to use insert and not [] in order not to update the value in case of duplicated (same key)
+        mem_map.insert(std::make_pair(std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>{level_g, level, k, h}, out));
+        return out;
     }
 }
-
-
 
 template<class Field, class FieldFull, class Func>
 double compute_error(Field & f, FieldFull & f_full, Func&& update_bc_for_level)
@@ -1719,12 +549,10 @@ double compute_error(Field & f, FieldFull & f_full, Func&& update_bc_for_level)
     using interval_t  = typename Field::interval_t; // Type in X
     using ordinates_t = typename interval_t::index_t;    // Type in Y
     std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t>, xt::xtensor<double, 2>> memoization_map;
-
     memoization_map.clear();
 
     double error = 0.;
     double norm = 0.;
-
     double dx = 1. / (1 << max_level);
 
     for (std::size_t level = 0; level <= max_level; ++level)
@@ -1738,28 +566,20 @@ double compute_error(Field & f, FieldFull & f_full, Func&& update_bc_for_level)
 
             f_reconstructed(max_level, k, h) = prediction_all(f, level, max_level - level, k, h, memoization_map);
 
-            // Error on the density field
-
             auto rho_reconstructed = f_reconstructed(0, max_level, k, h)
                                    + f_reconstructed(1, max_level, k, h)
                                    + f_reconstructed(2, max_level, k, h)
                                    + f_reconstructed(3, max_level, k, h);
-
             auto rho_full =  f_full(0, max_level, k, h)
                            + f_full(1, max_level, k, h)
                            + f_full(2, max_level, k, h)
                            + f_full(3, max_level, k, h);
 
             error += xt::sum(xt::abs(rho_reconstructed - rho_full))[0];
-
-            norm += xt::sum(xt::abs(rho_full))[0];
-
+            norm  += xt::sum(xt::abs(rho_full))[0];
         });
     }
-
-
     return (error / norm);
-
 }
 
 
@@ -1872,21 +692,15 @@ void save_reconstructed(Field & f, FieldFull & f_full, Func&& update_bc_for_leve
                                                       - .5 * (xt::pow(qx(max_level, k, h), 2.)
                                                             + xt::pow(qy(max_level, k, h), 2.)) / rho(max_level, k, h))) /
                                            xt::pow(rho(max_level, k, h), gm));
-
         });
     }
 
-
-    std::cout<<std::endl;
-
     std::stringstream str;
-    str << "Euler_Reconstruction_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
+    str << "LBM_D2Q4_3_Euler_Reconstruction_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
     samurai::save(str.str().data(), init_mesh, rho_reconstructed,s_reconstructed, rho, s);
 }
-
-
 
 
 int main(int argc, char *argv[])
@@ -1901,6 +715,7 @@ int main(int argc, char *argv[])
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("ite", "number of iteration", cxxopts::value<std::size_t>()->default_value("100"))
                        ("reg", "regularity", cxxopts::value<double>()->default_value("1."))
+                       ("config", "Lax-Liu configuration", cxxopts::value<int>()->default_value("12"))
                        ("h, help", "Help");
 
     try
@@ -1911,11 +726,6 @@ int main(int argc, char *argv[])
             std::cout << options.help() << "\n";
         else
         {
-
-            //auto save_string = std::string("bruteforce");
-            auto save_string = std::string("overleaves");
-
-
             std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
                                                                {"warning", spdlog::level::warn},
                                                                {"info", spdlog::level::info}};
@@ -1928,23 +738,31 @@ int main(int argc, char *argv[])
             std::size_t total_nb_ite = result["ite"].as<std::size_t>();
             double eps = result["epsilon"].as<double>();
             double regularity = result["reg"].as<double>();
+            int configuration = result["config"].as<int>();
+
+            // double lambda = 1./0.3; //4.0; 
+            // double lambda = 1./0.2499; //4.0;
+            double lambda = 1./0.2; // This seems to work
+
+            double sq = 1.75;
+            double sxy = 2.;
+            if (configuration == 12)  
+                sxy = 1.5;
+            else
+                sxy = 0.5;
 
             samurai::Box<double, dim> box({0, 0}, {1, 1});
             samurai::MRMesh<Config> mesh(box, min_level, max_level);
             using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
 
-            // samurai::Mesh<Config> mesh_old{box, min_level, max_level};
             samurai::MRMesh<Config> mesh_ref{box, max_level, max_level};
-
 
             using coord_index_t = typename samurai::MRMesh<Config>::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
 
-
             // Initialization
-            auto f     = init_f(mesh,     0);
-            // auto f_old = init_f(mesh_old, 0);
-            auto f_ref = init_f(mesh_ref, 0);
+            auto f     = init_f(mesh,     configuration, lambda); // Adaptive  scheme
+            auto f_ref = init_f(mesh_ref, configuration, lambda); // Reference scheme
 
             double T = 0.25;//0.3;//1.2;
             double dx = 1.0 / (1 << max_level);
@@ -1953,13 +771,13 @@ int main(int argc, char *argv[])
             std::size_t N = static_cast<std::size_t>(T / dt);
 
             std::string dirname ("./LaxLiu/");
-            std::string suffix("_min_"+std::to_string(min_level)+"_max_"+std::to_string(max_level)+"_eps_"+std::to_string(eps));
+            std::string suffix("_Config_"+std::to_string(configuration)+"_min_"+std::to_string(min_level)+"_max_"+std::to_string(max_level)+"_eps_"+std::to_string(eps));
 
-            std::ofstream stream_time_mesh_adaptation;
-            stream_time_mesh_adaptation.open     (dirname+"time_mesh_adaptation"+suffix+".dat");
+            // std::ofstream stream_time_mesh_adaptation;
+            // stream_time_mesh_adaptation.open     (dirname+"time_mesh_adaptation"+suffix+".dat");
 
-            std::ofstream stream_time_scheme;
-            stream_time_scheme.open     (dirname+"time_scheme"+suffix+".dat");
+            // std::ofstream stream_time_scheme;
+            // stream_time_scheme.open     (dirname+"time_scheme"+suffix+".dat");
 
             std::ofstream stream_number_leaves;
             stream_number_leaves.open     (dirname+"number_leaves"+suffix+".dat");
@@ -1976,10 +794,7 @@ int main(int argc, char *argv[])
             std::ofstream stream_number_cells_ref;
             stream_number_cells_ref.open     (dirname+"number_cells_ref"+suffix+".dat");
 
-
-
-            int N_saves = 20;
-            int howoften = 1;//N / N_saves;
+            int howoften = 1; // How often is the solution saved ?
 
             auto update_bc_for_level = [](auto& field, std::size_t level)
             {
@@ -1990,99 +805,29 @@ int main(int argc, char *argv[])
 
             for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
-                std::cout<<std::endl<<"Iteration number = "<<nb_ite<<std::endl;
+                std::cout<<std::endl<<"   Iteration number = "<<nb_ite<<std::endl;
 
-                tic();
                 if (max_level > min_level)  {
-
-                    // std::cout<<std::endl<<"[*] Coarsening"<<std::flush;
-                    // for (std::size_t i=0; i<max_level-min_level; ++i)
-                    // {
-                    //     std::cout<<std::endl<<"Step "<<i<<std::flush;
-                    //     if (coarsening(f, eps, i))
-                    //         break;
-                    // }
-
-                    // std::cout<<std::endl<<"[*] Refinement"<<std::flush;
-                    // for (std::size_t i=0; i<max_level-min_level; ++i)
-                    // {
-                    //     std::cout<<std::endl<<"Step "<<i<<std::flush;
-                    //     if (refinement(f, eps, 0.0, i))
-                    //         break;
-                    // }
-
                     MRadaptation(eps, regularity);
-                    // auto mesh_old = mesh;
-                    // samurai::Field<Config, double, 16> f_old{"u", mesh_old};
-                    // f_old.array() = f.array();
-                    // for (std::size_t i=0; i<max_level-min_level; ++i)
-                    // {
-                    //     // std::cout<<std::endl<<"Step "<<i<<std::flush;
-                    //     if (harten(f, f_old, update_bc_for_level,
-                    //                eps, regularity, i))
-                    //         break;
-                    // }
-
                 }
-                auto duration = toc();
-                std::cout << "harten " << duration << std::endl;
-                // save_solution(f, eps, nb_ite, save_string+std::string("DUNCOUP")); // Before applying the scheme
-
-                // return 0;
-
-                // if (nb_ite == 0)   {
-                //     std::stringstream s;
-                //     s << "u_by_level_beginning_"<<nb_ite;
-                //     auto h5file = samurai::Hdf5(s.str().data());
-                //     h5file.add_field_by_level(f.mesh(), f);
-
-                // }
-
-                auto time_mesh_adaptation = toc();
-                stream_time_mesh_adaptation<<time_mesh_adaptation<<std::endl;
 
                 if (nb_ite == N)    {
                     auto error_density = compute_error(f, f_ref, update_bc_for_level);
-                    std::cout<<std::endl<<"#### Epsilon = "<<eps<<"   error = "<<error_density<<std::flush;
-                    save_reconstructed(f, f_ref, update_bc_for_level, eps, 0);
-                    save_solution(f, eps, 0, save_string+std::string("PAPER")); // Before applying the scheme
-
+                    std::cout<<std::endl<<"#### Epsilon = "<<eps<<"   error = "<<error_density<<std::endl;
+                    save_reconstructed(f, f_ref, update_bc_for_level, eps, nb_ite);
                 }
-
-
 
                 if (nb_ite % howoften == 0)    {
-                    std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
-                    save_solution(f, eps, nb_ite/howoften, save_string+std::string("_before")); // Before applying the scheme
+                    save_solution(f, eps, nb_ite/howoften, std::string("Config_")+std::to_string(configuration)); // Before applying the scheme
                 }
 
-
-                spdlog::info("Entering time stepping ADAPT");
-                // tic();
-                one_time_step_overleaves_corrected(f, update_bc_for_level, pred_coeff, nb_ite);
-                // auto time_scheme = toc();
-                // stream_time_scheme<<time_scheme<<std::endl;
-
-                // tic();
-                // std::cout<<std::endl<<"[*] Entering time stepping REFERENCE"<<std::flush;
-
-
-                // if (nb_ite % howoften == 0)    {
-                //     std::cout<<std::endl<<"[*] Saving solution"<<std::flush;
-                //     save_solution(f, eps, nb_ite/howoften, save_string+std::string("_after")); // Before applying the scheme
-                // }
-
-
-
-                spdlog::info("Entering time stepping REFERENCE");
-                one_time_step_overleaves_corrected(f_ref, update_bc_for_level, pred_coeff, nb_ite);
-                auto time_scheme_ref = toc();
-                stream_time_scheme_ref<<time_scheme_ref<<std::endl;
-
+                one_time_step(f, update_bc_for_level, pred_coeff, lambda, sq, sxy);
+                one_time_step(f_ref, update_bc_for_level, pred_coeff, lambda, sq, sxy);
+                
                 auto number_leaves = mesh.nb_cells(mesh_id_t::cells);
                 auto number_cells  = mesh.nb_cells();
 
-                std::cout<<std::endl<<"Total cells = "<<number_cells<<"  Leaves = "<<number_leaves<<std::endl;
+                // std::cout<<std::endl<<"Total cells = "<<number_cells<<"  Leaves = "<<number_leaves<<std::endl;
 
                 stream_number_leaves<<number_leaves<<std::endl;
                 stream_number_cells<<number_cells<<std::endl;
@@ -2092,15 +837,12 @@ int main(int argc, char *argv[])
 
             }
 
-            // auto error_density = compute_error(f, f_ref, update_bc);
-            // std::cout<<std::endl<<"#### Epsilon = "<<eps<<"   error = "<<error_density<<std::flush;
-
-            stream_time_mesh_adaptation.close();
-            stream_time_scheme.close();
+            // stream_time_mesh_adaptation.close();
+            // stream_time_scheme.close();
             stream_number_leaves.close();
             stream_number_cells.close();
 
-            stream_time_scheme_ref.close();
+            // stream_time_scheme_ref.close();
             stream_number_leaves_ref.close();
             stream_number_cells_ref.close();
         }
