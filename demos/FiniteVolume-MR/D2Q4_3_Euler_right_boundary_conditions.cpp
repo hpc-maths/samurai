@@ -65,7 +65,7 @@ auto init_f(samurai::MRMesh<Config> &mesh, double t)
     f.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell) {
-        auto center = cell.center;
+        auto center = cell.center();
         auto x = center[0];
         auto y = center[1];
 

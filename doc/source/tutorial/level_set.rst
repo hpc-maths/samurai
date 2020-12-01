@@ -16,7 +16,6 @@ It can be shown \cite{osher2004level} that the outward normal vector :math:`\mat
     \mathbf{n} = \dfrac{\nabla \phi}{\left | \nabla \phi \right |}, \qquad \kappa = \nabla \cdot \mathbf{n} = \nabla \cdot \left (\dfrac{\nabla \phi}{\left | \nabla \phi \right |} \right ).
 
 
-
 We consider a level-set function :math:`\phi: \mathbb{R} \times \mathbb{R}^2 \to \mathbb{R}` which evolves according to the passive transport equation (also known as "color equation") given by
 
 .. math::

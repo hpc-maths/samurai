@@ -347,13 +347,15 @@ namespace samurai
                         {
                             value++;
                         }
+                        // spdlog::debug("UPDATE: dim = {}, level = {}, value = {}, m_index = {}", m_d, m_node.level(), value, m_index[m_d]);
                         while (m_index[m_d] + 1 < m_end[m_d])
                         {
                             coord_index_t start_value = detail::shift_value(m_node.start(m_d, m_index[m_d] + 1), m_shift);
-                            if (value == start_value)
+                            if (value >= start_value)
                             {
                                 m_index[m_d]++;
                                 value = detail::shift_value(m_node.end(m_d, m_index[m_d]) - 1, m_shift) + 1;
+                                // spdlog::debug("UPDATE: dim = {}, level = {}, value = {}, m_index = {}", m_d, m_node.level(), value, m_index[m_d]);
                             }
                             else
                             {
