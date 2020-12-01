@@ -52,8 +52,8 @@
 # add_executable(D2Q9_von_Karman_street_meshless D2Q9_von_Karman_street_meshless.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q9_von_Karman_street_meshless samurai)
 
-add_executable(D2Q9_von_Karman_street_meshless_diffusion_correction D2Q9_von_Karman_street_meshless_diffusion_correction.cpp ${SAMURAI_HEADERS})
-target_link_libraries(D2Q9_von_Karman_street_meshless_diffusion_correction samurai)
+# add_executable(D2Q9_von_Karman_street_meshless_diffusion_correction D2Q9_von_Karman_street_meshless_diffusion_correction.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(D2Q9_von_Karman_street_meshless_diffusion_correction samurai)
 
 # add_executable(D2Q4_3_Emery_Dubois D2Q4_3_Emery_Dubois.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q4_3_Emery_Dubois samurai)
@@ -61,3 +61,5 @@ target_link_libraries(D2Q9_von_Karman_street_meshless_diffusion_correction samur
 # add_executable(finest_reconstruction_2D finest_reconstruction_2D.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(finest_reconstruction_2D samurai)
 
+add_executable(test_D1Q2 test_D1Q2.cpp ${SAMURAI_HEADERS})
+target_link_libraries(test_D1Q2 samurai)
