@@ -13,6 +13,7 @@
 #include "field_expression.hpp"
 #include "mr/mesh.hpp"
 #include "mr/mesh_type.hpp"
+#include "mr/operators.hpp"
 
 namespace samurai
 {

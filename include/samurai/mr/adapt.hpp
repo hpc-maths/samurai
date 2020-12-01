@@ -2,6 +2,7 @@
 
 #include <type_traits>
 #include "../field.hpp"
+#include "criteria.hpp"
 #include "pred_and_proj.hpp"
 
 namespace samurai
