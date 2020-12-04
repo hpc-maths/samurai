@@ -711,7 +711,7 @@ int main(int argc, char *argv[])
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
                        ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("ite", "number of iteration", cxxopts::value<std::size_t>()->default_value("100"))
-                       ("reg", "regularity", cxxopts::value<double>()->default_value("1."))
+                       ("reg", "regularity", cxxopts::value<double>()->default_value("0."))
                        ("config", "Lax-Liu configuration", cxxopts::value<int>()->default_value("12"))
                        ("h, help", "Help");
 

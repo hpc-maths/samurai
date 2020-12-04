@@ -22,8 +22,8 @@
 # add_executable(D2Q4_3_Euler D2Q4_3_Euler.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q4_3_Euler samurai)
 
-# add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp)
-# target_link_libraries(D2Q4_3_Euler_right_boundary_conditions samurai)
+add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp)
+target_link_libraries(D2Q4_3_Euler_right_boundary_conditions samurai)
 #
 # add_executable(D2Q4_3_ShallowWaters_right_boundary_conditions D2Q4_3_ShallowWaters_right_boundary_conditions.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q4_3_ShallowWaters_right_boundary_conditions samurai)
@@ -40,8 +40,8 @@
 # add_executable(D1Q3_ShallowWaters D1Q3_ShallowWaters.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D1Q3_ShallowWaters samurai)
 
-add_executable(D1Q2_Burgers D1Q2_Burgers.cpp ${SAMURAI_HEADERS})
-target_link_libraries(D1Q2_Burgers samurai)
+# add_executable(D1Q2_Burgers D1Q2_Burgers.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(D1Q2_Burgers samurai)
 
 # add_executable(hole hole.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(hole samurai)
