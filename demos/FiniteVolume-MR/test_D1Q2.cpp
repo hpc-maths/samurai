@@ -621,11 +621,10 @@ int main(int argc, char *argv[])
                         {
                             MRadaptation(eps, sol_reg);
 
-                            one_time_step(f, update_bc_for_level, pred_coeff_separate, s, lambda, ad_vel, test_number, finest_collision);
-                            one_time_step(fR, update_bc_for_level, pred_coeff_separate, lambda, ad_vel, test_number, s);
+                            one_time_step(f , update_bc_for_level, pred_coeff_separate, s, lambda, ad_vel, test_number, finest_collision);
+                            one_time_step(fR, update_bc_for_level, pred_coeff_separate, s, lambda, ad_vel, test_number);
                             t += dt;
                         }
-
 
                         auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number);
                         std::cout<<"Diff = "<<error[1]<<std::endl;

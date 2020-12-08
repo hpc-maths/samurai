@@ -18,8 +18,6 @@
 
 #include "utils_lbm_mr_1d.hpp"
 
-
-
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
 
@@ -36,7 +34,6 @@ double toc()
     const std::chrono::duration<double> time_span = toc_timer - tic_timer;
     return time_span.count();
 }
-
 
 template<class coord_index_t>
 auto compute_prediction_separate_inout(std::size_t min_level, std::size_t max_level)
@@ -58,8 +55,9 @@ auto compute_prediction_separate_inout(std::size_t min_level, std::size_t max_le
 }
 
 std::array<double, 2> exact_solution(double x, double t, const double g)   {
+    // Warning : this computation works for the parameters we have used
+    // it should be redone otherwise
 
-    double g = 1.0;
     double x0 = 0.0;
 
     double hL = 2.0;
@@ -105,17 +103,14 @@ auto init_f(samurai::MRMesh<Config> &mesh, double t, const double lambda, const 
         f[cell][1] = 0.5 * ( q + k/lambda)/lambda;
         f[cell][2] = 0.5 * (-q + k/lambda)/lambda;
     });
-
     return f;
 }
 
 template<class Field, class Pred, class Func>
-void one_time_step(Field &f, const Pred& pred_coeff, Funct && update_bc_for_level, 
-                    double s_rel, double lambda, double g)
+void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level, 
+                    double s_rel, const double lambda, const double g)
 {
-
     constexpr std::size_t nvel = Field::size;
-
     auto mesh = f.mesh();
     using mesh_t = typename Field::mesh_t;
     using mesh_id_t = typename mesh_t::mesh_id_t;
@@ -157,11 +152,9 @@ void one_time_step(Field &f, const Pred& pred_coeff, Funct && update_bc_for_leve
 
             });
         }
-
         // Otherwise, correction is needed
         else
         {
-
             // We do the advection on the overleaves
             std::size_t j = max_level - (level + 1);
             double coeff = 1. / (1 << j);
@@ -183,7 +176,6 @@ void one_time_step(Field &f, const Pred& pred_coeff, Funct && update_bc_for_leve
 
                     fp += coeff * weight * f(1, level + 1, k + stencil);
                 }
-
                 for(auto &c: pred_coeff[j][1].coeff)
                 {
                     coord_index_t stencil = c.first;
@@ -191,7 +183,6 @@ void one_time_step(Field &f, const Pred& pred_coeff, Funct && update_bc_for_leve
 
                     fp -= coeff * weight * f(1, level + 1, k + stencil);
                 }
-
                 for(auto &c: pred_coeff[j][2].coeff)
                 {
                     coord_index_t stencil = c.first;
@@ -199,7 +190,6 @@ void one_time_step(Field &f, const Pred& pred_coeff, Funct && update_bc_for_leve
 
                     fm += coeff * weight * f(2, level + 1, k + stencil);
                 }
-
                 for(auto &c: pred_coeff[j][3].coeff)
                 {
                     coord_index_t stencil = c.first;
@@ -207,20 +197,17 @@ void one_time_step(Field &f, const Pred& pred_coeff, Funct && update_bc_for_leve
 
                     fm -= coeff * weight * f(2, level + 1, k + stencil);
                 }
-
                 // Save it
-                // help_f(0, level + 1, k) = f0;
                 help_f(1, level + 1, k) = fp;
                 help_f(2, level + 1, k) = fm;
 
             });
-
             // Now that projection has been done, we have to come back on the leaves below the overleaves
             auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                                 mesh[mesh_id_t::cells][level]);
 
             leaves([&](auto &interval, auto) {
-                auto k = interval[0];
+                auto k = interval;
                 advected_f(0, level, k) = f(0, level, k); // Does not move so no flux
                 advected_f(1, level, k) = xt::eval(0.5 * (help_f(1, level + 1, 2*k) + help_f(1, level + 1, 2*k + 1)));
                 advected_f(2, level, k) = xt::eval(0.5 * (help_f(2, level + 1, 2*k) + help_f(2, level + 1, 2*k + 1)));
@@ -249,9 +236,8 @@ void one_time_step(Field &f, const Pred& pred_coeff, Funct && update_bc_for_leve
     std::swap(f.array(), new_f.array());
 }
 
-
 template<class Field>
-void save_solution(Field &f, double eps, std::size_t ite, double lambda, std::string ext = "")
+void save_solution(Field &f, double eps, std::size_t ite, const double lambda, std::string ext = "")
 {
     auto mesh = f.mesh();
     using value_t = typename Field::value_type;
@@ -267,30 +253,33 @@ void save_solution(Field &f, double eps, std::size_t ite, double lambda, std::st
     auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
     auto h = samurai::make_field<value_t, 1>("h", mesh);
     auto q = samurai::make_field<value_t, 1>("q", mesh);
+    auto u = samurai::make_field<value_t, 1>("u", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell) {
         level_[cell] = static_cast<double>(cell.level);
         h[cell] = f[cell][0] + f[cell][1] + f[cell][2];
         q[cell] = lambda * (f[cell][1] - f[cell][2]);
+        u[cell] = q[cell] / h[cell];
     });
-    samurai::save(str.str().data(), mesh, h, q, f, level_);
-
+    samurai::save(str.str().data(), mesh, h, q, u, f, level_);
 }
 
-template<class Config, class FieldR>
-std::array<double, 4> compute_error(samurai::Field<Config, double, 3> &f, FieldR & fR, double t)
+template<class Config, class FieldR, class Func>
+std::array<double, 4> compute_error(samurai::Field<Config, double, 3> &f, FieldR & fR,
+                Func&& update_bc_for_level, double t, 
+                const double lambda, const double g)
 {
-
     auto mesh = f.mesh();
-
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
     auto meshR = fR.mesh();
     auto max_level = meshR.max_level();
 
-
     samurai::mr_projection(f);
-    f.update_bc(); // Important especially when we enforce Neumann...for the Riemann problem
-    samurai::mr_prediction(f);  // C'est supercrucial de le faire.
-
+    for (std::size_t level = mesh.min_level() - 1; level <= mesh.max_level(); ++level)
+    {
+        update_bc_for_level(f, level); // It is important to do so
+    }
+    samurai::mr_prediction(f, update_bc_for_level);
 
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;
@@ -303,65 +292,42 @@ std::array<double, 4> compute_error(samurai::Field<Config, double, 3> &f, FieldR
     double diff_h = 0.0;
     double diff_q = 0.0;
 
-
     double dx = 1.0 / (1 << max_level);
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = samurai::intersection(meshR[samurai::MeshType::cells][max_level],
-                                      mesh[samurai::MeshType::cells][level])
-                  .on(max_level);
+        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                         mesh[mesh_id_t::cells][level]).on(max_level);
 
-        exp([&](auto, auto &interval, auto) {
-            auto i = interval[0];
+        exp([&](auto &interval, auto) {
+            auto i = interval;
             auto j = max_level - level;
 
             auto sol  = prediction_all(f, level, j, i, error_memoization_map);
             auto solR = xt::view(fR(max_level, i), xt::all(), xt::range(0, 3));
-
-
             xt::xtensor<double, 1> x = dx*xt::linspace<int>(i.start, i.end - 1, i.size()) + 0.5*dx;
-
-
             xt::xtensor<double, 1> hexact = xt::zeros<double>(x.shape());
             xt::xtensor<double, 1> qexact = xt::zeros<double>(x.shape());
 
             for (std::size_t idx = 0; idx < x.shape()[0]; ++idx)    {
-                auto ex_sol = exact_solution(x[idx], t);
-
+                auto ex_sol = exact_solution(x[idx], t, g);
                 hexact[idx] = ex_sol[0];
                 qexact[idx] = ex_sol[0]*ex_sol[1];
-
             }
-
-            double lambda = 2.0;
-
 
             auto h =  xt::eval(xt::view(sol, xt::all(), 0) +  xt::view(sol, xt::all(), 1) + xt::view(sol, xt::all(), 2));
             auto q =  lambda * xt::eval(xt::view(sol, xt::all(), 1) - xt::view(sol, xt::all(), 2));
-
-
             auto h_ref =  xt::eval(fR(0, max_level, i) + fR(1, max_level, i) + fR(2, max_level, i));
             auto q_ref =  lambda * xt::eval(fR(1, max_level, i) - fR(2, max_level, i));
 
-
             error_h += xt::sum(xt::abs(h_ref - hexact))[0];
-
             error_q += xt::sum(xt::abs(q_ref - qexact))[0];
-
-
             diff_h += xt::sum(xt::abs(h_ref - h))[0];
-
             diff_q += xt::sum(xt::abs(q_ref - q))[0];
-
         });
     }
-
-
     return {dx * error_h, dx * diff_h,
             dx * error_q, dx * diff_q};
-
-
 }
 
 int main(int argc, char *argv[])
@@ -389,6 +355,9 @@ int main(int argc, char *argv[])
                                                                {"warning", spdlog::level::warn}};
             constexpr size_t dim = 1;
             using Config = samurai::MRConfig<dim, 2>;
+            using mesh_t = samurai::MRMesh<Config>;
+            using mesh_id_t = typename mesh_t::mesh_id_t;
+            using coord_index_t = typename mesh_t::interval_t::coord_index_t;
 
             spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
@@ -396,24 +365,21 @@ int main(int argc, char *argv[])
             double eps = result["epsilon"].as<double>();
             double s = result["s"].as<double>();
 
-
             samurai::Box<double, dim> box({-1}, {1});
-            samurai::Mesh<Config> mesh{box, min_level, max_level};
-            samurai::Mesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
+            samurai::MRMesh<Config> mesh{box, min_level, max_level};
+            samurai::MRMesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
 
-
-            using coord_index_t = typename Config::coord_index_t;
             auto pred_coeff_separate = compute_prediction_separate_inout<coord_index_t>(min_level, max_level);
-
-
-            // Initialization
-            auto f   = init_f(mesh , 0.0);
-            auto fR  = init_f(meshR , 0.0);
-
-            double T = 0.2;
 
             const double lambda = 2.0;
             const double g = 1.0; // Gravity
+
+            // Initialization
+            auto f   = init_f(mesh  , 0.0, lambda, g);
+            auto fR  = init_f(meshR , 0.0, lambda, g);
+
+            // double T = 0.2; // On the paper
+            double T = 0.35;
 
             double dx = 1.0 / (1 << max_level);
             double dt = dx / lambda;
@@ -422,112 +388,40 @@ int main(int argc, char *argv[])
 
             double t = 0.0;
 
-            // xt::xtensor<double, 2> test = xt::empty<double>({10, 3});
-
-            // std::cout<<std::endl<<test;
-            // return 0;
+            auto update_bc_for_level = [](auto& field, std::size_t level)
+            {
+                update_bc_1D_constant_extension(field, level);
+            };
+            
+            auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
-
                 std::cout<<std::endl<<"Iteration "<<nb_ite<<" Time = "<<t;
 
-                // tic();
-                // for (std::size_t i=0; i<max_level-min_level; ++i)
-                // {
-                //     //std::cout<<std::endl<<"Passe "<<i;
-                //     if (coarsening(f, eps, i))
-                //         break;
-                // }
-                // auto duration_coarsening = toc();
+                MRadaptation(eps, 0.); // Regularity 0
 
-                // // save_solution(f, eps, nb_ite, "coarsening");
+                save_solution(f, eps, nb_ite, lambda);
 
-                // tic();
-                // for (std::size_t i=0; i<max_level-min_level; ++i)
-                // {
-                //     if (refinement(f, eps, 0.0, i))
-                //         break;
-                // }
-                // auto duration_refinement = toc();
-
-
-                auto mesh_old = mesh;
-                samurai::Field<Config, double, 3> f_old{"u", mesh_old};
-                f_old.array() = f.array();
-                for (std::size_t i=0; i<max_level-min_level; ++i)
-                {
-                    std::cout<<std::endl<<"Step "<<i<<std::flush;
-                    if (harten(f, f_old, eps, 0., i, nb_ite))
-                        break;
-                }
-
-                save_solution(f, eps, nb_ite, "refinement");
-
-
-                //std::cout<<std::endl<<"Mesh before computing solution"<<std::endl<<mesh;
-
-
-                // Create and initialize field containing the leaves
-                tic();
-                samurai::Field<Config, int, 1> tag_leaf{"tag_leaf", mesh};
-                tag_leaf.array().fill(0);
-                mesh.for_each_cell([&](auto &cell) {
-                    tag_leaf[cell] = static_cast<int>(1);
-                });
-                auto duration_leaf_checking = toc();
-
-
-                samurai::Field<Config, int, 1> tag_leafR{"tag_leafR", meshR};
-                tag_leafR.array().fill(0);
-                meshR.for_each_cell([&](auto &cell) {
-                    tag_leafR[cell] = static_cast<int>(1);
-                });
-
-                auto error = compute_error(f, fR, t);
-
-
+                auto error = compute_error(f, fR, update_bc_for_level, t, lambda, g);
                 std::cout<<std::endl<<"Error h = "<<error[0]<<std::endl
                                     <<"Diff h = "<<error[1]<<std::endl
                                     <<"Error q = "<<error[2]<<std::endl
                                     <<"Diff q = "<<error[3];
 
-
-
-
                 tic();
-                // one_time_step(f, tag_leaf, s);
-                one_time_step_matrix_overleaves(f, pred_coeff_separate, s);
-
+                one_time_step(f,  pred_coeff_separate, update_bc_for_level, s, lambda, g);
                 auto duration_scheme = toc();
-
-                // one_time_step(fR, tag_leafR, s);
-                one_time_step_matrix_overleaves(fR, pred_coeff_separate, s);
-
+                one_time_step(fR, pred_coeff_separate, update_bc_for_level, s, lambda, g);
 
                 t += dt;
-
-                tic();
-                save_solution(f, eps, nb_ite, "onetimestep");
-                auto duration_save = toc();
-
-
-
-
             }
-
-
-
         }
-
     }
     catch (const cxxopts::OptionException &e)
     {
         std::cout << options.help() << "\n";
     }
-
     std::cout<<std::endl;
-
-
     return 0;
 }
