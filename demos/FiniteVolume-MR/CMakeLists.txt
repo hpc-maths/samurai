@@ -43,6 +43,9 @@ target_link_libraries(D1Q3_ShallowWaters samurai)
 add_executable(D1Q5_ShallowWaters D1Q5_ShallowWaters.cpp ${SAMURAI_HEADERS})
 target_link_libraries(D1Q5_ShallowWaters samurai)
 
+add_executable(D1Q2_vectorial_Euler D1Q2_vectorial_Euler.cpp ${SAMURAI_HEADERS})
+target_link_libraries(D1Q2_vectorial_Euler samurai)
+
 # add_executable(D1Q2_Burgers D1Q2_Burgers.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D1Q2_Burgers samurai)
 
@@ -75,3 +78,6 @@ target_link_libraries(test_D1Q3 samurai)
 
 add_executable(test_D1Q5 test_D1Q5.cpp ${SAMURAI_HEADERS})
 target_link_libraries(test_D1Q5 samurai)
+
+add_executable(test_D1Q2_3 test_D1Q2_3.cpp ${SAMURAI_HEADERS})
+target_link_libraries(test_D1Q2_3 samurai)
