@@ -1376,7 +1376,8 @@ int main(int argc, char *argv[])
             auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
 
-            std::size_t howoften = 128 * static_cast<double>(max_level) / 10.;
+            // std::size_t howoften = 128 * static_cast<double>(max_level) / 10.;
+            std::size_t howoften = 128 * std::pow(2., static_cast<double>(max_level) - 10.);
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
@@ -1388,7 +1389,7 @@ int main(int argc, char *argv[])
                 }
 
                 if (nb_ite % howoften == 0) {
-                    save_solution(f, eps, nb_ite/howoften, lambda, "Re_"+std::to_string(Re)); // Before applying the scheme
+                    save_solution(f, eps, nb_ite/howoften, lambda, "Re_std_"+std::to_string(Re)); // Before applying the scheme
                     time_frames_saved<<(nb_ite*dt)<<std::endl;
                 }
 
