@@ -629,7 +629,7 @@ int main(int argc, char *argv[])
                         std::cout<<std::endl<<"Time = "<<t<<" Diff_h = "<<error[1]<<std::endl<<"Diff q = "<<error[3];
 
                         one_time_step_overleaves(f , pred_coeff_separate, update_bc_for_level, s, lambda, g);
-                        one_time_step_overleaves(f , pred_coeff_separate, update_bc_for_level, s, lambda, g);
+                        one_time_step_overleaves(fR, pred_coeff_separate, update_bc_for_level, s, lambda, g);
                         t += dt;
                     }
 
