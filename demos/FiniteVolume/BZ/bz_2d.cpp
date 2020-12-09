@@ -276,6 +276,7 @@ void RK4(Field & field, const double dt, std::size_t nbstep, Func&& bc, const do
     }
 }
 
+
 int main()
 {
     constexpr std::size_t dim = 2;                   // Spatial dimension
@@ -330,12 +331,11 @@ int main()
     while (t < Tf)
     {
         fmt::print(fmt::format("Iteration = {:4d}, t: {}\n", nb_ite, t));
-
+ 
         if (max_level > min_level)
-        {
             MRadaptation(epsilon_MR, regularity);
-        }
-
+        
+       
         tic();
         reaction(field, t, t + .5*dt);
         auto duration = toc();
@@ -354,7 +354,7 @@ int main()
         duration = toc();
         fmt::print(fmt::format("second reaction: {}\n", duration));
 
-        if (nsave == 100)
+        if (nsave == 20)
         {
             samurai::save(fmt::format("bz_ite-{}", nb_ite), mesh, field); // Saving
             nsave = 0;

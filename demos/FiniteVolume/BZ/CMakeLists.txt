@@ -12,3 +12,6 @@ set(RADAU_SRC
 
 add_executable(bz_2d bz_2d.cpp ${RADAU_SRC})
 target_link_libraries(bz_2d samurai)
+
+add_executable(bz_2d_AMR bz_2d_AMR.cpp ${RADAU_SRC})
+target_link_libraries(bz_2d_AMR samurai)
