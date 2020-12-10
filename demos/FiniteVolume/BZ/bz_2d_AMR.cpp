@@ -457,7 +457,6 @@ void AMR_criterion(Field & f, Func && update_bc_for_level, Tag & tag, std::size_
             }
         });
     }
-
     // Here we copy the tag field because otherwise we modify the field 
     // which is then used to decide where to enlarge.
     // This problem was solved in multiresolution by adding the choice of 
