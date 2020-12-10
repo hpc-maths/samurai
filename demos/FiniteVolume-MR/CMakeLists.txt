@@ -37,6 +37,9 @@
 # add_executable(D2Q4_advection_right_boundary_conditions D2Q4_advection_right_boundary_conditions.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q4_advection_right_boundary_conditions samurai)
 
+add_executable(D2Q4_4_Implosion D2Q4_4_Implosion.cpp ${SAMURAI_HEADERS})
+target_link_libraries(D2Q4_4_Implosion samurai)
+
 
 add_executable(D2Q9_von_Karman_street_meshless_diffusion_correction D2Q9_von_Karman_street_meshless_diffusion_correction.cpp ${SAMURAI_HEADERS})
 target_link_libraries(D2Q9_von_Karman_street_meshless_diffusion_correction samurai)
