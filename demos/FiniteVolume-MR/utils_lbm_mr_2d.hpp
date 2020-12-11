@@ -12,7 +12,7 @@ auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, typename Mesh::m
 
     std::size_t coeff = 1 << (mesh.max_level() - level); // When we are not at the finest level, we must translate more
 
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), - xp)),
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * xp)),
                                               samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * yp))), // Removing NE
                                    samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * yp))), // Removing SE
                         mesh[type][level]);//.on(level);

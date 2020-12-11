@@ -76,8 +76,8 @@ auto init_f(samurai::MRMesh<Config> &mesh,
                         + (1./2. - gas_constant/2.) * (m1_0*m1_0)/(m0_0) + (gas_constant - 1.) * m3_0;
         double m2_3 = 0.0;
 
-        double m3_1 = gas_constant*(m1_0*m3_0)/(m0_0) + (gas_constant/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + (gas_constant/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0);
-        double m3_2 = gas_constant*(m2_0*m3_0)/(m0_0) + (gas_constant/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + (gas_constant/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0);
+        double m3_1 = gas_constant*(m1_0*m3_0)/(m0_0) - (gas_constant/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gas_constant/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0);
+        double m3_2 = gas_constant*(m2_0*m3_0)/(m0_0) - (gas_constant/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gas_constant/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0);
         double m3_3 = 0.0;
 
         // We come back to the distributions
@@ -149,7 +149,7 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
     for(std::size_t k = 0; k < max_level - min_level + 1; ++k)
     {
         int size = (1<<k);
-        data[k].resize(4);
+        data[k].resize(8);
 
         for (int alpha = 0; alpha < 4; ++alpha)
         {
@@ -159,10 +159,8 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
                 auto rotated_in  = rotation_of_pi_over_two(alpha, tau(k,  i   * size - 1), tau(k, j * size + l));
                 auto rotated_out = rotation_of_pi_over_two(alpha, tau(k, (i+1)* size - 1), tau(k, j * size + l));
 
-                // For the cells inside the domain, we can already combine entering and exiting fluxes and
-                // we have a compensation of many cells.
-                data[k][alpha] += (prediction(k, tau_inverse(k, rotated_in.first ), tau_inverse(k, rotated_in.second ))
-                                 - prediction(k, tau_inverse(k, rotated_out.first), tau_inverse(k, rotated_out.second)));
+                data[k][0 + 2 * alpha] += prediction(k, tau_inverse(k, rotated_in.first ), tau_inverse(k, rotated_in.second ));
+                data[k][1 + 2 * alpha] += prediction(k, tau_inverse(k, rotated_out.first), tau_inverse(k, rotated_out.second));
             }
         }
     }
@@ -352,26 +350,283 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
             double coeff = 1. / (1 << (2*j)); // ATTENTION A LA DIMENSION 2 !!!!
 
 
-            leaves.on(level + 1)([&](auto& interval, auto& index) { // This are overleaves
+            // std::cout<<std::endl<<"Level = "<<level<<std::endl;
+
+
+            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level], 
+                                                mesh[mesh_id_t::cells][level]);
+
+            auto ol_east = samurai::intersection(get_adjacent_boundary_east(mesh, lev_p_1, mesh_id_t::overleaves),
+                                                mesh[mesh_id_t::cells][level]);
+            auto ol_northeast = samurai::intersection(get_adjacent_boundary_northeast(mesh, lev_p_1, mesh_id_t::overleaves),
+                                                      mesh[mesh_id_t::cells][level]);
+            auto ol_southeast = samurai::intersection(get_adjacent_boundary_southeast(mesh, lev_p_1, mesh_id_t::overleaves),
+                                                      mesh[mesh_id_t::cells][level]);
+            auto ol_west = samurai::intersection(get_adjacent_boundary_west(mesh, lev_p_1, mesh_id_t::overleaves),
+                                                mesh[mesh_id_t::cells][level]);
+            auto ol_northwest = samurai::intersection(get_adjacent_boundary_northwest(mesh, lev_p_1, mesh_id_t::overleaves),
+                                                      mesh[mesh_id_t::cells][level]);
+            auto ol_southwest = samurai::intersection(get_adjacent_boundary_southwest(mesh, lev_p_1, mesh_id_t::overleaves),
+                                                      mesh[mesh_id_t::cells][level]);
+            auto ol_north = samurai::intersection(get_adjacent_boundary_north(mesh, lev_p_1, mesh_id_t::overleaves),
+                                                  mesh[mesh_id_t::cells][level]);
+            auto ol_south = samurai::intersection(get_adjacent_boundary_south(mesh, lev_p_1, mesh_id_t::overleaves),
+                                                  mesh[mesh_id_t::cells][level]);
+
+            // Exiting fluxes which do not need any correction
+            // whatever their position is.
+            leaves.on(lev_p_1)([&](auto& interval, auto& index) {
                 auto k = interval; // Logical index in x
-                auto h = index[0]; // Logical index in y
+                auto h = index[0];    // Logical index in y
+
+                std::array<unsigned short int, 4> vld_flx{1, 3, 5, 7};
 
                 for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
-
-                    auto shift = 4 * scheme_n;
-
-                    for (std::size_t alpha = 0; alpha < 4; ++alpha) {
-                        for(auto &c: pred_coeff[j][alpha].coeff)
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
                         {
                             coord_index_t stencil_x, stencil_y;
                             std::tie(stencil_x, stencil_y) = c.first;
 
-                            fluxes(alpha + shift, lev_p_1, k, h) +=  c.second * f(alpha + shift, lev_p_1, k + stencil_x, h + stencil_y);
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) -= c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
                         }
                     }
                 }
             });
-            
+
+            ol_east.on(lev_p_1)([&](auto& interval, auto& index) {
+                auto k = interval; // Logical index in x
+                auto h = index[0];    // Logical index in y
+
+                // std::cout<<std::endl<<"East : "<<k<<"  |  "<<h<<std::endl;
+
+                std::array<unsigned short int, 3> vld_flx{0, 2, 6};
+
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
+                    int sign = (scheme_n == 1) ? -1 : 1;
+
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
+
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) += c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
+                    }
+                    fluxes(2 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign * f(0 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(2 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(2 + 4 * scheme_n, lev_p_1, k, h);
+
+                }
+            });
+            ol_northeast.on(lev_p_1)([&](auto& interval, auto& index) {
+                auto k = interval; // Logical index in x
+                auto h = index[0];    // Logical index in y
+
+                // std::cout<<std::endl<<"NorthEast : "<<k<<"  |  "<<h<<std::endl;
+
+                std::array<unsigned short int, 2> vld_flx{0, 2};
+
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
+                    int sign1 = (scheme_n == 1) ? -1 : 1;
+                    int sign2 = (scheme_n == 2) ? -1 : 1;
+
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
+
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) += c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
+                    }
+                    fluxes(2 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign1 * f(0 + 4 * scheme_n, lev_p_1, k, h);
+                    fluxes(3 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign2 * f(1 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(2 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(2 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(3 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(3 + 4 * scheme_n, lev_p_1, k, h);
+                }
+            });
+            ol_southeast.on(lev_p_1)([&](auto& interval, auto& index) {
+                auto k = interval; // Logical index in x
+                auto h = index[0];    // Logical index in y
+
+                // std::cout<<std::endl<<"SouthEast : "<<k<<"  |  "<<h<<std::endl;
+
+                std::array<unsigned short int, 2> vld_flx{0, 6};
+
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
+                    int sign1 = (scheme_n == 1) ? -1 : 1;
+                    int sign2 = (scheme_n == 2) ? -1 : 1;
+
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
+
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) += c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
+                    }
+                    fluxes(1 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign2 * f(3 + 4 * scheme_n, lev_p_1, k, h); 
+                    fluxes(2 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign1 * f(0 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(1 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(1 + 4 * scheme_n, lev_p_1, k, h); 
+                    // fluxes(2 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(2 + 4 * scheme_n, lev_p_1, k, h);
+                }
+            });
+            ol_west.on(lev_p_1)([&](auto& interval, auto& index) {
+                auto k = interval; // Logical index in x
+                auto h = index[0];    // Logical index in y
+                // std::cout<<std::endl<<"West : "<<k<<"  |  "<<h<<std::endl;
+
+                std::array<unsigned short int, 3> vld_flx{2, 4, 6};
+
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
+                    int sign = (scheme_n == 1) ? -1 : 1;
+
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
+
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) += c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
+                    }
+                    fluxes(0 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign * f(2 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(0 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(0 + 4 * scheme_n, lev_p_1, k, h);
+
+                }
+            });
+            ol_northwest.on(lev_p_1)([&](auto& interval, auto& index) {
+                auto k = interval; // Logical index in x
+                auto h = index[0];    // Logical index in y
+                // std::cout<<std::endl<<"NorthWest : "<<k<<"  |  "<<h<<std::endl;
+
+                std::array<unsigned short int, 2> vld_flx{2, 4};
+
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
+                    int sign1 = (scheme_n == 1) ? -1 : 1;
+                    int sign2 = (scheme_n == 2) ? -1 : 1;
+
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
+
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) += c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
+                    }
+                    fluxes(0 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign1 * f(2 + 4 * scheme_n, lev_p_1, k, h);
+                    fluxes(3 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign2 * f(1 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(0 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(0 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(3 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(3 + 4 * scheme_n, lev_p_1, k, h);
+                }
+            });
+            ol_southwest.on(lev_p_1)([&](auto& interval, auto& index) {
+                auto k = interval; // Logical index in x
+                auto h = index[0];    // Logical index in y
+                // std::cout<<std::endl<<"SouthWest : "<<k<<"  |  "<<h<<std::endl;
+
+                std::array<unsigned short int, 2> vld_flx{4, 6};
+
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
+                    int sign1 = (scheme_n == 1) ? -1 : 1;
+                    int sign2 = (scheme_n == 2) ? -1 : 1;
+
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
+
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
+                    }
+                    fluxes(0 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign1 * f(2 + 4 * scheme_n, lev_p_1, k, h);
+                    fluxes(1 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign2 * f(3 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(0 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(0 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(1 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(1 + 4 * scheme_n, lev_p_1, k, h);
+                }
+            });
+            ol_north.on(lev_p_1)([&](auto& interval, auto& index) {
+                auto k = interval; // Logical index in x
+                auto h = index[0];    // Logical index in y
+                // std::cout<<std::endl<<"North : "<<k<<"  |  "<<h<<std::endl;
+
+                std::array<unsigned short int, 3> vld_flx{0, 2, 4};
+
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
+                    int sign = (scheme_n == 2) ? -1 : 1;
+
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
+
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) +=  c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
+                    }
+                    fluxes(3 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * sign * f(1 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(3 + 4 * scheme_n, lev_p_1, k, h) =  coeff*(1<<j) * f(3 + 4 * scheme_n, lev_p_1, k, h);
+
+                }
+            });
+            ol_south.on(lev_p_1)([&](auto& interval, auto& index) {
+                auto k = interval; // Logical index in x
+                auto h = index[0];    // Logical index in y
+                // std::cout<<std::endl<<"South : "<<k<<"  |  "<<h<<std::endl;
+
+                std::array<unsigned short int, 3> vld_flx{0, 4, 6};
+
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
+                    int sign = (scheme_n == 2) ? -1 : 1;
+
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
+
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) += c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
+                    }
+                    fluxes(1 + 4 * scheme_n, lev_p_1, k, h) +=  (1<<j) * sign * f(3 + 4 * scheme_n, lev_p_1, k, h);
+                    // fluxes(1 + 4 * scheme_n, lev_p_1, k, h) += (1<<j) * f(1 + 4 * scheme_n, lev_p_1, k, h);
+
+                }
+            });
+
+            // Now we are left for the regular entering fluxes for the cells far from the boundary
+            auto ol_touching_east = samurai::union_(samurai::union_(ol_east, ol_northeast), ol_southeast);
+            auto ol_touching_west = samurai::union_(samurai::union_(ol_west, ol_northwest), ol_southwest);
+
+            auto ol_boundary = samurai::union_(samurai::union_(samurai::union_(ol_touching_east, ol_touching_west), ol_north), ol_south);
+
+            auto ol_inside = samurai::difference(leaves, ol_boundary).on(lev_p_1);
+
+
+            // leaves.on(lev_p_1)([&](auto& interval, auto& index) {
+            ol_inside([&](auto& interval, auto& index) {
+                auto k = interval; // Logical index in x
+                auto h = index[0];    // Logical index in y
+
+                std::array<unsigned short int, 4> vld_flx{0, 2, 4, 6};
+
+                for (int scheme_n = 0; scheme_n < 4; ++scheme_n)    {
+                    for (auto fl_nb : vld_flx)   {
+                        for(auto &c: pred_coeff[j][fl_nb].coeff)
+                        {
+                            coord_index_t stencil_x, stencil_y;
+                            std::tie(stencil_x, stencil_y) = c.first;
+
+                            fluxes((fl_nb>>1) + 4 * scheme_n, lev_p_1, k, h) += c.second * f((fl_nb>>1) + 4 * scheme_n, lev_p_1, k + stencil_x, h + stencil_y);
+                        }
+                    }
+                }
+            });
+
             leaves([&](auto& interval, auto& index) {
                 auto k = interval; // Logical index in x
                 auto h = index[0]; // Logical index in y
@@ -423,8 +678,8 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
             m2_2 = (1 - s_u_x) *  m2_2 + s_u_x * ((3./2. - gas_constant/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gas_constant/2.) * (m1_0*m1_0)/(m0_0) + (gas_constant - 1.) * m3_0);
             m2_3 = (1 - s_u_xy) * m2_3;
 
-            m3_1 = (1 - s_p_x) *  m3_1 + s_p_x * (gas_constant*(m1_0*m3_0)/(m0_0) + (gas_constant/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gas_constant/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-            m3_2 = (1 - s_p_x) *  m3_2 + s_p_x * (gas_constant*(m2_0*m3_0)/(m0_0) + (gas_constant/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gas_constant/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
+            m3_1 = (1 - s_p_x) *  m3_1 + s_p_x * (gas_constant*(m1_0*m3_0)/(m0_0) - (gas_constant/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gas_constant/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
+            m3_2 = (1 - s_p_x) *  m3_2 + s_p_x * (gas_constant*(m2_0*m3_0)/(m0_0) - (gas_constant/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gas_constant/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
             m3_3 = (1 - s_p_xy) * m3_3;
 
             new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
@@ -617,7 +872,14 @@ int main(int argc, char *argv[])
             double regularity = result["reg"].as<double>();
 
 
-            const double lambda = 12.;
+            // const double lambda = 12.;
+            double lambda = 10.; // Works of with 8
+
+            if (max_level == 8)
+                lambda = 8.;
+            if (max_level == 9)
+                lambda = 9.5;
+
             const double gas_constant = 1.4;
 
             const double s_rho_x  = 1.9;
@@ -632,7 +894,9 @@ int main(int argc, char *argv[])
             const double p_in    = .14;
             const double p_out   = 1.;
 
-            const double T = 2.5; 
+            // We are obliged to multiply the final time by 1/0.3
+            // because the domain is of size 1 instead of 0.3
+            const double T = 2.5 / 0.3; 
 
             samurai::Box<double, dim> box({0, 0}, {1, 1});
             samurai::MRMesh<Config> mesh(box, min_level, max_level);
@@ -672,6 +936,7 @@ int main(int argc, char *argv[])
 
                 one_time_step(f, update_bc_for_level, pred_coeff, lambda, gas_constant,
                                  s_rho_x, s_rho_xy, s_rho_x, s_u_xy, s_p_x, s_p_xy);
+                // save_solution(f, eps, nb_ite/howoften, gas_constant, "post");
                 t += dt;
             }
         }
