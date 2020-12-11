@@ -283,8 +283,8 @@ auto init_f(samurai::MRMesh<Config> &mesh, double t)
                         + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0;
         double m2_3 = 0.0;
 
-        double m3_1 = gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0);
-        double m3_2 = gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0);
+        double m3_1 = gm*(m1_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0);
+        double m3_2 = gm*(m2_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0);
         double m3_3 = 0.0;
 
         // We come back to the distributions
@@ -438,7 +438,7 @@ auto get_adjacent_boundary_east(Mesh & mesh, std::size_t level, typename Mesh::m
 
     std::size_t coeff = 1 << (mesh.max_level() - level); // When we are not at the finest level, we must translate more
 
-    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), - xp)),
+    return samurai::intersection(samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), - coeff*xp)),
                                               samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * yp))), // Removing NE
                                    samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * yp))), // Removing SE
                         mesh[type][level]);//.on(level);
@@ -846,8 +846,8 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
                 m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
                 m2_3 = (1 - sxy) * m2_3;
 
-                m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-                m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
+                m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
+                m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
                 m3_3 = (1 - sxy) * m3_3;
 
 
@@ -1448,8 +1448,8 @@ void one_time_step_overleaves_corrected(Field &f,Func&& update_bc_for_level, con
                 m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
                 m2_3 = (1 - sxy) * m2_3;
 
-                m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-                m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) + (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) + + (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
+                m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
+                m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
                 m3_3 = (1 - sxy) * m3_3;
 
 
