@@ -13,6 +13,9 @@
 #include "prediction_map_2d.hpp"
 #include "boundary_conditions.hpp"
 
+#include "utils_lbm_mr_2d.hpp"
+
+
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
 /// Launching the timer
@@ -740,18 +743,21 @@ int main(int argc, char *argv[])
             // double lambda = 1./0.3; //4.0; 
             // double lambda = 1./0.2499; //4.0;
             double lambda = 1./0.2; // This seems to work
+            double T = 0.25;//0.3;//1.2;
+
 
             double sq = 1.75;
             double sxy = 2.;
             if (configuration == 12)  
                 sxy = 1.5;
+                T = 0.25;
             else
                 sxy = 0.5;
+                T = 0.3;
 
             samurai::Box<double, dim> box({0, 0}, {1, 1});
             samurai::MRMesh<Config> mesh(box, min_level, max_level);
             using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
-
             samurai::MRMesh<Config> mesh_ref{box, max_level, max_level};
 
             using coord_index_t = typename samurai::MRMesh<Config>::coord_index_t;
@@ -761,7 +767,6 @@ int main(int argc, char *argv[])
             auto f     = init_f(mesh,     configuration, lambda); // Adaptive  scheme
             auto f_ref = init_f(mesh_ref, configuration, lambda); // Reference scheme
 
-            double T = 0.25;//0.3;//1.2;
             double dx = 1.0 / (1 << max_level);
             double dt = dx / lambda;
 

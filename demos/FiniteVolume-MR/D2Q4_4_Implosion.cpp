@@ -12,7 +12,6 @@
 #include <samurai/mr/adapt.hpp>
 #include "prediction_map_2d.hpp"
 #include "boundary_conditions.hpp"
-
 #include "utils_lbm_mr_2d.hpp"
 
 /// Timer used in tic & toc

@@ -1289,7 +1289,6 @@ int main(int argc, char *argv[])
                 num_leaves<<mesh.nb_cells(mesh_id_t::cells)<<std::endl;
                 num_cells <<mesh.nb_cells()<<std::endl;
             }
-
             CD.close();
             CL.close();
             time_frames.close();
