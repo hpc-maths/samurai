@@ -239,7 +239,10 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 }
 
 template<class Field, class Func, class pred>
-void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff, double lambda, double sq, double sxy)
+void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff, 
+                    const double lambda, const double sq_rho, const double sxy_rho, 
+                                         const double sq_q, const double sxy_q,
+                                         const double sq_e, const double sxy_e)
 {
     constexpr std::size_t nvel = Field::size;
     using coord_index_t = typename Field::interval_t::coord_index_t;
@@ -350,22 +353,22 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff, 
             auto m3_2 = xt::eval(lambda        * (                            advected(13, level, k, h)                             - advected(15,  level, k, h)));
             auto m3_3 = xt::eval(lambda*lambda * (advected(12, level, k, h) - advected(13, level, k, h) + advected(14, level, k, h) - advected(15,  level, k, h)));
 
-            m0_1 = (1 - sq) *  m0_1 + sq * (m1_0);
-            m0_2 = (1 - sq) *  m0_2 + sq * (m2_0);
-            m0_3 = (1 - sxy) * m0_3;
+            m0_1 = (1 - sq_rho ) * m0_1 + sq_rho * (m1_0);
+            m0_2 = (1 - sq_rho ) * m0_2 + sq_rho * (m2_0);
+            m0_3 = (1 - sxy_rho) * m0_3;
 
 
-            m1_1 = (1 - sq) *  m1_1 + sq * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
-            m1_2 = (1 - sq) *  m1_2 + sq * (m1_0*m2_0/m0_0);
-            m1_3 = (1 - sxy) * m1_3;
+            m1_1 = (1 - sq_q ) * m1_1 + sq_q * ((3./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (1./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (gm - 1.) * m3_0);
+            m1_2 = (1 - sq_q ) * m1_2 + sq_q * (m1_0*m2_0/m0_0);
+            m1_3 = (1 - sxy_q) * m1_3;
 
-            m2_1 = (1 - sq) *  m2_1 + sq * (m1_0*m2_0/m0_0);
-            m2_2 = (1 - sq) *  m2_2 + sq * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
-            m2_3 = (1 - sxy) * m2_3;
+            m2_1 = (1 - sq_q ) * m2_1 + sq_q * (m1_0*m2_0/m0_0);
+            m2_2 = (1 - sq_q ) * m2_2 + sq_q * ((3./2. - gm/2.) * (m2_0*m2_0)/(m0_0) + (1./2. - gm/2.) * (m1_0*m1_0)/(m0_0) + (gm - 1.) * m3_0);
+            m2_3 = (1 - sxy_q) * m2_3;
 
-            m3_1 = (1 - sq) *  m3_1 + sq * (gm*(m1_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
-            m3_2 = (1 - sq) *  m3_2 + sq * (gm*(m2_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
-            m3_3 = (1 - sxy) * m3_3;
+            m3_1 = (1 - sq_e ) * m3_1 + sq_e * (gm*(m1_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m1_0*m1_0*m1_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m1_0*m2_0*m2_0)/(m0_0*m0_0));
+            m3_2 = (1 - sq_e ) * m3_2 + sq_e * (gm*(m2_0*m3_0)/(m0_0) - (gm/2. - 1./2.)*(m2_0*m2_0*m2_0)/(m0_0*m0_0) - (gm/2. - 1./2.)*(m2_0*m1_0*m1_0)/(m0_0*m0_0));
+            m3_3 = (1 - sxy_e) * m3_3;
 
             new_f(0, level, k, h) =  .25 * m0_0 + .5/lambda * (m0_1)                    + .25/(lambda*lambda) * m0_3;
             new_f(1, level, k, h) =  .25 * m0_0                    + .5/lambda * (m0_2) - .25/(lambda*lambda) * m0_3;
@@ -613,6 +616,7 @@ void save_reconstructed(Field & f, FieldFull & f_full, Func&& update_bc_for_leve
     auto qy_reconstructed = samurai::make_field<value_t, 1>("qy_reconstructed", init_mesh);
     auto E_reconstructed = samurai::make_field<value_t, 1>("E_reconstructed", init_mesh);
     auto s_reconstructed = samurai::make_field<value_t, 1>("s_reconstructed", init_mesh);
+    auto level_ = samurai::make_field<std::size_t, 1>("level", init_mesh);
 
     auto rho = samurai::make_field<value_t, 1>("rho", init_mesh);
     auto qx = samurai::make_field<value_t, 1>("qx", init_mesh);
@@ -640,8 +644,10 @@ void save_reconstructed(Field & f, FieldFull & f_full, Func&& update_bc_for_leve
             auto k = interval;
             auto h = index[0];
 
-
             f_reconstructed(max_level, k, h) = prediction_all(f, level, max_level - level, k, h, memoization_map);
+
+            level_(max_level, k, h) = level;
+
             rho_reconstructed(max_level, k, h) = f_reconstructed(0, max_level, k, h)
                                                + f_reconstructed(1, max_level, k, h)
                                                + f_reconstructed(2, max_level, k, h)
@@ -699,7 +705,7 @@ void save_reconstructed(Field & f, FieldFull & f_full, Func&& update_bc_for_leve
     str << "LBM_D2Q4_3_Euler_Reconstruction_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-"
         << eps << "_ite-" << ite;
 
-    samurai::save(str.str().data(), init_mesh, rho_reconstructed,s_reconstructed, rho, s);
+    samurai::save(str.str().data(), init_mesh, rho_reconstructed, qx_reconstructed, qy_reconstructed, E_reconstructed,s_reconstructed, rho, qx, qy, E, s, level_);
 }
 
 
@@ -746,14 +752,34 @@ int main(int argc, char *argv[])
             double T = 0.25;//0.3;//1.2;
 
 
-            double sq = 1.75;
-            double sxy = 2.;
-            if (configuration == 12)  
-                sxy = 1.5;
-                T = 0.25;
+            double sq_rho = 1.9;
+            double sxy_rho = 1.;
+
+            double sq_q = 1.75;
+            double sxy_q = 1.;
+
+            double sq_e = 1.75;
+            double sxy_e = 1.;
+
+            if (configuration == 12)
+                T = .25;
             else
-                sxy = 0.5;
-                T = 0.3;
+            {
+                T = .3;
+                // T = 0.1;
+            }
+            
+            // // This were the old test case (version 3)
+            // double sq = 1.75;
+            // double sxy = 2.;
+            // if (configuration == 12)    {
+            //     sxy = 1.5;
+            //     T = 0.25;
+            // }
+            // else    {
+            //     sxy = 0.5;
+            //     T = 0.3;
+            // }
 
             samurai::Box<double, dim> box({0, 0}, {1, 1});
             samurai::MRMesh<Config> mesh(box, min_level, max_level);
@@ -775,26 +801,20 @@ int main(int argc, char *argv[])
             std::string dirname ("./LaxLiu/");
             std::string suffix("_Config_"+std::to_string(configuration)+"_min_"+std::to_string(min_level)+"_max_"+std::to_string(max_level)+"_eps_"+std::to_string(eps));
 
-            // std::ofstream stream_time_mesh_adaptation;
-            // stream_time_mesh_adaptation.open     (dirname+"time_mesh_adaptation"+suffix+".dat");
+            // std::ofstream stream_number_leaves;
+            // stream_number_leaves.open     (dirname+"number_leaves"+suffix+".dat");
 
-            // std::ofstream stream_time_scheme;
-            // stream_time_scheme.open     (dirname+"time_scheme"+suffix+".dat");
+            // std::ofstream stream_number_cells;
+            // stream_number_cells.open     (dirname+"number_cells"+suffix+".dat");
 
-            std::ofstream stream_number_leaves;
-            stream_number_leaves.open     (dirname+"number_leaves"+suffix+".dat");
+            // std::ofstream stream_time_scheme_ref;
+            // stream_time_scheme_ref.open     (dirname+"time_scheme_ref"+suffix+".dat");
 
-            std::ofstream stream_number_cells;
-            stream_number_cells.open     (dirname+"number_cells"+suffix+".dat");
+            // std::ofstream stream_number_leaves_ref;
+            // stream_number_leaves_ref.open     (dirname+"number_leaves_ref"+suffix+".dat");
 
-            std::ofstream stream_time_scheme_ref;
-            stream_time_scheme_ref.open     (dirname+"time_scheme_ref"+suffix+".dat");
-
-            std::ofstream stream_number_leaves_ref;
-            stream_number_leaves_ref.open     (dirname+"number_leaves_ref"+suffix+".dat");
-
-            std::ofstream stream_number_cells_ref;
-            stream_number_cells_ref.open     (dirname+"number_cells_ref"+suffix+".dat");
+            // std::ofstream stream_number_cells_ref;
+            // stream_number_cells_ref.open     (dirname+"number_cells_ref"+suffix+".dat");
 
             int howoften = 1; // How often is the solution saved ?
 
@@ -816,37 +836,34 @@ int main(int argc, char *argv[])
                 if (nb_ite == N)    {
                     auto error_density = compute_error(f, f_ref, update_bc_for_level);
                     std::cout<<std::endl<<"#### Epsilon = "<<eps<<"   error = "<<error_density<<std::endl;
+                    save_solution(f    , eps, nb_ite, std::string("final_"));
                     save_reconstructed(f, f_ref, update_bc_for_level, eps, nb_ite);
                 }
 
-                if (nb_ite % howoften == 0)    {
-                    save_solution(f, eps, nb_ite/howoften, std::string("Config_")+std::to_string(configuration)); // Before applying the scheme
-                }
+                // if (nb_ite % howoften == 0)    {
+                //     save_solution(f    , eps, nb_ite/howoften, std::string("Config_")+std::to_string(configuration)); // Before applying the scheme
+                // }
 
-                one_time_step(f, update_bc_for_level, pred_coeff, lambda, sq, sxy);
-                one_time_step(f_ref, update_bc_for_level, pred_coeff, lambda, sq, sxy);
+                one_time_step(f    , update_bc_for_level, pred_coeff, lambda, sq_rho, sxy_rho, sq_q, sxy_q, sq_e, sxy_e);
+                one_time_step(f_ref, update_bc_for_level, pred_coeff, lambda, sq_rho, sxy_rho, sq_q, sxy_q, sq_e, sxy_e);
                 
                 auto number_leaves = mesh.nb_cells(mesh_id_t::cells);
                 auto number_cells  = mesh.nb_cells();
 
-                // std::cout<<std::endl<<"Total cells = "<<number_cells<<"  Leaves = "<<number_leaves<<std::endl;
 
-                stream_number_leaves<<number_leaves<<std::endl;
-                stream_number_cells<<number_cells<<std::endl;
+                // stream_number_leaves<<number_leaves<<std::endl;
+                // stream_number_cells<<number_cells<<std::endl;
 
-                stream_number_leaves_ref<<mesh_ref.nb_cells(mesh_id_t::cells)<<std::endl;
-                stream_number_cells_ref<<mesh_ref.nb_cells()<<std::endl;
+                // stream_number_leaves_ref<<mesh_ref.nb_cells(mesh_id_t::cells)<<std::endl;
+                // stream_number_cells_ref<<mesh_ref.nb_cells()<<std::endl;
 
             }
 
-            // stream_time_mesh_adaptation.close();
-            // stream_time_scheme.close();
-            stream_number_leaves.close();
-            stream_number_cells.close();
+            // stream_number_leaves.close();
+            // stream_number_cells.close();
 
-            // stream_time_scheme_ref.close();
-            stream_number_leaves_ref.close();
-            stream_number_cells_ref.close();
+            // stream_number_leaves_ref.close();
+            // stream_number_cells_ref.close();
         }
     }
     catch (const cxxopts::OptionException &e)
