@@ -22,8 +22,8 @@
 # add_executable(D2Q4_3_Euler D2Q4_3_Euler.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q4_3_Euler samurai)
 
-add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp)
-target_link_libraries(D2Q4_3_Euler_right_boundary_conditions samurai)
+# add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp)
+# target_link_libraries(D2Q4_3_Euler_right_boundary_conditions samurai)
 #
 # add_executable(D2Q4_3_ShallowWaters_right_boundary_conditions D2Q4_3_ShallowWaters_right_boundary_conditions.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q4_3_ShallowWaters_right_boundary_conditions samurai)
@@ -34,8 +34,26 @@ target_link_libraries(D2Q4_3_Euler_right_boundary_conditions samurai)
 # add_executable(D2Q4_4_Implosion D2Q4_4_Implosion.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q4_4_Implosion samurai)
 
-# add_executable(D2Q4_advection_right_boundary_conditions D2Q4_advection_right_boundary_conditions.cpp ${SAMURAI_HEADERS})
-# target_link_libraries(D2Q4_advection_right_boundary_conditions samurai)
+add_executable(D2Q5444_Rayleigh_Taylor D2Q5444_Rayleigh_Taylor.cpp ${SAMURAI_HEADERS})
+target_link_libraries(D2Q5444_Rayleigh_Taylor samurai)
+
+# add_executable(D2Q4_4_Implosion D2Q4_4_Implosion.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(D2Q4_4_Implosion samurai)
+
+add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp)
+target_link_libraries(D2Q4_3_Euler_right_boundary_conditions samurai)
+
+add_executable(D2Q9_von_Karman_street_meshless_diffusion_correction D2Q9_von_Karman_street_meshless_diffusion_correction.cpp ${SAMURAI_HEADERS})
+target_link_libraries(D2Q9_von_Karman_street_meshless_diffusion_correction samurai)
+
+# add_executable(D1Q3_ShallowWaters D1Q3_ShallowWaters.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(D1Q3_ShallowWaters samurai)
+
+# add_executable(D1Q5_ShallowWaters D1Q5_ShallowWaters.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(D1Q5_ShallowWaters samurai)
+
+# add_executable(D1Q2_vectorial_Euler D1Q2_vectorial_Euler.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(D1Q2_vectorial_Euler samurai)
 
 # add_executable(D1Q2_Burgers D1Q2_Burgers.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D1Q2_Burgers samurai)
@@ -52,8 +70,6 @@ target_link_libraries(D2Q4_3_Euler_right_boundary_conditions samurai)
 # add_executable(D2Q9_von_Karman_street_meshless D2Q9_von_Karman_street_meshless.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q9_von_Karman_street_meshless samurai)
 
-# add_executable(D2Q9_von_Karman_street_meshless_diffusion_correction D2Q9_von_Karman_street_meshless_diffusion_correction.cpp ${SAMURAI_HEADERS})
-# target_link_libraries(D2Q9_von_Karman_street_meshless_diffusion_correction samurai)
 
 # add_executable(D2Q4_3_Emery_Dubois D2Q4_3_Emery_Dubois.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q4_3_Emery_Dubois samurai)
@@ -61,3 +77,14 @@ target_link_libraries(D2Q4_3_Euler_right_boundary_conditions samurai)
 # add_executable(finest_reconstruction_2D finest_reconstruction_2D.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(finest_reconstruction_2D samurai)
 
+# add_executable(test_D1Q2 test_D1Q2.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(test_D1Q2 samurai)
+
+# add_executable(test_D1Q3 test_D1Q3.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(test_D1Q3 samurai)
+
+# add_executable(test_D1Q5 test_D1Q5.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(test_D1Q5 samurai)
+
+# add_executable(test_D1Q2_3 test_D1Q2_3.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(test_D1Q2_3 samurai)
