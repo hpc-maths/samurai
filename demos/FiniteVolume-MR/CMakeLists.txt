@@ -34,8 +34,11 @@
 # add_executable(D2Q4_4_Implosion D2Q4_4_Implosion.cpp ${SAMURAI_HEADERS})
 # target_link_libraries(D2Q4_4_Implosion samurai)
 
-add_executable(D2Q4_4_Implosion D2Q4_4_Implosion.cpp ${SAMURAI_HEADERS})
-target_link_libraries(D2Q4_4_Implosion samurai)
+add_executable(D2Q5444_Rayleigh_Taylor D2Q5444_Rayleigh_Taylor.cpp ${SAMURAI_HEADERS})
+target_link_libraries(D2Q5444_Rayleigh_Taylor samurai)
+
+# add_executable(D2Q4_4_Implosion D2Q4_4_Implosion.cpp ${SAMURAI_HEADERS})
+# target_link_libraries(D2Q4_4_Implosion samurai)
 
 add_executable(D2Q4_3_Euler_right_boundary_conditions D2Q4_3_Euler_right_boundary_conditions.cpp)
 target_link_libraries(D2Q4_3_Euler_right_boundary_conditions samurai)
