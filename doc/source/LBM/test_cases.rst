@@ -28,6 +28,11 @@ We consider many initial data.
     u_3(t=0, x) = (1 + \text{tanh}(100x))/2, \qquad u_4(t = 0, x) = (1+x) \chi_{[-1, 0]}(x) + (1-x) \chi_{[0, 1]}(x), \qquad u_5 (t=0, x) = \chi_{|x| < 1/2}(x).
 
 
+
+.. image:: ./figures/D1Q2.png
+    :width: 100%
+    :align: center
+
 D1Q3 and D1Q5 schemes for the shallow waters system
 -----------------------------
 
@@ -46,6 +51,13 @@ The problem is the shallow waters system to simulate a dam failure
 
 with gravity constant :math:`g = 1`.
 This initial datum develops a left travelling rarefaction fan and a right travelling shock wave.
+
+
+
+
+.. image:: ./figures/D1Q5.png
+    :width: 100%
+    :align: center
 
 
 Vectorial D1Q222 scheme for Euler system
@@ -69,6 +81,13 @@ The system we aim at approximating is given by
 
 
 with pressure law given by :math:`E = \rho u^2/2 + p/(\gamma+1)`, where :math:`\gamma` is the gas constant taken equal to 1.4.
+
+
+
+.. image:: ./figures/D1Q222.png
+    :width: 100%
+    :align: center
+
 
 
 Vectorial D2Q4444 scheme for Euler system for the Lax-Liu problem
@@ -100,5 +119,63 @@ The initial datum is the following
         \end{cases}
 
 
+.. image:: ./figures/D2Q4444.png
+    :width: 100%
+    :align: center
+
 D2Q9 scheme for incompressible Navier-Stokes system for Von Karman vortexes
 -----------------------------
+
+The corresponding file is ``D2Q9_Navier_Stokes_von_Karman_street.cpp`` for the plot of the solution to perform the computations presented in the paper.
+
+Considering an obstacle :math:`\Theta \subset \Omega`, where :math:`\Omega` is the computational domain, the target system is given by
+
+.. math::
+    \begin{cases}
+        \nabla \cdot \mathbf{u} = 0, \qquad t \geq 0, \quad &\mathbf{x} \in \Omega \smallsetminus \Theta, \\
+        \rho_0 \left ( \partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u} \right ) = -\nabla p + \nabla \cdot  \left ( 2 \mu \dfrac{\nabla \mathbf{u} + \nabla \mathbf{u}^T}{2} \right ), \qquad t \geq 0, \quad &\mathbf{x} \in \Omega \smallsetminus \Theta, \\
+        \mathbf{u} = 0, \qquad t \geq 0, \quad &\mathbf{x} \in \partial \Theta, \\
+        \mathbf{u}(t=0, \mathbf{x}) = (u_0, 0), \qquad &\mathbf{x} \in \Omega \smallsetminus \Theta.
+    \end{cases}
+
+The numerical method is consistent with this system in the limit of small velocity and being in a quasi-incompressible regime.
+Observe that the method conserves :math:`\rho` (which shall remain close to :math:`\rho_0`) and :math:`\rho \mathbf{u}`.
+
+.. image:: ./figures/D2Q9.png
+    :width: 100%
+    :align: center
+
+
+
+Vectorial D2Q5444 scheme for Euler system for the Rayleigh-Taylor instability
+-----------------------------
+
+The system we consider is the Euler system with a gravitational forcing of intensity :math:`g > 0`
+
+.. math::
+    \begin{cases}
+        \partial_t \rho + \partial_x (\rho u) + \partial_x (\rho v) = 0, \\
+        \partial_t (\rho u) + \partial_x (\rho u^2 + p) + \partial_y (\rho uv) = 0, \\
+        \partial_t (\rho v) + \partial_x (\rho uv) + \partial_y (\rho v^2 + p) = -\rho g, \\
+        \partial_t E + \partial_x (Eu + pu) + \partial_y (Ev + pv) = -vg.
+    \end{cases}
+
+The boundary conditions we enforce on the system are
+
+.. math::
+    \text{Left and right} \quad
+    \begin{cases}
+        \rho ~ : ~ &\text{Copy}\\
+        \rho u ~ : ~ &\text{Bounce-back}\\
+        \rho v ~ : ~ &\text{Anti Bounce-back}\\
+        E ~ : ~ &\text{Bounce-back}
+    \end{cases}
+    \qquad \text{Top and bottom} \quad
+    \begin{cases}
+        \rho ~ : ~ &\text{Copy}\\
+        \rho u ~ : ~ &\text{Anti Bounce-back}\\
+        \rho v ~ : ~ &\text{Bounce-back}\\
+        E ~ : ~ &\text{Bounce-back}
+    \end{cases}
+
+
