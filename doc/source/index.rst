@@ -24,6 +24,15 @@ SAMURAI: Structured Adaptive mesh and MUlti-Resolution based on Algebra of Inter
    :caption: Table of contents
    :hidden:
 
+Test cases
+========
+.. toctree::
+   :caption: Test cases
+   :hidden:
+   
+   LBM/test_cases
+
+
 Tutorial
 ========
 
