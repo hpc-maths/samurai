@@ -99,6 +99,8 @@ The corresponding file is ``D2Q4444_Euler_Lax_Liux.cpp`` for the plot of the sol
 The system we consider is 
 
 .. math::
+    :label: eq_EulerSystem
+
     \begin{cases}
         \partial_t \rho + \partial_x (\rho u) + \partial_x (\rho v) = 0, \\
         \partial_t (\rho u) + \partial_x (\rho u^2 + p) + \partial_y (\rho uv) = 0, \\
@@ -147,6 +149,38 @@ Observe that the method conserves :math:`\rho` (which shall remain close to :mat
 
 
 
+Vectorial D2Q4444 scheme for Euler system for the implosion problem
+-----------------------------
+
+The initial datum is [eq_EulerSystem]
+
+
+.. math::
+    (\rho, u, v, p)(t=0, x, y) = (1/8 \chi_{|x|+|y| \leq 1/2} + \chi_{|x|+|y| > 1/2}, 0, 0, 7/50 \chi_{|x|+|y| \leq 1/2} + \chi_{|x|+|y| > 1/2}).
+
+ 
+
+The boundary conditions are
+
+.. math::
+    \text{Left and right} \quad
+    \begin{cases}
+        \rho ~ : ~ &\text{Bounce-back}\\
+        \rho u ~ : ~ &\text{Anti Bounce-back}\\
+        \rho v ~ : ~ &\text{Bounce-back}\\
+        E ~ : ~ &\text{Bounce-back}
+    \end{cases}
+    \qquad \text{Top and bottom} \quad
+    \begin{cases}
+        \rho ~ : ~ &\text{Bounce-back}\\
+        \rho u ~ : ~ &\text{Bounce-back}\\
+        \rho v ~ : ~ &\text{Anti Bounce-back}\\
+        E ~ : ~ &\text{Bounce-back}
+    \end{cases}
+
+
+
+
 Vectorial D2Q5444 scheme for Euler system for the Rayleigh-Taylor instability
 -----------------------------
 
@@ -166,16 +200,22 @@ The boundary conditions we enforce on the system are
     \text{Left and right} \quad
     \begin{cases}
         \rho ~ : ~ &\text{Copy}\\
-        \rho u ~ : ~ &\text{Bounce-back}\\
-        \rho v ~ : ~ &\text{Anti Bounce-back}\\
+        \rho u ~ : ~ &\text{Anti Bounce-back}\\
+        \rho v ~ : ~ &\text{Bounce-back}\\
         E ~ : ~ &\text{Bounce-back}
     \end{cases}
     \qquad \text{Top and bottom} \quad
     \begin{cases}
         \rho ~ : ~ &\text{Copy}\\
-        \rho u ~ : ~ &\text{Anti Bounce-back}\\
-        \rho v ~ : ~ &\text{Bounce-back}\\
+        \rho u ~ : ~ &\text{Bounce-back}\\
+        \rho v ~ : ~ &\text{Anti Bounce-back}\\
         E ~ : ~ &\text{Bounce-back}
     \end{cases}
+
+.. image:: ./figures/D2Q5444_Rayleigh_Taylor_cropped.png
+    :width: 100%
+    :align: center
+
+
 
 
