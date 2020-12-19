@@ -2,6 +2,9 @@
 
 #include <array>
 
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xio.hpp>
+
 namespace samurai
 {
     /** @class Cell
@@ -93,7 +96,7 @@ namespace samurai
     template<class TCoord_index, std::size_t dim_>
     inline void Cell<TCoord_index, dim_>::to_stream(std::ostream& os) const
     {
-        os << "Cell -> level: " << level << " indices: " << indices << " center: " << center << " index: " << index;
+        os << "Cell -> level: " << level << " indices: " << indices << " center: " << center() << " index: " << index;
     }
 
     template<class TCoord_index, std::size_t dim>
