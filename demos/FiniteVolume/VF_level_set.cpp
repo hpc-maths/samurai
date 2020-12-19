@@ -78,8 +78,8 @@ public:
             samurai::static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
             {
                 auto index = xt::eval(index_yz + stencil);
-                lcl[index].add_interval({interval.start - static_cast<int>(config::ghost_width),
-                                         interval.end + static_cast<int>(config::ghost_width)});
+                lcl[index].add_interval({interval.start - config::ghost_width,
+                                         interval.end + config::ghost_width});
             });
         });
         this->m_cells[mesh_id_t::cells_and_ghosts] = {cl, false};

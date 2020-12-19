@@ -82,8 +82,8 @@ public:
             lcl_type& lcl = cl[level];
             samurai::static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
             {
-                lcl[{}].add_interval({interval.start - static_cast<int>(config::ghost_width),
-                                         interval.end + static_cast<int>(config::ghost_width)});
+                lcl[{}].add_interval({interval.start - config::ghost_width,
+                                         interval.end + config::ghost_width});
             });
         });
         this->m_cells[mesh_id_t::cells_and_ghosts] = {cl, false};
@@ -194,7 +194,7 @@ void AMR_criterion(Field& f, Tag& tag, GhostUpdate & gu)
     for (std::size_t level = min_level; level <= max_level; ++level)    {
         double dx = 1./(1 << level);
 
-        auto leaves = samurai::intersection(mesh[SimpleID::cells][level], 
+        auto leaves = samurai::intersection(mesh[SimpleID::cells][level],
                                             mesh[SimpleID::cells][level]);
 
         leaves([&](auto& interval, auto& ) {
@@ -225,8 +225,8 @@ void AMR_criterion(Field& f, Tag& tag, GhostUpdate & gu)
                 else
                 {
                     xt::masked_view(tag(level, k),   mask) = static_cast<int>(samurai::CellFlag::refine);
-                    xt::masked_view(tag(level, k),  !mask) = static_cast<int>(samurai::CellFlag::coarsen);                    
-                }   
+                    xt::masked_view(tag(level, k),  !mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                }
             }
         });
     }
@@ -459,7 +459,7 @@ int main(int argc, char *argv[])
 
     std::size_t max_level = 6;
     std::size_t min_level = 1;
-    
+
     samurai::Box<double, dim> box({-3}, {3});
     AMRMesh<Config> mesh{box, max_level, min_level, max_level};
 
@@ -474,14 +474,14 @@ int main(int argc, char *argv[])
 
     double Tf = 1.5; // We have blowup at t = 1
     double dx = 1./(1 << max_level);
-    double dt = 0.99 * dx; // 0.99 * dx 
+    double dt = 0.99 * dx; // 0.99 * dx
 
     double t = 0.;
     std::size_t it = 0;
 
     while (t < Tf)  {
-        
-        std::cout<<std::endl<<"Iteration = "<<it<<"   Time = "<<t<<std::flush;  
+
+        std::cout<<std::endl<<"Iteration = "<<it<<"   Time = "<<t<<std::flush;
 
         std::size_t ite = 0;
         while(ite < (max_level - min_level + 1))
@@ -494,8 +494,8 @@ int main(int argc, char *argv[])
             {
                 break;
             }
-        }    
-        
+        }
+
         save_solution(phi, it, "before");
 
         // Numerical scheme
@@ -513,10 +513,10 @@ int main(int argc, char *argv[])
 
         t  += dt;
         it += 1;
-    } 
+    }
 
 
 
     return 0;
-    
+
     }

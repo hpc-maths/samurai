@@ -36,9 +36,9 @@ namespace samurai
         static constexpr std::size_t graduation_width = graduation_width_;
         static constexpr std::size_t default_s_for_prediction = 1;
 
-        static constexpr std::size_t ghost_width = std::max(std::max(2 * static_cast<int>(graduation_width) - 1,
-                                                                     static_cast<int>(max_stencil_width)),
-                                                                     static_cast<int>(default_s_for_prediction));
+        static constexpr int ghost_width = std::max(std::max(2 * static_cast<int>(graduation_width) - 1,
+                                                             static_cast<int>(max_stencil_width)),
+                                                            static_cast<int>(default_s_for_prediction));
         using interval_t = TInterval;
         using mesh_id_t = MRMeshId;
     };
@@ -118,8 +118,8 @@ namespace samurai
             static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
             {
                 auto index = xt::eval(index_yz + stencil);
-                lcl[index].add_interval({interval.start - static_cast<int>(config::ghost_width),
-                                         interval.end + static_cast<int>(config::ghost_width)});
+                lcl[index].add_interval({interval.start - config::ghost_width,
+                                         interval.end + config::ghost_width});
             });
         });
 
@@ -140,8 +140,8 @@ namespace samurai
                 //     level_cell_list[(index_yz >> 1) + stencil].add_interval({beg, end});
                 // });
                 static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil) {
-                    int beg = (interval.start >> 1) - static_cast<int>(config::ghost_width);
-                    int end = ((interval.end + 1) >> 1) + static_cast<int>(config::ghost_width);
+                    int beg = (interval.start >> 1) - config::ghost_width;
+                    int end = ((interval.end + 1) >> 1) + config::ghost_width;
 
                     lcl[(index_yz >> 1) + stencil].add_interval({beg, end});
                 });

@@ -42,7 +42,7 @@ so that we can say that the solution blows up at time :math:`T^{\star}` in the s
 Discretization
 **********************
 
-We consider to work on a bounded domain :math:`[a, b]`, with :math:`2^{\overline{J}}` cells of size :math:`\Delta x = (b-a)/2^{\overline{J}}` given by 
+We consider to work on a bounded domain :math:`[a, b]`, with :math:`2^{\overline{J}}` cells of size :math:`\Delta x = (b-a)/2^{\overline{J}}` given by
 
 .. math::
     C_{k} = [x_{k-1/2}, x_{k+1/2}], \qquad x_{k-1/2} = a + (b-a) k \Delta x.
@@ -57,7 +57,7 @@ We assume that the time step has been selected to fulfill the CFL condition
     \Delta t \leq \frac{\Delta x}{\sup_{x \in \mathbb{R}}{|\varphi'(u_0(x))|}}.
 
 
-We consider that 
+We consider that
 
 .. math::
     \overline{u}_{k}^n \simeq \frac{1}{\Delta x} \int_{x_k - \Delta x/2}^{x_k + \Delta x/2} u(t^n, x) \text{d}x.
@@ -65,12 +65,12 @@ We consider that
 The numerical Finite Volumes scheme comes under the form
 
 .. math::
-    \overline{u}^{n+1}_k = \overline{u}^{n}_k + \frac{\Delta t}{\Delta x} (F_{k - 1/2}^n - F_{k+1/2}^n), 
+    \overline{u}^{n+1}_k = \overline{u}^{n}_k + \frac{\Delta t}{\Delta x} (F_{k - 1/2}^n - F_{k+1/2}^n),
 
 where we utilize the upwind fluxes given by
 
 .. math::
-    F_{k - 1/2}^n = \mathcal{F}(\overline{u}^{n}_{k-1}, \overline{u}^{n}_k), \qquad \text{with} \quad 
+    F_{k - 1/2}^n = \mathcal{F}(\overline{u}^{n}_{k-1}, \overline{u}^{n}_k), \qquad \text{with} \quad
      \mathcal{F}(\overline{u}_L, \overline{u}_R) = \begin{cases}
                                                         \varphi(\overline{u}_L), \qquad \text{if} \quad \frac{\varphi'(\overline{u}_L) + \varphi'(\overline{u}_R)}{2} &\geq 0, \\
                                                         \varphi(\overline{u}_R), \qquad \text{if} \quad \frac{\varphi'(\overline{u}_L) + \varphi'(\overline{u}_R)}{2} &< 0.
@@ -105,26 +105,26 @@ Constructing the mesh
 **********************
 
 We first have to specify how SAMURAI has to build the computational mesh.
-We construct the labels for the different categories of cells, namely 
+We construct the labels for the different categories of cells, namely
 
 .. code-block:: c++
 
     enum class SimpleID
     {
-        cells = 0, // Leaves (where the computation is done) 
+        cells = 0, // Leaves (where the computation is done)
         cells_and_ghosts = 1, // Leaves + ghosts
         count = 2, // Total number of cells categories
         reference = cells_and_ghosts // Which is the largest class including all the others
     };
 
 
-and then we specify what are the features of the mesh, namely its spatial dimension, the number of allowed levels, the number of ghosts, the basic brick (namely intervals based on integers) and which are the keys for the different cell categories 
+and then we specify what are the features of the mesh, namely its spatial dimension, the number of allowed levels, the number of ghosts, the basic brick (namely intervals based on integers) and which are the keys for the different cell categories
 
 .. code-block:: c++
 
     struct AMRConfig
     {
-        static constexpr std::size_t dim = 1; // Spatial dimension 
+        static constexpr std::size_t dim = 1; // Spatial dimension
         static constexpr std::size_t max_refinement_level = 20; // Maximum allowed levels (when doing AMR)
         static constexpr std::size_t ghost_width = 1; // Number of ghosts on each side
 
@@ -133,7 +133,7 @@ and then we specify what are the features of the mesh, namely its spatial dimens
     };
 
 This being done, we have to practically specify how to construct such a mesh.
-Our class inherits from a built-in class of SAMURAI called Mesh_base and we shall provide AMRConfig as template parameter  
+Our class inherits from a built-in class of SAMURAI called Mesh_base and we shall provide AMRConfig as template parameter
 
 
 .. code-block:: c++
@@ -178,10 +178,10 @@ Our class inherits from a built-in class of SAMURAI called Mesh_base and we shal
                 lcl_type& lcl = cl[level];
                 samurai::static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
                 {
-                    // We add as much ghosts in the given direction 
+                    // We add as much ghosts in the given direction
                     // as prescribed by ghost_width
-                    lcl[{}].add_interval({interval.start - static_cast<int>(config::ghost_width),
-                                          interval.end   + static_cast<int>(config::ghost_width)});
+                    lcl[{}].add_interval({interval.start - config::ghost_width,
+                                          interval.end   + config::ghost_width});
                 });
             });
             // Put into the cells_and_ghosts category
@@ -201,7 +201,7 @@ We are ready to construct the mesh in the main function of our code
 
         std::size_t max_level = 8;
         std::size_t min_level = max_level; // We have a uniform mesh
-    
+
         samurai::Box<double, dim> box({-3}, {3}); // The domain is [-3, 3]
         AMRMesh<Config> mesh{box, max_level, min_level, max_level};
 
@@ -214,7 +214,7 @@ Initialize the solution on the mesh
 **********************
 
 We initialize the solution to the hat-like shape we have seen before.
-For the sake of simplicity, we take the values at the cell centers 
+For the sake of simplicity, we take the values at the cell centers
 
 .. code-block:: c++
 
@@ -290,7 +290,7 @@ Time stepping
 .. code-block:: c++
 
     double Tf = 1.5; // In order to observe the blowup at t = 1
-    double dx = 1./(1 << max_level); 
+    double dx = 1./(1 << max_level);
     double dt = 0.99 * dx; // We work at CFL = 1/0.99
 
     double t = 0.;
@@ -301,7 +301,7 @@ Time stepping
         auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
         phinp1 = phi - dt * samurai::upwind_Burgers(phi);
         std::swap(phi.array(), phinp1.array());
-        
+
         t  += dt;
         it += 1;
-    } 
+    }
