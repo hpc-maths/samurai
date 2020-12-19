@@ -261,6 +261,7 @@ struct fmt::formatter<samurai::MRMeshId>: formatter<string_view>
         case samurai::MRMeshId::union_cells:      name = "union cells"; break;
         case samurai::MRMeshId::overleaves:       name = "overleaves"; break;
         case samurai::MRMeshId::all_cells:        name = "all cells"; break;
+        case samurai::MRMeshId::count:            name = "count"; break;
         }
         return formatter<string_view>::format(name, ctx);
     }
