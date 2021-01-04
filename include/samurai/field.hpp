@@ -8,6 +8,7 @@
 #include <xtensor/xtensor.hpp>
 #include <xtensor/xview.hpp>
 
+#include "algorithm.hpp"
 #include "cell.hpp"
 #include "field_expression.hpp"
 #include "mr/mesh.hpp"
@@ -255,6 +256,9 @@ namespace samurai
     template<class E>
     inline auto Field<mesh_t, value_t, size_>::operator=(const field_expression<E> &e) -> Field&
     {
+        // FIX: this works only when the mesh_t is a derived class of Mesh_base.
+        //      CellArray has no type mesh_id_t.
+        //
         using mesh_id_t = typename mesh_t::mesh_id_t;
 
         auto min_level = (*p_mesh)[mesh_id_t::cells].min_level();
@@ -358,7 +362,7 @@ namespace samurai
     inline void Field<mesh_t, value_t, size_>::to_stream(std::ostream& os) const
     {
         os << "Field " << m_name << "\n";
-        for_each_cell((*p_mesh), [&](auto &cell)
+        for_each_cell(*p_mesh, [&](auto &cell)
         {
                 os << "\tlevel: " << cell.level << " coords: " << cell.center()
                     << " value: " << xt::view(m_data, cell.index) << "\n";
