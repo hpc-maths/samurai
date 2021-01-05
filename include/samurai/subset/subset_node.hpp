@@ -19,7 +19,8 @@ namespace samurai
         {
             return (shift >= 0)? (value << shift): (value >> (-shift));
         }
-    }
+    } // namespace detail
+
     ////////////////////////////
     // subset_node definition //
     ////////////////////////////
@@ -155,7 +156,7 @@ namespace samurai
         //
         // if the current_value is the end of the interval which means ipos = 1
         // then if scan is lower than current_value, scan is in the interval.
-        return !((scan < m_current_value[m_d]) ^ m_ipos[m_d]) & is_valid();
+        return !((scan < m_current_value[m_d]) ^ m_ipos[m_d]) && is_valid();
     }
 
     template<class T>
@@ -248,10 +249,10 @@ namespace samurai
             // The new list of intervals is for y: 4 -> x: [-2, 5[, [6, 7[
 
             ListOfIntervals<coord_index_t, index_t> intervals;
+            bool first_found = true;
             for(std::size_t s=0; s< (1<<(-m_shift)); ++s)
             {
                 index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i + s));
-                bool first_found = true;
                 if (index != std::numeric_limits<std::size_t>::max())
                 {
                     auto interval = m_node.interval(m_d, index);
@@ -441,4 +442,4 @@ namespace samurai
     {
         index.push_back(m_index[m_d] + m_ipos[m_d] - 1);
     }
-}
+} // namespace samurai

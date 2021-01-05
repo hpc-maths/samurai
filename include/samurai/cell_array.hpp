@@ -157,7 +157,9 @@ namespace samurai
         for (int level = max_size; level >= 0; --level)
         {
             if (!m_cells[level].empty())
+            {
                 return level;
+            }
         }
         return 0;
     }
@@ -171,7 +173,9 @@ namespace samurai
         for (int level = 0; level <= max_size; ++level)
         {
             if (!m_cells[level].empty())
+            {
                 return level;
+            }
         }
         return max_size + 1;
     }
@@ -236,4 +240,4 @@ namespace samurai
         return true;
     }
 
-}
+} // namespace samurai

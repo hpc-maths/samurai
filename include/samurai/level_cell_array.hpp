@@ -4,6 +4,8 @@
 #include <iterator>
 #include <vector>
 
+#include <fmt/color.h>
+
 #include "algorithm.hpp"
 #include "box.hpp"
 #include "interval.hpp"
@@ -75,7 +77,7 @@ namespace samurai
         const_reverse_iterator rcbegin() const;
 
         /// Display to the given stream
-        void to_stream(std::ostream &out) const;
+        void to_stream(std::ostream &os) const;
 
         //// checks whether the container is empty
         bool empty() const;
@@ -146,7 +148,7 @@ namespace samurai
             using pointer = value_type*;
             using difference_type = std::ptrdiff_t;
         };
-    }
+    } // namespace detail
 
     template <class LCA, bool is_const>
     class LevelCellArray_iterator: public xtl::xrandom_access_iterator_base3<LevelCellArray_iterator<LCA, is_const>,
@@ -176,7 +178,7 @@ namespace samurai
 
         LevelCellArray_iterator(LCA& lca,
                                 offset_type_iterator&& offset_index,
-                                index_type_iterator&& coord_index,
+                                index_type_iterator&& current_index,
                                 coord_type&& index);
 
         self_type& operator++();
@@ -195,10 +197,10 @@ namespace samurai
         bool less_than(const self_type& rhs) const;
 
     private:
+        LCA* p_lca;
         offset_type_iterator m_offset_index;
         index_type_iterator m_current_index;
         mutable coord_type m_index;
-        LCA* p_lca;
     };
 
     ///////////////////////////////////
@@ -743,4 +745,4 @@ namespace samurai
     {
         return it1.base().equal(it2.base());
     }
-}
+} // namespace samurai

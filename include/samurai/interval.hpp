@@ -165,7 +165,9 @@ namespace samurai
         start >>= i;
         end >>= i;
         if (end_odd or (start == end and add_one))
+        {
             end++;
+        }
         step = 1;
         return *this;
     }
@@ -310,15 +312,16 @@ namespace samurai
     {
         return (i1.start < i2.start)? true: false;
     }
-}
+} // namespace samurai
 
 template <class TValue, class TIndex>
 struct fmt::formatter<samurai::Interval<TValue, TIndex>>
 {
-    constexpr auto parse(format_parse_context& ctx)
+    constexpr auto parse(const format_parse_context& ctx)
     {
         return ctx.begin();
     }
+
     template <typename FormatContext>
     auto format(const samurai::Interval<TValue, TIndex>& interval, FormatContext& ctx) {
         return format_to(

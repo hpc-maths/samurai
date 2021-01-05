@@ -23,7 +23,7 @@ namespace samurai
             }
             return {previous, first};
         }
-    }
+    } // namespace detail
 
     ////////////////////////////////
     // ListOfIntervals definition //
@@ -85,7 +85,9 @@ namespace samurai
     inline void ListOfIntervals<TValue, TIndex>::add_interval(const interval_t &interval)
     {
         if (!interval.is_valid())
+        {
             return;
+        }
 
         auto predicate = [interval](auto const &value) {
             return interval.start <= value.end;
@@ -121,4 +123,4 @@ namespace samurai
         }
         return out;
     }
-}
+} // namespace samurai

@@ -651,4 +651,4 @@ namespace samurai
         using arg_t = decltype(arg);
         return expand_op<arg_t>{std::forward<arg_t>(arg)};
     }
-}
+} // namespace samurai

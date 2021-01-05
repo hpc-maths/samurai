@@ -253,4 +253,4 @@ namespace samurai
     {
         return Adapt<TField, Func>(field, std::forward<Func>(update_bc_for_level));
     }
-}
+} // namespace samurai

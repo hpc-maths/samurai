@@ -103,7 +103,7 @@ namespace samurai
                                this->m_cells[mesh_id_t::union_cells][level])
                        .on(level - 1);
 
-            expr([&](auto& interval, auto& index_yz)
+            expr([&](const auto& interval, const auto& index_yz)
             {
                 lcl[index_yz].add_interval({interval.start, interval.end});
             });
@@ -153,8 +153,6 @@ namespace samurai
 
         for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
         {
-            lcl_type& lcl = cell_list[level];
-
             if (!this->m_cells[mesh_id_t::cells][level].empty())
             {
                 auto expr = intersection(this->m_cells[mesh_id_t::union_cells][level],
@@ -162,8 +160,10 @@ namespace samurai
                                                     this->m_cells[mesh_id_t::cells][level]))
                            .on(level - 1);
 
-                expr([&](auto& interval, auto& index_yz)
+                expr([&](const auto& interval, const auto& index_yz)
                 {
+                    lcl_type& lcl = cell_list[level];
+
                     static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                     {
                         lcl[(index_yz << 1) + stencil].add_interval({interval.start << 1, interval.end << 1});
@@ -179,7 +179,7 @@ namespace samurai
             auto expr = intersection(this->m_cells[mesh_id_t::all_cells][level - 1],
                                      this->m_cells[mesh_id_t::union_cells][level - 1]);
 
-            expr([&](auto& interval, auto& index_yz)
+            expr([&](const auto& interval, const auto& index_yz)
             {
                 lcl[index_yz].add_interval({interval.start, interval.end});
             });
@@ -243,9 +243,7 @@ namespace samurai
         }
         return out;
     }
-
-
-}
+} // namespace samurai
 
 template <>
 struct fmt::formatter<samurai::MRMeshId>: formatter<string_view>

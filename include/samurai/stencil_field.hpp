@@ -79,7 +79,7 @@ namespace samurai
         template<class T1, class T2>
         inline auto flux(double a, T1&& ul, T2&& ur) const
         {
-            // TODO: rmeove the xt::eval (bug without, see VF_advection_1d)
+            // TODO(loic): remove the xt::eval (bug without, see VF_advection_1d)
             return (.5*a*(std::forward<T1>(ul) + std::forward<T2>(ur)) +
                     .5*std::abs(a)*(std::forward<T1>(ul) - std::forward<T2>(ur)));
         }
@@ -194,4 +194,4 @@ namespace samurai
     {
         return make_field_operator_function<upwind_scalar_burgers_op>(std::forward<CT>(e)...);
     }
-}
+} // namespace samurai

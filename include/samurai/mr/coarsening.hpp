@@ -135,4 +135,4 @@ namespace samurai
 
         return false;
     }
-}
+} // namespace samurai

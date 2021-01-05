@@ -47,7 +47,7 @@ namespace samurai
             return access_grid_yz(grid_yz[index[dim - 1]], index,
                                   std::integral_constant<std::size_t, dim - 1>{});
         }
-    }
+    } // namespace detail
 
     //////////////////////////////
     // LevelCellList definition //
@@ -137,7 +137,7 @@ namespace samurai
     {
         os << "LevelCellList\n";
         os << "=============\n";
-        os << "TODO\n"; // TODO
+        os << "TODO\n";
     }
 
     template<std::size_t Dim, class TInterval>
@@ -146,4 +146,4 @@ namespace samurai
         level_cell_list.to_stream(out);
         return out;
     }
-}
+} // namespace samurai

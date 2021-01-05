@@ -1,5 +1,5 @@
 #pragma once
-#include <array>
+#include <vector>
 #include <utility>
 
 namespace samurai
@@ -17,4 +17,4 @@ namespace samurai
     {
         std::vector<std::pair<BCType, double>> type;
     };
-}
+} // namespace samurai

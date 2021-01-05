@@ -77,4 +77,4 @@ namespace samurai
             update_bc_for_level(field, level);
         }
     }
-}
+} // namespace samurai

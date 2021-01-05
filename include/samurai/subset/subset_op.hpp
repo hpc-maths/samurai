@@ -128,4 +128,4 @@ namespace samurai
     {
         return make_subset_operator<difference_fn>(get_arg(std::forward<T>(t))...);
     }
-}
+} // namespace samurai

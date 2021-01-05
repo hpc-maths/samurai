@@ -1,5 +1,6 @@
 #pragma once
 
+#include <type_traits>
 #include <xtensor/xfixed.hpp>
 
 #include "cell.hpp"
@@ -153,7 +154,7 @@ namespace samurai
             }
             return find_index;
         }
-    }
+    } // namespace detail
 
     template <std::size_t dim, class TInterval,
               class index_t = typename TInterval::index_t,
@@ -165,9 +166,9 @@ namespace samurai
 
     template <std::size_t dim, class TInterval,
               class coord_index_t = typename TInterval::coord_index_t>
-    inline std::size_t find_on_dim(const LevelCellArray<dim, TInterval>& lca, std::size_t d,
-                                   std::size_t start_index, std::size_t end_index,
-                                   coord_index_t coord)
+    inline auto find_on_dim(const LevelCellArray<dim, TInterval>& lca, std::size_t d,
+                            std::size_t start_index, std::size_t end_index,
+                            coord_index_t coord)
     {
         for (std::size_t i = start_index; i < end_index; ++i)
         {
@@ -179,4 +180,4 @@ namespace samurai
         return std::numeric_limits<std::size_t>::max();
     }
 
-}
+} // namespace samurai

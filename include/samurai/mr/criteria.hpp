@@ -1,7 +1,7 @@
 #pragma once
 
 #include "cell_flag.hpp"
-#include <samurai/operators_base.hpp>
+#include "samurai/operators_base.hpp"
 
 namespace samurai
 {
@@ -323,6 +323,4 @@ namespace samurai
         return make_field_operator_function<max_detail_mr_op>(
             std::forward<CT>(e)...);
     }
-
-
-}
+} // namespace samurai

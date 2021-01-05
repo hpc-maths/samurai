@@ -46,7 +46,7 @@ namespace samurai
         {
             using type = typename E::view_type;
         };
-    }
+    } // namespace detail
 
     template<class E>
     using xview_type = detail::xview_type_impl<E>;
@@ -66,9 +66,8 @@ namespace samurai
 
         using expression_tag = field_expression_tag;
 
-        template<
-            class Func, class... CTA,
-            class U = std::enable_if<!std::is_base_of<Func, self_type>::value>>
+        template<class Func, class... CTA,
+                 class U = std::enable_if<!std::is_base_of<Func, self_type>::value>>
         field_function(Func &&f, CTA &&... e) noexcept;
 
         template<class... T>
@@ -110,7 +109,7 @@ namespace samurai
         using type = field_function<F, E...>;
         return type(F(), std::forward<E>(e)...);
     }
-}
+} // namespace samurai
 
 namespace xt
 {
@@ -121,8 +120,8 @@ namespace xt
         {
             using type = samurai::field_function<F, E...>;
         };
-    }
-}
+    } // namespace detail
+} // namespace xt
 
 namespace samurai
 {
@@ -131,4 +130,4 @@ namespace samurai
     using xt::operator*;
     using xt::operator/;
     using xt::operator%;
-}
+} // namespace samurai

@@ -897,6 +897,4 @@ namespace samurai
         return make_field_operator_function<make_graduation_op>(
             std::forward<CT>(e)...);
     }
-
-
-}
+} // namespace samurai

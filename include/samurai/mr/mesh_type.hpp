@@ -11,4 +11,4 @@ namespace samurai
         union_cells = 4,
         overleaves = 5 // Added in order to automatically handle flux correction. (by Thomas)
     };
-}
+} // namespace samurai

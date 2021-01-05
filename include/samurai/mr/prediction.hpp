@@ -231,4 +231,4 @@ namespace samurai
         auto qs = make_Qs_i<s>(make_Qs_j<s>(make_Qs_k<s>(make_field_hack(field), c), c), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, k);
     }
-}
+} // namespace samurai

@@ -147,4 +147,4 @@ namespace samurai
         out << "Box(" << box.min_corner() << ", " << box.max_corner() << ")";
         return out;
     }
-}
+} // namespace samurai

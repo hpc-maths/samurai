@@ -32,7 +32,7 @@ namespace samurai
                 );
             }
         }
-    }
+    } // namespace detail
 
     template<std::size_t nloops, int start, int end, int step = 1, class Func>
     inline void static_nested_loop(Func&& f)
@@ -70,7 +70,7 @@ namespace samurai
                 );
             }
         }
-    }
+    } // namespace detail
 
     template<std::size_t nloops, class Func>
     inline void static_nested_loop(int start, int end, int step, Func&& f)
@@ -82,4 +82,4 @@ namespace samurai
             std::integral_constant<std::size_t, 0>{}
         );
     }
-}
+} // namespace samurai

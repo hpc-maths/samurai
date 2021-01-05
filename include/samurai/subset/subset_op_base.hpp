@@ -582,7 +582,7 @@ namespace samurai
                 return subset_node<mesh_node<mesh_t>>(r);
             }
         };
-    }
+    } // namespace detail
 
     template<class T>
     decltype(auto) get_arg(T &&t)
@@ -598,4 +598,4 @@ namespace samurai
         using functor_type = typename function_type::functor_type;
         return function_type(functor_type(), std::forward<E>(e)...);
     }
-}
+} // namespace samurai

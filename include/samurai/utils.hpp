@@ -120,5 +120,5 @@ namespace samurai
         {
             return do_min(v0 < v1 ? v0 : v1, rest...);
         }
-    }
-}
+    } // namespace detail
+} // namespace samurai

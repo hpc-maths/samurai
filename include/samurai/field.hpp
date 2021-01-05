@@ -174,7 +174,7 @@ namespace samurai
 
         };
 
-    }
+    } // namespace detail
 
     template<class mesh_t_, class value_t = double, std::size_t size_ = 1>
     class Field : public field_expression<Field<mesh_t_, value_t, size_>>,
@@ -184,17 +184,18 @@ namespace samurai
         static constexpr std::size_t size = size_;
 
         using mesh_t = mesh_t_;
-        static constexpr std::size_t dim = mesh_t::dim;
 
         using value_type = value_t;
         using inner_types = detail::inner_field_types<Field<mesh_t, value_t, size>>;
         using data_type = typename inner_types::data_type;
         using inner_types::operator();
 
+        using inner_types::dim;
         using interval_t = typename mesh_t::interval_t;
         using cell_t = Cell<typename interval_t::coord_index_t, dim>;
 
-        Field(std::string name, mesh_t& mesh);
+
+        Field(const std::string& name, mesh_t& mesh);
 
         Field() = default;
 
@@ -246,7 +247,7 @@ namespace samurai
     }
 
     template<class mesh_t, class value_t, std::size_t size_>
-    inline Field<mesh_t, value_t, size_>::Field(std::string name, mesh_t& mesh)
+    inline Field<mesh_t, value_t, size_>::Field(const std::string& name, mesh_t& mesh)
         : m_name(name), p_mesh(&mesh)
     {
         this->resize();
@@ -383,4 +384,4 @@ namespace samurai
         return field_t(name, mesh);
     }
 
-}
+} // namespace samurai

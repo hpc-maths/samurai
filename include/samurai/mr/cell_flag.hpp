@@ -9,4 +9,4 @@ namespace samurai
         refine = 4,
         enlarge = 8
     };
-}
+} // namespace samurai

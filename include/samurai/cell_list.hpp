@@ -78,4 +78,4 @@ namespace samurai
         cell_list.to_stream(out);
         return out;
     }
-}
+} // namespace samurai

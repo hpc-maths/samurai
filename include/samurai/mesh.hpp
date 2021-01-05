@@ -96,8 +96,8 @@ namespace samurai
         void update_sub_mesh();
         void renumbering();
 
-        std::size_t m_max_level;
         std::size_t m_min_level;
+        std::size_t m_max_level;
     };
 
     template<class D, class Config>
@@ -120,7 +120,7 @@ namespace samurai
 
     template<class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
-    : m_min_level{min_level}, m_max_level{max_level}
+    : m_domain{start_level, b}, m_min_level{min_level}, m_max_level{max_level}
     {
         // using box_t = samurai::Box<coord_index_t, dim>;
         // using point_t = typename box_t::point_t;
@@ -132,7 +132,6 @@ namespace samurai
         // m_domain = {start_level, box_t{start, end}};
 
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
-        m_domain = {start_level, b};
 
         construct_domain();
         construct_union();
@@ -235,7 +234,7 @@ namespace samurai
                     const lca_type& rhs = m_cells[mesh_id_t::reference][level];
 
                     auto expr = intersection(lhs, rhs);
-                    expr.apply_interval_index([&](auto& interval_index)
+                    expr.apply_interval_index([&](const auto& interval_index)
                     {
                         lhs[0][interval_index[0]].index = rhs[0][interval_index[1]].index;
                     });
@@ -277,7 +276,7 @@ namespace samurai
                                m_union[level+1])
                        .on(level);
 
-            expr([&](auto& interval, auto& index_yz)
+            expr([&](const auto& interval, const auto& index_yz)
             {
                 lcl[index_yz].add_interval({interval.start, interval.end});
             });
@@ -325,4 +324,4 @@ namespace samurai
         mesh.to_stream(out);
         return out;
     }
-}
+} // namespace samurai
