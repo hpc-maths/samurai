@@ -1,8 +1,11 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #pragma once
 
 #include <cmath>
 
-#include "mesh.hpp"
 #include "operators.hpp"
 #include "criteria.hpp"
 
@@ -16,6 +19,7 @@ namespace samurai
 
         using value_t = typename Field::value_type;
         using mesh_t = typename Field::mesh_t;
+        using mesh_id_t = typename mesh_t::mesh_id_t;
         using interval_t = typename Field::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
         using cl_type = typename mesh_t::cl_type;
@@ -28,7 +32,7 @@ namespace samurai
         auto tag = make_field<int, 1>("tag", mesh);
         tag.fill(0);
 
-        for_each_cell(mesh[MeshType::cells], [&](auto &cell)
+        for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
         {
             tag[cell] = static_cast<int>(CellFlag::keep);
         });
@@ -42,8 +46,8 @@ namespace samurai
 
         for (std::size_t level = min_level - 1; level < max_level - ite; ++level)
         {
-            auto subset = intersection(mesh[MeshType::all_cells][level],
-                                       mesh[MeshType::cells][level + 1])
+            auto subset = intersection(mesh[mesh_id_t::reference][level],
+                                       mesh[mesh_id_t::cells][level + 1])
                          .on(level);
             subset.apply_op(compute_detail(detail, u));
         }
@@ -55,8 +59,8 @@ namespace samurai
 
             double regularity_to_use = std::min(regularity, 3.0) + dim;
 
-            auto subset_1 = intersection(mesh[MeshType::cells][level],
-                                         mesh[MeshType::all_cells][level-1])
+            auto subset_1 = intersection(mesh[mesh_id_t::cells][level],
+                                         mesh[mesh_id_t::reference][level-1])
                            .on(level-1);
 
             subset_1.apply_op(to_coarsen_mr(detail, tag, eps_l, min_level)); // Derefinement
@@ -65,10 +69,10 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
-            auto subset_2 = intersection(mesh[MeshType::cells][level],
-                                         mesh[MeshType::cells][level]);
-            auto subset_3 = intersection(mesh[MeshType::cells_and_ghosts][level],
-                                         mesh[MeshType::cells_and_ghosts][level]);
+            auto subset_2 = intersection(mesh[mesh_id_t::cells][level],
+                                         mesh[mesh_id_t::cells][level]);
+            auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+                                         mesh[mesh_id_t::cells_and_ghosts][level]);
 
             subset_2.apply_op(enlarge(tag));
             subset_2.apply_op(keep_around_refine(tag));
@@ -78,8 +82,8 @@ namespace samurai
         // COARSENING GRADUATION
         for (std::size_t level = max_level; level > 0; --level)
         {
-            auto keep_subset = intersection(mesh[MeshType::cells][level],
-                                            mesh[MeshType::all_cells][level - 1])
+            auto keep_subset = intersection(mesh[mesh_id_t::cells][level],
+                                            mesh[mesh_id_t::reference][level - 1])
                               .on(level - 1);
 
             keep_subset.apply_op(maximum(tag));
@@ -93,8 +97,8 @@ namespace samurai
                     if (s != 0)
                     {
                         stencil[d] = s;
-                        auto subset = intersection(mesh[MeshType::cells][level],
-                                                translate(mesh[MeshType::cells][level - 1], stencil))
+                        auto subset = intersection(mesh[mesh_id_t::cells][level],
+                                                translate(mesh[mesh_id_t::cells][level - 1], stencil))
                                     .on(level - 1);
                         subset.apply_op(balance_2to1(tag, stencil));
                     }
@@ -105,16 +109,16 @@ namespace samurai
         // REFINEMENT GRADUATION
         for (std::size_t level = max_level; level > min_level; --level)
         {
-            auto subset_1 = intersection(mesh[MeshType::cells][level],
-                                        mesh[MeshType::cells][level]);
+            auto subset_1 = intersection(mesh[mesh_id_t::cells][level],
+                                        mesh[mesh_id_t::cells][level]);
 
             subset_1.apply_op(extend(tag));
 
             static_nested_loop<dim, -1, 2>(
                 [&](auto stencil) {
 
-                auto subset = intersection(translate(mesh[MeshType::cells][level], stencil),
-                                           mesh[MeshType::cells][level-1])
+                auto subset = intersection(translate(mesh[mesh_id_t::cells][level], stencil),
+                                           mesh[mesh_id_t::cells][level-1])
                              .on(level);
 
                 subset.apply_op(make_graduation(tag));
@@ -124,8 +128,8 @@ namespace samurai
 
         for (std::size_t level = max_level; level > 0; --level)
         {
-            auto keep_subset = intersection(mesh[MeshType::cells][level],
-                                            mesh[MeshType::all_cells][level - 1])
+            auto keep_subset = intersection(mesh[mesh_id_t::cells][level],
+                                            mesh[mesh_id_t::reference][level - 1])
                             .on(level - 1);
 
             keep_subset.apply_op(maximum(tag));
@@ -133,7 +137,7 @@ namespace samurai
 
         cl_type cell_list;
 
-        for_each_interval(mesh[MeshType::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
@@ -168,14 +172,14 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto subset = intersection(union_(mesh[MeshType::cells][level],
-                                              mesh[MeshType::proj_cells][level]),
-                                       new_mesh[MeshType::cells][level]);
+            auto subset = intersection(union_(mesh[mesh_id_t::cells][level],
+                                              mesh[mesh_id_t::proj_cells][level]),
+                                       new_mesh[mesh_id_t::cells][level]);
 
             subset.apply_op(copy(new_u, u));
         }
 
-        for_each_interval(mesh[MeshType::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
@@ -191,10 +195,10 @@ namespace samurai
         auto old_mesh = uold.mesh();
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto subset = intersection(intersection(old_mesh[MeshType::cells][level],
-                                                    difference(new_mesh[MeshType::cells][level],
-                                                               mesh[MeshType::cells][level])),
-                                       mesh[MeshType::cells][level-1])
+            auto subset = intersection(intersection(old_mesh[mesh_id_t::cells][level],
+                                                    difference(new_mesh[mesh_id_t::cells][level],
+                                                               mesh[mesh_id_t::cells][level])),
+                                       mesh[mesh_id_t::cells][level-1])
                          .on(level);
 
             subset.apply_op(copy(new_u, uold));

@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 
@@ -9,6 +13,7 @@
 #include <samurai/mr/criteria.hpp>
 #include <samurai/mr/harten.hpp>
 #include <samurai/mr/adapt.hpp>
+#include <samurai/hdf5.hpp>
 #include "prediction_map_2d.hpp"
 #include "boundary_conditions.hpp"
 
@@ -349,7 +354,7 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 
 // We have to average only the fluxes
 template<class Field, class Func, class pred>
-std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level, const pred & pred_coeff, 
+std::pair<double, double> one_time_step(Field & f, Func && update_bc_for_level, const pred & pred_coeff,
                 double rho0, double u0, double lambda, double mu, double zeta, double radius, std::string & momenti)
 {
     constexpr std::size_t nvel = Field::size;
@@ -1224,7 +1229,7 @@ int main(int argc, char *argv[])
             const double mu = 5.e-6; // Bulk viscosity
             const double zeta = 10. * mu; // Shear viscosity
             const double u0 = mu * Re / (2. * rho0 * radius); // Reference velocity
-            
+
             // std::string momenti("Geier"); // Momenta by Geier
             std::string momenti("Lallemand"); // Momenta by Lallemand
 

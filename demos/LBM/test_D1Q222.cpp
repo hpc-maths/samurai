@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 #include <fstream>
@@ -209,7 +213,7 @@ void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level
     {
         // If we are at the finest level, we no not need to correct
         if (level == max_level) {
-        
+
             auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
                                                 mesh[mesh_id_t::cells][max_level]);
 
@@ -308,7 +312,7 @@ void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level
     for (std::size_t level = 0; level <= max_level; ++level)    {
         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                             mesh[mesh_id_t::cells][level]);
-        
+
         leaves([&](auto &interval, auto) {
             auto i = interval;
 

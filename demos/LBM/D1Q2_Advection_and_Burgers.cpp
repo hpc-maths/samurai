@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 #include <fstream>
@@ -289,7 +293,7 @@ void one_time_step_overleaves(Field &f, const Pred& pred_coeff, Func && update_b
 
         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                             mesh[mesh_id_t::cells][level]);
-        
+
         leaves([&](auto &interval, auto) {
             auto k = interval;
             auto uu = xt::eval(          advected_f(0, level, k) + advected_f(1, level, k));
@@ -398,7 +402,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext = "")
 
 
 template<class Field, class FullField,  class Func>
-void save_reconstructed(Field & f, FullField & f_full, 
+void save_reconstructed(Field & f, FullField & f_full,
                         Func && update_bc_for_level, double eps, std::size_t ite, std::string ext = "")
 {
 
@@ -586,7 +590,7 @@ int main(int argc, char *argv[])
             {
                 update_bc_1D_constant_extension(field, level);
             };
-            
+
             auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)

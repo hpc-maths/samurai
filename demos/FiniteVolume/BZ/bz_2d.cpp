@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <samurai/field.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -331,11 +335,11 @@ int main()
     while (t < Tf)
     {
         fmt::print(fmt::format("Iteration = {:4d}, t: {}\n", nb_ite, t));
- 
+
         if (max_level > min_level)
             MRadaptation(epsilon_MR, regularity);
-        
-       
+
+
         tic();
         reaction(field, t, t + .5*dt);
         auto duration = toc();

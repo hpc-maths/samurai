@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <samurai/mesh.hpp>
 #include <samurai/mr/cell_flag.hpp>
 #include <samurai/mr/operators.hpp>
@@ -423,7 +427,7 @@ void AMR_criterion(Field & f, Func && update_bc_for_level, Tag & tag, std::size_
     for (std::size_t level = min_level; level <= max_level - ite; ++level)    {
         double dx = 1./(1 << level);
 
-        auto leaves = samurai::intersection(mesh[SimpleID::cells][level], 
+        auto leaves = samurai::intersection(mesh[SimpleID::cells][level],
                                             mesh[SimpleID::cells][level]);
 
         leaves([&](auto& interval,auto& index) {
@@ -446,20 +450,20 @@ void AMR_criterion(Field & f, Func && update_bc_for_level, Tag & tag, std::size_
             {
                 if (level == min_level) {
                     xt::masked_view(tag(level, k, h),   mask) = static_cast<int>(samurai::CellFlag::refine);
-                    xt::masked_view(tag(level, k, h),  !mask) = static_cast<int>(samurai::CellFlag::keep);   
+                    xt::masked_view(tag(level, k, h),  !mask) = static_cast<int>(samurai::CellFlag::keep);
                     // tag(level, k) = static_cast<int>(samurai::CellFlag::keep);
                 }
                 else
                 {
                     xt::masked_view(tag(level, k, h),   mask) = static_cast<int>(samurai::CellFlag::refine);
-                    xt::masked_view(tag(level, k, h),  !mask) = static_cast<int>(samurai::CellFlag::coarsen);                    
-                }   
+                    xt::masked_view(tag(level, k, h),  !mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                }
             }
         });
     }
-    // Here we copy the tag field because otherwise we modify the field 
+    // Here we copy the tag field because otherwise we modify the field
     // which is then used to decide where to enlarge.
-    // This problem was solved in multiresolution by adding the choice of 
+    // This problem was solved in multiresolution by adding the choice of
     // the flag enlarge, but to do this we should change other parts of the code
     auto tag_tmp = samurai::make_field<int, 1>("tag", mesh);
     tag_tmp.fill(static_cast<int>(samurai::CellFlag::keep));
@@ -473,7 +477,7 @@ void AMR_criterion(Field & f, Func && update_bc_for_level, Tag & tag, std::size_
     }
 
     for (std::size_t level = min_level; level <= max_level - ite; ++level)    {
-        auto leaves = samurai::intersection(mesh[SimpleID::cells][level], 
+        auto leaves = samurai::intersection(mesh[SimpleID::cells][level],
                                             mesh[SimpleID::cells][level]);
         leaves.apply_op(enlarge_AMR(tag_tmp, tag));
     }
@@ -702,7 +706,7 @@ int main()
                 break;
             idx++;
         }
-        
+
         tic();
         reaction(field, t, t + .5*dt);
         auto duration = toc();

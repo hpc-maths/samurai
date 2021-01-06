@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 
@@ -31,7 +35,7 @@ double toc()
 
 
 template<class Config>
-auto init_f(samurai::MRMesh<Config> &mesh, 
+auto init_f(samurai::MRMesh<Config> &mesh,
             const double lambda = 5., const double gas_constant = 1.4,
             const double rho_up = 2., const double rho_down = 1.,
             const double p_up = 1., const double grav = 2.)
@@ -47,19 +51,19 @@ auto init_f(samurai::MRMesh<Config> &mesh,
         auto x = center[0];
         auto y = center[1];
 
-        double rho = (y < 0.5 + .01*std::cos(4.*M_PI*x)) ? rho_down : rho_up; 
-        double qx = 0.0; 
-        double qy = 0.0; 
+        double rho = (y < 0.5 + .01*std::cos(4.*M_PI*x)) ? rho_down : rho_up;
+        double qx = 0.0;
+        double qy = 0.0;
 
         double p = p_up;
         if (y < 0.5 + .01*std::cos(8.*M_PI*x))  {
             p += (1. - (0.5 + .01*std::cos(4.*M_PI*x))) * grav * rho_up + (0.5 + .01*std::cos(4.*M_PI*x) - y) * grav * rho_down;
-        }   
+        }
         else
         {
             p +=  (1. - y) * grav * rho_up;
         }
-        
+
         double e = p / (gas_constant - 1.) + .5 * (qx*qx + qy*qy) / rho;
 
         // Conserved momenti
@@ -91,7 +95,7 @@ auto init_f(samurai::MRMesh<Config> &mesh,
 
         // We come back to the distributions
         f[cell][0] = 21./25 * m0_0                                           - 1./( 5*lambda*lambda) * m0_3                             ;
-        f[cell][1] = 1. /25 * m0_0 + .5/lambda * m0_1                        + 1./(20*lambda*lambda) * m0_3 + .25/(lambda*lambda) * m0_4; 
+        f[cell][1] = 1. /25 * m0_0 + .5/lambda * m0_1                        + 1./(20*lambda*lambda) * m0_3 + .25/(lambda*lambda) * m0_4;
         f[cell][2] = 1. /25 * m0_0                     + .5/lambda * m0_2    + 1./(20*lambda*lambda) * m0_3 - .25/(lambda*lambda) * m0_4;
         f[cell][3] = 1. /25 * m0_0 - .5/lambda * m0_1                        + 1./(20*lambda*lambda) * m0_3 + .25/(lambda*lambda) * m0_4;
         f[cell][4] = 1. /25 * m0_0                     - .5/lambda * m0_2    + 1./(20*lambda*lambda) * m0_3 - .25/(lambda*lambda) * m0_4;
@@ -120,8 +124,8 @@ std::array<double, 5> vertical_boundary_condition(const bool up = true, const do
     std::array<double, 5> to_return;
 
     double rho = 0.0;
-    double qx = 0.0; 
-    double qy = 0.0; 
+    double qx = 0.0;
+    double qy = 0.0;
 
     if (up) {
         rho = 2.;
@@ -141,7 +145,7 @@ std::array<double, 5> vertical_boundary_condition(const bool up = true, const do
     double m0_4 = 0.0;
 
     to_return[0] = 21./25 * m0_0                                           - 1./( 5*lambda*lambda) * m0_3                             ;
-    to_return[1] = 1. /25 * m0_0 + .5/lambda * m0_1                        + 1./(20*lambda*lambda) * m0_3 + .25/(lambda*lambda) * m0_4; 
+    to_return[1] = 1. /25 * m0_0 + .5/lambda * m0_1                        + 1./(20*lambda*lambda) * m0_3 + .25/(lambda*lambda) * m0_4;
     to_return[2] = 1. /25 * m0_0                     + .5/lambda * m0_2    + 1./(20*lambda*lambda) * m0_3 - .25/(lambda*lambda) * m0_4;
     to_return[3] = 1. /25 * m0_0 - .5/lambda * m0_1                        + 1./(20*lambda*lambda) * m0_3 + .25/(lambda*lambda) * m0_4;
     to_return[4] = 1. /25 * m0_0                     - .5/lambda * m0_2    + 1./(20*lambda*lambda) * m0_3 - .25/(lambda*lambda) * m0_4;
@@ -214,7 +218,7 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 }
 
 template<class Field, class Func, class pred>
-void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff, 
+void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                     const double lambda, const double gas_constant = 1.4,
                     const double s_rho_x = 1.75, const double s_rho_xy = 1.,
                     const double s_u_x   = 1.5,  const double s_u_xy   = 1.,
@@ -252,7 +256,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
     {
         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                             mesh[mesh_id_t::cells][level]);
-        
+
         if (level == max_level) { // Advection at the finest level
 
             auto leaves_east = get_adjacent_boundary_east(mesh, level, mesh_id_t::cells);
@@ -264,22 +268,22 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 // advected(0, level, k, h) =  f(0, level, k    , h    );
                 // advected(1, level, k, h) =  f(1, level, k - 1, h    );
                 // advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                // advected(3, level, k, h) =  f(3, level, k + 1, h    );            
-                // advected(4, level, k, h) =  f(4, level, k,     h + 1);    
+                // advected(3, level, k, h) =  f(3, level, k + 1, h    );
+                // advected(4, level, k, h) =  f(4, level, k,     h + 1);
 
                 // D2Q5
                 advected(0, level, k, h) =  f(0, level, k    , h    );
                 advected(1, level, k, h) =  f(1, level, k - 1, h    );
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                advected(3, level, k, h) =  f(3, level, k    , h    ); // Neumann        
+                advected(3, level, k, h) =  f(3, level, k    , h    ); // Neumann
                 advected(4, level, k, h) =  f(4, level, k,     h + 1);
 
                 // D2Q4
-                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    { 
-                    int sign = (scheme_n == 1) ? -1 : 1; 
+                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    {
+                    int sign = (scheme_n == 1) ? -1 : 1;
                     advected(0 + 4 * scheme_n + 1, level, k, h) =  f(0 + 4 * scheme_n + 1, level, k - 1, h    );
                     advected(1 + 4 * scheme_n + 1, level, k, h) =  f(1 + 4 * scheme_n + 1, level, k    , h - 1);
-                    advected(2 + 4 * scheme_n + 1, level, k, h) =  sign * f(0 + 4 * scheme_n + 1, level, k, h);  
+                    advected(2 + 4 * scheme_n + 1, level, k, h) =  sign * f(0 + 4 * scheme_n + 1, level, k, h);
                     advected(3 + 4 * scheme_n + 1, level, k, h) =  f(3 + 4 * scheme_n + 1, level, k,     h + 1);
                 }
             });
@@ -292,12 +296,12 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 advected(0, level, k, h) =  f(0, level, k    , h    );
                 advected(1, level, k, h) =  f(1, level, k    , h    );
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                advected(3, level, k, h) =  f(3, level, k + 1, h    );            
-                advected(4, level, k, h) =  f(4, level, k,     h + 1);    
+                advected(3, level, k, h) =  f(3, level, k + 1, h    );
+                advected(4, level, k, h) =  f(4, level, k,     h + 1);
 
-                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    { 
+                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    {
                     int sign = (scheme_n == 1) ? -1 : 1;
-                    advected(0 + 4 * scheme_n + 1, level, k, h) =  sign * f(2 + 4 * scheme_n + 1, level, k, h); 
+                    advected(0 + 4 * scheme_n + 1, level, k, h) =  sign * f(2 + 4 * scheme_n + 1, level, k, h);
                     advected(1 + 4 * scheme_n + 1, level, k, h) =  f(1 + 4 * scheme_n + 1, level, k    , h - 1);
                     advected(2 + 4 * scheme_n + 1, level, k, h) =  f(2 + 4 * scheme_n + 1, level, k + 1, h    );
                     advected(3 + 4 * scheme_n + 1, level, k, h) =  f(3 + 4 * scheme_n + 1, level, k,     h + 1);
@@ -312,13 +316,13 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 advected(0, level, k, h) =  f(0, level, k    , h    );
                 advected(1, level, k, h) =  f(1, level, k - 1, h    );
                 advected(2, level, k, h) =  f(2, level, k,     h    );
-                advected(3, level, k, h) =  f(3, level, k + 1, h    );            
-                advected(4, level, k, h) =  f(4, level, k,     h + 1);    
+                advected(3, level, k, h) =  f(3, level, k + 1, h    );
+                advected(4, level, k, h) =  f(4, level, k,     h + 1);
 
-                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    { 
+                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    {
                     int sign = (scheme_n == 2) ? -1 : 1;
                     advected(0 + 4 * scheme_n + 1, level, k, h) =  f(0 + 4 * scheme_n + 1, level, k - 1, h    );
-                    advected(1 + 4 * scheme_n + 1, level, k, h) =  sign * f(3 + 4 * scheme_n + 1, level, k, h); 
+                    advected(1 + 4 * scheme_n + 1, level, k, h) =  sign * f(3 + 4 * scheme_n + 1, level, k, h);
                     advected(2 + 4 * scheme_n + 1, level, k, h) =  f(2 + 4 * scheme_n + 1, level, k + 1, h    );
                     advected(3 + 4 * scheme_n + 1, level, k, h) =  f(3 + 4 * scheme_n + 1, level, k,     h + 1);
                 }
@@ -332,17 +336,17 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 advected(0, level, k, h) =  f(0, level, k    , h    );
                 advected(1, level, k, h) =  f(1, level, k - 1, h    );
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                advected(3, level, k, h) =  f(3, level, k + 1, h    );            
-                advected(4, level, k, h) =  f(4, level, k,     h    );    
-                // advected(4, level, k, h) =  up_bc[4];    
+                advected(3, level, k, h) =  f(3, level, k + 1, h    );
+                advected(4, level, k, h) =  f(4, level, k,     h    );
+                // advected(4, level, k, h) =  up_bc[4];
 
 
-                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    { 
+                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    {
                     int sign = (scheme_n == 2) ? -1 : 1;
                     advected(0 + 4 * scheme_n + 1, level, k, h) =  f(0 + 4 * scheme_n + 1, level, k - 1, h    );
                     advected(1 + 4 * scheme_n + 1, level, k, h) =  f(1 + 4 * scheme_n + 1, level, k    , h - 1);
                     advected(2 + 4 * scheme_n + 1, level, k, h) =  f(2 + 4 * scheme_n + 1, level, k + 1, h    );
-                    advected(3 + 4 * scheme_n + 1, level, k, h) =  sign * f(1 + 4 * scheme_n + 1, level, k, h); 
+                    advected(3 + 4 * scheme_n + 1, level, k, h) =  sign * f(1 + 4 * scheme_n + 1, level, k, h);
                 }
             });
 
@@ -354,17 +358,17 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 advected(0, level, k, h) =  f(0, level, k    , h    );
                 advected(1, level, k, h) =  f(1, level, k - 1, h    );
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                advected(3, level, k, h) =  f(3, level, k    , h    );            
-                advected(4, level, k, h) =  f(4, level, k,     h    );    
-                // advected(4, level, k, h) =  up_bc[4];    
+                advected(3, level, k, h) =  f(3, level, k    , h    );
+                advected(4, level, k, h) =  f(4, level, k,     h    );
+                // advected(4, level, k, h) =  up_bc[4];
 
-                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    { 
+                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    {
                     int sign1 = (scheme_n == 1) ? -1 : 1;
                     int sign2 = (scheme_n == 2) ? -1 : 1;
                     advected(0 + 4 * scheme_n + 1, level, k, h) =  f(0 + 4 * scheme_n + 1, level, k - 1, h    );
                     advected(1 + 4 * scheme_n + 1, level, k, h) =  f(1 + 4 * scheme_n + 1, level, k    , h - 1);
-                    advected(2 + 4 * scheme_n + 1, level, k, h) =  sign1 * f(0 + 4 * scheme_n + 1, level, k, h);  
-                    advected(3 + 4 * scheme_n + 1, level, k, h) =  sign2 * f(1 + 4 * scheme_n + 1, level, k, h); 
+                    advected(2 + 4 * scheme_n + 1, level, k, h) =  sign1 * f(0 + 4 * scheme_n + 1, level, k, h);
+                    advected(3 + 4 * scheme_n + 1, level, k, h) =  sign2 * f(1 + 4 * scheme_n + 1, level, k, h);
                 }
             });
 
@@ -376,17 +380,17 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 advected(0, level, k, h) =  f(0, level, k    , h    );
                 advected(1, level, k, h) =  f(1, level, k    , h    );
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                advected(3, level, k, h) =  f(3, level, k + 1, h    );            
-                advected(4, level, k, h) =  f(4, level, k,     h    );    
-                // advected(4, level, k, h) =  up_bc[4];    
+                advected(3, level, k, h) =  f(3, level, k + 1, h    );
+                advected(4, level, k, h) =  f(4, level, k,     h    );
+                // advected(4, level, k, h) =  up_bc[4];
 
-                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    { 
+                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    {
                     int sign1 = (scheme_n == 1) ? -1 : 1;
                     int sign2 = (scheme_n == 2) ? -1 : 1;
-                    advected(0 + 4 * scheme_n + 1, level, k, h) =  sign1 * f(2 + 4 * scheme_n + 1, level, k, h); 
+                    advected(0 + 4 * scheme_n + 1, level, k, h) =  sign1 * f(2 + 4 * scheme_n + 1, level, k, h);
                     advected(1 + 4 * scheme_n + 1, level, k, h) =  f(1 + 4 * scheme_n + 1, level, k    , h - 1);
                     advected(2 + 4 * scheme_n + 1, level, k, h) =  f(2 + 4 * scheme_n + 1, level, k + 1, h    );
-                    advected(3 + 4 * scheme_n + 1, level, k, h) =  sign2 * f(1 + 4 * scheme_n + 1, level, k, h); 
+                    advected(3 + 4 * scheme_n + 1, level, k, h) =  sign2 * f(1 + 4 * scheme_n + 1, level, k, h);
                 }
             });
 
@@ -398,15 +402,15 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 advected(0, level, k, h) =  f(0, level, k    , h    );
                 advected(1, level, k, h) =  f(1, level, k    , h    );
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                advected(3, level, k, h) =  f(3, level, k    , h    );            
-                advected(4, level, k, h) =  f(4, level, k,     h + 1);    
+                advected(3, level, k, h) =  f(3, level, k    , h    );
+                advected(4, level, k, h) =  f(4, level, k,     h + 1);
 
-                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    { 
+                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    {
                     int sign1 = (scheme_n == 1) ? -1 : 1;
                     int sign2 = (scheme_n == 2) ? -1 : 1;
                     advected(0 + 4 * scheme_n + 1, level, k, h) =  f(0 + 4 * scheme_n + 1, level, k - 1, h    );
-                    advected(1 + 4 * scheme_n + 1, level, k, h) =  sign2 * f(3 + 4 * scheme_n + 1, level, k, h);  
-                    advected(2 + 4 * scheme_n + 1, level, k, h) =  sign1 * f(0 + 4 * scheme_n + 1, level, k, h);  
+                    advected(1 + 4 * scheme_n + 1, level, k, h) =  sign2 * f(3 + 4 * scheme_n + 1, level, k, h);
+                    advected(2 + 4 * scheme_n + 1, level, k, h) =  sign1 * f(0 + 4 * scheme_n + 1, level, k, h);
                     advected(3 + 4 * scheme_n + 1, level, k, h) =  f(3 + 4 * scheme_n + 1, level, k    , h + 1);
                 }
             });
@@ -419,14 +423,14 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 advected(0, level, k, h) =  f(0, level, k    , h    );
                 advected(1, level, k, h) =  f(1, level, k - 1, h    );
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                advected(3, level, k, h) =  f(3, level, k + 1, h    );            
-                advected(4, level, k, h) =  f(4, level, k,     h + 1);    
+                advected(3, level, k, h) =  f(3, level, k + 1, h    );
+                advected(4, level, k, h) =  f(4, level, k,     h + 1);
 
-                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    { 
+                for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    {
                     int sign1 = (scheme_n == 1) ? -1 : 1;
                     int sign2 = (scheme_n == 2) ? -1 : 1;
-                    advected(0 + 4 * scheme_n + 1, level, k, h) =  sign1 * f(2 + 4 * scheme_n + 1, level, k, h); 
-                    advected(1 + 4 * scheme_n + 1, level, k, h) =  sign2 * f(3 + 4 * scheme_n + 1, level, k, h);  
+                    advected(0 + 4 * scheme_n + 1, level, k, h) =  sign1 * f(2 + 4 * scheme_n + 1, level, k, h);
+                    advected(1 + 4 * scheme_n + 1, level, k, h) =  sign2 * f(3 + 4 * scheme_n + 1, level, k, h);
                     advected(2 + 4 * scheme_n + 1, level, k, h) =  f(2 + 4 * scheme_n + 1, level, k + 1, h    );
                     advected(3 + 4 * scheme_n + 1, level, k, h) =  f(3 + 4 * scheme_n + 1, level, k    , h + 1);
                 }
@@ -450,8 +454,8 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 advected(0, level, k, h) =  f(0, level, k    , h    );
                 advected(1, level, k, h) =  f(1, level, k - 1, h    );
                 advected(2, level, k, h) =  f(2, level, k,     h - 1);
-                advected(3, level, k, h) =  f(3, level, k + 1, h    );            
-                advected(4, level, k, h) =  f(4, level, k,     h + 1);                
+                advected(3, level, k, h) =  f(3, level, k + 1, h    );
+                advected(4, level, k, h) =  f(4, level, k,     h + 1);
 
                 // D2Q4
                 for (int scheme_n = 1; scheme_n < 4; ++scheme_n)    {
@@ -472,7 +476,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
             // std::cout<<std::endl<<"Level = "<<level<<std::endl;
 
 
-            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level], 
+            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                                 mesh[mesh_id_t::cells][level]);
 
             auto ol_east = samurai::intersection(get_adjacent_boundary_east(mesh, lev_p_1, mesh_id_t::overleaves),
@@ -564,13 +568,13 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
 
                     if (scheme_n == 0)  {
                         fluxes(2 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(2 + 4 * scheme_n + 1, lev_p_1, k, h);
-                        fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(3 + 4 * scheme_n + 1, lev_p_1, k, h); 
-                        // fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * up_bc[4];    
+                        fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(3 + 4 * scheme_n + 1, lev_p_1, k, h);
+                        // fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * up_bc[4];
                     }
                     else
                     {
                         fluxes(2 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign1 * f(0 + 4 * scheme_n + 1, lev_p_1, k, h);
-                        fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign2 * f(1 + 4 * scheme_n + 1, lev_p_1, k, h);                    
+                        fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign2 * f(1 + 4 * scheme_n + 1, lev_p_1, k, h);
                     }
                 }
             });
@@ -597,13 +601,13 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                     }
 
                     if (scheme_n == 0)  {
-                        fluxes(1 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(1 + 4 * scheme_n + 1, lev_p_1, k, h); 
-                        fluxes(2 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(2 + 4 * scheme_n + 1, lev_p_1, k, h);   
+                        fluxes(1 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(1 + 4 * scheme_n + 1, lev_p_1, k, h);
+                        fluxes(2 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(2 + 4 * scheme_n + 1, lev_p_1, k, h);
                     }
                     else
                     {
-                        fluxes(1 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign2 * f(3 + 4 * scheme_n + 1, lev_p_1, k, h); 
-                        fluxes(2 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign1 * f(0 + 4 * scheme_n + 1, lev_p_1, k, h);                        
+                        fluxes(1 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign2 * f(3 + 4 * scheme_n + 1, lev_p_1, k, h);
+                        fluxes(2 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign1 * f(0 + 4 * scheme_n + 1, lev_p_1, k, h);
                     }
                 }
             });
@@ -657,7 +661,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                     if (scheme_n == 0)  {
                         fluxes(0 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(0 + 4 * scheme_n + 1, lev_p_1, k, h);
                         fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(3 + 4 * scheme_n + 1, lev_p_1, k, h);
-                        // fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * up_bc[4]; 
+                        // fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * up_bc[4];
                     }
                     else
                     {
@@ -694,7 +698,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                     else
                     {
                         fluxes(0 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign1 * f(2 + 4 * scheme_n + 1, lev_p_1, k, h);
-                        fluxes(1 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign2 * f(3 + 4 * scheme_n + 1, lev_p_1, k, h);   
+                        fluxes(1 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign2 * f(3 + 4 * scheme_n + 1, lev_p_1, k, h);
                     }
                 }
             });
@@ -719,9 +723,9 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                     }
                     if (scheme_n == 0)
                         fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * f(3 + 4 * scheme_n + 1, lev_p_1, k, h);
-                        // fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * up_bc[4]; 
+                        // fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * up_bc[4];
                     else
-                        fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign * f(1 + 4 * scheme_n + 1, lev_p_1, k, h);                    
+                        fluxes(3 + 4 * scheme_n + 1, lev_p_1, k, h) += (1<<j) * sign * f(1 + 4 * scheme_n + 1, lev_p_1, k, h);
                 }
             });
             ol_south.on(lev_p_1)([&](auto& interval, auto& index) {
@@ -798,7 +802,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
 
         double dx = 1./(1 << max_level);
         double dt = dx / lambda;
-        
+
         leaves([&](auto& interval, auto& index) {
             auto k = interval; // Logical index in x
             auto h = index[0]; // Logical index in y
@@ -869,7 +873,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
             new_f(16, level, k, h) =  .25 * m3_0                    - .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
 
             });
-        }    
+        }
     std::swap(f.array(), new_f.array());
 }
 
@@ -953,7 +957,7 @@ int main(int argc, char *argv[])
 
             // We are obliged to multiply the final time by 1/0.3
             // because the domain is of size 1 instead of 0.3
-            const double T = 2.7;//30.; 
+            const double T = 2.7;//30.;
 
             samurai::Box<double, dim> box({0, 0}, {1, 1});
             samurai::MRMesh<Config> mesh(box, min_level, max_level);

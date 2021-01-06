@@ -1,8 +1,5 @@
 #include "integration_stiff.h"
 
-//// nsmake lib_name integration_stiff
-//// nsmake lib_path .
-
 void radau5_integration(double tini, double tend, int neq, /*double *uini, */double *u,
 		        func_radau fcn, func_solout_radau solout, double tol, int mljac, int *info)
 {

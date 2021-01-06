@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 #include <fstream>
@@ -53,7 +57,7 @@ auto compute_prediction_separate_inout(std::size_t min_level, std::size_t max_le
         data[k][3] = prediction(k, i*size);
 
         // For the velocities going further, we must be careful
-        if (k == 0) { 
+        if (k == 0) {
             data[k][4] = prediction(k, i - 2);
             data[k][5] = prediction(k, i);
             data[k][6] = prediction(k, i + 2);
@@ -179,7 +183,7 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
 
 // Old way of doing with recursivse reconstruction
 template<class Field, class Func>
-void one_time_step(Field &f, Func && update_bc_for_level, 
+void one_time_step(Field &f, Func && update_bc_for_level,
                    double s, const double lambda, const double g)
 {
     constexpr std::size_t nvel = Field::size;
@@ -262,7 +266,7 @@ void one_time_step(Field &f, Func && update_bc_for_level,
 }
 
 template<class Field, class Pred, class Func>
-void one_time_step_overleaves(Field &f, const Pred& pred_coeff, Func && update_bc_for_level, 
+void one_time_step_overleaves(Field &f, const Pred& pred_coeff, Func && update_bc_for_level,
             double s_rel, const double lambda, const double g)
 {
     constexpr std::size_t nvel = Field::size;
@@ -413,7 +417,7 @@ void one_time_step_overleaves(Field &f, const Pred& pred_coeff, Func && update_b
 
         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                             mesh[mesh_id_t::cells][level]);
-        
+
         leaves([&](auto &interval, auto) {
             auto i = interval;
 
@@ -445,8 +449,8 @@ void one_time_step_overleaves(Field &f, const Pred& pred_coeff, Func && update_b
 }
 
 template<class Config, class FieldR, class Func>
-std::array<double, 4> compute_error(samurai::Field<Config, double, 5> &f, FieldR & fR, 
-                Func&& update_bc_for_level, double t, 
+std::array<double, 4> compute_error(samurai::Field<Config, double, 5> &f, FieldR & fR,
+                Func&& update_bc_for_level, double t,
                 const double lambda, const double g)
 {
 
@@ -565,7 +569,7 @@ int main(int argc, char *argv[])
             samurai::Box<double, dim> box({-1}, {1});
 
             std::vector<double> s_vect {0.75, 1.0, 1.25, 1.5, 1.6};
-            
+
             auto update_bc_for_level = [](auto& field, std::size_t level)
             {
                 update_bc_1D_constant_extension(field, level);

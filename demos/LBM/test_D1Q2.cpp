@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 #include <fstream>
@@ -65,7 +69,7 @@ double toc()
     return time_span.count();
 }
 
-double exact_solution(double x, double t, double ad_vel, int test_number)   
+double exact_solution(double x, double t, double ad_vel, int test_number)
 {
     double u = 0;
 
@@ -183,7 +187,7 @@ auto init_f(samurai::MRMesh<Config> &mesh, double t, double ad_vel, double lambd
 
 
 template<class Field, class Func, class Pred>
-void one_time_step(Field &f, Func&& update_bc_for_level, 
+void one_time_step(Field &f, Func&& update_bc_for_level,
                             const Pred& pred_coeff, double s_rel, double lambda, double ad_vel, int test_number,
                             bool finest_collision = false)
 {
@@ -300,13 +304,13 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
 
             auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                                 mesh[mesh_id_t::cells][level]);
-        
+
             leaves([&](auto &interval, auto) {
                 auto k = interval;
                 auto uu = xt::eval(          advected_f(0, level, k) + advected_f(1, level, k));
                 auto vv = xt::eval(lambda * (advected_f(0, level, k) - advected_f(1, level, k)));
 
-                if (test_number == 1 or test_number == 2)   
+                if (test_number == 1 or test_number == 2)
                 {
                     vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
                 }
@@ -325,10 +329,10 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
         samurai::mr_projection(advected_f);
         for (std::size_t level = mesh.min_level() - 1; level <= mesh.max_level(); ++level)
         {
-            update_bc_for_level(advected_f, level); 
+            update_bc_for_level(advected_f, level);
         }
         samurai::mr_prediction(advected_f, update_bc_for_level);
-            
+
         std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> memoization_map;
         memoization_map.clear();
 
@@ -340,17 +344,17 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
             leaves_on_finest([&](auto &interval, auto) {
                 auto i = interval;
                 auto j = max_level - level;
-                
+
                 auto f_on_finest  = prediction_all(advected_f, level, j, i, memoization_map);
 
-                auto uu = xt::eval(xt::view(f_on_finest, xt::all(), 0) 
+                auto uu = xt::eval(xt::view(f_on_finest, xt::all(), 0)
                                  + xt::view(f_on_finest, xt::all(), 1));
 
-                auto vv = xt::eval(lambda*(xt::view(f_on_finest, xt::all(), 0) 
-                                         - xt::view(f_on_finest, xt::all(), 1))); 
+                auto vv = xt::eval(lambda*(xt::view(f_on_finest, xt::all(), 0)
+                                         - xt::view(f_on_finest, xt::all(), 1)));
 
                 if (test_number == 1 or test_number == 2)   {
-                
+
                     vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
                 }
                 else
@@ -363,7 +367,7 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
 
                 int step = 1 << j;
 
-                for (auto i_start = 0; i_start < (i.end - i.start); i_start = i_start + step)    {                    
+                for (auto i_start = 0; i_start < (i.end - i.start); i_start = i_start + step)    {
                     new_f(0, level, {(i.start + i_start)/step, (i.start + i_start)/step + 1}) = xt::mean(xt::view(f_0_post_coll, xt::range(i_start, i_start + step)));
                     new_f(1, level, {(i.start + i_start)/step, (i.start + i_start)/step + 1}) = xt::mean(xt::view(f_1_post_coll, xt::range(i_start, i_start + step)));
                 }
