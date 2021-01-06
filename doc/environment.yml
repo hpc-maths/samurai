@@ -1,0 +1,7 @@
+name: samurai-doc
+
+channels:
+  - conda-forge
+
+dependencies:
+  - breathe
