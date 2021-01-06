@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 
@@ -27,8 +31,8 @@ auto init_f(samurai::MRMesh<Config> & mesh)
         auto x = center[0];
         auto y = center[1];
 
-        f[cell] = ((std::sqrt(       std::pow(x + .5, 2.) + std::pow(y + .5, 2.)) < .25) ? 1. : 0.) 
-                    + std::exp(-50.*(std::pow(x - .5, 2.) + std::pow(y - .5, 2.))); 
+        f[cell] = ((std::sqrt(       std::pow(x + .5, 2.) + std::pow(y + .5, 2.)) < .25) ? 1. : 0.)
+                    + std::exp(-50.*(std::pow(x - .5, 2.) + std::pow(y - .5, 2.)));
     });
 
     return f;
@@ -89,15 +93,15 @@ void save_solution(Field &f, Func && update_bc_for_level, double eps)
     //                                         mesh[mesh_id_t::cells][max_level - i]);
 
     //     leaves([&](auto& interval, auto& index) {
-    //         auto k = interval; 
-    //         auto h = index[0]; 
+    //         auto k = interval;
+    //         auto h = index[0];
 
     //         details(max_level - i, k, h) = details_tmp(max_level - i, k, h);
     //     });
     // }
 
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell) {
-        double eps_l = std::pow(2., -2 * static_cast<double>(max_level - cell.level)) * eps;        
+        double eps_l = std::pow(2., -2 * static_cast<double>(max_level - cell.level)) * eps;
         level[cell] = cell.level;
         details_n[cell] = details[cell] / eps_l;
     });
@@ -113,7 +117,7 @@ int main()
     const std::size_t min_level = 2;
     const std::size_t max_level = 8;
     const double eps = 1.e-4;
-    const double regularity = 8000.; // Just not to do Harten .... 
+    const double regularity = 8000.; // Just not to do Harten ....
 
     samurai::Box<double, dim> box({-1, -1}, {1, 1});
     samurai::MRMesh<Config> mesh(box, min_level, max_level);

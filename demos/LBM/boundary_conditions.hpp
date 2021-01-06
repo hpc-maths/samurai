@@ -1,8 +1,13 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #pragma once
 
 #include <xtensor/xfixed.hpp>
 
 #include <samurai/operators_base.hpp>
+#include <samurai/subset/subset_op.hpp>
 
 template<class TInterval>
 class update_boundary_D2Q4_flat_op : public samurai::field_operator_base<TInterval>

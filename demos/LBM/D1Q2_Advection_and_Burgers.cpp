@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 #include <fstream>
@@ -7,11 +11,13 @@
 
 #include <xtensor/xio.hpp>
 
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/coarsening.hpp>
-#include <samurai/mr/refinement.hpp>
 #include <samurai/mr/criteria.hpp>
 #include <samurai/mr/harten.hpp>
-#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/hdf5.hpp>
 
 #include "prediction_map_1d.hpp"
 #include "boundary_conditions.hpp"
@@ -132,8 +138,9 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
     else {
 
         auto mesh = f.mesh();
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
-        auto mask = mesh.exists(samurai::MeshType::cells_and_ghosts, level_g + level, i);
+        auto mask = mesh.exists(mesh_id_t::cells_and_ghosts, level_g + level, i);
 
         // std::cout << level_g + level << " " << i << " " << mask << "\n";
         if (xt::all(mask))
@@ -289,7 +296,7 @@ void one_time_step_overleaves(Field &f, const Pred& pred_coeff, Func && update_b
 
         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                             mesh[mesh_id_t::cells][level]);
-        
+
         leaves([&](auto &interval, auto) {
             auto k = interval;
             auto uu = xt::eval(          advected_f(0, level, k) + advected_f(1, level, k));
@@ -310,6 +317,8 @@ template<class Field>
 void one_time_step(Field &f, double s)
 {
     constexpr std::size_t nvel = Field::size;
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
     double lambda = 1.;//, s = 1.0;
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
@@ -330,8 +339,8 @@ void one_time_step(Field &f, double s)
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = samurai::intersection(mesh[samurai::MeshType::cells][level],
-                                      mesh[samurai::MeshType::cells][level]);
+        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                      mesh[mesh_id_t::cells][level]);
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 
@@ -398,7 +407,7 @@ void save_solution(Field &f, double eps, std::size_t ite, std::string ext = "")
 
 
 template<class Field, class FullField,  class Func>
-void save_reconstructed(Field & f, FullField & f_full, 
+void save_reconstructed(Field & f, FullField & f_full,
                         Func && update_bc_for_level, double eps, std::size_t ite, std::string ext = "")
 {
 
@@ -586,7 +595,7 @@ int main(int argc, char *argv[])
             {
                 update_bc_1D_constant_extension(field, level);
             };
-            
+
             auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)

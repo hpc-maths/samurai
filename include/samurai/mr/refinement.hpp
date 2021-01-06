@@ -1,7 +1,11 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #pragma once
 
-#include "mesh.hpp"
 #include "criteria.hpp"
+#include "../static_algorithm.hpp"
 
 namespace samurai
 {
@@ -13,6 +17,7 @@ namespace samurai
 
         using value_t = typename Field::value_type;
         using mesh_t = typename Field::mesh_t;
+        using mesh_id_t = typename mesh_t::mesh_id_t;
         using interval_t = typename Field::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
         using cl_type = typename mesh_t::cl_type;
@@ -38,8 +43,8 @@ namespace samurai
 
         for (std::size_t level = min_level - 1; level < max_level - ite; ++level)
         {
-            auto subset = intersection(mesh[MeshType::all_cells][level],
-                                       mesh[MeshType::cells][level + 1])
+            auto subset = intersection(mesh[mesh_id_t::reference][level],
+                                       mesh[mesh_id_t::cells][level + 1])
                          .on(level);
             subset.apply_op(compute_detail(detail, u));
         }
@@ -51,8 +56,8 @@ namespace samurai
             auto eps_l = std::pow(2, exponent) * eps;
 
             // HARTEN HEURISTICS
-            auto subset = intersection(mesh[MeshType::cells][level],
-                                            mesh[MeshType::all_cells][level-1])
+            auto subset = intersection(mesh[mesh_id_t::cells][level],
+                                            mesh[mesh_id_t::reference][level-1])
                          .on(level-1);
 
             double regularity_to_use = std::min(regularity, 3.0) + dim;
@@ -64,16 +69,16 @@ namespace samurai
         // and not only the axis
         for (std::size_t level = max_level; level > min_level; --level)
         {
-            auto subset_1 = intersection(mesh[MeshType::cells][level],
-                                         mesh[MeshType::cells][level]);
+            auto subset_1 = intersection(mesh[mesh_id_t::cells][level],
+                                         mesh[mesh_id_t::cells][level]);
 
             subset_1.apply_op(extend(tag));
 
             static_nested_loop<dim, -1, 2>(
                 [&](auto stencil) {
 
-                auto subset = intersection(translate(mesh[MeshType::cells][level], stencil),
-                                           mesh[MeshType::cells][level-1])
+                auto subset = intersection(translate(mesh[mesh_id_t::cells][level], stencil),
+                                           mesh[mesh_id_t::cells][level-1])
                              .on(level);
 
                 subset.apply_op(make_graduation(tag));
@@ -82,7 +87,7 @@ namespace samurai
         }
 
         cl_type cell_list;
-        for_each_interval(mesh[MeshType::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
@@ -110,12 +115,12 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto subset = intersection(mesh[MeshType::all_cells][level],
-                                       new_mesh[MeshType::cells][level]);
+            auto subset = intersection(mesh[mesh_id_t::reference][level],
+                                       new_mesh[mesh_id_t::cells][level]);
             subset.apply_op(copy(new_u, u));
         }
 
-        for_each_interval(mesh[MeshType::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
@@ -137,7 +142,7 @@ namespace samurai
         // for (std::size_t level = min_level; level < max_level; ++level)
         // {
 
-        //     auto level_cell_array = mesh[MeshType::cells][level];
+        //     auto level_cell_array = mesh[mesh_id_t::cells][level];
 
         //     if (!level_cell_array.empty())
         //     {
@@ -165,9 +170,9 @@ namespace samurai
         //     xt::xtensor_fixed<int, xt::xshape<1>> stencil_minus;
         //     stencil_minus = {{1}}; // One is sufficient to get 2 at a finer level
 
-        //     auto level_cell_array = union_(union_(mesh[MeshType::cells][level],
-        //             translate(mesh[MeshType::cells][level], stencil_minus)),
-        //             translate(mesh[MeshType::cells][level], stencil_plus));
+        //     auto level_cell_array = union_(union_(mesh[mesh_id_t::cells][level],
+        //             translate(mesh[mesh_id_t::cells][level], stencil_minus)),
+        //             translate(mesh[mesh_id_t::cells][level], stencil_plus));
 
         // }
 

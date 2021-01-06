@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #pragma once
 
 #include <array>
@@ -11,9 +15,8 @@
 #include "algorithm.hpp"
 #include "cell.hpp"
 #include "field_expression.hpp"
-#include "mr/mesh.hpp"
-#include "mr/mesh_type.hpp"
-#include "mr/operators.hpp"
+// #include "mr/mesh.hpp"
+// #include "mr/operators.hpp"
 
 namespace samurai
 {

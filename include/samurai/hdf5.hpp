@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #pragma once
 
 #include <fstream>
@@ -16,8 +20,6 @@
 
 #include "cell.hpp"
 #include "algorithm.hpp"
-#include "mr/mesh_type.hpp"
-#include "mesh.hpp"
 #include "utils.hpp"
 
 namespace samurai

@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 
@@ -5,11 +9,14 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/stopwatch.h>
 
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/coarsening.hpp>
-#include <samurai/mr/refinement.hpp>
 #include <samurai/mr/criteria.hpp>
 #include <samurai/mr/harten.hpp>
-#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/hdf5.hpp>
+
 #include "prediction_map_2d.hpp"
 #include "boundary_conditions.hpp"
 
@@ -72,19 +79,19 @@ auto init_f(samurai::MRMesh<Config> &mesh, int config, double lambda)
                 rho_quad = {1.0625, 2., 0.5197, 1.};
                 u_x_quad = {0., 0., 0., 0.0};
                 u_y_quad = {0.2145, -0.3,  -1.1259, 0.0};
-                p_quad   = {0.4, 1.,  0.4, 1.5}; break;               
+                p_quad   = {0.4, 1.,  0.4, 1.5}; break;
             }
             case 3: {
                 rho_quad = {0.138, 0.5323, 0.5323, 1.5};
                 u_x_quad = {1.206, 1.206, 0., 0.0};
                 u_y_quad = {1.206, 0.,  1.206, 0.0};
-                p_quad   = {0.029, 0.3, 0.3, 1.5}; break;               
+                p_quad   = {0.029, 0.3, 0.3, 1.5}; break;
             }
             default:    {
                 rho_quad = {0.8, 1., 1., 0.5313};
                 u_x_quad = {0., 0.7276, 0., 0.0};
                 u_y_quad = {0., 0.,  0.7276, 0.0};
-                p_quad   = {1., 1.,  1., 0.4};              
+                p_quad   = {1., 1.,  1., 0.4};
             }
         }
 
@@ -100,7 +107,7 @@ auto init_f(samurai::MRMesh<Config> &mesh, int config, double lambda)
                 rho =       rho_quad[1];
                 qx  = rho * u_x_quad[1];
                 qy  = rho * u_y_quad[1];
-                p   =         p_quad[1];              
+                p   =         p_quad[1];
             }
         }
         else
@@ -110,7 +117,7 @@ auto init_f(samurai::MRMesh<Config> &mesh, int config, double lambda)
                 qx  = rho * u_x_quad[2];
                 qy  = rho * u_y_quad[2];
                 p   =         p_quad[2];
-            
+
             }
             else
             {
@@ -239,8 +246,8 @@ auto compute_prediction(std::size_t min_level, std::size_t max_level)
 }
 
 template<class Field, class Func, class pred>
-void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff, 
-                    const double lambda, const double sq_rho, const double sxy_rho, 
+void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
+                    const double lambda, const double sq_rho, const double sxy_rho,
                                          const double sq_q, const double sxy_q,
                                          const double sq_e, const double sxy_e)
 {
@@ -272,7 +279,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
     {
         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                             mesh[mesh_id_t::cells][level]);
-        
+
         if (level == max_level) { // Advection at the finest level
 
             leaves([&](auto& interval, auto& index) {
@@ -314,7 +321,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                     }
                 }
             });
-            
+
             leaves([&](auto& interval, auto& index) {
                 auto k = interval; // Logical index in x
                 auto h = index[0]; // Logical index in y
@@ -327,7 +334,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
                 }
             });
         }
-        
+
         leaves([&](auto& interval, auto& index) {
             auto k = interval; // Logical index in x
             auto h = index[0]; // Logical index in y
@@ -391,7 +398,7 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
             new_f(15, level, k, h) =  .25 * m3_0                    - .5/lambda * (m3_2) - .25/(lambda*lambda) * m3_3;
 
             });
-        }    
+        }
     std::swap(f.array(), new_f.array());
 }
 
@@ -447,7 +454,7 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
     // mem_map.clear(); // To be activated if we want to avoid memoization
     auto it = mem_map.find({level_g, level, k, h});
 
-    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size()) 
+    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())
         return it->second;
     else
     {
@@ -746,7 +753,7 @@ int main(int argc, char *argv[])
             double regularity = result["reg"].as<double>();
             int configuration = result["config"].as<int>();
 
-            // double lambda = 1./0.3; //4.0; 
+            // double lambda = 1./0.3; //4.0;
             // double lambda = 1./0.2499; //4.0;
             double lambda = 1./0.2; // This seems to work
             double T = 0.25;//0.3;//1.2;
@@ -768,7 +775,7 @@ int main(int argc, char *argv[])
                 T = .3;
                 // T = 0.1;
             }
-            
+
             // // This were the old test case (version 3)
             // double sq = 1.75;
             // double sxy = 2.;
@@ -846,7 +853,7 @@ int main(int argc, char *argv[])
 
                 one_time_step(f    , update_bc_for_level, pred_coeff, lambda, sq_rho, sxy_rho, sq_q, sxy_q, sq_e, sxy_e);
                 one_time_step(f_ref, update_bc_for_level, pred_coeff, lambda, sq_rho, sxy_rho, sq_q, sxy_q, sq_e, sxy_e);
-                
+
                 auto number_leaves = mesh.nb_cells(mesh_id_t::cells);
                 auto number_cells  = mesh.nb_cells();
 

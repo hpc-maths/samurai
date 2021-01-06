@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/hdf5.hpp>

@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 #include <fstream>
@@ -7,11 +11,13 @@
 
 #include <xtensor/xio.hpp>
 
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/coarsening.hpp>
-#include <samurai/mr/refinement.hpp>
 #include <samurai/mr/criteria.hpp>
 #include <samurai/mr/harten.hpp>
-#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/hdf5.hpp>
 
 #include "prediction_map_1d.hpp"
 #include "boundary_conditions.hpp"
@@ -107,7 +113,7 @@ auto init_f(samurai::MRMesh<Config> &mesh, double t, const double lambda, const 
 }
 
 template<class Field, class Pred, class Func>
-void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level, 
+void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level,
                     double s_rel, const double lambda, const double g)
 {
     constexpr std::size_t nvel = Field::size;
@@ -218,7 +224,7 @@ void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level
     for (std::size_t level = 0; level <= max_level; ++level)    {
         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                             mesh[mesh_id_t::cells][level]);
-        
+
         leaves([&](auto &interval, auto) {
             auto k = interval;
 
@@ -232,7 +238,7 @@ void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level
             new_f(1, level, k) = 0.5 * ( q + k_coll/lambda)/lambda;
             new_f(2, level, k) = 0.5 * (-q + k_coll/lambda)/lambda;
         });
-    }             
+    }
     std::swap(f.array(), new_f.array());
 }
 
@@ -266,7 +272,7 @@ void save_solution(Field &f, double eps, std::size_t ite, const double lambda, s
 
 template<class Config, class FieldR, class Func>
 std::array<double, 4> compute_error(samurai::Field<Config, double, 3> &f, FieldR & fR,
-                Func&& update_bc_for_level, double t, 
+                Func&& update_bc_for_level, double t,
                 const double lambda, const double g)
 {
     auto mesh = f.mesh();
@@ -392,7 +398,7 @@ int main(int argc, char *argv[])
             {
                 update_bc_1D_constant_extension(field, level);
             };
-            
+
             auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)

@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #pragma once
 
 
@@ -14,7 +18,7 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
 
     auto it = mem_map.find({level_g, level, k});
 
-    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())    
+    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())
         return it->second;
     else
     {

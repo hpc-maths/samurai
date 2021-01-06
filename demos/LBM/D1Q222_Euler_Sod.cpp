@@ -1,3 +1,7 @@
+// Copyright 2021 SAMURAI TEAM. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 #include <math.h>
 #include <vector>
 #include <fstream>
@@ -7,11 +11,14 @@
 
 #include <xtensor/xio.hpp>
 
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/coarsening.hpp>
-#include <samurai/mr/refinement.hpp>
 #include <samurai/mr/criteria.hpp>
 #include <samurai/mr/harten.hpp>
-#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/hdf5.hpp>
+#include <samurai/subset/subset_op.hpp>
 
 #include "prediction_map_1d.hpp"
 #include "boundary_conditions.hpp"
@@ -210,7 +217,7 @@ void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level
     {
         // If we are at the finest level, we no not need to correct
         if (level == max_level) {
-        
+
             auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
                                                 mesh[mesh_id_t::cells][max_level]);
 
@@ -309,7 +316,7 @@ void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level
     for (std::size_t level = 0; level <= max_level; ++level)    {
         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                             mesh[mesh_id_t::cells][level]);
-        
+
         leaves([&](auto &interval, auto) {
             auto i = interval;
 
@@ -484,7 +491,7 @@ int main(int argc, char *argv[])
             samurai::Box<double, dim> box({-1}, {1});
             samurai::MRMesh<Config> mesh {box, min_level, max_level};
             samurai::MRMesh<Config> meshR{box, max_level, max_level};
-                
+
             auto pred_coeff_separate = compute_prediction_separate_inout<coord_index_t>(min_level, max_level);
 
             const double lambda = 3.;
@@ -505,7 +512,7 @@ int main(int argc, char *argv[])
             {
                 update_bc_1D_constant_extension(field, level);
             };
-            
+
             auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
