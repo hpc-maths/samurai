@@ -6,6 +6,7 @@
 
 #include <type_traits>
 #include "../field.hpp"
+#include "../static_algorithm.hpp"
 #include "criteria.hpp"
 #include "pred_and_proj.hpp"
 

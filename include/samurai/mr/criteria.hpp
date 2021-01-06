@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <xtensor/xmasked_view.hpp>
 #include <xtensor/xview.hpp>
 
 #include "cell_flag.hpp"

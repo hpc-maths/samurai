@@ -9,11 +9,14 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/stopwatch.h>
 
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/coarsening.hpp>
-#include <samurai/mr/refinement.hpp>
 #include <samurai/mr/criteria.hpp>
 #include <samurai/mr/harten.hpp>
-#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/hdf5.hpp>
+
 #include "prediction_map_2d.hpp"
 #include "boundary_conditions.hpp"
 

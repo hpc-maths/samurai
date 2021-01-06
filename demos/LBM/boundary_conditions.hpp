@@ -7,6 +7,7 @@
 #include <xtensor/xfixed.hpp>
 
 #include <samurai/operators_base.hpp>
+#include <samurai/subset/subset_op.hpp>
 
 template<class TInterval>
 class update_boundary_D2Q4_flat_op : public samurai::field_operator_base<TInterval>

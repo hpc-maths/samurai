@@ -11,11 +11,13 @@
 
 #include <xtensor/xio.hpp>
 
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/coarsening.hpp>
-#include <samurai/mr/refinement.hpp>
 #include <samurai/mr/criteria.hpp>
 #include <samurai/mr/harten.hpp>
-#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/hdf5.hpp>
 
 #include "prediction_map_1d.hpp"
 #include "boundary_conditions.hpp"
@@ -136,8 +138,9 @@ xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size
     else {
 
         auto mesh = f.mesh();
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
-        auto mask = mesh.exists(samurai::MeshType::cells_and_ghosts, level_g + level, i);
+        auto mask = mesh.exists(mesh_id_t::cells_and_ghosts, level_g + level, i);
 
         // std::cout << level_g + level << " " << i << " " << mask << "\n";
         if (xt::all(mask))
@@ -314,6 +317,8 @@ template<class Field>
 void one_time_step(Field &f, double s)
 {
     constexpr std::size_t nvel = Field::size;
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
     double lambda = 1.;//, s = 1.0;
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
@@ -334,8 +339,8 @@ void one_time_step(Field &f, double s)
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = samurai::intersection(mesh[samurai::MeshType::cells][level],
-                                      mesh[samurai::MeshType::cells][level]);
+        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                      mesh[mesh_id_t::cells][level]);
         exp([&](auto, auto &interval, auto) {
             auto i = interval[0];
 

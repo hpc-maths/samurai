@@ -20,8 +20,6 @@
 
 #include "cell.hpp"
 #include "algorithm.hpp"
-#include "mr/mesh_type.hpp"
-#include "mesh.hpp"
 #include "utils.hpp"
 
 namespace samurai

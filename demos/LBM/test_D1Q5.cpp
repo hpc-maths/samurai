@@ -11,11 +11,13 @@
 
 #include <xtensor/xio.hpp>
 
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/coarsening.hpp>
-#include <samurai/mr/refinement.hpp>
 #include <samurai/mr/criteria.hpp>
 #include <samurai/mr/harten.hpp>
-#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/refinement.hpp>
+#include <samurai/hdf5.hpp>
 
 #include "prediction_map_1d.hpp"
 #include "boundary_conditions.hpp"
@@ -187,6 +189,7 @@ void one_time_step(Field &f, Func && update_bc_for_level,
                    double s, const double lambda, const double g)
 {
     constexpr std::size_t nvel = Field::size;
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
     auto min_level = mesh.min_level();
@@ -212,8 +215,8 @@ void one_time_step(Field &f, Func && update_bc_for_level,
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {
-        auto exp = samurai::intersection(mesh[samurai::MeshType::cells][level],
-                                      mesh[samurai::MeshType::cells][level]);
+        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                      mesh[mesh_id_t::cells][level]);
         exp([&](auto &interval, auto) {
             auto i = interval;
             // STREAM

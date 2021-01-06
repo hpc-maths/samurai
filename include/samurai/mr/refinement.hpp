@@ -5,6 +5,7 @@
 #pragma once
 
 #include "criteria.hpp"
+#include "../static_algorithm.hpp"
 
 namespace samurai
 {

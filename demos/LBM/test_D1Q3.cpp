@@ -11,11 +11,12 @@
 
 #include <xtensor/xio.hpp>
 
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/coarsening.hpp>
-#include <samurai/mr/refinement.hpp>
 #include <samurai/mr/criteria.hpp>
 #include <samurai/mr/harten.hpp>
-#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/refinement.hpp>
 
 #include "prediction_map_1d.hpp"
 #include "boundary_conditions.hpp"
