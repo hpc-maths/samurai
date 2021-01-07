@@ -326,7 +326,7 @@ namespace samurai
     }
 
     template<class Mesh>
-    inline auto mesh_node<Mesh>::transform(std::size_t dim, coord_index_t coord) const noexcept
+    inline auto mesh_node<Mesh>::transform(std::size_t /*dim*/, coord_index_t coord) const noexcept
     {
         return coord;
     }

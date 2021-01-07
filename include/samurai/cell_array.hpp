@@ -158,7 +158,7 @@ namespace samurai
     template<std::size_t dim_, class TInterval, std::size_t max_size_>
     inline std::size_t CellArray<dim_, TInterval, max_size_>::max_level() const
     {
-        for (int level = max_size; level >= 0; --level)
+        for (std::size_t level = max_size; level != std::size_t(-1); --level)
         {
             if (!m_cells[level].empty())
             {
@@ -174,7 +174,7 @@ namespace samurai
     template<std::size_t dim_, class TInterval, std::size_t max_size_>
     inline std::size_t CellArray<dim_, TInterval, max_size_>::min_level() const
     {
-        for (int level = 0; level <= max_size; ++level)
+        for (std::size_t level = 0; level <= max_size; ++level)
         {
             if (!m_cells[level].empty())
             {
@@ -191,10 +191,11 @@ namespace samurai
     template<std::size_t dim_, class TInterval, std::size_t max_size_>
     inline void CellArray<dim_, TInterval, max_size_>::update_index()
     {
+        using index_t = typename interval_t::index_t;
         std::size_t acc_size = 0;
         for_each_interval(*this, [&](auto, auto& interval, auto)
         {
-            interval.index = acc_size - interval.start;
+            interval.index = safe_subs<index_t>(acc_size, interval.start);
             acc_size += interval.size();
         });
     }
@@ -206,13 +207,13 @@ namespace samurai
         {
             if (!m_cells[level].empty())
             {
-                fmt::print(os,
+                os <<
                         fmt::format(fg(fmt::color::steel_blue) | fmt::emphasis::bold,
                         "┌{0:─^{2}}┐\n"
                         "│{1: ^{2}}│\n"
-                        "└{0:─^{2}}┘\n", "", fmt::format("Level {}", level), 20));
+                        "└{0:─^{2}}┘\n", "", fmt::format("Level {}", level), 20);
                 m_cells[level].to_stream(os);
-                os << "\n";
+                os << std::endl;
             }
         }
     }

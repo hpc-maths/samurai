@@ -14,6 +14,7 @@
 // #include <spdlog/fwd.h>
 
 #include "node_op.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
@@ -199,7 +200,7 @@ namespace samurai
                 auto interval = m_node.interval(m_d, index);
 
                 // Find the list of intervals for the dimension d - 1 for shift_i
-                std::size_t off_ind = interval.index + m_node.transform(m_d, shift_i);
+                std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i));
                 m_start[m_d - 1] = m_node.offset(m_d, off_ind);
                 m_end[m_d - 1] = m_node.offset(m_d, off_ind + 1);
                 m_start_offset[m_d - 1] = m_node.offset(m_d, off_ind);
@@ -254,20 +255,20 @@ namespace samurai
 
             ListOfIntervals<coord_index_t, index_t> intervals;
             bool first_found = true;
-            for(std::size_t s=0; s< (1<<(-m_shift)); ++s)
+            for(int s = 0; s < 1<<(-m_shift); ++s)
             {
                 index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i + s));
                 if (index != std::numeric_limits<std::size_t>::max())
                 {
                     auto interval = m_node.interval(m_d, index);
-                    std::size_t off_ind = interval.index + m_node.transform(m_d, shift_i + s);
+                    std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i + s));
                     if (first_found)
                     {
                         m_start_offset[m_d - 1] = m_node.offset(m_d, off_ind);
                         first_found = false;
                     }
 
-                    for(coord_index_t o = m_node.offset(m_d, off_ind); o < m_node.offset(m_d, off_ind + 1); ++o)
+                    for(std::size_t o = m_node.offset(m_d, off_ind); o < m_node.offset(m_d, off_ind + 1); ++o)
                     {
                         auto start = m_node.start(m_d - 1, o) >> (-m_shift);
                         auto end = ((m_node.end(m_d - 1, o) - 1) >> -m_shift) + 1;
@@ -429,8 +430,8 @@ namespace samurai
     {
         m_ref_level = ref_level;
         m_common_level = common_level;
-        m_shift_ref = ref_level - m_node.level();
-        m_shift_common = common_level - m_node.level();
+        m_shift_ref = safe_subs<int>(ref_level, m_node.level());
+        m_shift_common = safe_subs<int>(common_level, m_node.level());
         m_shift = std::min(m_shift_ref, m_shift_common);
         // spdlog::debug("SET SHIFT: level = {}, ref_level = {}, common_level = {}, shift_ref = {}, shift_common = {}, shift = {}", m_node.level(), m_ref_level, m_common_level, m_shift_ref, m_shift_common, m_shift);
     }

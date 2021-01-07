@@ -33,7 +33,6 @@ namespace samurai
 namespace rc
 {
 
-    template<>
     template<class TValue>
     struct Arbitrary<samurai::Interval<TValue>>
     {

@@ -8,6 +8,9 @@
 
 #include "criteria.hpp"
 #include "../field.hpp"
+#include "../static_algorithm.hpp"
+#include "../utils.hpp"
+#include "pred_and_proj.hpp"
 
 namespace samurai
 {
@@ -32,7 +35,7 @@ namespace samurai
         auto tag = make_field<int, 1>("tag", mesh);
         tag.fill(0);
 
-        mesh.for_each_cell([&](auto &cell)
+        for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
         {
             tag[cell] = static_cast<int>(CellFlag::keep);
         });
@@ -44,7 +47,6 @@ namespace samurai
         }
         mr_prediction(u, update_bc_for_level);
 
-        // What are the data it uses at min_level - 1 ???
         for (std::size_t level = min_level - 1; level < max_level - ite; ++level)
         {
             auto subset = intersection(mesh[mesh_id_t::reference][level],
@@ -53,12 +55,10 @@ namespace samurai
             subset.apply_op(compute_detail(detail, u));
         }
 
-        // AGAIN I DONT KNOW WHAT min_level - 1 is
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
-            int exponent = dim * (level - max_level);
-
-            auto eps_l = std::pow(2, exponent) * eps;
+            double exponent = dim * safe_subs<double>(max_level, level);
+            double eps_l = std::pow(2., -exponent) * eps;
 
             // COMPRESSION
 
@@ -109,7 +109,7 @@ namespace samurai
         {
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
-                if (tag[i + interval.index] & static_cast<int>(CellFlag::keep))
+                if (tag[static_cast<std::size_t>(i + interval.index)] & static_cast<int>(CellFlag::keep))
                 {
                     cell_list[level][index_yz].add_point(i);
                 }
@@ -120,7 +120,7 @@ namespace samurai
             }
         });
 
-        mesh_t new_mesh{cell_list, mesh.initial_mesh(), min_level, max_level};
+        mesh_t new_mesh{cell_list, min_level, max_level};
 
         if (new_mesh == mesh)
         {

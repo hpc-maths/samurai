@@ -125,4 +125,10 @@ namespace samurai
             return do_min(v0 < v1 ? v0 : v1, rest...);
         }
     } // namespace detail
+
+    template <class R, class T1, class T2>
+    R safe_subs(T1 a, T2 b)
+    {
+        return static_cast<R>(static_cast<std::ptrdiff_t>(a) - static_cast<std::ptrdiff_t>(b));
+    }
 } // namespace samurai

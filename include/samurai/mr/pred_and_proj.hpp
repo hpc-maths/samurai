@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include "../field.hpp"
+#include "operators.hpp"
 
 namespace samurai
 {

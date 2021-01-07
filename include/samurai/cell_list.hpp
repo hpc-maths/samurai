@@ -70,7 +70,7 @@ namespace samurai
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
-            fmt::print(os, fg(fmt::color::crimson) | fmt::emphasis::bold, "Level {}\n", level);
+            os << fmt::format(fg(fmt::color::crimson) | fmt::emphasis::bold, "Level {}\n", level);
             m_cells[level].to_stream(os);
             os << "\n";
         }

@@ -366,7 +366,7 @@ namespace samurai
     template<std::size_t Dim, class TInterval>
     inline auto LevelCellArray<Dim, TInterval>::shape() const
     {
-        std::array<coord_index_t, dim> output;
+        std::array<std::size_t, dim> output;
         for (std::size_t d = 0; d < dim; ++d)
         {
             output[d] = m_cells[d].size();
@@ -495,7 +495,7 @@ namespace samurai
     template<std::size_t Dim, class TInterval>
     inline void LevelCellArray<Dim, TInterval>::init_from_box(const Box<coord_index_t, dim>& box)
     {
-        auto dimensions = box.length();
+        auto dimensions = xt::cast<std::size_t>(box.length());
         auto start = box.min_corner();
         auto end = box.max_corner();
 
@@ -541,15 +541,15 @@ namespace samurai
 
         for (std::size_t d = 0; d < dim; ++d)
         {
-            fmt::print(os, fmt::format(fmt::emphasis::bold, "{:>10}", fmt::format("dim {}\n", d)));
+            os << fmt::format(fmt::emphasis::bold, "{:>10}", fmt::format("dim {}", d)) << std::endl;
 
-            fmt::print(os, fmt::format("{:>20}", "cells = "));
-            fmt::print(os, fmt::format("{}\n\n", fmt::join(m_cells[d], " ")));
+            os << fmt::format("{:>20}", "cells = ");
+            os << fmt::format("{}\n", fmt::join(m_cells[d], " ")) << std::endl;
 
             if (d > 0)
             {
-                fmt::print(os, fmt::format("{:>20}", "offsets = "));
-                fmt::print(os, fmt::format("{}\n\n", fmt::join(m_offsets[d-1], " ")));
+                os << fmt::format("{:>20}", "offsets = ");
+                os << fmt::format("{}\n", fmt::join(m_offsets[d-1], " ")) << std::endl;
             }
         }
     }

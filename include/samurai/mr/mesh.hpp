@@ -135,7 +135,7 @@ namespace samurai
             lca_type& lca = this->m_cells[mesh_id_t::cells][level];
             lcl_type& lcl = cell_list[level - 1];
 
-            for_each_interval(lca, [&](std::size_t level, const auto& interval, const auto& index_yz)
+            for_each_interval(lca, [&](std::size_t /*level*/, const auto& interval, const auto& index_yz)
             {
                 // static_nested_loop<dim - 1, -ghost_width - s, ghost_width + s + 1>([&](auto stencil) {
                 //     int beg = (interval.start >> 1) - static_cast<int>(s + ghost_width);

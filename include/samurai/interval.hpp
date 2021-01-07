@@ -7,7 +7,6 @@
 #include <ostream>
 
 #include <fmt/format.h>
-#include <spdlog/fmt/ostr.h>
 
 namespace samurai
 {

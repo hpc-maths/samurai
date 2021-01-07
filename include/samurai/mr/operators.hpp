@@ -85,7 +85,7 @@ namespace samurai
                 auto coarse_odd_i = odd_i >> 1;
                 auto dec_odd = (i.end & 1) ? 1 : 0;
                 field(level, odd_i) = field(level - 1, coarse_odd_i)
-                                    - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd));
+                                    - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)));
             }
         }
 
@@ -115,9 +115,9 @@ namespace samurai
                     auto coarse_odd_i = odd_i >> 1;
                     auto dec_odd = (i.end & 1) ? 1 : 0;
                     field(level, odd_i, j) = field(level - 1, coarse_odd_i, j >> 1)
-                                           - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd))
-                                           - xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd))
-                                           - xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
+                                           - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
+                                           - xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
+                                           - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
                 }
             }
             else
@@ -139,9 +139,9 @@ namespace samurai
                     auto coarse_odd_i = odd_i >> 1;
                     auto dec_odd = (i.end & 1) ? 1 : 0;
                     field(level, odd_i, j) = field(level - 1, coarse_odd_i, j >> 1)
-                                           - xt::view(qs_i, xt::range(0, qs_i.shape()[0] - dec_odd))
-                                           + xt::view(qs_j, xt::range(0, qs_j.shape()[0] - dec_odd))
-                                           + xt::view(qs_ij, xt::range(0, qs_ij.shape()[0] - dec_odd));
+                                           - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
+                                           + xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
+                                           + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
                 }
             }
         }

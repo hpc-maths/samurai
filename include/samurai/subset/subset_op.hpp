@@ -121,7 +121,7 @@ namespace samurai
         }
 
         template<class... CT>
-        inline bool is_empty(bool a, CT&&... b) const
+        inline bool is_empty(bool a, CT&&...) const
         {
             return a;
         }

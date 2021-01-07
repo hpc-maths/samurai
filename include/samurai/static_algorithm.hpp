@@ -52,7 +52,7 @@ namespace samurai
     namespace detail
     {
         template<std::size_t nloops, class Func>
-        inline void static_nested_loop_impl(int start, int end, int step, Func&& f,
+        inline void static_nested_loop_impl(int /*start*/, int /*end*/, int /*step*/, Func&& f,
                                             xt::xtensor_fixed<int, xt::xshape<nloops>>& index,
                                             std::integral_constant<std::size_t, nloops>)
         {

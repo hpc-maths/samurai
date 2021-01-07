@@ -5,17 +5,16 @@
 #include <samurai/field.hpp>
 #include <samurai/mr/coarsening.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/mr/mr_config.hpp>
 #include <samurai/mr/pred_and_proj.hpp>
 
 #include "test_common.hpp"
 
 class CoarseningTest
-    : public ::testing::TestWithParam<std::tuple<int, int, int>> {
+    : public ::testing::TestWithParam<std::tuple<std::size_t, std::size_t, int>> {
 };
 
 std::string StringParamTestSuffix(
-    const testing::TestParamInfo<std::tuple<int, int, int>> &info)
+    const testing::TestParamInfo<std::tuple<std::size_t, std::size_t, int>> &info)
 {
     auto param = info.param;
     std::stringstream out;
@@ -26,19 +25,19 @@ std::string StringParamTestSuffix(
 
 INSTANTIATE_TEST_CASE_P(
     CoarseningTestNames, CoarseningTest,
-    ::testing::Combine(::testing::Range(1, 5), ::testing::Range(2, 11),
+    ::testing::Combine(::testing::Range<std::size_t>(1, 5), ::testing::Range<std::size_t>(2, 11),
                        ::testing::Values(1e1, 1e2, 1e3, 1e4, 1e5)),
     StringParamTestSuffix);
 
 template<class Config>
-auto get_init_field_1d(samurai::Mesh<Config> &mesh, std::size_t test_case)
+auto get_init_field_1d(samurai::MRMesh<Config> &mesh, std::size_t test_case)
 {
-    samurai::Field<Config> u("u", mesh);
-    u.array().fill(0);
+    auto u = samurai::make_field<double, 1>("u", mesh);
+    u.fill(0);
 
-    mesh.for_each_cell([&](auto &cell) {
-        auto center = cell.center();
-        auto x = center[0];
+    samurai::for_each_cell(mesh, [&](auto &cell)
+    {
+        auto x = cell.center(0);
 
         switch (test_case)
         {
@@ -62,15 +61,15 @@ auto get_init_field_1d(samurai::Mesh<Config> &mesh, std::size_t test_case)
 }
 
 template<class Config>
-auto get_init_field_2d(samurai::Mesh<Config> &mesh, std::size_t test_case)
+auto get_init_field_2d(samurai::MRMesh<Config> &mesh, std::size_t test_case)
 {
-    samurai::Field<Config> u("u", mesh);
-    u.array().fill(0);
+    auto u = samurai::make_field<double, 1>("u", mesh);
+    u.fill(0);
 
-    mesh.for_each_cell([&](auto &cell) {
-        auto center = cell.center();
-        auto x = center[0];
-        auto y = center[1];
+    samurai::for_each_cell(mesh, [&](auto &cell)
+    {
+        auto x = cell.center(0);
+        auto y = cell.center(1);
         double radius = .2;
         double xcenter = 0, ycenter = 0;
 
@@ -110,26 +109,30 @@ TEST_P(CoarseningTest, 1D)
     using Config = samurai::MRConfig<dim>;
 
     samurai::Box<double, dim> box({-1}, {1});
-    samurai::Mesh<Config> mesh{box, init_level};
+    using mesh_t = samurai::MRMesh<Config>;
+    using mesh_id_t = typename mesh_t::mesh_id_t;
+    mesh_t mesh{box, 1, init_level};
 
     auto u = get_init_field_1d(mesh, test_case);
 
+    auto update_bc = [](const auto& /*u*/, std::size_t /*level*/){};
+
     for (std::size_t i = 0; i < init_level; ++i)
     {
-        samurai::Field<Config> detail{"detail", mesh};
-        detail.array().fill(0);
-        samurai::mr_projection(u);
-        samurai::coarsening(detail, u, eps, i);
+        samurai::coarsening(u, update_bc, eps, i);
     }
 
-    for (int level1 = init_level; level1 > 0; --level1)
+    for (std::size_t level1 = init_level; level1 != std::size_t(-1); --level1)
     {
-        for (int level2 = level1 - 1; level2 > 0; --level2)
+        for (std::size_t level2 = level1 - 1; level2 != std::size_t(-1); --level2)
         {
-            auto expr = samurai::intersection(mesh[samurai::MeshType::cells][level1],
-                                           mesh[samurai::MeshType::cells][level2])
+            auto expr = samurai::intersection(mesh[mesh_id_t::cells][level1],
+                                              mesh[mesh_id_t::cells][level2])
                             .on(level1);
-            expr([](auto &, auto &, auto &) { RC_ASSERT(false); });
+            expr([](auto, auto)
+            {
+                RC_ASSERT(false);
+            });
         }
     }
 }
@@ -144,26 +147,30 @@ TEST_P(CoarseningTest, 2D)
     using Config = samurai::MRConfig<dim>;
 
     samurai::Box<double, dim> box({-1, -1}, {1, 1});
-    samurai::Mesh<Config> mesh{box, init_level};
+    using mesh_t = samurai::MRMesh<Config>;
+    using mesh_id_t = typename mesh_t::mesh_id_t;
+    mesh_t mesh{box, 1, init_level};
 
     auto u = get_init_field_2d(mesh, test_case);
 
+    auto update_bc = [](const auto& /*u*/, std::size_t /*level*/){};
+
     for (std::size_t i = 0; i < init_level; ++i)
     {
-        samurai::Field<Config> detail{"detail", mesh};
-        detail.array().fill(0);
-        samurai::mr_projection(u);
-        samurai::coarsening(detail, u, eps, i);
+        samurai::coarsening(u, update_bc, eps, i);
     }
 
-    for (int level1 = init_level; level1 > 0; --level1)
+    for (std::size_t level1 = init_level; level1 != std::size_t(-1); --level1)
     {
-        for (int level2 = level1 - 1; level2 > 0; --level2)
+        for (std::size_t level2 = level1 - 1; level2 != std::size_t(-1); --level2)
         {
-            auto expr = samurai::intersection(mesh[samurai::MeshType::cells][level1],
-                                           mesh[samurai::MeshType::cells][level2])
-                            .on(level1);
-            expr([](auto &, auto &, auto &) { RC_ASSERT(false); });
+            auto expr = samurai::intersection(mesh[mesh_id_t::cells][level1],
+                                              mesh[mesh_id_t::cells][level2])
+                        .on(level1);
+            expr([](auto, auto)
+            {
+                RC_ASSERT(false);
+            });
         }
     }
 }

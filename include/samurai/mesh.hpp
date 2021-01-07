@@ -296,8 +296,8 @@ namespace samurai
         {
             mesh_id_t mt = static_cast<mesh_id_t>(id);
 
-            fmt::print(os, fmt::format(fmt::emphasis::bold, "{}\n{:─^50}\n", mt, ""));
-            fmt::print(os, fmt::format("{}", m_cells[id]));
+            os << fmt::format(fmt::emphasis::bold, "{}\n{:─^50}", mt, "") << std::endl;
+            os << m_cells[id];
         }
     }
 

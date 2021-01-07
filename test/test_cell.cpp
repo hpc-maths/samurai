@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <xtensor/xarray.hpp>
+#include <xtensor/xfixed.hpp>
 
 #include <samurai/cell.hpp>
 
@@ -7,21 +8,24 @@ namespace samurai
 {
     TEST(cell, length)
     {
-        Cell<int, 2> c{1, {1, 1}, 0};
-        EXPECT_EQ(c.length(), 0.5);
+        auto indices = xt::xtensor_fixed<int, xt::xshape<2>>({1, 1});
+        Cell<int, 2> c{1, indices, 0};
+        EXPECT_EQ(c.length, 0.5);
     }
 
     TEST(cell, center)
     {
-        Cell<int, 2> c{1, {1, 1}, 0};
+        auto indices = xt::xtensor_fixed<int, xt::xshape<2>>({1, 1});
+        Cell<int, 2> c{1, indices, 0};
         xt::xarray<double> expected{.75, .75};
         EXPECT_EQ(c.center(), expected);
     }
 
     TEST(cell, first_corner)
     {
-        Cell<int, 2> c{1, {1, 1}, 0};
+        auto indices = xt::xtensor_fixed<int, xt::xshape<2>>({1, 1});
+        Cell<int, 2> c{1, indices, 0};
         xt::xarray<double> expected{.5, .5};
-        EXPECT_EQ(c.first_corner(), expected);
+        EXPECT_EQ(c.corner(), expected);
     }
 }

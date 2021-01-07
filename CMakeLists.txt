@@ -1,8 +1,9 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.11)
 
 project(samurai)
 
 set(SAMURAI_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 # Versionning
 # ===========
@@ -27,32 +28,48 @@ find_package(spdlog REQUIRED)
 find_package(fmt)
 
 set(SAMURAI_HEADERS
+    ${SAMURAI_INCLUDE_DIR}/samurai/algorithm.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/bc.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/box.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/cell.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/cell_array.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/cell_list.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/field.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/field_expression.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/hdf5.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/interval.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/level_cell_array.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/level_cell_list.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/list_of_intervals.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mesh.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/adapt.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/cell_flag.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/coarsening.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/criteria.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/harten.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/mesh.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/operators.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/pred_and_proj.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/prediction.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/mr/refinement.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/operators_base.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/samurai_config.hpp
     ${SAMURAI_INCLUDE_DIR}/samurai/static_algorithm.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/stencil_field.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/subset/node_op.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/subset/subset_node.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/subset/subset_op.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/subset/subset_op_base.hpp
+    ${SAMURAI_INCLUDE_DIR}/samurai/utils.hpp
 )
 
 add_library(samurai INTERFACE)
 target_include_directories(samurai INTERFACE $<BUILD_INTERFACE:${SAMURAI_INCLUDE_DIR}>
-                                          $<INSTALL_INTERFACE:include>)
+                                             $<INSTALL_INTERFACE:include>)
 
-# target_link_libraries(samurai INTERFACE xtensor pugixml spdlog
-# INTERFACE $<TARGET_PROPERTY:HighFive,INTERFACE_LINK_LIBRARIES>)
 target_link_libraries(samurai INTERFACE xtensor pugixml spdlog hdf5 fmt::fmt)
 
 OPTION(BUILD_TESTS "samurai test suite" OFF)
-OPTION(DOWNLOAD_GTEST "build gtest from downloaded sources" OFF)
-
-if(DOWNLOAD_GTEST)
-    set(BUILD_TESTS ON)
-endif()
 
 if(BUILD_TESTS)
     add_subdirectory(test)
