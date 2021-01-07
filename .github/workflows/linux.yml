@@ -1,0 +1,28 @@
+name: Linux CI
+
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Configure
+      shell: bash
+      run: |
+          cmake \
+              . \
+              -Bbuild \
+              -GNinja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_TESTS=ON
+    - name: Build
+      shell: bash
+      run: |
+          cmake --build build --target all
+    - name: Test
+      shell: bash
+      run: |
+          cd build
+          ./test/test_samurai_lib
