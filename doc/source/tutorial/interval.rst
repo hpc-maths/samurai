@@ -167,7 +167,7 @@ For each level, the intervals are
 The actual(real) intervals are given by the level and :math:`\Delta x` defined by :eq:`dx`, thus yielding
 
 - level 0: :math:`[0., 2.]`, :math:`[5., 6.]`
-- level 1: :math:`[3., 3.5]`, :math:`[4., 5.]`
+- level 1: :math:`[2., 3.5]`, :math:`[4., 5.]`
 - level 2: :math:`[3.5, 4.]`
 
 .. note::
