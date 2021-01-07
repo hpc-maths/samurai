@@ -164,8 +164,8 @@ namespace samurai
     template<class TValue, class TIndex>
     inline auto Interval<TValue, TIndex>::operator>>=(std::size_t i) -> Interval&
     {
-        bool add_one = (start == end) ? false : true;
-        bool end_odd = (end & 1) ? true : false;
+        bool add_one = (start != end);
+        bool end_odd = (end & 1);
         start >>= i;
         end >>= i;
         if (end_odd or (start == end and add_one))
@@ -314,7 +314,7 @@ namespace samurai
     template<class value_t, class index_t>
     inline bool operator<(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
     {
-        return (i1.start < i2.start)? true: false;
+        return i1.start < i2.start;
     }
 } // namespace samurai
 

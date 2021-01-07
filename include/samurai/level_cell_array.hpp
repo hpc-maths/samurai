@@ -115,7 +115,6 @@ namespace samurai
 
         void init_from_box(const Box<coord_index_t, dim>& box);
 
-    private:
         std::array<std::vector<interval_t>, dim> m_cells; ///< All intervals in every direction
         std::array<std::vector<std::size_t>, dim - 1> m_offsets; ///< Offsets in interval list for each dim > 1
         std::size_t m_level;
