@@ -8,13 +8,27 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        python-version: 3.6
+        mamba-version: "*"
+        channels: conda-forge,defaults
+        channel-priority: true
+        activate-environment: samurai-env
+        environment-file: conda/environment.yml
     - name: Dependencies
       shell: bash
       run: |
           sudo apt-get install ninja-build
-    - name: Configure
-      shell: bash
+    - name: conda
+      shell: bash -l {0}
       run: |
+          conda info
+          conda list
+    - name: Configure
+      shell: bash -l {0}
+      run: |
+          which cmake
           cmake \
               . \
               -Bbuild \
@@ -22,11 +36,11 @@ jobs:
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_TESTS=ON
     - name: Build
-      shell: bash
+      shell: bash -l {0}
       run: |
           cmake --build build --target all
     - name: Test
-      shell: bash
+      shell: bash -l {0}
       run: |
           cd build
           ./test/test_samurai_lib

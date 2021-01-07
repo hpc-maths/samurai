@@ -1,0 +1,9 @@
+
+name: samurai-env
+dependencies:
+  - cmake
+  - xtensor
+  - xtensor-io
+  - fmt
+  - spdlog
+  - pugixml
