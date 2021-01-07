@@ -6,9 +6,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-
     steps:
     - uses: actions/checkout@v2
+    - name: Dependencies
+      shell: bash
+      run: |
+          sudo apt-get install ninja-build
     - name: Configure
       shell: bash
       run: |
