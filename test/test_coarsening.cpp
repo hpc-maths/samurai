@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <rapidcheck/gtest.h>
 
+#include <cmath>
+
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/coarsening.hpp>
