@@ -167,7 +167,7 @@ namespace samurai
         bool end_odd = (end & 1);
         start >>= i;
         end >>= i;
-        if (end_odd or (start == end and add_one))
+        if (end_odd || (start == end && add_one))
         {
             end++;
         }

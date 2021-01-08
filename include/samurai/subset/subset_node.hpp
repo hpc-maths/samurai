@@ -324,7 +324,7 @@ namespace samurai
             {
                 ++m_index[m_d];
                 m_ipos[m_d] = 0;
-                if (m_shift >= 0 or m_d == (dim - 1))
+                if (m_shift >= 0 || m_d == (dim - 1))
                 {
                     m_current_value[m_d] = (m_index[m_d] >= m_end[m_d]
                                                 ? sentinel
