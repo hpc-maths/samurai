@@ -1,0 +1,51 @@
+name: MacOS CI
+
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+         - cpp-version: clang-11
+           cc: "$(brew --prefix llvm)/bin/clang"
+           cxx: "$(brew --prefix llvm)/bin/clang++"
+         - cpp-version: clang-12
+           cc: "clang"
+           cxx: "clang++"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          python-version: 3.7
+          mamba-version: "*"
+          channels: conda-forge,defaults
+          channel-priority: true
+          activate-environment: samurai-env
+          environment-file: conda/environment.yml
+      - name: Conda informations
+        shell: bash -l {0}
+        run: |
+            conda info
+            conda list
+      - name: Configure
+        shell: bash -l {0}
+        run: |
+            export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
+            CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+                . \
+                -Bbuild \
+                -GNinja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_TESTS=ON
+      - name: Build
+        shell: bash -l {0}
+        run: |
+            cmake --build build --target all
+      - name: Test
+        shell: bash -l {0}
+        run: |
+            export DYLD_LIBRARY_PATH="$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH"
+            cd build
+            ./test/test_samurai_lib
