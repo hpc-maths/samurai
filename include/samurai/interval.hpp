@@ -295,9 +295,9 @@ namespace samurai
     inline bool operator==(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
     {
         if (i1.start != i2.start
-         or i1.end != i2.end
-         or i1.step != i2.step
-         or i1.index != i2.index )
+         || i1.end != i2.end
+         || i1.step != i2.step
+         || i1.index != i2.index )
          {
             return false;
          }
