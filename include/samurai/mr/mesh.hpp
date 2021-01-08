@@ -195,7 +195,7 @@ namespace samurai
         // Construct overleaves
         cl_type overleaves_list;
 
-        const int cells_to_add = 1; // To be changed according to the numerical scheme
+        constexpr int cells_to_add = 1; // To be changed according to the numerical scheme
 
         for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
