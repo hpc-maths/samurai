@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <rapidcheck/gtest.h>
 
-#include <cmath>
+#include <xtensor/xmath.hpp>
 
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
@@ -34,6 +34,7 @@ INSTANTIATE_TEST_CASE_P(
 template<class Config>
 auto get_init_field_1d(samurai::MRMesh<Config> &mesh, std::size_t test_case)
 {
+    double PI = xt::numeric_constants<double>::PI;
     auto u = samurai::make_field<double, 1>("u", mesh);
     u.fill(0);
 
@@ -47,7 +48,7 @@ auto get_init_field_1d(samurai::MRMesh<Config> &mesh, std::size_t test_case)
             u[cell] = exp(-50.0 * x * x);
             break;
         case 2:
-            u[cell] = 1 - sqrt(abs(sin(M_PI / 2 * x)));
+            u[cell] = 1 - sqrt(abs(sin(PI / 2 * x)));
             break;
         case 3:
             u[cell] = 1 - tanh(50.0 * abs(x));
