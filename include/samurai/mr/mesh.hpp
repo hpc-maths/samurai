@@ -202,10 +202,10 @@ namespace samurai
                 lcl_type& lol = overleaves_list[level + 1]; // We have to put it at the higher level
                 lcl_type& lcl = cell_list[level + 1]; // We have to put it at the higher level
 
-                // constexpr int cells_to_add = 1; // To be changed according to the numerical scheme
-                // static_nested_loop<dim - 1, -cells_to_add, cells_to_add + 1, 1>([&](auto stencil)
+                constexpr int cells_to_add = 1; // To be changed according to the numerical scheme
                 // FIX: replace cells_to_add by a constant for Windows
                 //      make the general algorithm
+                // static_nested_loop<dim - 1, -cells_to_add, cells_to_add + 1, 1>([&](auto stencil)
                 static_nested_loop<dim - 1, -1, 2, 1>([&](auto stencil)
                 {
                     auto index = xt::eval(index_yz + stencil);
