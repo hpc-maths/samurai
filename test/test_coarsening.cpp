@@ -79,7 +79,7 @@ auto get_init_field_2d(samurai::MRMesh<Config> &mesh, std::size_t test_case)
         switch (test_case)
         {
         case 1:
-            if ((x >= -.25 and x <= .25) and (y >= -.25 and y <= .25))
+            if ((x >= -.25 && x <= .25) && (y >= -.25 && y <= .25))
                 u[cell] = 1;
             else
                 u[cell] = 0;
