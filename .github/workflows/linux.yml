@@ -38,6 +38,7 @@ jobs:
     - name: Build
       shell: bash -l {0}
       run: |
+          ls build/_deps
           cmake --build build --target all
     - name: Test
       shell: bash -l {0}

@@ -7,3 +7,4 @@ dependencies:
   - fmt
   - spdlog
   - pugixml
+  - cxxopts
