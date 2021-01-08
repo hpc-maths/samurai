@@ -7,13 +7,30 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cpp-version: [g++-7, g++-8, g++-9]
+        include:
+         - cpp-version: gcc-7
+           cc: "gcc-7"
+           cxx: "g++-7"
+         - cpp-version: gcc-8
+           cc: "gcc-8"
+           cxx: "g++-8"
+         - cpp-version: gcc-9
+           cc: "gcc-9"
+           cxx: "g++-9"
+         - cpp-version: gcc-10
+           cc: "gcc-10"
+           cxx: "g++-10"
+         - cpp-version: clang-8
+           cc: "clang-8"
+           cxx: "clang++-8"
+         - cpp-version: clang-9
+           cc: "clang-8"
+           cxx: "clang++-8"
+         - cpp-version: clang-10
+           cc: "clang-8"
+           cxx: "clang++-8"
     steps:
       - uses: actions/checkout@v2
-      - name: Setup compiler and dependencies
-        shell: bash
-        run: |
-            sudo apt install ${{ matrix.cpp-version }} ninja-build
       - uses: conda-incubator/setup-miniconda@v2
         with:
           python-version: 3.7
@@ -31,7 +48,7 @@ jobs:
         shell: bash -l {0}
         run: |
             export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
-            CXX=${{ matrix.cpp-version }} cmake \
+            CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                 . \
                 -Bbuild \
                 -GNinja \
