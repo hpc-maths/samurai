@@ -195,8 +195,6 @@ namespace samurai
         // Construct overleaves
         cl_type overleaves_list;
 
-        constexpr int cells_to_add = 1; // To be changed according to the numerical scheme
-
         for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             if (level < this->max_level())
@@ -204,7 +202,11 @@ namespace samurai
                 lcl_type& lol = overleaves_list[level + 1]; // We have to put it at the higher level
                 lcl_type& lcl = cell_list[level + 1]; // We have to put it at the higher level
 
-                static_nested_loop<dim - 1, -cells_to_add, cells_to_add + 1, 1>([&](auto stencil)
+                // constexpr int cells_to_add = 1; // To be changed according to the numerical scheme
+                // static_nested_loop<dim - 1, -cells_to_add, cells_to_add + 1, 1>([&](auto stencil)
+                // FIX: replace cells_to_add by a constant for Windows
+                //      make the general algorithm
+                static_nested_loop<dim - 1, -1, 2, 1>([&](auto stencil)
                 {
                     auto index = xt::eval(index_yz + stencil);
 
