@@ -12,6 +12,7 @@
 #include "../mesh.hpp"
 #include "../subset/node_op.hpp"
 #include "../subset/subset_op.hpp"
+#include "../static_algorithm.hpp"
 
 namespace samurai
 {
