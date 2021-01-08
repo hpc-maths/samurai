@@ -25,8 +25,8 @@ std::string StringParamTestSuffix(
 
 INSTANTIATE_TEST_CASE_P(
     CoarseningTestNames, CoarseningTest,
-    ::testing::Combine(::testing::Range<std::size_t>(1, 5), ::testing::Range<std::size_t>(2, 11),
-                       ::testing::Values(1e1, 1e2, 1e3, 1e4, 1e5)),
+    ::testing::Combine(::testing::Range<std::size_t>(1, 5), ::testing::Range<std::size_t>(2, 8),
+                       ::testing::Values(1e2, 1e3, 1e4)),
     StringParamTestSuffix);
 
 template<class Config>
