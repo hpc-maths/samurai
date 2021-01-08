@@ -4,6 +4,8 @@ dependencies:
   - cmake
   - ninja
   - xtensor
+  - hdf5
+  - highfive
   - xtensor-io
   - fmt
   - spdlog
