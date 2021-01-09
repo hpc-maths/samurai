@@ -22,6 +22,10 @@ jobs:
             conda info
             conda list
             conda config --show
+      - name: Set library path
+        shell: bash -l {0}
+        run: |
+            dir %CONDA_PREFIX%
       - name: Configure
         shell: bash -l {0}
         run: |
