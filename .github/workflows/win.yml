@@ -26,7 +26,7 @@ jobs:
         shell: bash -l {0}
         run: |
             set LIBRARY_PREFIX=%CONDA_PREFIX%\Library;%LIBRARY_PREFIX%
-            set LIB=%CONDA_PREFIX%\Library;%LIB%
+            set LIBPATH=%CONDA_PREFIX%\Library;%LIBPATH%
             CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                 . \
                 -Bbuild \
