@@ -25,11 +25,12 @@ jobs:
       - name: Set library path
         shell: bash -l {0}
         run: |
-            ls $CONDA_PREFIX/Lib
+            ls $CONDA_PREFIX/Library/lib
       - name: Configure
         shell: bash -l {0}
         run: |
-            export LIB=$CONDA_PREFIX/Lib;$LIB
+            set LIBRARY_PREFIX=$CONDA_PREFIX/Library/lib;$LIBRARY_PREFIX
+            # set LIB=$CONDA_PREFIX\Lib;$LIB
             CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                 . \
                 -Bbuild \
