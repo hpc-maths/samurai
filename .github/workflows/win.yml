@@ -24,8 +24,7 @@ jobs:
       - name: Configure
         shell: bash -l {0}
         run: |
-            set PATH=%PATH%:%CONDA_PREFIX%\lib
-            set LIB=%LIB%:%CONDA_PREFIX%\lib
+            set LIB=%CONDA_PREFIX%\lib;%LIB%
             CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                 . \
                 -Bbuild \
@@ -35,6 +34,7 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
+            set LIB=%CONDA_PREFIX%\lib;%LIB%
             cmake --build build --target all
       - name: Test
         shell: bash -l {0}
