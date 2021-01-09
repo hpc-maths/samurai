@@ -24,7 +24,9 @@ jobs:
       - name: Configure
         shell: bash -l {0}
         run: |
+            echo '%CONDA_PREFIX%\lib'
             set LIB=%CONDA_PREFIX%\lib;%LIB%
+            echo '##vso[task.setvariable variable=LIB]%LIB%'
             CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                 . \
                 -Bbuild \
