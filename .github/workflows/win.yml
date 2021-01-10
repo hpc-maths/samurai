@@ -26,7 +26,7 @@ jobs:
         shell: bash -l {0}
         run: |
             # export LIB="$CONDA_PREFIX\\Library\\lib";$LIB
-            export LIBPATH=LIBPATH:"$CONDA_PREFIX\\Library\\lib"
+            export LIBPATH=$LIBPATH;"$CONDA_PREFIX\\Library\\lib"
             echo $LIBPATH
       #       CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
       #           . \
