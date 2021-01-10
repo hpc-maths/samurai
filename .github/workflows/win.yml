@@ -27,14 +27,20 @@ jobs:
         run: |
             ls $CONDA_PREFIX/Library/lib
       - name: Set environment variables on Windows
+        shell: bash -l {0}
         run: |
-          echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
-          echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-          echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+          export INCLUDE=$CONDA_PREFIX/Library/include
+          export LIB=$CONDA_PREFIX/Library/lib:$LIB
+          export LIBPATH=$CONDA_PREFIX/Library/lib:$LIBPATH
+      - name: print path
+        shell: bash -l {0}
+        run: |
           echo "cas 1"
           echo $LIB
           echo "cas 2"
-          echo %LIB%
+          echo "%LIB%"
+          echo "cas 3"
+          echo "$LIB"
       # - name: Configure
       #   shell: bash -l {0}
       #   run: |
