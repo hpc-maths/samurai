@@ -25,8 +25,8 @@ jobs:
       - name: Configure
         shell: bash -l {0}
         run: |
-            export LIB=$CONDA_PREFIX\\Library\\lib;$LIB
-            export LIBPATH=$CONDA_PREFIX\\Library\\lib;$LIBPATH
+            # export LIB="$CONDA_PREFIX\\Library\\lib";$LIB
+            export LIBPATH="$CONDA_PREFIX\\Library\\lib";$LIBPATH
             echo $LIB
             CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                 . \
@@ -37,8 +37,8 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-            export LIB=$CONDA_PREFIX\\Library\\lib;$LIB
-            export LIBPATH=$CONDA_PREFIX\\Library\\lib;$LIBPATH
+            # export LIB=$CONDA_PREFIX\\Library\\lib;$LIB
+            export LIBPATH="$CONDA_PREFIX\\Library\\lib";$LIBPATH
             echo $LIB
             cmake --build build --target all
       - name: Test
