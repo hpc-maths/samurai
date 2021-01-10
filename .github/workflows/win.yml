@@ -31,22 +31,22 @@ jobs:
           echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
           echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-      - name: Configure
-        shell: bash -l {0}
-        run: |
-            echo $LIB
-            CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
-                . \
-                -Bbuild \
-                -GNinja \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DBUILD_TESTS=ON
-      - name: Build
-        shell: bash -l {0}
-        run: |
-            cmake --build build --target all
-      - name: Test
-        shell: bash -l {0}
-        run: |
-            cd build
-            ./test/test_samurai_lib
+          echo "$LIB"
+      # - name: Configure
+      #   shell: bash -l {0}
+      #   run: |
+      #       CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+      #           . \
+      #           -Bbuild \
+      #           -GNinja \
+      #           -DCMAKE_BUILD_TYPE=Release \
+      #           -DBUILD_TESTS=ON
+      # - name: Build
+      #   shell: bash -l {0}
+      #   run: |
+      #       cmake --build build --target all
+      # - name: Test
+      #   shell: bash -l {0}
+      #   run: |
+      #       cd build
+      #       ./test/test_samurai_lib
