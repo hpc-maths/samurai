@@ -10,8 +10,8 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - uses: conda-incubator/setup-miniconda@v2
         with:
-          python-version: 3.7
-          mamba-version: "*"
+          # python-version: 3.7
+          # mamba-version: "*"
           channels: conda-forge,defaults
           channel-priority: true
           # activate-environment: samurai-env
