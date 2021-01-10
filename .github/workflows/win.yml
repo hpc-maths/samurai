@@ -34,6 +34,7 @@ jobs:
       - name: Configure
         shell: bash -l {0}
         run: |
+            echo $LIB
             CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                 . \
                 -Bbuild \
