@@ -32,15 +32,11 @@ jobs:
           export INCLUDE=$CONDA_PREFIX/Library/include:$INCLUDE
           export LIB=$CONDA_PREFIX/Library/lib:$LIB
           export LIBPATH=$CONDA_PREFIX/Library/lib:$LIBPATH
+          echo $LIB
       - name: print path
         shell: bash -l {0}
         run: |
-          echo "cas 1"
           echo $LIB
-          echo "cas 2"
-          echo "%LIB%"
-          echo "cas 3"
-          echo "$LIB"
       # - name: Configure
       #   shell: bash -l {0}
       #   run: |
