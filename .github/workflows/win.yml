@@ -14,8 +14,8 @@ jobs:
           mamba-version: "*"
           channels: conda-forge,defaults
           channel-priority: true
-          activate-environment: samurai-env
-          environment-file: conda/environment.yml
+          # activate-environment: samurai-env
+          # environment-file: conda/environment.yml
       - name: Conda informations
         shell: bash -l {0}
         run: |
@@ -31,7 +31,10 @@ jobs:
           echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
           echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-          echo "$LIB"
+          echo "cas 1"
+          echo $LIB
+          echo "cas 2"
+          echo %LIB%
       # - name: Configure
       #   shell: bash -l {0}
       #   run: |
