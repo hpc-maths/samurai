@@ -29,9 +29,9 @@ jobs:
       - name: Set environment variables on Windows
         shell: bash -l {0}
         run: |
-          set "INCLUDE=$CONDA_PREFIX/Library/include"
-          set "LIB=$CONDA_PREFIX/Library/lib:$LIB"
-          set "LIBPATH=$CONDA_PREFIX/Library/lib:$LIBPATH"
+          export INCLUDE=$CONDA_PREFIX/Library/include:$INCLUDE
+          export LIB=$CONDA_PREFIX/Library/lib:$LIB
+          export LIBPATH=$CONDA_PREFIX/Library/lib:$LIBPATH
       - name: print path
         shell: bash -l {0}
         run: |
