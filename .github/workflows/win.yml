@@ -11,47 +11,40 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v2
         with:
           python-version: 3.7
-          # mamba-version: "*"
+          mamba-version: "*"
           channels: conda-forge,defaults
           channel-priority: true
-          # activate-environment: samurai-env
-          # environment-file: conda/environment.yml
+          activate-environment: samurai-env
+          environment-file: conda/environment.yml
       - name: Conda informations
         shell: bash -l {0}
         run: |
             conda info
             conda list
             conda config --show
-      - name: Set library path
+      - name: Configure
         shell: bash -l {0}
         run: |
-            ls $CONDA_PREFIX/Library/lib
-      - name: Set environment variables on Windows
+            export INCLUDE=$CONDA_PREFIX/Library/include:$INCLUDE
+            export LIB=$CONDA_PREFIX\Library\lib:$LIB
+            export LIBPATH=$CONDA_PREFIX\Library\lib:$LIBPATH
+            echo $LIB
+            CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+                . \
+                -Bbuild \
+                -GNinja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_TESTS=ON
+      - name: Build
         shell: bash -l {0}
         run: |
-          export INCLUDE=$CONDA_PREFIX/Library/include:$INCLUDE
-          export LIB=$CONDA_PREFIX/Library/lib:$LIB
-          export LIBPATH=$CONDA_PREFIX/Library/lib:$LIBPATH
-          echo $LIB
-      - name: print path
+            export INCLUDE=$CONDA_PREFIX/Library/include:$INCLUDE
+            export LIB=$CONDA_PREFIX\Library\lib:$LIB
+            export LIBPATH=$CONDA_PREFIX\Library\lib:$LIBPATH
+            echo $LIB
+            cmake --build build --target all
+      - name: Test
         shell: bash -l {0}
         run: |
-          echo $LIB
-      # - name: Configure
-      #   shell: bash -l {0}
-      #   run: |
-      #       CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
-      #           . \
-      #           -Bbuild \
-      #           -GNinja \
-      #           -DCMAKE_BUILD_TYPE=Release \
-      #           -DBUILD_TESTS=ON
-      # - name: Build
-      #   shell: bash -l {0}
-      #   run: |
-      #       cmake --build build --target all
-      # - name: Test
-      #   shell: bash -l {0}
-      #   run: |
-      #       cd build
-      #       ./test/test_samurai_lib
+            cd build
+            ./test/test_samurai_lib
