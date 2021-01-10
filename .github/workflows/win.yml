@@ -10,7 +10,7 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - uses: conda-incubator/setup-miniconda@v2
         with:
-          # python-version: 3.7
+          python-version: 3.7
           # mamba-version: "*"
           channels: conda-forge,defaults
           channel-priority: true
@@ -29,9 +29,9 @@ jobs:
       - name: Set environment variables on Windows
         shell: bash -l {0}
         run: |
-          export INCLUDE=$CONDA_PREFIX/Library/include
-          export LIB=$CONDA_PREFIX/Library/lib:$LIB
-          export LIBPATH=$CONDA_PREFIX/Library/lib:$LIBPATH
+          set "INCLUDE=$CONDA_PREFIX/Library/include"
+          set "LIB=$CONDA_PREFIX/Library/lib:$LIB"
+          set "LIBPATH=$CONDA_PREFIX/Library/lib:$LIBPATH"
       - name: print path
         shell: bash -l {0}
         run: |
