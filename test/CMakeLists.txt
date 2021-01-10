@@ -14,13 +14,6 @@ include(CheckCXXCompilerFlag)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
-include(addGoogleTest)
-include(addRapidCheck)
-
-find_package(Threads)
-
-include_directories(${GTEST_INCLUDE_DIRS} SYSTEM)
-
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR (CMAKE_CXX_COMPILER_ID MATCHES "Intel" AND NOT WIN32))
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast -Wunused-variable")
@@ -47,6 +40,13 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /MP /bigobj /wd4800")
     set(CMAKE_EXE_LINKER_FLAGS /MANIFEST:NO)
 endif()
+
+include(addGoogleTest)
+include(addRapidCheck)
+
+find_package(Threads)
+
+include_directories(${GTEST_INCLUDE_DIRS} SYSTEM)
 
 set(COMMON_BASE
     main.cpp
