@@ -14,8 +14,8 @@ jobs:
           mamba-version: "*"
           channels: conda-forge,defaults
           channel-priority: true
-          # activate-environment: samurai-env
-          # environment-file: conda/environment.yml
+          activate-environment: samurai-env
+          environment-file: conda/environment.yml
       - name: Conda informations
         shell: bash -l {0}
         run: |
@@ -28,21 +28,21 @@ jobs:
             # export LIB="$CONDA_PREFIX\\Library\\lib";$LIB
             export LIBPATH="$LIBPATH;$CONDA_PREFIX\\Library\\lib"
             echo $LIBPATH
-      #       CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
-      #           . \
-      #           -Bbuild \
-      #           -GNinja \
-      #           -DCMAKE_BUILD_TYPE=Release \
-      #           -DBUILD_TESTS=ON
-      # - name: Build
-      #   shell: bash -l {0}
-      #   run: |
-      #       # export LIB=$CONDA_PREFIX\\Library\\lib;$LIB
-      #       set "LIBPATH=$CONDA_PREFIX\\Library\\lib;$LIBPATH"
-      #       echo $LIB
-      #       cmake --build build --target all
-      # - name: Test
-      #   shell: bash -l {0}
-      #   run: |
-      #       cd build
-      #       ./test/test_samurai_lib
+            CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+                . \
+                -Bbuild \
+                -GNinja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_TESTS=ON
+      - name: Build
+        shell: bash -l {0}
+        run: |
+            # export LIB=$CONDA_PREFIX\\Library\\lib;$LIB
+            export LIBPATH="$LIBPATH;$CONDA_PREFIX\\Library\\lib"
+            echo $LIBPATH
+            cmake --build build --target all
+      - name: Test
+        shell: bash -l {0}
+        run: |
+            cd build
+            ./test/test_samurai_lib
