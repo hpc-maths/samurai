@@ -5,6 +5,18 @@ on: [pull_request]
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+         - compiler: msvc
+           cc: "cl"
+           cxx: "cl"
+         - compiler: gcc
+           cc: "gcc"
+           cxx: "g++"
+         - compiler: gcc
+           cc: "clang"
+           cxx: "clang++"
     steps:
       - uses: actions/checkout@v2
       - uses: ilammy/msvc-dev-cmd@v1
@@ -24,9 +36,12 @@ jobs:
             conda config --show
       - name: Configure
         shell: bash -l {0}
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
         run: |
-            ls "$CONDA_PREFIX\\Library\\lib"
-            CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+            $CC --version
+            cmake \
                 . \
                 -Bbuild \
                 -GNinja \
