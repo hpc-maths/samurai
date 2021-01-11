@@ -22,12 +22,13 @@ jobs:
             conda info
             conda list
             conda config --show
-      - name: Configure
+      - name: Set library path
         shell: bash -l {0}
         run: |
             export LIB="$LIB;$CONDA_PREFIX\\Library\\lib"
-            export LIBPATH="$LIBPATH;$CONDA_PREFIX\\Library\\lib"
-            echo $LIBPATH
+      - name: Configure
+        shell: bash -l {0}
+        run: |
             ls "$CONDA_PREFIX\\Library\\lib"
             CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                 . \
@@ -38,9 +39,6 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-            export LIB="$LIB;$CONDA_PREFIX\\Library\\lib"
-            export LIBPATH="$LIBPATH;$CONDA_PREFIX\\Library\\lib"
-            echo $LIBPATH
             cmake --build build --target all
       - name: Test
         shell: bash -l {0}
