@@ -170,8 +170,10 @@ TEST_P(CoarseningTest, 2D)
             auto expr = samurai::intersection(mesh[mesh_id_t::cells][level1],
                                               mesh[mesh_id_t::cells][level2])
                         .on(level1);
-            expr([](auto, auto)
+            expr([](const auto& i, const auto& index)
             {
+                std::cout << "level1: " << level1 << " level2: " << level2 << std::endl;
+                std::cout << i << " " << index[0] << std::endl;
                 RC_ASSERT(false);
             });
         }
