@@ -140,40 +140,40 @@ TEST_P(CoarseningTest, 1D)
     }
 }
 
-// TEST_P(CoarseningTest, 2D)
-// {
-//     std::size_t test_case = std::get<0>(GetParam());
-//     std::size_t init_level = std::get<1>(GetParam());
-//     double eps = 1. / std::get<2>(GetParam());
+TEST_P(CoarseningTest, 2D)
+{
+    std::size_t test_case = std::get<0>(GetParam());
+    std::size_t init_level = std::get<1>(GetParam());
+    double eps = 1. / std::get<2>(GetParam());
 
-//     constexpr size_t dim = 2;
-//     using Config = samurai::MRConfig<dim>;
+    constexpr size_t dim = 2;
+    using Config = samurai::MRConfig<dim>;
 
-//     samurai::Box<double, dim> box({-1, -1}, {1, 1});
-//     using mesh_t = samurai::MRMesh<Config>;
-//     using mesh_id_t = typename mesh_t::mesh_id_t;
-//     mesh_t mesh{box, 1, init_level};
+    samurai::Box<double, dim> box({-1, -1}, {1, 1});
+    using mesh_t = samurai::MRMesh<Config>;
+    using mesh_id_t = typename mesh_t::mesh_id_t;
+    mesh_t mesh{box, 1, init_level};
 
-//     auto u = get_init_field_2d(mesh, test_case);
+    auto u = get_init_field_2d(mesh, test_case);
 
-//     auto update_bc = [](const auto& /*u*/, std::size_t /*level*/){};
+    auto update_bc = [](const auto& /*u*/, std::size_t /*level*/){};
 
-//     for (std::size_t i = 0; i < init_level; ++i)
-//     {
-//         samurai::coarsening(u, update_bc, eps, i);
-//     }
+    for (std::size_t i = 0; i < init_level; ++i)
+    {
+        samurai::coarsening(u, update_bc, eps, i);
+    }
 
-//     for (std::size_t level1 = init_level; level1 != std::size_t(-1); --level1)
-//     {
-//         for (std::size_t level2 = level1 - 1; level2 != std::size_t(-1); --level2)
-//         {
-//             auto expr = samurai::intersection(mesh[mesh_id_t::cells][level1],
-//                                               mesh[mesh_id_t::cells][level2])
-//                         .on(level1);
-//             expr([](auto, auto)
-//             {
-//                 RC_ASSERT(false);
-//             });
-//         }
-//     }
-// }
+    for (std::size_t level1 = init_level; level1 != std::size_t(-1); --level1)
+    {
+        for (std::size_t level2 = level1 - 1; level2 != std::size_t(-1); --level2)
+        {
+            auto expr = samurai::intersection(mesh[mesh_id_t::cells][level1],
+                                              mesh[mesh_id_t::cells][level2])
+                        .on(level1);
+            expr([](auto, auto)
+            {
+                RC_ASSERT(false);
+            });
+        }
+    }
+}
