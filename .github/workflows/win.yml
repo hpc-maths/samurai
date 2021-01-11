@@ -40,7 +40,6 @@ jobs:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
         run: |
-            $CC --version
             cmake \
                 . \
                 -Bbuild \
