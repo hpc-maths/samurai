@@ -23,6 +23,24 @@ namespace samurai
         return {-22. / 128., 3. / 128.};
     }
 
+    template<>
+    inline std::array<double, 3> coeffs<3>()
+    {
+        return {-201. / 1024., 11. / 256., -5. / 1024.};
+    }
+
+    template<>
+    inline std::array<double, 4> coeffs<4>()
+    {
+        return {-3461. / 16384., 949. / 16384, -185. / 16384, 35. / 32768.};
+    }
+
+    template<>
+    inline std::array<double, 5> coeffs<5>()
+    {
+        return {-29011. / 131072., 569. / 8192., -4661. / 262144., 49. / 16384., -63. / 262144.};
+    }
+
     template<class T>
     struct field_hack
     {
