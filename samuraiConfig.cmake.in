@@ -9,8 +9,13 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(xtensor @xtensor_REQUIRED_VERSION@)
+find_dependency(fmt @fmt_REQUIRED_VERSION@)
+find_dependency(HDF5 @HDF5_REQUIRED_VERSION@)
+find_dependency(xtensor-io @xtensor-io_REQUIRED_VERSION@)
+find_dependency(spdlog @spdlog_REQUIRED_VERSION@)
+find_dependency(pugixml @pugixml_REQUIRED_VERSION@)
 
 if(NOT TARGET @PROJECT_NAME@)
   include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
-  get_target_property(@PROJECT_NAME@_INCLUDE_DIRS SAMURAI INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(@PROJECT_NAME@_INCLUDE_DIRS @PROJECT_NAME@ INTERFACE_INCLUDE_DIRECTORIES)
 endif()
