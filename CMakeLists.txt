@@ -40,7 +40,12 @@ target_include_directories(
 
 target_link_libraries(samurai INTERFACE xtensor pugixml spdlog hdf5 fmt::fmt)
 
+OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
 OPTION(BUILD_TESTS "samurai test suite" OFF)
+
+if(BUILD_BENCHMARKS)
+    add_subdirectory(benchmark)
+endif()
 
 if(BUILD_TESTS)
     add_subdirectory(test)
