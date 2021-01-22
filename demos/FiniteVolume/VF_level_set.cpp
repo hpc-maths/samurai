@@ -10,7 +10,7 @@
 
 #include "stencil_field.hpp"
 
-#include "../FiniteVolume-MR/boundary_conditions.hpp"
+#include "../LBM/boundary_conditions.hpp"
 
 #include <chrono>
 
@@ -44,8 +44,8 @@ struct AMRConfig
 {
     static constexpr std::size_t dim = dim_;
     static constexpr std::size_t max_refinement_level = 20;
-    // static constexpr std::size_t ghost_width = 1;
-    static constexpr std::size_t ghost_width = 2;
+    // static constexpr int ghost_width = 1;
+    static constexpr int ghost_width = 2;
 
     using interval_t = samurai::Interval<int>;
     using mesh_id_t = SimpleID;

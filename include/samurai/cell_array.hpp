@@ -11,6 +11,7 @@
 #include "algorithm.hpp"
 #include "cell_list.hpp"
 #include "level_cell_array.hpp"
+#include "utils.hpp"
 
 namespace samurai
 {
