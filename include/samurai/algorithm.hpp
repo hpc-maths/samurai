@@ -117,6 +117,31 @@ namespace samurai
 
     namespace detail
     {
+        template<class ForwardIt, class T>
+        auto my_binary_search(ForwardIt first, ForwardIt last, const T& value)
+        {
+            auto comp = [](const auto& interval, auto value)
+            {
+                return interval.end < value;
+            };
+            auto result = std::lower_bound(first, last, value, comp);
+
+            if (!(result == last) && !(comp(*result, value)))
+            {
+                if (result->contains(value))
+                {
+                    return static_cast<int>(std::distance(first, result));
+                }
+                else
+                {
+                    return -1;
+                }
+            }
+            else{
+                return -1;
+            }
+        }
+
         template <std::size_t dim, class TInterval,
                   class index_t = typename TInterval::index_t,
                   class coord_index_t = typename TInterval::coord_index_t>
@@ -125,15 +150,9 @@ namespace samurai
                               std::array<coord_index_t, dim> coord,
                               std::integral_constant<std::size_t, 0>) -> index_t
         {
-            for (std::size_t i = start_index; i < end_index; ++i)
-            {
-                const auto& interval = lca[0][i];
-                if (interval.contains(coord[0]))
-                {
-                    return static_cast<index_t>(i);
-                }
-            }
-            return -1;
+            auto find_index = my_binary_search(lca[0].cbegin() + start_index, lca[0].cbegin() + end_index, coord[0]);
+
+            return (find_index != -1)? find_index + start_index: find_index;
         }
 
         template <std::size_t dim, class TInterval,
@@ -145,16 +164,13 @@ namespace samurai
                               std::array<coord_index_t, dim> coord,
                               std::integral_constant<std::size_t, N>) -> index_t
         {
-            index_t find_index = -1;
-            for (std::size_t i = start_index; i < end_index; ++i)
+            index_t find_index = my_binary_search(lca[N].cbegin() + start_index, lca[N].cbegin() + end_index, coord[N]);
+
+            if (find_index != -1)
             {
-                const auto& interval = lca[N][i];
-                if (interval.contains(coord[N]))
-                {
-                    auto off_ind = static_cast<std::size_t>(interval.index + coord[N]);
-                    find_index = find_impl(lca, lca.offsets(N)[off_ind], lca.offsets(N)[off_ind + 1],
-                                           coord, std::integral_constant<std::size_t, N - 1>{});
-                }
+                auto off_ind = static_cast<std::size_t>(lca[N][find_index + start_index].index + coord[N]);
+                find_index = find_impl(lca, lca.offsets(N)[off_ind], lca.offsets(N)[off_ind + 1],
+                                        coord, std::integral_constant<std::size_t, N - 1>{});
             }
             return find_index;
         }
@@ -169,19 +185,15 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval,
-              class coord_index_t = typename TInterval::coord_index_t>
+              class coord_index_t = typename TInterval::coord_index_t,
+              class index_t = typename TInterval::index_t>
     inline auto find_on_dim(const LevelCellArray<dim, TInterval>& lca, std::size_t d,
                             std::size_t start_index, std::size_t end_index,
                             coord_index_t coord)
     {
-        for (std::size_t i = start_index; i < end_index; ++i)
-        {
-            if (lca[d][i].contains(coord))
-            {
-                return i;
-            }
-        }
-        return std::numeric_limits<std::size_t>::max();
+        index_t find_index = detail::my_binary_search(lca[d].cbegin() + start_index, lca[d].cbegin() + end_index, coord);
+
+        return (find_index != -1)? find_index + start_index: std::numeric_limits<std::size_t>::max();
     }
 
 } // namespace samurai
