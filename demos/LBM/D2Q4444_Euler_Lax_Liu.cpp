@@ -16,6 +16,7 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/mr/refinement.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/statistics.hpp>
 
 #include "prediction_map_2d.hpp"
 #include "boundary_conditions.hpp"
@@ -857,7 +858,7 @@ int main(int argc, char *argv[])
                 auto number_leaves = mesh.nb_cells(mesh_id_t::cells);
                 auto number_cells  = mesh.nb_cells();
 
-
+                samurai::statistics("D2Q4444_Euler_Lax_Liu", mesh);
                 // stream_number_leaves<<number_leaves<<std::endl;
                 // stream_number_cells<<number_cells<<std::endl;
 
@@ -865,7 +866,6 @@ int main(int argc, char *argv[])
                 // stream_number_cells_ref<<mesh_ref.nb_cells()<<std::endl;
 
             }
-
             // stream_number_leaves.close();
             // stream_number_cells.close();
 

@@ -36,12 +36,19 @@ add_library(samurai INTERFACE)
 target_include_directories(
     samurai
     INTERFACE $<BUILD_INTERFACE:${SAMURAI_INCLUDE_DIRS}>
-              $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 target_link_libraries(samurai INTERFACE xtensor pugixml spdlog hdf5 fmt::fmt)
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
 OPTION(BUILD_TESTS "samurai test suite" OFF)
+OPTION(WITH_STATS "samurai mesh stats" OFF)
+
+if (WITH_STATS)
+    find_package(nlohmann_json REQUIRED)
+    target_link_libraries(samurai INTERFACE nlohmann_json::nlohmann_json)
+    target_compile_definitions(samurai INTERFACE WITH_STATS)
+endif()
 
 if(BUILD_BENCHMARKS)
     add_subdirectory(benchmark)
