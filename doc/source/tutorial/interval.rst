@@ -342,7 +342,7 @@ If the same operation is made to compute the `y-offset` and the index on each in
     level 1:
         x: [2, 6[, [2, 6[, [2, 4[, [5, 6[, [2, 6[, [6, 8[, [6, 7[
         y: [2, 8[@-2
-        y-offset: [0, 1, 3, 5, 6, 7, 8]
+        y-offset: [0, 1, 2, 4, 5, 6, 7]
 
     level 2:
         x: [8, 10[, [8, 10[, [14, 16[, [14, 16[
