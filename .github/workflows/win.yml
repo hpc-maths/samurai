@@ -1,0 +1,58 @@
+name: Windows CI
+
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+         - compiler: msvc
+           cc: "cl"
+           cxx: "cl"
+         - compiler: gcc
+           cc: "gcc"
+           cxx: "g++"
+         - compiler: gcc
+           cc: "clang"
+           cxx: "clang++"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          python-version: 3.7
+          mamba-version: "*"
+          channels: conda-forge,defaults
+          channel-priority: true
+          activate-environment: samurai-env
+          environment-file: conda/environment.yml
+      - name: Conda informations
+        shell: bash -l {0}
+        run: |
+            conda info
+            conda list
+            conda config --show
+      - name: Configure
+        shell: bash -l {0}
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+            cmake \
+                . \
+                -Bbuild \
+                -GNinja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_TESTS=ON
+      - name: Build
+        shell: bash -l {0}
+        run: |
+            export LIB="$LIB;$CONDA_PREFIX\\Library\\lib"
+            cmake --build build --target all
+      - name: Test
+        shell: bash -l {0}
+        run: |
+            cd build
+            ./test/test_samurai_lib

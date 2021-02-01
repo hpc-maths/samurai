@@ -18,7 +18,7 @@ auto init_sol(Mesh& mesh)
         double x = cell.center(0);
 
         // Initial hat solution
-        if (x < -1. or x > 1.)
+        if (x < -1. || x > 1.)
         {
             phi[cell] = 0.;
         }
