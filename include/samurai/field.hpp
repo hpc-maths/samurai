@@ -16,7 +16,7 @@
 #include "cell.hpp"
 #include "field_expression.hpp"
 // #include "mr/mesh.hpp"
-// #include "mr/operators.hpp"
+#include "mr/operators.hpp"
 
 namespace samurai
 {
