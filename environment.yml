@@ -1,0 +1,14 @@
+name: samurai-dev
+channels:
+  - conda-forge
+dependencies:
+  - cxx-compiler
+  - cmake
+  - openblas
+  - xtensor
+  - xtensor-blas
+  - xtensor-io
+  - fmt
+  - pugixml
+  - spdlog
+  - cxxopts
