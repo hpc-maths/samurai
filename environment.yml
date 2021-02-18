@@ -12,3 +12,7 @@ dependencies:
   - pugixml
   - spdlog
   - cxxopts
+  - python
+  - numpy
+  - matplotlib
+  - h5py
