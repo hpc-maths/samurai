@@ -58,7 +58,7 @@ if(BUILD_TESTS)
     add_subdirectory(test)
 endif()
 
-add_subdirectory(demos)
+add_subdirectory(demos EXCLUDE_FROM_ALL)
 
 # Installation
 # ============
