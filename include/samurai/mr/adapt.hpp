@@ -82,16 +82,16 @@ namespace samurai
         });
 
         mr_projection(m_field);
-        for (std::size_t level = min_level - 1; level <= max_level; ++level)
+        for (std::size_t level = ((min_level > 0)? min_level - 1: 0); level <= max_level; ++level)
         {
             m_update_bc_for_level(m_field, level); // It is important to do so
         }
         mr_prediction(m_field, m_update_bc_for_level);
 
-        for (std::size_t level = min_level - 1; level < max_level - ite; ++level)
+        for (std::size_t level =  ((min_level > 0)? min_level - 1: 0); level < max_level - ite; ++level)
         {
             auto subset = intersection(mesh[mesh_id_t::all_cells][level],
-                                    mesh[mesh_id_t::cells][level + 1])
+                                       mesh[mesh_id_t::cells][level + 1])
                         .on(level);
             subset.apply_op(compute_detail(m_detail, m_field));
         }
