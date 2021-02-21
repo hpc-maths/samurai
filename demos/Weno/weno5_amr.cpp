@@ -420,10 +420,10 @@ inline auto weno5(CT &&... e)
 
 int main()
 {
-    constexpr std::size_t dim = 3;
+    constexpr std::size_t dim = 2;
     std::size_t start_level = 7;
     std::size_t min_level = 2;
-    std::size_t max_level = 7;
+    std::size_t max_level = 10;
 
     samurai::Box<double, dim> box{{0, 0, 0}, {1, 1, 1}};
     using Config = samurai::amr::Config<dim>;
@@ -437,7 +437,7 @@ int main()
         update_bc_for_level::call(samurai::Dim<dim>{}, field, level);
     };
 
-    double dt = 0.5/(1 << start_level);
+    double dt = 0.5/(1 << max_level);
 
     std::size_t max_ite = 500;
 
