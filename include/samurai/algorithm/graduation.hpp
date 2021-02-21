@@ -9,6 +9,7 @@
 
 #include "../subset/subset_op.hpp"
 #include "../mr/cell_flag.hpp"
+#include "utils.hpp"
 
 namespace samurai
 {
