@@ -20,10 +20,11 @@ namespace samurai
         cells = 0,
         cells_and_ghosts = 1,
         proj_cells = 2,
-        all_cells = 3,
+        pred_cells = 3,
         union_cells = 4,
-        overleaves = 5, // Added in order to automatically handle flux correction. (by Thomas)
-        count = 6,
+        all_cells = 5,
+        overleaves = 6, // Added in order to automatically handle flux correction. (by Thomas)
+        count = 7,
         reference = all_cells
     };
 
@@ -191,6 +192,23 @@ namespace samurai
             this->m_cells[mesh_id_t::proj_cells][level - 1] = {lcl};
         }
 
+        // construction of prediction cells
+        for (std::size_t level = min_level + 1; level <= max_level; ++level)
+        {
+            auto expr = intersection(difference(this->m_cells[mesh_id_t::cells_and_ghosts][level],
+                                                union_(this->m_union[level], this->m_cells[mesh_id_t::cells][level])),
+                                    this->m_domain)
+                        .on(level);
+
+            lcl_type lcl{level};
+            expr([&](const auto& interval, const auto& index_yz)
+            {
+                lcl[index_yz].add_interval(interval);
+            });
+
+            this->m_cells[mesh_id_t::pred_cells][level] = {lcl};
+        }
+
         // Construct overleaves
         cl_type overleaves_list;
 
@@ -260,6 +278,7 @@ struct fmt::formatter<samurai::MRMeshId>: formatter<string_view>
         case samurai::MRMeshId::cells:            name = "cells"; break;
         case samurai::MRMeshId::cells_and_ghosts: name = "cells and ghosts"; break;
         case samurai::MRMeshId::proj_cells:       name = "projection cells"; break;
+        case samurai::MRMeshId::pred_cells:       name = "pred cells"; break;
         case samurai::MRMeshId::union_cells:      name = "union cells"; break;
         case samurai::MRMeshId::overleaves:       name = "overleaves"; break;
         case samurai::MRMeshId::all_cells:        name = "all cells"; break;
