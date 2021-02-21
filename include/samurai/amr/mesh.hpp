@@ -123,9 +123,9 @@ namespace samurai
             for (std::size_t level = min_level + 1; level <= max_level; ++level)
             {
                 auto expr = difference(union_(intersection(this->m_cells[mesh_id_t::cells_and_ghosts][level - 1],
-                                              this->m_union[level - 1]),
-                                    this->m_cells[mesh_id_t::proj_cells][level - 1]),
-                                    this->m_cells[mesh_id_t::cells][level - 1])
+                                                           this->m_union[level - 1]),
+                                              this->m_cells[mesh_id_t::proj_cells][level - 1]),
+                                       this->m_cells[mesh_id_t::cells][level - 1])
                             .on(level);
 
                 lcl_type lcl{level};
