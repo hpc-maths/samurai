@@ -529,22 +529,17 @@ namespace samurai
     template<std::size_t Dim, class TInterval>
     inline void LevelCellArray<Dim, TInterval>::to_stream(std::ostream& os) const
     {
-        // for(int j = 0; j<m_offsets[0].size()-1; ++j)
-        // {
-        //     fmt::print(os, fmt::format("{:>20}", fmt::format("j = {} -> ", m_cells[1][0].start + j)));
-        //     for(std::size_t o = m_offsets[0][j]; o < m_offsets[0][j + 1]; ++o)
-        //     {
-        //         fmt::print(os, fmt::format("{}",m_cells[0][o]));
-        //     }
-        //     os << std::endl << std::endl;
-        // }
-
         for (std::size_t d = 0; d < dim; ++d)
         {
             os << fmt::format(fmt::emphasis::bold, "{:>10}", fmt::format("dim {}", d)) << std::endl;
 
             os << fmt::format("{:>20}", "cells = ");
-            os << fmt::format("{}\n", fmt::join(m_cells[d], " ")) << std::endl;
+            for(std::size_t ic=0; ic < m_cells[d].size(); ++ic)
+            {
+                os << fmt::format(fmt::emphasis::bold, "{}->", ic);
+                os << m_cells[d][ic] << " ";
+            }
+            os << "\n" << std::endl;
 
             if (d > 0)
             {
@@ -627,7 +622,10 @@ namespace samurai
                 if (m_index[d] == m_current_index[d+1]->end)
                 {
                     ++m_current_index[d+1];
-                    m_index[d] = m_current_index[d+1]->start;
+                    if (m_current_index[d+1] != (*p_lca)[d+1].end())
+                    {
+                        m_index[d] = m_current_index[d+1]->start;
+                    }
                 }
             }
             else
@@ -656,8 +654,11 @@ namespace samurai
                 --m_offset_index[d];
                 if (m_index[d] == m_current_index[d+1]->start)
                 {
-                    --m_current_index[d+1];
-                    m_index[d] = m_current_index[d+1]->end - 1;
+                    if (m_current_index[d+1] != (*p_lca)[d+1].begin())
+                    {
+                        --m_current_index[d+1];
+                        m_index[d] = m_current_index[d+1]->end - 1;
+                    }
                 }
                 else
                 {
