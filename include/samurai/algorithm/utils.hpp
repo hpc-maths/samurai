@@ -142,8 +142,8 @@ namespace samurai
 
         INIT_OPERATOR(keep_children_together_op)
 
-        template <class T, int s>
-        inline void operator()(Dim<1>, T& tag, std::integral_constant<int, s>) const
+        template <class T>
+        inline void operator()(Dim<1>, T& tag) const
         {
             xt::xtensor<bool, 1> mask = (tag(level + 1,     2 * i) & static_cast<int>(CellFlag::keep))
                                       | (tag(level + 1, 2 * i + 1) & static_cast<int>(CellFlag::keep));
