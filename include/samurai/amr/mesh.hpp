@@ -85,7 +85,7 @@ namespace samurai
                 lcl[index_yz].add_interval({interval.start - config::ghost_width,
                                             interval.end + config::ghost_width});
                 // in y and z directions
-                // FIXME: make it recursive
+                // FIXME: make it recursive and add the possibility to have stencil box or stencil star
                 if (dim == 2)
                 {
                     for(int j = -config::ghost_width; j < config::ghost_width + 1; ++j)
@@ -117,31 +117,13 @@ namespace samurai
 
             auto max_level = this->m_cells[mesh_id_t::cells].max_level();
             auto min_level = this->m_cells[mesh_id_t::cells].min_level();
-            // Construct union cells
-            ca_type union_cells;
-            union_cells[max_level] = {max_level};
-
-            for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
-            {
-                lcl_type lcl{level - 1};
-                auto expr = union_(this->m_cells[mesh_id_t::cells][level],
-                                union_cells[level])
-                        .on(level - 1);
-
-                expr([&](const auto& interval, const auto& index_yz)
-                {
-                    lcl[index_yz].add_interval(interval);
-                });
-
-                union_cells[level - 1] = {lcl};
-            }
 
             // construction of projection cells
             this->m_cells[mesh_id_t::proj_cells][min_level] = {min_level};
             for (std::size_t level = min_level + 1; level <= max_level; ++level)
             {
                 auto expr = difference(union_(intersection(this->m_cells[mesh_id_t::cells_and_ghosts][level - 1],
-                                                union_cells[level - 1]),
+                                              this->m_union[level - 1]),
                                     this->m_cells[mesh_id_t::proj_cells][level - 1]),
                                     this->m_cells[mesh_id_t::cells][level - 1])
                             .on(level);
@@ -159,7 +141,7 @@ namespace samurai
             for (std::size_t level = min_level + 1; level <= max_level; ++level)
             {
                 auto expr = intersection(difference(this->m_cells[mesh_id_t::cells_and_ghosts][level],
-                                                    union_(union_cells[level], this->m_cells[mesh_id_t::cells][level])),
+                                                    union_(this->m_union[level], this->m_cells[mesh_id_t::cells][level])),
                                         this->m_domain)
                             .on(level);
 
