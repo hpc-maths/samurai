@@ -32,7 +32,7 @@ namespace samurai
         for (std::size_t level = 0; level <= max_level; ++level)
         {
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level],
-                                                  mesh[mesh_id_t::reference][level-1])
+                                             mesh[mesh_id_t::reference][level-1])
                                .on(level);
             set_at_level.apply_op(prediction<1, false>(field));
             update_bc_for_level(field, level);
@@ -85,6 +85,7 @@ namespace samurai
         }
 
         Field new_field("new_f", new_mesh);
+        new_field.fill(0);
 
         auto min_level = mesh.min_level();
         auto max_level = mesh.max_level();
