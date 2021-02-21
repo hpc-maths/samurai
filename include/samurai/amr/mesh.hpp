@@ -84,18 +84,31 @@ namespace samurai
                 // in x direction
                 lcl[index_yz].add_interval({interval.start - config::ghost_width,
                                             interval.end + config::ghost_width});
-                // in y direction
-                static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
+                // in y and z directions
+                // FIXME: make it recursive
+                if (dim == 2)
                 {
-                    auto index = xt::eval(index_yz + stencil);
-                    lcl[index].add_interval(interval);
-                });
-                // add ghosts for the prediction
+                    for(int j = -config::ghost_width; j < config::ghost_width + 1; ++j)
+                    {
+                        xt::xtensor_fixed<int, xt::xshape<2>> stencil{j};
+                        lcl[index_yz + stencil].add_interval(interval);
+                    }
+                }
+                if (dim == 3)
+                {
+                    for(int j = -config::ghost_width; j < config::ghost_width + 1; ++j)
+                    {
+                        xt::xtensor_fixed<int, xt::xshape<2>> stencil{j, 0};
+                        lcl[index_yz + stencil].add_interval(interval);
+                        stencil = {0, j};
+                        lcl[index_yz + stencil].add_interval(interval);
+                    }
+                }
                 static_nested_loop<dim - 1, -config::prediction_width, config::prediction_width + 1>([&](auto stencil)
                 {
                     auto index = xt::eval(index_yz + stencil);
                     lcl[index].add_interval({interval.start - config::prediction_width,
-                                            interval.end + config::prediction_width});
+                                             interval.end + config::prediction_width});
                 });
 
             });
@@ -143,7 +156,7 @@ namespace samurai
             }
 
             // construction of prediction cells
-            for (std::size_t level = min_level; level <= max_level; ++level)
+            for (std::size_t level = min_level + 1; level <= max_level; ++level)
             {
                 auto expr = intersection(difference(this->m_cells[mesh_id_t::cells_and_ghosts][level],
                                                     union_(union_cells[level], this->m_cells[mesh_id_t::cells][level])),
@@ -162,7 +175,7 @@ namespace samurai
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
                 auto expr = intersection(this->m_cells[mesh_id_t::pred_cells][level],
-                                        this->m_cells[mesh_id_t::pred_cells][level])
+                                         this->m_cells[mesh_id_t::pred_cells][level])
                             .on(level-1);
 
                 lcl_type& lcl = cl[level-1];
@@ -174,7 +187,7 @@ namespace samurai
                     {
                         auto index = xt::eval(index_yz + stencil);
                         lcl[index].add_interval({interval.start - config::prediction_width,
-                                                interval.end + config::prediction_width});
+                                                 interval.end + config::prediction_width});
                     });
                 });
             }
@@ -184,7 +197,7 @@ namespace samurai
             {
                 lcl_type lcl{level};
                 auto expr = union_(this->m_cells[mesh_id_t::cells_and_ghosts][level],
-                                        this->m_cells[mesh_id_t::proj_cells][level]);
+                                   this->m_cells[mesh_id_t::proj_cells][level]);
                 expr([&](const auto& interval, const auto& index_yz)
                 {
                     lcl[index_yz].add_interval(interval);
