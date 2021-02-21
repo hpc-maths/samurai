@@ -104,8 +104,8 @@ namespace samurai
         return make_field_operator_function<graduate_op>(tag, s);
     }
 
-    template<class Tag>
-    void graduation(Tag& tag)
+    template<class Tag, class Stencil>
+    void graduation(Tag& tag, const Stencil& stencil)
     {
         auto mesh = tag.mesh();
         constexpr std::size_t dim = Tag::dim;
@@ -173,12 +173,7 @@ namespace samurai
              *   |-----------|                                        |-----------|
              *
              */
-
-
-            // xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{3, 3}, {-3, -3}, {-3, 3}, {3, -3}};
-            xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 1}, {-1, -1}, {-1, 1}, {1, -1}};
-            // xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-
+            assert(stencil.shape()[0] == dim);
             for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
             {
                 auto s = xt::view(stencil, i);
