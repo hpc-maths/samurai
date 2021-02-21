@@ -248,6 +248,32 @@ namespace samurai
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
     }
 
+    template<std::size_t s,
+             class Field,
+             class interval_t,
+             class coord_index_t = typename interval_t::coord_index_t,
+             class... index_t>
+    inline auto
+    Qs_ik(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const index_t... index)
+    {
+        auto c = coeffs<s>();
+        auto qs = make_Qs_i<s>(make_Qs_k<s>(make_field_hack(field), c), c);
+        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
+    }
+
+    template<std::size_t s,
+             class Field,
+             class interval_t,
+             class coord_index_t = typename interval_t::coord_index_t,
+             class... index_t>
+    inline auto
+    Qs_jk(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const index_t... index)
+    {
+        auto c = coeffs<s>();
+        auto qs = make_Qs_j<s>(make_Qs_k<s>(make_field_hack(field), c), c);
+        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
+    }
+
     template<std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
     inline auto
     Qs_ijk(const Field &field, std::size_t level, const interval_t &i, const coord_index_t j, const coord_index_t k)
@@ -298,11 +324,6 @@ namespace samurai
                         std::integral_constant<std::size_t, 0>,
                         std::integral_constant<bool, false>) const;
 
-        template<class T1, class T2, bool dest_on_level>
-        void operator()(Dim<2>, T1& dest, const T2& src,
-                        std::integral_constant<std::size_t, 0>,
-                        std::integral_constant<bool, dest_on_level>) const;
-
         template<class T1, class T2, std::size_t order>
         void operator()(Dim<2>, T1& dest, const T2& src,
                         std::integral_constant<std::size_t, order>,
@@ -316,12 +337,12 @@ namespace samurai
         template<class T1, class T2>
         void operator()(Dim<3>, T1& dest, const T2& src,
                         std::integral_constant<std::size_t, 0>,
-                        std::integral_constant<bool, false>) const;
+                        std::integral_constant<bool, true>) const;
 
-        template<class T1, class T2, bool dest_on_level>
+        template<class T1, class T2>
         void operator()(Dim<3>, T1& dest, const T2& src,
                         std::integral_constant<std::size_t, 0>,
-                        std::integral_constant<bool, dest_on_level>) const;
+                        std::integral_constant<bool, false>) const;
 
         template<class T1, class T2, std::size_t order>
         void operator()(Dim<3>, T1& dest, const T2& src,
@@ -609,15 +630,24 @@ namespace samurai
         ii.step = 2;
 
         auto jj = j << 1;
+        auto kk = k << 1;
 
-        auto qs_i = Qs_i<order>(src, level, i, j);
-        auto qs_j = Qs_j<order>(src, level, i, j);
-        auto qs_ij = Qs_ij<order>(src, level, i, j);
+        auto qs_i = Qs_i<order>(src, level, i, j, k);
+        auto qs_j = Qs_j<order>(src, level, i, j, k);
+        auto qs_k = Qs_k<order>(src, level, i, j, k);
+        auto qs_ij = Qs_ij<order>(src, level, i, j, k);
+        auto qs_ik = Qs_ik<order>(src, level, i, j, k);
+        auto qs_jk = Qs_jk<order>(src, level, i, j, k);
+        auto qs_ijk = Qs_ijk<order>(src, level, i, j, k);
 
-        dest(level + 1, ii, jj) = src(level, i, j) + qs_i + qs_j - qs_ij;
-        dest(level + 1, ii + 1, jj) = src(level, i, j) - qs_i + qs_j + qs_ij;
-        dest(level + 1, ii, jj + 1) = src(level, i, j) + qs_i - qs_j + qs_ij;
-        dest(level + 1, ii + 1, jj + 1) = src(level, i, j) - qs_i - qs_j - qs_ij;
+        dest(level + 1,     ii,     jj,     kk) = src(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk;
+        dest(level + 1, ii + 1,     jj,     kk) = src(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk;
+        dest(level + 1,     ii, jj + 1,     kk) = src(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk;
+        dest(level + 1, ii + 1, jj + 1,     kk) = src(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk;
+        dest(level + 1,     ii,     jj, kk + 1) = src(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk;
+        dest(level + 1, ii + 1,     jj, kk + 1) = src(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk;
+        dest(level + 1,     ii, jj + 1, kk + 1) = src(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk;
+        dest(level + 1, ii + 1, jj + 1, kk + 1) = src(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk;
     }
 
     template<class TInterval>
@@ -626,56 +656,146 @@ namespace samurai
                                                      std::integral_constant<std::size_t, order>,
                                                      std::integral_constant<bool, false>) const
     {
-        auto qs_i = Qs_i<order>(src, level - 1, i >> 1, j >> 1);
-        auto qs_j = Qs_j<order>(src, level - 1, i >> 1, j >> 1);
-        auto qs_ij = Qs_ij<order>(src, level - 1, i >> 1, j >> 1);
+        auto qs_i = Qs_i<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
+        auto qs_j = Qs_j<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
+        auto qs_k = Qs_k<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
+        auto qs_ij = Qs_ij<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
+        auto qs_ik = Qs_ik<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
+        auto qs_jk = Qs_jk<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
+        auto qs_ijk = Qs_ijk<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
 
-        if (j & 1)
+        if (k & 1)
         {
-            auto even_i = i.even_elements();
-            if (even_i.is_valid())
+            if (j & 1)
             {
-                auto coarse_even_i = even_i >> 1;
-                auto dec_even = (i.start & 1) ? 1 : 0;
-                dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1)
-                                       + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
-                                       - xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
-                                       + xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
-            }
+                auto even_i = i.even_elements();
+                if (even_i.is_valid())
+                {
+                    auto coarse_even_i = even_i >> 1;
+                    auto dec_even = (i.start & 1) ? 1 : 0;
+                    dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1)
+                                        + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
+                                        - xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
+                                        - xt::view(qs_k, xt::range(dec_even, qs_k.shape()[0]))
+                                        + xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]))
+                                        + xt::view(qs_ik, xt::range(dec_even, qs_ik.shape()[0]))
+                                        - xt::view(qs_jk, xt::range(dec_even, qs_jk.shape()[0]))
+                                        + xt::view(qs_ijk, xt::range(dec_even, qs_ijk.shape()[0]));
+                }
 
-            auto odd_i = i.odd_elements();
-            if (odd_i.is_valid())
+                auto odd_i = i.odd_elements();
+                if (odd_i.is_valid())
+                {
+                    auto coarse_odd_i = odd_i >> 1;
+                    auto dec_odd = (i.end & 1) ? 1 : 0;
+                    dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1)
+                                        - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
+                                        - xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
+                                        - xt::view(qs_k, xt::range(0, safe_subs<int>(qs_k.shape()[0], dec_odd)))
+                                        - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                                        - xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)));
+                                        - xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)));
+                                        - xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
+                }
+            }
+            else
             {
-                auto coarse_odd_i = odd_i >> 1;
-                auto dec_odd = (i.end & 1) ? 1 : 0;
-                dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1)
-                                      - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
-                                      - xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
-                                      - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                auto even_i = i.even_elements();
+                if (even_i.is_valid())
+                {
+                    auto coarse_even_i = even_i >> 1;
+                    auto dec_even = (i.start & 1) ? 1 : 0;
+                    dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1)
+                                        + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
+                                        + xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
+                                        - xt::view(qs_k, xt::range(dec_even, qs_k.shape()[0]))
+                                        - xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]))
+                                        + xt::view(qs_ik, xt::range(dec_even, qs_ik.shape()[0]))
+                                        + xt::view(qs_jk, xt::range(dec_even, qs_jk.shape()[0]))
+                                        - xt::view(qs_ijk, xt::range(dec_even, qs_ijk.shape()[0]));
+                }
+
+                auto odd_i = i.odd_elements();
+                if (odd_i.is_valid())
+                {
+                    auto coarse_odd_i = odd_i >> 1;
+                    auto dec_odd = (i.end & 1) ? 1 : 0;
+                    dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1)
+                                        - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
+                                        + xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
+                                        - xt::view(qs_k, xt::range(0, safe_subs<int>(qs_k.shape()[0], dec_odd)))
+                                        + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                                        - xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)));
+                                        + xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)));
+                                        + xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
+                }
             }
         }
         else
         {
-            auto even_i = i.even_elements();
-            if (even_i.is_valid())
+            if (j & 1)
             {
-                auto coarse_even_i = even_i >> 1;
-                auto dec_even = (i.start & 1) ? 1 : 0;
-                dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1)
-                                       + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
-                                       + xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
-                                       - xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
-            }
+                auto even_i = i.even_elements();
+                if (even_i.is_valid())
+                {
+                    auto coarse_even_i = even_i >> 1;
+                    auto dec_even = (i.start & 1) ? 1 : 0;
+                    dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1)
+                                        + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
+                                        - xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
+                                        + xt::view(qs_k, xt::range(dec_even, qs_k.shape()[0]))
+                                        + xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]))
+                                        - xt::view(qs_ik, xt::range(dec_even, qs_ik.shape()[0]))
+                                        + xt::view(qs_jk, xt::range(dec_even, qs_jk.shape()[0]))
+                                        - xt::view(qs_ijk, xt::range(dec_even, qs_ijk.shape()[0]));
+                }
 
-            auto odd_i = i.odd_elements();
-            if (odd_i.is_valid())
+                auto odd_i = i.odd_elements();
+                if (odd_i.is_valid())
+                {
+                    auto coarse_odd_i = odd_i >> 1;
+                    auto dec_odd = (i.end & 1) ? 1 : 0;
+                    dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1)
+                                        - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
+                                        - xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
+                                        + xt::view(qs_k, xt::range(0, safe_subs<int>(qs_k.shape()[0], dec_odd)))
+                                        - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                                        + xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)));
+                                        + xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)));
+                                        + xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
+                }
+            }
+            else
             {
-                auto coarse_odd_i = odd_i >> 1;
-                auto dec_odd = (i.end & 1) ? 1 : 0;
-                dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1)
-                                      - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
-                                      + xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
-                                      + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                auto even_i = i.even_elements();
+                if (even_i.is_valid())
+                {
+                    auto coarse_even_i = even_i >> 1;
+                    auto dec_even = (i.start & 1) ? 1 : 0;
+                    dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1)
+                                        + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
+                                        + xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
+                                        + xt::view(qs_k, xt::range(dec_even, qs_k.shape()[0]))
+                                        - xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]))
+                                        - xt::view(qs_ik, xt::range(dec_even, qs_ik.shape()[0]))
+                                        - xt::view(qs_jk, xt::range(dec_even, qs_jk.shape()[0]))
+                                        + xt::view(qs_ijk, xt::range(dec_even, qs_ijk.shape()[0]));
+                }
+
+                auto odd_i = i.odd_elements();
+                if (odd_i.is_valid())
+                {
+                    auto coarse_odd_i = odd_i >> 1;
+                    auto dec_odd = (i.end & 1) ? 1 : 0;
+                    dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1)
+                                        - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
+                                        + xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
+                                        + xt::view(qs_k, xt::range(0, safe_subs<int>(qs_k.shape()[0], dec_odd)))
+                                        + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                                        + xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)));
+                                        - xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)));
+                                        - xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
+                }
             }
         }
     }
