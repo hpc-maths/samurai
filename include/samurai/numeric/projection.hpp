@@ -27,8 +27,8 @@ namespace samurai
         template<class T1, class T2>
         inline void operator()(Dim<2>, T1& dest, const T2& src) const
         {
-            dest(level, i, j) = .25 * (src(level + 1, 2 * i, 2 * j) +
-                                       src(level + 1, 2 * i, 2 * j + 1) +
+            dest(level, i, j) = .25 * (src(level + 1,     2 * i, 2 * j) +
+                                       src(level + 1,     2 * i, 2 * j + 1) +
                                        src(level + 1, 2 * i + 1, 2 * j) +
                                        src(level + 1, 2 * i + 1, 2 * j + 1));
         }
@@ -36,12 +36,14 @@ namespace samurai
         template<class T1, class T2>
         inline void operator()(Dim<3>, T1& dest, const T2& src) const
         {
-            dest(level, i, j, k) = .125 * (src(level - 1, 2 * i, 2 * j, 2 * k) +
-                                           src(level - 1, 2 * i + 1, 2 * j, 2 * k) +
-                                           src(level - 1, 2 * i, 2 * j + 1, 2 * k) +
-                                           src(level - 1, 2 * i + 1, 2 * j + 1, 2 * k) +
-                                           src(level - 1, 2 * i, 2 * j + 1, 2 * k + 1) +
-                                           src(level - 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
+            dest(level, i, j, k) = .125 * (src(level + 1,     2 * i,     2 * j,     2 * k) +
+                                           src(level + 1, 2 * i + 1,     2 * j,     2 * k) +
+                                           src(level + 1,     2 * i, 2 * j + 1,     2 * k) +
+                                           src(level + 1, 2 * i + 1, 2 * j + 1,     2 * k) +
+                                           src(level + 1,     2 * i,     2 * j, 2 * k + 1) +
+                                           src(level + 1, 2 * i + 1,     2 * j, 2 * k + 1) +
+                                           src(level + 1,     2 * i, 2 * j + 1, 2 * k + 1) +
+                                           src(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
         }
     };
 
