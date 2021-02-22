@@ -156,10 +156,67 @@ namespace samurai
                                         mesh[mesh_id_t::cells_and_ghosts][level]);
 
             subset_2.apply_op(enlarge(m_tag));
+            subset_2.apply_op(keep_around_refine(m_tag));
             subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
         }
 
-        graduation(m_tag, stencil_graduation::call(samurai::Dim<dim>{}));
+        // FIXME: this graduation doesn't make the same that the lines below: why?
+        // graduation(m_tag, stencil_graduation::call(samurai::Dim<dim>{}));
+
+        // COARSENING GRADUATION
+        for (std::size_t level = max_level; level > 0; --level)
+        {
+            auto keep_subset = intersection(mesh[mesh_id_t::cells][level],
+                                            mesh[mesh_id_t::all_cells][level - 1])
+                            .on(level - 1);
+
+            keep_subset.apply_op(maximum(m_tag));
+
+            xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                stencil.fill(0);
+                for (int s = -1; s <= 1; ++s)
+                {
+                    if (s != 0)
+                    {
+                        stencil[d] = s;
+                        auto subset = intersection(mesh[mesh_id_t::cells][level],
+                                                translate(mesh[mesh_id_t::cells][level - 1], stencil))
+                                    .on(level - 1);
+                        subset.apply_op(balance_2to1(m_tag, stencil));
+                    }
+                }
+            }
+        }
+
+        // REFINEMENT GRADUATION
+        for (std::size_t level = max_level; level > min_level; --level)
+        {
+            auto subset_1 = intersection(mesh[mesh_id_t::cells][level],
+                                        mesh[mesh_id_t::cells][level]);
+
+            subset_1.apply_op(extend(m_tag));
+
+            static_nested_loop<dim, -1, 2>(
+                [&](auto stencil) {
+
+                auto subset = intersection(translate(mesh[mesh_id_t::cells][level], stencil),
+                                        mesh[mesh_id_t::cells][level-1]).on(level);
+
+                subset.apply_op(make_graduation(m_tag));
+
+            });
+        }
+
+        for (std::size_t level = max_level; level > 0; --level)
+        {
+            auto keep_subset = intersection(mesh[mesh_id_t::cells][level],
+                                            mesh[mesh_id_t::all_cells][level - 1])
+                            .on(level - 1);
+
+            keep_subset.apply_op(maximum(m_tag));
+        }
 
         if (update_field_mr(m_field, field_old, m_tag))
         {

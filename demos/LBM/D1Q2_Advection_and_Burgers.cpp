@@ -199,15 +199,8 @@ void one_time_step_overleaves(Field &f, const Pred& pred_coeff, Func && update_b
     auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
 
-    samurai::mr_projection(f);
-    for (std::size_t level = min_level - 1; level <= max_level; ++level)
-    {
-        update_bc_for_level(f, level); // It is important to do so
-    }
-    samurai::mr_prediction(f, update_bc_for_level);
-
-    // After that everything is ready, we predict what is remaining
-    samurai::mr_prediction_overleaves(f, update_bc_for_level);
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+    samurai::update_overleaves_mr(f, std::forward<Func>(update_bc_for_level));
 
     auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
     new_f.fill(0.);
@@ -323,10 +316,7 @@ void one_time_step(Field &f, double s)
     auto mesh = f.mesh();
     auto max_level = mesh.max_level();
 
-    samurai::mr_projection(f);
-    f.update_bc();
-    samurai::mr_prediction(f);
-
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
     // MEMOIZATION
     // All is ready to do a little bit  of mem...
@@ -421,12 +411,7 @@ void save_reconstructed(Field & f, FullField & f_full,
 
     auto init_mesh = f_full.mesh();
 
-    samurai::mr_projection(f);
-    for (std::size_t level = min_level - 1; level <= max_level; ++level)
-    {
-        update_bc_for_level(f, level); // It is important to do so
-    }
-    samurai::mr_prediction(f, update_bc_for_level);
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
     auto frec = samurai::make_field<value_t, size>("f_reconstructed", init_mesh);
     frec.fill(0.);
@@ -476,12 +461,7 @@ std::array<double, 2> compute_error(samurai::Field<Config, double, 2> &f, FieldR
 
     update_bc_for_level(fR, max_level); // It is important to do so
 
-    samurai::mr_projection(f);
-    for (std::size_t level = mesh.min_level() - 1; level <= mesh.max_level(); ++level)
-    {
-        update_bc_for_level(f, level); // It is important to do so
-    }
-    samurai::mr_prediction(f, update_bc_for_level);
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;
