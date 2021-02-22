@@ -68,6 +68,14 @@ namespace samurai
         }
 
         template <class T, class Flag, int s>
+        inline void operator()(Dim<1>, T& tag, const Flag& flag, std::integral_constant<int, 0>) const
+        {
+            auto mask = (tag(level, i) & static_cast<int>(flag));
+
+            xt::masked_view(tag(level, i), mask) |= static_cast<int>(CellFlag::keep);
+        }
+
+        template <class T, class Flag, int s>
         inline void operator()(Dim<1>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
         {
             auto mask = (tag(level, i) & static_cast<int>(flag));
