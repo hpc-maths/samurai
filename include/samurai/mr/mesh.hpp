@@ -20,8 +20,8 @@ namespace samurai
         cells = 0,
         cells_and_ghosts = 1,
         proj_cells = 2,
-        all_cells = 3,
-        union_cells = 4,
+        union_cells = 3,
+        all_cells = 4,
         overleaves = 5, // Added in order to automatically handle flux correction. (by Thomas)
         count = 6,
         reference = all_cells

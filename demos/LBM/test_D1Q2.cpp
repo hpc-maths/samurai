@@ -205,15 +205,8 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
     auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
 
-    samurai::mr_projection(f);
-    for (std::size_t level = min_level - 1; level <= max_level; ++level)
-    {
-        update_bc_for_level(f, level); // It is important to do so
-    }
-    samurai::mr_prediction(f, update_bc_for_level);
-
-    // After that everything is ready, we predict what is remaining
-    samurai::mr_prediction_overleaves(f, update_bc_for_level);
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+    samurai::update_overleaves_mr(f, std::forward<Func>(update_bc_for_level));
 
     auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
     new_f.fill(0.);
@@ -328,12 +321,7 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
     }
 
     else {
-        samurai::mr_projection(advected_f);
-        for (std::size_t level = mesh.min_level() - 1; level <= mesh.max_level(); ++level)
-        {
-            update_bc_for_level(advected_f, level);
-        }
-        samurai::mr_prediction(advected_f, update_bc_for_level);
+        samurai::update_ghost_mr(advected_f, std::forward<Func>(update_bc_for_level));
 
         std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> memoization_map;
         memoization_map.clear();
@@ -391,12 +379,7 @@ std::array<double, 2> compute_error(samurai::Field<Config, double, 2> &f, FieldR
 
     update_bc_for_level(fR, max_level); // It is important to do so
 
-    samurai::mr_projection(f);
-    for (std::size_t level = mesh.min_level() - 1; level <= mesh.max_level(); ++level)
-    {
-        update_bc_for_level(f, level); // It is important to do so
-    }
-    samurai::mr_prediction(f, update_bc_for_level);
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;

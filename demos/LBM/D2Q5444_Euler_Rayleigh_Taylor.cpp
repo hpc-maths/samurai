@@ -237,13 +237,8 @@ void one_time_step(Field &f,Func&& update_bc_for_level, const pred& pred_coeff,
     auto min_level = mesh.min_level();
     auto max_level = mesh.max_level();
 
-    samurai::mr_projection(f);
-    for (std::size_t level = min_level - 1; level <= max_level; ++level)
-    {
-        update_bc_for_level(f, level); // It is important to do so
-    }
-    samurai::mr_prediction(f, update_bc_for_level);
-    samurai::mr_prediction_overleaves(f, update_bc_for_level);
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+    samurai::update_overleaves_mr(f, std::forward<Func>(update_bc_for_level));
 
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);

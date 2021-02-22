@@ -89,6 +89,7 @@ namespace samurai
         std::array<std::size_t, dim> m_end_offset;
         std::array<coord_index_t, dim> m_current_value;
         std::array<std::vector<interval_t>, dim> m_work;
+        std::array<std::vector<std::pair<std::size_t, std::size_t>>, dim> m_work_offsets;
         node_type m_node;
     };
 
@@ -167,138 +168,183 @@ namespace samurai
     template<class T>
     inline void subset_node<T>::decrement_dim(coord_index_t i)
     {
-        std::size_t index;
-        // Shift the index i for the dimension d to the level of the node.
-        auto shift_i = detail::shift_value(i, -m_shift);
-        // spdlog::debug("DECREMENT_DIM: level = {}, i = {}, shift_i = {}", m_node.level(), i, shift_i);
-        if (m_shift >= 0)
+        // The set is already invalided
+        if (m_current_value[m_d] == std::numeric_limits<coord_index_t>::max())
         {
-            // The level of this node is lower or equal to the min(ref_level, common_level)
-            //
-            // There can only be one correspondence between i and shift_i.
-            //
-            // For example, i = 16 at ref_level = 4 and the node is at level 2
-            // Thus the shift_i is equal to 16 >> (4 - 2 = 2) = 4 (only one value is possible).
-            // In the same way, i = 18 at ref_level = 4 and the node is at level 2
-            // shift_i is again equal to 4.
-            //
-            //   16   17   18   19
-            // |----|----|----|----| at level 4 (min(ref_level, common_level))
-            //
-            //      8         9
-            // |---------|---------| at level 3
-            //
-            //           4
-            // |-------------------| at level 2 (node level)
-            //
+            // We don't find any interval -> invalidate the data structure
+            m_start[m_d - 1] = 0;
+            m_end[m_d - 1] = 0;
 
-            // Check if we find this index in the list of intervals between m_start_offset and m_end_offset
-            index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i));
-            if (index != std::numeric_limits<std::size_t>::max())
-            {
-                // We find an interval where shift_i is in.
-                auto interval = m_node.interval(m_d, index);
-
-                // Find the list of intervals for the dimension d - 1 for shift_i
-                std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i));
-                m_start[m_d - 1] = m_node.offset(m_d, off_ind);
-                m_end[m_d - 1] = m_node.offset(m_d, off_ind + 1);
-                m_start_offset[m_d - 1] = m_node.offset(m_d, off_ind);
-                m_end_offset[m_d - 1] = m_node.offset(m_d, off_ind + 1);
-
-                // Initialize the current_value for dimension d - 1 with the start value of the first interval
-                // shifted to the min(ref_level, common_level)
-                m_current_value[m_d - 1] = detail::shift_value(m_node.start(m_d - 1, m_start[m_d - 1]), m_shift);
-                m_index[m_d - 1] = m_start[m_d - 1];
-            }
-            else
-            {
-                // We don't find any interval -> invalidate the data structure
-                m_start[m_d - 1] = 0;
-                m_end[m_d - 1] = 0;
-
-                m_current_value[m_d - 1] = std::numeric_limits<coord_index_t>::max();
-                m_index[m_d - 1] = std::numeric_limits<std::size_t>::max();
-            }
+            m_current_value[m_d - 1] = std::numeric_limits<coord_index_t>::max();
+            m_index[m_d - 1] = std::numeric_limits<std::size_t>::max();
         }
         else
         {
-            // The level of this node is greater than the min(ref_level, common_level)
-            //
-            // There can be multiple correspondences between i and shift_i.
-            //
-            // For example, i = 4 at ref_level = 2 and the node is at level 4
-            // Thus the shift_i can take multiple values x >> (4 - 2 = 2) = 4.
-            // So, x can be equal to 16, 17, 18, 19.
-            //
-            //
-            //           4
-            // |-------------------| at level 2 (min(ref_level, common_level))
-            //
-            //      8         9
-            // |---------|---------| at level 3
-            //
-            //   16   17   18   19
-            // |----|----|----|----| at level 4 (node level)
-            //
-            //
-            // The idea is to build a new list of intervals for the d - 1 projected
-            // at min(ref_level, common_level) with all the possible values for d
-            //
-            // Example:
-            //
-            // y: 16 -> x: [0, 6[, [8, 10[
-            // y: 18 -> x: [10, 16[
-            // y: 19 -> x: [-5, -3[, [26, 27[
-            //
-            // The new list of intervals is for y: 4 -> x: [-2, 5[, [6, 7[
-
-            ListOfIntervals<coord_index_t, index_t> intervals;
-            bool first_found = true;
-            for(int s = 0; s < 1<<(-m_shift); ++s)
+            std::size_t index;
+            auto shift_i = detail::shift_value(i, -m_shift);
+            // Shift the index i for the dimension d to the level of the node.
+            // spdlog::debug("DECREMENT_DIM: dim = {}, level = {}, i = {}, shift_i = {}", m_d, m_node.level(), i, shift_i);
+            if (m_shift >= 0)
             {
-                index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i + s));
+                // The level of this node is lower or equal to the min(ref_level, common_level)
+                //
+                // There can only be one correspondence between i and shift_i.
+                //
+                // For example, i = 16 at ref_level = 4 and the node is at level 2
+                // Thus the shift_i is equal to 16 >> (4 - 2 = 2) = 4 (only one value is possible).
+                // In the same way, i = 18 at ref_level = 4 and the node is at level 2
+                // shift_i is again equal to 4.
+                //
+                //   16   17   18   19
+                // |----|----|----|----| at level 4 (min(ref_level, common_level))
+                //
+                //      8         9
+                // |---------|---------| at level 3
+                //
+                //           4
+                // |-------------------| at level 2 (node level)
+                //
+
+                // Check if we find this index in the list of intervals between m_start_offset and m_end_offset
+                // spdlog::debug("DECREMENT_DIM: start_offset = {}, end_offset = {}, i transformed = {}", m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i));
+                index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i));
+                // spdlog::debug("DECREMENT_DIM: index found = {}", index);
                 if (index != std::numeric_limits<std::size_t>::max())
                 {
+                    // We find an interval where shift_i is in.
                     auto interval = m_node.interval(m_d, index);
-                    std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i + s));
-                    if (first_found)
-                    {
-                        m_start_offset[m_d - 1] = m_node.offset(m_d, off_ind);
-                        first_found = false;
-                    }
 
-                    for(std::size_t o = m_node.offset(m_d, off_ind); o < m_node.offset(m_d, off_ind + 1); ++o)
-                    {
-                        auto start = m_node.start(m_d - 1, o) >> (-m_shift);
-                        auto end = ((m_node.end(m_d - 1, o) - 1) >> -m_shift) + 1;
-                        if (start == end)
-                        {
-                            end++;
-                        }
-                        intervals.add_interval({start, end});
-                    }
+                    // Find the list of intervals for the dimension d - 1 for shift_i
+                    std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i));
+                    m_start[m_d - 1] = m_node.offset(m_d, off_ind);
+                    m_end[m_d - 1] = m_node.offset(m_d, off_ind + 1);
+                    // spdlog::debug("DECREMENT_DIM: start_offset = {}, off_ind = {} interval = {}", m_start_offset[m_d - 1], off_ind, interval);
+                    m_start_offset[m_d - 1] = m_node.offset(m_d, off_ind);
                     m_end_offset[m_d - 1] = m_node.offset(m_d, off_ind + 1);
-                }
-            }
-            // spdlog::debug("intervals -> {}", intervals);
-            m_work[m_d - 1].clear();
 
-            if (intervals.size() != 0)
-            {
-                std::copy(intervals.cbegin(), intervals.cend(), std::back_inserter(m_work[m_d - 1]));
-                m_start[m_d - 1] = 0;
-                m_end[m_d - 1] = m_work[m_d - 1].size();
-                m_current_value[m_d - 1] = m_work[m_d - 1][0].start;
-                m_index[m_d - 1] = m_start[m_d - 1];
+                    // Initialize the current_value for dimension d - 1 with the start value of the first interval
+                    // shifted to the min(ref_level, common_level)
+                    m_current_value[m_d - 1] = detail::shift_value(m_node.start(m_d - 1, m_start[m_d - 1]), m_shift);
+                    m_index[m_d - 1] = m_start[m_d - 1];
+                }
+                else
+                {
+                    // We don't find any interval -> invalidate the data structure
+                    m_start[m_d - 1] = 0;
+                    m_end[m_d - 1] = 0;
+
+                    m_current_value[m_d - 1] = std::numeric_limits<coord_index_t>::max();
+                    m_index[m_d - 1] = std::numeric_limits<std::size_t>::max();
+                }
             }
             else
             {
-                m_start[m_d - 1] = 0;
-                m_end[m_d - 1] = 0;
+                // The level of this node is greater than the min(ref_level, common_level)
+                //
+                // There can be multiple correspondences between i and shift_i.
+                //
+                // For example, i = 4 at ref_level = 2 and the node is at level 4
+                // Thus the shift_i can take multiple values x >> (4 - 2 = 2) = 4.
+                // So, x can be equal to 16, 17, 18, 19.
+                //
+                //
+                //           4
+                // |-------------------| at level 2 (min(ref_level, common_level))
+                //
+                //      8         9
+                // |---------|---------| at level 3
+                //
+                //   16   17   18   19
+                // |----|----|----|----| at level 4 (node level)
+                //
+                //
+                // The idea is to build a new list of intervals for the d - 1 projected
+                // at min(ref_level, common_level) with all the possible values for d
+                //
+                // Example:
+                //
+                // y: 16 -> x: [0, 6[, [8, 10[
+                // y: 18 -> x: [10, 16[
+                // y: 19 -> x: [-5, -3[, [26, 27[
+                //
+                // The new list of intervals is for y: 4 -> x: [-2, 5[, [6, 7[
 
-                m_current_value[m_d - 1] = std::numeric_limits<coord_index_t>::max();
-                m_index[m_d - 1] = std::numeric_limits<std::size_t>::max();
+                ListOfIntervals<coord_index_t, index_t> intervals;
+
+                if (m_d == dim - 1)
+                {
+                    m_work_offsets[m_d - 1].clear();
+                    for(int s = 0; s < 1<<(-m_shift); ++s)
+                    {
+                        index = m_node.find(m_d, m_start_offset[m_d],  m_end_offset[m_d], m_node.transform(m_d, shift_i + s));
+                        if (index != std::numeric_limits<std::size_t>::max())
+                        {
+                            auto interval = m_node.interval(m_d, index);
+                            std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i + s));
+                            m_work_offsets[m_d - 1].push_back(std::make_pair(m_node.offset(m_d, off_ind), m_node.offset(m_d, off_ind + 1)));
+
+                            for(std::size_t o = m_node.offset(m_d, off_ind); o < m_node.offset(m_d, off_ind + 1); ++o)
+                            {
+                                auto start = m_node.start(m_d - 1, o) >> (-m_shift);
+                                auto end = ((m_node.end(m_d - 1, o) - 1) >> -m_shift) + 1;
+                                if (start == end)
+                                {
+                                    end++;
+                                }
+                                intervals.add_interval({start, end});
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    m_work_offsets[m_d - 1].clear();
+
+                    for(auto& offset: m_work_offsets[m_d])
+                    {
+                        for(int s = 0; s < 1<<(-m_shift); ++s)
+                        {
+                            index = m_node.find(m_d, offset.first, offset.second, m_node.transform(m_d, shift_i + s));
+
+                            if (index != std::numeric_limits<std::size_t>::max())
+                            {
+                                auto interval = m_node.interval(m_d, index);
+                                std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i + s));
+                                m_work_offsets[m_d - 1].push_back(std::make_pair(m_node.offset(m_d, off_ind), m_node.offset(m_d, off_ind + 1)));
+
+                                for(std::size_t o = m_node.offset(m_d, off_ind); o < m_node.offset(m_d, off_ind + 1); ++o)
+                                {
+                                    auto start = m_node.start(m_d - 1, o) >> (-m_shift);
+                                    auto end = ((m_node.end(m_d - 1, o) - 1) >> -m_shift) + 1;
+                                    if (start == end)
+                                    {
+                                        end++;
+                                    }
+                                    intervals.add_interval({start, end});
+                                }
+                            }
+                        }
+                    }
+                }
+                // spdlog::debug("intervals -> {}", intervals);
+                m_work[m_d - 1].clear();
+
+                if (intervals.size() != 0)
+                {
+                    std::copy(intervals.cbegin(), intervals.cend(), std::back_inserter(m_work[m_d - 1]));
+                    m_start[m_d - 1] = 0;
+                    m_end[m_d - 1] = m_work[m_d - 1].size();
+                    m_current_value[m_d - 1] = m_work[m_d - 1][0].start;
+                    m_index[m_d - 1] = m_start[m_d - 1];
+                }
+                else
+                {
+                    m_start[m_d - 1] = 0;
+                    m_end[m_d - 1] = 0;
+
+                    m_current_value[m_d - 1] = std::numeric_limits<coord_index_t>::max();
+                    m_index[m_d - 1] = std::numeric_limits<std::size_t>::max();
+                }
             }
         }
         // spdlog::debug("For dimension {}, curent_value in decrement = {}", m_d - 1, m_current_value[m_d - 1]);
