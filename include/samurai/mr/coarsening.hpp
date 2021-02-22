@@ -41,7 +41,7 @@ namespace samurai
             tag[cell] = static_cast<int>(CellFlag::keep);
         });
 
-        update_ghost_mr(u, std::forward<Func>(update_ghost_mr));
+        update_ghost_mr(u, std::forward<Func>(update_bc_for_level));
 
         for (std::size_t level = min_level - 1; level < max_level - ite; ++level)
         {
