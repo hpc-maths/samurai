@@ -8,27 +8,27 @@ jobs:
     strategy:
       matrix:
         include:
-         - cpp-version: gcc-7
-           cc: "gcc-7"
-           cxx: "g++-7"
-         - cpp-version: gcc-8
-           cc: "gcc-8"
-           cxx: "g++-8"
-         - cpp-version: gcc-9
-           cc: "gcc-9"
-           cxx: "g++-9"
-         - cpp-version: gcc-10
-           cc: "gcc-10"
-           cxx: "g++-10"
-         - cpp-version: clang-8
-           cc: "clang-8"
-           cxx: "clang++-8"
-         - cpp-version: clang-9
-           cc: "clang-8"
-           cxx: "clang++-8"
-         - cpp-version: clang-10
-           cc: "clang-8"
-           cxx: "clang++-8"
+          #  - cpp-version: gcc-7
+          #    cc: "gcc-7"
+          #    cxx: "g++-7"
+          - cpp-version: gcc-8
+            cc: "gcc-8"
+            cxx: "g++-8"
+          - cpp-version: gcc-9
+            cc: "gcc-9"
+            cxx: "g++-9"
+          - cpp-version: gcc-10
+            cc: "gcc-10"
+            cxx: "g++-10"
+          - cpp-version: clang-8
+            cc: "clang-8"
+            cxx: "clang++-8"
+          - cpp-version: clang-9
+            cc: "clang-8"
+            cxx: "clang++-8"
+          - cpp-version: clang-10
+            cc: "clang-8"
+            cxx: "clang++-8"
     steps:
       - uses: actions/checkout@v2
       - uses: conda-incubator/setup-miniconda@v2
@@ -42,25 +42,25 @@ jobs:
       - name: Conda informations
         shell: bash -l {0}
         run: |
-            conda info
-            conda list
+          conda info
+          conda list
       - name: Configure
         shell: bash -l {0}
         run: |
-            export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
-            CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
-                . \
-                -Bbuild \
-                -GNinja \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DBUILD_TESTS=ON
+          export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
+          CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+              . \
+              -Bbuild \
+              -GNinja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_TESTS=ON
       - name: Build
         shell: bash -l {0}
         run: |
-            cmake --build build --target all
+          cmake --build build --target all
       - name: Test
         shell: bash -l {0}
         run: |
-            export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
-            cd build
-            ./test/test_samurai_lib
+          export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+          cd build
+          ./test/test_samurai_lib
