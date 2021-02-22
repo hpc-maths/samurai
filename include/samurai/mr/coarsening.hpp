@@ -10,7 +10,8 @@
 #include "../field.hpp"
 #include "../static_algorithm.hpp"
 #include "../utils.hpp"
-#include "pred_and_proj.hpp"
+#include "../algorithm/utils.hpp"
+#include "../algorithm/update.hpp"
 
 namespace samurai
 {
@@ -40,12 +41,7 @@ namespace samurai
             tag[cell] = static_cast<int>(CellFlag::keep);
         });
 
-        mr_projection(u);
-        for (std::size_t level = min_level - 1; level <= max_level; ++level)
-        {
-            update_bc_for_level(u, level);
-        }
-        mr_prediction(u, update_bc_for_level);
+        update_ghost_mr(u, std::forward<Func>(update_ghost_mr));
 
         for (std::size_t level = min_level - 1; level < max_level - ite; ++level)
         {
@@ -75,7 +71,7 @@ namespace samurai
                                          mesh[mesh_id_t::cells_and_ghosts][level]);
 
             subset_2.apply_op(enlarge(tag));
-            subset_3.apply_op(tag_to_keep(tag));
+            subset_3.apply_op(tag_to_keep<0>(tag, CellFlag::enlarge));
         }
 
         for (std::size_t level = max_level; level > 0; --level)
