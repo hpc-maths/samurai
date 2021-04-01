@@ -118,7 +118,7 @@ namespace samurai
 
         constexpr int ghost_width = 1; //mesh_t::config::ghost_width;
 
-        for(std::size_t level = max_level; level > min_level; --level)
+        for(std::size_t level = max_level; level > 0; --level)
         {
             /**
              *
