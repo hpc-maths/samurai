@@ -41,7 +41,7 @@ class Plot:
                 ax = plt.subplot(1, len(args.field), i + 1)
                 self.plot(ax, mesh, f)
                 ax.set_title(f)
-            ax.autoscale()
+                ax.autoscale()
 
     def plot(self, ax, mesh, field=None, init=True):
         points = mesh['points']
@@ -60,7 +60,6 @@ class Plot:
                 scatter_update(self.artists[self.index], points)
                 self.index += 1
                 # self.lc.set_array(segments)
-
         else:
             data = mesh['fields'][field][:]
             centers = .5*(segments[:, 0, 0] + segments[:, 1, 0])
@@ -97,11 +96,10 @@ args = parser.parse_args()
 if args.end is None:
     Plot(args.filename)
 else:
-    print(args.filename + '-0')
-    p = Plot(args.filename + '-0')
+    p = Plot(f"{args.filename}{args.start}")
     def animate(i):
-        p.fig.suptitle("iteration " + str(i))
-        p.update(args.filename + '-' + str(i))
+        p.fig.suptitle(f"iteration {i + args.start}")
+        p.update(f"{args.filename}{i + args.start}")
         return p.get_artist()
     ani = animation.FuncAnimation(p.fig, animate, frames=args.end-args.start, interval=args.wait, repeat=True)
 
