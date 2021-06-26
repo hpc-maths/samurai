@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <array>
 #include <fstream>
 #include <functional>
 #include <string>
@@ -96,6 +97,7 @@ namespace samurai
         std::size_t index = 0;
         for_each_cell(mesh, [&](auto cell)
         {
+            std::array<double, dim> a;
             auto start_corner = cell.corner();
             auto c = xt::xtensor<std::size_t, 1>::from_shape({element.size()});;
 
@@ -103,7 +105,6 @@ namespace samurai
             {
                 auto corner = start_corner + cell.length * element[i];
 
-                std::array<double, dim> a;
                 std::copy(corner.cbegin(), corner.cend(), a.begin());
                 auto search = points_id.find(a);
                 if (search == points_id.end())
