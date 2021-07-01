@@ -112,10 +112,20 @@ namespace samurai
         {
             auto mask = (tag(level, i, j, k) & static_cast<int>(flag));
 
-            static_nested_loop<3, -s, s + 1>([&](const auto& stencil)
+            for (int ik=-s; ik<s+1; ++ik)
             {
-                xt::masked_view(tag(level, i + stencil[0], j + stencil[1], k + stencil[2]), mask) |= static_cast<int>(CellFlag::keep);
-            });
+                for (int ij=-s; ij<s+1; ++ij)
+                {
+                    for (int ii=-s; ii<s+1; ++ii)
+                    {
+                        xt::masked_view(tag(level, i + ii , j + ij, k + ik), mask) |= static_cast<int>(CellFlag::keep);
+                    }
+                }
+            }
+            // static_nested_loop<2, -s, s + 1>([&](const auto& stencil)
+            // {
+            //     xt::masked_view(tag(level, i , j, k), mask) |= static_cast<int>(CellFlag::keep);
+            // });
         }
     };
 
