@@ -291,6 +291,7 @@ namespace samurai
         {
             spdlog::critical("{} FIELD ERROR on level {}: try to find interval {}",
                              rw, level, interval);
+            throw;
         }
 
         return interval_tmp;

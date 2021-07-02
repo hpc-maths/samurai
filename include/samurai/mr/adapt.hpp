@@ -58,7 +58,7 @@ namespace samurai
     public:
         Adapt(TField& field, Func&& update_bc_by_level);
 
-        void operator()(double eps, double regularity);
+        void operator()(double eps, double regularity, bool save_it);
 
     private:
         using field_type = TField;
@@ -72,7 +72,7 @@ namespace samurai
         using coord_index_t = typename interval_t::coord_index_t;
         using cl_type = typename mesh_t::cl_type;
 
-        bool harten(std::size_t ite, double eps, double regularity, field_type& field_old);
+        bool harten(std::size_t ite, double eps, double regularity, field_type& field_old, bool save_it);
 
         field_type& m_field;
         field_type m_detail;
@@ -89,7 +89,7 @@ namespace samurai
     {}
 
     template <class TField, class Func>
-    void Adapt<TField, Func>::operator()(double eps, double regularity)
+    void Adapt<TField, Func>::operator()(double eps, double regularity, bool save_it)
     {
         auto mesh = m_field.mesh();
         std::size_t min_level = mesh.min_level();
@@ -104,7 +104,7 @@ namespace samurai
             m_detail.resize();
             m_tag.resize();
             m_tag.fill(0);
-            if (harten(i, eps, regularity, field_old))
+            if (harten(i, eps, regularity, field_old, save_it))
             {
                 break;
             }
@@ -112,7 +112,7 @@ namespace samurai
     }
 
     template <class TField, class Func>
-    bool Adapt<TField, Func>::harten(std::size_t ite, double eps, double regularity, field_type& field_old)
+    bool Adapt<TField, Func>::harten(std::size_t ite, double eps, double regularity, field_type& field_old, bool save_it)
     {
         auto mesh = m_field.mesh();
 
@@ -133,6 +133,7 @@ namespace samurai
             subset.apply_op(compute_detail(m_detail, m_field));
         }
 
+
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
             double exponent = dim * (max_level - level);
@@ -147,6 +148,9 @@ namespace samurai
             subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level)); // Derefinement
             subset_1.apply_op(to_refine_mr(m_detail, m_tag, (pow(2.0, regularity_to_use)) * eps_l, max_level)); // Refinement according to Harten
         }
+        if(save_it)
+        save(fmt::format("details1_{}", ite), {true, true}, mesh, m_detail, m_tag, m_field);
+
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
@@ -159,6 +163,8 @@ namespace samurai
             subset_2.apply_op(keep_around_refine(m_tag));
             subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
         }
+        if(save_it)
+        save(fmt::format("details2_{}", ite), {true, true}, mesh, m_detail, m_tag);
 
         // FIXME: this graduation doesn't make the same that the lines below: why?
         // graduation(m_tag, stencil_graduation::call(samurai::Dim<dim>{}));
@@ -189,6 +195,8 @@ namespace samurai
                 }
             }
         }
+        if(save_it)
+        save(fmt::format("details3_{}", ite), {true, true}, mesh, m_detail, m_tag);
 
         // REFINEMENT GRADUATION
         for (std::size_t level = max_level; level > min_level; --level)
@@ -208,6 +216,8 @@ namespace samurai
 
             });
         }
+        if(save_it)
+        save(fmt::format("details4_{}", ite), {true, true}, mesh, m_detail, m_tag);
 
         for (std::size_t level = max_level; level > 0; --level)
         {
@@ -217,6 +227,8 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
         }
+        if(save_it)
+        save(fmt::format("details5_{}", ite), {true, true}, mesh, m_detail, m_tag);
 
         if (update_field_mr(m_field, field_old, m_tag))
         {

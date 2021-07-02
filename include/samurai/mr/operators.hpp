@@ -612,7 +612,7 @@ namespace samurai
         template<class T>
         inline void operator()(Dim<3>, T &cell_flag) const
         {
-            auto refine_mask = cell_flag(level, i, j) & static_cast<int>(CellFlag::refine);
+            auto refine_mask = cell_flag(level, i, j, k) & static_cast<int>(CellFlag::refine);
             
             for (int kk = -1; kk < 2; ++kk)
             {
