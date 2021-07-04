@@ -9,12 +9,14 @@
 #include <vector>
 
 #include <fmt/format.h>
+#include <fmt/color.h>
 
 #include "algorithm.hpp"
 #include "box.hpp"
 #include "interval.hpp"
 #include "level_cell_list.hpp"
 #include "utils.hpp"
+
 namespace samurai
 {
 
