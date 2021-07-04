@@ -1,11 +1,12 @@
-
 name: samurai-env
+channels:
+  - conda-forge
 dependencies:
   - cmake
   - ninja
   - xtensor
   - xtensor-io
-  - fmt
+  - fmt=7
   - spdlog
   - pugixml
   - cxxopts

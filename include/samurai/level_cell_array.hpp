@@ -8,12 +8,14 @@
 #include <iterator>
 #include <vector>
 
+#include <fmt/format.h>
 #include <fmt/color.h>
 
 #include "algorithm.hpp"
 #include "box.hpp"
 #include "interval.hpp"
 #include "level_cell_list.hpp"
+#include "utils.hpp"
 
 namespace samurai
 {
@@ -82,6 +84,11 @@ namespace samurai
 
         /// Display to the given stream
         void to_stream(std::ostream &os) const;
+
+        template<typename... T>
+        const interval_t& get_interval(const interval_t& interval, T... index) const;
+
+        void update_index();
 
         //// checks whether the container is empty
         bool empty() const;
@@ -355,6 +362,36 @@ namespace samurai
     inline auto  LevelCellArray<Dim, TInterval>::rcbegin() const -> const_reverse_iterator
     {
         return const_reverse_iterator(cend());
+    }
+
+    /**
+     * Return the x-interval satisfying the input parameters
+     *
+     * @param interval The desired x-interval.
+     * @param index The desired indices for the other dimensions.
+     */
+    template<std::size_t Dim, class TInterval>
+    template<typename... T>
+    inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
+    {
+        auto row = find(*this, {interval.start, index...});
+        return m_cells[0][static_cast<std::size_t>(row)];
+    }
+
+    /**
+     * Update the index in the x-intervals allowing to navigate in the
+     * Field data structure.
+     */
+    template<std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::update_index()
+    {
+        using index_t = typename interval_t::index_t;
+        std::size_t acc_size = 0;
+        for_each_interval(*this, [&](auto, auto& interval, auto)
+        {
+            interval.index = safe_subs<index_t>(acc_size, interval.start);
+            acc_size += interval.size();
+        });
     }
 
     template<std::size_t Dim, class TInterval>

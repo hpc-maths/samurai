@@ -32,6 +32,9 @@ target_link_libraries(D1Q222_Euler_Sod samurai)
 add_executable(D2Q4444_Euler_Lax_Liu D2Q4444_Euler_Lax_Liu.cpp)
 target_link_libraries(D2Q4444_Euler_Lax_Liu samurai)
 
+add_executable(D2Q4444_Euler_Lax_Liu_uniform D2Q4444_Euler_Lax_Liu_uniform.cpp)
+target_link_libraries(D2Q4444_Euler_Lax_Liu_uniform samurai)
+
 add_executable(D2Q9_Navier_Stokes_von_Karman_street D2Q9_Navier_Stokes_von_Karman_street.cpp)
 target_link_libraries(D2Q9_Navier_Stokes_von_Karman_street samurai)
 

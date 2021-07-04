@@ -6,6 +6,7 @@
 
 #include <array>
 
+#include <fmt/format.h>
 #include <fmt/color.h>
 
 #include "algorithm.hpp"
@@ -122,8 +123,7 @@ namespace samurai
     template<typename... T>
     inline auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
     {
-        auto row = find(m_cells[level], {interval.start, index...});
-        return m_cells[level][0][static_cast<std::size_t>(row)];
+        return m_cells[level].get_interval(interval, index...);
     }
 
     /**
