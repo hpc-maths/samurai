@@ -12,33 +12,56 @@ jobs:
           #    cc: "gcc-7"
           #    cxx: "g++-7"
           - cpp-version: gcc-8
+            package: "gcc-8 g++-8"
             cc: "gcc-8"
             cxx: "g++-8"
           - cpp-version: gcc-9
+            package: "gcc-9 g++-9"
             cc: "gcc-9"
             cxx: "g++-9"
           - cpp-version: gcc-10
+            package: "gcc-10 g++-10"
             cc: "gcc-10"
             cxx: "g++-10"
-          - cpp-version: clang-8
-            cc: "clang-8"
-            cxx: "clang++-8"
+          # - cpp-version: gcc-11
+          #   package: "gcc-11 g++-11"
+          #   cc: "gcc-11"
+          #   cxx: "g++-11"
           - cpp-version: clang-9
-            cc: "clang-8"
-            cxx: "clang++-8"
+            package: "clang-9"
+            cc: "clang-9"
+            cxx: "clang++-9"
           - cpp-version: clang-10
-            cc: "clang-8"
-            cxx: "clang++-8"
+            package: "clang-10"
+            cc: "clang-10"
+            cxx: "clang++-10"
+          - cpp-version: clang-11
+            package: "clang-11"
+            cc: "clang-11"
+            cxx: "clang++-11"
+          - cpp-version: clang-12
+            package: "clang-12"
+            cc: "clang-12"
+            cxx: "clang++-12"
     steps:
       - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
+      - name: install compiler
+        run: |
+          sudo apt update
+          sudo apt install ${{ matrix.package }}
+      - name: install mamba
+        uses: mamba-org/provision-with-micromamba@main
         with:
-          python-version: 3.7
-          mamba-version: "*"
-          channels: conda-forge,defaults
-          channel-priority: true
-          activate-environment: samurai-env
           environment-file: conda/environment.yml
+          environment-name: samurai-env
+      # - uses: conda-incubator/setup-miniconda@v2
+      #   with:
+      #     python-version: 3.7
+      #     mamba-version: "*"
+      #     channels: conda-forge,defaults
+      #     channel-priority: true
+      #     activate-environment: samurai-env
+      #     environment-file: conda/environment.yml
       - name: Conda informations
         shell: bash -l {0}
         run: |

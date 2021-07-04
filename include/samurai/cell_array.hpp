@@ -6,6 +6,7 @@
 
 #include <array>
 
+#include <fmt/format.h>
 #include <fmt/color.h>
 
 #include "algorithm.hpp"

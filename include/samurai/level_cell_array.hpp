@@ -8,7 +8,7 @@
 #include <iterator>
 #include <vector>
 
-#include <fmt/color.h>
+#include <fmt/format.h>
 
 #include "algorithm.hpp"
 #include "box.hpp"
