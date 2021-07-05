@@ -138,10 +138,21 @@ auto prediction(std::size_t level, const index_t &i, bool reset=false)
     if (iter == values.end())
     {
         auto ig = i >> 1;
-        double d_x = (i & 1)? -1./8: 1./8;
 
-        return values[{level, i}] = prediction(level-1, ig) - d_x * (prediction(level-1, ig+1)
-                                                                   - prediction(level-1, ig-1));
+        // // Gamma = 1
+        // double d_x = (i & 1)? -1./8: 1./8;
+
+        // return values[{level, i}] = prediction(level-1, ig) - d_x * (prediction(level-1, ig+1)
+        //                                                            - prediction(level-1, ig-1));
+
+        // // Gamma = 2
+        double d_x1 = (i & 1)? -12./128: 22./128;
+        double d_x2 = (i & 1)? 3./128: -3./128;
+
+        return values[{level, i}] = prediction(level-1, ig) - d_x1 * (prediction(level-1, ig+1)
+                                                                    - prediction(level-1, ig-1))
+                                                            - d_x2 * (prediction(level-1, ig+2)
+                                                                    - prediction(level-1, ig-2));
     }
     else
     {
