@@ -467,14 +467,14 @@ void save_solution(const Field & field, const std::size_t it, const std::string 
 int main()
 {
     constexpr size_t dim = 1;
-    using Config = samurai::MRConfig<dim, 2>;
+    using Config = samurai::MRConfig<dim, 4, 2>;
     using mesh_t = samurai::MRMesh<Config>;
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using coord_index_t = typename mesh_t::interval_t::coord_index_t;
 
-    std::size_t min_level = 5;
+    std::size_t min_level = 1;
     std::size_t max_level = 9;
-    double epsilon = 1.e-5;
+    double epsilon = 1.e-3;
     double regularity = 1.;
 
     double ad_vel = 0.75;
