@@ -164,7 +164,6 @@ namespace samurai
     {
     public:
         using derived_type_save = D;
-        static constexpr std::size_t dim = D::dim;
 
         Hdf5(const std::string& filename);
 
@@ -445,7 +444,7 @@ namespace samurai
         grid.append_attribute("Name") = mesh_name.data();
 
         auto topo = grid.append_child("Topology");
-        topo.append_attribute("TopologyType") = element_type(dim).c_str();
+        topo.append_attribute("TopologyType") = element_type(derived_type_save::dim).c_str();
         topo.append_attribute("NumberOfElements") = connectivity.shape()[0];
 
         auto topo_data = topo.append_child("DataItem");
