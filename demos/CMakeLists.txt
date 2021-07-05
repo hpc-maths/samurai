@@ -62,7 +62,7 @@ set(CMAKE_CXX_STANDARD 14)
 # target_link_libraries(operator samurai)
 
 # add_subdirectory(multiresolution)
-# add_subdirectory(LBM)
+add_subdirectory(LBM)
 # add_subdirectory(FiniteVolume)
 # add_subdirectory(FiniteVolume-MR)
 # add_subdirectory(tutorial)
