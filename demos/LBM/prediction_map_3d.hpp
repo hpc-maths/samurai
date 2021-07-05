@@ -14,26 +14,26 @@ class prediction_map
     public:
         prediction_map() = default;
 
-        prediction_map(index_t i, index_t j)
+        prediction_map(index_t i, index_t j, index_t k)
         {
-            coeff[{i, j}] = 1.;
+            coeff[{i, j, k}] = 1.;
         }
 
-        double& operator()(index_t i, index_t j)
+        double& operator()(index_t i, index_t j, index_t k)
         {
-            auto it = coeff.find({i, j});
+            auto it = coeff.find({i, j, k});
             if (it == coeff.end())
             {
-                coeff[{i, j}] = 0.;
+                coeff[{i, j, k}] = 0.;
             }
-            return coeff[{i, j}];
+            return coeff[{i, j, k}];
         }
 
         prediction_map<index_t>& operator+=(const prediction_map<index_t> p)
         {
             for(auto& c: p.coeff)
             {
-                auto& cc = (*this)(std::get<0>(c.first), std::get<1>(c.first));
+                auto& cc = (*this)(std::get<0>(c.first), std::get<1>(c.first), std::get<2>(c.first));
                 cc += c.second;
             }
             return *this;
@@ -43,7 +43,7 @@ class prediction_map
         {
             for(auto& c: p.coeff)
             {
-                auto& cc = (*this)(std::get<0>(c.first), std::get<1>(c.first));
+                auto& cc = (*this)(std::get<0>(c.first), std::get<1>(c.first), std::get<2>(c.first));
                 cc -= c.second;
             }
             return *this;
@@ -76,7 +76,7 @@ class prediction_map
             }
         }
     // private:
-        std::map<std::tuple<index_t, index_t>, double> coeff;
+        std::map<std::tuple<index_t, index_t, index_t>, double> coeff;
 };
 
 template<class index_t>
@@ -119,9 +119,9 @@ inline std::ostream &operator<<(std::ostream &out, const prediction_map<index_t>
 }
 
 template<class index_t>
-auto prediction(std::size_t level, const index_t &i, const index_t j, bool reset=false)
+auto prediction(std::size_t level, const index_t &i, const index_t j, const index_t k, bool reset=false)
 {
-    static std::map<std::tuple<std::size_t, index_t, index_t>, prediction_map<index_t>> values;
+    static std::map<std::tuple<std::size_t, index_t, index_t, index_t>, prediction_map<index_t>> values;
 
     if (reset)
     {
@@ -130,28 +130,35 @@ auto prediction(std::size_t level, const index_t &i, const index_t j, bool reset
 
     if (level == 0)
     {
-        return prediction_map<index_t>{i, j};
+        return prediction_map<index_t>{i, j, k};
     }
 
-    auto iter = values.find({level, i, j});
+    auto iter = values.find({level, i, j, k});
 
     if (iter == values.end())
     {
         auto ig = i >> 1;
         auto jg = j >> 1;
-        double d_x = (i & 1)? -1./8: 1./8;
-        double d_xy = ((i+j) & 1)? -1./64: 1./64;
-        double d_y = (j & 1)? -1./8: 1./8;
+        auto kg = k >> 1;
 
-        return values[{level, i, j}] = prediction(level-1, ig, jg)
-                                              - d_x * (prediction(level-1, ig+1, jg)
-                                                     - prediction(level-1, ig-1, jg))
-                                              - d_y * (prediction(level-1, ig, jg+1)
-                                                     - prediction(level-1, ig, jg-1))
-                                              - d_xy * (prediction(level-1, ig+1, jg+1)
-                                                      - prediction(level-1, ig+1, jg-1)
-                                                      - prediction(level-1, ig-1, jg+1)
-                                                      + prediction(level-1, ig-1, jg-1));
+        double d_x = (i & 1)? -1./8: 1./8;
+        double d_y = (j & 1)? -1./8: 1./8;
+        double d_z = (k & 1)? -1./8: 1./8;
+
+        double d_xy = ((i+j) & 1)? -1./64: 1./64;
+        double d_xz = ((i+k) & 1)? -1./64: 1./64;
+        double d_yz = ((j+k) & 1)? -1./64: 1./64;
+
+        double d_xyz = ((i+j+k) & 1)? -1./512: 1./512;
+
+        return values[{level, i, j, k}] = prediction(level-1, ig, jg, kg) - d_x * (prediction(level-1, ig+1, jg  , kg  )-prediction(level-1, ig-1, jg  , kg  ))
+                                                                          - d_y * (prediction(level-1, ig  , jg+1, kg  )-prediction(level-1, ig  , jg+1, kg  ))
+                                                                          - d_z * (prediction(level-1, ig  , jg  , kg+1)-prediction(level-1, ig  , jg  , kg+1))
+                                        - d_xy*(prediction(level-1, ig+1, jg  , kg)-prediction(level-1, ig+1, jg-1, kg  )-prediction(level-1, ig-1, jg+1, kg  )+prediction(level-1, ig-1, jg-1, kg  ))
+                                        - d_xz*(prediction(level-1, ig+1, jg  , kg)-prediction(level-1, ig+1, jg  , kg-1)-prediction(level-1, ig-1, jg  , kg+1)+prediction(level-1, ig-1, jg  , kg-1))
+                                        - d_yz*(prediction(level-1, ig  , jg+1, kg)-prediction(level-1, ig  , jg+1, kg-1)-prediction(level-1, ig  , jg-1, kg+1)+prediction(level-1, ig  , jg-1, kg-1))
+                                        - d_xyz*(prediction(level-1, ig+1, jg+1, kg+1)-prediction(level-1, ig-1, jg+1, kg+1)-prediction(level-1, ig+1, jg-1, kg+1)-prediction(level-1, ig+1, jg+1, kg-1)
+                                                +prediction(level-1, ig-1, jg-1, kg+1)+prediction(level-1, ig-1, jg+1, kg-1)+prediction(level-1, ig+1, jg-1, kg-1)-prediction(level-1, ig-1, jg-1, kg-1));
 
     }
     else

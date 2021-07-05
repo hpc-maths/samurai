@@ -29,6 +29,7 @@ namespace samurai
 
     template <std::size_t dim_,
               std::size_t max_stencil_width_ = 1,
+              std::size_t s_for_prediction_ = 1,
               std::size_t graduation_width_ = 1,
               std::size_t max_refinement_level_ = 20,
               class TInterval = Interval<int>>
@@ -38,11 +39,11 @@ namespace samurai
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
         static constexpr std::size_t max_stencil_width = max_stencil_width_;
         static constexpr std::size_t graduation_width = graduation_width_;
-        static constexpr std::size_t default_s_for_prediction = 1;
+        static constexpr std::size_t s_for_prediction = s_for_prediction_;
 
         static constexpr int ghost_width = std::max(std::max(2 * static_cast<int>(graduation_width) - 1,
                                                              static_cast<int>(max_stencil_width)),
-                                                            static_cast<int>(default_s_for_prediction));
+                                                            static_cast<int>(s_for_prediction));
         using interval_t = TInterval;
         using mesh_id_t = MRMeshId;
     };
