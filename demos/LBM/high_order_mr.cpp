@@ -26,6 +26,84 @@
 
 #include <chrono>
 
+
+// Attention : the number 2 as second template parameter does not mean
+// that we are dealing with two fields!!!!
+template<class Field, class interval_t>
+xt::xtensor<double, 2> prediction_all_high_order(const Field & f, std::size_t level_g, std::size_t level,
+                                                const interval_t & k,
+                                                std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> & mem_map)
+{
+    constexpr std::size_t nvel = Field::size; // Number of velocities
+    // That is used to employ _ with xtensor
+    using namespace xt::placeholders;
+
+    auto it = mem_map.find({level_g, level, k});
+
+    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())
+        return it->second;
+    else
+    {
+        auto mesh = f.mesh();
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+        std::vector<std::size_t> shape_x = {k.size(), nvel};
+        xt::xtensor<double, 2> out = xt::empty<double>(shape_x);
+
+        auto mask = mesh.exists(mesh_id_t::cells_and_ghosts, level_g + level, k); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
+
+        xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
+
+        for (int h_field = 0; h_field < nvel; ++h_field)  {
+            xt::view(mask_all, xt::all(), h_field) = mask;
+        }
+
+        // Recursion finished
+        if (xt::all(mask))
+        {
+            return xt::eval(f(0, nvel, level_g + level, k));
+        }
+
+        // If we cannot stop here
+        auto kg = k >> 1;
+        kg.step = 1;
+
+        xt::xtensor<double, 2> val = xt::empty<double>(shape_x);
+
+        auto earth  = xt::eval(prediction_all_high_order(f, level_g, level - 1, kg     , mem_map));
+        auto W      = xt::eval(prediction_all_high_order(f, level_g, level - 1, kg - 1 , mem_map));
+        auto E      = xt::eval(prediction_all_high_order(f, level_g, level - 1, kg + 1 , mem_map));
+
+        auto WW      = xt::eval(prediction_all_high_order(f, level_g, level - 1, kg - 2 , mem_map));
+        auto EE      = xt::eval(prediction_all_high_order(f, level_g, level - 1, kg + 2 , mem_map));
+
+        // This is to deal with odd/even indices in the x direction
+        std::size_t start_even = (k.start & 1) ?     1         :     0        ;
+        std::size_t start_odd  = (k.start & 1) ?     0         :     1        ;
+        std::size_t end_even   = (k.end & 1)   ? kg.size()     : kg.size() - 1;
+        std::size_t end_odd    = (k.end & 1)   ? kg.size() - 1 : kg.size()    ;
+
+        // xt::view(val, xt::range(start_even, _, 2)) = xt::view(earth + 1./8 * (W - E), xt::range(start_even, _      ));
+        // xt::view(val, xt::range(start_odd, _, 2))  = xt::view(earth - 1./8 * (W - E), xt::range(_         , end_odd));
+
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(earth + 22./128 * (W - E) - 3./128 * (WW - EE), xt::range(start_even, _      ));
+        xt::view(val, xt::range(start_odd, _, 2))  = xt::view(earth - 22./128 * (W - E) + 3./128 * (WW - EE), xt::range(_         , end_odd));
+
+        xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
+
+        for(int k_mask = 0, k_int = k.start; k_int < k.end; ++k_mask, ++k_int)
+        {
+            if (mask[k_mask])
+                xt::view(out, k_mask) = xt::view(f(0, nvel, level_g + level, {k_int, k_int + 1}), 0);
+        }
+
+        // It is crucial to use insert and not []
+        // in order not to update the value in case of duplicated (same key)
+        mem_map.insert(std::make_pair(std::tuple<std::size_t, std::size_t, interval_t>{level_g, level, k} ,out));
+        return out;
+    }
+}
+
 template<class coord_index_t>
 auto compute_prediction_separate_inout(std::size_t min_level, std::size_t max_level)
 {
@@ -69,140 +147,142 @@ void init_f(Field & field, const double lambda, const double ad_vel)
 
 
 
-// template<class Field, class interval_t>
-// xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item,
-//                                   std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>,
-//                                   xt::xtensor<double, 1>> & mem_map, bool cheap = false)
-// {
-//     mem_map.clear();
+template<class Field, class interval_t>
+xt::xtensor<double, 1> prediction(const Field& f, std::size_t level_g, std::size_t level, const interval_t &i, const std::size_t item,
+                                  std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>,
+                                  xt::xtensor<double, 1>> & mem_map, bool cheap = false)
+{
+    // mem_map.clear();
 
-//     // We check if the element is already in the map
-//     auto it = mem_map.find({item, level_g, level, i});
-//     if (it != mem_map.end())   {
-//         //std::cout<<std::endl<<"Found by memoization";
-//         return it->second;
-//     }
-//     else {
+    // We check if the element is already in the map
+    auto it = mem_map.find({item, level_g, level, i});
+    if (it != mem_map.end())   {
+        //std::cout<<std::endl<<"Found by memoization";
+        return it->second;
+    }
+    else {
 
-//         auto mesh = f.mesh();
-//         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-//         xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
-//         auto mask = mesh.exists(mesh_id_t::cells_and_ghosts, level_g + level, i);
+        auto mesh = f.mesh();
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        xt::xtensor<double, 1> out = xt::empty<double>({i.size()/i.step});//xt::eval(f(item, level_g, i));
+        auto mask = mesh.exists(mesh_id_t::cells_and_ghosts, level_g + level, i);
 
-//         // std::cout << level_g + level << " " << i << " " << mask << "\n";
-//         if (xt::all(mask))
-//         {
-//             return xt::eval(f(item, level_g + level, i));
-//         }
+        // std::cout << level_g + level << " " << i << " " << mask << "\n";
+        if (xt::all(mask))
+        {
+            return xt::eval(f(item, level_g + level, i));
+        }
 
-//         auto step = i.step;
-//         auto ig = i / 2;
-//         ig.step = step >> 1;
-//         xt::xtensor<double, 1> d = xt::empty<double>({i.size()/i.step});
+        auto step = i.step;
+        auto ig = i / 2;
+        ig.step = step >> 1;
+        xt::xtensor<double, 1> d = xt::empty<double>({i.size()/i.step});
 
-//         for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
-//         {
-//             d[iii] = (ii & 1)? -1.: 1.;
-//         }
-
-
-//         xt::xtensor<double, 1> val;
-
-//         if (cheap)  {  // This is the cheap prediction
-//             val = xt::eval(prediction(f, level_g, level-1, ig, item, mem_map, cheap));
-//         }
-//         else {
-//             // val = xt::eval(prediction(f, level_g, level-1, ig, item, mem_map, cheap) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, mem_map, cheap)
-//             //                                                                            - prediction(f, level_g, level-1, ig-1, item, mem_map, cheap)));
-
-//             val = xt::eval(prediction(f, level_g, level-1, ig, item, mem_map, cheap) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, mem_map, cheap)
-//                                                                                                  - prediction(f, level_g, level-1, ig-1, item, mem_map, cheap)));
-//         }
+        for (int ii=i.start, iii=0; ii<i.end; ii+=i.step, ++iii)
+        {
+            d[iii] = (ii & 1)? -1.: 1.;
+        }
 
 
-//         xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
-//         for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
-//         {
-//             if (mask[i_mask])
-//             {
-//                 out[i_mask] = f(item, level_g + level, {i_int, i_int + 1})[0];
-//             }
-//         }
+        xt::xtensor<double, 1> val;
 
-//         // The value should be added to the memoization map before returning
-//         mem_map.insert(std::make_pair(std::tuple<std::size_t, std::size_t, std::size_t, interval_t>{item, level_g, level, i} ,out));
-//         return out;
-//     }
+        if (cheap)  {  // This is the cheap prediction
+            val = xt::eval(prediction(f, level_g, level-1, ig, item, mem_map, cheap));
+        }
+        else {
+            // val = xt::eval(prediction(f, level_g, level-1, ig, item, mem_map, cheap) - 1./8 * d * (prediction(f, level_g, level-1, ig+1, item, mem_map, cheap)
+            //                                                                            - prediction(f, level_g, level-1, ig-1, item, mem_map, cheap)));
 
-// }
-
-
-// template<class Field, class Func>
-// void one_time_step(Field &f, Func&& update_bc_for_level, double s)
-// {
-//     auto mesh = f.mesh();
-//     using mesh_t = typename Field::mesh_t;
-//     using mesh_id_t = typename mesh_t::mesh_id_t;
-//     using coord_index_t = typename mesh_t::interval_t::coord_index_t;
-//     using interval_t = typename mesh_t::interval_t;
-
-//     constexpr std::size_t nvel = Field::size;
-
-//     double lambda = 1.;//, s = 1.0;
-//     auto max_level = mesh.max_level();
-
-//     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
-
-//     // MEMOIZATION
-//     // All is ready to do a little bit  of mem...
-//     std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
-//     memoization_map.clear(); // Just to be sure...
-
-//     Field new_f{"new_f", mesh};
-//     new_f.array().fill(0.);
-
-//     for (std::size_t level = 0; level <= max_level; ++level)
-//     {
-//         auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
-//                                          mesh[mesh_id_t::cells][level]);
-//         exp([&](auto &interval, auto) {
-//             auto i = interval;
+            val = xt::eval(prediction(f, level_g, level-1, ig, item, mem_map, cheap) - 22./128 * d * (prediction(f, level_g, level-1, ig+1, item, mem_map, cheap)
+                                                                                                    - prediction(f, level_g, level-1, ig-1, item, mem_map, cheap))
+                                                                                     +  3./128 * d * (prediction(f, level_g, level-1, ig+2, item, mem_map, cheap)
+                                                                                                    - prediction(f, level_g, level-1, ig-2, item, mem_map, cheap)));
+        }
 
 
-//             // STREAM
+        xt::masked_view(out, !mask) = xt::masked_view(val, !mask);
+        for(int i_mask=0, i_int=i.start; i_int<i.end; ++i_mask, i_int+=i.step)
+        {
+            if (mask[i_mask])
+            {
+                out[i_mask] = f(item, level_g + level, {i_int, i_int + 1})[0];
+            }
+        }
 
-//             std::size_t j = max_level - level;
+        // The value should be added to the memoization map before returning
+        mem_map.insert(std::make_pair(std::tuple<std::size_t, std::size_t, std::size_t, interval_t>{item, level_g, level, i} ,out));
+        return out;
+    }
 
-//             double coeff = 1. / (1 << j);
-
-//             // This is the STANDARD FLUX EVALUATION
-
-//             bool cheap = false;
-
-//             auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, memoization_map, cheap)
-//                                              -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, memoization_map, cheap));
-
-//             auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, memoization_map, cheap)
-//                                              -  prediction(f, level, j, (i+1)*(1<<j), 1, memoization_map, cheap));
-
-
-//             // COLLISION
-
-//             auto uu = xt::eval(fp + fm);
-//             auto vv = xt::eval(lambda * (fp - fm));
+}
 
 
-//             vv = (1 - s) * vv + s * 0.75 * uu;
+template<class Field, class Func>
+void one_time_step(Field &f, Func&& update_bc_for_level, double s)
+{
+    auto mesh = f.mesh();
+    using mesh_t = typename Field::mesh_t;
+    using mesh_id_t = typename mesh_t::mesh_id_t;
+    using coord_index_t = typename mesh_t::interval_t::coord_index_t;
+    using interval_t = typename mesh_t::interval_t;
 
-//             // vv = (1 - s) * vv + s * .5 * uu * uu;
+    constexpr std::size_t nvel = Field::size;
 
-//             new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
-//             new_f(1, level, i) = .5 * (uu - 1. / lambda * vv);
-//         });
-//     }
+    double lambda = 1.;//, s = 1.0;
+    auto max_level = mesh.max_level();
 
-//     std::swap(f.array(), new_f.array());
-// }
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+
+    // MEMOIZATION
+    // All is ready to do a little bit  of mem...
+    std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
+    memoization_map.clear(); // Just to be sure...
+
+    Field new_f{"new_f", mesh};
+    new_f.array().fill(0.);
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                         mesh[mesh_id_t::cells][level]);
+        exp([&](auto &interval, auto) {
+            auto i = interval;
+
+
+            // STREAM
+
+            std::size_t j = max_level - level;
+
+            double coeff = 1. / (1 << j);
+
+            // This is the STANDARD FLUX EVALUATION
+
+            bool cheap = false;
+
+            auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, memoization_map, cheap)
+                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, memoization_map, cheap));
+
+            auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, memoization_map, cheap)
+                                             -  prediction(f, level, j, (i+1)*(1<<j), 1, memoization_map, cheap));
+
+
+            // COLLISION
+
+            auto uu = xt::eval(fp + fm);
+            auto vv = xt::eval(lambda * (fp - fm));
+
+
+            vv = (1 - s) * vv + s * 0.75 * uu;
+
+            // vv = (1 - s) * vv + s * .5 * uu * uu;
+
+            new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
+            new_f(1, level, i) = .5 * (uu - 1. / lambda * vv);
+        });
+    }
+
+    std::swap(f.array(), new_f.array());
+}
 
 // template<class Field, class Func, class Pred>
 // void one_time_step(Field &f, Func&& update_bc_for_level,
@@ -329,117 +409,117 @@ void init_f(Field & field, const double lambda, const double ad_vel)
 
 
 
-template<class Field, class Func, class Pred>
-void one_time_step(Field &f, Func&& update_bc_for_level,
-                            const Pred& pred_coeff, double s_rel, double lambda, double ad_vel)
-{
+// template<class Field, class Func, class Pred>
+// void one_time_step(Field &f, Func&& update_bc_for_level,
+//                             const Pred& pred_coeff, double s_rel, double lambda, double ad_vel)
+// {
 
-    constexpr std::size_t nvel = Field::size;
+//     constexpr std::size_t nvel = Field::size;
 
-    auto mesh = f.mesh();
-    using mesh_t = typename Field::mesh_t;
-    using mesh_id_t = typename mesh_t::mesh_id_t;
-    using coord_index_t = typename mesh_t::interval_t::coord_index_t;
-    using interval_t = typename mesh_t::interval_t;
+//     auto mesh = f.mesh();
+//     using mesh_t = typename Field::mesh_t;
+//     using mesh_id_t = typename mesh_t::mesh_id_t;
+//     using coord_index_t = typename mesh_t::interval_t::coord_index_t;
+//     using interval_t = typename mesh_t::interval_t;
 
-    auto min_level = mesh.min_level();
-    auto max_level = mesh.max_level();
+//     auto min_level = mesh.min_level();
+//     auto max_level = mesh.max_level();
 
-    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
-    // samurai::update_overleaves_mr(f, std::forward<Func>(update_bc_for_level));
+//     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+//     // samurai::update_overleaves_mr(f, std::forward<Func>(update_bc_for_level));
 
-    auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
-    new_f.fill(0.);
-    auto advected_f = samurai::make_field<double, nvel>("advected_f", mesh);
-    advected_f.fill(0.);
-    auto help_f = samurai::make_field<double, nvel>("help_f", mesh);
-    help_f.fill(0.);
+//     auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
+//     new_f.fill(0.);
+//     auto advected_f = samurai::make_field<double, nvel>("advected_f", mesh);
+//     advected_f.fill(0.);
+//     auto help_f = samurai::make_field<double, nvel>("help_f", mesh);
+//     help_f.fill(0.);
 
-    for (std::size_t level = 0; level <= max_level; ++level)
-    {
-        if (level == max_level) {
-            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
-                                                mesh[mesh_id_t::cells][max_level]);
-            leaves([&](auto &interval, auto) {
-                auto k = interval;
-                advected_f(0, max_level, k) = xt::eval(f(0, max_level, k - 1));
-                advected_f(1, max_level, k) = xt::eval(f(1, max_level, k + 1));
-            });
-        }
-        else
-        {
-            std::size_t j = max_level - level;
-            double coeff = 1. / (1 << j);
+//     for (std::size_t level = 0; level <= max_level; ++level)
+//     {
+//         if (level == max_level) {
+//             auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
+//                                                 mesh[mesh_id_t::cells][max_level]);
+//             leaves([&](auto &interval, auto) {
+//                 auto k = interval;
+//                 advected_f(0, max_level, k) = xt::eval(f(0, max_level, k - 1));
+//                 advected_f(1, max_level, k) = xt::eval(f(1, max_level, k + 1));
+//             });
+//         }
+//         else
+//         {
+//             std::size_t j = max_level - level;
+//             double coeff = 1. / (1 << j);
 
-            auto lv = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                            mesh[mesh_id_t::cells][level]);
+//             auto lv = samurai::intersection(mesh[mesh_id_t::cells][level],
+//                                             mesh[mesh_id_t::cells][level]);
 
-            lv([&](auto& interval, auto) {
-                auto k = interval; // Logical index in x
+//             lv([&](auto& interval, auto) {
+//                 auto k = interval; // Logical index in x
 
-                // auto fp = xt::eval(f(0, level, k));
-                // auto fm = xt::eval(f(1, level, k));
-                auto fp = xt::eval((1.-coeff)*f(0, level, k) + coeff*f(0, level, k-1));
-                auto fm = xt::eval((1.-coeff)*f(1, level, k) + coeff*f(1, level, k+1));
-                // for(auto &c: pred_coeff[j][0].coeff)
-                // {
-                //     coord_index_t stencil = c.first;
-                //     double weight = c.second;
+//                 // auto fp = xt::eval(f(0, level, k));
+//                 // auto fm = xt::eval(f(1, level, k));
+//                 auto fp = xt::eval((1.-coeff)*f(0, level, k) + coeff*f(0, level, k-1));
+//                 auto fm = xt::eval((1.-coeff)*f(1, level, k) + coeff*f(1, level, k+1));
+//                 // for(auto &c: pred_coeff[j][0].coeff)
+//                 // {
+//                 //     coord_index_t stencil = c.first;
+//                 //     double weight = c.second;
 
-                //     fp += coeff * weight * f(0, level, k + stencil);
-                // }
+//                 //     fp += coeff * weight * f(0, level, k + stencil);
+//                 // }
 
-                // for(auto &c: pred_coeff[j][1].coeff)
-                // {
-                //     coord_index_t stencil = c.first;
-                //     double weight = c.second;
+//                 // for(auto &c: pred_coeff[j][1].coeff)
+//                 // {
+//                 //     coord_index_t stencil = c.first;
+//                 //     double weight = c.second;
 
-                //     fp -= coeff * weight * f(0, level, k + stencil);
-                // }
+//                 //     fp -= coeff * weight * f(0, level, k + stencil);
+//                 // }
 
-                // for(auto &c: pred_coeff[j][2].coeff)
-                // {
-                //     coord_index_t stencil = c.first;
-                //     double weight = c.second;
+//                 // for(auto &c: pred_coeff[j][2].coeff)
+//                 // {
+//                 //     coord_index_t stencil = c.first;
+//                 //     double weight = c.second;
 
-                //     fm += coeff * weight * f(1, level, k + stencil);
-                // }
+//                 //     fm += coeff * weight * f(1, level, k + stencil);
+//                 // }
 
-                // for(auto &c: pred_coeff[j][3].coeff)
-                // {
-                //     coord_index_t stencil = c.first;
-                //     double weight = c.second;
+//                 // for(auto &c: pred_coeff[j][3].coeff)
+//                 // {
+//                 //     coord_index_t stencil = c.first;
+//                 //     double weight = c.second;
 
-                //     fm -= coeff * weight * f(1, level, k + stencil);
-                // }
+//                 //     fm -= coeff * weight * f(1, level, k + stencil);
+//                 // }
 
-                // Save it
-                advected_f(0, level, k) = fp;
-                advected_f(1, level, k) = fm;
-            });
-        }
-    }
+//                 // Save it
+//                 advected_f(0, level, k) = fp;
+//                 advected_f(1, level, k) = fm;
+//             });
+//         }
+//     }
 
-    for (std::size_t level = 0; level <= max_level; ++level)    {
+//     for (std::size_t level = 0; level <= max_level; ++level)    {
 
-        double dx = 1./(1 << level);
+//         double dx = 1./(1 << level);
 
-        auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                            mesh[mesh_id_t::cells][level]);
+//         auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
+//                                             mesh[mesh_id_t::cells][level]);
 
-        leaves([&](auto &interval, auto) {
-            auto k = interval;
-            auto uu = xt::eval(          advected_f(0, level, k) + advected_f(1, level, k));
-            auto vv = xt::eval(lambda * (advected_f(0, level, k) - advected_f(1, level, k)));
+//         leaves([&](auto &interval, auto) {
+//             auto k = interval;
+//             auto uu = xt::eval(          advected_f(0, level, k) + advected_f(1, level, k));
+//             auto vv = xt::eval(lambda * (advected_f(0, level, k) - advected_f(1, level, k)));
 
-            vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
+//             vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
               
-            new_f(0, level, k) = .5 * (uu + 1. / lambda * vv);
-            new_f(1, level, k) = .5 * (uu - 1. / lambda * vv);
-        });
-    }
-    std::swap(f.array(), new_f.array());
-}
+//             new_f(0, level, k) = .5 * (uu + 1. / lambda * vv);
+//             new_f(1, level, k) = .5 * (uu - 1. / lambda * vv);
+//         });
+//     }
+//     std::swap(f.array(), new_f.array());
+// }
 
 template<class Field>
 void save_solution(const Field & field, const std::size_t it, const std::string ext = "")
@@ -464,10 +544,59 @@ void save_solution(const Field & field, const std::size_t it, const std::string 
     samurai::save(str.str().data(), mesh, u, level_);
 }
 
+template<class Field, class MeshOrig,  class Func>
+void save_reconstructed(Field & f, const MeshOrig & init_mesh, Func && update_bc_for_level, std::size_t ite)
+{
+
+    constexpr std::size_t size = Field::size;
+    using value_t = typename Field::value_type;
+    auto mesh = f.mesh();
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+    auto min_level = mesh.min_level();
+    auto max_level = mesh.max_level();
+
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+
+    auto frec = samurai::make_field<value_t, size>("f_reconstructed", init_mesh);
+    frec.fill(0.);
+
+    using interval_t  = typename Field::interval_t; // Type in X
+    std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> memoization_map;
+    memoization_map.clear();
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                         mesh[mesh_id_t::cells][level])
+                  .on(max_level);
+
+        exp([&](auto &interval, auto) {
+            auto i = interval;
+            auto j = max_level - level;
+
+            frec(max_level, i) = prediction_all(f, level, j, i, memoization_map);
+        });
+    }
+
+    std::stringstream str;
+    str << "high_order_mr_reconstructed" << "_ite-" << ite;
+
+    auto u_rec = samurai::make_field<value_t, 1>("u_reconstructed", init_mesh);
+
+    samurai::for_each_cell(init_mesh[mesh_id_t::cells], [&](auto &cell) {
+        u_rec[cell] = frec[cell][0] + frec[cell][1];
+    });
+
+    samurai::save(str.str().data(), init_mesh, u_rec);
+}
+
 int main()
 {
     constexpr size_t dim = 1;
     using Config = samurai::MRConfig<dim, 4, 2>;
+    // using Config = samurai::MRConfig<dim, 2, 1>;
+
     using mesh_t = samurai::MRMesh<Config>;
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using coord_index_t = typename mesh_t::interval_t::coord_index_t;
@@ -483,6 +612,7 @@ int main()
 
     samurai::Box<double, dim> box({-3}, {3});
     mesh_t mesh{box, min_level, max_level};
+    mesh_t mesh_orig{box, max_level, max_level};
 
     auto f_field = samurai::make_field<double, 2>("f", mesh);
     init_f(f_field, lambda, ad_vel);
@@ -497,12 +627,16 @@ int main()
 
     for (std::size_t ite = 0; ite < 100; ++ite) {
 
-        MRadaptation(epsilon, regularity, false);
+        MRadaptation(epsilon, regularity);
         save_solution(f_field, ite);
+        save_reconstructed(f_field, mesh_orig, update_bc_for_level, ite);
 
-        std::cout<<mesh<<std::endl;
+
+        // std::cout<<mesh<<std::endl;
         
-        one_time_step(f_field, update_bc_for_level, pred_coeff_separate, s_rel, lambda, ad_vel);
+        // one_time_step(f_field, update_bc_for_level, pred_coeff_separate, s_rel, lambda, ad_vel);
+        one_time_step(f_field, update_bc_for_level, s_rel);
+
 
         // one_time_step(f_field, update_bc_for_level, s_rel);
         save_solution(f_field, ite, "post");
