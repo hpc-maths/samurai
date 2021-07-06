@@ -297,8 +297,8 @@ namespace samurai
             detail(level + 1, 2*i+1, 2*j+1, 2*k  ) = field(level + 1, 2*i+1, 2*j+1, 2*k  ) - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk); 
             detail(level + 1, 2*i  , 2*j  , 2*k+1) = field(level + 1, 2*i  , 2*j  , 2*k+1) - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk); 
             detail(level + 1, 2*i+1, 2*j  , 2*k+1) = field(level + 1, 2*i+1, 2*j  , 2*k+1) - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk); 
-            detail(level + 1, 2*i  , 2*j+1, 2*k+1) = field(level + 1, 2*i  , 2*j+1, 2*k+1) - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij - qs_ik - qs_jk + qs_ijk); 
-            detail(level + 1, 2*i+1, 2*j+1, 2*k+1) = field(level + 1, 2*i+1, 2*j+1, 2*k+1) - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij + qs_ik - qs_jk - qs_ijk); 
+            detail(level + 1, 2*i  , 2*j+1, 2*k+1) = field(level + 1, 2*i  , 2*j+1, 2*k+1) - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk); 
+            detail(level + 1, 2*i+1, 2*j+1, 2*k+1) = field(level + 1, 2*i+1, 2*j+1, 2*k+1) - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk); 
         }
     };
 

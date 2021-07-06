@@ -640,13 +640,13 @@ namespace samurai
         auto qs_jk = Qs_jk<order>(src, level, i, j, k);
         auto qs_ijk = Qs_ijk<order>(src, level, i, j, k);
 
-        dest(level + 1,     ii,     jj,     kk) = src(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk;
-        dest(level + 1, ii + 1,     jj,     kk) = src(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk;
-        dest(level + 1,     ii, jj + 1,     kk) = src(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk;
-        dest(level + 1, ii + 1, jj + 1,     kk) = src(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk;
-        dest(level + 1,     ii,     jj, kk + 1) = src(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk;
-        dest(level + 1, ii + 1,     jj, kk + 1) = src(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk;
-        dest(level + 1,     ii, jj + 1, kk + 1) = src(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk;
+        dest(level + 1, ii    , jj    , kk    ) = src(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk;
+        dest(level + 1, ii + 1, jj    , kk    ) = src(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk;
+        dest(level + 1, ii    , jj + 1, kk    ) = src(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk;
+        dest(level + 1, ii + 1, jj + 1, kk    ) = src(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk;
+        dest(level + 1, ii    , jj    , kk + 1) = src(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk;
+        dest(level + 1, ii + 1, jj    , kk + 1) = src(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk;
+        dest(level + 1, ii    , jj + 1, kk + 1) = src(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk;
         dest(level + 1, ii + 1, jj + 1, kk + 1) = src(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk;
     }
 
