@@ -34,6 +34,7 @@ namespace samurai
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level],
                                              mesh[mesh_id_t::reference][level-1])
                                .on(level);
+            update_bc_for_level(field, level-1);
             set_at_level.apply_op(prediction<1, false>(field));
             update_bc_for_level(field, level);
         }
@@ -69,6 +70,7 @@ namespace samurai
                                                      mesh[mesh_id_t::cells_and_ghosts][level])))
                         .on(level);
 
+            update_bc_for_level(field, level-1);
             expr.apply_op(prediction<1, false>(field));
             update_bc_for_level(field, level);
         }

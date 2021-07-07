@@ -100,7 +100,7 @@ namespace samurai
         field_old.array() = m_field.array();
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
-            std::cout << "MR mesh adaptation " << i << std::endl;
+            // std::cout << "MR mesh adaptation " << i << std::endl;
             m_detail.resize();
             m_tag.resize();
             m_tag.fill(0);
