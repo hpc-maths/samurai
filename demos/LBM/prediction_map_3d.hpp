@@ -154,12 +154,11 @@ auto prediction(std::size_t level, const index_t &i, const index_t j, const inde
         return values[{level, i, j, k}] = prediction(level-1, ig, jg, kg) - d_x * (prediction(level-1, ig+1, jg  , kg  )-prediction(level-1, ig-1, jg  , kg  ))
                                                                           - d_y * (prediction(level-1, ig  , jg+1, kg  )-prediction(level-1, ig  , jg+1, kg  ))
                                                                           - d_z * (prediction(level-1, ig  , jg  , kg+1)-prediction(level-1, ig  , jg  , kg+1))
-                                        - d_xy*(prediction(level-1, ig+1, jg  , kg)-prediction(level-1, ig+1, jg-1, kg  )-prediction(level-1, ig-1, jg+1, kg  )+prediction(level-1, ig-1, jg-1, kg  ))
-                                        - d_xz*(prediction(level-1, ig+1, jg  , kg)-prediction(level-1, ig+1, jg  , kg-1)-prediction(level-1, ig-1, jg  , kg+1)+prediction(level-1, ig-1, jg  , kg-1))
-                                        - d_yz*(prediction(level-1, ig  , jg+1, kg)-prediction(level-1, ig  , jg+1, kg-1)-prediction(level-1, ig  , jg-1, kg+1)+prediction(level-1, ig  , jg-1, kg-1))
-                                        - d_xyz*(prediction(level-1, ig+1, jg+1, kg+1)-prediction(level-1, ig-1, jg+1, kg+1)-prediction(level-1, ig+1, jg-1, kg+1)-prediction(level-1, ig+1, jg+1, kg-1)
-                                                +prediction(level-1, ig-1, jg-1, kg+1)+prediction(level-1, ig-1, jg+1, kg-1)+prediction(level-1, ig+1, jg-1, kg-1)-prediction(level-1, ig-1, jg-1, kg-1));
-
+                                        - d_xy*(prediction(level-1, ig+1, jg+1, kg  )-prediction(level-1, ig+1, jg-1, kg  )-prediction(level-1, ig-1, jg+1, kg  )+prediction(level-1, ig-1, jg-1, kg  ))
+                                        - d_xz*(prediction(level-1, ig+1, jg  , kg+1)-prediction(level-1, ig+1, jg  , kg-1)-prediction(level-1, ig-1, jg  , kg+1)+prediction(level-1, ig-1, jg  , kg-1))
+                                        - d_yz*(prediction(level-1, ig  , jg+1, kg+1)-prediction(level-1, ig  , jg+1, kg-1)-prediction(level-1, ig  , jg-1, kg+1)+prediction(level-1, ig  , jg-1, kg-1))
+                                        - d_xyz*(prediction(level-1, ig+1, jg+1, kg+1)-prediction(level-1, ig+1, jg+1, kg-1)-prediction(level-1, ig+1, jg-1, kg + 1)+prediction(level-1, ig+1, jg-1, kg - 1)
+                                                -prediction(level-1, ig-1, jg+1, kg+1)+prediction(level-1, ig-1, jg+1, kg-1)+prediction(level-1, ig-1, jg-1, kg + 1)-prediction(level-1, ig-1, jg-1, kg - 1));
     }
     else
     {

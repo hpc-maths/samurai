@@ -68,13 +68,13 @@ void init_f(Field & field, const double lambda, const double Vx, const double Vy
         const double dist_ct = std::sqrt(std::pow(x-x_ct, 2.)+std::pow(y-y_ct, 2.)+std::pow(z-z_ct, 2.));
 
         const double u = (dist_ct < radius) ? 1. : 0.;
-        // const double q_x = Vx*u;
-        // const double q_y = Vy*u;
-        // const double q_z = Vz*u;
+        const double q_x = Vx*u;
+        const double q_y = Vy*u;
+        const double q_z = Vz*u;
         // // Burgers like
-        const double q_x = .5*Vx*u*u;
-        const double q_y = .5*Vy*u*u;
-        const double q_z = .5*Vz*u*u;
+        // const double q_x = .5*Vx*u*u;
+        // const double q_y = .5*Vy*u*u;
+        // const double q_z = .5*Vz*u*u;
 
         const double w_1 = 0.;
         const double w_2 = 0.;
@@ -102,18 +102,18 @@ void one_step_debug(Field & f, Func && update_bc_for_level)
     auto min_level = mesh[mesh_id_t::cells].min_level();
     auto max_level = mesh[mesh_id_t::cells].max_level();
     
-    // samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
-    for (std::size_t level = min_level; level <= max_level; ++level)
-    {
-        auto set = samurai::difference(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::cells][level]);
-        set([&](auto& interval, auto& index) {
-            auto i = interval; // Logical index in x
-            auto j = index[0]; // Logical index in y
-            auto k = index[1]; 
-            f(level, i, j, k) = 0.;
-        });
-    }
+    // for (std::size_t level = min_level; level <= max_level; ++level)
+    // {
+    //     auto set = samurai::difference(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::cells][level]);
+    //     set([&](auto& interval, auto& index) {
+    //         auto i = interval; // Logical index in x
+    //         auto j = index[0]; // Logical index in y
+    //         auto k = index[1]; 
+    //         f(level, i, j, k) = 0.;
+    //     });
+    // }
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
@@ -128,7 +128,7 @@ void one_step_debug(Field & f, Func && update_bc_for_level)
 
             for (std::size_t nf = 0; nf<6; ++nf)    
             {
-                f_ad(nf, level, i, j, k) = (1.-0.001/(1<<(max_level-level)))*f(nf, level, i, j, k) + 0.001/(1<<(max_level-level))*f(nf, level, i, j, k -1);
+                f_ad(nf, level, i, j, k) = (1.-0.1/(1<<(max_level-level)))*f(nf, level, i, j, k) + 0.1/(1<<(max_level-level))*f(nf, level, i, j, k -1);
             }
 
             // f_ad(0, level, i, j, k) = f(0, level, i, j  , k -1);
@@ -183,9 +183,7 @@ void one_step(Field & f, Func && update_bc_for_level, const Pred & pred_coeff,
         {
             std::size_t dl = max_level - level;
             double coeff = 1. / (1 << (3*dl)); // ATTENTION A LA DIMENSION 3 !!!!
-
-
-
+            
             leaves([&](auto& interval, auto& index) {
                 auto i = interval; // Logical index in x
                 auto j = index[0]; // Logical index in y
@@ -224,14 +222,14 @@ void one_step(Field & f, Func && update_bc_for_level, const Pred & pred_coeff,
             auto w_1  = xt::eval(lambda*lambda*(f_ad(0, level, i, j, k)+f_ad(1, level, i, j, k)-f_ad(2, level, i, j, k)-f_ad(3, level, i, j, k)));
             auto w_2  = xt::eval(lambda*lambda*(f_ad(0, level, i, j, k)+f_ad(1, level, i, j, k)                                                -f_ad(4, level, i, j, k)-f_ad(5, level, i, j, k)));
 
-            // q_x = (1.-s1)*q_x + s1*Vx*u;
-            // q_y = (1.-s1)*q_y + s1*Vy*u;
-            // q_z = (1.-s1)*q_z + s1*Vz*u;
+            q_x = (1.-s1)*q_x + s1*Vx*u;
+            q_y = (1.-s1)*q_y + s1*Vy*u;
+            q_z = (1.-s1)*q_z + s1*Vz*u;
 
             // // Burgers-like
-            q_x = (1.-s1)*q_x + s1*.5*Vx*xt::pow(u, 2.);
-            q_y = (1.-s1)*q_y + s1*.5*Vy*xt::pow(u, 2.);
-            q_z = (1.-s1)*q_z + s1*.5*Vz*xt::pow(u, 2.);
+            // q_x = (1.-s1)*q_x + s1*.5*Vx*xt::pow(u, 2.);
+            // q_y = (1.-s1)*q_y + s1*.5*Vy*xt::pow(u, 2.);
+            // q_z = (1.-s1)*q_z + s1*.5*Vz*xt::pow(u, 2.);
 
             w_1 = (1-s2)*w_1;
             w_2 = (1-s2)*w_2;
@@ -279,8 +277,8 @@ int main()
     constexpr size_t dim = 3;
     using Config = samurai::MRConfig<dim, 2>;
 
-    std::size_t min_level = 2;
-    std::size_t max_level = 6;
+    std::size_t min_level = 1;
+    std::size_t max_level = 7;
 
     const double eps = 1.e-3;
     const double reg = 2.;
@@ -302,7 +300,7 @@ int main()
 
     using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
     using coord_index_t = typename samurai::MRMesh<Config>::coord_index_t;
-    // auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
+    auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
 
     auto f_field = samurai::make_field<double, 6>("f", mesh);
 
@@ -340,13 +338,14 @@ int main()
     // using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
 
 
-    for (std::size_t it = 0; it < 17; it++) {
+    for (std::size_t it = 0; it < 100; it++) {
 
         std::cout<<"Iteration = "<<it<<std::endl;
 
         std::cout<<"Doing mesh adaptation"<<std::endl;
+
         if (max_level > min_level)  {
-            MRadaptation(eps, reg, it == 0);
+            MRadaptation(eps, reg, false);
         }
         std::cout<<"Mesh adaptation done, saving solution"<<std::endl;
 
@@ -354,9 +353,9 @@ int main()
         
         std::cout<<"Saving done, time stepping"<<std::endl;
 
-        // one_step(f_field, update_bc_for_level, pred_coeff, lambda, s1, s2, Vx, Vy, Vz);
+        one_step(f_field, update_bc_for_level, pred_coeff, lambda, s1, s2, Vx, Vy, Vz);
 
-        one_step_debug(f_field, update_bc_for_level);
+        // one_step_debug(f_field, update_bc_for_level);
         // save_solution(f_field, it, "post");
 
     }
