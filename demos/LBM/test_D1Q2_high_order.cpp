@@ -474,6 +474,7 @@ std::array<double, 3> compute_error(samurai::Field<Config, double, 2> &f, FieldR
 
     double dx = 1.0 / (1 << max_level);
 
+
     for (std::size_t level = 0; level <= max_level; ++level)
     {
         auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
@@ -493,16 +494,105 @@ std::array<double, 3> compute_error(samurai::Field<Config, double, 2> &f, FieldR
                 uexact[idx] = exact_solution(x[idx], t, ad_vel, test_number); // We can probably do better
             }
 
-            auto rho_ref = xt::eval(fR(0, max_level, i) + fR(1, max_level, i));
-            auto rho = xt::eval(xt::view(sol, xt::all(), 0) +  xt::view(sol, xt::all(), 1));
+            // auto rho_ref = xt::eval(fR(0, max_level, i) + fR(1, max_level, i));
+            // auto rho = xt::eval(xt::view(sol, xt::all(), 0) +  xt::view(sol, xt::all(), 1));
+
+            xt::xtensor<double, 1> rho_ref = fR(0, max_level, i) + fR(1, max_level, i);
+            xt::xtensor<double, 1> rho = xt::view(sol, xt::all(), 0) +  xt::view(sol, xt::all(), 1);
 
             error_ref += xt::sum(xt::abs(rho_ref - uexact))[0];
             error_ad += xt::sum(xt::abs(rho - uexact))[0];
-            diff  += xt::sum(xt::abs(rho_ref - rho))[0];
+            // diff  += xt::sum(xt::sqrt(xt::pow(rho_ref - rho, 2.)))[0];
+            diff  += xt::sum(xt::abs(1e13*rho_ref-1e13*rho))[0]*1e-13;
         });
     }
     return {dx * error_ref, dx * error_ad, dx * diff}; // Normalization by dx before returning
 }
+
+template<class Field>
+void save_solution(const Field & field, const std::size_t it, const std::string ext = "")
+{
+    auto mesh = field.mesh();
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+
+    std::stringstream str;
+    str << "high_order_mr_"<<ext<<"-"<< it;
+
+    auto u = samurai::make_field<double, 1>("u", mesh);
+    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+
+    samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell) {
+        // auto center = cell.center();
+        // auto x = center[0];
+
+        u[cell] = field[cell][0] + field[cell][1];
+        level_[cell] = cell.level;
+    });
+    samurai::save(str.str().data(), mesh, u, level_);
+}
+
+
+template<class Field, class FieldOr, class MeshOrig,  class Func>
+void save_reconstructed(Field & f, FieldOr & f_or, const MeshOrig & init_mesh, Func && update_bc_for_level, std::size_t ite, const std::string ext = "")
+{
+
+    constexpr std::size_t size = Field::size;
+    using value_t = typename Field::value_type;
+    auto mesh = f.mesh();
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+    auto min_level = mesh.min_level();
+    auto max_level = mesh.max_level();
+
+    double dx = 1./(1<<max_level);
+
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+
+    auto frec = samurai::make_field<value_t, size>("f_reconstructed", init_mesh);
+    frec.fill(0.);
+
+    using interval_t  = typename Field::interval_t; // Type in X
+    std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> memoization_map;
+    memoization_map.clear();
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
+                                         mesh[mesh_id_t::cells][level])
+                  .on(max_level);
+
+        exp([&](auto &interval, auto) {
+            auto i = interval;
+            auto j = max_level - level;
+
+            frec(max_level, i) = prediction_all_high_order(f, level, j, i, memoization_map);
+        });
+    }
+
+    std::stringstream str;
+    str << "high_order_mr_reconstructed_"<<ext<< "_ite-" << ite;
+
+    auto u_rec = samurai::make_field<value_t, 1>("u_reconstructed", init_mesh);
+    auto u_or = samurai::make_field<value_t, 1>("u_original", init_mesh);
+    auto diff = samurai::make_field<value_t, 1>("diff", init_mesh);
+
+    double foo = 0.;
+
+    samurai::for_each_cell(init_mesh[mesh_id_t::cells], [&](auto &cell) {
+        u_rec[cell] = frec[cell][0] + frec[cell][1];
+        u_or[cell] = f_or[cell][0] + f_or[cell][1];
+        diff[cell] = u_or[cell] - u_rec[cell];
+        // diff[cell] = u_rec[cell];
+
+        foo += std::abs(diff[cell]);
+    });
+
+    std::cout<< std::setprecision(9) << "Foo diff = "<<dx*foo<<std::endl;
+
+    samurai::save(str.str().data(), init_mesh, u_rec, u_or, diff);
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -540,7 +630,7 @@ int main(int argc, char *argv[])
             std::size_t min_level = 2;//result["min_level"].as<std::size_t>();
             std::size_t max_level = 9;//result["max_level"].as<std::size_t>();
             int test_number = result["test"].as<int>();
-            const bool finest_collision = true; // Do you want to reconstruct also for the collision ?
+            const bool finest_collision = false; // Do you want to reconstruct also for the collision ?
 
             // We set some parameters according
             // to the problem.
@@ -596,149 +686,151 @@ int main(int argc, char *argv[])
                 std::string prefix (case_name + "_s_"+std::to_string(s)+"_");
 
                 std::cout<<std::endl<<"Testing time behavior"<<std::endl;
-                // {
-                //     double eps = 1.0e-4; // This remains fixed
-
-                //     samurai::MRMesh<Config> mesh{box, min_level, max_level};
-                //     samurai::MRMesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
-
-                //     // Initialization
-                //     auto f      = init_f(mesh , 0.0, ad_vel, lambda, test_number);
-                //     auto fR     = init_f(meshR, 0.0, ad_vel, lambda, test_number);
-
-                //     double dx = 1.0 / (1 << max_level);
-                //     double dt = dx/lambda;
-
-                //     std::size_t N = static_cast<std::size_t>(T / dt);
-
-                //     double t = 0.0;
-
-                //     std::ofstream out_time_frames;
-                //     std::ofstream out_error_exact_ref;
-                //     std::ofstream out_error_exact_ad;
-                //     std::ofstream out_diff_ref_adap;
-                //     std::ofstream out_compression;
-
-                //     out_time_frames.open     ("./d1q2/time/"+prefix+"time.dat");
-                //     out_error_exact_ref.open ("./d1q2/time/"+prefix+"E.dat");
-                //     out_error_exact_ad.open ("./d1q2/time/"+prefix+"e.dat");
-                //     out_diff_ref_adap.open   ("./d1q2/time/"+prefix+"delta.dat");
-                //     out_compression.open     ("./d1q2/time/"+prefix+"comp.dat");
-
-                //     auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
-
-                //     for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
-                //     {
-                //         MRadaptation(eps, sol_reg);
-
-                //         auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number);
-
-                //         out_time_frames    <<t       <<std::endl;
-                //         out_error_exact_ref<<error[0]<<std::endl;
-                //         out_error_exact_ad<<error[1]<<std::endl;
-                //         out_diff_ref_adap  <<error[2]<<std::endl;
-                //         out_compression    <<static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
-                //                            / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))<<std::endl;
-
-                //         std::cout<<std::endl<<"n = "<<nb_ite<<"   Time = "<<t<<" Diff = "<<error[1];
-
-                //         one_time_step(f, update_bc_for_level, s, lambda, ad_vel, test_number, finest_collision);
-                //         one_time_step(fR, update_bc_for_level, s, lambda, ad_vel, test_number);
-                //         t += dt;
-                //     }
-
-                //     std::cout<<std::endl;
-
-                //     out_time_frames.close();
-                //     out_error_exact_ref.close();
-                //     out_error_exact_ad.close();
-                //     out_diff_ref_adap.close();
-                //     out_compression.close();
-                // }
-
-                std::cout<<std::endl<<"Testing eps behavior"<<std::endl;
                 {
-                    double eps = 0.1;
-                    std::size_t N_test = 50;
-                    double factor = 0.60;
-                    std::ofstream out_eps;
-                    std::ofstream out_error_adap;
+                    double eps = 1.0e-4; // This remains fixed
+
+                    samurai::MRMesh<Config> mesh{box, min_level, max_level};
+                    samurai::MRMesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
+
+                    // Initialization
+                    auto f      = init_f(mesh , 0.0, ad_vel, lambda, test_number);
+                    auto fR     = init_f(meshR, 0.0, ad_vel, lambda, test_number);
+
+                    double dx = 1.0 / (1 << max_level);
+                    double dt = dx/lambda;
+
+                    std::size_t N = static_cast<std::size_t>(T / dt);
+
+                    double t = 0.0;
+
+                    std::ofstream out_time_frames;
+                    std::ofstream out_error_exact_ref;
+                    std::ofstream out_error_exact_ad;
                     std::ofstream out_diff_ref_adap;
                     std::ofstream out_compression;
-                    std::ofstream out_max_level;
-                    std::ofstream out_compression_avg;
 
+                    out_time_frames.open     ("./d1q2/time/"+prefix+"time.dat");
+                    out_error_exact_ref.open ("./d1q2/time/"+prefix+"E.dat");
+                    out_error_exact_ad.open ("./d1q2/time/"+prefix+"e.dat");
+                    out_diff_ref_adap.open   ("./d1q2/time/"+prefix+"delta.dat");
+                    out_compression.open     ("./d1q2/time/"+prefix+"comp.dat");
 
-                    out_eps.open             ("./d1q2/eps/"+prefix+"eps.dat");
-                    out_error_adap.open   ("./d1q2/eps/"+prefix+"e.dat");
-                    out_diff_ref_adap.open   ("./d1q2/eps/"+prefix+"diff.dat");
-                    out_compression_avg.open     ("./d1q2/eps/"+prefix+"comp_avf.dat");
-                    out_compression.open     ("./d1q2/eps/"+prefix+"comp.dat");
-                    out_max_level.open       ("./d1q2/eps/"+prefix+"maxlevel.dat");
+                    auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
 
-                    for (std::size_t n_test = 0; n_test < N_test; ++ n_test)    {
-                        std::cout<<std::endl<<"Test "<<n_test<<" eps = "<<eps;
-
-                        mesh_t mesh{box, min_level, max_level};
-                        mesh_t meshR{box, max_level, max_level}; // This is the reference scheme
-
-                        // Initialization
-                        auto f  = init_f(mesh , 0.0, ad_vel, lambda, test_number);
-                        auto fR = init_f(meshR, 0.0, ad_vel, lambda, test_number);
-
-                        double dx = 1.0 / (1 << max_level);
-                        double dt = dx/lambda;
-
-                        std::size_t N = static_cast<std::size_t>(T / dt);
-
-                        double t = 0.0;
-
-                        auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
-                        double comp_avg = 0.;
-
-                        // for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
-                        // for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
-                        for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
-
-                        {
-                            MRadaptation(eps, sol_reg);
-                            comp_avg += (static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
-                                           / static_cast<double>(meshR.nb_cells(mesh_id_t::cells)))/N;
-
-                            // one_time_step(f , update_bc_for_level, s, lambda, ad_vel, test_number, finest_collision);
-                            // one_time_step(fR, update_bc_for_level, s, lambda, ad_vel, test_number);
-                            t += dt;
-                        }
+                    for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+                    {
+                        MRadaptation(eps, sol_reg);
 
                         auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number);
-                        std::cout<<"Diff = "<<error[2]<<std::endl;
+                        std::cout << std::setprecision(9) << "n = " << nb_ite << "   Time = " << t << " Diff = " << error[2] << " ";
+                        save_solution(f, nb_ite, std::to_string(s));
+                        save_reconstructed(f, fR, meshR, update_bc_for_level, nb_ite, std::to_string(s));
 
-                        std::size_t max_level_effective = mesh.min_level();
 
-                        for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)  {
-                            if (!mesh[mesh_id_t::cells][level].empty())
-                                max_level_effective = level;
-                        }
-
-                        out_max_level<<max_level_effective<<std::endl;
-
-                        out_eps<<eps<<std::endl;
-                        out_error_adap<<error[1]<<std::endl;
-                        out_diff_ref_adap<<error[2]<<std::endl;
-                        out_compression<<static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
+                        out_time_frames    <<t       <<std::endl;
+                        out_error_exact_ref<<error[0]<<std::endl;
+                        out_error_exact_ad<<error[1]<<std::endl;
+                        out_diff_ref_adap  <<error[2]<<std::endl;
+                        out_compression    <<static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
                                            / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))<<std::endl;
-                        out_compression_avg<<comp_avg<<std::endl;
 
-                        eps *= factor;
+                        one_time_step(f, update_bc_for_level, s, lambda, ad_vel, test_number, finest_collision);
+                        one_time_step(fR, update_bc_for_level, s, lambda, ad_vel, test_number);
+                        t += dt;
                     }
 
-                    out_eps.close();
-                    out_error_adap.close();
-                    out_compression_avg.close();
+                    std::cout<<std::endl;
+
+                    out_time_frames.close();
+                    out_error_exact_ref.close();
+                    out_error_exact_ad.close();
                     out_diff_ref_adap.close();
                     out_compression.close();
-                    out_max_level.close();
                 }
+
+                std::cout<<std::endl<<"Testing eps behavior"<<std::endl;
+                // {
+                //     double eps = 0.1;
+                //     std::size_t N_test = 50;
+                //     double factor = 0.60;
+                //     std::ofstream out_eps;
+                //     std::ofstream out_error_adap;
+                //     std::ofstream out_diff_ref_adap;
+                //     std::ofstream out_compression;
+                //     std::ofstream out_max_level;
+                //     std::ofstream out_compression_avg;
+
+
+                //     out_eps.open             ("./d1q2/eps/"+prefix+"eps.dat");
+                //     out_error_adap.open   ("./d1q2/eps/"+prefix+"e.dat");
+                //     out_diff_ref_adap.open   ("./d1q2/eps/"+prefix+"diff.dat");
+                //     out_compression_avg.open     ("./d1q2/eps/"+prefix+"comp_avf.dat");
+                //     out_compression.open     ("./d1q2/eps/"+prefix+"comp.dat");
+                //     out_max_level.open       ("./d1q2/eps/"+prefix+"maxlevel.dat");
+
+                //     for (std::size_t n_test = 0; n_test < N_test; ++ n_test)    {
+                //         std::cout<<std::endl<<"Test "<<n_test<<" eps = "<<eps;
+
+                //         mesh_t mesh{box, min_level, max_level};
+                //         mesh_t meshR{box, max_level, max_level}; // This is the reference scheme
+
+                //         // Initialization
+                //         auto f  = init_f(mesh , 0.0, ad_vel, lambda, test_number);
+                //         auto fR = init_f(meshR, 0.0, ad_vel, lambda, test_number);
+
+                //         double dx = 1.0 / (1 << max_level);
+                //         double dt = dx/lambda;
+
+                //         std::size_t N = static_cast<std::size_t>(T / dt);
+
+                //         double t = 0.0;
+
+                //         auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
+                //         double comp_avg = 0.;
+
+                //         // for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+                //         for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+                //         // for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
+
+                //         {
+                //             MRadaptation(eps, sol_reg);
+                //             comp_avg += (static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
+                //                            / static_cast<double>(meshR.nb_cells(mesh_id_t::cells)))/N;
+
+                //             one_time_step(f , update_bc_for_level, s, lambda, ad_vel, test_number, finest_collision);
+                //             one_time_step(fR, update_bc_for_level, s, lambda, ad_vel, test_number);
+                //             t += dt;
+                //         }
+
+                //         auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number);
+                //         std::cout<<"Diff = "<<error[2]<<std::endl;
+
+                //         std::size_t max_level_effective = mesh.min_level();
+
+                //         for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)  {
+                //             if (!mesh[mesh_id_t::cells][level].empty())
+                //                 max_level_effective = level;
+                //         }
+
+                //         out_max_level<<max_level_effective<<std::endl;
+
+                //         out_eps<<eps<<std::endl;
+                //         out_error_adap<<error[1]<<std::endl;
+                //         out_diff_ref_adap<<error[2]<<std::endl;
+                //         out_compression<<static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
+                //                            / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))<<std::endl;
+                //         out_compression_avg<<comp_avg<<std::endl;
+
+                //         eps *= factor;
+                //     }
+
+                //     out_eps.close();
+                //     out_error_adap.close();
+                //     out_compression_avg.close();
+                //     out_diff_ref_adap.close();
+                //     out_compression.close();
+                //     out_max_level.close();
+                // }
             }
         }
     }
