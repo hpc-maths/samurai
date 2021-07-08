@@ -83,15 +83,22 @@ double exact_solution(double x, double t)   {
 
     double u = 0;
 
-    if (x >= -1 and x < t)
-    {
-        u = (1 + x) / (1 + t);
-    }
+    // if (x >= -1 and x < t)
+    // {
+    //     u = (1 + x) / (1 + t);
+    // }
 
-    if (x >= t and x < 1)
-    {
-        u = (1 - x) / (1 - t);
-    }
+    // if (x >= t and x < 1)
+    // {
+    //     u = (1 - x) / (1 - t);
+    // }
+
+    double sigma = 0.5;
+    double rhoL = 0.0;
+    double rhoC = 1.0;
+    double rhoR = 0.0;
+
+    u =  (x + sigma <= rhoL * t) ? rhoL : ((x + sigma <= rhoC*t) ? (x+sigma)/t : ((x-sigma <= t/2*(rhoC + rhoR)) ? rhoC : rhoR ));
     return u;
 }
 
@@ -306,69 +313,69 @@ void one_time_step_overleaves(Field &f, const Pred& pred_coeff, Func && update_b
 }
 
 
-template<class Field>
-void one_time_step(Field &f, double s)
-{
-    constexpr std::size_t nvel = Field::size;
-    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+// template<class Field>
+// void one_time_step(Field &f, double s)
+// {
+//     constexpr std::size_t nvel = Field::size;
+//     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    double lambda = 1.;//, s = 1.0;
-    auto mesh = f.mesh();
-    auto max_level = mesh.max_level();
+//     double lambda = 1.;//, s = 1.0;
+//     auto mesh = f.mesh();
+//     auto max_level = mesh.max_level();
 
-    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+//     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
-    // MEMOIZATION
-    // All is ready to do a little bit  of mem...
-    using interval_t = typename Field::Config::interval_t;
-    std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
-    memoization_map.clear(); // Just to be sure...
+//     // MEMOIZATION
+//     // All is ready to do a little bit  of mem...
+//     using interval_t = typename Field::Config::interval_t;
+//     std::map<std::tuple<std::size_t, std::size_t, std::size_t, interval_t>, xt::xtensor<double, 1>> memoization_map;
+//     memoization_map.clear(); // Just to be sure...
 
-    Field new_f{"new_f", mesh};
-    new_f.array().fill(0.);
+//     Field new_f{"new_f", mesh};
+//     new_f.array().fill(0.);
 
-    for (std::size_t level = 0; level <= max_level; ++level)
-    {
-        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                      mesh[mesh_id_t::cells][level]);
-        exp([&](auto, auto &interval, auto) {
-            auto i = interval[0];
-
-
-            // STREAM
-
-            std::size_t j = max_level - level;
-
-            double coeff = 1. / (1 << j);
-
-            // This is the STANDARD FLUX EVALUATION
-
-            bool cheap = false;
-
-            auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, memoization_map, cheap)
-                                             -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, memoization_map, cheap));
-
-            auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, memoization_map, cheap)
-                                             -  prediction(f, level, j, (i+1)*(1<<j), 1, memoization_map, cheap));
+//     for (std::size_t level = 0; level <= max_level; ++level)
+//     {
+//         auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
+//                                       mesh[mesh_id_t::cells][level]);
+//         exp([&](auto, auto &interval, auto) {
+//             auto i = interval[0];
 
 
-            // COLLISION
+//             // STREAM
 
-            auto uu = xt::eval(fp + fm);
-            auto vv = xt::eval(lambda * (fp - fm));
+//             std::size_t j = max_level - level;
+
+//             double coeff = 1. / (1 << j);
+
+//             // This is the STANDARD FLUX EVALUATION
+
+//             bool cheap = false;
+
+//             auto fp = f(0, level, i) + coeff * (prediction(f, level, j, i*(1<<j)-1, 0, memoization_map, cheap)
+//                                              -  prediction(f, level, j, (i+1)*(1<<j)-1, 0, memoization_map, cheap));
+
+//             auto fm = f(1, level, i) - coeff * (prediction(f, level, j, i*(1<<j), 1, memoization_map, cheap)
+//                                              -  prediction(f, level, j, (i+1)*(1<<j), 1, memoization_map, cheap));
 
 
-            //vv = (1 - s) * vv + s * 0.75 * uu;
+//             // COLLISION
 
-            vv = (1 - s) * vv + s * .5 * uu * uu;
+//             auto uu = xt::eval(fp + fm);
+//             auto vv = xt::eval(lambda * (fp - fm));
 
-            new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
-            new_f(1, level, i) = .5 * (uu - 1. / lambda * vv);
-        });
-    }
 
-    std::swap(f.array(), new_f.array());
-}
+//             //vv = (1 - s) * vv + s * 0.75 * uu;
+
+//             vv = (1 - s) * vv + s * .5 * uu * uu;
+
+//             new_f(0, level, i) = .5 * (uu + 1. / lambda * vv);
+//             new_f(1, level, i) = .5 * (uu - 1. / lambda * vv);
+//         });
+//     }
+
+//     std::swap(f.array(), new_f.array());
+// }
 
 template<class Field>
 void save_solution(Field &f, double eps, std::size_t ite, std::string ext = "")
@@ -550,7 +557,9 @@ int main(int argc, char *argv[])
             const double lambda = 1.;
             const double regularity = 0.;
 
-            double T = 1.3;
+            // double T = 1.3;
+            double T = 0.7;
+
             double dx = 1.0 / (1 << max_level);
             double dt = dx / lambda;
 

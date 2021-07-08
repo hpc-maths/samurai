@@ -137,7 +137,8 @@ void init_f(Field & field, const double lambda, const double ad_vel)
         auto center = cell.center();
         auto x = center[0];
 
-        double u = std::exp(-20*x*x);
+        // double u = std::exp(-20*x*x);
+        double u = 0.5 * (1.0 + tanh(100. * x));
         double v = ad_vel * u;
 
         field[cell][0] = .5 * (u + v/lambda);
@@ -544,6 +545,7 @@ void save_solution(const Field & field, const std::size_t it, const std::string 
     samurai::save(str.str().data(), mesh, u, level_);
 }
 
+
 template<class Field, class MeshOrig,  class Func>
 void save_reconstructed(Field & f, const MeshOrig & init_mesh, Func && update_bc_for_level, std::size_t ite)
 {
@@ -575,7 +577,7 @@ void save_reconstructed(Field & f, const MeshOrig & init_mesh, Func && update_bc
             auto i = interval;
             auto j = max_level - level;
 
-            frec(max_level, i) = prediction_all(f, level, j, i, memoization_map);
+            frec(max_level, i) = prediction_all_high_order(f, level, j, i, memoization_map);
         });
     }
 
@@ -601,10 +603,10 @@ int main()
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using coord_index_t = typename mesh_t::interval_t::coord_index_t;
 
-    std::size_t min_level = 1;
+    std::size_t min_level = 2;
     std::size_t max_level = 9;
     double epsilon = 1.e-3;
-    double regularity = 1.;
+    double regularity = 600.;
 
     double ad_vel = 0.75;
     double lambda = 1.;
@@ -619,27 +621,26 @@ int main()
 
     auto update_bc_for_level = [](auto& field, std::size_t level)
     {
-        update_bc_1D_constant_extension(field, level);
+        update_bc_1D_constant_extension_four_ghosts(field, level);
     };
 
     auto pred_coeff_separate = compute_prediction_separate_inout<coord_index_t>(min_level, max_level);
     auto MRadaptation = samurai::make_MRAdapt(f_field, update_bc_for_level);
 
-    for (std::size_t ite = 0; ite < 100; ++ite) {
+    for (std::size_t ite = 0; ite < 1; ++ite) {
 
         MRadaptation(epsilon, regularity);
         save_solution(f_field, ite);
         save_reconstructed(f_field, mesh_orig, update_bc_for_level, ite);
 
-
         // std::cout<<mesh<<std::endl;
         
         // one_time_step(f_field, update_bc_for_level, pred_coeff_separate, s_rel, lambda, ad_vel);
-        one_time_step(f_field, update_bc_for_level, s_rel);
+        // one_time_step(f_field, update_bc_for_level, s_rel);
 
 
         // one_time_step(f_field, update_bc_for_level, s_rel);
-        save_solution(f_field, ite, "post");
+        // save_solution(f_field, ite, "post");
 
         // one_time_step(f_field, update_bc_for_level, pred_coeff_separate, s_rel, lambda, ad_vel);
 
