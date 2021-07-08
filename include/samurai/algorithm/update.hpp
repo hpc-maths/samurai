@@ -17,6 +17,8 @@ namespace samurai
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
+        constexpr std::size_t prediction_width = Field::mesh_t::config::prediction_width;
+
         auto mesh = field.mesh();
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
@@ -35,7 +37,8 @@ namespace samurai
                                              mesh[mesh_id_t::reference][level-1])
                                .on(level);
             update_bc_for_level(field, level-1);
-            set_at_level.apply_op(prediction<1, false>(field));
+            // This is the order of the multiresolution
+            set_at_level.apply_op(prediction<prediction_width, false>(field));
             update_bc_for_level(field, level);
         }
     }
@@ -44,6 +47,8 @@ namespace samurai
     void update_ghost_mr(Field& field, Func&& update_bc_for_level)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+        constexpr std::size_t s_for_prediction = Field::mesh_t::config::s_for_prediction;
 
         auto mesh = field.mesh();
         std::size_t min_level = mesh.min_level();
@@ -71,7 +76,7 @@ namespace samurai
                         .on(level);
 
             update_bc_for_level(field, level-1);
-            expr.apply_op(prediction<1, false>(field));
+            expr.apply_op(prediction<s_for_prediction, false>(field));
             update_bc_for_level(field, level);
         }
     }
@@ -80,6 +85,8 @@ namespace samurai
     void update_overleaves_mr(Field& field, Func&& update_bc_for_level)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+        constexpr std::size_t s_for_prediction = Field::mesh_t::config::s_for_prediction;
 
         auto mesh = field.mesh();
         std::size_t min_level = mesh.min_level();
@@ -93,8 +100,8 @@ namespace samurai
             auto overleaves_to_predict = difference(difference(mesh[mesh_id_t::overleaves][level],
                                                                mesh[mesh_id_t::cells_and_ghosts][level]),
                                                     mesh[mesh_id_t::proj_cells][level]);
-
-            overleaves_to_predict.apply_op(prediction<1, false>(field));
+            // This is the order of the multiresolution
+            overleaves_to_predict.apply_op(prediction<s_for_prediction, false>(field));
             update_bc_for_level(field, level);
         }
     }
@@ -108,6 +115,8 @@ namespace samurai
         using interval_t = typename mesh_t::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
         using cl_type = typename Field::mesh_t::cl_type;
+
+        constexpr std::size_t s_for_prediction = Field::mesh_t::config::s_for_prediction;
 
         auto mesh = field.mesh();
 
@@ -167,7 +176,7 @@ namespace samurai
             auto set_refine = intersection(new_mesh[mesh_id_t::cells][level],
                                            mesh[mesh_id_t::cells][level-1])
                              .on(level - 1);
-            set_refine.apply_op(prediction<1, true>(new_field, field));
+            set_refine.apply_op(prediction<s_for_prediction, true>(new_field, field));
         }
 
         field.mesh_ptr()->swap(new_mesh);
@@ -185,6 +194,8 @@ namespace samurai
         using coord_index_t = typename interval_t::coord_index_t;
         using cl_type = typename Field::mesh_t::cl_type;
 
+        constexpr std::size_t s_for_prediction = Field::mesh_t::config::s_for_prediction;
+
         auto mesh = field.mesh();
 
         cl_type cl;
@@ -243,7 +254,7 @@ namespace samurai
             auto set_refine = intersection(new_mesh[mesh_id_t::cells][level],
                                            mesh[mesh_id_t::cells][level-1])
                              .on(level - 1);
-            set_refine.apply_op(prediction<1, true>(new_field, field));
+            set_refine.apply_op(prediction<s_for_prediction, true>(new_field, field));
         }
 
         auto old_mesh = old_field.mesh();

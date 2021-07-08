@@ -336,7 +336,7 @@ void one_time_step(Field &f, const Pred& pred_coeff, Func && update_bc_for_level
 }
 
 template<class Config, class FieldR, class Func>
-std::array<double, 6> compute_error(samurai::Field<Config, double, 6> &f, FieldR & fR, Func&& update_bc_for_level, double t)
+std::array<double, 9> compute_error(samurai::Field<Config, double, 6> &f, FieldR & fR, Func&& update_bc_for_level, double t)
 {
     auto mesh = f.mesh();
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
@@ -352,13 +352,17 @@ std::array<double, 6> compute_error(samurai::Field<Config, double, 6> &f, FieldR
     std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> error_memoization_map;
     error_memoization_map.clear();
 
-    double error_rho = 0.0; // First momentum
-    double error_q = 0.0; // Second momentum
-    double error_E = 0.0; // Third momentum
+    double E_rho = 0.0; // First momentum
+    double E_q = 0.0; // Second momentum
+    double E_E = 0.0; // Third momentum
 
-    double diff_rho = 0.0;
-    double diff_q = 0.0;
-    double diff_E = 0.0;
+    double e_rho = 0.0; // First momentum
+    double e_q = 0.0; // Second momentum
+    double e_E = 0.0; // Third momentum
+
+    double delta_rho = 0.0;
+    double delta_q = 0.0;
+    double delta_E = 0.0;
 
     double dx = 1.0 / (1 << max_level);
 
@@ -398,17 +402,22 @@ std::array<double, 6> compute_error(samurai::Field<Config, double, 6> &f, FieldR
             auto q_ref =  xt::eval(fR(2, max_level, i) + fR(3, max_level, i));
             auto E_ref =  xt::eval(fR(4, max_level, i) + fR(5, max_level, i));
 
-            error_rho += xt::sum(xt::abs(rho_ref - rhoexact))[0];
-            error_q += xt::sum(xt::abs(q_ref - qexact))[0];
-            error_E += xt::sum(xt::abs(E_ref - Eexact))[0];
-            diff_rho += xt::sum(xt::abs(rho_ref - rho))[0];
-            diff_q += xt::sum(xt::abs(q_ref - q))[0];
-            diff_E += xt::sum(xt::abs(E_ref - E))[0];
+            E_rho += xt::sum(xt::abs(rho_ref - rhoexact))[0];
+            E_q += xt::sum(xt::abs(q_ref - qexact))[0];
+            E_E += xt::sum(xt::abs(E_ref - Eexact))[0];
+
+            e_rho += xt::sum(xt::abs(rho - rhoexact))[0];
+            e_q += xt::sum(xt::abs(q - qexact))[0];
+            e_E += xt::sum(xt::abs(E - Eexact))[0];
+
+            delta_rho += xt::sum(xt::abs(rho_ref - rho))[0];
+            delta_q += xt::sum(xt::abs(q_ref - q))[0];
+            delta_E += xt::sum(xt::abs(E_ref - E))[0];
         });
     }
-    return {dx * error_rho, dx * diff_rho,
-            dx * error_q, dx * diff_q,
-            dx * error_E, dx * diff_E};
+    return {dx * E_rho, dx * e_rho, dx * delta_rho,
+            dx * E_q  , dx * e_q  , dx * delta_q,
+            dx * E_E  , dx * e_E  , dx * delta_E};
 }
 
 int main(int argc, char *argv[])
@@ -488,20 +497,26 @@ int main(int argc, char *argv[])
                     std::ofstream out_time_frames;
 
                     std::ofstream out_error_rho_exact_ref; // On the density
+                    std::ofstream out_error_rho_exact_adap; // On the density
                     std::ofstream out_diff_rho_ref_adap;
                     std::ofstream out_error_q_exact_ref; // On the momentum
+                    std::ofstream out_error_q_exact_adap; // On the momentum
                     std::ofstream out_diff_q_ref_adap;
                     std::ofstream out_error_E_exact_ref; // On the energy
+                    std::ofstream out_error_E_exact_adap; // On the energy
                     std::ofstream out_diff_E_ref_adap;
                     std::ofstream out_compression;
 
                     out_time_frames.open     ("./d1q2_3/time/"+prefix+"time.dat");
-                    out_error_rho_exact_ref.open ("./d1q2_3/time/"+prefix+"error_rho.dat");
-                    out_diff_rho_ref_adap.open   ("./d1q2_3/time/"+prefix+"diff_rho.dat");
-                    out_error_q_exact_ref.open ("./d1q2_3/time/"+prefix+"error_q.dat");
-                    out_diff_q_ref_adap.open   ("./d1q2_3/time/"+prefix+"diff_q.dat");
-                    out_error_E_exact_ref.open ("./d1q2_3/time/"+prefix+"error_E.dat");
-                    out_diff_E_ref_adap.open   ("./d1q2_3/time/"+prefix+"diff_E.dat");
+                    out_error_rho_exact_ref.open ("./d1q2_3/time/"+prefix+"E_rho.dat");
+                    out_error_rho_exact_adap.open ("./d1q2_3/time/"+prefix+"e_rho.dat");
+                    out_diff_rho_ref_adap.open   ("./d1q2_3/time/"+prefix+"delta_rho.dat");
+                    out_error_q_exact_ref.open ("./d1q2_3/time/"+prefix+"E_q.dat");
+                    out_error_q_exact_adap.open ("./d1q2_3/time/"+prefix+"e_q.dat");
+                    out_diff_q_ref_adap.open   ("./d1q2_3/time/"+prefix+"delta_q.dat");
+                    out_error_E_exact_ref.open ("./d1q2_3/time/"+prefix+"E_E.dat");
+                    out_error_E_exact_adap.open ("./d1q2_3/time/"+prefix+"e_E.dat");
+                    out_diff_E_ref_adap.open   ("./d1q2_3/time/"+prefix+"delta_E.dat");
                     out_compression.open     ("./d1q2_3/time/"+prefix+"comp.dat");
 
                     auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
@@ -514,11 +529,14 @@ int main(int argc, char *argv[])
 
                         out_time_frames    <<t       <<std::endl;
                         out_error_rho_exact_ref<<error[0]<<std::endl;
-                        out_diff_rho_ref_adap  <<error[1]<<std::endl;
-                        out_error_q_exact_ref<<error[2]<<std::endl;
-                        out_diff_q_ref_adap  <<error[3]<<std::endl;
-                        out_error_E_exact_ref<<error[4]<<std::endl;
-                        out_diff_E_ref_adap  <<error[5]<<std::endl;
+                        out_error_rho_exact_adap<<error[1]<<std::endl;
+                        out_diff_rho_ref_adap  <<error[2]<<std::endl;
+                        out_error_q_exact_ref<<error[3]<<std::endl;
+                        out_error_q_exact_adap<<error[4]<<std::endl;
+                        out_diff_q_ref_adap  <<error[5]<<std::endl;
+                        out_error_E_exact_ref<<error[6]<<std::endl;
+                        out_error_E_exact_adap<<error[7]<<std::endl;
+                        out_diff_E_ref_adap  <<error[8]<<std::endl;
 
                         out_compression     <<static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
                                            / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))<<std::endl;
@@ -534,10 +552,13 @@ int main(int argc, char *argv[])
 
                     out_time_frames.close();
                     out_error_rho_exact_ref.close();
+                    out_error_rho_exact_adap.close();
                     out_diff_rho_ref_adap.close();
                     out_error_q_exact_ref.close();
+                    out_error_q_exact_adap.close();
                     out_diff_q_ref_adap.close();
                     out_error_E_exact_ref.close();
+                    out_error_E_exact_adap.close();
                     out_diff_E_ref_adap.close();
                     out_compression.close();
                 }
@@ -553,12 +574,14 @@ int main(int argc, char *argv[])
                     std::ofstream out_diff_q_ref_adap;
                     std::ofstream out_diff_E_ref_adap;
                     std::ofstream out_compression;
+                    std::ofstream out_compression_avg;
 
                     out_eps.open             ("./d1q2_3/eps/"+prefix+"eps.dat");
                     out_diff_rho_ref_adap.open   ("./d1q2_3/eps/"+prefix+"diff_rho.dat");
                     out_diff_q_ref_adap.open     ("./d1q2_3/eps/"+prefix+"diff_q.dat");
                     out_diff_E_ref_adap.open     ("./d1q2_3/eps/"+prefix+"diff_E.dat");
                     out_compression.open     ("./d1q2_3/eps/"+prefix+"comp.dat");
+                    out_compression_avg.open     ("./d1q2_3/eps/"+prefix+"comp_avg.dat");
 
                     for (std::size_t n_test = 0; n_test < N_test; ++ n_test)    {
                         std::cout<<std::endl<<"Test "<<n_test<<" eps = "<<eps;
@@ -577,12 +600,15 @@ int main(int argc, char *argv[])
 
                         double t = 0.0;
                         auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
+                        double comp_avg = 0.;
 
                         for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
                         {
 
                             MRadaptation(eps, sol_reg);
 
+                            comp_avg += (static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
+                                           / static_cast<double>(meshR.nb_cells(mesh_id_t::cells)))/N;
                             one_time_step(f , pred_coeff_separate, update_bc_for_level, s, lambda);
                             one_time_step(fR, pred_coeff_separate, update_bc_for_level, s, lambda);
                             t += dt;
@@ -592,10 +618,11 @@ int main(int argc, char *argv[])
                         std::cout<<"Diff  h= "<<error[1]<<std::endl<<"Diff q = "<<error[3]<<std::endl<<"Diff E = "<<error[5]<<std::endl;
 
                         out_eps<<eps<<std::endl;
-                        out_diff_rho_ref_adap<<error[1]<<std::endl;
-                        out_diff_q_ref_adap<<error[3]<<std::endl;
-                        out_diff_E_ref_adap<<error[5]<<std::endl;
+                        out_diff_rho_ref_adap<<error[3]<<std::endl;
+                        out_diff_q_ref_adap<<error[5]<<std::endl;
+                        out_diff_E_ref_adap<<error[8]<<std::endl;
 
+                        out_compression_avg<<comp_avg<<std::endl;
                         out_compression     <<static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
                                            / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))<<std::endl;
 
@@ -607,6 +634,8 @@ int main(int argc, char *argv[])
                     out_diff_q_ref_adap.close();
                     out_diff_E_ref_adap.close();
                     out_compression.close();
+                    out_compression_avg.close();
+
                 }
             }
         }

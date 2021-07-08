@@ -151,7 +151,9 @@ namespace samurai
         template<class T>
         inline void operator()(Dim<1>, T &detail, const T &field) const
         {
-            auto qs_i = xt::eval(Qs_i<1>(field, level, i));
+            constexpr std::size_t s_for_prediction = T::mesh_t::config::s_for_prediction;
+
+            auto qs_i = xt::eval(Qs_i<s_for_prediction>(field, level, i));
 
             detail(level + 1, 2 * i) = field(level + 1, 2 * i) - (field(level, i) + qs_i);
 
