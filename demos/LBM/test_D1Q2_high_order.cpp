@@ -448,7 +448,7 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
 }
 
 template<class Config, class FieldR, class Func>
-std::array<double, 3> compute_error(samurai::Field<Config, double, 2> &f, FieldR & fR, Func&& update_bc_for_level, double t, double ad_vel, int test_number)
+std::array<double, 3> compute_error(samurai::Field<Config, double, 2> &f, FieldR & fR, Func&& update_bc_for_level, double t, double ad_vel, int test_number, std::size_t it, std::string ext = "")
 {
 
     auto mesh = f.mesh();
@@ -475,6 +475,9 @@ std::array<double, 3> compute_error(samurai::Field<Config, double, 2> &f, FieldR
     double dx = 1.0 / (1 << max_level);
 
 
+    auto frec = samurai::make_field<double, 2>("f_reconstructed", meshR);
+    frec.fill(0.);
+
     for (std::size_t level = 0; level <= max_level; ++level)
     {
         auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
@@ -486,6 +489,8 @@ std::array<double, 3> compute_error(samurai::Field<Config, double, 2> &f, FieldR
 
             auto sol  = prediction_all_high_order(f, level, j, i, error_memoization_map);
             auto solR = xt::view(fR(max_level, i), xt::all(), xt::range(0, 2));
+
+            frec(max_level, i) = sol;
 
             xt::xtensor<double, 1> x = dx*xt::linspace<int>(i.start, i.end - 1, i.size()) + 0.5*dx;
             xt::xtensor<double, 1> uexact = xt::zeros<double>(x.shape());
@@ -506,6 +511,21 @@ std::array<double, 3> compute_error(samurai::Field<Config, double, 2> &f, FieldR
             diff  += xt::sum(xt::abs(1e13*rho_ref-1e13*rho))[0]*1e-13;
         });
     }
+
+
+    std::stringstream str;
+    str << "high_order_mr_reconstructed_DEBUG_"<<ext<<"_ite-" << it;
+
+    auto u_rec = samurai::make_field<double, 1>("u_reconstructed", meshR);
+    auto diff_field = samurai::make_field<double, 1>("diff", meshR);
+
+    samurai::for_each_cell(meshR[mesh_id_t::cells], [&](auto &cell) {
+        u_rec[cell] = frec[cell][0] + frec[cell][1];
+        diff_field[cell] = fR[cell][0] + fR[cell][1] - u_rec[cell];
+    });
+    samurai::save(str.str().data(), meshR, u_rec, diff_field);
+
+
     return {dx * error_ref, dx * error_ad, dx * diff}; // Normalization by dx before returning
 }
 
@@ -721,7 +741,7 @@ int main(int argc, char *argv[])
                     {
                         MRadaptation(eps, sol_reg);
 
-                        auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number);
+                        auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number, nb_ite, std::to_string(s));
                         std::cout << std::setprecision(9) << "n = " << nb_ite << "   Time = " << t << " Diff = " << error[2] << " ";
                         save_solution(f, nb_ite, std::to_string(s));
                         save_reconstructed(f, fR, meshR, update_bc_for_level, nb_ite, std::to_string(s));
