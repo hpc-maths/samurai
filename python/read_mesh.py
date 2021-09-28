@@ -29,19 +29,20 @@ class Plot:
     def __init__(self, filename):
         self.fig = plt.figure()
         self.artists = []
+        self.ax = []
 
         mesh = read_mesh(filename)
         if args.field is None:
             ax = plt.subplot(111)
             self.plot(ax, mesh)
             ax.set_title("Mesh")
-            ax.autoscale()
+            self.ax = [ax]
         else:
             for i, f in enumerate(args.field):
                 ax = plt.subplot(1, len(args.field), i + 1)
                 self.plot(ax, mesh, f)
                 ax.set_title(f)
-                ax.autoscale()
+                self.ax.append(ax)
 
     def plot(self, ax, mesh, field=None, init=True):
         points = mesh['points']
@@ -71,6 +72,10 @@ class Plot:
             else:
                 line_update(self.artists[self.index], centers[index], data[index])
                 self.index += 1
+
+        for aax in self.ax:
+            aax.relim()
+            aax.autoscale_view()
 
     def update(self, filename):
         mesh = read_mesh(filename)
