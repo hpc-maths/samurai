@@ -5,8 +5,8 @@ dependencies:
   - cmake
   - ninja
   - xtensor
-  - xtensor-io
+  - xtensor-io=0.12.1
   - fmt=7
-  - spdlog
+  - spdlog=1.8.2
   - pugixml
   - cxxopts
