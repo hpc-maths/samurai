@@ -513,10 +513,10 @@ namespace samurai
     }
 
     template <class Mesh, class... T>
-    class Hdf5_CellArray: public SaveCellArray<Hdf5_CellArray<Mesh, T...>, T...>
+    class Hdf5_CellArray: public SaveCellArray<Hdf5_CellArray<Mesh, T...>, Mesh, T...>
     {
     public:
-        using base_type = SaveCellArray<Hdf5_CellArray<Mesh, T...>, T...>;
+        using base_type = SaveCellArray<Hdf5_CellArray<Mesh, T...>, Mesh, T...>;
         using options_t = typename base_type::options_t;
         using mesh_t = Mesh;
         static constexpr std::size_t dim = mesh_t::dim;
