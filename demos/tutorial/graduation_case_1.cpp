@@ -11,6 +11,7 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/subset/subset_op.hpp>
 
 auto generate_mesh(std::size_t start_level, std::size_t max_level)
 {
