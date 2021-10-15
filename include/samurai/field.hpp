@@ -7,7 +7,7 @@
 #include <array>
 #include <memory>
 
-#include <spdlog/spdlog.h>
+#include <fmt/format.h>
 
 #include <xtensor/xtensor.hpp>
 #include <xtensor/xview.hpp>
@@ -15,7 +15,6 @@
 #include "algorithm.hpp"
 #include "cell.hpp"
 #include "field_expression.hpp"
-// #include "mr/mesh.hpp"
 #include "mr/operators.hpp"
 
 namespace samurai
@@ -289,8 +288,8 @@ namespace samurai
         if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
             (interval_tmp.start > interval.start))
         {
-            spdlog::critical("{} FIELD ERROR on level {}: try to find interval {}",
-                             rw, level, interval);
+            std::cout << fmt::format("{} FIELD ERROR on level {}: try to find interval {}",
+                             rw, level, interval) << std::endl;
         }
 
         return interval_tmp;

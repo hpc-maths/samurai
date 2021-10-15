@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <spdlog/spdlog.h>
+// #include <spdlog/spdlog.h>
 
 #include "../field.hpp"
 #include "operators.hpp"
@@ -14,7 +14,7 @@ namespace samurai
     template<class Field>
     inline void mr_projection(Field &field)
     {
-        spdlog::debug("Make projection");
+        // spdlog::debug("Make projection");
 
         auto mesh = field.mesh();
         using mesh_id_t = typename decltype(mesh)::mesh_id_t;
@@ -34,7 +34,7 @@ namespace samurai
     template<class Field, class Func>
     inline void mr_prediction(Field &field, Func&& update_bc_for_level)
     {
-        spdlog::debug("Make prediction");
+        // spdlog::debug("Make prediction");
 
         auto mesh = field.mesh();
         using mesh_id_t = typename decltype(mesh)::mesh_id_t;
@@ -62,7 +62,7 @@ namespace samurai
     template<class Field, class Func>
     inline void mr_prediction_overleaves(Field &field, Func&& update_bc_for_level)
     {
-        spdlog::debug("Make prediction on the overleaves which are not already available");
+        // spdlog::debug("Make prediction on the overleaves which are not already available");
 
         auto mesh = field.mesh();
         using mesh_id_t = typename decltype(mesh)::mesh_id_t;

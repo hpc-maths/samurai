@@ -6,7 +6,6 @@ dependencies:
   - ninja
   - xtensor
   - xtensor-io=0.12.1
-  - fmt=7
-  - spdlog=1.8.2
+  - fmt
   - pugixml
   - cxxopts
