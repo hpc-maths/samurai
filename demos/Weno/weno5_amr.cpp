@@ -432,7 +432,7 @@ int main()
 
     auto field = init_field::call(samurai::Dim<dim>{}, mesh);
 
-    auto update_bc = [](auto& field, std::size_t level)
+    auto update_bc = [](std::size_t level, auto& field)
     {
         update_bc_for_level::call(samurai::Dim<dim>{}, field, level);
     };
@@ -449,17 +449,17 @@ int main()
         while(1)
         {
             std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
-            samurai::update_ghost(field, update_bc);
+            samurai::update_ghost(update_bc, field);
             auto tag = samurai::make_field<int, 1>("tag", mesh);
             AMR_criteria(field, tag);
             samurai::graduation(tag, stencil_graduation::call(samurai::Dim<dim>{}));
-            if (samurai::update_field(field, tag))
+            if (samurai::update_field(tag, field))
             {
                 break;
             }
         }
 
-        samurai::update_ghost(field, update_bc);
+        samurai::update_ghost(update_bc, field);
 
         auto vel = init_velocity<dim>(mesh);
         auto field_np1 = samurai::make_field<double, 1>("sol", mesh);

@@ -208,6 +208,7 @@ struct fmt::formatter<samurai::amr::AMR_Id>: formatter<string_view>
         case samurai::amr::AMR_Id::proj_cells:       name = "proj cells"; break;
         case samurai::amr::AMR_Id::pred_cells:       name = "pred cells"; break;
         case samurai::amr::AMR_Id::all_cells:        name = "all cells"; break;
+        case samurai::amr::AMR_Id::count:            name = "count"; break;
         }
         return formatter<string_view>::format(name, ctx);
     }
