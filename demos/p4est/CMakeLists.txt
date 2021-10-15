@@ -1,2 +1,2 @@
-add_executable(simple_2d simple_2d.cpp)
-target_link_libraries(simple_2d samurai)
+add_executable(p4est-simple-2d simple_2d.cpp)
+target_link_libraries(p4est-simple-2d samurai)

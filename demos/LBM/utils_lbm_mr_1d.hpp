@@ -66,7 +66,9 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
         for(int k_mask = 0, k_int = k.start; k_int < k.end; ++k_mask, ++k_int)
         {
             if (mask[k_mask])
+            {
                 xt::view(out, k_mask) = xt::view(f(0, nvel, level_g + level, {k_int, k_int + 1}), 0);
+            }
         }
 
         // It is crucial to use insert and not []

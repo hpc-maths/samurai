@@ -306,8 +306,8 @@ void one_time_step_overleaves(Field &f, const Pred& pred_coeff, Func && update_b
 }
 
 
-template<class Field>
-void one_time_step(Field &f, double s)
+template<class Field, class Func>
+void one_time_step(Field &f, Func&& update_bc_for_level, double s)
 {
     constexpr std::size_t nvel = Field::size;
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;

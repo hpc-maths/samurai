@@ -12,6 +12,7 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/subset/subset_op.hpp>
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -44,7 +45,7 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
 
         samurai::for_each_cell(mesh, [&](auto cell)
         {
-            auto corner = cell.first_corner();
+            auto corner = cell.corner();
             auto x = corner[0];
             auto y = corner[1];
 
@@ -95,7 +96,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 
         samurai::for_each_cell(mesh, [&](auto cell)
         {
-            auto corner = cell.first_corner();
+            auto corner = cell.corner();
             auto x = corner[0];
             auto y = corner[1];
 

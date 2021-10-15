@@ -1,2 +1,2 @@
-add_executable(step_6 main.cpp)
-target_link_libraries(step_6 PRIVATE samurai)
+add_executable(tutorial-burgers1d-step-6 main.cpp)
+target_link_libraries(tutorial-burgers1d-step-6 PRIVATE samurai)

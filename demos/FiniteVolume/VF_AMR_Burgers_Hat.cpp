@@ -12,7 +12,7 @@
 
 #include "stencil_field.hpp"
 
-#include "../FiniteVolume-MR/boundary_conditions.hpp"
+#include "../LBM/boundary_conditions.hpp"
 
 #include <chrono>
 

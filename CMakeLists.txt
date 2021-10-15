@@ -41,6 +41,7 @@ target_include_directories(
 target_link_libraries(samurai INTERFACE xtensor pugixml spdlog hdf5 fmt::fmt)
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
+OPTION(BUILD_DEMOS "samurai build all demos" OFF)
 OPTION(BUILD_TESTS "samurai test suite" OFF)
 OPTION(WITH_STATS "samurai mesh stats" OFF)
 
@@ -58,7 +59,11 @@ if(BUILD_TESTS)
     add_subdirectory(test)
 endif()
 
-add_subdirectory(demos EXCLUDE_FROM_ALL)
+if(BUILD_DEMOS)
+    add_subdirectory(demos)
+else()
+    add_subdirectory(demos EXCLUDE_FROM_ALL)
+endif()
 
 # Installation
 # ============
