@@ -1,12 +1,5 @@
 find_package(cxxopts)
 
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast -Wunused-variable")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Weverything -Wno-c++98-compat")
-# set(CMAKE_CXX_STANDARD 14)
-
-add_subdirectory(advection)
 # add_subdirectory(apple EXCLUDE_FROM_ALL)
 add_subdirectory(FiniteVolume)
 add_subdirectory(LBM)
