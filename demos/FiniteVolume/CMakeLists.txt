@@ -16,4 +16,4 @@ target_link_libraries(finite-volume-advection-2d samurai)
 add_executable(finite-volume-scalar-burgers-2d VF_scalar_burgers_2d.cpp)
 target_link_libraries(finite-volume-scalar-burgers-2d samurai)
 
-add_subdirectory(BZ)
+# add_subdirectory(BZ)
