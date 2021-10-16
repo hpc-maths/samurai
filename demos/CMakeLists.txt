@@ -7,7 +7,7 @@ find_package(cxxopts)
 # set(CMAKE_CXX_STANDARD 14)
 
 add_subdirectory(advection)
-add_subdirectory(apple EXCLUDE_FROM_ALL)
+# add_subdirectory(apple EXCLUDE_FROM_ALL)
 add_subdirectory(FiniteVolume)
 add_subdirectory(LBM)
 add_subdirectory(p4est)
