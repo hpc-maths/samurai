@@ -1,9 +1,6 @@
 add_executable(weno-weno5 weno5.cpp)
 target_link_libraries(weno-weno5 samurai)
 
-add_executable(weno-weno5-mr weno5_mr.cpp)
-target_link_libraries(weno-weno5-mr samurai)
-
 add_executable(weno-weno5-amr weno5_amr.cpp)
 target_link_libraries(weno-weno5-amr samurai)
 
