@@ -96,14 +96,15 @@ public:
     void update_sub_mesh_impl()
     {
         cl_type cl;
+        constexpr int gw = static_cast<int>(config::ghost_width);
         for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             lcl_type& lcl = cl[level];
-            samurai::static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
+            samurai::static_nested_loop<dim - 1, -gw, gw + 1>([&](auto stencil)
             {
                 auto index = xt::eval(index_yz + stencil);
-                lcl[index].add_interval({interval.start - config::ghost_width,
-                                         interval.end + config::ghost_width});
+                lcl[index].add_interval({interval.start - gw,
+                                         interval.end + gw});
             });
         });
         this->m_cells[mesh_id_t::ghost_and_cells] = {cl, false};
@@ -213,8 +214,8 @@ int main()
                     double yc = bb_ycenter[ib];
                     double radius = bb_radius[ib];
 
-                    auto corner = cell.first_corner();
-                    auto center = cell.center;
+                    auto corner = cell.corner();
+                    auto center = cell.center();
                     double dx = cell.length;
 
                     for(std::size_t i = 0; i < 2; ++i)

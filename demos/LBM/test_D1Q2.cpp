@@ -7,7 +7,6 @@
 #include <fstream>
 
 #include <cxxopts.hpp>
-#include <spdlog/spdlog.h>
 
 #include <xtensor/xio.hpp>
 
@@ -432,7 +431,6 @@ int main(int argc, char *argv[])
                        ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("10"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.01"))
                        ("s", "relaxation parameter", cxxopts::value<double>()->default_value("1.0"))
-                       ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("test", "test number", cxxopts::value<int>()->default_value("1"))
                        ("h, help", "Help");
 
@@ -444,15 +442,12 @@ int main(int argc, char *argv[])
             std::cout << options.help() << "\n";
         else
         {
-            std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
-                                                               {"warning", spdlog::level::warn}};
             constexpr size_t dim = 1;
             using Config = samurai::MRConfig<dim, 2>;
             using mesh_t = samurai::MRMesh<Config>;
             using mesh_id_t = typename mesh_t::mesh_id_t;
             using coord_index_t = typename mesh_t::interval_t::coord_index_t;
 
-            spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = 2;//result["min_level"].as<std::size_t>();
             std::size_t max_level = 9;//result["max_level"].as<std::size_t>();
             int test_number = result["test"].as<int>();

@@ -8,11 +8,14 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/field.hpp>
 #include <samurai/algorithm.hpp>
+#include <samurai/static_algorithm.hpp>
+#include <samurai/numeric/projection.hpp>
+#include <samurai/numeric/prediction.hpp>
 #include <samurai/stencil_field.hpp>
 #include <samurai/hdf5.hpp>
 
 #include "RockAndRadau/integration_stiff.h"
-#include "../../FiniteVolume-MR/boundary_conditions.hpp"
+#include "../../LBM/boundary_conditions.hpp"
 
 constexpr size_t dim = 2;
 
@@ -45,7 +48,7 @@ struct AMRConfig
     static constexpr std::size_t dim = dim_;
     static constexpr std::size_t max_refinement_level = 20;
     // static constexpr std::size_t ghost_width = 1;
-    static constexpr std::size_t ghost_width = 2;
+    static constexpr int ghost_width = 2;
 
     using interval_t = samurai::Interval<int>;
     using mesh_id_t = SimpleID;
@@ -334,7 +337,7 @@ inline void amr_projection(Field &field)
                                           mesh[mesh_id_t::cells_and_ghosts][level - 1])
                    .on(level - 1);
 
-        expr.apply_op(projection(field));
+        expr.apply_op(samurai::projection(field));
     }
 }
 
@@ -353,31 +356,9 @@ inline void amr_prediction(Field &field, Func&& update_bc_for_level)
                                                              mesh.get_union()[level]))
                    .on(level);
 
-        expr.apply_op(prediction(field));
+        expr.apply_op(samurai::prediction<1, false>(field));
         update_bc_for_level(field, level);
     }
-}
-
-template<class TInterval>
-class projection_op_: public samurai::field_operator_base<TInterval>
-{
-public:
-    INIT_OPERATOR(projection_op_)
-
-    template<class T>
-    inline void operator()(samurai::Dim<2>,T& new_field, const T& field) const
-    {
-        new_field(level, i, j) = .25 * (field(level + 1, 2 * i, 2 * j) +
-                                        field(level + 1, 2 * i, 2 * j + 1) +
-                                        field(level + 1, 2 * i + 1, 2 * j) +
-                                        field(level + 1, 2 * i + 1, 2 * j + 1));
-    }
-};
-
-template<class T>
-inline auto projection(T&& new_field, T&& field)
-{
-    return samurai::make_field_operator_function<projection_op_>(std::forward<T>(new_field), std::forward<T>(field));
 }
 
 template<class TInterval>
@@ -633,23 +614,17 @@ bool update_mesh(Field& f, const Tag& tag)
         subset.apply_op(samurai::copy(new_f, f));
     }
 
-    samurai::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
-    {
-        for (coord_index_t i = interval.start; i < interval.end; ++i)
-        {
-            if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
-            {
-                samurai::compute_prediction(level, interval_t{i, i + 1}, index_yz, f, new_f);
-            }
-        }
-    });
-
     for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
     {
         auto subset = samurai::intersection(mesh[SimpleID::cells][level],
-                                         new_mesh[SimpleID::cells][level - 1])
+                                            new_mesh[SimpleID::cells][level - 1])
                      .on(level - 1);
         subset.apply_op(projection(new_f, f));
+
+        auto set_refine = intersection(new_mesh[SimpleID::cells][level],
+                                       mesh[SimpleID::cells][level-1])
+                         .on(level - 1);
+        set_refine.apply_op(samurai::prediction<1, true>(new_f, f));
     }
 
     f.mesh_ptr()->swap(new_mesh);

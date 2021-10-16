@@ -800,6 +800,48 @@ namespace samurai
         }
     }
 
+    template<class TInterval>
+    class variadic_prediction_op: public field_operator_base<TInterval>
+    {
+    public:
+        INIT_OPERATOR(variadic_prediction_op)
+
+        template<std::size_t d, std::size_t order, bool dest_on_level>
+        inline void operator()(Dim<d>, std::integral_constant<std::size_t, order>, std::integral_constant<bool, dest_on_level>) const
+        {
+        }
+
+        template<std::size_t order, bool dest_on_level, class Head, class... Tail>
+        inline void operator()(Dim<1>, std::integral_constant<std::size_t, order> o, std::integral_constant<bool, dest_on_level> dest, Head& source, Tail&... sources) const
+        {
+            prediction_op<interval_t>(level, i)(Dim<1>{}, source, source, o, dest);
+            this->operator()(Dim<1>{}, o, dest, sources...);
+        }
+
+        template<std::size_t order, bool dest_on_level, class Head, class... Tail>
+        inline void operator()(Dim<2>, std::integral_constant<std::size_t, order> o, std::integral_constant<bool, dest_on_level> dest, Head& source, Tail&... sources) const
+        {
+            prediction_op<interval_t>(level, i, j)(Dim<2>{}, source, source, o, dest);
+            this->operator()(Dim<2>{}, o, dest, sources...);
+        }
+
+        template<std::size_t order, bool dest_on_level, class Head, class... Tail>
+        inline void operator()(Dim<3>, std::integral_constant<std::size_t, order> o, std::integral_constant<bool, dest_on_level> dest, Head& source, Tail&... sources) const
+        {
+            prediction_op<interval_t>(level, i, j, k)(Dim<3>{}, source, source, o, dest);
+            this->operator()(Dim<3>{}, o, dest, sources...);
+        }
+
+    };
+
+    template<std::size_t order, bool dest_on_level, class... T>
+    inline auto variadic_prediction(T&&... fields)
+    {
+        return make_field_operator_function<variadic_prediction_op>(std::integral_constant<std::size_t, order>{},
+                                                                    std::integral_constant<bool, dest_on_level>{},
+                                                                    std::forward<T>(fields)...);
+    }
+
     template<std::size_t order, bool dest_on_level, class T>
     inline auto prediction(T& field)
     {

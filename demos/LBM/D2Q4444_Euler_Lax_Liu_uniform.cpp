@@ -6,8 +6,6 @@
 #include <vector>
 
 #include <cxxopts.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/stopwatch.h>
 
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
@@ -304,7 +302,6 @@ int main(int argc, char *argv[])
 
     options.add_options()
                        ("level", "start level", cxxopts::value<std::size_t>()->default_value("8"))
-                       ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("ite", "number of iteration", cxxopts::value<std::size_t>()->default_value("100"))
                        ("config", "Lax-Liu configuration", cxxopts::value<int>()->default_value("12"))
                        ("h, help", "Help");
@@ -317,13 +314,9 @@ int main(int argc, char *argv[])
             std::cout << options.help() << "\n";
         else
         {
-            std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
-                                                                       {"warning", spdlog::level::warn},
-                                                                       {"info", spdlog::level::info}};
             constexpr size_t dim = 2;
             using Config = samurai::UniformConfig<dim, 2>;
 
-            spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t level = result["level"].as<std::size_t>();
             std::size_t total_nb_ite = result["ite"].as<std::size_t>();
             int configuration = result["config"].as<int>();

@@ -1,2 +1,2 @@
-add_executable(bubble_2d bubble_2d.cpp)
-target_link_libraries(bubble_2d samurai)
+add_executable(pablo-bubble-2d bubble_2d.cpp)
+target_link_libraries(pablo-bubble-2d samurai)

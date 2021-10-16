@@ -27,8 +27,10 @@ struct init_field
             auto x = cell.center(0);
             auto y = cell.center(1);
             double radius = 0.15;
-            field[cell] = std::sqrt((x - 0.5)*(x - 0.5)
-                                + (y - 0.75)*(y - 0.75)) - radius;
+	    double x0 = 0.5;
+	    double y0 = 0.75;
+            field[cell] = std::exp(-100*(  (x - x0)*(x - x0)
+					 + (y - y0)*(y - y0)) );
         });
         return field;
     }
@@ -45,13 +47,57 @@ struct init_field
             auto y = cell.center(1);
             auto z = cell.center(2);
             double radius = 0.15;
-            field[cell] = std::sqrt((x - 0.5)*(x - 0.5)
-                                  + (y - 0.75)*(y - 0.75)
-                                  + (z - 0.5)*(z - 0.5)) - radius;
+	    double x0 = 0.5;
+	    double y0 = 0.75;
+	    double z0 = 0.5;
+            field[cell] = std::exp(-100.*( (x - x0)*(x - x0)
+                                         + (y - y0)*(y - y0)
+					   + (z - z0)*(z - z0)  ) );
         });
         return field;
     }
 };
+
+template<std::size_t dim, class Mesh>
+auto init_velocity(Mesh& mesh)
+{
+    using mesh_id_t = typename Mesh::mesh_id_t;
+
+    auto u = samurai::make_field<double, dim>("u", mesh);
+    u.fill(0);
+
+    samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts], [&](auto &cell)
+    {
+        auto x = cell.center(0);
+        auto y = cell.center(1);
+
+        u[cell][0] = -std::pow(std::sin(M_PI*x), 2.) * std::sin(2.*M_PI*y);
+        u[cell][1] = std::pow(std::sin(M_PI*y), 2.) * std::sin(2.*M_PI*x);
+    });
+
+    return u;
+}
+
+template<std::size_t dim, class Mesh>
+auto init_phys(Mesh& mesh)
+{
+    using mesh_id_t = typename Mesh::mesh_id_t;
+
+    auto nu = samurai::make_field<double, 1>("nu", mesh);
+    nu.fill(0);
+
+    samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts], [&](auto &cell)
+    {
+	double  Reynolds=100.;
+
+	auto x = cell.center(0);
+        auto y = cell.center(1);
+
+        nu[cell] = 1./Reynolds;
+    });
+
+    return nu;
+}
 
 struct stencil_graduation
 {
@@ -85,26 +131,6 @@ struct stencil_graduation
         //                                                         { 0,  0, -1}};
     }
 };
-
-template<std::size_t dim, class Mesh>
-auto init_velocity(Mesh& mesh)
-{
-    using mesh_id_t = typename Mesh::mesh_id_t;
-
-    auto u = samurai::make_field<double, dim>("u", mesh);
-    u.fill(0);
-
-    samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts], [&](auto &cell)
-    {
-        auto x = cell.center(0);
-        auto y = cell.center(1);
-
-        u[cell][0] = -std::pow(std::sin(M_PI*x), 2.) * std::sin(2.*M_PI*y);
-        u[cell][1] = std::pow(std::sin(M_PI*y), 2.) * std::sin(2.*M_PI*x);
-    });
-
-    return u;
-}
 
 struct update_bc_for_level
 {
@@ -155,7 +181,7 @@ struct update_bc_for_level
         }
     }
 
-    template<class Field>
+  template<class Field>
     static void call(samurai::Dim<3>, Field& field, std::size_t level)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -250,6 +276,8 @@ void AMR_criteria(const Field& field, Tag& tag)
     });
 }
 
+
+/* Convection (non-conservative) Schema WENO 5 */
 
 template<class TInterval>
 class weno5_op : public samurai::field_operator_base<TInterval>,
@@ -418,6 +446,236 @@ inline auto weno5(CT &&... e)
     return samurai::make_field_operator_function<weno5_op>(std::forward<CT>(e)...);
 }
 
+
+/* Diffusion : Laplacien ordre 2 ou 4 */
+
+template<class TInterval>
+class laplace_explicit : public samurai::field_operator_base<TInterval>,
+                public samurai::field_expression<laplace_explicit<TInterval>>
+{
+    public:
+    INIT_OPERATOR(laplace_explicit)
+
+    template <class View>
+    auto flux_lap(const View& phi_i, View& nu_i) const
+    {
+        double inv_dx = 1./dx();
+
+	/* Flux Ordre 2 */
+
+	//        auto fip12 = (  xt::view(phi_i, 1)
+	//	      - xt::view(phi_i, 0) ) * inv_dx;
+
+	/* Ordre 4 : fb(i+1/2) = ( -f(i+2) + 15*f(j+1) - 15*f(j) + f(j-1) )/dx */
+
+        auto fip12 = ( -    xt::view(phi_i, 3)
+	              +15.* xt::view(phi_i, 2)
+		      -15.* xt::view(phi_i, 1)
+		      +     xt::view(phi_i, 0) )*inv_dx;
+
+        auto nuip12 = (xt::view(nu_i, 1) + xt::view(nu_i, 0))*0.5;
+
+        return xt::eval(nuip12*fip12);
+    }
+
+  template<class Field>
+    auto Lap_x_2d(const Field& phi, const Field& nu) const
+    {
+        std::array<std::size_t, 2> shape{4, i.size()};
+        xt::xtensor<double, 2> phi_i = xt::zeros<double>(shape);
+        xt::xtensor<double, 2> nu_i = xt::zeros<double>(shape);
+
+	double inv_12dx = 1./(12.*dx());
+
+        for (int s = -2, kk = 0; s < 2; ++s, ++kk)
+        {
+	  //xt::masked_view(xt::view(phi_i, kk), mask) = xt::masked_view(phi(level, i + s, j), mask);
+
+	  //xt::masked_view(xt::view(nu_i, kk), mask) = xt::masked_view(nu(level, i + s, j), mask);
+
+	//   xt::view(phi_i, kk) = xt::view(phi(level, i + s, j));
+	//   xt::view(nu_i, kk) = xt::view(nu(level, i + s, j));
+	  xt::view(phi_i, kk) = phi(level, i + s, j);
+	  xt::view(nu_i, kk) = nu(level, i + s, j);
+        }
+
+	auto flux_D = flux_lap(phi_i, nu_i);
+	flux_D *= -1.;
+
+        for (int s = -1, kk=0; s > 3; --s, ++kk)
+        {
+	  //  xt::masked_view(xt::view(phi_i, kk), !mask) = xt::masked_view(phi(level, i + s, j), !mask);
+	  //  xt::masked_view(xt::view(nu_i, kk), !mask) = xt::masked_view(nu(level, i + s, j), !mask);
+	//   xt::view(phi_i, kk) = xt::view(phi(level, i + s, j));
+	//   xt::view(nu_i, kk) = xt::view(nu(level, i + s, j));
+	  xt::view(phi_i, kk) = phi(level, i + s, j);
+	  xt::view(nu_i, kk) = nu(level, i + s, j);
+        }
+	flux_D += flux_lap(phi_i, nu_i);
+
+	flux_D *= inv_12dx;
+
+	return flux_D;
+    }
+
+    template<class Field>
+    auto Lap_y_2d(const Field& phi, const Field& nu) const
+    {
+        std::array<std::size_t, 2> shape{4, i.size()};
+        xt::xtensor<double, 2> phi_i = xt::zeros<double>(shape);
+        xt::xtensor<double, 2> nu_i = xt::zeros<double>(shape);
+
+	double inv_12dx = 1./(12.*dx());
+
+        for (int s = -2, kk = 0; s < 2; ++s, ++kk)
+        {
+	  //  xt::masked_view(xt::view(phi_i, kk), mask) = xt::masked_view(phi(level, i, j+s), mask);
+          //  xt::masked_view(xt::view(nu_i, kk), mask) = xt::masked_view(nu(level, i, j+s), mask);
+	  xt::view(phi_i, kk) = phi(level, i, j+s);
+	  xt::view(nu_i, kk) = nu(level, i, j+s);
+        }
+
+	auto flux_D = flux_lap(phi_i, nu_i);
+	flux_D *= -1.;
+
+        for (int s = -1, kk=0; s > 3; --s, ++kk)
+        {
+	  // xt::masked_view(xt::view(phi_i, kk), !mask) = xt::masked_view(phi(level, i, j+s), !mask);
+	  //  xt::masked_view(xt::view(nu_i, kk), !mask) = xt::masked_view(nu(level, i, j+s), !mask);
+	  xt::view(phi_i, kk) = phi(level, i, j+s);
+	  xt::view(nu_i, kk)= nu(level, i, j+s);
+        }
+	flux_D += flux_lap(phi_i, nu_i);
+
+	flux_D *= inv_12dx;
+
+	return flux_D;
+    }
+
+  /*
+    template<class Field>
+    auto Lap_x_3d(const Field& phi, const Field& nu) const
+    {
+        std::array<std::size_t, 2> shape{4, i.size()};
+        xt::xtensor<double, 2> phi_i = xt::zeros<double>(shape);
+        xt::xtensor<double, 2> nu_i = xt::zeros<double>(shape);
+
+	double inv_12dx = 1./(12.*dx());
+
+        for (int s = -2, kk = 0; s < 2; ++s, ++kk)
+        {
+	  xt::masked_view(xt::view(phi_i, kk), mask) = xt::masked_view(phi(level, i + s, j, k), mask);
+
+	  xt::masked_view(xt::view(nu_i, kk), mask) = xt::masked_view(nu(level, i + s, j, k), mask);
+        }
+
+	double flux_D = flux_lap(phi_i, nu_i);
+	flux_D *= -1.;
+
+        for (int s = -1, kk=0; s > 3; --s, ++kk)
+        {
+	  xt::masked_view(xt::view(phi_i, kk), !mask) = xt::masked_view(phi(level, i + s, j, k), !mask);
+
+	  xt::masked_view(xt::view(nu_i, kk), !mask) = xt::masked_view(nu(level, i + s, j, k), !mask);
+        }
+	flux_D += flux_lap(phi_i, nu_i);
+
+	flux_D *= inv_12dx;
+
+	return flux_D;
+    }
+
+    template<class Field>
+    auto Lap_y_3d(const Field& phi, const Field& nu) const
+    {
+        std::array<std::size_t, 2> shape{4, i.size()};
+        xt::xtensor<double, 2> nu_i = xt::zeros<double>(shape);
+
+	double inv_12dx = 1./(12.*dx());
+
+        for (int s = -2, kk = 0; s < 2; ++s, ++kk)
+        {
+	  xt::masked_view(xt::view(phi_i, kk), mask) = xt::masked_view(phi(level, i, j+s, k), mask);
+
+	  xt::masked_view(xt::view(nu_i, kk), mask) = xt::masked_view(nu(level, i, j+s, k), mask);
+        }
+
+	double flux_D = flux_lap(phi_i, nu_i);
+	flux_D *= -1.;
+
+        for (int s = -1, kk=0; s > 3; --s, ++kk)
+        {
+	  xt::masked_view(xt::view(phi_i, kk), !mask) = xt::masked_view(phi(level, i, j+s, k), !mask);
+
+	  xt::masked_view(xt::view(nu_i, kk), !mask) = xt::masked_view(nu(level, i, j+s, k), !mask);
+        }
+	flux_D += flux_lap(phi_i, nu_i);
+
+	flux_D *= inv_12dx;
+
+	return flux_D;
+    }
+
+    template<class Field>
+    auto Lap_z_3d(const Field& phi, const Field& nu) const
+    {
+        std::array<std::size_t, 2> shape{4, i.size()};
+        xt::xtensor<double, 2> nu_i = xt::zeros<double>(shape);
+
+	double inv_12dx = 1./(12.*dx());
+
+        for (int s = -2, kk = 0; s < 2; ++s, ++kk)
+        {
+	  xt::masked_view(xt::view(phi_i, kk), mask) = xt::masked_view(phi(level, i, j, k+s), mask);
+
+	  xt::masked_view(xt::view(nu_i, kk), mask) = xt::masked_view(nu(level, i, j, k+s), mask);
+        }
+
+	double flux_D = flux_lap(phi_i, nu_i);
+	flux_D *= -1.;
+
+        for (int s = -1, kk=0; s > 3; --s, ++kk)
+        {
+	  xt::masked_view(xt::view(phi_i, kk), !mask) = xt::masked_view(phi(level, i, j, k+s), !mask);
+
+	  xt::masked_view(xt::view(nu_i, kk), !mask) = xt::masked_view(nu(level, i, j, k+s), !mask);
+        }
+	flux_D += flux_lap(phi_i, nu_i);
+
+	flux_D *= inv_12dx
+
+	return flux_D;
+    }
+  */
+
+    template<class Field>
+    auto operator()(samurai::Dim<2> d, const Field& phi, const Field& nu) const
+    {
+      return xt::eval( Lap_x_2d(phi, nu) + Lap_y_2d(phi, nu) );
+    }
+  /*
+    template<class Field>
+    auto operator()(samurai::Dim<3> d, const Field& phi, const Field& nu) const
+    {
+      return xt::eval(Lap_x_3d(phi, nu) + Lap_y_3d(phi, nu) + Lap_z_3d(phi, nu) );
+    }
+  */
+};
+
+template<class... CT>
+inline auto lap_exp(CT &&... e)
+{
+    return samurai::make_field_operator_function<laplace_explicit>(std::forward<CT>(e)...);
+}
+
+/* Principal */
+
+// Defining the binary function for comparison
+bool comp(double a, double b)
+{
+    return (a < b);
+}
+
 int main()
 {
     constexpr std::size_t dim = 2;
@@ -437,9 +695,11 @@ int main()
         update_bc_for_level::call(samurai::Dim<dim>{}, field, level);
     };
 
-    double dt = 0.5/(1 << max_level);
+    double dx = 1./(1 << max_level);
 
-    std::size_t max_ite = 500;
+    double cfl = 0.5;
+
+    std::size_t max_ite = 10;
 
     for (std::size_t ite=0; ite < max_ite; ++ite)
     {
@@ -462,15 +722,62 @@ int main()
         samurai::update_ghost(update_bc, field);
 
         auto vel = init_velocity<dim>(mesh);
+
+        auto visc = init_phys<dim>(mesh);
+        samurai::update_ghost(update_bc, visc);
+
+	/* Calcul du pas de temps */
+
+	double v_max=0.;
+	double visc_max=0.;
+
+	samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto& cell)
+	{
+
+	  // v_max = std::max( vel(0, level, i, j), v_max, comp );
+	  // v_max = std::max( vel(1, level, i, j), v_max, comp );
+
+	  // visc_max = std::max( visc(level, i, j), visc_max, comp );
+
+	  if( abs( vel[cell][0] ) >= v_max )  {
+	    v_max = abs( vel[cell][0] );
+	  }
+
+	  if( abs( vel[cell][1] ) >= v_max )  {
+	    v_max = abs( vel[cell][1] );
+	  }
+
+
+	  if( visc[cell] >= visc_max )  {
+	    visc_max = visc[cell];
+	  }
+	});
+
+
+	double dt = 1.e+10;
+	if( cfl*dx/v_max <= 0.5*cfl*(dx*dx)/visc_max ) {
+	  dt = cfl*dx/v_max;
+	  } else {
+	  dt = 0.5*cfl*(dx*dx)/visc_max;
+	  }
+
+
+	/* Integration */
+
         auto field_np1 = samurai::make_field<double, 1>("sol", mesh);
         field_np1.fill(0.);
 
+	/* Covection */
         field_np1 = field - dt*weno5(field, vel);
+
+	/* Diffusion */
+	field_np1 = field_np1 + dt*lap_exp(field, visc);
 
         std::swap(field.array(), field_np1.array());
 
-        samurai::save(fmt::format("weno_amr_{}d_{}", dim, ite), mesh, field);
+        samurai::save(fmt::format("heat_amr_{}d_{}", dim, ite), mesh, field);
     }
 
     return 0;
+
 }

@@ -76,6 +76,7 @@ jobs:
               -Bbuild \
               -GNinja \
               -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_DEMOS=ON \
               -DBUILD_TESTS=ON
       - name: Build
         shell: bash -l {0}

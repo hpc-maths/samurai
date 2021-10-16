@@ -6,8 +6,6 @@
 #include <vector>
 
 #include <cxxopts.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/stopwatch.h>
 
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/coarsening.hpp>
@@ -923,7 +921,6 @@ int main(int argc, char *argv[])
                        ("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))
                        ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("7"))
                        ("epsilon", "maximum level", cxxopts::value<double>()->default_value("0.0001"))
-                       ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
                        ("ite", "number of iteration", cxxopts::value<std::size_t>()->default_value("100"))
                        ("reg", "regularity", cxxopts::value<double>()->default_value("0."))
                        ("h, help", "Help");
@@ -936,13 +933,9 @@ int main(int argc, char *argv[])
             std::cout << options.help() << "\n";
         else
         {
-            std::map<std::string, spdlog::level::level_enum> log_level{{"debug", spdlog::level::debug},
-                                                               {"warning", spdlog::level::warn},
-                                                               {"info", spdlog::level::info}};
             constexpr size_t dim = 2;
             using Config = samurai::MRConfig<dim, 2>;
 
-            spdlog::set_level(log_level[result["log"].as<std::string>()]);
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
             std::size_t total_nb_ite = result["ite"].as<std::size_t>();

@@ -26,7 +26,7 @@ find_package(xtensor REQUIRED)
 find_package(HDF5 REQUIRED)
 find_package(xtensor-io REQUIRED)
 find_package(pugixml REQUIRED)
-find_package(spdlog REQUIRED)
+# find_package(spdlog REQUIRED)
 find_package(fmt)
 
 # Target
@@ -38,9 +38,10 @@ target_include_directories(
     INTERFACE $<BUILD_INTERFACE:${SAMURAI_INCLUDE_DIRS}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
-target_link_libraries(samurai INTERFACE xtensor pugixml spdlog hdf5 fmt::fmt)
+target_link_libraries(samurai INTERFACE xtensor pugixml hdf5 fmt::fmt)
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
+OPTION(BUILD_DEMOS "samurai build all demos" OFF)
 OPTION(BUILD_TESTS "samurai test suite" OFF)
 OPTION(WITH_STATS "samurai mesh stats" OFF)
 
@@ -58,7 +59,11 @@ if(BUILD_TESTS)
     add_subdirectory(test)
 endif()
 
-add_subdirectory(demos EXCLUDE_FROM_ALL)
+if(BUILD_DEMOS)
+    add_subdirectory(demos)
+else()
+    add_subdirectory(demos EXCLUDE_FROM_ALL)
+endif()
 
 # Installation
 # ============
