@@ -13,7 +13,7 @@
 #include <math.h>
 
 #include "RockAndRadau/integration_stiff.h"
-#include "../../FiniteVolume-MR/boundary_conditions.hpp"
+#include "../../LBM/boundary_conditions.hpp"
 
 /// Timer used in tic & toc
 auto tic_timer = std::chrono::high_resolution_clock::now();
@@ -215,23 +215,6 @@ inline auto diffusion(CT &&... e)
 }
 
 template <class Field, class Func>
-void update_ghosts(Field& field, Func&& update_bc_for_level)
-{
-    auto mesh = field.mesh();
-    std::size_t min_level = mesh.min_level();
-    std::size_t max_level = mesh.max_level();
-
-    samurai::mr_projection(field);
-
-    for (std::size_t level = min_level; level <= max_level; ++level)
-    {
-        update_bc_for_level(field, level);
-    }
-
-    samurai::mr_prediction(field, std::forward<Func>(update_bc_for_level));
-}
-
-template <class Field, class Func>
 void RK4(Field & field, const double dt, std::size_t nbstep, Func&& bc, const double D_b = 2.5e-3,
                                                                         const double D_c = 1.5e-3)
 {
@@ -260,18 +243,18 @@ void RK4(Field & field, const double dt, std::size_t nbstep, Func&& bc, const do
 
     for(std::size_t nite = 0; nite < nbstep; ++nite)
     {
-        update_ghosts(field, bc);
+        samurai::update_ghost_mr(field, bc);
         k1 = diffusion(field                );
         apply_nu(k1);
-        update_ghosts(k1, bc);
+        samurai::update_ghost_mr(k1, bc);
 
         k2 = diffusion(field + dt_rk/2. * k1);
         apply_nu(k2);
-        update_ghosts(k2, bc);
+        samurai::update_ghost_mr(k2, bc);
 
         k3 = diffusion(field + dt_rk/2. * k2);
         apply_nu(k3);
-        update_ghosts(k3, bc);
+        samurai::update_ghost_mr(k3, bc);
 
         k4 = diffusion(field + dt_rk    * k3);
         apply_nu(k4);
@@ -307,20 +290,9 @@ int main()
     auto field = init_field(mesh); // Initializing solution field
     samurai::save(std::string("bz_init"), mesh, field); // Saving
 
-    auto update_bc_for_level = [](auto& field, std::size_t level)
+    auto update_bc = [](auto& field, std::size_t level)
     {
         update_bc_D2Q4_3_Euler_constant_extension(field, level);
-    };
-
-    auto update_bc = [](auto& field)
-    {
-        auto mesh = field.mesh();
-        std::size_t min_level = mesh.min_level();
-        std::size_t max_level = mesh.max_level();
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            update_bc_D2Q4_3_Euler_constant_extension(field, level);
-        }
     };
 
     double t = 0.;
@@ -330,7 +302,7 @@ int main()
     double dt = 1.e-3; // Time step (splitting time)
     double dt_diffusion = 0.25 * dx*dx / (2.*std::max(D_b, D_c)); // Diffusion time step
 
-    auto MRadaptation = samurai::make_MRAdapt(field, update_bc_for_level);
+    auto MRadaptation = samurai::make_MRAdapt(field, update_bc);
 
     while (t < Tf)
     {
@@ -346,7 +318,7 @@ int main()
         fmt::print(fmt::format("first reaction: {}\n", duration));
 
         tic();
-        RK4(field, dt, std::ceil(dt/dt_diffusion), update_bc_for_level, D_b, D_c);
+        RK4(field, dt, std::ceil(dt/dt_diffusion), update_bc, D_b, D_c);
         duration = toc();
         fmt::print(fmt::format("diffusion: {}\n", duration));
         /*
