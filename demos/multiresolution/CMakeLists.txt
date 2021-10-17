@@ -1,2 +1,0 @@
-add_executable(compression_and_details compression_and_details.cpp)
-target_link_libraries(compression_and_details samurai)
