@@ -12,7 +12,6 @@ find_dependency(xtensor @xtensor_REQUIRED_VERSION@)
 find_dependency(fmt @fmt_REQUIRED_VERSION@)
 find_dependency(HDF5 @HDF5_REQUIRED_VERSION@)
 find_dependency(xtensor-io @xtensor-io_REQUIRED_VERSION@)
-find_dependency(spdlog @spdlog_REQUIRED_VERSION@)
 find_dependency(pugixml @pugixml_REQUIRED_VERSION@)
 
 if(NOT TARGET @PROJECT_NAME@)
