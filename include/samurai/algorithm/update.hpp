@@ -211,7 +211,6 @@ namespace samurai
 
         for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index)
         {
-            auto j = index[0];
             for (auto i=interval.start; i<interval.end; ++i)
             {
                 if ( tag[i + interval.index] & static_cast<int>(CellFlag::refine))

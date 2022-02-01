@@ -84,3 +84,19 @@ public:
         this->m_cells[mesh_id_t::cells_and_ghosts] = {cl, false};
     }
 };
+
+template <>
+struct fmt::formatter<MeshID>: formatter<string_view>
+{
+    template <typename FormatContext>
+    auto format(MeshID c, FormatContext& ctx)
+    {
+        string_view name = "unknown";
+        switch (c) {
+        case MeshID::cells:            name = "cells"; break;
+        case MeshID::cells_and_ghosts: name = "cells and ghosts"; break;
+        case MeshID::count:            name = "count"; break;
+        }
+        return formatter<string_view>::format(name, ctx);
+    }
+};
