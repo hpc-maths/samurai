@@ -21,6 +21,7 @@ namespace samurai
         static constexpr std::size_t prediction_order = 1;
 
         using index_t = signed long long int;
-        using interval_t = Interval<int, index_t>;
+        using value_t = int;
+        using interval_t = Interval<value_t, index_t>;
     }
 }
