@@ -12,6 +12,7 @@
 #include "cell.hpp"
 #include "interval.hpp"
 #include "utils.hpp"
+#include "samurai_config.hpp"
 
 namespace samurai
 {
@@ -66,7 +67,7 @@ namespace samurai
 
         static constexpr std::size_t dim = detail::compute_dim<CT...>();
 
-        using interval_t = Interval<int>;
+        using interval_t = default_config::interval_t; // TO BE FIX: Check the interval_t of each CT
 
         using expression_tag = field_expression_tag;
 

@@ -8,6 +8,8 @@
 
 #include <fmt/format.h>
 
+#include "samurai_config.hpp"
+
 namespace samurai
 {
 
@@ -29,7 +31,7 @@ namespace samurai
      * @tparam TValue  The coordinate type (must be signed).
      * @tparam TIndex  The index type (must be signed).
      */
-    template<class TValue, class TIndex = signed long long int>
+    template<class TValue, class TIndex = default_config::index_t>
     struct Interval
     {
         static_assert(std::is_signed<TValue>::value, "Coordinate type must be signed");

@@ -11,6 +11,7 @@
 #include <xtensor/xfixed.hpp>
 
 #include "list_of_intervals.hpp"
+#include "samurai_config.hpp"
 
 namespace samurai
 {
@@ -56,7 +57,7 @@ namespace samurai
     //////////////////////////////
     // LevelCellList definition //
     //////////////////////////////
-    template<std::size_t Dim, class TInterval = Interval<int>>
+    template<std::size_t Dim, class TInterval = default_config::interval_t>
     class LevelCellList
     {
     public:

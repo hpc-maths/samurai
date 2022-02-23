@@ -16,6 +16,7 @@
 #include "interval.hpp"
 #include "level_cell_list.hpp"
 #include "utils.hpp"
+#include "samurai_config.hpp"
 
 namespace samurai
 {
@@ -44,7 +45,7 @@ namespace samurai
     ///////////////////////////////
     // LevelCellArray definition //
     ///////////////////////////////
-    template<std::size_t Dim, class TInterval = Interval<int>>
+    template<std::size_t Dim, class TInterval = default_config::interval_t>
     class LevelCellArray
     {
     public:

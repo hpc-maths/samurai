@@ -12,6 +12,7 @@
 #include "level_cell_array.hpp"
 #include "level_cell_list.hpp"
 #include "mesh.hpp"
+#include "samurai_config.hpp"
 #include "subset/subset_op.hpp"
 
 namespace samurai
@@ -25,8 +26,8 @@ namespace samurai
     };
 
     template <std::size_t dim_,
-              int ghost_width_ = 1,
-              class TInterval = Interval<int>>
+              int ghost_width_ = default_config::ghost_width,
+              class TInterval = default_config::interval_t>
     struct UniformConfig
     {
         static constexpr std::size_t dim = dim_;

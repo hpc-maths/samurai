@@ -12,6 +12,7 @@
 #include "algorithm.hpp"
 #include "cell_list.hpp"
 #include "level_cell_array.hpp"
+#include "samurai_config.hpp"
 #include "utils.hpp"
 
 namespace samurai
@@ -27,10 +28,12 @@ namespace samurai
      *  A box is defined by its minimum and maximum corners.
      *
      *  @tparam dim_ The dimension
-     *  @tparam TInterval The type of the intervals (default type is Interval<int>).
-     *  @tparam max_size_ The size of the array and the maximum levels (default size is 16).
+     *  @tparam TInterval The type of the intervals (default type is default_config::interval_t).
+     *  @tparam max_size_ The size of the array and the maximum levels (default size is default_config::max_level).
      */
-    template<std::size_t dim_, class TInterval=Interval<int>, std::size_t max_size_ = 16>
+    template<std::size_t dim_,
+             class TInterval = default_config::interval_t,
+             std::size_t max_size_ = default_config::max_level>
     class CellArray
     {
     public:

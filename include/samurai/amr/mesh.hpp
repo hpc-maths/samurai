@@ -10,6 +10,7 @@
 #include "../box.hpp"
 #include "../interval.hpp"
 #include "../mesh.hpp"
+#include "../samurai_config.hpp"
 
 namespace samurai
 {
@@ -27,15 +28,21 @@ namespace samurai
             // reference = cells_and_ghosts
         };
 
-        template <std::size_t dim_>
+        template <std::size_t dim_,
+                  std::size_t ghost_width_ = default_config::ghost_width,
+                  std::size_t graduation_width_ = default_config::graduation_width,
+                  std::size_t max_refinement_level_ = default_config::max_level,
+                  std::size_t prediction_order_ = default_config::prediction_order,
+                  class TInterval = default_config::interval_t>
         struct Config
         {
             static constexpr std::size_t dim = dim_;
-            static constexpr std::size_t max_refinement_level = 20;
-            static constexpr int ghost_width = 3;
-            static constexpr int prediction_width = 1;
+            static constexpr std::size_t max_refinement_level = max_refinement_level_;
+            static constexpr int ghost_width = ghost_width_;
+            static constexpr int graduation_width = graduation_width_;
+            static constexpr int prediction_order = prediction_order_;
 
-            using interval_t = Interval<int>;
+            using interval_t = TInterval;
             using mesh_id_t = AMR_Id;
         };
 
@@ -108,11 +115,11 @@ namespace samurai
                         lcl[index_yz + stencil].add_interval(interval);
                     }
                 }
-                static_nested_loop<dim - 1, -config::prediction_width, config::prediction_width + 1>([&](auto stencil)
+                static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>([&](auto stencil)
                 {
                     auto index = xt::eval(index_yz + stencil);
-                    lcl[index].add_interval({interval.start - config::prediction_width,
-                                             interval.end + config::prediction_width});
+                    lcl[index].add_interval({interval.start - config::prediction_order,
+                                             interval.end + config::prediction_order});
                 });
 
             });
@@ -169,11 +176,11 @@ namespace samurai
                 expr([&](const auto& interval, const auto& index_yz)
                 {
                     // add ghosts for the prediction
-                    static_nested_loop<dim - 1, -config::prediction_width, config::prediction_width + 1>([&](auto stencil)
+                    static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>([&](auto stencil)
                     {
                         auto index = xt::eval(index_yz + stencil);
-                        lcl[index].add_interval({interval.start - config::prediction_width,
-                                                 interval.end + config::prediction_width});
+                        lcl[index].add_interval({interval.start - config::prediction_order,
+                                                 interval.end + config::prediction_order});
                     });
                 });
             }
