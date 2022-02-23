@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include "interval.hpp"
+#include "samurai_config.hpp"
 
 namespace samurai
 {
@@ -39,7 +40,7 @@ namespace samurai
      * @tparam TValue  The coordinate type (must be signed).
      * @tparam TIndex  The index type (must be signed).
      */
-    template<typename TValue, typename TIndex = signed long long int>
+    template<typename TValue, typename TIndex = default_config::index_t>
     struct ListOfIntervals : private std::forward_list<Interval<TValue, TIndex>>
     {
         using value_t = TValue;

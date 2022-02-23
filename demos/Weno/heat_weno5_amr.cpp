@@ -679,12 +679,13 @@ bool comp(double a, double b)
 int main()
 {
     constexpr std::size_t dim = 2;
+    constexpr std::size_t ghost_width = 3;
     std::size_t start_level = 7;
     std::size_t min_level = 2;
     std::size_t max_level = 10;
 
     samurai::Box<double, dim> box{{0, 0, 0}, {1, 1, 1}};
-    using Config = samurai::amr::Config<dim>;
+    using Config = samurai::amr::Config<dim, ghost_width>;
     samurai::amr::Mesh<Config> mesh(box, start_level, min_level, max_level);
     using mesh_id_t = typename Config::mesh_id_t;
 

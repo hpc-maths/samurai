@@ -12,6 +12,7 @@
 #include "../mesh.hpp"
 #include "../subset/node_op.hpp"
 #include "../subset/subset_op.hpp"
+#include "../samurai_config.hpp"
 
 namespace samurai
 {
@@ -28,21 +29,22 @@ namespace samurai
     };
 
     template <std::size_t dim_,
-              std::size_t max_stencil_width_ = 1,
-              std::size_t graduation_width_ = 1,
-              std::size_t max_refinement_level_ = 20,
-              class TInterval = Interval<int>>
+              std::size_t max_stencil_width_ = default_config::ghost_width,
+              std::size_t graduation_width_ = default_config::graduation_width,
+              std::size_t max_refinement_level_ = default_config::max_level,
+              std::size_t prediction_order_ = default_config::prediction_order,
+              class TInterval = default_config::interval_t>
     struct MRConfig
     {
         static constexpr std::size_t dim = dim_;
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
         static constexpr std::size_t max_stencil_width = max_stencil_width_;
         static constexpr std::size_t graduation_width = graduation_width_;
-        static constexpr std::size_t default_s_for_prediction = 1;
+        static constexpr std::size_t prediction_order = prediction_order_;
 
         static constexpr int ghost_width = std::max(std::max(2 * static_cast<int>(graduation_width) - 1,
                                                              static_cast<int>(max_stencil_width)),
-                                                            static_cast<int>(default_s_for_prediction));
+                                                            static_cast<int>(prediction_order));
         using interval_t = TInterval;
         using mesh_id_t = MRMeshId;
     };

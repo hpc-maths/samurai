@@ -12,6 +12,7 @@
 #include "algorithm.hpp"
 #include "cell_list.hpp"
 #include "level_cell_array.hpp"
+#include "samurai_config.hpp"
 #include "utils.hpp"
 
 namespace samurai
@@ -30,7 +31,9 @@ namespace samurai
      *  @tparam TInterval The type of the intervals (default type is Interval<int>).
      *  @tparam max_size_ The size of the array and the maximum levels (default size is 16).
      */
-    template<std::size_t dim_, class TInterval=Interval<int>, std::size_t max_size_ = 16>
+    template<std::size_t dim_,
+             class TInterval=Interval<int>,
+             std::size_t max_size_ = default_config::max_level>
     class CellArray
     {
     public:

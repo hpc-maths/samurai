@@ -9,6 +9,7 @@
 #include <fmt/color.h>
 
 #include "level_cell_list.hpp"
+#include "samurai_config.hpp"
 
 namespace samurai
 {
@@ -17,7 +18,7 @@ namespace samurai
     // CellList definition //
     /////////////////////////
 
-    template<std::size_t dim_, class TInterval=Interval<int>, std::size_t max_size_ = 16>
+    template<std::size_t dim_, class TInterval=Interval<int>, std::size_t max_size_ = default_config::max_level>
     class CellList
     {
     public:
