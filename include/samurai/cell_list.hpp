@@ -18,7 +18,9 @@ namespace samurai
     // CellList definition //
     /////////////////////////
 
-    template<std::size_t dim_, class TInterval=Interval<int>, std::size_t max_size_ = default_config::max_level>
+    template<std::size_t dim_,
+             class TInterval = default_config::interval_t,
+             std::size_t max_size_ = default_config::max_level>
     class CellList
     {
     public:
