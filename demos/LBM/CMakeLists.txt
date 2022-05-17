@@ -45,3 +45,12 @@ target_link_libraries(lbm-D2Q4444-euler-implosion samurai)
 
 add_executable(lbm-D2Q5444-euler-rayleigh-taylor D2Q5444_Euler_Rayleigh_Taylor.cpp)
 target_link_libraries(lbm-D2Q5444-euler-rayleigh-taylor samurai)
+
+add_executable(test_precond_1d_v1 test_precond_1d_v1.cpp)
+target_link_libraries(test_precond_1d_v1 samurai)
+
+add_executable(test_precond_1d_v2 test_precond_1d_v2.cpp)
+target_link_libraries(test_precond_1d_v2 samurai)
+
+add_executable(test_precond_1d_v3 test_precond_1d_v3.cpp)
+target_link_libraries(test_precond_1d_v3 samurai)
