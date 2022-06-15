@@ -8,9 +8,9 @@
 #include <xtensor/xio.hpp>
 #include <xtensor/xsemantic.hpp>
 
-template<class index_t>
 class prediction_map
 {
+    using index_t = int;
     public:
         prediction_map() = default;
 
@@ -29,7 +29,7 @@ class prediction_map
             return coeff[i];
         }
 
-        prediction_map<index_t>& operator+=(const prediction_map<index_t> p)
+        prediction_map& operator+=(const prediction_map& p)
         {
             for(auto& c: p.coeff)
             {
@@ -39,7 +39,7 @@ class prediction_map
             return *this;
         }
 
-        prediction_map<index_t>& operator-=(const prediction_map<index_t> p)
+        prediction_map& operator-=(const prediction_map& p)
         {
             for(auto& c: p.coeff)
             {
@@ -49,7 +49,7 @@ class prediction_map
             return *this;
         }
 
-        prediction_map<index_t>& operator*=(const double d)
+        prediction_map& operator*=(const double d)
         {
             std::size_t index=0;
             for(auto& c: coeff)
@@ -59,7 +59,7 @@ class prediction_map
             return *this;
         }
 
-        prediction_map<index_t>& operator+=(const double d)
+        prediction_map& operator+=(const double d)
         {
             for(auto& c: coeff)
             {
@@ -76,52 +76,77 @@ class prediction_map
             }
         }
     // private:
-        std::map<index_t, double> coeff;
+        std::map<int, double> coeff;
 };
 
-template<class index_t>
-auto operator+(const prediction_map<index_t> &p1, const prediction_map<index_t> &p2)
+auto operator+(const prediction_map &p1, const prediction_map &p2)
 {
-    prediction_map<index_t> that{p1};
+    prediction_map that{p1};
     that += p2;
     return that;
 }
 
-template<class index_t>
-auto operator+(const double d, const prediction_map<index_t> &p)
+auto operator+(const double d, const prediction_map &p)
 {
-    prediction_map<index_t> that{p};
+    prediction_map that{p};
     that += d;
     return that;
 }
 
-template<class index_t>
-auto operator-(const prediction_map<index_t> &p1, const prediction_map<index_t> &p2)
+auto operator-(const prediction_map &p1, const prediction_map &p2)
 {
-    prediction_map<index_t> that{p1};
+    prediction_map that{p1};
     that -= p2;
     return that;
 }
 
-template<class index_t>
-auto operator*(const double d, const prediction_map<index_t> &p)
+auto operator*(const double d, const prediction_map &p)
 {
-    prediction_map<index_t> that{p};
+    prediction_map that{p};
     that *= d;
     return that;
 }
 
-template<class index_t>
-inline std::ostream &operator<<(std::ostream &out, const prediction_map<index_t> &pred)
+inline std::ostream &operator<<(std::ostream &out, const prediction_map &pred)
 {
     pred.to_stream(out);
     return out;
 }
 
-template<class index_t>
-auto prediction(std::size_t level, const index_t &i, bool reset=false)
+// template<class index_t>
+// auto prediction(std::size_t level, const index_t &i, bool reset=false)
+// {
+//     static std::map<std::tuple<std::size_t, index_t>, prediction_map> values;
+
+//     if (reset)
+//     {
+//         values.clear();
+//     }
+
+//     if (level == 0)
+//     {
+//         return prediction_map{i};
+//     }
+
+//     auto iter = values.find({level, i});
+
+//     if (iter == values.end())
+//     {
+//         auto ig = i >> 1;
+//         double d_x = (i & 1)? -1./8: 1./8;
+
+//         return values[{level, i}] = prediction(level-1, ig) - d_x * (prediction(level-1, ig+1)
+//                                                                    - prediction(level-1, ig-1));
+//     }
+//     else
+//     {
+//         return iter->second;
+//     }
+// }
+
+auto prediction(std::size_t level, const int &i, bool reset=false)
 {
-    static std::map<std::tuple<std::size_t, index_t>, prediction_map<index_t>> values;
+    static std::map<std::tuple<std::size_t, int>, prediction_map> values;
 
     if (reset)
     {
@@ -130,18 +155,34 @@ auto prediction(std::size_t level, const index_t &i, bool reset=false)
 
     if (level == 0)
     {
-        return prediction_map<index_t>{i};
+        return prediction_map{i};
     }
 
     auto iter = values.find({level, i});
 
     if (iter == values.end())
     {
-        auto ig = i >> 1;
-        double d_x = (i & 1)? -1./8: 1./8;
+        int ig = i >> 1;
+        double sign = (i & 1)? -1.: 1.;
 
-        return values[{level, i}] = prediction(level-1, ig) - d_x * (prediction(level-1, ig+1)
-                                                                   - prediction(level-1, ig-1));
+        std::cout << fmt::format("construct ({}, {}) with ig = {}: ", level, i, ig) << std::endl;
+        values[{level, i}] = prediction(level-1, ig);
+        int s = 1;
+        for (auto c: samurai::coeffs<2>())
+        {
+            values[{level, i}] += c*sign * (prediction(level-1, ig + s)
+                                          - prediction(level-1, ig - s));
+            s++;
+        }
+        for (auto& v: values[{level, i}].coeff)
+        {
+            std::cout << fmt::format("[{}, {}] ", v.first, v.second);
+        }
+        std::cout << std::endl;
+        return values[{level, i}];
+        // double d_x = (i & 1)? -1./8: 1./8;
+        // return values[{level, i}] = prediction(level-1, ig) - d_x * (prediction(level-1, ig+1)
+        //                                                            - prediction(level-1, ig-1));
     }
     else
     {

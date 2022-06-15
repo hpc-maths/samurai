@@ -41,9 +41,11 @@ namespace samurai
         static constexpr std::size_t graduation_width = graduation_width_;
         static constexpr std::size_t prediction_order = prediction_order_;
 
-        static constexpr int ghost_width = std::max(std::max(2 * static_cast<int>(graduation_width) - 1,
-                                                             static_cast<int>(max_stencil_width)),
-                                                            static_cast<int>(prediction_order));
+        // static constexpr int ghost_width = std::max(std::max(2 * static_cast<int>(graduation_width) - 1,
+        //                                                      static_cast<int>(max_stencil_width)),
+        //                                             static_cast<int>(prediction_order));
+        static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
+                                                    static_cast<int>(prediction_order));
         using interval_t = TInterval;
         using mesh_id_t = MRMeshId;
     };

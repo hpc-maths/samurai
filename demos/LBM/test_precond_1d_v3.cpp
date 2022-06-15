@@ -21,8 +21,8 @@ auto init(Mesh& mesh)
         auto x = dx*xt::arange(i.start, i.end) + 0.5*dx;
         // u(level, i) = xt::exp(-100*x*x);
 
-        // u(level, i) = xt::abs(x);
-        u(level, i) = xt::tanh(50*xt::abs(x)) - 1;
+        u(level, i) = xt::abs(x);
+        // u(level, i) = xt::tanh(50*xt::abs(x)) - 1;
     });
     return u;
 }
@@ -30,7 +30,16 @@ auto init(Mesh& mesh)
 int main()
 {
     constexpr size_t dim = 1;
-    using MRConfig = samurai::MRConfig<dim, 2>;
+    constexpr std::size_t max_stencil_width_ = 0;
+    // constexpr std::size_t graduation_width_ = samurai::default_config::graduation_width;
+    constexpr std::size_t graduation_width_ = 3;
+    constexpr std::size_t max_refinement_level_ = samurai::default_config::max_level;
+    constexpr std::size_t prediction_order_ = 2;
+    using MRConfig = samurai::MRConfig<dim, max_stencil_width_,
+        graduation_width_,
+        max_refinement_level_,
+        prediction_order_
+    >;
     using MRMesh = samurai::MRMesh<MRConfig>;
     using mrmesh_id_t = typename MRMesh::mesh_id_t;
 
@@ -38,7 +47,7 @@ int main()
     using UMesh = samurai::UniformMesh<UConfig>;
     using umesh_id_t = typename UMesh::mesh_id_t;
 
-    std::size_t min_level = 2, max_level = 12;
+    std::size_t min_level = 3, max_level = 5;
     samurai::Box<double, dim> box({-1}, {1});
     MRMesh mrmesh {box, min_level, max_level};
     UMesh umesh {box, max_level};
@@ -72,6 +81,9 @@ int main()
     // }
 
     samurai::update_ghost_mr(u, update_bc_for_level);
+
+    std::cout << u << std::endl;
+
     for(std::size_t level = min_level; level <= max_level; ++level)
     {
         auto set = samurai::intersection(mrmesh[mrmesh_id_t::cells][level], umesh[umesh_id_t::cells])
@@ -90,12 +102,15 @@ int main()
                 {
                     auto pred = prediction(delta_l, ii % nb_cells);
 
+                    std::cout << "nb_cells: " << nb_cells << " level: " << level << " i : " << i << " ";
                     for(auto& kv: pred.coeff)
                     {
                         auto i_f = (i<<delta_l) + ii;
                         i_f.step = nb_cells;
+                        std::cout << fmt::format("({}, {}) ", kv.first, kv.second);
                         uu(max_level, i_f) += kv.second*u(level, i + static_cast<int>(kv.first));
                     }
+                    std::cout << std::endl;
                 }
             }
         });
