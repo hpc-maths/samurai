@@ -308,6 +308,10 @@ namespace samurai
         if (this->m_options.by_level)
         {
             auto min_level = this->m_mesh.min_level();
+            if (min_level > 0)
+            {
+                min_level--;
+            }
             auto max_level = this->m_mesh.max_level();
             for(std::size_t level = min_level; level <= max_level; ++level)
             {
