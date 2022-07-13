@@ -16,14 +16,15 @@
 
 namespace samurai
 {
-    enum class MRMeshId
+    enum class MROMeshId
     {
         cells = 0,
         cells_and_ghosts = 1,
         proj_cells = 2,
         union_cells = 3,
         all_cells = 4,
-        count = 5,
+        overleaves = 5, // Added in order to automatically handle flux correction. (by Thomas)
+        count = 6,
         reference = all_cells
     };
 
@@ -33,7 +34,7 @@ namespace samurai
               std::size_t max_refinement_level_ = default_config::max_level,
               std::size_t prediction_order_ = default_config::prediction_order,
               class TInterval = default_config::interval_t>
-    struct MRConfig
+    struct MROConfig
     {
         static constexpr std::size_t dim = dim_;
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
@@ -45,14 +46,14 @@ namespace samurai
                                                              static_cast<int>(max_stencil_width)),
                                                             static_cast<int>(prediction_order));
         using interval_t = TInterval;
-        using mesh_id_t = MRMeshId;
+        using mesh_id_t = MROMeshId;
     };
 
     template <class Config>
-    class MRMesh: public samurai::Mesh_base<MRMesh<Config>, Config>
+    class MROMesh: public samurai::Mesh_base<MROMesh<Config>, Config>
     {
     public:
-        using base_type = samurai::Mesh_base<MRMesh<Config>, Config>;
+        using base_type = samurai::Mesh_base<MROMesh<Config>, Config>;
 
         using config = typename base_type::config;
         static constexpr std::size_t dim = config::dim;
@@ -65,14 +66,14 @@ namespace samurai
         using ca_type = typename base_type::ca_type;
         using lca_type = typename base_type::lca_type;
 
-        MRMesh(const MRMesh&) = default;
-        MRMesh& operator=(const MRMesh&) = default;
+        MROMesh(const MROMesh&) = default;
+        MROMesh& operator=(const MROMesh&) = default;
 
-        MRMesh(MRMesh&&) = default;
-        MRMesh& operator=(MRMesh&&) = default;
+        MROMesh(MROMesh&&) = default;
+        MROMesh& operator=(MROMesh&&) = default;
 
-        MRMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level);
-        MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
+        MROMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level);
+        MROMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
 
         void update_sub_mesh_impl();
 
@@ -82,32 +83,23 @@ namespace samurai
     };
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level)
+    inline MROMesh<Config>::MROMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level)
     : base_type(cl, min_level, max_level)
     {}
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level)
+    inline MROMesh<Config>::MROMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level)
     : base_type(b, max_level, min_level, max_level)
     {}
 
     template <class Config>
-    inline void MRMesh<Config>::update_sub_mesh_impl()
+    inline void MROMesh<Config>::update_sub_mesh_impl()
     {
         auto max_level = this->m_cells[mesh_id_t::cells].max_level();
         auto min_level = this->m_cells[mesh_id_t::cells].min_level();
         cl_type cell_list;
 
-        // Construction of union cells
-        // ===========================
-        //
-        // level 2                 |-|-|-|-|                   |-| cells
-        //                                                     |.| union_cells
-        // level 1         |---|---|       |---|---|
-        //                         |...|...|
-        // level 0 |-------|                       |-------|
-        //                 |.......|.......|.......|
-        //
+        // Construct union cells
         this->m_cells[mesh_id_t::union_cells][max_level] = {max_level};
 
         for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
@@ -125,17 +117,7 @@ namespace samurai
             this->m_cells[mesh_id_t::union_cells][level - 1] = {lcl};
         }
 
-        // Construction of ghost cells
-        // ===========================
-        //
-        // Example with ghost_width = 1
-        //
-        // level 2                       |.|-|-|-|-|.|                   |-| cells
-        //                                                               |.| ghost cells
-        // level 1             |...|---|---|...|...|---|---|...|
-        //
-        // level 0 |.......|-------|.......|       |.......|-------|.......|
-        //
+        // Construct ghost cells
         for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             lcl_type& lcl = cell_list[level];
@@ -146,23 +128,10 @@ namespace samurai
                                          interval.end + config::ghost_width});
             });
         });
+
         this->m_cells[mesh_id_t::cells_and_ghosts] = {cell_list, false};
 
-        // Construction of projection cells
-        // ================================
-        //
-        // The projection cells are used for the computation of the details involved in the multiresolution.
-        // The process is to take the children cells and use them to make the projection on the parent cell.
-        // To do that, we have to be sure that those cells exist.
-        //
-
-        // level 2                         |-|-|-|-|                     |-| cells
-        //                                                               |.| projection cells
-        // level 1                 |---|---|...|...|---|---|
-        //
-        // level 0         |-------|.......|       |.......|-------|
-        //
-
+        // Construct projection cells
         for (std::size_t level = ((min_level == 0)? 1 : min_level); level <= max_level; ++level)
         {
             lca_type& lca = this->m_cells[mesh_id_t::cells][level];
@@ -170,6 +139,12 @@ namespace samurai
 
             for_each_interval(lca, [&](std::size_t /*level*/, const auto& interval, const auto& index_yz)
             {
+                // static_nested_loop<dim - 1, -ghost_width - s, ghost_width + s + 1>([&](auto stencil) {
+                //     int beg = (interval.start >> 1) - static_cast<int>(s + ghost_width);
+                //     int end = ((interval.end + 1) >> 1) + static_cast<int>(s + ghost_width);
+
+                //     level_cell_list[(index_yz >> 1) + stencil].add_interval({beg, end});
+                // });
                 static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil) {
                     int beg = (interval.start >> 1) - config::ghost_width;
                     int end = ((interval.end + 1) >> 1) + config::ghost_width;
@@ -178,73 +153,32 @@ namespace samurai
                 });
             });
         }
+
+        // compaction
         this->m_cells[mesh_id_t::all_cells] = {cell_list, false};
 
-        // Make sure that the ghost cells where their values are computed using the prediction operator
-        // have enough cells on the coarse level below.
-        //
-        // Example with a stencil of the prediction operator equals to 1.
-        //
-        // level l                            |.|-|-|        |-| cells
-        //                                                   |.| ghost computed with prediction operator
-        // level l - 1                  |xxx|---|            |x| ghost added to be able to compute the ghost cell on the level l
-        //
         for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
         {
             if (!this->m_cells[mesh_id_t::cells][level].empty())
             {
-                auto expr = difference(this->m_cells[mesh_id_t::all_cells][level],
-                                         union_(this->m_cells[mesh_id_t::cells][level],
-                                                this->m_cells[mesh_id_t::union_cells][level]))
+                auto expr = intersection(this->m_cells[mesh_id_t::union_cells][level],
+                                         difference(this->m_cells[mesh_id_t::all_cells][level],
+                                                    this->m_cells[mesh_id_t::cells][level]))
                            .on(level - 1);
 
                 expr([&](const auto& interval, const auto& index_yz)
                 {
-                    lcl_type& lcl = cell_list[level - 1];
+                    lcl_type& lcl = cell_list[level];
 
-                    static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
+                    static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                     {
-                        lcl[index_yz + stencil].add_interval({interval.start - config::ghost_width,
-                                                              interval.end + config::ghost_width});
+                        lcl[(index_yz << 1) + stencil].add_interval({interval.start << 1, interval.end << 1});
                     });
                 });
             }
         }
+
         this->m_cells[mesh_id_t::all_cells] = {cell_list, false};
-
-        // Add ghost cells for the projection operator
-        //
-        // Example
-        //
-        // level l                  |-|-|.|x|       |-| cells
-        //                                          |.| ghost cell
-        // level l - 1          |---|...|...|       |x| ghost added to be able to compute
-        //                                              the ghost cell on the level l - 1
-        //                                              using the projection operator
-        //
-        for (std::size_t level = ((min_level == 0) ? 1 : min_level); level <= max_level; ++level)
-        {
-            auto expr = intersection(this->m_cells[mesh_id_t::union_cells][level - 1],
-                                     this->m_cells[mesh_id_t::all_cells][level - 1])
-                       .on(level - 1);
-
-            lcl_type& lcl = cell_list[level];
-
-            expr([&](const auto& interval, const auto& index_yz)
-            {
-                static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
-                {
-                    lcl[(index_yz << 1) + stencil].add_interval({interval.start << 1, interval.end << 1});
-                });
-            });
-            this->m_cells[mesh_id_t::all_cells][level] = {lcl};
-        }
-        this->m_cells[mesh_id_t::all_cells].update_index();
-
-        // Extract the projection cells from the all_cells
-        // Do we really need this ?
-        // See if we can use the set definition directly into the projection function
-        //
         for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
         {
             lcl_type lcl{level - 1};
@@ -259,11 +193,42 @@ namespace samurai
             this->m_cells[mesh_id_t::proj_cells][level - 1] = {lcl};
         }
 
+        // Construct overleaves
+        cl_type overleaves_list;
+
+        const int cells_to_add = 1; // To be changed according to the numerical scheme
+
+        for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
+        {
+            if (level < this->max_level())
+            {
+                lcl_type& lol = overleaves_list[level + 1]; // We have to put it at the higher level
+                lcl_type& lcl = cell_list[level + 1]; // We have to put it at the higher level
+
+                static_nested_loop<dim - 1, -cells_to_add, cells_to_add + 1, 1>([&](auto stencil)
+                {
+                    auto index = xt::eval(index_yz + stencil);
+
+                    lol[2 * index].add_interval({2 * (interval.start - cells_to_add),
+                                                                2 * (interval.end   + cells_to_add)});
+                    lol[2 * index + 1].add_interval({2 * (interval.start - cells_to_add),
+                                                                    2 * (interval.end   + cells_to_add)});
+
+                    lcl[2 * index].add_interval({2 * (interval.start - cells_to_add),
+                                                            2 * (interval.end   + cells_to_add)});
+                    lcl[2 * index + 1].add_interval({2 * (interval.start - cells_to_add),
+                                                                2 * (interval.end   + cells_to_add)});
+                });
+            }
+        });
+        this->m_cells[mesh_id_t::overleaves] = {overleaves_list, false};
+
+        this->m_cells[mesh_id_t::all_cells] = {cell_list}; // We must put the overleaves in the all cells to store them
     }
 
     template <class Config>
     template<typename... T>
-    inline xt::xtensor<bool, 1> MRMesh<Config>::exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const
+    inline xt::xtensor<bool, 1> MROMesh<Config>::exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const
     {
         using coord_index_t = typename interval_t::coord_index_t;
         const auto& lca = this->m_cells[type][level];
@@ -287,19 +252,20 @@ namespace samurai
 } // namespace samurai
 
 template <>
-struct fmt::formatter<samurai::MRMeshId>: formatter<string_view>
+struct fmt::formatter<samurai::MROMeshId>: formatter<string_view>
 {
     // parse is inherited from formatter<string_view>.
     template <typename FormatContext>
-    auto format(samurai::MRMeshId c, FormatContext& ctx) {
+    auto format(samurai::MROMeshId c, FormatContext& ctx) {
         string_view name = "unknown";
         switch (c) {
-        case samurai::MRMeshId::cells:            name = "cells"; break;
-        case samurai::MRMeshId::cells_and_ghosts: name = "cells and ghosts"; break;
-        case samurai::MRMeshId::proj_cells:       name = "projection cells"; break;
-        case samurai::MRMeshId::union_cells:      name = "union cells"; break;
-        case samurai::MRMeshId::all_cells:        name = "all cells"; break;
-        case samurai::MRMeshId::count:            name = "count"; break;
+        case samurai::MROMeshId::cells:            name = "cells"; break;
+        case samurai::MROMeshId::cells_and_ghosts: name = "cells and ghosts"; break;
+        case samurai::MROMeshId::proj_cells:       name = "projection cells"; break;
+        case samurai::MROMeshId::union_cells:      name = "union cells"; break;
+        case samurai::MROMeshId::overleaves:       name = "overleaves"; break;
+        case samurai::MROMeshId::all_cells:        name = "all cells"; break;
+        case samurai::MROMeshId::count:            name = "count"; break;
         }
         return formatter<string_view>::format(name, ctx);
     }
