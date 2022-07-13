@@ -9,7 +9,7 @@
 
 #include <samurai/mr/adapt.hpp>
 #include <samurai/field.hpp>
-#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/hdf5.hpp>
 
 #include "prediction_map_2d.hpp"
@@ -33,13 +33,13 @@ double toc()
 
 
 template<class Config>
-auto init_f(samurai::MRMesh<Config> &mesh,
+auto init_f(samurai::MROMesh<Config> &mesh,
             const double lambda = 5., const double gas_constant = 1.4,
             const double rho_up = 2., const double rho_down = 1.,
             const double p_up = 1., const double grav = 2.)
 {
     constexpr std::size_t nvel = 17;
-    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
+    using mesh_id_t = typename samurai::MROMesh<Config>::mesh_id_t;
 
     auto f = samurai::make_field<double, nvel>("f", mesh);
     f.fill(0);
@@ -931,7 +931,7 @@ int main(int argc, char *argv[])
         else
         {
             constexpr size_t dim = 2;
-            using Config = samurai::MRConfig<dim, 2>;
+            using Config = samurai::MROConfig<dim, 2>;
 
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
@@ -948,9 +948,9 @@ int main(int argc, char *argv[])
             const double T = 2.7;//30.;
 
             samurai::Box<double, dim> box({0, 0}, {1, 1});
-            samurai::MRMesh<Config> mesh(box, min_level, max_level);
-            using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
-            using coord_index_t = typename samurai::MRMesh<Config>::coord_index_t;
+            samurai::MROMesh<Config> mesh(box, min_level, max_level);
+            using mesh_id_t = typename samurai::MROMesh<Config>::mesh_id_t;
+            using coord_index_t = typename samurai::MROMesh<Config>::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
 
             // Initialization
