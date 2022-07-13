@@ -9,7 +9,7 @@
 
 #include <samurai/mr/adapt.hpp>
 #include <samurai/field.hpp>
-#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/hdf5.hpp>
 
 #include "prediction_map_2d.hpp"
@@ -169,9 +169,9 @@ std::array<double, 9> inlet_bc(double rho0, double u0, double lambda, std::strin
 
 
 template<class Config>
-auto init_f(samurai::MRMesh<Config> & mesh, const double radius, double rho0, double u0, double lambda, std::string & momenti)
+auto init_f(samurai::MROMesh<Config> & mesh, const double radius, double rho0, double u0, double lambda, std::string & momenti)
 {
-    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
+    using mesh_id_t = typename samurai::MROMesh<Config>::mesh_id_t;
     constexpr std::size_t nvel = 9;
 
     auto f = samurai::make_field<double, nvel>("f", mesh);
@@ -1198,7 +1198,7 @@ int main(int argc, char *argv[])
         {
 
             constexpr size_t dim = 2;
-            using Config = samurai::MRConfig<dim, 2>;
+            using Config = samurai::MROConfig<dim, 2>;
 
             std::size_t min_level = result["min_level"].as<std::size_t>();
             std::size_t max_level = result["max_level"].as<std::size_t>();
@@ -1206,9 +1206,9 @@ int main(int argc, char *argv[])
             double regularity = result["reg"].as<double>();
 
             samurai::Box<double, dim> box({0, 0}, {2, 1});
-            samurai::MRMesh<Config> mesh{box, min_level, max_level};
-            using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
-            using coord_index_t = typename samurai::MRMesh<Config>::coord_index_t;
+            samurai::MROMesh<Config> mesh{box, min_level, max_level};
+            using mesh_id_t = typename samurai::MROMesh<Config>::mesh_id_t;
+            using coord_index_t = typename samurai::MROMesh<Config>::coord_index_t;
             auto pred_coeff = compute_prediction<coord_index_t>(min_level, max_level);
 
 

@@ -12,7 +12,7 @@
 
 #include <samurai/mr/adapt.hpp>
 #include <samurai/field.hpp>
-#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/hdf5.hpp>
 
 #include "prediction_map_1d.hpp"
@@ -158,10 +158,10 @@ double flux(double u, double ad_vel, int test_number)   {
 }
 
 template<class Config>
-auto init_f(samurai::MRMesh<Config> &mesh, double t, double ad_vel, double lambda, int test_number)
+auto init_f(samurai::MROMesh<Config> &mesh, double t, double ad_vel, double lambda, int test_number)
 {
     constexpr std::size_t nvel = 2;
-    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
+    using mesh_id_t = typename samurai::MROMesh<Config>::mesh_id_t;
 
     auto f = samurai::make_field<double, nvel>("f", mesh);
     f.fill(0);
@@ -440,8 +440,8 @@ int main(int argc, char *argv[])
         else
         {
             constexpr size_t dim = 1;
-            using Config = samurai::MRConfig<dim, 2>;
-            using mesh_t = samurai::MRMesh<Config>;
+            using Config = samurai::MROConfig<dim, 2>;
+            using mesh_t = samurai::MROMesh<Config>;
             using mesh_id_t = typename mesh_t::mesh_id_t;
             using coord_index_t = typename mesh_t::interval_t::coord_index_t;
 
@@ -508,8 +508,8 @@ int main(int argc, char *argv[])
                 {
                     double eps = 1.0e-4; // This remains fixed
 
-                    samurai::MRMesh<Config> mesh{box, min_level, max_level};
-                    samurai::MRMesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
+                    samurai::MROMesh<Config> mesh{box, min_level, max_level};
+                    samurai::MROMesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
 
                     // Initialization
                     auto f      = init_f(mesh , 0.0, ad_vel, lambda, test_number);

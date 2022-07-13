@@ -41,7 +41,7 @@ namespace samurai
     }
 
     template<class Field, class Func>
-    void update_ghost_mr(Field& field, Func&& update_bc_for_level)
+    void update_ghost_mro(Field& field, Func&& update_bc_for_level)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -68,6 +68,37 @@ namespace samurai
                                    difference(mesh[mesh_id_t::overleaves][level],
                                               union_(mesh[mesh_id_t::union_cells][level],
                                                      mesh[mesh_id_t::cells_and_ghosts][level])))
+                        .on(level);
+
+            update_bc_for_level(field, level-1);
+            expr.apply_op(prediction<1, false>(field));
+            update_bc_for_level(field, level);
+        }
+    }
+
+    template<class Field, class Func>
+    void update_ghost_mr(Field& field, Func&& update_bc_for_level)
+    {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+        auto mesh = field.mesh();
+        std::size_t min_level = mesh.min_level();
+        std::size_t max_level = mesh.max_level();
+
+        for (std::size_t level = max_level; level >= 1; --level)
+            {
+            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level],
+                                               mesh[mesh_id_t::proj_cells][level-1])
+                                 .on(level - 1);
+            set_at_levelm1.apply_op(projection(field));
+        }
+
+        for (std::size_t level = min_level; level <= max_level; ++level)
+        {
+            auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
+                                                union_(mesh[mesh_id_t::cells][level],
+                                                       mesh[mesh_id_t::proj_cells][level])),
+                                     mesh.domain())
                         .on(level);
 
             update_bc_for_level(field, level-1);

@@ -12,7 +12,7 @@
 
 #include <samurai/mr/adapt.hpp>
 #include <samurai/field.hpp>
-#include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
 
@@ -138,9 +138,9 @@ std::array<double, 3> exact_solution(double x, double t)   {
 }
 
 template<class Config>
-auto init_f(samurai::MRMesh<Config> &mesh, const double lambda)
+auto init_f(samurai::MROMesh<Config> &mesh, const double lambda)
 {
-    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
+    using mesh_id_t = typename samurai::MROMesh<Config>::mesh_id_t;
     constexpr std::size_t nvel = 6;
 
     auto f = samurai::make_field<double, nvel>("f", mesh);
@@ -458,8 +458,8 @@ int main(int argc, char *argv[])
         else
         {
             constexpr size_t dim = 1;
-            using Config = samurai::MRConfig<dim, 2>;
-            using mesh_t = samurai::MRMesh<Config>;
+            using Config = samurai::MROConfig<dim, 2>;
+            using mesh_t = samurai::MROMesh<Config>;
             using mesh_id_t = typename mesh_t::mesh_id_t;
             using coord_index_t = typename mesh_t::interval_t::coord_index_t;
 
@@ -469,8 +469,8 @@ int main(int argc, char *argv[])
             double s = result["s"].as<double>();
 
             samurai::Box<double, dim> box({-1}, {1});
-            samurai::MRMesh<Config> mesh {box, min_level, max_level};
-            samurai::MRMesh<Config> meshR{box, max_level, max_level};
+            samurai::MROMesh<Config> mesh {box, min_level, max_level};
+            samurai::MROMesh<Config> meshR{box, max_level, max_level};
 
             auto pred_coeff_separate = compute_prediction_separate_inout<coord_index_t>(min_level, max_level);
 
