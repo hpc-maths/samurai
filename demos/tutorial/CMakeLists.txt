@@ -20,3 +20,12 @@ target_link_libraries(tutorial-graduation-case-2 PRIVATE samurai CLI11::CLI11)
 
 add_executable(tutorial-graduation-case-3 graduation_case_3.cpp)
 target_link_libraries(tutorial-graduation-case-3 PRIVATE samurai CLI11::CLI11)
+
+add_executable(tutorial-reconstruction-1d reconstruction_1d.cpp)
+target_link_libraries(tutorial-reconstruction-1d PRIVATE samurai)
+
+add_executable(tutorial-reconstruction-2d reconstruction_2d.cpp)
+target_link_libraries(tutorial-reconstruction-2d PRIVATE samurai)
+
+add_executable(tutorial-reconstruction-3d reconstruction_3d.cpp)
+target_link_libraries(tutorial-reconstruction-3d PRIVATE samurai)

@@ -45,7 +45,7 @@ namespace samurai
         //                                                      static_cast<int>(max_stencil_width)),
         //                                             static_cast<int>(prediction_order));
         static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
-                                                    static_cast<int>(prediction_order));
+                                                    2*static_cast<int>(prediction_order));
         using interval_t = TInterval;
         using mesh_id_t = MRMeshId;
     };
