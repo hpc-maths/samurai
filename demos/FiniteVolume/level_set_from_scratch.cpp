@@ -48,7 +48,7 @@ struct AMRConfig
     static constexpr std::size_t dim = dim_;
     static constexpr std::size_t max_refinement_level = 20;
     static constexpr int ghost_width = 2;
-
+    static constexpr std::size_t prediction_order = 1;
     using interval_t = samurai::Interval<int>;
     using mesh_id_t = SimpleID;
 };
