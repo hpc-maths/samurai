@@ -8,9 +8,9 @@
 #include <xtensor/xio.hpp>
 #include <xtensor/xsemantic.hpp>
 
+template<class index_t>
 class prediction_map
 {
-    using index_t = int;
     public:
         prediction_map() = default;
 
