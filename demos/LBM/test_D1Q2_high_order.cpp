@@ -460,6 +460,7 @@ std::array<double, 3> compute_error(samurai::Field<Config, double, 2> &f, FieldR
     update_bc_for_level(fR, max_level); // It is important to do so
 
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
     // Getting ready for memoization
     // using interval_t = typename Field::Config::interval_t;
@@ -567,6 +568,7 @@ void save_reconstructed(Field & f, FieldOr & f_or, const MeshOrig & init_mesh, F
 
     double dx = 1./(1<<max_level);
 
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
     auto frec = samurai::make_field<value_t, size>("f_reconstructed", init_mesh);
@@ -741,10 +743,14 @@ int main(int argc, char *argv[])
                     {
                         MRadaptation(eps, sol_reg);
 
+                        // save_solution(f, nb_ite, std::to_string(s));
+                        // save_reconstructed(f, fR, meshR, update_bc_for_level, nb_ite, std::to_string(s));
+
+                        // std::array<double, 6> error;
+
                         auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number, nb_ite, std::to_string(s));
-                        std::cout << std::setprecision(9) << "n = " << nb_ite << "   Time = " << t << " Diff = " << error[2] << " ";
-                        save_solution(f, nb_ite, std::to_string(s));
-                        save_reconstructed(f, fR, meshR, update_bc_for_level, nb_ite, std::to_string(s));
+                        std::cout << std::setprecision(9) << "n = " << nb_ite << "   Time = " << t << " Diff = " << error[2] << " "<<std::endl;
+
 
 
                         out_time_frames    <<t       <<std::endl;
@@ -769,88 +775,88 @@ int main(int argc, char *argv[])
                 }
 
                 std::cout<<std::endl<<"Testing eps behavior"<<std::endl;
-                // {
-                //     double eps = 0.1;
-                //     std::size_t N_test = 50;
-                //     double factor = 0.60;
-                //     std::ofstream out_eps;
-                //     std::ofstream out_error_adap;
-                //     std::ofstream out_diff_ref_adap;
-                //     std::ofstream out_compression;
-                //     std::ofstream out_max_level;
-                //     std::ofstream out_compression_avg;
+                {
+                    double eps = 0.1;
+                    std::size_t N_test = 50;
+                    double factor = 0.60;
+                    std::ofstream out_eps;
+                    std::ofstream out_error_adap;
+                    std::ofstream out_diff_ref_adap;
+                    std::ofstream out_compression;
+                    std::ofstream out_max_level;
+                    std::ofstream out_compression_avg;
 
 
-                //     out_eps.open             ("./d1q2/eps/"+prefix+"eps.dat");
-                //     out_error_adap.open   ("./d1q2/eps/"+prefix+"e.dat");
-                //     out_diff_ref_adap.open   ("./d1q2/eps/"+prefix+"diff.dat");
-                //     out_compression_avg.open     ("./d1q2/eps/"+prefix+"comp_avf.dat");
-                //     out_compression.open     ("./d1q2/eps/"+prefix+"comp.dat");
-                //     out_max_level.open       ("./d1q2/eps/"+prefix+"maxlevel.dat");
+                    out_eps.open             ("./d1q2/eps/"+prefix+"eps.dat");
+                    out_error_adap.open   ("./d1q2/eps/"+prefix+"e.dat");
+                    out_diff_ref_adap.open   ("./d1q2/eps/"+prefix+"diff.dat");
+                    out_compression_avg.open     ("./d1q2/eps/"+prefix+"comp_avf.dat");
+                    out_compression.open     ("./d1q2/eps/"+prefix+"comp.dat");
+                    out_max_level.open       ("./d1q2/eps/"+prefix+"maxlevel.dat");
 
-                //     for (std::size_t n_test = 0; n_test < N_test; ++ n_test)    {
-                //         std::cout<<std::endl<<"Test "<<n_test<<" eps = "<<eps;
+                    for (std::size_t n_test = 0; n_test < N_test; ++ n_test)    {
+                        std::cout<<std::endl<<"Test "<<n_test<<" eps = "<<eps;
 
-                //         mesh_t mesh{box, min_level, max_level};
-                //         mesh_t meshR{box, max_level, max_level}; // This is the reference scheme
+                        mesh_t mesh{box, min_level, max_level};
+                        mesh_t meshR{box, max_level, max_level}; // This is the reference scheme
 
-                //         // Initialization
-                //         auto f  = init_f(mesh , 0.0, ad_vel, lambda, test_number);
-                //         auto fR = init_f(meshR, 0.0, ad_vel, lambda, test_number);
+                        // Initialization
+                        auto f  = init_f(mesh , 0.0, ad_vel, lambda, test_number);
+                        auto fR = init_f(meshR, 0.0, ad_vel, lambda, test_number);
 
-                //         double dx = 1.0 / (1 << max_level);
-                //         double dt = dx/lambda;
+                        double dx = 1.0 / (1 << max_level);
+                        double dt = dx/lambda;
 
-                //         std::size_t N = static_cast<std::size_t>(T / dt);
+                        std::size_t N = static_cast<std::size_t>(T / dt);
 
-                //         double t = 0.0;
+                        double t = 0.0;
 
-                //         auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
-                //         double comp_avg = 0.;
+                        auto MRadaptation = samurai::make_MRAdapt(f, update_bc_for_level);
+                        double comp_avg = 0.;
 
-                //         // for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
-                //         for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
-                //         // for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
+                        // for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+                        for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
+                        // for (std::size_t nb_ite = 0; nb_ite < 1; ++nb_ite)
 
-                //         {
-                //             MRadaptation(eps, sol_reg);
-                //             comp_avg += (static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
-                //                            / static_cast<double>(meshR.nb_cells(mesh_id_t::cells)))/N;
+                        {
+                            MRadaptation(eps, sol_reg);
+                            comp_avg += (static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
+                                           / static_cast<double>(meshR.nb_cells(mesh_id_t::cells)))/N;
 
-                //             one_time_step(f , update_bc_for_level, s, lambda, ad_vel, test_number, finest_collision);
-                //             one_time_step(fR, update_bc_for_level, s, lambda, ad_vel, test_number);
-                //             t += dt;
-                //         }
+                            one_time_step(f , update_bc_for_level, s, lambda, ad_vel, test_number, finest_collision);
+                            one_time_step(fR, update_bc_for_level, s, lambda, ad_vel, test_number);
+                            t += dt;
+                        }
 
-                //         auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number);
-                //         std::cout<<"Diff = "<<error[2]<<std::endl;
+                        auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number, 0, std::to_string(s));
+                        std::cout<<"Diff = "<<error[2]<<std::endl;
 
-                //         std::size_t max_level_effective = mesh.min_level();
+                        std::size_t max_level_effective = mesh.min_level();
 
-                //         for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)  {
-                //             if (!mesh[mesh_id_t::cells][level].empty())
-                //                 max_level_effective = level;
-                //         }
+                        for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)  {
+                            if (!mesh[mesh_id_t::cells][level].empty())
+                                max_level_effective = level;
+                        }
 
-                //         out_max_level<<max_level_effective<<std::endl;
+                        out_max_level<<max_level_effective<<std::endl;
 
-                //         out_eps<<eps<<std::endl;
-                //         out_error_adap<<error[1]<<std::endl;
-                //         out_diff_ref_adap<<error[2]<<std::endl;
-                //         out_compression<<static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
-                //                            / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))<<std::endl;
-                //         out_compression_avg<<comp_avg<<std::endl;
+                        out_eps<<eps<<std::endl;
+                        out_error_adap<<error[1]<<std::endl;
+                        out_diff_ref_adap<<error[2]<<std::endl;
+                        out_compression<<static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
+                                           / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))<<std::endl;
+                        out_compression_avg<<comp_avg<<std::endl;
 
-                //         eps *= factor;
-                //     }
+                        eps *= factor;
+                    }
 
-                //     out_eps.close();
-                //     out_error_adap.close();
-                //     out_compression_avg.close();
-                //     out_diff_ref_adap.close();
-                //     out_compression.close();
-                //     out_max_level.close();
-                // }
+                    out_eps.close();
+                    out_error_adap.close();
+                    out_compression_avg.close();
+                    out_diff_ref_adap.close();
+                    out_compression.close();
+                    out_max_level.close();
+                }
             }
         }
     }

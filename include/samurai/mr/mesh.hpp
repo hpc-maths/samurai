@@ -73,6 +73,7 @@ namespace samurai
 
         MRMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
+        MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t start_level, std::size_t max_level);
 
         void update_sub_mesh_impl();
 
@@ -89,6 +90,11 @@ namespace samurai
     template <class Config>
     inline MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level)
     : base_type(b, max_level, min_level, max_level)
+    {}
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t start_level, std::size_t max_level)
+    : base_type(b, start_level, min_level, max_level)
     {}
 
     template <class Config>

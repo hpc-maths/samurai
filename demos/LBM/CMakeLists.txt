@@ -1,3 +1,19 @@
+add_executable(D1Q3_Wave_LBM-MR_Eq_Eq D1Q3_Wave_LBM-MR_Eq_Eq.cpp)
+target_link_libraries(D1Q3_Wave_LBM-MR_Eq_Eq samurai)
+
+add_executable(D2Q9_mesh_jump_compte_rendus D2Q9_mesh_jump_compte_rendus.cpp)
+target_link_libraries(D2Q9_mesh_jump_compte_rendus samurai)
+target_compile_features(D2Q9_mesh_jump_compte_rendus PUBLIC cxx_std_17)
+
+add_executable(D1Q3_mesh_jump_compte_rendus_comparison D1Q3_mesh_jump_compte_rendus_comparison.cpp)
+target_link_libraries(D1Q3_mesh_jump_compte_rendus_comparison samurai)
+
+add_executable(D1Q3_advection_diffusion_parabolic_filtering D1Q3_advection_diffusion_parabolic_filtering.cpp)
+target_link_libraries(D1Q3_advection_diffusion_parabolic_filtering samurai)
+
+add_executable(D1Q2_stability_adaptive_schemes D1Q2_stability_adaptive_schemes.cpp)
+target_link_libraries(D1Q2_stability_adaptive_schemes samurai)
+
 add_executable(high_order_mr high_order_mr.cpp)
 target_link_libraries(high_order_mr samurai)
 
