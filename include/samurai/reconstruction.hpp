@@ -416,4 +416,63 @@ namespace samurai
         }
         return reconstruct_field;
     }
+
+    template <class Field, class Interval>
+    auto flux(const Field& f, std::size_t level, const Interval& i, const std::array<int, 1>& stencil, std::size_t dest_level)
+    {
+        using value_t = typename Field::value_type;
+        using mesh_t = typename Field::mesh_t;
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+        using ca_type = typename mesh_t::ca_type;
+        constexpr std::size_t prediction_order = mesh_t::config::prediction_order;
+        using index_t = typename Field::interval_t::value_t;
+
+        if (level == dest_level)
+        {
+            return f(level, i + stencil[0]);
+        }
+        else
+        {
+            std::size_t delta_l = dest_level - level;
+            index_t i_pred = 0;
+
+            if (stencil[0] > 0)
+            {
+                i_pred = stencil[0] - 1;
+            }
+            else if (stencil[0] < 0)
+            {
+                i_pred = (1 << delta_l) + stencil[0] - 1;
+            }
+
+            auto pred = prediction<prediction_order, index_t>(delta_l, i_pred);
+
+            xt::xtensor<value_t, 1> result = xt::zeros<value_t>(i.size());
+
+            for(auto& kv: pred.coeff)
+            {
+                result += kv.second*f(level, i + stencil[0] + kv.first[0]);
+            }
+            return result;
+        }
+    }
+
+    template <class Field, class Interval>
+    auto portion(const Field& f, std::size_t element, std::size_t level, const Interval& i, std::size_t delta_l, std::size_t index)
+    {
+        constexpr std::size_t prediction_order = Field::mesh_t::config::prediction_order;
+        using index_t = typename Field::interval_t::value_t;
+
+        auto pred = prediction<prediction_order, index_t>(delta_l, index);
+
+        auto result = xt::zeros_like(f(element, level, i));
+
+        for(auto& kv: pred.coeff)
+        {
+            // std::cout << level << " " << delta_l << " " << index << " " << kv.first[0] << " " << kv.second << std::endl;
+            result += kv.second*f(element, level, i + kv.first[0]);
+        }
+        return result;
+    }
+
 }
