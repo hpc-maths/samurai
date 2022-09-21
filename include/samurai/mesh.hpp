@@ -273,10 +273,12 @@ namespace samurai
     inline void Mesh_base<D, Config>::construct_domain()
     {
         lcl_type lcl = {m_cells[mesh_id_t::cells].max_level()};
+        // lcl_type lcl = {m_max_level};
 
         for_each_interval(m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
         {
             std::size_t shift = m_cells[mesh_id_t::cells].max_level() - level;
+            // std::size_t shift = m_max_level - level;
             interval_t to_add = i<<shift;
             auto shift_index = index << shift;
             static_nested_loop<dim - 1>(0, 1 << shift, 1, [&](auto stencil)
@@ -302,6 +304,8 @@ namespace samurai
                                m_union[level+1])
                        .on(level);
 
+            // std::cout << this->m_cells[mesh_id_t::cells][level] << std::endl;
+            // std::cout << m_union[level+1] << std::endl;
             expr([&](const auto& interval, const auto& index_yz)
             {
                 lcl[index_yz].add_interval({interval.start, interval.end});
