@@ -8,19 +8,13 @@
 
 #include <cxxopts.hpp>
 
-#include <xtensor/xio.hpp>
-
 #include <samurai/mr/adapt.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/reconstruction.hpp>
 
-#include "prediction_map_1d.hpp"
 #include "boundary_conditions.hpp"
-
-#include "utils_lbm_mr_1d.hpp"
-
-#include <chrono>
 
 /*
 TEST CASES
@@ -30,42 +24,6 @@ TEST CASES
 4 : Burgers - fonction chapeau avec changement de regularite
 5 : Burgers - probleme de Riemann
 */
-
-template<class coord_index_t>
-auto compute_prediction_separate_inout(std::size_t min_level, std::size_t max_level)
-{
-    coord_index_t i = 0;
-    std::vector<std::vector<prediction_map<coord_index_t>>> data(max_level-min_level+1);
-
-    for(std::size_t k=0; k<max_level-min_level+1; ++k)
-    {
-        int size = (1<<k);
-        data[k].resize(4);
-
-        data[k][0] = prediction(k, i*size - 1);
-        data[k][1] = prediction(k, (i+1)*size - 1);
-        data[k][2] = prediction(k, (i+1)*size);
-        data[k][3] = prediction(k, i*size);
-    }
-    return data;
-}
-
-/// Timer used in tic & toc
-auto tic_timer = std::chrono::high_resolution_clock::now();
-
-/// Launching the timer
-void tic()
-{
-    tic_timer = std::chrono::high_resolution_clock::now();
-}
-
-/// Stopping the timer and returning the duration in seconds
-double toc()
-{
-    const auto toc_timer = std::chrono::high_resolution_clock::now();
-    const std::chrono::duration<double> time_span = toc_timer - tic_timer;
-    return time_span.count();
-}
 
 double exact_solution(double x, double t, double ad_vel, int test_number)
 {
@@ -157,23 +115,16 @@ double flux(double u, double ad_vel, int test_number)   {
     }
 }
 
-template<class Config>
-auto init_f(samurai::MROMesh<Config> &mesh, double t, double ad_vel, double lambda, int test_number)
+template<class Mesh>
+auto init_f(Mesh &mesh, double t, double ad_vel, double lambda, int test_number)
 {
-    constexpr std::size_t nvel = 2;
-    using mesh_id_t = typename samurai::MROMesh<Config>::mesh_id_t;
-
-    auto f = samurai::make_field<double, nvel>("f", mesh);
-    f.fill(0);
+    using mesh_id_t = typename Mesh::mesh_id_t;
+    auto f = samurai::make_field<double, 2>("f", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
     {
-        auto center = cell.center();
-        auto x = center[0];
-
-        double u = 0;
-
-        u = exact_solution(x, 0.0, ad_vel, test_number);
+        auto x = cell.center(0);
+        double u = exact_solution(x, 0.0, ad_vel, test_number);
         double v = flux(u, ad_vel, test_number);
 
         f[cell][0] = .5 * (u + v/lambda);
@@ -184,9 +135,9 @@ auto init_f(samurai::MROMesh<Config> &mesh, double t, double ad_vel, double lamb
 }
 
 
-template<class Field, class Func, class Pred>
+template<class Field, class Func>
 void one_time_step(Field &f, Func&& update_bc_for_level,
-                            const Pred& pred_coeff, double s_rel, double lambda, double ad_vel, int test_number,
+                            double s_rel, double lambda, double ad_vel, int test_number,
                             bool finest_collision = false)
 {
 
@@ -202,93 +153,55 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
     auto max_level = mesh.max_level();
 
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
-    samurai::update_overleaves_mr(f, std::forward<Func>(update_bc_for_level));
 
     auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
-    new_f.fill(0.);
-    auto advected_f = samurai::make_field<double, nvel>("advected_f", mesh);
-    advected_f.fill(0.);
-    auto help_f = samurai::make_field<double, nvel>("help_f", mesh);
-    help_f.fill(0.);
-
-    for (std::size_t level = 0; level <= max_level; ++level)
+    samurai::for_each_interval(mesh[mesh_id_t::cells][max_level], [&](std::size_t level, auto& i, auto&)
     {
-        if (level == max_level) {
-            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][max_level],
-                                                mesh[mesh_id_t::cells][max_level]);
-            leaves([&](auto &interval, auto) {
-                auto k = interval;
-                advected_f(0, max_level, k) = xt::eval(f(0, max_level, k - 1));
-                advected_f(1, max_level, k) = xt::eval(f(1, max_level, k + 1));
-            });
-        }
-        else
+        new_f(0, level, i) = f(0, level, i - 1);
+        new_f(1, level, i) = f(1, level, i + 1);
+    });
+
+    // on leaves
+    // for (std::size_t level = min_level; level < max_level; ++level)
+    // {
+    //     std::size_t delta_l = max_level - level;
+    //     double coeff = 1. / (1 << delta_l);
+
+    //     samurai::for_each_interval(mesh[mesh_id_t::cells][max_level], [&](std::size_t level, auto& i, auto&)
+    //     {
+    //         new_f(0, level, i) = f(0, level, i) + coeff*samurai::portion(f, 0, level, i - 1, delta_l, (1<<delta_l) - 1)
+    //                                             - coeff*samurai::portion(f, 0, level,     i, delta_l, (1<<delta_l) - 1);
+    //         new_f(1, level, i) = f(1, level, i) + coeff*samurai::portion(f, 1, level, i + 1, delta_l, 0)
+    //                                             - coeff*samurai::portion(f, 1, level,     i, delta_l, 0);
+    //     });
+    // }
+
+    // on overleaves
+    for (std::size_t level = min_level; level < max_level; ++level)
+    {
+        std::size_t delta_l = max_level - (level + 1);
+        double coeff = 1. / (1 << delta_l);
+
+        samurai::for_each_interval(mesh[mesh_id_t::cells][level], [&](std::size_t level, auto& i, auto&)
         {
-            // We do the advection on the overleaves
-            std::size_t j = max_level - (level + 1);
-            double coeff = 1. / (1 << j);
+            new_f(0, level, i) = 0.5*(f(0, level + 1,     2*i) + coeff*samurai::portion(f, 0, level + 1, 2*i - 1, delta_l, (1<<delta_l) - 1)
+                                                               - coeff*samurai::portion(f, 0, level + 1,     2*i, delta_l, (1<<delta_l) - 1)
+                                     +f(0, level + 1, 2*i + 1) + coeff*samurai::portion(f, 0, level + 1,     2*i, delta_l, (1<<delta_l) - 1)
+                                                               - coeff*samurai::portion(f, 0, level + 1, 2*i + 1, delta_l, (1<<delta_l) - 1)
+            );
 
-            auto ol = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                            mesh[mesh_id_t::cells][level]).on(level + 1);
-
-            ol([&](auto& interval, auto) {
-                auto k = interval; // Logical index in x
-
-                auto fp = xt::eval(f(0, level + 1, k));
-                auto fm = xt::eval(f(1, level + 1, k));
-
-                for(auto &c: pred_coeff[j][0].coeff)
-                {
-                    coord_index_t stencil = c.first;
-                    double weight = c.second;
-
-                    fp += coeff * weight * f(0, level + 1, k + stencil);
-                }
-
-                for(auto &c: pred_coeff[j][1].coeff)
-                {
-                    coord_index_t stencil = c.first;
-                    double weight = c.second;
-
-                    fp -= coeff * weight * f(0, level + 1, k + stencil);
-                }
-
-                for(auto &c: pred_coeff[j][2].coeff)
-                {
-                    coord_index_t stencil = c.first;
-                    double weight = c.second;
-
-                    fm += coeff * weight * f(1, level + 1, k + stencil);
-                }
-
-                for(auto &c: pred_coeff[j][3].coeff)
-                {
-                    coord_index_t stencil = c.first;
-                    double weight = c.second;
-
-                    fm -= coeff * weight * f(1, level + 1, k + stencil);
-                }
-
-                // Save it
-                help_f(0, level + 1, k) = fp;
-                help_f(1, level + 1, k) = fm;
-            });
-
-            // Now that projection has been done, we have to come back on the leaves below the overleaves
-            auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                                mesh[mesh_id_t::cells][level]);
-
-            leaves([&](auto &interval, auto) {
-                auto k = interval;
-                // Projection
-                advected_f(0, level, k) = xt::eval(0.5 * (help_f(0, level + 1, 2*k) + help_f(0, level + 1, 2*k + 1)));
-                advected_f(1, level, k) = xt::eval(0.5 * (help_f(1, level + 1, 2*k) + help_f(1, level + 1, 2*k + 1)));
-            });
-        }
+            new_f(1, level, i) = 0.5*(f(1, level + 1, 2*i)     + coeff*samurai::portion(f, 1, level + 1, 2*i + 1, delta_l, 0)
+                                                               - coeff*samurai::portion(f, 1, level + 1,     2*i, delta_l, 0)
+                                     +f(1, level + 1, 2*i + 1) + coeff*samurai::portion(f, 1, level + 1, 2*i + 2, delta_l, 0)
+                                                               - coeff*samurai::portion(f, 1, level + 1, 2*i + 1, delta_l, 0)
+            );
+        });
     }
 
     // Collision
-    if (!finest_collision)  {
+    if (!finest_collision)
+    {
+        samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std))
         for (std::size_t level = 0; level <= max_level; ++level)    {
 
             double dx = 1./(1 << level);
@@ -298,8 +211,8 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
 
             leaves([&](auto &interval, auto) {
                 auto k = interval;
-                auto uu = xt::eval(          advected_f(0, level, k) + advected_f(1, level, k));
-                auto vv = xt::eval(lambda * (advected_f(0, level, k) - advected_f(1, level, k)));
+                auto uu = xt::eval(          new_f(0, level, k) + new_f(1, level, k));
+                auto vv = xt::eval(lambda * (new_f(0, level, k) - new_f(1, level, k)));
 
                 if (test_number == 1 or test_number == 2)
                 {
@@ -317,48 +230,48 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
     }
 
     else {
-        samurai::update_ghost_mr(advected_f, std::forward<Func>(update_bc_for_level));
+        // samurai::update_ghost_mr(advected_f, std::forward<Func>(update_bc_for_level));
 
-        std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> memoization_map;
-        memoization_map.clear();
+        // std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> memoization_map;
+        // memoization_map.clear();
 
-        for (std::size_t level = 0; level <= max_level; ++level)    {
+        // for (std::size_t level = 0; level <= max_level; ++level)    {
 
-            auto leaves_on_finest = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                                          mesh[mesh_id_t::cells][level]).on(max_level);
+        //     auto leaves_on_finest = samurai::intersection(mesh[mesh_id_t::cells][level],
+        //                                                   mesh[mesh_id_t::cells][level]).on(max_level);
 
-            leaves_on_finest([&](auto &interval, auto) {
-                auto i = interval;
-                auto j = max_level - level;
+        //     leaves_on_finest([&](auto &interval, auto) {
+        //         auto i = interval;
+        //         auto j = max_level - level;
 
-                auto f_on_finest  = prediction_all(advected_f, level, j, i, memoization_map);
+        //         auto f_on_finest  = prediction_all(advected_f, level, j, i, memoization_map);
 
-                auto uu = xt::eval(xt::view(f_on_finest, xt::all(), 0)
-                                 + xt::view(f_on_finest, xt::all(), 1));
+        //         auto uu = xt::eval(xt::view(f_on_finest, xt::all(), 0)
+        //                          + xt::view(f_on_finest, xt::all(), 1));
 
-                auto vv = xt::eval(lambda*(xt::view(f_on_finest, xt::all(), 0)
-                                         - xt::view(f_on_finest, xt::all(), 1)));
+        //         auto vv = xt::eval(lambda*(xt::view(f_on_finest, xt::all(), 0)
+        //                                  - xt::view(f_on_finest, xt::all(), 1)));
 
-                if (test_number == 1 or test_number == 2)   {
+        //         if (test_number == 1 or test_number == 2)   {
 
-                    vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
-                }
-                else
-                {
-                    vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
-                }
+        //             vv = (1 - s_rel) * vv + s_rel * ad_vel * uu;
+        //         }
+        //         else
+        //         {
+        //             vv = (1 - s_rel) * vv + s_rel * .5 * uu * uu;
+        //         }
 
-                auto f_0_post_coll = .5 * (uu + 1. / lambda * vv);
-                auto f_1_post_coll = .5 * (uu - 1. / lambda * vv);
+        //         auto f_0_post_coll = .5 * (uu + 1. / lambda * vv);
+        //         auto f_1_post_coll = .5 * (uu - 1. / lambda * vv);
 
-                int step = 1 << j;
+        //         int step = 1 << j;
 
-                for (auto i_start = 0; i_start < (i.end - i.start); i_start = i_start + step)    {
-                    new_f(0, level, {(i.start + i_start)/step, (i.start + i_start)/step + 1}) = xt::mean(xt::view(f_0_post_coll, xt::range(i_start, i_start + step)));
-                    new_f(1, level, {(i.start + i_start)/step, (i.start + i_start)/step + 1}) = xt::mean(xt::view(f_1_post_coll, xt::range(i_start, i_start + step)));
-                }
-            });
-        }
+        //         for (auto i_start = 0; i_start < (i.end - i.start); i_start = i_start + step)    {
+        //             new_f(0, level, {(i.start + i_start)/step, (i.start + i_start)/step + 1}) = xt::mean(xt::view(f_0_post_coll, xt::range(i_start, i_start + step)));
+        //             new_f(1, level, {(i.start + i_start)/step, (i.start + i_start)/step + 1}) = xt::mean(xt::view(f_1_post_coll, xt::range(i_start, i_start + step)));
+        //         }
+        //     });
+        // }
     }
     std::swap(f.array(), new_f.array());
 }
@@ -366,55 +279,35 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
 template<class Config, class FieldR, class Func>
 std::array<double, 2> compute_error(samurai::Field<Config, double, 2> &f, FieldR & fR, Func&& update_bc_for_level, double t, double ad_vel, int test_number)
 {
-
-    auto mesh = f.mesh();
-    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
-
     auto meshR = fR.mesh();
+    using mesh_id_t = typename decltype(meshR)::mesh_id_t;
     auto max_level = meshR.max_level();
 
     update_bc_for_level(fR, max_level); // It is important to do so
-
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
-    // Getting ready for memoization
-    // using interval_t = typename Field::Config::interval_t;
-    using interval_t = typename Config::interval_t;
-    std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>> error_memoization_map;
-
-    error_memoization_map.clear();
+    auto sol = samurai::reconstruction(f);
 
     double error = 0; // To return
     double diff = 0.0;
-
     double dx = 1.0 / (1 << max_level);
 
-    for (std::size_t level = 0; level <= max_level; ++level)
+    samurai::for_each_interval(meshR[mesh_id_t::cells][max_level], [&](std::size_t level, auto& i, auto&)
     {
-        auto exp = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                         mesh[mesh_id_t::cells][level]).on(max_level);
+        auto rho_ref = xt::eval(fR(0, max_level, i) + fR(1, max_level, i));
+        auto rho = xt::eval(sol(0, max_level, i) + sol(1, max_level, i));
 
-        exp([&](auto &interval, auto) {
-            auto i = interval;
-            auto j = max_level - level;
+        xt::xtensor<double, 1> x = dx*xt::linspace<int>(i.start, i.end - 1, i.size()) + 0.5*dx;
+        xt::xtensor<double, 1> uexact = xt::zeros<double>(x.shape());
 
-            auto sol  = prediction_all(f, level, j, i, error_memoization_map);
-            auto solR = xt::view(fR(max_level, i), xt::all(), xt::range(0, 2));
+        for (std::size_t idx = 0; idx < x.shape()[0]; ++idx)
+        {
+            uexact[idx] = exact_solution(x[idx], t, ad_vel, test_number); // We can probably do better
+        }
 
-            xt::xtensor<double, 1> x = dx*xt::linspace<int>(i.start, i.end - 1, i.size()) + 0.5*dx;
-            xt::xtensor<double, 1> uexact = xt::zeros<double>(x.shape());
-
-            for (std::size_t idx = 0; idx < x.shape()[0]; ++idx)    {
-                uexact[idx] = exact_solution(x[idx], t, ad_vel, test_number); // We can probably do better
-            }
-
-            auto rho_ref = xt::eval(fR(0, max_level, i) + fR(1, max_level, i));
-            auto rho = xt::eval(xt::view(sol, xt::all(), 0) +  xt::view(sol, xt::all(), 1));
-
-            error += xt::sum(xt::abs(rho_ref - uexact))[0];
-            diff  += xt::sum(xt::abs(rho_ref - rho))[0];
-        });
-    }
+        error += xt::sum(xt::abs(rho_ref - uexact))[0];
+        diff  += xt::sum(xt::abs(rho_ref - rho))[0];
+    });
     return {dx * error, dx * diff}; // Normalization by dx before returning
 }
 
@@ -490,9 +383,8 @@ int main(int argc, char *argv[])
 
             samurai::Box<double, dim> box({-3}, {3});
 
-            std::vector<double> s_vect {0.75, 1.0, 1.25, 1.5, 1.75};
-
-            auto pred_coeff_separate = compute_prediction_separate_inout<coord_index_t>(min_level, max_level);
+            std::vector<double> s_vect {0.75};
+            // std::vector<double> s_vect {0.75, 1.0, 1.25, 1.5, 1.75};
 
             auto update_bc_for_level = [](auto& field, std::size_t level)
             {
@@ -546,10 +438,10 @@ int main(int argc, char *argv[])
                         out_compression    <<static_cast<double>(mesh.nb_cells(mesh_id_t::cells))
                                            / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))<<std::endl;
 
-                        std::cout<<std::endl<<"n = "<<nb_ite<<"   Time = "<<t<<" Diff = "<<error[1];
+                        std::cout<<std::endl<<"n = "<<nb_ite<<"   Time = "<<t<<" Diff = "<<error[1]<< std::endl;;
 
-                        one_time_step(f, update_bc_for_level, pred_coeff_separate, s, lambda, ad_vel, test_number, finest_collision);
-                        one_time_step(fR, update_bc_for_level, pred_coeff_separate, s, lambda, ad_vel, test_number);
+                        one_time_step(f, update_bc_for_level, s, lambda, ad_vel, test_number, finest_collision);
+                        one_time_step(fR, update_bc_for_level, s, lambda, ad_vel, test_number);
                         t += dt;
                     }
 
@@ -602,8 +494,8 @@ int main(int argc, char *argv[])
                         {
                             MRadaptation(eps, sol_reg);
 
-                            one_time_step(f , update_bc_for_level, pred_coeff_separate, s, lambda, ad_vel, test_number, finest_collision);
-                            one_time_step(fR, update_bc_for_level, pred_coeff_separate, s, lambda, ad_vel, test_number);
+                            one_time_step(f , update_bc_for_level, s, lambda, ad_vel, test_number, finest_collision);
+                            one_time_step(fR, update_bc_for_level, s, lambda, ad_vel, test_number);
                             t += dt;
                         }
 
