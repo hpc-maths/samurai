@@ -310,7 +310,7 @@ namespace samurai
                 if ( tag[itag] & static_cast<int>(CellFlag::refine))
                 {
                     if (level < mesh.max_level())
-                    {                    
+                    {
                         static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
                         {
                             auto new_index = 2*index + stencil;
@@ -319,7 +319,7 @@ namespace samurai
                     }
                     else
                     {
-                        cl[level][index].add_point(i);    
+                        cl[level][index].add_point(i);
                     }
 
                 }
@@ -335,7 +335,7 @@ namespace samurai
                     }
                     else
                     {
-                        cl[level][index].add_point(i);    
+                        cl[level][index].add_point(i);
                     }
                 }
                 itag++;
@@ -359,7 +359,7 @@ namespace samurai
     {
         static constexpr std::size_t dim = Field::dim;
         using mesh_t = typename Field::mesh_t;
-        constexpr std::size_t 
+        constexpr std::size_t
         pred_order = mesh_t::config::prediction_order;
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         using interval_t = typename mesh_t::interval_t;
@@ -367,6 +367,8 @@ namespace samurai
         using cl_type = typename Field::mesh_t::cl_type;
 
         auto mesh = field.mesh();
+        auto old_mesh = old_field.mesh();
+
         cl_type cl;
 
         for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index)
@@ -386,7 +388,7 @@ namespace samurai
                     }
                     else
                     {
-                        cl[level][index].add_point(i);    
+                        cl[level][index].add_point(i);
                     }
                 }
                 else if ( tag[itag] & static_cast<int>(CellFlag::keep))
@@ -412,6 +414,13 @@ namespace samurai
 
         if (mesh == new_mesh)
         {
+            return true;
+        }
+
+        if (new_mesh == old_mesh)
+        {
+            field.mesh_ptr()->swap(old_mesh);
+            std::swap(field.array(), old_field.array());
             return true;
         }
 
@@ -441,7 +450,6 @@ namespace samurai
             set_refine.apply_op(prediction<pred_order, true>(new_field, field));
         }
 
-        auto old_mesh = old_field.mesh();
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
             auto subset = intersection(intersection(old_mesh[mesh_id_t::cells][level],
