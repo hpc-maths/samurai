@@ -105,30 +105,6 @@ int main(int argc, char *argv[])
        u.set_neumann([](auto&){ return 0.; }).everywhere();
     unp1.set_neumann([](auto&){ return 0.; }).everywhere();
 
-    auto update_bc = [&](auto& field, std::size_t)
-    {
-        samurai::for_each_stencil_center_and_outside_ghost(field.mesh(), samurai::star_stencil<dim>(),
-        [&] (const auto& cells, const auto& towards_ghost)
-        {
-            const auto& cell  = cells[0];
-            const auto& ghost = cells[1];
-            const double& h = cell.length;
-            auto boundary_point = cell.face_center(towards_ghost);
-            auto bc = find(field.boundary_conditions(), boundary_point);
-
-            if (bc.is_dirichlet())
-            {
-                auto dirichlet_value = bc.get_value(boundary_point);
-                field[ghost] = 2 * dirichlet_value - field[cell];
-            }
-            else
-            {
-                auto neumann_value = bc.get_value(boundary_point);
-                field[ghost] = h * neumann_value + field[cell];
-            }
-        });
-    };
-
     //--------------------//
     //   Time iteration   //
     //--------------------//

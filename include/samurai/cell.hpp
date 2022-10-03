@@ -16,7 +16,7 @@ namespace samurai
     {
         return 1./(1<<level);
     }
-    
+
 
     /** @class Cell
      *  @brief Define a mesh cell in multi dimensions.
@@ -31,7 +31,7 @@ namespace samurai
     struct Cell
     {
         static constexpr std::size_t dim = dim_;
-        using coord_index_t = TCoord_index;
+        using value_t = TCoord_index;
 
         Cell();
 
@@ -53,7 +53,7 @@ namespace samurai
         std::size_t level;
 
         /// The integer coordinates of the cell.
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> indices;
+        xt::xtensor_fixed<value_t, xt::xshape<dim>> indices;
 
             /// The index where the cell is in the data array.
         std::size_t index;

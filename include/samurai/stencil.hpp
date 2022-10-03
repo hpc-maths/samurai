@@ -38,8 +38,8 @@ namespace samurai
     class IteratorStencil
     {
         static constexpr std::size_t dim = Mesh::dim;
-        using coord_index_t = typename Mesh::config::interval_t::coord_index_t;
-        using Cell = typename samurai::Cell<coord_index_t, dim>;
+        using value_t = typename Mesh::config::interval_t::value_t;
+        using Cell = typename samurai::Cell<value_t, dim>;
     private:
         const Stencil<stencil_size, dim> m_stencil;
         std::array<Cell, stencil_size> m_cells;

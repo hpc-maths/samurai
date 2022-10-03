@@ -97,6 +97,7 @@ namespace samurai
         {
             return;
         }
+        update_ghost_mr(m_field);
 
         mesh_t mesh_old = mesh;
         field_type field_old(m_field.name(), mesh_old);
@@ -161,6 +162,7 @@ namespace samurai
             subset_2.apply_op(enlarge(m_tag));
             subset_2.apply_op(keep_around_refine(m_tag));
             subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
+            update_tag_periodic(level, m_tag);
         }
 
         // FIXME: this graduation doesn't make the same that the lines below: why?
@@ -186,12 +188,13 @@ namespace samurai
                     {
                         stencil[d] = s;
                         auto subset = intersection(mesh[mesh_id_t::cells][level],
-                                                   translate(mesh[mesh_id_t::cells][level - 1], stencil))
+                                                  translate(mesh[mesh_id_t::all_cells][level - 1], stencil))
                                     .on(level - 1);
                         subset.apply_op(balance_2to1(m_tag, stencil));
                     }
                 }
             }
+            update_tag_periodic(level, m_tag);
         }
 
         // REFINEMENT GRADUATION
@@ -201,16 +204,18 @@ namespace samurai
                                         mesh[mesh_id_t::cells][level]);
 
             subset_1.apply_op(extend(m_tag));
+            update_tag_periodic(level, m_tag);
 
             static_nested_loop<dim, -1, 2>(
                 [&](auto stencil) {
 
                 auto subset = intersection(translate(mesh[mesh_id_t::cells][level], stencil),
-                                        mesh[mesh_id_t::cells][level-1]).on(level);
+                                        mesh[mesh_id_t::all_cells][level-1]).on(level);
 
                 subset.apply_op(make_graduation(m_tag));
 
             });
+            update_tag_periodic(level, m_tag);
         }
 
         for (std::size_t level = max_level; level > 0; --level)
@@ -220,7 +225,10 @@ namespace samurai
                             .on(level - 1);
 
             keep_subset.apply_op(maximum(m_tag));
+            update_tag_periodic(level, m_tag);
         }
+
+        update_ghost_mr(field_old);
 
         if (update_field_mr(m_field, field_old, m_tag))
         {
