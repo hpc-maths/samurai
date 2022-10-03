@@ -73,7 +73,9 @@ namespace samurai
         MROMesh& operator=(MROMesh&&) = default;
 
         MROMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level);
+        MROMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
         MROMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
+        MROMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
 
         void update_sub_mesh_impl();
 
@@ -88,8 +90,18 @@ namespace samurai
     {}
 
     template <class Config>
+    inline MROMesh<Config>::MROMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
+    : base_type(cl, min_level, max_level, periodic)
+    {}
+
+    template <class Config>
     inline MROMesh<Config>::MROMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level)
     : base_type(b, max_level, min_level, max_level)
+    {}
+
+    template <class Config>
+    inline MROMesh<Config>::MROMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
+    : base_type(b, max_level, min_level, max_level, periodic)
     {}
 
     template <class Config>
