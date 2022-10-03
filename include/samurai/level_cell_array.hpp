@@ -6,6 +6,7 @@
 
 #include <array>
 #include <iterator>
+#include <limits>
 #include <vector>
 
 #include <fmt/format.h>
@@ -120,6 +121,10 @@ namespace samurai
         std::vector<std::size_t>& offsets(std::size_t d);
 
         std::size_t level() const;
+
+        auto min_indices() const;
+        auto max_indices() const;
+        auto minmax_indices() const;
 
     private:
         /// Recursive construction from a level cell list along dimension > 0
@@ -473,6 +478,53 @@ namespace samurai
     inline std::size_t LevelCellArray<Dim, TInterval>::level() const
     {
         return m_level;
+    }
+
+    /**
+     * Return the maximum value that can take the end of an interval for each direction.
+     */
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::max_indices() const
+    {
+        std::array<value_t, dim> max;
+        for (std::size_t d=0; d<dim; ++d)
+        {
+            max[d] = std::max_element(m_cells[d].begin(), m_cells[d].end(), [](auto&a, auto& b){return (a.end < b.end);})->end;
+        }
+        return max;
+    }
+
+    /**
+     * Return the minimum value that can take the start of an interval for each direction.
+     */
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::min_indices() const
+    {
+        std::array<value_t, dim> min;
+        for (std::size_t d=0; d<dim; ++d)
+        {
+            min[d] = std::min_element(m_cells[d].begin(), m_cells[d].end(), [](auto&a, auto& b){return (a.start < b.start);})->start;
+        }
+        return min;
+    }
+
+    /**
+     * Return the minimum value that can take the start and
+     * the maximum value that can take the end of an interval
+     * for each direction.
+     */
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::minmax_indices() const
+    {
+        std::array<std::pair<value_t, value_t>, dim> minmax;
+        auto min = min_indices();
+        auto max = max_indices();
+        for (std::size_t d=0; d<dim; ++d)
+        {
+            minmax[d].first = min[d];
+            minmax[d].second = max[d];
+        }
+        return minmax;
     }
 
     template<std::size_t Dim, class TInterval>
