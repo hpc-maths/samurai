@@ -1,6 +1,5 @@
 #pragma once
-#include <petsc.h>
-#include "utils.cpp"
+#include "samurai_new/multigrid/petsc/utils.hpp"
 
 //-------------------//
 //     Laplacian     //
@@ -258,5 +257,5 @@ Vec assemble_rhs_impl(std::integral_constant<std::size_t, 2>, Field& rhs_field)
         });
     }
 
-    return create_petsc_vector_from(rhs_field);
+    return samurai_new::petsc::create_petsc_vector_from(rhs_field);
 }

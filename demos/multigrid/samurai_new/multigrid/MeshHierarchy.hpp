@@ -1,4 +1,5 @@
-#include <samurai/amr/mesh.hpp>
+#pragma once
+#include "samurai_new/algorithm.hpp"
 #include <list>
 
 template<class Mesh>
@@ -21,7 +22,7 @@ public:
     Mesh& add_coarser()
     {
         auto mesh = _hierarchy.back();
-        _created_meshes.emplace_back(coarsen(mesh));
+        _created_meshes.emplace_back(samurai_new::coarsen(mesh));
         Mesh& coarser = _created_meshes.back();
         _hierarchy.push_back(&coarser);
         return coarser;
@@ -30,7 +31,7 @@ public:
     Mesh& add_finer()
     {
         auto mesh = _hierarchy.front();
-        _created_meshes.emplace_back(refine(mesh));
+        _created_meshes.emplace_back(samurai_new::refine(mesh));
         Mesh& finer = _created_meshes.back();
         _hierarchy.push_front(&finer);
         return finer;
@@ -84,47 +85,5 @@ public:
     Mesh& coarse()
     {
         return _hierarchy.back();
-    }
-
-public:
-    static Mesh coarsen(const Mesh& mesh)
-    {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-
-        typename Mesh::cl_type coarse_cell_list;
-        if (Mesh::dim == 1)
-        {
-            samurai::for_each_interval(mesh[mesh_id_t::cells], [&](size_t level, const auto& i, const auto& index)
-            {
-                coarse_cell_list[level-1][{}].add_interval(i >> 1);
-            });
-        }
-        else if (Mesh::dim == 2)
-        {
-            samurai::for_each_interval(mesh[mesh_id_t::cells], [&](size_t level, const auto& i, const auto& index)
-            {
-                auto j = index[0];
-                if (j % 2 == 0)
-                    coarse_cell_list[level-1][{j/2}].add_interval(i/2);
-            });
-        }
-        return Mesh(coarse_cell_list, mesh.min_level()-1, mesh.max_level()-1);
-    }
-
-    /*static void coarsen(const Mesh& mesh, Mesh& coarse_mesh)
-    {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-
-        typename Mesh::cl_type coarse_cell_list;
-        samurai::for_each_interval(mesh[mesh_id_t::cells], [&](size_t l, const auto& interval, const auto& index)
-        {
-            coarse_cell_list[l-1][{}].add_interval(interval >> 1);
-        });
-        coarse_mesh = Mesh(coarse_cell_list, mesh.min_level()-1, mesh.max_level()-1);
-    }*/
-
-    static Mesh refine(const Mesh& mesh)
-    {
-        assert(false && "not implemented");
     }
 };
