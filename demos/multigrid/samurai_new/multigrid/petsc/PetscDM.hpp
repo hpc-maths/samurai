@@ -1,7 +1,5 @@
 #pragma once
-#include <samurai/numeric/projection.hpp>
-#include <samurai/numeric/prediction.hpp>
-#include "PetscMultigrid.hpp"
+#include "intergrid_operators.hpp"
 #include "utils.hpp"
 
 // 0: P mat-free, R mat-free (via Fields)
@@ -56,6 +54,23 @@ namespace samurai_new
                 return shell;
             }
 
+            static PetscErrorCode Coarsen(DM fine, MPI_Comm comm, DM *coarse) 
+            {
+                //std::cout << "Coarsen - begin" << std::endl;
+                LevelCtx<Dsctzr>* fine_ctx;
+                DMShellGetContext(fine, &fine_ctx);
+
+                LevelCtx<Dsctzr>* coarse_ctx = new LevelCtx(*fine_ctx);
+
+                /*std::cout << "fine_mesh:" << std::endl << fine_ctx->mesh() << std::endl << std::endl;
+                std::cout << "coarse_mesh:" << std::endl << coarse_ctx->mesh() << std::endl;
+                samurai::save("coarse_mesh", coarse_ctx->mesh());*/
+
+                *coarse = Create(PetscObjectComm((PetscObject)fine), *coarse_ctx);
+                //std::cout << "Coarsen (create level " << coarse_ctx->level << ")" << std::endl;
+                return 0;
+            }
+            
             /*static PetscErrorCode Destroy(void *ctx) 
             {
                 delete ctx;
@@ -92,23 +107,6 @@ namespace samurai_new
             }
 
         private:
-            static PetscErrorCode Coarsen(DM fine, MPI_Comm comm, DM *coarse) 
-            {
-                //std::cout << "Coarsen - begin" << std::endl;
-                LevelCtx<Dsctzr>* fine_ctx;
-                DMShellGetContext(fine, &fine_ctx);
-
-                LevelCtx<Dsctzr>* coarse_ctx = new LevelCtx(*fine_ctx);
-
-                /*std::cout << "fine_mesh:" << std::endl << fine_ctx->mesh() << std::endl << std::endl;
-                std::cout << "coarse_mesh:" << std::endl << coarse_ctx->mesh() << std::endl;
-                samurai::save("coarse_mesh", coarse_ctx->mesh());*/
-
-                *coarse = Create(PetscObjectComm((PetscObject)fine), *coarse_ctx);
-                //std::cout << "Coarsen (create level " << coarse_ctx->level << ")" << std::endl;
-                return 0;
-            }
-
             static PetscErrorCode CreateMatFreeProlongation(DM coarse_dm, DM fine_dm, Mat *P, Vec *scaling) 
             {
                 LevelCtx<Dsctzr>* coarse_ctx;
@@ -142,7 +140,7 @@ namespace samurai_new
                 {
                     Field coarse_field("coarse_field", coarse_ctx->mesh());
                     copy(x, coarse_field);
-                    Field fine_field = PetscMultigrid<Dsctzr>::prolong(coarse_field, fine_ctx->mesh());
+                    Field fine_field = multigrid::prolong(coarse_field, fine_ctx->mesh());
                     copy(fine_field, y);
 
                     // std::cout << "prolongated vector (marche):" << std::endl;
@@ -155,7 +153,7 @@ namespace samurai_new
                     double* yarray;
                     VecGetArrayRead(x, &xarray);
                     VecGetArray(y, &yarray);
-                    PetscMultigrid<Dsctzr>::prolong(*coarse_ctx, *fine_ctx, xarray, yarray);
+                    multigrid::prolong(coarse_ctx->mesh(), fine_ctx->mesh(), xarray, yarray);
                     VecRestoreArrayRead(x, &xarray);
                     VecRestoreArray(y, &yarray);
 
@@ -213,7 +211,7 @@ namespace samurai_new
                 MatSetSizes(*P, nf, nc, nf, nc);
                 MatSetFromOptions(*P);
                 MatSeqAIJSetPreallocation(*P, stencil_size, NULL);
-                PetscMultigrid<Dsctzr>::set_prolong_matrix(*coarse_ctx, *fine_ctx, *P);
+                multigrid::set_prolong_matrix(coarse_ctx->mesh(), fine_ctx->mesh(), *P);
                 MatAssemblyBegin(*P, MAT_FINAL_ASSEMBLY);
                 MatAssemblyEnd(*P, MAT_FINAL_ASSEMBLY);
 
@@ -261,7 +259,7 @@ namespace samurai_new
                 {
                     Field fine_field("fine_field", fine_ctx->mesh());
                     copy(x, fine_field);
-                    Field coarse_field = PetscMultigrid<Dsctzr>::restrict(fine_field, coarse_ctx->mesh());
+                    Field coarse_field = multigrid::restrict(fine_field, coarse_ctx->mesh());
                     copy(coarse_field, y);
                 }
                 else
@@ -270,7 +268,7 @@ namespace samurai_new
                     double* yarray;
                     VecGetArrayRead(x, &xarray);
                     VecGetArray(y, &yarray);
-                    PetscMultigrid<Dsctzr>::restrict(*fine_ctx, *coarse_ctx, xarray, yarray);
+                    multigrid::restrict(fine_ctx->mesh(), coarse_ctx->mesh(), xarray, yarray);
                     VecRestoreArrayRead(x, &xarray);
                     VecRestoreArray(y, &yarray);
                 }
@@ -299,7 +297,7 @@ namespace samurai_new
                 MatSetSizes(*R, nc, nf, nc, nf);
                 MatSetFromOptions(*R);
                 MatSeqAIJSetPreallocation(*R, stencil_size, NULL);
-                PetscMultigrid<Dsctzr>::set_restrict_matrix(*fine_ctx, *coarse_ctx, *R);
+                multigrid::set_restrict_matrix(fine_ctx->mesh(), coarse_ctx->mesh(), *R);
                 MatAssemblyBegin(*R, MAT_FINAL_ASSEMBLY);
                 MatAssemblyEnd(*R, MAT_FINAL_ASSEMBLY);
 
