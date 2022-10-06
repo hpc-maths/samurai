@@ -1,6 +1,5 @@
 #pragma once
-#include <petsc.h>
-#include "utils.cpp"
+#include "samurai_new/multigrid/petsc/utils.hpp"
 
 //-------------------//
 //     Laplacian     //

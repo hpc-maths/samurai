@@ -8,6 +8,7 @@
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
+#include <samurai/amr/mesh.hpp>
 
 #include "Laplacian.hpp"
 #include "LaplacianSolver.hpp"

@@ -1,5 +1,6 @@
 #pragma once
-#include "PetscDM.hpp"
+#include "samurai_new/multigrid/petsc/PetscDM.hpp"
+#include "utils.hpp"
 
 template<class Dsctzr>
 class LaplacianSolver
@@ -47,7 +48,7 @@ private:
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             KSPSetFromOptions(_ksp);
 
-            _dm = PetscDM<Dsctzr>::Create(PETSC_COMM_SELF, discretizer, mesh);
+            _dm = samurai_new::petsc::PetscDM<Dsctzr>::Create(PETSC_COMM_SELF, discretizer, mesh);
             KSPSetDM(_ksp, _dm);
 
             // Default outer solver: CG
@@ -58,7 +59,7 @@ private:
             KSPGetPC(_ksp, &mg);
             PCSetType(mg, PCMG);
 
-            KSPSetComputeOperators(_ksp, PetscDM<Dsctzr>::ComputeMatrix, NULL);
+            KSPSetComputeOperators(_ksp, samurai_new::petsc::PetscDM<Dsctzr>::ComputeMatrix, NULL);
 
             PetscInt levels = -1;
             PCMGGetLevels(mg, &levels);
@@ -150,7 +151,7 @@ public:
         //VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
         //std::cout << std::endl;
 
-        copy(x, x_field);
+        samurai_new::petsc::copy(x, x_field);
         VecDestroy(&x);
     }
 
