@@ -38,9 +38,16 @@ namespace samurai_new
             //_discretizer_ptr = &_discretizer;
         }
 
+        /*static void create_coarse(LevelCtx& fine_ctx)
+        {
+            fine_ctx.coarser = new LevelCtx()
+        }*/
+
         Mesh& mesh() { return _mesh; }
         Dsctzr& discretizer() { return _discretizer; }
         bool is_finest() { return level == 0; }
+
+
     };
 
 }

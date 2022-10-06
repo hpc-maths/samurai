@@ -1,5 +1,5 @@
 #pragma once
-#include "samurai_new/multigrid/petsc/PetscDM.hpp"
+#include "samurai_new/multigrid/petsc/SamuraiDM.hpp"
 #include "utils.hpp"
 
 template<class Dsctzr>
@@ -11,13 +11,26 @@ class LaplacianSolver
 private:
     //inline static const std::string _args_prefix = "lap_";
     KSP _ksp;
-    DM _dm = nullptr;
+    //DM _dm = nullptr;
+    samurai_new::petsc::SamuraiDM<Dsctzr>* _samuraiDM = nullptr;
 
 
 public:
     LaplacianSolver(Dsctzr& discretizer, Mesh& mesh)
     {
         create_solver(discretizer, mesh);
+    }
+
+    /*~LaplacianSolver()
+    {
+        destroy();
+    }*/
+
+    void destroy()
+    {
+        KSPDestroy(&_ksp);
+        if (_samuraiDM)
+            delete _samuraiDM;
     }
 
 private:
@@ -48,8 +61,8 @@ private:
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             KSPSetFromOptions(_ksp);
 
-            _dm = samurai_new::petsc::PetscDM<Dsctzr>::Create(PETSC_COMM_SELF, discretizer, mesh);
-            KSPSetDM(_ksp, _dm);
+            _samuraiDM = new samurai_new::petsc::SamuraiDM<Dsctzr>(PETSC_COMM_SELF, discretizer, mesh);
+            KSPSetDM(_ksp, _samuraiDM->PetscDM());
 
             // Default outer solver: CG
             //KSPSetType(_ksp, "cg");
@@ -59,7 +72,7 @@ private:
             KSPGetPC(_ksp, &mg);
             PCSetType(mg, PCMG);
 
-            KSPSetComputeOperators(_ksp, samurai_new::petsc::PetscDM<Dsctzr>::ComputeMatrix, NULL);
+            KSPSetComputeOperators(_ksp, samurai_new::petsc::SamuraiDM<Dsctzr>::ComputeMatrix, NULL);
 
             PetscInt levels = -1;
             PCMGGetLevels(mg, &levels);
@@ -153,14 +166,5 @@ public:
 
         samurai_new::petsc::copy(x, x_field);
         VecDestroy(&x);
-    }
-
-
-    PetscErrorCode destroy()
-    {
-        KSPDestroy(&_ksp);
-        if (_dm)
-            DMDestroy(&_dm);
-        PetscFunctionReturn(0);
     }
 };
