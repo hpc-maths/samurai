@@ -1,10 +1,5 @@
 #pragma once
 #include <petsc.h>
-// #include <samurai/box.hpp>
-// #include <samurai/cell_array.hpp>
-// #include <samurai/field.hpp>
-// #include <samurai/hdf5.hpp>
-// #include <samurai/subset/subset_op.hpp>
 #include <samurai/numeric/projection.hpp>
 #include <samurai/numeric/prediction.hpp>
 #include "PetscMultigrid.hpp"
@@ -14,14 +9,14 @@
 // 1: P mat-free, R mat-free (via double*)
 // 2: P assembled, R = P^T
 // 3: P assembled, R = assembled
-#define OPT_PROLONGATION 3
+#define OPT_PROLONGATION 0
 
 
 template<class Dsctzr>
 class PetscDM
 {
 public:    
-    using Mesh = typename Dsctzr::mesh_t;
+    using Mesh = typename Dsctzr::Mesh;
     using Field = typename Dsctzr::field_t;
 
     static DM Create(MPI_Comm comm, Dsctzr& discretizer, Mesh& mesh)
@@ -101,6 +96,10 @@ private:
         DMShellGetContext(fine, &fine_ctx);
 
         LevelCtx<Dsctzr>* coarse_ctx = new LevelCtx(*fine_ctx);
+
+        /*std::cout << "fine_mesh:" << std::endl << fine_ctx->mesh() << std::endl << std::endl;
+        std::cout << "coarse_mesh:" << std::endl << coarse_ctx->mesh() << std::endl;
+        samurai::save("coarse_mesh", coarse_ctx->mesh());*/
 
         *coarse = Create(PetscObjectComm((PetscObject)fine), *coarse_ctx);
         //std::cout << "Coarsen (create level " << coarse_ctx->level << ")" << std::endl;
@@ -191,6 +190,7 @@ private:
         // std::cout << "prolongated vector:" << std::endl;
         // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
         // std::cout << std::endl;
+        assert(check_nan_or_inf(y) && "Nan or Inf after prolongation");
         return 0;
     }
 
@@ -244,9 +244,9 @@ private:
 
         //std::cout << "restriction - c=" << coarse_ctx->level << " f=" << fine_ctx->level << std::endl;
 
-        std::cout << "restriction - fine vector:" << std::endl;
-        VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-        std::cout << std::endl;
+        // std::cout << "restriction - fine vector:" << std::endl;
+        // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+        // std::cout << std::endl;
 
         /*std::cout << "fine mesh:" << std::endl;
         print_mesh(fine_ctx->mesh());
@@ -272,10 +272,11 @@ private:
             VecRestoreArray(y, &yarray);
         }
         
-        std::cout << "restriction - restricted vector:" << std::endl;
-        VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-        std::cout << std::endl;
-
+        // std::cout << "restriction - restricted vector:" << std::endl;
+        // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+        // std::cout << std::endl;
+        
+        assert(check_nan_or_inf(y) && "Nan or Inf after restriction");
         return 0;
     }
 
@@ -323,7 +324,6 @@ private:
         VecCreateSeq(PETSC_COMM_SELF, ctx->mesh().nb_cells(), x);
         VecSetDM(*x, shell);
         //std::cout << "CreateLocalVector - end" << std::endl;
-
         return 0;
     }
 };

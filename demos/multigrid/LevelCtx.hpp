@@ -6,7 +6,7 @@ template<class Dsctzr>
 class LevelCtx
 {
 public:
-    using Mesh = typename Dsctzr::mesh_t;
+    using Mesh = typename Dsctzr::Mesh;
 
 private:
     Mesh _mesh;

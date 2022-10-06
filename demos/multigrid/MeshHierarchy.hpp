@@ -92,14 +92,26 @@ public:
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         typename Mesh::cl_type coarse_cell_list;
-        samurai::for_each_interval(mesh[mesh_id_t::cells], [&](size_t l, const auto& interval, const auto& index)
+        if (Mesh::dim == 1)
         {
-            coarse_cell_list[l-1][{}].add_interval(interval >> 1);
-        });
+            samurai::for_each_interval(mesh[mesh_id_t::cells], [&](size_t level, const auto& i, const auto& index)
+            {
+                coarse_cell_list[level-1][{}].add_interval(i >> 1);
+            });
+        }
+        else if (Mesh::dim == 2)
+        {
+            samurai::for_each_interval(mesh[mesh_id_t::cells], [&](size_t level, const auto& i, const auto& index)
+            {
+                auto j = index[0];
+                if (j % 2 == 0)
+                    coarse_cell_list[level-1][{j/2}].add_interval(i/2);
+            });
+        }
         return Mesh(coarse_cell_list, mesh.min_level()-1, mesh.max_level()-1);
     }
 
-    static void coarsen(const Mesh& mesh, Mesh& coarse_mesh)
+    /*static void coarsen(const Mesh& mesh, Mesh& coarse_mesh)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -109,7 +121,7 @@ public:
             coarse_cell_list[l-1][{}].add_interval(interval >> 1);
         });
         coarse_mesh = Mesh(coarse_cell_list, mesh.min_level()-1, mesh.max_level()-1);
-    }
+    }*/
 
     static Mesh refine(const Mesh& mesh)
     {

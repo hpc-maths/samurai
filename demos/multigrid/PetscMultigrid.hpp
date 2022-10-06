@@ -30,7 +30,7 @@ public:
                 }
             });
 
-            // Others
+            // Coarse cells to fine cells: prediction
             auto others = samurai::intersection(cm[level - 1], fm[level]).on(level-1);
             others([&](auto& i, auto&)
             {
@@ -83,7 +83,7 @@ public:
                 }
             });
 
-            // Others
+            // Coarse cells to fine cells: prediction
             auto others = samurai::intersection(cm[level - 1], fm[level]).on(level-1);
             others([&](auto& i, auto&)
             {
@@ -91,7 +91,7 @@ public:
                 auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start));
                 for(int ii=0; ii<i.size(); ++ii)
                 {
-                    
+                    // Prediction (here in 1D only)
                     //farray[i_f + 2*ii  ] = carray[i_c+ii] - 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
                     MatSetValue(P, i_f + 2*ii,     i_c+ii    ,  1   , INSERT_VALUES);
                     MatSetValue(P, i_f + 2*ii,     i_c+ii + 1, -1./8, INSERT_VALUES);
@@ -125,10 +125,12 @@ public:
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto coarse_mesh = coarse_field.mesh();
-        auto fine_field = samurai::make_field<double, 1>("fine", fine_mesh);
 
         auto& cm = coarse_mesh[mesh_id_t::cells];
         auto& fm = fine_mesh[mesh_id_t::cells];
+
+        auto fine_field = samurai::make_field<double, 1>("fine", fine_mesh);
+        fine_field.fill(0);
 
         for(std::size_t level = fine_mesh.min_level(); level <= fine_mesh.max_level(); ++level)
         {
@@ -139,22 +141,59 @@ public:
                 fine_field(level, i) = coarse_field(level, i);
             });
 
-            // Others
+            // Coarse cells to fine cells: prediction
             auto others = samurai::intersection(cm[level - 1], fm[level]).on(level-1);
             others.apply_op(samurai::prediction<1, true>(fine_field, coarse_field));
-        }
 
-        // Boundary
-        auto update_bc = [&](auto& ff, std::size_t level)
-        {
-            auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level],
-                                                    fine_mesh.domain()).on(level);
-            fine_boundary([&](const auto& i, auto)
+            // Boundary
+            if (Field::mesh_t::dim == 1)
             {
-                ff(level, i) = coarse_field(level - 1, i/2);
-            });
-        };
-        samurai::update_ghost_mr(fine_field, update_bc);
+                auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level],
+                                                        fine_mesh.domain()).on(level);
+                fine_boundary([&](const auto& i, auto)
+                {
+                    fine_field(level, i) = coarse_field(level - 1, i/2);
+                });
+            }
+            else if (Field::mesh_t::dim == 2)
+            {
+                xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+                for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
+                {
+                    auto s = xt::view(stencil, is);
+                    auto fine_boundary   = samurai::difference(samurai::translate(fine_mesh[mesh_id_t::cells][level], s), fine_mesh.domain());
+                    auto coarse_boundary = samurai::difference(samurai::translate(coarse_mesh[mesh_id_t::cells][level-1], s), coarse_mesh.domain());
+                    auto bdry_intersect = samurai::intersection(coarse_boundary, fine_boundary).on(level-1);
+                    bdry_intersect([&](const auto& i, const auto& index)
+                    {
+                        auto j = index[0];
+                        if (s(0) == -1) // left boundary
+                        {
+                            fine_field(level, 2*i+1, 2*j)   = coarse_field(level-1, i, j);
+                            fine_field(level, 2*i+1, 2*j+1) = coarse_field(level-1, i, j);
+                        }
+                        else if (s(0) == 1) // right boundary
+                        {
+                            fine_field(level, 2*i, 2*j)   = coarse_field(level-1, i, j);
+                            fine_field(level, 2*i, 2*j+1) = coarse_field(level-1, i, j);
+                        }
+                        else if (s(1) == -1) // bottom boundary
+                        {
+                            fine_field(level, 2*i,   2*j+1) = coarse_field(level-1, i, j);
+                            fine_field(level, 2*i+1, 2*j+1) = coarse_field(level-1, i, j);
+                        }
+                        else if (s(1) == 1) // top boundary
+                        {
+                            fine_field(level, 2*i,   2*j) = coarse_field(level-1, i, j);
+                            fine_field(level, 2*i+1, 2*j) = coarse_field(level-1, i, j);
+                        }
+                    });
+                }
+
+            }
+            else
+                assert(false);
+        }
 
         return fine_field;
     }
@@ -189,7 +228,7 @@ public:
                 }
             });
 
-            // Others
+            // Fine cells to coarse cells: projection
             auto others = samurai::intersection(cm[level], fm[level + 1]).on(level);
             //others.apply_op(samurai::projection(coarse_field, fine_field));
             others([&](auto& i, auto&)
@@ -243,7 +282,7 @@ public:
                 }
             });
 
-            // Others
+            // Fine cells to coarse cells: projection
             auto others = samurai::intersection(cm[level], fm[level + 1]).on(level);
             //others.apply_op(samurai::projection(coarse_field, fine_field));
             others([&](auto& i, auto&)
@@ -283,16 +322,13 @@ public:
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto fine_mesh = fine_field.mesh();
-        auto coarse_field = samurai::make_field<double, 1>("coarse", coarse_mesh);
 
         auto& cm = coarse_mesh[mesh_id_t::cells];
         auto& fm = fine_mesh[mesh_id_t::cells];
 
-        // samurai::for_each_interval(coarse_mesh, [&](std::size_t level, auto& i, auto&)
-        // {
-        //     std::cout << "i " << i << " 2*i " << 2*i << std::endl;
-        //     coarse_field(level, i) = 0.5*(fineField(level + 1, 2*i) + fineField(level + 1, 2*i + 1));
-        // });
+        auto coarse_field = samurai::make_field<double, 1>("coarse", coarse_mesh);
+        coarse_field.fill(0);
+        
 
         for(std::size_t level = coarse_mesh.min_level(); level <= coarse_mesh.max_level(); ++level)
         {
@@ -303,34 +339,81 @@ public:
                 coarse_field(level, i) = fine_field(level, i);
             });
 
-            // Others
+            // Fine cells to coarse cells: projection
             auto others = samurai::intersection(cm[level], fm[level + 1]).on(level);
             others.apply_op(samurai::projection(coarse_field, fine_field));
 
-            /*// Boundary ghosts
-            auto bc_in_ghosts = samurai::difference(mesh[mesh_id_t::reference][level],
-                                            mesh[mesh_id_t::cells][level]);
-            bc_in_ghosts([&](const auto& i, const auto&)
+            // Boundary
+            if (Field::mesh_t::dim == 1)
             {
-                coarse_field(level, i) = 0.;
-            });*/
-        }
+                auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1], fine_mesh.domain());
+                fine_boundary([&](const auto& i, auto)
+                {
+                    coarse_field(level, i/2) = fine_field(level+1, i);
+                });
+            }
+            else if (Field::mesh_t::dim == 2)
+            {
+                // !!! This code might be specific to the square domain !!!
 
-        // Boundary
-        auto update_bc = [&](auto& cf, std::size_t level)
-        {
-            //auto coarse_boundary = samurai::difference(coarse_mesh[mesh_id_t::reference][level],
-            //                                        coarse_mesh.domain()).on(level);
-            auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1],
-                                                    fine_mesh.domain()).on(level+1);
-            //auto inters_bdry = samurai::intersection(coarse_boundary, fine_boundary).on(level);
-            fine_boundary([&](const auto& i, auto)
-            {
-                cf(level, i>>1) = fine_field(level + 1, i);
-            });
-            //inters_bdry.apply_op(samurai::projection(cf, fine_field));
-        };
-        samurai::update_ghost_mr(coarse_field, update_bc);
+                xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+                /*auto coarse_boundary = samurai::difference(coarse_mesh[mesh_id_t::reference][level], coarse_mesh.domain());
+                auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1], fine_mesh.domain());
+                auto coarse_corners = coarse_boundary;
+                auto fine_corners = fine_boundary;*/
+
+                for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
+                {
+                    auto s = xt::view(stencil, is);
+                    auto fine_boundary_is   = samurai::difference(samurai::translate(fine_mesh[mesh_id_t::cells][level+1], s), fine_mesh.domain());
+                    auto coarse_boundary_is = samurai::difference(samurai::translate(coarse_mesh[mesh_id_t::cells][level], s), coarse_mesh.domain());
+                    auto bdry_intersect = samurai::intersection(coarse_boundary_is, fine_boundary_is).on(level);
+                    bdry_intersect([&](const auto& i, const auto& index)
+                    {
+                        auto j = index[0];
+                        if (s(0) == -1) // left boundary
+                            coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i+1, 2*j  ) + fine_field(level+1, 2*i+1, 2*j+1));
+                        else if (s(0) == 1) // right boundary
+                            coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i  , 2*j  ) + fine_field(level+1, 2*i  , 2*j+1));
+                        else if (s(1) == -1) // bottom boundary
+                            coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i  , 2*j+1) + fine_field(level+1, 2*i+1, 2*j+1));
+                        else if (s(1) == 1) // top boundary
+                            coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i  , 2*j  ) + fine_field(level+1, 2*i+1, 2*j  ));
+                        else
+                            assert(false);
+                    });
+                    //coarse_corners = samurai::difference(coarse_corners, coarse_boundary_is);
+                    //fine_corners = samurai::difference(fine_corners, fine_boundary_is);
+                }
+
+                // Corners ghosts
+                /*xt::xtensor_fixed<int, xt::xshape<4, 2>> diagonal_stencil{{1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
+                for (std::size_t is = 0; is<diagonal_stencil.shape()[0]; ++is)
+                {
+                    auto s = xt::view(diagonal_stencil, is);
+                    auto fine_corners_is   = samurai::difference(samurai::translate(fine_mesh[mesh_id_t::cells][level+1], s), fine_mesh.domain());
+                    auto coarse_corners_is = samurai::difference(samurai::translate(coarse_mesh[mesh_id_t::cells][level], s), coarse_mesh.domain());
+                    auto corner_intersect = samurai::intersection(coarse_corners_is, fine_corners_is).on(level);
+                    corner_intersect([&](const auto& i, const auto& index)
+                    {
+                        auto j = index[0];
+                        std::cout << "avant i = " << i << ", j = " << j << ":" << coarse_field(level, i, j) << std::endl;
+                        if (s(0) == 1 && s(1) == 1) // top-right
+                            coarse_field(level, i, j) = fine_field(level+1, 2*i  , 2*j  );
+                        else if (s(0) == -1 && s(1) == 1) // top-left
+                            coarse_field(level, i, j) = fine_field(level+1, 2*i+1, 2*j  );
+                        else if (s(0) == -1 && s(1) == -1) // bottom-left
+                            coarse_field(level, i, j) = fine_field(level+1, 2*i+1, 2*j+1);
+                        else if (s(0) == 1 && s(1) == -1) // bottom-right
+                            coarse_field(level, i, j) = fine_field(level+1, 2*i  , 2*j+1);
+                        std::cout << "apres i = " << i << ", j = " << j << ":" << coarse_field(level, i, j) << std::endl;
+                    });
+                }*/
+            }
+            else
+                assert(false);
+        }
 
         return coarse_field;
     }
