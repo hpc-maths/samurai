@@ -1,5 +1,5 @@
 #pragma once
-#include "multigrid.hpp"
+#include "coarsening.hpp"
 
 namespace samurai_new
 {

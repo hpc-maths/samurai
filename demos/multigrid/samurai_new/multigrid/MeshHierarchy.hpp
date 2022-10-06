@@ -1,5 +1,5 @@
 #pragma once
-#include "samurai_new/algorithm.hpp"
+#include "coarsening.hpp"
 #include <list>
 
 template<class Mesh>

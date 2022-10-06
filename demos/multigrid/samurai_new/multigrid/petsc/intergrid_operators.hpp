@@ -7,16 +7,13 @@ namespace samurai_new
 {
     namespace petsc
     {
-
-        template<class Dsctzr>
-        class PetscMultigrid
+        namespace multigrid
         {
-        public:
-            static void prolong(LevelCtx<Dsctzr>& coarse, LevelCtx<Dsctzr>& fine, const double* carray, double* farray)
+
+            template<class Mesh>
+            void prolong(const Mesh& coarse_mesh, const Mesh& fine_mesh, const double* carray, double* farray)
             {
-                auto coarse_mesh = coarse.mesh();
-                auto fine_mesh = fine.mesh();
-                using mesh_id_t = typename decltype(coarse_mesh)::mesh_id_t;
+                using mesh_id_t = typename Mesh::mesh_id_t;
 
                 auto& cm = coarse_mesh[mesh_id_t::cells];
                 auto& fm = fine_mesh[mesh_id_t::cells];
@@ -64,11 +61,10 @@ namespace samurai_new
                 }
             }
 
-            static void set_prolong_matrix(LevelCtx<Dsctzr>& coarse, LevelCtx<Dsctzr>& fine, Mat& P)
+            template<class Mesh>
+            void set_prolong_matrix(const Mesh& coarse_mesh, const Mesh& fine_mesh, Mat& P)
             {
-                auto coarse_mesh = coarse.mesh();
-                auto fine_mesh = fine.mesh();
-                using mesh_id_t = typename decltype(coarse_mesh)::mesh_id_t;
+                using mesh_id_t = typename Mesh::mesh_id_t;
 
                 auto& cm = coarse_mesh[mesh_id_t::cells];
                 auto& fm = fine_mesh[mesh_id_t::cells];
@@ -126,7 +122,7 @@ namespace samurai_new
             }
 
             template<class Field>
-            static Field prolong(const Field& coarse_field, typename Field::mesh_t& fine_mesh)
+            Field prolong(const Field& coarse_field, typename Field::mesh_t& fine_mesh)
             {
                 using mesh_id_t = typename Field::mesh_t::mesh_id_t;
                 auto coarse_mesh = coarse_field.mesh();
@@ -210,11 +206,10 @@ namespace samurai_new
 
 
 
-            static void restrict(LevelCtx<Dsctzr>& fine, LevelCtx<Dsctzr>& coarse, const double* farray, double* carray)
+            template<class Mesh>
+            void restrict(const Mesh& fine_mesh, const Mesh& coarse_mesh, const double* farray, double* carray)
             {
-                auto coarse_mesh = coarse.mesh();
-                auto fine_mesh = fine.mesh();
-                using mesh_id_t = typename decltype(coarse_mesh)::mesh_id_t;
+                using mesh_id_t = typename Mesh::mesh_id_t;
 
                 auto& cm = coarse_mesh[mesh_id_t::cells];
                 auto& fm = fine_mesh[mesh_id_t::cells];
@@ -263,11 +258,13 @@ namespace samurai_new
                 }
             }
 
-            static void set_restrict_matrix(LevelCtx<Dsctzr>& fine, LevelCtx<Dsctzr>& coarse, Mat& R)
+            template<class Mesh>
+            void set_restrict_matrix(const Mesh& fine_mesh, const Mesh& coarse_mesh, Mat& R)
             {
-                auto coarse_mesh = coarse.mesh();
-                auto fine_mesh = fine.mesh();
-                using mesh_id_t = typename decltype(coarse_mesh)::mesh_id_t;
+                // auto coarse_mesh = coarse.mesh();
+                // auto fine_mesh = fine.mesh();
+                //using mesh_id_t = typename decltype(coarse_mesh)::mesh_id_t;
+                using mesh_id_t = typename Mesh::mesh_id_t;
 
                 auto& cm = coarse_mesh[mesh_id_t::cells];
                 auto& fm = fine_mesh[mesh_id_t::cells];
@@ -323,7 +320,7 @@ namespace samurai_new
 
 
             template<class Field>
-            static auto restrict(const Field& fine_field, typename Field::mesh_t& coarse_mesh)
+            auto restrict(const Field& fine_field, typename Field::mesh_t& coarse_mesh)
             {
                 using mesh_id_t = typename Field::mesh_t::mesh_id_t;
                 auto fine_mesh = fine_field.mesh();
@@ -422,6 +419,7 @@ namespace samurai_new
 
                 return coarse_field;
             }
-        };
+
+        } // namespace multigrid
     } // namespace petsc
 } // namespace samurai_new
