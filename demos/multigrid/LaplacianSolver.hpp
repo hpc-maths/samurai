@@ -4,7 +4,7 @@
 template<class Dsctzr>
 class LaplacianSolver
 {
-    using Mesh = typename Dsctzr::mesh_t;
+    using Mesh = typename Dsctzr::Mesh;
     using Field = typename Dsctzr::field_t;
 
 private:
@@ -34,7 +34,8 @@ private:
         {
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             Mat A;
-            discretizer.create_and_assemble_matrix(A);
+            discretizer.create_matrix(A);
+            discretizer.assemble_matrix(A);
             PetscObjectSetName((PetscObject)A, "A");
             //KSPSetComputeOperators(_ksp, PetscDM<Dsctzr>::ComputeMatrix, NULL);
             KSPSetOperators(_ksp, A, A);
@@ -42,30 +43,31 @@ private:
         }
         else
         {
-            _dm = PetscDM<Dsctzr>::Create(PETSC_COMM_SELF, discretizer, mesh);
 
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             KSPSetFromOptions(_ksp);
 
-            // Default outer solver: CG
-            KSPSetType(_ksp, "cg");
+            _dm = PetscDM<Dsctzr>::Create(PETSC_COMM_SELF, discretizer, mesh);
             KSPSetDM(_ksp, _dm);
+
+            // Default outer solver: CG
+            //KSPSetType(_ksp, "cg");
 
             // Preconditioner: geometric multigrid
             PC mg;
             KSPGetPC(_ksp, &mg);
             PCSetType(mg, PCMG);
 
-            
             KSPSetComputeOperators(_ksp, PetscDM<Dsctzr>::ComputeMatrix, NULL);
 
             PetscInt levels = -1;
             PCMGGetLevels(mg, &levels);
             if (levels < 2)
             {
-                levels = std::max(static_cast<int>(mesh.max_level()) - 7, 2);
+                levels = std::max(static_cast<int>(mesh.max_level()) - 3, 2);
                 levels = std::min(levels, 8);
             }
+            std::cout << "\tLevels: " << levels << std::endl;
             PCMGSetLevels(mg, levels, nullptr);
 
             // All of the following must be called after PCMGSetLevels()
@@ -130,6 +132,16 @@ public:
         std::cout << std::endl;*/
         
         KSPSolve(_ksp, b, x);
+
+        KSPConvergedReason reason_code;
+        KSPGetConvergedReason(_ksp, &reason_code);
+        if (reason_code < 0)
+        {
+            using namespace std::string_literals;
+            const char* reason_text;
+            KSPGetConvergedReasonString(_ksp, &reason_text);
+            fatal_error("Divergence of the solver ("s + reason_text + ")");
+        }
 
         PetscInt n_iterations;
         KSPGetIterationNumber(_ksp, &n_iterations);

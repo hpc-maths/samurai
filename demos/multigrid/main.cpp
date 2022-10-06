@@ -9,7 +9,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
 
-#include "Laplacian1D.hpp"
+#include "Laplacian.hpp"
 #include "LaplacianSolver.hpp"
 #include "Timer.hpp"
 
@@ -31,12 +31,25 @@ Mesh create_mesh(int n)
 
     using cl_type = typename Mesh::cl_type;
 
-    //constexpr std::size_t start_level = 2;
-    //constexpr std::size_t min_level = 2;
-    //constexpr std::size_t max_level = 3;
-    Box box({0}, {1});
-    //Box leftBox({0}, {0.5});
-    //Box rightBox({0.5}, {1});
+    Box box;
+    if (Mesh::dim == 1)
+    {
+        //constexpr std::size_t start_level = 2;
+        //constexpr std::size_t min_level = 2;
+        //constexpr std::size_t max_level = 3;
+        box = Box({0}, {1});
+        //Box leftBox({0}, {0.5});
+        //Box rightBox({0.5}, {1});
+    }
+    else if (Mesh::dim == 2)
+    {
+        //constexpr std::size_t start_level = 2;
+        //constexpr std::size_t min_level = 2;
+        //constexpr std::size_t max_level = 3;
+        box = Box({0,0}, {1,1});
+        //Box leftBox({0}, {0.5});
+        //Box rightBox({0.5}, {1});
+    }
 
     /*cl_type cl;
     cl[start_level] = {start_level, leftBox};
@@ -55,13 +68,11 @@ static char help[] = "Multigrid program.\n\n"
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 1;
-    //using Mesh = samurai::CellArray<dim>;
+    constexpr std::size_t dim = 2;
     using Config = samurai::amr::Config<dim>;
     using Mesh = samurai::amr::Mesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
 
-    
     //------------------//
     // Petsc initialize //
     //------------------//
@@ -78,7 +89,12 @@ int main(int argc, char* argv[])
     // Mesh creation //
     //---------------//
 
-    Mesh fine_mesh = create_mesh<Mesh>(n);
+    Mesh mesh = create_mesh<Mesh>(n);
+    std::cout << "Unknowns: " << mesh.nb_cells() << std::endl;
+
+    //std::cout << "Saving mesh..." << std::endl;
+    //samurai::save("mesh", mesh);
+
     /*std::cout << "fine_mesh:" << endl << fine_mesh << std::endl;
     samurai::save("fine_mesh", fine_mesh);
     samurai::for_each_cell(fine_mesh, [](const auto& cell)
@@ -100,49 +116,34 @@ int main(int argc, char* argv[])
     fine_field = prolong(coarse_field, fine_mesh);
     std::cout << "fine_field (after prolong):" << endl << fine_field << std::endl;*/
 
-
-    PetscErrorCode ierr;
-
     //----------------//
     // Create problem //
     //----------------//
 
-    Laplacian1D<Mesh, Field> laplacian(fine_mesh, false);
-    
-    //Mat A;
-    //laplacian.create_and_assemble_matrix(A);
-    //PetscObjectSetName((PetscObject)A, "A");
+    Laplacian<Field> laplacian(mesh, false);
 
-    //PetscViewer viewer;
-    //PetscViewerCreate(PETSC_COMM_SELF, &viewer);
-    //PetscViewerCreate_ASCII(&viewer);
-
-    //MatView(A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-    //std::cout << std::endl;
-
-    Field rhs_field("f", fine_mesh);
+    Field rhs_field("f", mesh);
     rhs_field.fill(1);
     Vec b = laplacian.assemble_rhs(rhs_field);
     PetscObjectSetName((PetscObject)b, "b");
-    //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-    //std::cout << std::endl;
+    //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
     //---------------------//
     // Solve linear system //
     //---------------------//
 
-
-    //LaplacianSolver<Laplacian1D<Mesh, Field>> solver(A);
-    LaplacianSolver<Laplacian1D<Mesh, Field>> solver(laplacian, fine_mesh);
+    LaplacianSolver<Laplacian<Field>> solver(laplacian, mesh);
 
     Timer setup_timer, solve_timer, total_timer;
 
     total_timer.Start();
 
+    std::cout << "Setup solver..." << std::endl;
     setup_timer.Start();
     solver.setup();
     setup_timer.Stop();
 
+    std::cout << "Solving..." << std::endl;
     solve_timer.Start();
     Field& x = rhs_field;
     solver.solve(b, x);
@@ -159,15 +160,16 @@ int main(int argc, char* argv[])
     std::cout << "---- Total ----" << endl;
     std::cout << "CPU time    : " << total_timer.CPU() << endl;
     std::cout << "Elapsed time: " << total_timer.Elapsed() << endl;
+    std::cout << std::endl;
 
-    //-----------------//
-    // Destroy objects //
-    //-----------------//
-
-    //ierr = MatDestroy(&A);      CHKERRQ(ierr);
+    // Destroy Petsc objects
     VecDestroy(&b);
     solver.destroy();
+    PetscFinalize();
 
-    PetscCall(PetscFinalize());
+    // Save solution
+    std::cout << "Saving solution..." << std::endl;
+    samurai::save("solution", mesh, x);
+
     return 0;
 }
