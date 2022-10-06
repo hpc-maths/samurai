@@ -14,23 +14,41 @@ namespace samurai_new
     {
 
         template<class Dsctzr>
-        class PetscDM
+        class SamuraiDM
         {
+        private:
+            DM _dm;
+            LevelCtx<Dsctzr> _ctx;
+            //SamuraiDM* _coarse = nullptr;
+
         public:    
             using Mesh = typename Dsctzr::Mesh;
             using Field = typename Dsctzr::field_t;
 
-            static DM Create(MPI_Comm comm, Dsctzr& discretizer, Mesh& mesh)
+            SamuraiDM(MPI_Comm comm, Dsctzr& discretizer, Mesh& mesh) :
+                _ctx(discretizer, mesh)
             {
-                auto fine_ctx = new LevelCtx(discretizer, mesh);
-                return Create(comm, *fine_ctx);
+                DMShellCreate(comm, &_dm);
+                DefineShellFunctions(_dm, _ctx);
+            }
+
+            /*SamuraiDM(MPI_Comm comm, const LevelCtx<Dsctzr>& fine_ctx) :
+                _ctx(fine_ctx)
+            {
+                DMShellCreate(comm, &_dm);
+                DefineShellFunctions(_dm, _ctx);
+            }*/
+
+            DM& PetscDM() { return _dm; }
+
+            ~SamuraiDM()
+            {
+                DMDestroy(&_dm);
             }
 
         private:
-            static DM Create(MPI_Comm comm, LevelCtx<Dsctzr>& ctx)
+            static void DefineShellFunctions(DM &shell, LevelCtx<Dsctzr>& ctx)
             {
-                DM shell;
-                DMShellCreate(comm, &shell);
                 DMShellSetContext(shell, &ctx);
                 DMShellSetCreateMatrix(shell, CreateMatrix);
                 DMShellSetCreateGlobalVector(shell, CreateGlobalVector);
@@ -50,32 +68,27 @@ namespace samurai_new
                     DMShellSetCreateInterpolation(shell, CreateProlongationMatrix);
                     DMShellSetCreateRestriction(shell, CreateRestrictionMatrix);
                 }
-                //DMShellSetDestroyContext(shell, Destroy);
-                return shell;
             }
 
-            static PetscErrorCode Coarsen(DM fine, MPI_Comm comm, DM *coarse) 
+            static PetscErrorCode Coarsen(DM fine_dm, MPI_Comm comm, DM *coarse_dm) 
             {
                 //std::cout << "Coarsen - begin" << std::endl;
                 LevelCtx<Dsctzr>* fine_ctx;
-                DMShellGetContext(fine, &fine_ctx);
+                DMShellGetContext(fine_dm, &fine_ctx);
 
                 LevelCtx<Dsctzr>* coarse_ctx = new LevelCtx(*fine_ctx);
 
-                /*std::cout << "fine_mesh:" << std::endl << fine_ctx->mesh() << std::endl << std::endl;
-                std::cout << "coarse_mesh:" << std::endl << coarse_ctx->mesh() << std::endl;
-                samurai::save("coarse_mesh", coarse_ctx->mesh());*/
+                //_coarse = new SamuraiDM(PetscObjectComm((PetscObject)fine_dm), *fine_ctx);
+                //*coarse_dm = _coarse->PetscDM();
 
-                *coarse = Create(PetscObjectComm((PetscObject)fine), *coarse_ctx);
+                DMShellCreate(PetscObjectComm((PetscObject)fine_dm), coarse_dm);
+                DefineShellFunctions(*coarse_dm, *coarse_ctx);
+
+                //DMShellCreate(PetscObjectComm((PetscObject)fine_dm), coarse_dm);
+                //DefineShellFunctions(*coarse_dm, *coarse_ctx);
                 //std::cout << "Coarsen (create level " << coarse_ctx->level << ")" << std::endl;
                 return 0;
             }
-            
-            /*static PetscErrorCode Destroy(void *ctx) 
-            {
-                delete ctx;
-                return 0;
-            }*/
 
             static PetscErrorCode CreateMatrix(DM shell, Mat *A) 
             {
