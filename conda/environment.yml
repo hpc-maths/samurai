@@ -11,3 +11,4 @@ dependencies:
   - cxxopts
   - cli11
   - pytest
+  - h5py

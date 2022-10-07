@@ -115,7 +115,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
         level_[cell] = cell.level;
     });
 
-    samurai::save(fmt::format("{}/{}{}", path.string(), filename, suffix), mesh, u, level_);
+    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
 }
 
 int main(int argc, char *argv[])
