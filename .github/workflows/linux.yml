@@ -93,4 +93,4 @@ jobs:
         run: |
           export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
           cd test
-          pytest --h5diff
+          pytest -s --h5diff
