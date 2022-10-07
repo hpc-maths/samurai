@@ -68,7 +68,7 @@ jobs:
           pip3 install conan pytest h5py
       - name: Install conan packages
         run: |
-        export CONAN_SYSREQUIRES_MODE=disabled
+          export CONAN_SYSREQUIRES_MODE=disabled
           conan install . --build=missing
       - name: Configure CMake
         run: |
