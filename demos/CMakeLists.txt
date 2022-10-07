@@ -1,4 +1,5 @@
 find_package(cxxopts)
+find_package(CLI11)
 
 # add_subdirectory(apple EXCLUDE_FROM_ALL)
 add_subdirectory(FiniteVolume)

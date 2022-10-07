@@ -95,6 +95,11 @@ namespace samurai
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
+        if (min_level == max_level)
+        {
+            return;
+        }
+
         mesh_t mesh_old = mesh;
         field_type field_old(m_field.name(), mesh_old);
         field_old.array() = m_field.array();
