@@ -68,8 +68,8 @@ jobs:
           pip3 install conan pytest h5py
       - name: Install dependencies
         if: runner.os == 'Linux'
-          run: |
-            apt install libgtk2.0-dev
+        run: |
+          apt install libgtk2.0-dev
       - name: Install conan packages
         run: |
           export CONAN_SYSREQUIRES_MODE=disabled
