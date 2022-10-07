@@ -166,9 +166,9 @@ int main(int argc, char *argv[])
     using interval_t = typename Config::interval_t;
 
     // Simulation parameters
-    double left_box = {0., 0.}, right_box = {1., 1.};
-    std::array<double, 2> a{{1, 1}};
-    double Tf = 1.;
+    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.}, max_corner = {1., 1.};
+    std::array<double, dim> a{{1, 1}};
+    double Tf = .1;
     double cfl = 0.5;
 
     // Multiresolution parameters
@@ -182,9 +182,9 @@ int main(int argc, char *argv[])
     std::string filename = "FV_advection_2d";
     std::size_t nfiles = 1;
 
-    CLI::App app{"Finite volume 1d example"};
-    app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
+    CLI::App app{"Finite volume example for the advection equation in 2d"};
+    app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
@@ -199,10 +199,12 @@ int main(int argc, char *argv[])
     CLI11_PARSE(app, argc, argv);
 
 
-    samurai::Box<double, dim> box({0, 0}, {1, 1});
+    samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
     double dt = cfl/(1<<max_level);
+    double dt_save = Tf/nfiles;
+    double t = 0.;
 
     auto u = init(mesh);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
@@ -215,6 +217,8 @@ int main(int argc, char *argv[])
     auto MRadaptation = samurai::make_MRAdapt(u, update_bc);
     MRadaptation(mr_epsilon, mr_regularity);
     save(path, filename, u, "_init");
+
+    std::size_t nsave = 1, nt = 0;
 
     while (t != Tf)
     {
