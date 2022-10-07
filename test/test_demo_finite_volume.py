@@ -13,7 +13,6 @@ def test_advection_1d(config):
            "--path", config['path'],
            '--filename', config['filename']]
     output = subprocess.run(cmd, check=True, capture_output=True)
-    print(output)
 
 @pytest.mark.h5diff()
 def test_advection_2d(config):
@@ -21,4 +20,3 @@ def test_advection_2d(config):
            "--path", config['path'],
            '--filename', config['filename']]
     output = subprocess.run(cmd, check=True, capture_output=True)
-    print(output)

@@ -11,10 +11,10 @@ jobs:
           #  - cpp-version: gcc-7
           #    cc: "gcc-7"
           #    cxx: "g++-7"
-          - cpp-version: gcc-8
-            package: "gcc-8 g++-8"
-            cc: "gcc-8"
-            cxx: "g++-8"
+          # - cpp-version: gcc-8
+          #   package: "gcc-8 g++-8"
+          #   cc: "gcc-8"
+          #   cxx: "g++-8"
           - cpp-version: gcc-9
             package: "gcc-9 g++-9"
             cc: "gcc-9"
