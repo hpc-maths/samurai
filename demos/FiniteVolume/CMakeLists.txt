@@ -1,5 +1,3 @@
-set(CMAKE_CXX_STANDARD 17)
-
 add_executable(finite-volume-amr-burgers-hat AMR_Burgers_Hat.cpp)
 target_link_libraries(finite-volume-amr-burgers-hat samurai)
 

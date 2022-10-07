@@ -5,6 +5,8 @@ project(samurai)
 set(SAMURAI_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
+set(CMAKE_CXX_STANDARD 17)
+
 # Versionning
 # ===========
 
