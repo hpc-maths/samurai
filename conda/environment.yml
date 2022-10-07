@@ -10,3 +10,4 @@ dependencies:
   - pugixml
   - cxxopts
   - cli11
+  - pytest
