@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-project(samurai CXX)
+project(samurai CXX C)
 
 set(SAMURAI_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
