@@ -10,11 +10,14 @@
 #include <string>
 #include <type_traits>
 
+#ifndef H5_USE_XTENSOR
+    #define H5_USE_XTENSOR
+#endif
+
+#include <highfive/H5Easy.hpp>
 #include <pugixml.hpp>
-#include <xtensor-io/xhighfive.hpp>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xadapt.hpp>
-#include <xtensor/xio.hpp>
 #include <xtensor/xview.hpp>
 
 #include <fmt/core.h>
@@ -441,8 +444,8 @@ namespace samurai
         xt::xtensor<double, 2> coords;
         std::tie(coords, connectivity) = extract_coords_and_connectivity(submesh);
 
-        xt::dump(h5_file, prefix + "/connectivity", connectivity);
-        xt::dump(h5_file, prefix + "/points", coords);
+        H5Easy::dump(h5_file, prefix + "/connectivity", connectivity);
+        H5Easy::dump(h5_file, prefix + "/points", coords);
 
         auto grid = grid_parent.append_child("Grid");
         grid.append_attribute("Name") = mesh_name.data();
@@ -485,7 +488,7 @@ namespace samurai
                 field_name = fmt::format("{}_{}", field.name(), i);
             }
             std::string path = fmt::format("{}/fields/{}", prefix, field_name);
-            xt::dump(h5_file, path, xt::eval(xt::view(data, xt::all(), i)));
+            H5Easy::dump(h5_file, path, xt::eval(xt::view(data, xt::all(), i)));
 
             auto attribute = grid.append_child("Attribute");
             attribute.append_attribute("Name") = field_name.data();
