@@ -82,9 +82,14 @@ jobs:
         shell: bash -l {0}
         run: |
           cmake --build build --target all
-      - name: Test
+      - name: Test with googletest and rapidcheck
         shell: bash -l {0}
         run: |
           export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
           cd build
           ./test/test_samurai_lib
+      - name: Test with pytest
+        shell: bash -l {0}
+        run: |
+          cd test
+          pytest --h5diff
