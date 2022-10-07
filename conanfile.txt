@@ -1,0 +1,10 @@
+[requires]
+xtensor/0.24.2
+highfive/2.4.1
+fmt/9.1.0
+pugixml/1.12.1
+cli11/2.2.0
+
+[generators]
+CMakeDeps
+CMakeToolchain
