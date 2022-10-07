@@ -52,7 +52,7 @@ jobs:
 
           cmake: true
           ninja: true
-          vcpkg: true
+          vcpkg: false
           ccache: true
           clangtidy: false
           task: false
