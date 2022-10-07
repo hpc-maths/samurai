@@ -34,6 +34,7 @@ jobs:
         with:
           path: |
             ~/vcpkg
+            ~/.conan
             ./build/vcpkg_installed
             ${{ env.CONAN_USER_HOME }}
             ~/.cache/pip
@@ -65,9 +66,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip3 install conan pytest h5py
+      - name: Install conan packages
+        run: |
+          conan install . --build=missing
       - name: Configure CMake
         run: |
-          conan install .
           cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
       - name: Build
         run: |

@@ -1,9 +1,9 @@
 [requires]
-xtensor/[>0.23 <0.25]
-highfive/[>2.3 <2.5]
-fmt/[>7 <9]
-pugixml/[>1.10 <1.12]
-cli11/[>2.1 <2.3]
+xtensor/0.24.2
+highfive/2.4.1
+fmt/9.1.0
+pugixml/1.12.1
+cli11/2.2.0
 
 [generators]
 CMakeDeps
