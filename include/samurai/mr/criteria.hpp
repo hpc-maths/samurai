@@ -177,7 +177,7 @@ namespace samurai
                     // auto mask = ((xt::abs(detail(fine_level, 2*i))/maxd) > eps) or
                     //             ((xt::abs(detail(fine_level, 2*i+1))/maxd) > eps);
 
-                    auto mask = ((xt::abs(detail(fine_level, 2*i))) > eps) or
+                    auto mask = ((xt::abs(detail(fine_level, 2*i))) > eps) ||
                                 ((xt::abs(detail(fine_level, 2*i+1))) > eps); // No normalization
 
 
