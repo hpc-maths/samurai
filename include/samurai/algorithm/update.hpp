@@ -179,7 +179,7 @@ namespace samurai
     template<class Tag, class... Fields>
     bool update_field(Tag& tag, Fields&... fields)
     {
-        constexpr std::size_t dim = Tag::dim;
+        static constexpr std::size_t dim = Tag::dim;
         using mesh_t = typename Tag::mesh_t;
         using mesh_id_t = typename Tag::mesh_t::mesh_id_t;
         using interval_t = typename mesh_t::interval_t;
@@ -229,8 +229,7 @@ namespace samurai
     template<class Field, class Tag>
     bool update_field_mr(Field& field, Field& old_field, const Tag& tag)
     {
-        constexpr std::size_t dim = Field::dim;
-        constexpr std::size_t dim1 = dim - 1;
+        static constexpr std::size_t dim = Field::dim;
         using mesh_t = typename Field::mesh_t;
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         using interval_t = typename mesh_t::interval_t;
@@ -247,7 +246,7 @@ namespace samurai
             {
                 if ( tag[i + interval.index] & static_cast<int>(CellFlag::refine))
                 {
-                    static_nested_loop<dim1, 0, 2>([&](auto& stencil)
+                    static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
                     {
                         auto new_index = 2*index + stencil;
                         cl[level + 1][new_index].add_interval({2*i, 2*i + 2});
