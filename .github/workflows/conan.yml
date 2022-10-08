@@ -16,7 +16,7 @@ jobs:
           - llvm
           - gcc
         CMAKE_GENERATOR:
-          - "Ninja Multi-Config"
+          - "Ninja"
         include:
           - os: windows-2022
             compiler: msvc
@@ -71,17 +71,17 @@ jobs:
           conan install . --build=missing
       - name: Configure CMake
         run: |
-          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
       - name: Build
         run: |
-          cmake --build ./build --config Release
+          cmake --build ./build --target all
       - name: Unix test
         if: runner.os != 'Windows'
         run: |
-          ./build/test/Release/test_samurai_lib
+          ./build/test/test_samurai_lib
           cd test; pytest --h5diff
       - name: Windows test
         if: runner.os == 'Windows'
         run: |
-          .\build\test\Release\test_samurai_lib
+          .\build\test\test_samurai_lib
           cd test; pytest --h5diff
