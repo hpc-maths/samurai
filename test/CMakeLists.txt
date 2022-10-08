@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.11)
-
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     project(samurai-test)
 
