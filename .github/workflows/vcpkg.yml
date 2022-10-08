@@ -70,7 +70,7 @@ jobs:
           pip3 install pytest h5py
       - name: Configure CMake
         run: |
-          cmake . -B ./build -S -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_TOOLCHAIN_FILE="~/vcpkg/scripts/buildsystems/vcpkg.cmake" -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_TOOLCHAIN_FILE="~/vcpkg/scripts/buildsystems/vcpkg.cmake" -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
       - name: Build
         run: |
           cmake --build ./build --config Release
