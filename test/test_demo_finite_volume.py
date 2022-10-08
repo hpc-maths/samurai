@@ -1,3 +1,4 @@
+import os
 import pytest
 import subprocess
 
@@ -7,9 +8,14 @@ path = 'finite_volume'
 def config():
     return {'path': path}
 
+def get_executable(path, filename):
+    if os.path.exists(os.path.join(path, filename)):
+        return os.path.join(path, filename)
+    return os.path.join(path, 'Release', filename)
+
 @pytest.mark.h5diff()
 def test_advection_1d(config):
-    cmd = ["../build/demos/FiniteVolume/finite-volume-advection-1d",
+    cmd = [get_executable("../build/demos/FiniteVolume/", "finite-volume-advection-1d"),
            "--path", config['path'],
            '--filename', config['filename'],
            '--Tf', '0.1']
@@ -17,7 +23,7 @@ def test_advection_1d(config):
 
 @pytest.mark.h5diff()
 def test_advection_2d(config):
-    cmd = ["../build/demos/FiniteVolume/finite-volume-advection-2d",
+    cmd = [get_executable("../build/demos/FiniteVolume/", "finite-volume-advection-2d"),
            "--path", config['path'],
            '--filename', config['filename'],
            '--Tf', '0.01']

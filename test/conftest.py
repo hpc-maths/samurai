@@ -20,9 +20,6 @@ def pytest_configure(config):
     if config.getoption("--h5diff") or config.getoption("--h5diff-generate-ref") is not None:
         config.pluginmanager.register(H5Comparison(config, config.getoption("--h5diff-generate-ref")))
 
-def pytest_generate_tests(metafunc: "Metafunc") -> None:
-    for marker in metafunc.definition.iter_markers(name="h5dif"):
-        metafunc.parametrize(*marker.args, **marker.kwargs, _param_mark=marker)
 
 class H5File:
     @staticmethod
