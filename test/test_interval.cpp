@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <rapidcheck/gtest.h>
 
 #include <xtensor/xarray.hpp>
 
