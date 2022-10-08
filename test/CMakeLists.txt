@@ -12,6 +12,8 @@ include(CheckCXXCompilerFlag)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
+find_package(g QUIET)
+
 include(addGoogleTest)
 # include(addRapidCheck)
 
@@ -80,11 +82,10 @@ endforeach()
 add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${SAMURAI_HEADERS})
 target_include_directories(test_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
 if (rapidcheck)
-    target_link_libraries(test_samurai_lib samurai gtest_main gtest)
+    target_link_libraries(test_samurai_lib samurai gtest_main gtest rapidcheck rapidcheck_gtest)
 else()
-    add_dependencies(test_samurai_lib gtest_main gtest)
+    add_dependencies(test_samurai_lib samurai gtest_main gtest)
 endif()
-# target_link_libraries(test_samurai_lib samurai gtest_main gtest rapidcheck rapidcheck_gtest)
 
 # # add_custom_target(samurai_test COMMAND test_samurai_lib DEPENDS test_samurai_lib)
 # add_test(NAME samurai_test COMMAND test_samurai_lib DEPENDS test_samurai_lib)
