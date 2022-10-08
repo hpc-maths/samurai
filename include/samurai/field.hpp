@@ -285,7 +285,7 @@ namespace samurai
     {
         const interval_t& interval_tmp = p_mesh->get_interval(level, interval, index...);
 
-        if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
+        if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) ||
             (interval_tmp.start > interval.start))
         {
             std::cout << fmt::format("{} FIELD ERROR on level {}: try to find interval {}",
