@@ -88,7 +88,7 @@ namespace samurai
     template<class Mesh>
     auto extract_coords_and_connectivity(const Mesh& mesh)
     {
-        constexpr std::size_t dim = Mesh::dim;
+        static constexpr std::size_t dim = Mesh::dim;
         std::size_t nb_cells = mesh.nb_cells();
 
         std::size_t nb_points_per_cell = std::pow(2, dim);
