@@ -9,11 +9,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          # - windows-2022
+          - windows-2022
           - ubuntu-22.04
           - macos-12
         compiler:
-          # - llvm
+          - llvm
           - gcc
         CMAKE_GENERATOR:
           - "Ninja Multi-Config"
