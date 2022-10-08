@@ -78,10 +78,10 @@ jobs:
       - name: Unix test
         if: runner.os != 'Windows'
         run: |
-          ./build/test/test_samurai_lib
+          ./build/test/Release/test_samurai_lib
           cd test; pytest --h5diff
       - name: Windows test
         if: runner.os == 'Windows'
         run: |
-          .\build\test\test_samurai_lib
+          .\build\test\Release\test_samurai_lib
           cd test; pytest --h5diff
