@@ -54,12 +54,12 @@ namespace samurai
         using list_t::cend;
         using list_t::end;
         using list_t::empty;
-        using typename list_t::forward_list;
+        using forward_list = typename list_t::forward_list;
 
         using list_t::erase_after;
-        using typename list_t::const_iterator;
-        using typename list_t::iterator;
-        using typename list_t::value_type;
+        using const_iterator = typename list_t::const_iterator;
+        using iterator = typename list_t::iterator;
+        using value_type = typename list_t::value_type;
 
         std::size_t size() const;
 
