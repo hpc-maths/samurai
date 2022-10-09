@@ -3,12 +3,12 @@
   "version-string": "0.0.1",
   "dependencies": [
     "xtensor",
+    "hdf5",
     "highfive",
     "pugixml",
     "cxxopts",
     "fmt",
     "cli11",
-    "gtest",
     "rapidcheck"
   ]
 }
