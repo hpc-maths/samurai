@@ -1,6 +1,8 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+#include "CLI/CLI.hpp"
+#include <xtensor/xfixed.hpp>
 
 #include <samurai/field.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -10,7 +12,8 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
 
-#include <xtensor/xfixed.hpp>
+#include <filesystem>
+namespace fs = std::filesystem;
 
 template <class Mesh>
 auto init(Mesh& mesh)
@@ -139,34 +142,68 @@ void dirichlet(std::size_t level, Field& u)
 }
 
 template <class Field>
-void save(std::size_t nt, const Field& u)
+void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix="")
 {
     auto mesh = u.mesh();
     auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+
+    if (!fs::exists(path))
+    {
+        fs::create_directory(path);
+    }
 
     samurai::for_each_cell(mesh, [&](auto &cell)
     {
         level_[cell] = cell.level;
     });
 
-    samurai::save(fmt::format("FV_Burgers_2d_ite_{}", nt), mesh, u, level_);
+    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
 }
 
 int main(int argc, char *argv[])
 {
     constexpr size_t dim = 2;
     using Config = samurai::MRConfig<dim>;
-    using interval_t = typename Config::interval_t;
 
-    const double regularity = 1.;    // Regularity guess for multiresolution
-    const double epsilon_MR = 2.e-4; // Threshold used by multiresolution
+    // Simulation parameters
+    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.}, max_corner = {1., 1.};
+    std::array<double, 2> k{{sqrt(2.0)/2.0, sqrt(2.0)/2.0}};
+    double Tf = .1;
+    double cfl = 0.05;
 
+    // Multiresolution parameters
     std::size_t min_level = 4, max_level = 10;
-    samurai::Box<double, dim> box({0, 0}, {1, 1});
+    double mr_epsilon = 2.e-4; // Threshold used by multiresolution
+    double mr_regularity = 1.; // Regularity guess for multiresolution
+    bool correction = false;
+
+    // Output parameters
+    fs::path path = fs::current_path();
+    std::string filename = "FV_scalar_burgers_2d";
+    std::size_t nfiles = 1;
+
+    CLI::App app{"Finite volume example for the scalar Burgers equation in 2d"};
+    app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--velocity", k, "The velocity of the Burgers equation")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")->capture_default_str()->group("Multiresolution");
+    app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")->capture_default_str()->group("Multiresolution");
+    app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")->capture_default_str()->group("Multiresolution");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
+    CLI11_PARSE(app, argc, argv);
+
+    samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    std::array<double, 2> k{{sqrt(2.0)/2.0, sqrt(2.0)/2.0}};
-    double dt = .05/(1<<max_level);
+    double dt = cfl/(1<<max_level);
+    double dt_save = Tf/static_cast<double>(nfiles);
+    double t = 0.;
 
     auto u = init(mesh);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
@@ -177,15 +214,23 @@ int main(int argc, char *argv[])
     };
 
     auto MRadaptation = samurai::make_MRAdapt(u, update_bc);
+    MRadaptation(mr_epsilon, mr_regularity);
+    save(path, filename, u, "_init");
 
-    for (std::size_t nt=0; nt<500; ++nt)
+    std::size_t nsave = 1, nt = 0;
+
+    while (t != Tf)
     {
-        std::cout << "iteration " << nt << "\n";
+        MRadaptation(mr_epsilon, mr_regularity);
 
-        if (max_level > min_level)
+        t += dt;
+        if (t > Tf)
         {
-            MRadaptation(epsilon_MR, regularity);
+            dt += Tf - t;
+            t = Tf;
         }
+
+        std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
         samurai::update_ghost_mr(u, update_bc);
         unp1.resize();
@@ -194,7 +239,11 @@ int main(int argc, char *argv[])
 
         std::swap(u.array(), unp1.array());
 
-        save(nt, u);
+        if ( t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
+        {
+            std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
+            save(path, filename, u, suffix);
+        }
     }
     return 0;
 }

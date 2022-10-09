@@ -28,3 +28,11 @@ def test_advection_2d(config):
            '--filename', config['filename'],
            '--Tf', '0.01']
     output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+def test_scalar_burgers_2d(config):
+    cmd = [get_executable("../build/demos/FiniteVolume/", "finite-volume-scalar-burgers-2d"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           '--Tf', '0.001']
+    output = subprocess.run(cmd, check=True, capture_output=True)
