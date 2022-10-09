@@ -428,7 +428,7 @@ namespace samurai
     inline auto translate_op<T>::end(std::size_t d,
                                      std::size_t index) const noexcept
     {
-        return m_data.end(d, index) + m_stencil[dim];
+        return m_data.end(d, index) + m_stencil[d];
     }
 
     template<class T>
