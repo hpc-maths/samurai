@@ -8,13 +8,6 @@ jobs:
     strategy:
       matrix:
         include:
-          #  - cpp-version: gcc-7
-          #    cc: "gcc-7"
-          #    cxx: "g++-7"
-          # - cpp-version: gcc-8
-          #   package: "gcc-8 g++-8"
-          #   cc: "gcc-8"
-          #   cxx: "g++-8"
           - cpp-version: gcc-9
             package: "gcc-9 g++-9"
             cc: "gcc-9"
@@ -23,10 +16,10 @@ jobs:
             package: "gcc-10 g++-10"
             cc: "gcc-10"
             cxx: "g++-10"
-          # - cpp-version: gcc-11
-          #   package: "gcc-11 g++-11"
-          #   cc: "gcc-11"
-          #   cxx: "g++-11"
+          - cpp-version: gcc-11
+            package: "gcc-11 g++-11"
+            cc: "gcc-11"
+            cxx: "g++-11"
           - cpp-version: clang-9
             package: "clang-9"
             cc: "clang-9"
@@ -75,8 +68,8 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-          cmake --build build --target all VERBOSE=1
-      - name: Test with googletest and rapidcheck
+          cmake --build build --target all
+      - name: Test with googletest
         shell: bash -l {0}
         run: |
           export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
