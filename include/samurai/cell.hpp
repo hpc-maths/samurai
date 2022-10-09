@@ -53,8 +53,8 @@ namespace samurai
 
     template<class TCoord_index, std::size_t dim_>
     template <class T>
-    inline Cell<TCoord_index, dim_>::Cell(std::size_t level, const T& indices, std::size_t index)
-    : level(level), indices(indices), index(index)
+    inline Cell<TCoord_index, dim_>::Cell(std::size_t level_, const T& indices_, std::size_t index_)
+    : level(level_), indices(indices_), index(index_)
     {
         length = 1./(1 << level);
         // center = length*(indices + 0.5);

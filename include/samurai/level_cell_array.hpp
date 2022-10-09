@@ -259,8 +259,8 @@ namespace samurai
         using box_t = Box<coord_index_t, dim>;
         using point_t = typename box_t::point_t;
 
-        point_t start = box.min_corner() * std::pow(2, level);
-        point_t end = box.max_corner() * std::pow(2, level);
+        point_t start = box.min_corner() * static_cast<double>(1<<level);
+        point_t end = box.max_corner() * static_cast<double>(1<<level);
         init_from_box(box_t{start, end});
     }
 
@@ -386,7 +386,6 @@ namespace samurai
     template<std::size_t Dim, class TInterval>
     inline void LevelCellArray<Dim, TInterval>::update_index()
     {
-        using index_t = typename interval_t::index_t;
         std::size_t acc_size = 0;
         for_each_interval(*this, [&](auto, auto& interval, auto)
         {

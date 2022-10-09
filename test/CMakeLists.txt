@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.11)
-
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     project(samurai-test)
 
@@ -14,12 +12,16 @@ include(CheckCXXCompilerFlag)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
-include(addGoogleTest)
-include(addRapidCheck)
+find_package(g QUIET)
 
+include(addGoogleTest)
+# include(addRapidCheck)
+
+find_package(rapidcheck QUIET)
 find_package(Threads)
 
 include_directories(${GTEST_INCLUDE_DIRS} SYSTEM)
+message(STATUS ${rapidcheck_FOUND})
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR (CMAKE_CXX_COMPILER_ID MATCHES "Intel" AND NOT WIN32))
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
@@ -60,20 +62,28 @@ set(SAMURAI_TESTS
     test_level_cell_list.cpp
     test_list_of_intervals.cpp
     # test_param.cpp
-    test_operator_set.cpp
+    # test_operator_set.cpp
 )
+
+if (rapidcheck_FOUND)
+    list(APPEND SAMURAI_TESTS test_operator_set.cpp)
+endif()
 
 foreach(filename IN LISTS SAMURAI_TESTS)
     string(REPLACE ".cpp" "" targetname ${filename})
     add_executable(${targetname} ${COMMON_BASE} ${filename} ${SAMURAI_HEADERS})
     target_include_directories(${targetname} PRIVATE ${SAMURAI_INCLUDE_DIR})
-    target_link_libraries(${targetname} samurai gtest_main gtest rapidcheck rapidcheck_gtest)
+    if (rapidcheck_FOUND)
+        target_link_libraries(${targetname} samurai gtest_main gtest rapidcheck rapidcheck_gtest)
+    else()
+        target_link_libraries(${targetname} samurai gtest_main gtest)
+    endif()
 endforeach()
 
 add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${SAMURAI_HEADERS})
 target_include_directories(test_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
-# add_dependencies(test_samurai_lib gtest_main gtest)
-target_link_libraries(test_samurai_lib samurai gtest_main gtest rapidcheck rapidcheck_gtest)
-
-# # add_custom_target(samurai_test COMMAND test_samurai_lib DEPENDS test_samurai_lib)
-# add_test(NAME samurai_test COMMAND test_samurai_lib DEPENDS test_samurai_lib)
+if (rapidcheck_FOUND)
+    target_link_libraries(test_samurai_lib samurai gtest_main gtest rapidcheck rapidcheck_gtest)
+else()
+    target_link_libraries(test_samurai_lib samurai gtest_main gtest)
+endif()

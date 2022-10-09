@@ -24,14 +24,14 @@ namespace samurai
         derived_type derived_cast() && noexcept;
 
         template<class... CT>
-        inline auto operator()(Dim<1> d, CT &&... e) const
+        inline auto operator()(Dim<1>, CT &&... e) const
         {
             return (derived_cast().right_flux(std::forward<CT>(e)...)
                    -derived_cast().left_flux(std::forward<CT>(e)...))/derived_cast().dx();
         }
 
         template<class... CT>
-        inline auto operator()(Dim<2> d, CT &&... e) const
+        inline auto operator()(Dim<2>, CT &&... e) const
         {
             return (-derived_cast().left_flux(std::forward<CT>(e)...) +
                     derived_cast().right_flux(std::forward<CT>(e)...) +
@@ -40,7 +40,7 @@ namespace samurai
         }
 
       protected:
-        finite_volume(){};
+        finite_volume(){}
         ~finite_volume() = default;
 
         finite_volume(const finite_volume &) = default;
@@ -158,38 +158,35 @@ namespace samurai
             auto min = xt::eval(xt::minimum(xt::abs(ul), xt::abs(ur)));
             auto max = xt::eval(xt::maximum(xt::abs(ul), xt::abs(ur)));
 
-            auto res1 = xt::eval(xt::masked_view(min, mask1 and mask2));
-            xt::masked_view(out, mask1 and mask2) = .5*res1*res1;
-
-            auto res2 = xt::eval(xt::masked_view(max, !mask1));
-            xt::masked_view(out, !mask1) = .5*res2*res2;
+            xt::masked_view(out, mask1 && mask2) = .5*min*min;
+            xt::masked_view(out, !mask1) = .5*max*max;
 
             return out;
         }
 
         // 2D
         template<class T>
-        inline auto left_flux(std::array<double, 2> k, const T &u) const
+        inline auto left_flux(std::array<double, 2> a, const T &u) const
         {
-            return flux(k[0], u(level, i-1, j), u(level, i, j));
+            return flux(a[0], u(level, i-1, j), u(level, i, j));
         }
 
         template<class T>
-        inline auto right_flux(std::array<double, 2> k, const T &u) const
+        inline auto right_flux(std::array<double, 2> a, const T &u) const
         {
-            return flux(k[0], u(level, i, j), u(level, i+1, j));
+            return flux(a[0], u(level, i, j), u(level, i+1, j));
         }
 
         template<class T>
-        inline auto down_flux(std::array<double, 2> k, const T &u) const
+        inline auto down_flux(std::array<double, 2> a, const T &u) const
         {
-            return flux(k[1], u(level, i, j-1), u(level, i, j));
+            return flux(a[1], u(level, i, j-1), u(level, i, j));
         }
 
         template<class T>
-        inline auto up_flux(std::array<double, 2> k, const T &u) const
+        inline auto up_flux(std::array<double, 2> a, const T &u) const
         {
-            return flux(k[1], u(level, i, j), u(level, i, j+1));
+            return flux(a[1], u(level, i, j), u(level, i, j+1));
         }
     };
 

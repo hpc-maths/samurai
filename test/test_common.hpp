@@ -2,7 +2,6 @@
 
 #include <xtensor/xarray.hpp>
 
-#include <rapidcheck.h>
 
 #include <samurai/interval.hpp>
 #include <samurai/list_of_intervals.hpp>
@@ -28,22 +27,3 @@ namespace samurai
             return false;
     }
 }
-
-// NOTE: Must be in rc namespace!
-namespace rc
-{
-
-    template<class TValue>
-    struct Arbitrary<samurai::Interval<TValue>>
-    {
-        static Gen<samurai::Interval<TValue>> arbitrary()
-        {
-            auto start = gen::inRange(-100, 100);
-            auto end = gen::inRange(-100, 100);
-            return gen::build<samurai::Interval<TValue>>(
-                gen::set(&samurai::Interval<TValue>::start, start),
-                gen::set(&samurai::Interval<TValue>::end, end));
-        }
-    };
-
-} // namespace rc

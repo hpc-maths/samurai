@@ -95,6 +95,11 @@ namespace samurai
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
+        if (min_level == max_level)
+        {
+            return;
+        }
+
         mesh_t mesh_old = mesh;
         field_type field_old(m_field.name(), mesh_old);
         field_old.array() = m_field.array();
@@ -135,8 +140,8 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
-            double exponent = dim * (max_level - level);
-            double eps_l = std::pow(2., -exponent) * eps;
+            std::size_t exponent = dim * (max_level - level);
+            double eps_l = eps/(1 << exponent);
 
             double regularity_to_use = std::min(regularity, 3.0) + dim;
 
