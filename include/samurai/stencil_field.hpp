@@ -158,11 +158,8 @@ namespace samurai
             auto min = xt::eval(xt::minimum(xt::abs(ul), xt::abs(ur)));
             auto max = xt::eval(xt::maximum(xt::abs(ul), xt::abs(ur)));
 
-            auto res1 = xt::eval(xt::masked_view(min, mask1 && mask2));
-            xt::masked_view(out, mask1 && mask2) = .5*res1*res1;
-
-            auto res2 = xt::eval(xt::masked_view(max, !mask1));
-            xt::masked_view(out, !mask1) = .5*res2*res2;
+            xt::masked_view(out, mask1 && mask2) = .5*min*min;
+            xt::masked_view(out, !mask1) = .5*max*max;
 
             return out;
         }
