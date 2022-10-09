@@ -70,7 +70,8 @@ jobs:
               -GNinja \
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
-              -DBUILD_TESTS=ON
+              -DBUILD_TESTS=ON \
+              -DIWYU=ON
       - name: Build
         shell: bash -l {0}
         run: |
