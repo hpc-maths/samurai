@@ -54,14 +54,6 @@ jobs:
         with:
           environment-file: conda/environment.yml
           environment-name: samurai-env
-      # - uses: conda-incubator/setup-miniconda@v2
-      #   with:
-      #     python-version: 3.7
-      #     mamba-version: "*"
-      #     channels: conda-forge,defaults
-      #     channel-priority: true
-      #     activate-environment: samurai-env
-      #     environment-file: conda/environment.yml
       - name: Conda informations
         shell: bash -l {0}
         run: |
@@ -70,6 +62,7 @@ jobs:
       - name: Configure
         shell: bash -l {0}
         run: |
+          mamba install -y include-what-you-use
           export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
           CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
               . \
