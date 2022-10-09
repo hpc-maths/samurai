@@ -54,7 +54,6 @@ namespace samurai
         using list_t::cend;
         using list_t::end;
         using list_t::empty;
-        using forward_list = typename list_t::forward_list;
 
         using list_t::erase_after;
         using const_iterator = typename list_t::const_iterator;

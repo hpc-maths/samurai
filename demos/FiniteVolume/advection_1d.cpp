@@ -122,7 +122,6 @@ int main(int argc, char *argv[])
 {
     constexpr size_t dim = 1;
     using Config = samurai::MRConfig<dim>;
-    using interval_t = typename Config::interval_t;
 
     // Simulation parameters
     double left_box = -2, right_box = 2;
@@ -161,7 +160,7 @@ int main(int argc, char *argv[])
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
     double dt = cfl/(1<<max_level);
-    double dt_save = Tf/nfiles;
+    double dt_save = Tf/static_cast<double>(nfiles);
     double t = 0.;
 
     auto u = init(mesh);
@@ -201,7 +200,7 @@ int main(int argc, char *argv[])
 
         std::swap(u.array(), unp1.array());
 
-        if ( t >= (nsave+1)*dt_save || t == Tf)
+        if ( t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
         {
             std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
             save(path, filename, u, suffix);

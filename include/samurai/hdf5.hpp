@@ -91,7 +91,7 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         std::size_t nb_cells = mesh.nb_cells();
 
-        std::size_t nb_points_per_cell = std::pow(2, dim);
+        std::size_t nb_points_per_cell = 1 << dim;
 
         std::map<std::array<double, dim>, std::size_t> points_id;
         auto element = get_element(std::integral_constant<std::size_t, dim>{});
@@ -132,9 +132,9 @@ namespace samurai
         coords.fill(0.);
         for(auto& e: points_id)
         {
-            std::size_t index = e.second;
+            std::size_t idx = e.second;
             auto coords_view = xt::view(coords,
-                                        index,
+                                        idx,
                                         xt::range(0, dim));
             coords_view = xt::adapt(e.first);
         }
@@ -428,8 +428,8 @@ namespace samurai
     template <class D>
     inline Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename)
     : h5_file(path.string() + '/' + filename + ".h5", HighFive::File::Overwrite)
-    , filename(filename)
     , m_path(path)
+    , filename(filename)
     {
         doc.append_child(pugi::node_doctype).set_value("Xdmf SYSTEM \"Xdmf.dtd\"");
         auto xdmf = doc.append_child("Xdmf");
@@ -543,17 +543,17 @@ namespace samurai
             return this->m_mesh;
         }
 
-        const mesh_t& get_submesh(std::size_t i) const
+        const mesh_t& get_submesh(std::size_t) const
         {
             return this->m_mesh;
         }
 
-        std::string get_submesh_name(std::size_t i) const
+        std::string get_submesh_name(std::size_t) const
         {
             return "cell_array";
         }
 
-        const std::size_t nb_submesh() const
+        std::size_t nb_submesh() const
         {
             return 1;
         }
@@ -589,7 +589,7 @@ namespace samurai
             return fmt::format("{}", static_cast<mesh_id_t>(i));
         }
 
-        const std::size_t nb_submesh() const
+        std::size_t nb_submesh() const
         {
             return static_cast<std::size_t>(mesh_id_t::count);
         }
@@ -626,7 +626,7 @@ namespace samurai
             return fmt::format("{}", static_cast<mesh_id_t>(i));
         }
 
-        const std::size_t nb_submesh() const
+        std::size_t nb_submesh() const
         {
             return static_cast<std::size_t>(mesh_id_t::count);
         }

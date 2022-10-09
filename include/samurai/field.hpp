@@ -240,7 +240,7 @@ namespace samurai
         mesh_t* p_mesh;
         data_type m_data;
 
-        friend class detail::inner_field_types<Field<mesh_t, value_t, size_>>;
+        friend struct detail::inner_field_types<Field<mesh_t, value_t, size_>>;
     };
 
     template<class mesh_t, class value_t, std::size_t size_>

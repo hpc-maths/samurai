@@ -386,7 +386,6 @@ namespace samurai
     template<std::size_t Dim, class TInterval>
     inline void LevelCellArray<Dim, TInterval>::update_index()
     {
-        using index_t = typename interval_t::index_t;
         std::size_t acc_size = 0;
         for_each_interval(*this, [&](auto, auto& interval, auto)
         {

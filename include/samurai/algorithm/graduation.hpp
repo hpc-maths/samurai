@@ -109,11 +109,8 @@ namespace samurai
     void graduation(Tag& tag, const Stencil& stencil)
     {
         auto mesh = tag.mesh();
-        constexpr std::size_t dim = Tag::dim;
-        using mesh_t = typename Tag::mesh_t;
         using mesh_id_t = typename Tag::mesh_t::mesh_id_t;
 
-        std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
         constexpr int ghost_width = 1; //mesh_t::config::ghost_width;

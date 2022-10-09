@@ -11,7 +11,7 @@
 namespace samurai
 {
     template<class TValue, class TIndex>
-    class Interval;
+    struct Interval;
 
     namespace default_config
     {

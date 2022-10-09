@@ -462,47 +462,6 @@ namespace samurai
     }
 
     /***********************
-     * to_refine operator *
-     ***********************/
-
-    template<class TInterval>
-    class to_refine_op : public field_operator_base<TInterval> {
-      public:
-        INIT_OPERATOR(to_refine_op)
-
-        template<class T, class U, class V>
-        inline void operator()(Dim<1>, T &refine, const U &detail, const V &max_detail,
-                        std::size_t max_level, double eps) const
-        {
-            if (level < max_level)
-            {
-                auto mask = xt::abs(detail(level, i)) > eps;
-                xt::masked_view(refine(level, i), mask) =
-                    static_cast<int>(CellFlag::refine);
-            }
-        }
-
-        template<class T, class U, class V>
-        inline void operator()(Dim<2>, T &refine, const U &detail, const V &max_detail,
-                        std::size_t max_level, double eps) const
-        {
-            if (level < max_level)
-            {
-                auto mask = xt::abs(detail(level, i, j)) > eps;
-                xt::masked_view(refine(level, i, j), mask) =
-                    static_cast<int>(CellFlag::refine);
-            }
-        }
-    };
-
-    template<class... CT>
-    inline auto to_refine(CT &&... e)
-    {
-        return make_field_operator_function<to_refine_op>(
-            std::forward<CT>(e)...);
-    }
-
-    /***********************
      * apply_expr operator *
      ***********************/
 

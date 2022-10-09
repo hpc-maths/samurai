@@ -24,14 +24,14 @@ namespace samurai
         derived_type derived_cast() && noexcept;
 
         template<class... CT>
-        inline auto operator()(Dim<1> d, CT &&... e) const
+        inline auto operator()(Dim<1>, CT &&... e) const
         {
             return (derived_cast().right_flux(std::forward<CT>(e)...)
                    -derived_cast().left_flux(std::forward<CT>(e)...))/derived_cast().dx();
         }
 
         template<class... CT>
-        inline auto operator()(Dim<2> d, CT &&... e) const
+        inline auto operator()(Dim<2>, CT &&... e) const
         {
             return (-derived_cast().left_flux(std::forward<CT>(e)...) +
                     derived_cast().right_flux(std::forward<CT>(e)...) +
@@ -40,7 +40,7 @@ namespace samurai
         }
 
       protected:
-        finite_volume(){};
+        finite_volume(){}
         ~finite_volume() = default;
 
         finite_volume(const finite_volume &) = default;

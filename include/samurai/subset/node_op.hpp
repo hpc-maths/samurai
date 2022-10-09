@@ -67,7 +67,7 @@ namespace samurai
         bool is_empty() const noexcept;
 
       protected:
-        node_op(){};
+        node_op(){}
         ~node_op() = default;
 
         node_op(const node_op &) = default;
@@ -226,14 +226,14 @@ namespace samurai
         mesh_node &operator=(mesh_node &&) = default;
 
         auto index(int i) const noexcept;
-        auto size(std::size_t dim) const noexcept;
-        auto start(std::size_t dim, std::size_t index) const noexcept;
-        auto end(std::size_t dim, std::size_t index) const noexcept;
-        auto offset(std::size_t dim, std::size_t off_ind) const noexcept;
-        auto offsets_size(std::size_t dim) const noexcept;
-        auto interval(std::size_t dim, std::size_t index) const noexcept;
-        auto find(std::size_t dim, std::size_t start, std::size_t end, coord_index_t coord) const noexcept;
-        auto transform(std::size_t dim, coord_index_t coord) const noexcept;
+        auto size(std::size_t d) const noexcept;
+        auto start(std::size_t d, std::size_t index) const noexcept;
+        auto end(std::size_t d, std::size_t index) const noexcept;
+        auto offset(std::size_t d, std::size_t off_ind) const noexcept;
+        auto offsets_size(std::size_t d) const noexcept;
+        auto interval(std::size_t d, std::size_t index) const noexcept;
+        auto find(std::size_t d, std::size_t start, std::size_t end, coord_index_t coord) const noexcept;
+        auto transform(std::size_t d, coord_index_t coord) const noexcept;
         const Mesh &data() const noexcept;
         void data(const Mesh &mesh) noexcept;
         std::size_t level() const noexcept;
@@ -269,60 +269,60 @@ namespace samurai
     }
 
     template<class Mesh>
-    inline auto mesh_node<Mesh>::size(std::size_t dim) const noexcept
+    inline auto mesh_node<Mesh>::size(std::size_t d) const noexcept
     {
         // return (*m_data)[dim].size();
-        return m_data[dim].size();
+        return m_data[d].size();
     }
 
     template<class Mesh>
-    inline auto mesh_node<Mesh>::start(std::size_t dim, std::size_t index) const
+    inline auto mesh_node<Mesh>::start(std::size_t d, std::size_t index) const
         noexcept
     {
         if (m_data.empty())
         {
             return std::numeric_limits<coord_index_t>::max();
         }
-        return m_data[dim][index].start;
+        return m_data[d][index].start;
     }
 
     template<class Mesh>
-    inline auto mesh_node<Mesh>::end(std::size_t dim, std::size_t index) const
+    inline auto mesh_node<Mesh>::end(std::size_t d, std::size_t index) const
         noexcept
     {
         if (m_data.empty())
         {
             return std::numeric_limits<coord_index_t>::max();
         }
-        return m_data[dim][index].end;
+        return m_data[d][index].end;
     }
 
     template<class Mesh>
-    inline auto mesh_node<Mesh>::offset(std::size_t dim,
+    inline auto mesh_node<Mesh>::offset(std::size_t d,
                                         std::size_t off_ind) const noexcept
     {
-        return m_data.offsets(dim)[off_ind];
+        return m_data.offsets(d)[off_ind];
     }
 
     template<class Mesh>
-    inline auto mesh_node<Mesh>::offsets_size(std::size_t dim) const noexcept
+    inline auto mesh_node<Mesh>::offsets_size(std::size_t d) const noexcept
     {
-        return m_data.offsets(dim).size();
+        return m_data.offsets(d).size();
     }
 
     template<class Mesh>
-    inline auto mesh_node<Mesh>::interval(std::size_t dim,
+    inline auto mesh_node<Mesh>::interval(std::size_t d,
                                           std::size_t index) const noexcept
     {
-        return m_data[dim][index];
+        return m_data[d][index];
     }
 
     template<class Mesh>
-    inline auto mesh_node<Mesh>::find(std::size_t dim, std::size_t start,
+    inline auto mesh_node<Mesh>::find(std::size_t d, std::size_t start,
                                       std::size_t end,
                                       coord_index_t coord) const noexcept
     {
-        return find_on_dim(m_data, dim, start, end, coord);
+        return find_on_dim(m_data, d, start, end, coord);
     }
 
     template<class Mesh>
@@ -387,10 +387,10 @@ namespace samurai
         translate_op(T &&v, stencil_t &&stencil);
         translate_op(const T &v, const stencil_t &stencil);
 
-        auto start(std::size_t dim, std::size_t index) const noexcept;
-        auto end(std::size_t dim, std::size_t index) const noexcept;
+        auto start(std::size_t d, std::size_t index) const noexcept;
+        auto end(std::size_t d, std::size_t index) const noexcept;
 
-        auto transform(std::size_t dim, coord_index_t coord) const noexcept;
+        auto transform(std::size_t d, coord_index_t coord) const noexcept;
 
         auto create_interval(coord_index_t start, coord_index_t end) const
             noexcept;
@@ -419,23 +419,23 @@ namespace samurai
     {}
 
     template<class T>
-    inline auto translate_op<T>::start(std::size_t dim, std::size_t index) const noexcept
+    inline auto translate_op<T>::start(std::size_t d, std::size_t index) const noexcept
     {
-        return m_data.start(dim, index) + m_stencil[dim];
+        return m_data.start(d, index) + m_stencil[d];
     }
 
     template<class T>
-    inline auto translate_op<T>::end(std::size_t dim,
+    inline auto translate_op<T>::end(std::size_t d,
                                      std::size_t index) const noexcept
     {
-        return m_data.end(dim, index) + m_stencil[dim];
+        return m_data.end(d, index) + m_stencil[dim];
     }
 
     template<class T>
     inline auto
-    translate_op<T>::transform(std::size_t dim, coord_index_t coord) const noexcept
+    translate_op<T>::transform(std::size_t d, coord_index_t coord) const noexcept
     {
-        return coord - m_stencil[dim];
+        return coord - m_stencil[d];
     }
 
     template<class T>
@@ -467,8 +467,8 @@ namespace samurai
         contraction_op(const T& v, std::size_t size = 1);
         contraction_op(const T& v, const std::array<std::size_t, dim>& contraction);
 
-        auto start(std::size_t dim, std::size_t index) const noexcept;
-        auto end(std::size_t dim, std::size_t index) const noexcept;
+        auto start(std::size_t d, std::size_t index) const noexcept;
+        auto end(std::size_t d, std::size_t index) const noexcept;
 
         auto create_interval(coord_index_t start, coord_index_t end) const noexcept;
         auto create_index_yz() const noexcept;
@@ -498,17 +498,17 @@ namespace samurai
     {}
 
     template<class T>
-    inline auto contraction_op<T>::start(std::size_t dim,
+    inline auto contraction_op<T>::start(std::size_t d,
                                          std::size_t index) const noexcept
     {
-        return m_data.start(dim, index) + m_contraction[dim];
+        return m_data.start(d, index) + m_contraction[d];
     }
 
     template<class T>
-    inline auto contraction_op<T>::end(std::size_t dim, std::size_t index) const
+    inline auto contraction_op<T>::end(std::size_t d, std::size_t index) const
         noexcept
     {
-        return m_data.end(dim, index) - m_contraction[dim];
+        return m_data.end(d, index) - m_contraction[d];
     }
 
     template<class T>
@@ -540,8 +540,8 @@ namespace samurai
         expand_op(T &&v);
         expand_op(const T &v);
 
-        auto start(std::size_t dim, std::size_t index) const noexcept;
-        auto end(std::size_t dim, std::size_t index) const noexcept;
+        auto start(std::size_t d, std::size_t index) const noexcept;
+        auto end(std::size_t d, std::size_t index) const noexcept;
 
         auto create_interval(coord_index_t start, coord_index_t end) const
             noexcept;
@@ -566,17 +566,17 @@ namespace samurai
     {}
 
     template<class T>
-    inline auto expand_op<T>::start(std::size_t dim, std::size_t index) const
+    inline auto expand_op<T>::start(std::size_t d, std::size_t index) const
         noexcept
     {
-        return m_data.start(dim, index) - 1;
+        return m_data.start(d, index) - 1;
     }
 
     template<class T>
-    inline auto expand_op<T>::end(std::size_t dim, std::size_t index) const
+    inline auto expand_op<T>::end(std::size_t d, std::size_t index) const
         noexcept
     {
-        return m_data.end(dim, index) + 1;
+        return m_data.end(d, index) + 1;
     }
 
     template<class T>

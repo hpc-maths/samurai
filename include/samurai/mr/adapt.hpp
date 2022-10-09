@@ -140,8 +140,8 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
-            double exponent = dim * (max_level - level);
-            double eps_l = std::pow(2., -exponent) * eps;
+            std::size_t exponent = dim * (max_level - level);
+            double eps_l = eps/(1 << exponent);
 
             double regularity_to_use = std::min(regularity, 3.0) + dim;
 

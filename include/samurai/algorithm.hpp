@@ -150,9 +150,13 @@ namespace samurai
                               std::array<coord_index_t, dim> coord,
                               std::integral_constant<std::size_t, 0>) -> index_t
         {
-            auto find_index = my_binary_search(lca[0].cbegin() + start_index, lca[0].cbegin() + end_index, coord[0]);
+            using lca_t = const LevelCellArray<dim, TInterval>;
+            using diff_t = typename lca_t::const_iterator::difference_type;
+            auto find_index = my_binary_search(lca[0].cbegin() + static_cast<diff_t>(start_index),
+                                               lca[0].cbegin() + static_cast<diff_t>(end_index),
+                                               coord[0]);
 
-            return (find_index != -1)? find_index + start_index: find_index;
+            return (find_index != -1)? find_index + static_cast<diff_t>(start_index): find_index;
         }
 
         template <std::size_t dim, class TInterval,
@@ -164,11 +168,15 @@ namespace samurai
                               std::array<coord_index_t, dim> coord,
                               std::integral_constant<std::size_t, N>) -> index_t
         {
-            index_t find_index = my_binary_search(lca[N].cbegin() + start_index, lca[N].cbegin() + end_index, coord[N]);
+            using lca_t = const LevelCellArray<dim, TInterval>;
+            using diff_t = typename lca_t::const_iterator::difference_type;
+            index_t find_index = my_binary_search(lca[N].cbegin() + static_cast<diff_t>(start_index),
+                                                  lca[N].cbegin() + static_cast<diff_t>(end_index),
+                                                  coord[N]);
 
             if (find_index != -1)
             {
-                auto off_ind = static_cast<std::size_t>(lca[N][find_index + start_index].index + coord[N]);
+                auto off_ind = static_cast<std::size_t>(lca[N][static_cast<std::size_t>(find_index) + start_index].index + coord[N]);
                 find_index = find_impl(lca, lca.offsets(N)[off_ind], lca.offsets(N)[off_ind + 1],
                                         coord, std::integral_constant<std::size_t, N - 1>{});
             }
@@ -191,9 +199,13 @@ namespace samurai
                             std::size_t start_index, std::size_t end_index,
                             coord_index_t coord)
     {
-        index_t find_index = detail::my_binary_search(lca[d].cbegin() + start_index, lca[d].cbegin() + end_index, coord);
+        using lca_t = const LevelCellArray<dim, TInterval>;
+        using diff_t = typename lca_t::const_iterator::difference_type;
+        index_t find_index = detail::my_binary_search(lca[d].cbegin() + static_cast<diff_t>(start_index),
+                                                      lca[d].cbegin() + static_cast<diff_t>(end_index),
+                                                      coord);
 
-        return (find_index != -1)? find_index + start_index: std::numeric_limits<std::size_t>::max();
+        return (find_index != -1)? static_cast<std::size_t>(find_index) + start_index: std::numeric_limits<std::size_t>::max();
     }
 
 } // namespace samurai
