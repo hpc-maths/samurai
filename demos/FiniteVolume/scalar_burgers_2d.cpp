@@ -22,21 +22,30 @@ auto init(Mesh& mesh)
 
     samurai::for_each_cell(mesh, [&](auto &cell) {
         auto center = cell.center();
-        double radius = .1;
-        double x_center = 0.5, y_center = 0.5;
+        constexpr double radius = 0.1;
+        constexpr double x_center = 0.5;
+        constexpr double y_center = 0.5;
+
         if (((center[0] - x_center) * (center[0] - x_center) +
              (center[1] - y_center) * (center[1] - y_center))
                 <= radius * radius)
+        {
             u[cell] = 1;
+        }
         else
+        {
             u[cell] = 0;
+        }
 
 
-        double x_center2 = 0.2, y_center2 = 0.2;
+        constexpr double x_center2 = 0.2;
+        constexpr double y_center2 = 0.2;
         if (((center[0] - x_center2) * (center[0] - x_center2) +
              (center[1] - y_center2) * (center[1] - y_center2))
                 <= radius * radius)
+        {
             u[cell] = -1;
+        }
     });
 
     return u;
@@ -68,8 +77,8 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
             double dx = 1./(1<<level);
 
             unp1(level, i, j) = unp1(level, i, j) + dt/dx * (samurai::upwind_scalar_burgers_op<interval_t>(level, i, j).right_flux(k, u)
-                                                            - .5*samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j).right_flux(k, u)
-                                                            - .5*samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j+1).right_flux(k, u));
+                                                            - 0.5*samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j).right_flux(k, u)
+                                                            - 0.5*samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j+1).right_flux(k, u));
         });
 
         stencil = {{1, 0}};
@@ -84,8 +93,8 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
             double dx = 1./(1<<level);
 
             unp1(level, i, j) = unp1(level, i, j) - dt/dx * (samurai::upwind_scalar_burgers_op<interval_t>(level, i, j).left_flux(k, u)
-                                                            - .5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j).left_flux(k, u)
-                                                            - .5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j+1).left_flux(k, u));
+                                                            - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j).left_flux(k, u)
+                                                            - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j+1).left_flux(k, u));
         });
 
         stencil = {{0, -1}};
@@ -100,8 +109,8 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
             double dx = 1./(1<<level);
 
             unp1(level, i, j) = unp1(level, i, j) + dt/dx * (samurai::upwind_scalar_burgers_op<interval_t>(level, i, j).up_flux(k, u)
-                                                            - .5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j+1).up_flux(k, u)
-                                                            - .5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j+1).up_flux(k, u));
+                                                            - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j+1).up_flux(k, u)
+                                                            - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j+1).up_flux(k, u));
         });
 
         stencil = {{0, 1}};
@@ -116,8 +125,8 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
             double dx = 1./(1<<level);
 
             unp1(level, i, j) = unp1(level, i, j) - dt/dx * (samurai::upwind_scalar_burgers_op<interval_t>(level, i, j).down_flux(k, u)
-                                                            - .5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j).down_flux(k, u)
-                                                            - .5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j).down_flux(k, u));
+                                                            - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i, 2*j).down_flux(k, u)
+                                                            - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level+1, 2*i+1, 2*j).down_flux(k, u));
         });
 
     }
@@ -166,13 +175,15 @@ int main(int argc, char *argv[])
     using Config = samurai::MRConfig<dim>;
 
     // Simulation parameters
-    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.}, max_corner = {1., 1.};
-    std::array<double, 2> k{{sqrt(2.0)/2.0, sqrt(2.0)/2.0}};
-    double Tf = .1;
+    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
+    std::array<double, 2> k{{sqrt(2.)/2., sqrt(2.)/2.}};
+    double Tf = 0.1;
     double cfl = 0.05;
 
     // Multiresolution parameters
-    std::size_t min_level = 4, max_level = 10;
+    std::size_t min_level = 4;
+    std::size_t max_level = 10;
     double mr_epsilon = 2.e-4; // Threshold used by multiresolution
     double mr_regularity = 1.; // Regularity guess for multiresolution
     bool correction = false;
@@ -217,7 +228,8 @@ int main(int argc, char *argv[])
     MRadaptation(mr_epsilon, mr_regularity);
     save(path, filename, u, "_init");
 
-    std::size_t nsave = 1, nt = 0;
+    std::size_t nsave = 1;
+    std::size_t nt = 0;
 
     while (t != Tf)
     {
