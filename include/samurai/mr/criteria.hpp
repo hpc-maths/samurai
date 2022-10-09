@@ -30,7 +30,7 @@ namespace samurai
             {
                 // auto maxd = xt::view(max_detail, level);
 
-                if (size == 1)
+                if constexpr (size == 1)
                 {
                     //auto mask = xt::abs(detail(level, 2*i))/maxd < eps;
                     auto mask = xt::abs(detail(fine_level, 2*i)) < eps; // NO normalization
@@ -59,7 +59,7 @@ namespace samurai
             {
                 // auto maxd = xt::view(max_detail, level);
 
-                if (size == 1)
+                if constexpr (size == 1)
                 {
                     // auto mask = (xt::abs(detail(level, 2*i  ,   2*j))/maxd < eps) &&
                     //             (xt::abs(detail(level, 2*i+1,   2*j))/maxd < eps) &&
@@ -123,7 +123,7 @@ namespace samurai
                 const double C_fourth_term = 2.0;
                 auto maxd = xt::view(max_detail, fine_level);
 
-                if (size == 1)
+                if constexpr (size == 1)
                 {
                     auto mask = (xt::abs(.25 * ( detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) < eps) &&
                                 (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)+detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                < eps &&
@@ -172,7 +172,7 @@ namespace samurai
             if (fine_level < max_level)
             {
                 // auto maxd = xt::view(max_detail, fine_level);
-                if (size == 1)
+                if constexpr (size == 1)
                 {
                     // auto mask = ((xt::abs(detail(fine_level, 2*i))/maxd) > eps) ||
                     //             ((xt::abs(detail(fine_level, 2*i+1))/maxd) > eps);
@@ -208,7 +208,7 @@ namespace samurai
             if (fine_level < max_level)
             {
                 // auto maxd = xt::view(max_detail, fine_level);
-                if (size == 1)
+                if constexpr (size == 1)
                 {
                     // auto mask = ((xt::abs(detail(fine_level, 2*i  , 2*j  ))/maxd) > eps) ||
                     //             ((xt::abs(detail(fine_level, 2*i+1, 2*j  ))/maxd) > eps) ||
@@ -269,7 +269,7 @@ namespace samurai
                 const double C_fourth_term = 2.0;
                 auto maxd = xt::view(max_detail, fine_level);
 
-                if (size == 1)
+                if constexpr (size == 1)
                 {
                     auto mask = (xt::abs(.25 * ( detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) > eps) ||
                                 (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)+detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                > eps  ||

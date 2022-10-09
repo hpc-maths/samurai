@@ -120,10 +120,11 @@ namespace samurai
         template<class ForwardIt, class T>
         auto my_binary_search(ForwardIt first, ForwardIt last, const T& value)
         {
-            auto comp = [](const auto& interval, auto value)
+            auto comp = [](const auto& interval, auto v)
             {
-                return interval.end < value;
+                return interval.end < v;
             };
+
             auto result = std::lower_bound(first, last, value, comp);
 
             if (!(result == last) && !(comp(*result, value)))

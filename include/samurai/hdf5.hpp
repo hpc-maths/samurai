@@ -485,7 +485,7 @@ namespace samurai
         for(std::size_t i = 0; i < field.size; ++i)
         {
             std::string field_name;
-            if (field.size == 1)
+            if constexpr (field.size == 1)
             {
                 field_name = field.name();
             }
