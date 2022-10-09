@@ -11,9 +11,14 @@ include(${_project_options_SOURCE_DIR}/Index.cmake)
 
 # install vcpkg dependencies: - should be called before defining project()
 option(ENABLE_VCPKG "Use vcpkg to install dependencies" OFF)
-option(ENABLE_CONAN "Use Conan to install dependencies" OFF)
+option(ENABLE_CONAN_OPTION "Use Conan to install dependencies" OFF)
 if (${ENABLE_VCPKG})
   run_vcpkg()
+endif()
+
+if (${ENABLE_CONAN_OPTION})
+  message(STATUS "yes")
+  set(ENABLE_CONAN "ENABLE_CONAN")
 endif()
 
 # Enable sanitizers and static analyzers when running the tests
@@ -61,7 +66,7 @@ target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_
                                              "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 # Find dependencies:
-set(DEPENDENCIES_CONFIGURED xtensor HighFive pugixml fmt)
+set(DEPENDENCIES_CONFIGURED xtensor hdf5 HighFive pugixml fmt)
 
 # Force HIGHFIVE_USE_INSTALL_DEPS option to be true
 option(HIGHFIVE_USE_INSTALL_DEPS "End applications by default use detected dependencies here" ON)
