@@ -80,11 +80,11 @@ namespace samurai
                                    xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
         : level{level}, i{interval}, m_dx{1. / (1 << level)}
         {
-            if (dim > 0)
+            constexpr if (dim > 0)
             {
                 j = index[0];
             }
-            if (dim > 1)
+            constexpr if (dim > 1)
             {
                 k = index[1];
             }

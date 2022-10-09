@@ -77,8 +77,8 @@ namespace samurai
     /////////////////////////////
 
     template<class TValue, class TIndex>
-    inline Interval<TValue, TIndex>::Interval(value_t start, value_t end, index_t index)
-    : start{start}, end{end}, index{index}
+    inline Interval<TValue, TIndex>::Interval(value_t start_, value_t end_, index_t index_)
+    : start{start_}, end{end_}, index{index_}
     {}
 
     /**
