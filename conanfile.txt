@@ -5,7 +5,6 @@ pugixml/1.12.1
 cli11/2.2.0
 cxxopts/3.0.0
 fmt/9.1.0
-gtest/1.12.1
 rapidcheck/cci.20220514
 
 [options]

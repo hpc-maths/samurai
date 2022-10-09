@@ -17,7 +17,6 @@ if (${ENABLE_VCPKG})
 endif()
 
 if (${ENABLE_CONAN_OPTION})
-  message(STATUS "yes")
   set(ENABLE_CONAN "ENABLE_CONAN")
 endif()
 
@@ -68,6 +67,10 @@ target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_
 # Find dependencies:
 set(DEPENDENCIES_CONFIGURED xtensor HighFive pugixml fmt)
 
+if (${ENABLE_VCPKG})
+  list(APPEND DEPENDENCIES_CONFIGURED hdf5)
+endif()
+
 # Force HIGHFIVE_USE_INSTALL_DEPS option to be true
 option(HIGHFIVE_USE_INSTALL_DEPS "End applications by default use detected dependencies here" ON)
 
@@ -81,7 +84,6 @@ target_link_system_libraries(
   samurai
   INTERFACE
   xtensor
-  hdf5
   HighFive
   pugixml::pugixml
   fmt::fmt
