@@ -67,7 +67,7 @@ jobs:
           pip3 install pytest h5py
       - name: Configure CMake
         run: |
-          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DHIGHFIVE_USE_INSTALL_DEPS=OFF -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
       - name: Build
         run: |
           cmake --build ./build --config Release
