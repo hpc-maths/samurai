@@ -166,27 +166,27 @@ namespace samurai
 
         // 2D
         template<class T>
-        inline auto left_flux(std::array<double, 2> k, const T &u) const
+        inline auto left_flux(std::array<double, 2> a, const T &u) const
         {
-            return flux(k[0], u(level, i-1, j), u(level, i, j));
+            return flux(a[0], u(level, i-1, j), u(level, i, j));
         }
 
         template<class T>
-        inline auto right_flux(std::array<double, 2> k, const T &u) const
+        inline auto right_flux(std::array<double, 2> a, const T &u) const
         {
-            return flux(k[0], u(level, i, j), u(level, i+1, j));
+            return flux(a[0], u(level, i, j), u(level, i+1, j));
         }
 
         template<class T>
-        inline auto down_flux(std::array<double, 2> k, const T &u) const
+        inline auto down_flux(std::array<double, 2> a, const T &u) const
         {
-            return flux(k[1], u(level, i, j-1), u(level, i, j));
+            return flux(a[1], u(level, i, j-1), u(level, i, j));
         }
 
         template<class T>
-        inline auto up_flux(std::array<double, 2> k, const T &u) const
+        inline auto up_flux(std::array<double, 2> a, const T &u) const
         {
-            return flux(k[1], u(level, i, j), u(level, i, j+1));
+            return flux(a[1], u(level, i, j), u(level, i, j+1));
         }
     };
 

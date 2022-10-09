@@ -198,7 +198,7 @@ namespace samurai
     private:
         HighFive::File h5_file;
         fs::path m_path;
-        std::string filename;
+        std::string  m_filename;
         pugi::xml_document doc;
         std::ofstream xdmf_file;
     };
@@ -429,7 +429,7 @@ namespace samurai
     inline Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename)
     : h5_file(path.string() + '/' + filename + ".h5", HighFive::File::Overwrite)
     , m_path(path)
-    , filename(filename)
+    , m_filename(filename)
     {
         doc.append_child(pugi::node_doctype).set_value("Xdmf SYSTEM \"Xdmf.dtd\"");
         auto xdmf = doc.append_child("Xdmf");
@@ -439,7 +439,7 @@ namespace samurai
     template <class D>
     inline Hdf5<D>::~Hdf5()
     {
-        doc.save_file(fmt::format("{}.xdmf", (m_path / filename).string()).data());
+        doc.save_file(fmt::format("{}.xdmf", (m_path /  m_filename).string()).data());
     }
 
     template <class D>
@@ -463,7 +463,7 @@ namespace samurai
         auto topo_data = topo.append_child("DataItem");
         topo_data.append_attribute("Dimensions") = connectivity.size();
         topo_data.append_attribute("Format") = "HDF";
-        topo_data.text() = fmt::format("{}.h5:{}/connectivity", filename, prefix).data();
+        topo_data.text() = fmt::format("{}.h5:{}/connectivity",  m_filename, prefix).data();
 
         auto geom = grid.append_child("Geometry");
         geom.append_attribute("GeometryType") = "XYZ";
@@ -471,7 +471,7 @@ namespace samurai
         auto geom_data = geom.append_child("DataItem");
         geom_data.append_attribute("Dimensions") = coords.size();
         geom_data.append_attribute("Format") = "HDF";
-        geom_data.text() = fmt::format("{}.h5:{}/points", filename, prefix).data();
+        geom_data.text() = fmt::format("{}.h5:{}/points",  m_filename, prefix).data();
 
         this->derived_cast().save_fields(grid, prefix, submesh);
     }
@@ -503,7 +503,7 @@ namespace samurai
             auto dataitem = attribute.append_child("DataItem");
             dataitem.append_attribute("Dimensions") = submesh.nb_cells();
             dataitem.append_attribute("Format") = "HDF";
-            dataitem.text() = fmt::format("{}.h5:{}", filename, path).data();
+            dataitem.text() = fmt::format("{}.h5:{}",  m_filename, path).data();
         }
     }
 
