@@ -66,7 +66,7 @@ target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_
                                              "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 # Find dependencies:
-set(DEPENDENCIES_CONFIGURED xtensor hdf5 HighFive pugixml fmt)
+set(DEPENDENCIES_CONFIGURED xtensor HighFive pugixml fmt)
 
 # Force HIGHFIVE_USE_INSTALL_DEPS option to be true
 option(HIGHFIVE_USE_INSTALL_DEPS "End applications by default use detected dependencies here" ON)
