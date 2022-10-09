@@ -64,13 +64,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip3 install conan pytest h5py
-      - name: Install conan packages
-        run: |
-          conan install . --build=missing
+          pip3 install pytest h5py
       - name: Configure CMake
         run: |
-          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
       - name: Build
         run: |
           cmake --build ./build --config Release
