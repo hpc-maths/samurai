@@ -171,7 +171,7 @@ namespace samurai
              *   |-----------|                                        |-----------|
              *
              */
-            assert(stencil.shape()[1] == dim);
+            assert(stencil.shape()[1] == Tag::dim);
             for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
             {
                 auto s = xt::view(stencil, i);
