@@ -59,10 +59,10 @@ jobs:
         run: |
           conda info
           conda list
+          conda install -y include-what-you-use
       - name: Configure
         shell: bash -l {0}
         run: |
-          conda install -y include-what-you-use
           export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
           CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
               . \
@@ -75,7 +75,7 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-          cmake --build build --target all
+          cmake --build build --target all VERBOSE=1
       - name: Test with googletest and rapidcheck
         shell: bash -l {0}
         run: |

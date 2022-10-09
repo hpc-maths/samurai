@@ -51,6 +51,7 @@ if (${COVERAGE})
   LIST(APPEND FEATURES ENABLE_COVERAGE)
 endif()
 
+message(STATUS "Available FEATURES: ${FEATURES}")
 # set(coucous ENABLE_CLANG_TIDY ENABLE_CPPCHECK)
 # Initialize project_options variable related to this project
 # This overwrites `project_options` and sets `project_warnings`
