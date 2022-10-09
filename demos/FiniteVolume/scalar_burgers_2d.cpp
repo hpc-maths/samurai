@@ -208,9 +208,9 @@ int main(int argc, char *argv[])
     auto u = init(mesh);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
-    auto update_bc = [](auto& u, std::size_t level)
+    auto update_bc = [](auto& field, std::size_t level)
     {
-        dirichlet(level, u);
+        dirichlet(level, field);
     };
 
     auto MRadaptation = samurai::make_MRAdapt(u, update_bc);

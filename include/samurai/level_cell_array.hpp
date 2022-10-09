@@ -259,8 +259,8 @@ namespace samurai
         using box_t = Box<coord_index_t, dim>;
         using point_t = typename box_t::point_t;
 
-        point_t start = box.min_corner() * std::pow(2, level);
-        point_t end = box.max_corner() * std::pow(2, level);
+        point_t start = box.min_corner() * (1<<level);
+        point_t end = box.max_corner() * (1<<level);
         init_from_box(box_t{start, end});
     }
 
