@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 # Add project_options v0.25.2
 # https://github.com/aminya/project_options
@@ -13,7 +12,7 @@ include(${_project_options_SOURCE_DIR}/Index.cmake)
 # install vcpkg dependencies: - should be called before defining project()
 option(ENABLE_VCPKG "Use vcpkg to install dependencies" OFF)
 option(ENABLE_CONAN "Use Conan to install dependencies" OFF)
-if (ENABLE_VCPKG)
+if (${ENABLE_VCPKG})
   run_vcpkg()
 endif()
 
@@ -81,6 +80,8 @@ target_link_system_libraries(
   HighFive
   fmt::fmt
 )
+
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
 OPTION(BUILD_DEMOS "samurai build all demos" OFF)

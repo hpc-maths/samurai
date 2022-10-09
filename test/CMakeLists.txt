@@ -21,6 +21,7 @@ find_package(rapidcheck QUIET)
 find_package(Threads)
 
 include_directories(${GTEST_INCLUDE_DIRS} SYSTEM)
+message(STATUS ${rapidcheck_FOUND})
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR (CMAKE_CXX_COMPILER_ID MATCHES "Intel" AND NOT WIN32))
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
@@ -64,7 +65,7 @@ set(SAMURAI_TESTS
     # test_operator_set.cpp
 )
 
-if (rapidcheck)
+if (rapidcheck_FOUND)
     list(APPEND SAMURAI_TESTS test_operator_set.cpp)
 endif()
 
@@ -72,7 +73,7 @@ foreach(filename IN LISTS SAMURAI_TESTS)
     string(REPLACE ".cpp" "" targetname ${filename})
     add_executable(${targetname} ${COMMON_BASE} ${filename} ${SAMURAI_HEADERS})
     target_include_directories(${targetname} PRIVATE ${SAMURAI_INCLUDE_DIR})
-    if (rapidcheck)
+    if (rapidcheck_FOUND)
         target_link_libraries(${targetname} samurai gtest_main gtest rapidcheck rapidcheck_gtest)
     else()
         target_link_libraries(${targetname} samurai gtest_main gtest)
@@ -81,7 +82,7 @@ endforeach()
 
 add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${SAMURAI_HEADERS})
 target_include_directories(test_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
-if (rapidcheck)
+if (rapidcheck_FOUND)
     target_link_libraries(test_samurai_lib samurai gtest_main gtest rapidcheck rapidcheck_gtest)
 else()
     target_link_libraries(test_samurai_lib samurai gtest_main gtest)
