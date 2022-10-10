@@ -1,8 +1,5 @@
 #pragma once
 #include <samurai/algorithm.hpp>
-// #include <samurai/field.hpp>
-// #include <samurai/mr/mesh.hpp>
-// #include <samurai/mr/adapt.hpp>
 
 template<class Mesh>
 void print_mesh(Mesh& mesh)

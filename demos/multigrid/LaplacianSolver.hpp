@@ -1,5 +1,5 @@
 #pragma once
-#include "samurai_new/multigrid/petsc/SamuraiDM.hpp"
+#include "samurai_new/multigrid/petsc/GeometricMultigrid.hpp"
 #include "utils.hpp"
 
 template<class Dsctzr>
@@ -11,8 +11,7 @@ class LaplacianSolver
 private:
     //inline static const std::string _args_prefix = "lap_";
     KSP _ksp;
-    //DM _dm = nullptr;
-    samurai_new::petsc::SamuraiDM<Dsctzr>* _samuraiDM = nullptr;
+    samurai_new::petsc::GeometricMultigrid<Dsctzr> _samuraiMG;
 
 
 public:
@@ -21,16 +20,10 @@ public:
         create_solver(discretizer, mesh);
     }
 
-    /*~LaplacianSolver()
+    void destroy_petsc_objects()
     {
-        destroy();
-    }*/
-
-    void destroy()
-    {
+        _samuraiMG.destroy_petsc_objects();
         KSPDestroy(&_ksp);
-        if (_samuraiDM)
-            delete _samuraiDM;
     }
 
 private:
@@ -57,76 +50,17 @@ private:
         }
         else
         {
+            PetscInt mg_transfer_arg = samurai_new::TransferOperators::Assembled;
+            PetscOptionsGetInt(NULL, NULL, "-mg_transfer", &mg_transfer_arg, NULL);
+            samurai_new::TransferOperators mg_transfer = static_cast<samurai_new::TransferOperators>(mg_transfer_arg);
 
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             KSPSetFromOptions(_ksp);
 
-            _samuraiDM = new samurai_new::petsc::SamuraiDM<Dsctzr>(PETSC_COMM_SELF, discretizer, mesh);
-            KSPSetDM(_ksp, _samuraiDM->PetscDM());
-
-            // Default outer solver: CG
-            //KSPSetType(_ksp, "cg");
-
-            // Preconditioner: geometric multigrid
-            PC mg;
-            KSPGetPC(_ksp, &mg);
-            PCSetType(mg, PCMG);
-
-            KSPSetComputeOperators(_ksp, samurai_new::petsc::SamuraiDM<Dsctzr>::ComputeMatrix, NULL);
-
-            PetscInt levels = -1;
-            PCMGGetLevels(mg, &levels);
-            if (levels < 2)
-            {
-                levels = std::max(static_cast<int>(mesh.max_level()) - 3, 2);
-                levels = std::min(levels, 8);
-            }
-            std::cout << "\tLevels: " << levels << std::endl;
-            PCMGSetLevels(mg, levels, nullptr);
-
-            // All of the following must be called after PCMGSetLevels()
-            PCMGSetDistinctSmoothUp(mg);
-
-            for (int i=1; i<levels; i++)
-            {
-                /*KSP smoother_ksp;
-                PCMGGetSmoother(mg, i, &smoother_ksp);
-                KSPSetType(smoother_ksp, "richardson");
-                KSPSetTolerances(smoother_ksp, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, 1);
-                PC smoother;
-                KSPGetPC(smoother_ksp, &smoother);
-                PCSetType(smoother, PCSOR);
-                PCSORSetSymmetric(smoother, MatSORType::SOR_SYMMETRIC_SWEEP);
-                //PCSetType(smoother, PCJACOBI);
-                PCSORSetIterations(smoother, 1, 1);*/
-
-
-                // Pre-smoothing
-                KSP pre_smoother_ksp;
-                PCMGGetSmootherDown(mg, i, &pre_smoother_ksp);
-                KSPSetType(pre_smoother_ksp, "richardson");
-                KSPSetTolerances(pre_smoother_ksp, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, 1);
-                PC pre_smoother;
-                KSPGetPC(pre_smoother_ksp, &pre_smoother);
-                PCSetType(pre_smoother, PCSOR);
-                PCSORSetSymmetric(pre_smoother, MatSORType::SOR_FORWARD_SWEEP);
-                //PCSetType(pre_smoother, PCJACOBI);
-                PCSORSetIterations(pre_smoother, 1, 1);
-
-                // Post-smoothing
-                KSP post_smoother_ksp;
-                PCMGGetSmootherUp(mg, i, &post_smoother_ksp);
-                KSPSetType(post_smoother_ksp, "richardson");
-                KSPSetTolerances(post_smoother_ksp, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, 1);
-                PC post_smoother;
-                KSPGetPC(post_smoother_ksp, &post_smoother);
-                PCSetType(post_smoother, PCSOR);
-                PCSORSetSymmetric(post_smoother, MatSORType::SOR_BACKWARD_SWEEP);
-                //PCSetType(post_smoother, PCJACOBI);
-                PCSORSetIterations(post_smoother, 1, 1);
-            }
+            _samuraiMG = samurai_new::petsc::GeometricMultigrid(discretizer, mesh, mg_transfer);
+            _samuraiMG.apply_as_pc(_ksp);
             // Override by command line arguments
-            //KSPSetFromOptions(_ksp);
+            //KSPSetFromOptions(_ksp);*/
         }
     }
 
@@ -140,10 +74,6 @@ public:
     {
         Vec x;
         VecDuplicate(b, &x);
-
-        /*std::cout << "b:" << std::endl;
-        VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-        std::cout << std::endl;*/
         
         KSPSolve(_ksp, b, x);
 
@@ -161,8 +91,7 @@ public:
         KSPGetIterationNumber(_ksp, &n_iterations);
         std::cout << n_iterations << " iterations" << std::endl;
         std::cout << std::endl;
-        //VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-        //std::cout << std::endl;
+        //VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
         samurai_new::petsc::copy(x, x_field);
         VecDestroy(&x);
