@@ -12,7 +12,7 @@ namespace samurai_new
         {
         private:
             DM _dm;
-            LevelCtx<Dsctzr> _ctx;
+            LevelContext<Dsctzr> _ctx;
             //SamuraiDM* _coarse = nullptr;
 
         public:    
@@ -41,7 +41,7 @@ namespace samurai_new
             }
 
         private:
-            static void DefineShellFunctions(DM &shell, LevelCtx<Dsctzr>& ctx)
+            static void DefineShellFunctions(DM &shell, LevelContext<Dsctzr>& ctx)
             {
                 DMShellSetContext(shell, &ctx);
                 DMShellSetCreateMatrix(shell, CreateMatrix);
@@ -67,10 +67,10 @@ namespace samurai_new
             static PetscErrorCode Coarsen(DM fine_dm, MPI_Comm comm, DM *coarse_dm) 
             {
                 //std::cout << "Coarsen - begin" << std::endl;
-                LevelCtx<Dsctzr>* fine_ctx;
+                LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
-                LevelCtx<Dsctzr>* coarse_ctx = new LevelCtx(*fine_ctx);
+                LevelContext<Dsctzr>* coarse_ctx = new LevelContext(*fine_ctx);
 
                 //_coarse = new SamuraiDM(PetscObjectComm((PetscObject)fine_dm), *fine_ctx);
                 //*coarse_dm = _coarse->PetscDM();
@@ -86,7 +86,7 @@ namespace samurai_new
 
             static PetscErrorCode CreateMatrix(DM shell, Mat *A) 
             {
-                LevelCtx<Dsctzr>* ctx;
+                LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
                 
                 ctx->discretizer().create_matrix(*A);
@@ -101,7 +101,7 @@ namespace samurai_new
             {
                 DM shell;
                 KSPGetDM(ksp, &shell);
-                LevelCtx<Dsctzr>* ctx;
+                LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
 
                 ctx->discretizer().assemble_matrix(jac);
@@ -114,9 +114,9 @@ namespace samurai_new
         private:
             static PetscErrorCode CreateMatFreeProlongation(DM coarse_dm, DM fine_dm, Mat *P, Vec *scaling) 
             {
-                LevelCtx<Dsctzr>* coarse_ctx;
+                LevelContext<Dsctzr>* coarse_ctx;
                 DMShellGetContext(coarse_dm, &coarse_ctx);
-                LevelCtx<Dsctzr>* fine_ctx;
+                LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
                 std::size_t nf = fine_ctx->mesh().nb_cells();
@@ -132,8 +132,8 @@ namespace samurai_new
 
             static PetscErrorCode prolongation(Mat P, Vec x, Vec y)
             {
-                LevelCtx<Dsctzr>* coarse_ctx;
-                LevelCtx<Dsctzr>* fine_ctx;
+                LevelContext<Dsctzr>* coarse_ctx;
+                LevelContext<Dsctzr>* fine_ctx;
                 MatShellGetContext(P, &coarse_ctx);
                 fine_ctx = coarse_ctx->finer;
 
@@ -197,9 +197,9 @@ namespace samurai_new
 
             static PetscErrorCode CreateProlongationMatrix(DM coarse_dm, DM fine_dm, Mat *P, Vec *scaling) 
             {
-                LevelCtx<Dsctzr>* coarse_ctx;
+                LevelContext<Dsctzr>* coarse_ctx;
                 DMShellGetContext(coarse_dm, &coarse_ctx);
-                LevelCtx<Dsctzr>* fine_ctx;
+                LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
                 std::size_t nf = fine_ctx->mesh().nb_cells();
@@ -226,9 +226,9 @@ namespace samurai_new
 
             static PetscErrorCode CreateMatFreeRestriction(DM coarse_dm, DM fine_dm, Mat *R) 
             {
-                LevelCtx<Dsctzr>* coarse_ctx;
+                LevelContext<Dsctzr>* coarse_ctx;
                 DMShellGetContext(coarse_dm, &coarse_ctx);
-                LevelCtx<Dsctzr>* fine_ctx;
+                LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
                 std::size_t nf = fine_ctx->mesh().nb_cells();
@@ -241,9 +241,9 @@ namespace samurai_new
 
             static PetscErrorCode restriction(Mat R, Vec x, Vec y)
             {
-                LevelCtx<Dsctzr>* fine_ctx;
+                LevelContext<Dsctzr>* fine_ctx;
                 MatShellGetContext(R, &fine_ctx);
-                LevelCtx<Dsctzr>* coarse_ctx = fine_ctx->coarser;
+                LevelContext<Dsctzr>* coarse_ctx = fine_ctx->coarser;
 
                 // std::cout << "restriction - fine vector:" << std::endl;
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
@@ -278,9 +278,9 @@ namespace samurai_new
 
             static PetscErrorCode CreateRestrictionMatrix(DM coarse_dm, DM fine_dm, Mat *R) 
             {
-                LevelCtx<Dsctzr>* coarse_ctx;
+                LevelContext<Dsctzr>* coarse_ctx;
                 DMShellGetContext(coarse_dm, &coarse_ctx);
-                LevelCtx<Dsctzr>* fine_ctx;
+                LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
                 std::size_t nf = fine_ctx->mesh().nb_cells();
@@ -309,7 +309,7 @@ namespace samurai_new
             static PetscErrorCode CreateGlobalVector(DM shell, Vec *x) 
             {
                 //std::cout << "CreateGlobalVector - begin " << std::endl;
-                LevelCtx<Dsctzr>* ctx;
+                LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
                 VecCreateSeq(PETSC_COMM_SELF, ctx->mesh().nb_cells(), x);
                 VecSetDM(*x, shell);
@@ -319,7 +319,7 @@ namespace samurai_new
             static PetscErrorCode CreateLocalVector(DM shell, Vec *x) 
             {
                 //std::cout << "CreateLocalVector - begin" << std::endl;
-                LevelCtx<Dsctzr>* ctx;
+                LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
                 VecCreateSeq(PETSC_COMM_SELF, ctx->mesh().nb_cells(), x);
                 VecSetDM(*x, shell);

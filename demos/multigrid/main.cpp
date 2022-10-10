@@ -64,24 +64,26 @@ Mesh create_mesh(int n)
 }
 
 
-static char help[] = "Multigrid program.\n"
+static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "\n"
             "-n <int>                     problem size\n"
-            "-mg_transfer <int>           multigrid transfer operators (default: 4):\n"
-            "        1 - P mat-free, R mat-free (via Fields)\n"
-            "        2 - P mat-free, R mat-free (via double*)\n"
-            "        3 - P assembled, R = P^T\n"
-            "        4 - P assembled, R = assembled\n"
-            "-pred_order <0|1>            prediction order used in the prolongation operator\n"
+            "-mg_transfer_ops <int>       multigrid transfer operators (default: 4):\n"
+            "                             1 - P mat-free, R mat-free (via Fields)\n"
+            "                             2 - P mat-free, R mat-free (via double*)\n"
+            "                             3 - P assembled, R = P^T\n"
+            "                             4 - P assembled, R = assembled\n"
+            "-mg_pred_order [0|1]         prediction order used in the prolongation operator\n"
             "\n"
-            "Example of useful Petsc options:\n"
-            "       -ksp_view ascii"
-            "       -ksp_monitor ascii"
-            "       -ksp_rtol 1e-9"
-            "       -ksp_max_it 10"
-            "       -pc_type mg"
-            "       -pc_mg_levels 3"
-            "       -mg_levels_up_pc_sor_its 3";
+            "Useful Petsc options:\n"
+            "\n"
+            "-pc_type [mg|gamg|hypre...]  use 'mg' for the geometric multigrid\n"
+            "-ksp_monitor ascii           prints the residual at each iteration\n"
+            "-ksp_view ascii              view the solver's parametrization\n"
+            "-ksp_rtol <double>           sets the solver tolerance\n"
+            "-ksp_max_it <int>            sets the maximum number of iterations\n"
+            "-pc_mg_levels <int>          sets the number of multigrid levels\n"
+            "-mg_levels_up_pc_sor_its <int> sets the number of post-smoothing iterations\n"
+            "\n";
 
 int main(int argc, char* argv[])
 {
@@ -100,12 +102,12 @@ int main(int argc, char* argv[])
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size)); 
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
-    PetscInt n = 2;
-    PetscOptionsGetInt(NULL, NULL, "-n", &n, NULL);
-
     //---------------//
     // Mesh creation //
     //---------------//
+
+    PetscInt n = 2;
+    PetscOptionsGetInt(NULL, NULL, "-n", &n, NULL);
 
     Mesh mesh = create_mesh<Mesh>(n);
     std::cout << "Unknowns: " << mesh.nb_cells() << std::endl;
@@ -168,6 +170,10 @@ int main(int argc, char* argv[])
     solve_timer.Stop();
 
     total_timer.Stop();
+
+    //--------------------//
+    //  Print exec times  //
+    //--------------------//
 
     std::cout << "---- Setup ----" << endl;
     std::cout << "CPU time    : " << setup_timer.CPU() << endl;

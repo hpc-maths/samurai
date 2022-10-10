@@ -41,7 +41,9 @@ namespace samurai_new { namespace petsc {
 
         void apply_as_pc(KSP& ksp)
         {
-            std::cout << "Prediction order: " << _prediction_order << std::endl;
+            std::cout << "Multigrid: " << std::endl;
+            std::cout << "    transfer operators: " << _transfer_ops << std::endl;
+            std::cout << "    prediction order  : " << _prediction_order << std::endl;
 
             _samuraiDM = new SamuraiDM<Dsctzr>(PETSC_COMM_SELF, *_discretizer, *_mesh, _transfer_ops, _prediction_order);
             KSPSetDM(ksp, _samuraiDM->PetscDM());
@@ -63,7 +65,7 @@ namespace samurai_new { namespace petsc {
                 levels = std::max(static_cast<int>(_mesh->max_level()) - 3, 2);
                 levels = std::min(levels, 8);
             }
-            std::cout << "Multigrid levels: " << levels << std::endl;
+            std::cout << "    levels            : " << levels << std::endl;
             PCMGSetLevels(mg, levels, nullptr);
 
             // All of the following must be called after PCMGSetLevels()
