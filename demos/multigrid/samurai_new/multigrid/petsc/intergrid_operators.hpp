@@ -26,7 +26,7 @@ namespace samurai_new
                     {
                         auto index_f = static_cast<int>(fine_mesh.get_index(level, i.start));
                         auto index_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        for (int ii=0; ii<i.size(); ++ii)
                         {
                             farray[index_f + ii] = carray[index_c + ii];
                         }
@@ -34,30 +34,117 @@ namespace samurai_new
 
                     // Coarse cells to fine cells: prediction
                     auto others = samurai::intersection(cm[level - 1], fm[level]).on(level-1);
-                    others([&](auto& i, auto&)
+                    others([&](auto& i, const auto& index)
                     {
-                        auto i_f = static_cast<int>(fine_mesh.get_index(level, (2*i).start));
-                        auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        if (Mesh::dim == 1)
                         {
-                            // Prediction (here in 1D only)
-                            farray[i_f + 2*ii  ] = carray[i_c+ii] - 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
-                            farray[i_f + 2*ii+1] = carray[i_c+ii] + 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
+                            auto i_f = static_cast<int>(fine_mesh.get_index(level, (2*i).start));
+                            auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start));
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                // Prediction 1D (order 1)
+                                farray[i_f + 2*ii  ] = carray[i_c+ii] - 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
+                                farray[i_f + 2*ii+1] = carray[i_c+ii] + 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
+                            }
+                        }
+                        else if (Mesh::dim == 2)
+                        {
+                            auto j = index[0];
+                            
+                            auto i_c_j    = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j  ));
+                            auto i_c_jm1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j-1));
+                            auto i_c_jp1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j+1));
+
+                            auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
+                            auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
+                            
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                // Prediction 2D (order 1)
+                                double qs_i  = -1./8*(carray[i_c_j  +ii+1] - carray[i_c_j  +ii-1]);
+                                double qs_j  = -1./8*(carray[i_c_jp1+ii  ] - carray[i_c_jm1+ii  ]);
+                                double qs_ij = 1./64*(carray[i_c_jp1+ii+1] - carray[i_c_jp1+ii-1] - carray[i_c_jm1+ii+1] + carray[i_c_jm1+ii-1]);
+                                farray[i_f_2j   + 2*ii  ] = carray[i_c_j + ii] + qs_i + qs_j - qs_ij;
+                                farray[i_f_2j   + 2*ii+1] = carray[i_c_j + ii] - qs_i + qs_j + qs_ij;
+                                farray[i_f_2jp1 + 2*ii  ] = carray[i_c_j + ii] + qs_i - qs_j + qs_ij;
+                                farray[i_f_2jp1 + 2*ii+1] = carray[i_c_j + ii] - qs_i - qs_j - qs_ij;
+                            }
                         }
                     });
 
                     // Boundary
-                    auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level],
-                                                            fine_mesh.domain()).on(level);
-                    fine_boundary([&](const auto& i, auto)
+                    if (Mesh::dim == 1)
                     {
-                        auto i_f = static_cast<int>(fine_mesh.get_index(level, i.start));
-                        auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, (i/2).start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level],
+                                                                fine_mesh.domain()).on(level);
+                        fine_boundary([&](const auto& i, auto)
                         {
-                            farray[i_f + ii] = carray[i_c + ii];
+                            auto i_f = static_cast<int>(fine_mesh.get_index(level, i.start));
+                            auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, (i/2).start));
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                farray[i_f + ii] = carray[i_c + ii];
+                            }
+                        });
+                    }
+                    else if (Mesh::dim == 2)
+                    {
+                        xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+                        for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
+                        {
+                            auto s = xt::view(stencil, is);
+                            auto fine_boundary   = samurai::difference(samurai::translate(fine_mesh[mesh_id_t::cells][level], s), fine_mesh.domain());
+                            auto coarse_boundary = samurai::difference(samurai::translate(coarse_mesh[mesh_id_t::cells][level-1], s), coarse_mesh.domain());
+                            auto bdry_intersect = samurai::intersection(coarse_boundary, fine_boundary).on(level-1);
+                            bdry_intersect([&](const auto& i, const auto& index)
+                            {
+                                auto j = index[0];
+                                auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j));
+                                if (s(0) == -1) // left boundary
+                                {
+                                    // In this case, i_f_2j and i_f_2jp1 do not exist because (2*1).start is outside of the boundary,
+                                    // so the index does not exist (if it did, it would be negative; in practive, the variable seems to contain a random value).
+                                    // Consequently, we use (2*i+1).start to get the index, and to compensate, 
+                                    // we only use 2*ii instead of 2*ii+1 in the affectation.
+                                    auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i+1).start, 2*j  ));
+                                    auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i+1).start, 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        farray[i_f_2j   + 2*ii] = carray[i_c + ii];
+                                        farray[i_f_2jp1 + 2*ii] = carray[i_c + ii];
+                                    }
+                                }
+                                else if (s(0) == 1) // right boundary
+                                {
+                                    auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
+                                    auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        farray[i_f_2j   + 2*ii] = carray[i_c + ii];
+                                        farray[i_f_2jp1 + 2*ii] = carray[i_c + ii];
+                                    }
+                                }
+                                else if (s(1) == -1) // bottom boundary
+                                {
+                                    auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        farray[i_f_2jp1 + 2*ii  ] = carray[i_c + ii];
+                                        farray[i_f_2jp1 + 2*ii+1] = carray[i_c + ii];
+                                    }
+                                }
+                                else if (s(1) == 1) // top boundary
+                                {
+                                    auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        farray[i_f_2j + 2*ii  ] = carray[i_c + ii];
+                                        farray[i_f_2j + 2*ii+1] = carray[i_c + ii];
+                                    }
+                                }
+                            });
                         }
-                    });
+                    }
                 }
             }
 
@@ -77,7 +164,7 @@ namespace samurai_new
                     {
                         auto index_f = static_cast<int>(fine_mesh.get_index(level, i.start));
                         auto index_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        for (int ii=0; ii<i.size(); ++ii)
                         {
                             //farray[index_f + ii] = carray[index_c + ii];
                             MatSetValue(P, index_f + ii, index_c + ii, 1, INSERT_VALUES);
@@ -86,38 +173,198 @@ namespace samurai_new
 
                     // Coarse cells to fine cells: prediction
                     auto others = samurai::intersection(cm[level - 1], fm[level]).on(level-1);
-                    others([&](auto& i, auto&)
+                    others([&](auto& i, const auto& index)
                     {
-                        auto i_f = static_cast<int>(fine_mesh.get_index(level, (2*i).start));
-                        auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        if (Mesh::dim == 1)
                         {
-                            // Prediction (here in 1D only)
-                            //farray[i_f + 2*ii  ] = carray[i_c+ii] - 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
-                            MatSetValue(P, i_f + 2*ii,     i_c+ii    ,  1   , INSERT_VALUES);
-                            MatSetValue(P, i_f + 2*ii,     i_c+ii + 1, -1./8, INSERT_VALUES);
-                            MatSetValue(P, i_f + 2*ii,     i_c+ii - 1,  1./8, INSERT_VALUES);
-                            //farray[i_f + 2*ii+1] = carray[i_c+ii] + 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
-                            MatSetValue(P, i_f + 2*ii + 1, i_c+ii    ,  1   , INSERT_VALUES);
-                            MatSetValue(P, i_f + 2*ii + 1, i_c+ii + 1,  1./8, INSERT_VALUES);
-                            MatSetValue(P, i_f + 2*ii + 1, i_c+ii - 1, -1./8, INSERT_VALUES);
+                            auto i_f = static_cast<int>(fine_mesh.get_index(level, (2*i).start));
+                            auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start));
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                // Prediction 1D (order 1)
+                                //farray[i_f + 2*ii  ] = carray[i_c+ii] - 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
+                                MatSetValue(P, i_f + 2*ii,     i_c+ii    ,  1   , INSERT_VALUES);
+                                MatSetValue(P, i_f + 2*ii,     i_c+ii + 1, -1./8, INSERT_VALUES);
+                                MatSetValue(P, i_f + 2*ii,     i_c+ii - 1,  1./8, INSERT_VALUES);
+                                //farray[i_f + 2*ii+1] = carray[i_c+ii] + 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
+                                MatSetValue(P, i_f + 2*ii + 1, i_c+ii    ,  1   , INSERT_VALUES);
+                                MatSetValue(P, i_f + 2*ii + 1, i_c+ii + 1,  1./8, INSERT_VALUES);
+                                MatSetValue(P, i_f + 2*ii + 1, i_c+ii - 1, -1./8, INSERT_VALUES);
+                                
+                            }
+                        }
+                        else if (Mesh::dim == 2)
+                        {
+                            auto j = index[0];
                             
+                            auto i_c_j    = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j  ));
+                            auto i_c_jm1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j-1));
+                            auto i_c_jp1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j+1));
+
+                            auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
+                            auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
+                            
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                // Prediction 2D (order 1)
+                                auto fine_bottom_left  = i_f_2j   + 2*ii  ;
+                                auto fine_bottom_right = i_f_2j   + 2*ii+1;
+                                auto fine_top_left     = i_f_2jp1 + 2*ii  ;
+                                auto fine_top_right    = i_f_2jp1 + 2*ii+1;
+
+                                auto center       = i_c_j  +ii  ;
+                                auto right        = i_c_j  +ii+1;
+                                auto left         = i_c_j  +ii-1;
+                                auto top          = i_c_jp1+ii  ;
+                                auto bottom       = i_c_jm1+ii  ;
+                                auto top_right    = i_c_jp1+ii+1;
+                                auto top_left     = i_c_jp1+ii-1;
+                                auto bottom_right = i_c_jm1+ii+1;
+                                auto bottom_left  = i_c_jm1+ii-1;
+                                /*
+                                double qs_i  = -1./8*(carray[right] - carray[left]);
+                                double qs_j  = -1./8*(carray[top] - carray[bottom]);
+                                double qs_ij = 1./64*(carray[top_right] - carray[top_left] - carray[bottom_right] + carray[bottom_left]);*/
+
+                                //farray[fine_bottom_left] = carray[center] + qs_i + qs_j - qs_ij;
+                                MatSetValue(P, fine_bottom_left, center      ,  1    , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_left, right       , -1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_left, left        ,  1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_left, top         , -1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_left, bottom      ,  1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_left, top_right   , -1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_left, top_left    ,  1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_left, bottom_right,  1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_left, bottom_left , -1./64, INSERT_VALUES);
+
+                                //farray[fine_bottom_right] = carray[center] - qs_i + qs_j + qs_ij;
+                                MatSetValue(P, fine_bottom_right, center      ,  1    , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_right, right       ,  1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_right, left        , -1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_right, top         , -1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_right, bottom      ,  1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_right, top_right   ,  1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_right, top_left    , -1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_right, bottom_right, -1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_bottom_right, bottom_left ,  1./64, INSERT_VALUES);
+
+                                /*
+                                double qs_i  = -1./8*(carray[right] - carray[left]);
+                                double qs_j  = -1./8*(carray[top] - carray[bottom]);
+                                double qs_ij = 1./64*(carray[top_right] - carray[top_left] - carray[bottom_right] + carray[bottom_left]);*/
+                                //farray[fine_top_left] = carray[center] + qs_i - qs_j + qs_ij;
+                                MatSetValue(P, fine_top_left    , center      ,  1    , INSERT_VALUES);
+                                MatSetValue(P, fine_top_left    , right       , -1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_top_left    , left        ,  1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_top_left    , top         ,  1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_top_left    , bottom      , -1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_top_left    , top_right   ,  1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_top_left    , top_left    , -1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_top_left    , bottom_right, -1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_top_left    , bottom_left ,  1./64, INSERT_VALUES);
+
+                                //farray[fine_top_right] = carray[center] - qs_i - qs_j - qs_ij;
+                                MatSetValue(P, fine_top_right   , center      ,  1    , INSERT_VALUES);
+                                MatSetValue(P, fine_top_right   , right       ,  1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_top_right   , left        , -1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_top_right   , top         ,  1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_top_right   , bottom      , -1./8 , INSERT_VALUES);
+                                MatSetValue(P, fine_top_right   , top_right   , -1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_top_right   , top_left    ,  1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_top_right   , bottom_right,  1./64, INSERT_VALUES);
+                                MatSetValue(P, fine_top_right   , bottom_left , -1./64, INSERT_VALUES);
+                            }
                         }
                     });
 
                     // Boundary
-                    auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level],
-                                                            fine_mesh.domain()).on(level);
-                    fine_boundary([&](const auto& i, auto)
+                    if (Mesh::dim == 1)
                     {
-                        auto i_f = static_cast<int>(fine_mesh.get_index(level, i.start));
-                        auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, (i/2).start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level],
+                                                                fine_mesh.domain()).on(level);
+                        fine_boundary([&](const auto& i, auto)
                         {
-                            //farray[i_f + ii] = carray[i_c + ii];
-                            MatSetValue(P, i_f + ii, i_c + ii, 1, INSERT_VALUES);
+                            auto i_f = static_cast<int>(fine_mesh.get_index(level, i.start));
+                            auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, (i/2).start));
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                //farray[i_f + ii] = carray[i_c + ii];
+                                MatSetValue(P, i_f + ii, i_c + ii, 1, INSERT_VALUES);
+                            }
+                        });
+                    }
+                    else if (Mesh::dim == 2)
+                    {
+                        xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+                        for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
+                        {
+                            auto s = xt::view(stencil, is);
+                            auto fine_boundary   = samurai::difference(samurai::translate(fine_mesh[mesh_id_t::cells][level], s), fine_mesh.domain());
+                            auto coarse_boundary = samurai::difference(samurai::translate(coarse_mesh[mesh_id_t::cells][level-1], s), coarse_mesh.domain());
+                            auto bdry_intersect = samurai::intersection(coarse_boundary, fine_boundary).on(level-1);
+                            bdry_intersect([&](const auto& i, const auto& index)
+                            {
+                                auto j = index[0];
+                                auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j));
+                                if (s(0) == -1) // left boundary
+                                {
+                                    // In this case, i_f_2j and i_f_2jp1 do not exist because (2*1).start is outside of the boundary,
+                                    // so the index does not exist (if it did, it would be negative; in practive, the variable seems to contain a random value).
+                                    // Consequently, we use (2*i+1).start to get the index, and to compensate, 
+                                    // we only use 2*ii instead of 2*ii+1 in the affectation.
+                                    auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i+1).start, 2*j  ));
+                                    auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i+1).start, 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        auto coarse = i_c + ii;
+                                        auto fine_bottom_right = i_f_2j   + 2*ii;
+                                        auto fine_top_right    = i_f_2jp1 + 2*ii;
+                                        //farray[fine_bottom_right] = carray[coarse];
+                                        MatSetValue(P, fine_bottom_right, coarse, 1, INSERT_VALUES);
+                                        //farray[i_f_2jp1 + 2*ii] = carray[coarse];
+                                        MatSetValue(P, fine_top_right   , coarse, 1, INSERT_VALUES);
+                                    }
+                                }
+                                else if (s(0) == 1) // right boundary
+                                {
+                                    auto fine_bottom = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
+                                    auto fine_top    = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        auto left = 2*ii;
+                                        auto coarse = i_c + ii;
+                                        MatSetValue(P, fine_bottom + left, coarse, 1, INSERT_VALUES);
+                                        MatSetValue(P, fine_top    + left, coarse, 1, INSERT_VALUES);
+
+                                    }
+                                }
+                                else if (s(1) == -1) // bottom boundary
+                                {
+                                    auto fine_top = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        auto left  = 2*ii;
+                                        auto right = 2*ii+1;
+                                        auto coarse = i_c + ii;
+                                        MatSetValue(P, fine_top + left , coarse, 1, INSERT_VALUES);
+                                        MatSetValue(P, fine_top + right, coarse, 1, INSERT_VALUES);
+                                    }
+                                }
+                                else if (s(1) == 1) // top boundary
+                                {
+                                    auto fine_bottom = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        auto left  = 2*ii;
+                                        auto right = 2*ii+1;
+                                        auto coarse = i_c + ii;
+                                        MatSetValue(P, fine_bottom + left , coarse, 1, INSERT_VALUES);
+                                        MatSetValue(P, fine_bottom + right, coarse, 1, INSERT_VALUES);
+                                    }
+                                }
+                            });
                         }
-                    });
+                    }
                 }
             }
 
@@ -190,7 +437,6 @@ namespace samurai_new
                                 }
                             });
                         }
-
                     }
                     else
                         assert(false);
@@ -214,6 +460,9 @@ namespace samurai_new
                 auto& cm = coarse_mesh[mesh_id_t::cells];
                 auto& fm = fine_mesh[mesh_id_t::cells];
 
+                for (std::size_t i=0; i<coarse_mesh.nb_cells(); ++i)
+                    carray[i] = 0;
+
                 for(std::size_t level = coarse_mesh.min_level(); level <= coarse_mesh.max_level(); ++level)
                 {
                     // Shared cells between coarse and fine mesh
@@ -230,40 +479,112 @@ namespace samurai_new
 
                     // Fine cells to coarse cells: projection
                     auto others = samurai::intersection(cm[level], fm[level + 1]).on(level);
-                    //others.apply_op(samurai::projection(coarse_field, fine_field));
-                    others([&](auto& i, auto&)
+                    others([&](auto& i, const auto& index)
                     {
-                        auto i_f = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start));
-                        auto i_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        if (Mesh::dim == 1)
                         {
-                            // Projection (here in 1D only)
-                            carray[i_c + ii] = 0.5*(farray[i_f + 2*ii] + farray[i_f + 2*ii+1]);
+                            auto i_f = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start));
+                            auto i_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
+                            for(int ii=0; ii<i.size(); ++ii)
+                            {
+                                // Projection 1D
+                                carray[i_c + ii] = 0.5*(farray[i_f + 2*ii] + farray[i_f + 2*ii+1]);
+                            }
                         }
+                        else if (Mesh::dim == 2)
+                        {
+                            auto j = index[0];
+                            auto i_c    = static_cast<int>(coarse_mesh.get_index(level, i.start, j));
+                            auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j  ));
+                            auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j+1));
+                            for(int ii=0; ii<i.size(); ++ii)
+                            {
+                                // Projection 2D
+                                carray[i_c + ii] = 0.25*(farray[i_f_2j   + 2*ii  ] + 
+                                                         farray[i_f_2jp1 + 2*ii  ] +
+                                                         farray[i_f_2j   + 2*ii+1] +
+                                                         farray[i_f_2jp1 + 2*ii+1]);
+                            }
+                        }
+
                     });
 
                     // Boundary
-                    auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1],
-                                                            fine_mesh.domain()).on(level+1);
-                    fine_boundary([&](const auto& i, auto)
+                    if (Mesh::dim == 1)
                     {
-                        //cf(level, i>>1) = fine_field(level + 1, i);
-                        auto i_f = static_cast<int>(fine_mesh.get_index(level+1, i.start));
-                        auto i_c = static_cast<int>(coarse_mesh.get_index(level, (i/2).start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1], fine_mesh.domain()).on(level+1);
+                        fine_boundary([&](const auto& i, auto)
                         {
-                            carray[i_c + ii] = farray[i_f + ii];
+                            //cf(level, i>>1) = fine_field(level + 1, i);
+                            auto i_f = static_cast<int>(fine_mesh.get_index(level+1, i.start));
+                            auto i_c = static_cast<int>(coarse_mesh.get_index(level, (i/2).start));
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                carray[i_c + ii] = farray[i_f + ii];
+                            }
+                        });
+                    }
+                    else if (Mesh::dim == 2)
+                    {
+                        xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+                        for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
+                        {
+                            auto s = xt::view(stencil, is);
+                            auto fine_boundary_is   = samurai::difference(samurai::translate(fine_mesh[mesh_id_t::cells][level+1], s), fine_mesh.domain());
+                            auto coarse_boundary_is = samurai::difference(samurai::translate(coarse_mesh[mesh_id_t::cells][level], s), coarse_mesh.domain());
+                            auto bdry_intersect = samurai::intersection(coarse_boundary_is, fine_boundary_is).on(level);
+                            bdry_intersect([&](const auto& i, const auto& index)
+                            {
+                                auto j = index[0];
+
+                                auto i_c   = static_cast<int>(coarse_mesh.get_index(level, i.start, j));
+                                auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j  ));
+                                auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j+1));
+
+                                if (s(0) == -1) // left boundary
+                                {
+                                    //coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i+1, 2*j  ) + fine_field(level+1, 2*i+1, 2*j+1));
+                                    //for (int ii=0; ii<i.size(); ++ii)
+                                        //carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii+1] + farray[i_f_2jp1 + 2*ii+1]);
+                                    
+                                    // In this case, i_f_2j and i_f_2jp1 do not exist because (2*1).start is outside of the boundary,
+                                    // so the index does not exist (if it did, it would be negative; in practive, the variable seems to contain a random value).
+                                    // Consequently, we use (2*i+1).start to get the index, and to compensate, 
+                                    // we only use 2*ii instead of 2*ii+1 in the affectation.
+                                    auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j  ));
+                                    auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                        carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2jp1 + 2*ii]);
+                                }
+                                else if (s(0) == 1) // right boundary
+                                {
+                                    //coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i  , 2*j  ) + fine_field(level+1, 2*i  , 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                        carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2jp1 + 2*ii]);
+                                }
+                                else if (s(1) == -1) // bottom boundary
+                                {
+                                    //coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i  , 2*j+1) + fine_field(level+1, 2*i+1, 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                        carray[i_c + ii] = 0.5*(farray[i_f_2jp1 + 2*ii] + farray[i_f_2jp1 + 2*ii+1]);
+                                }
+                                else if (s(1) == 1) // top boundary
+                                {
+                                    //coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i  , 2*j  ) + fine_field(level+1, 2*i+1, 2*j  ));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                        carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2j + 2*ii+1]);
+                                }
+                                else
+                                    assert(false);
+                            });
                         }
-                    });
+                    }
                 }
             }
 
             template<class Mesh>
             void set_restrict_matrix(const Mesh& fine_mesh, const Mesh& coarse_mesh, Mat& R)
             {
-                // auto coarse_mesh = coarse.mesh();
-                // auto fine_mesh = fine.mesh();
-                //using mesh_id_t = typename decltype(coarse_mesh)::mesh_id_t;
                 using mesh_id_t = typename Mesh::mesh_id_t;
 
                 auto& cm = coarse_mesh[mesh_id_t::cells];
@@ -277,7 +598,7 @@ namespace samurai_new
                     {
                         auto index_f = static_cast<int>(fine_mesh.get_index(level, i.start));
                         auto index_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        for (int ii=0; ii<i.size(); ++ii)
                         {
                             //carray[index_c + ii] = farray[index_f + ii];
                             MatSetValue(R, index_c + ii, index_f + ii, 1, INSERT_VALUES);
@@ -286,34 +607,119 @@ namespace samurai_new
 
                     // Fine cells to coarse cells: projection
                     auto others = samurai::intersection(cm[level], fm[level + 1]).on(level);
-                    //others.apply_op(samurai::projection(coarse_field, fine_field));
-                    others([&](auto& i, auto&)
+                    others([&](auto& i, const auto& index)
                     {
-                        auto i_f = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start));
-                        auto i_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        if (Mesh::dim == 1)
                         {
-                            // Projection (here in 1D only)
-                            //carray[i_c + ii] = 0.5*(farray[i_f + 2*ii] + farray[i_f + 2*ii+1]);
-                            MatSetValue(R, i_c + ii, i_f + 2*ii    , 0.5, INSERT_VALUES);
-                            MatSetValue(R, i_c + ii, i_f + 2*ii + 1, 0.5, INSERT_VALUES);
+                            auto i_f = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start));
+                            auto i_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                // Projection (here in 1D only)
+                                //carray[i_c + ii] = 0.5*(farray[i_f + 2*ii] + farray[i_f + 2*ii+1]);
+                                MatSetValue(R, i_c + ii, i_f + 2*ii    , 0.5, INSERT_VALUES);
+                                MatSetValue(R, i_c + ii, i_f + 2*ii + 1, 0.5, INSERT_VALUES);
+                            }
+                        }
+                        else if (Mesh::dim == 2)
+                        {
+                            auto j = index[0];
+                            auto i_c    = static_cast<int>(coarse_mesh.get_index(level, i.start, j));
+                            auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j  ));
+                            auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j+1));
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                // Projection 2D
+                                //carray[i_c + ii] = 0.25*(farray[i_f_2j   + 2*ii  ] + farray[i_f_2jp1 + 2*ii  ] + farray[i_f_2j   + 2*ii+1] + farray[i_f_2jp1 + 2*ii+1]);
+                                MatSetValue(R, i_c + ii, i_f_2j   + 2*ii  , 0.25, INSERT_VALUES);
+                                MatSetValue(R, i_c + ii, i_f_2jp1 + 2*ii  , 0.25, INSERT_VALUES);
+                                MatSetValue(R, i_c + ii, i_f_2j   + 2*ii+1, 0.25, INSERT_VALUES);
+                                MatSetValue(R, i_c + ii, i_f_2jp1 + 2*ii+1, 0.25, INSERT_VALUES);
+                            }
                         }
                     });
 
                     // Boundary
-                    auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1],
-                                                            fine_mesh.domain()).on(level+1);
-                    fine_boundary([&](const auto& i, auto)
+                    if (Mesh::dim == 1)
                     {
-                        //cf(level, i>>1) = fine_field(level + 1, i);
-                        auto i_f = static_cast<int>(fine_mesh.get_index(level+1, i.start));
-                        auto i_c = static_cast<int>(coarse_mesh.get_index(level, (i/2).start));
-                        for(int ii=0; ii<i.size(); ++ii)
+                        auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1],
+                                                                fine_mesh.domain()).on(level+1);
+                        fine_boundary([&](const auto& i, auto)
                         {
-                            //carray[i_c + ii] = farray[i_f + ii];
-                            MatSetValue(R, i_c + ii, i_f + ii, 1, INSERT_VALUES);
+                            //cf(level, i>>1) = fine_field(level + 1, i);
+                            auto i_f = static_cast<int>(fine_mesh.get_index(level+1, i.start));
+                            auto i_c = static_cast<int>(coarse_mesh.get_index(level, (i/2).start));
+                            for (int ii=0; ii<i.size(); ++ii)
+                            {
+                                //carray[i_c + ii] = farray[i_f + ii];
+                                MatSetValue(R, i_c + ii, i_f + ii, 1, INSERT_VALUES);
+                            }
+                        });
+                    }
+                    else if (Mesh::dim == 2)
+                    {
+                        xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+                        for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
+                        {
+                            auto s = xt::view(stencil, is);
+                            auto fine_boundary_is   = samurai::difference(samurai::translate(fine_mesh[mesh_id_t::cells][level+1], s), fine_mesh.domain());
+                            auto coarse_boundary_is = samurai::difference(samurai::translate(coarse_mesh[mesh_id_t::cells][level], s), coarse_mesh.domain());
+                            auto bdry_intersect = samurai::intersection(coarse_boundary_is, fine_boundary_is).on(level);
+                            bdry_intersect([&](const auto& i, const auto& index)
+                            {
+                                auto j = index[0];
+
+                                auto i_c   = static_cast<int>(coarse_mesh.get_index(level, i.start, j));
+                                auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j  ));
+                                auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j+1));
+
+                                if (s(0) == -1) // left boundary
+                                {
+                                    // In this case, i_f_2j and i_f_2jp1 do not exist because (2*1).start is outside of the boundary,
+                                    // so the index does not exist (if it did, it would be negative; in practive, the variable seems to contain a random value).
+                                    // Consequently, we use (2*i+1).start to get the index, and to compensate, 
+                                    // we only use 2*ii instead of 2*ii+1 in the affectation.
+                                    auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j  ));
+                                    auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j+1));
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        //carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2jp1 + 2*ii]);
+                                        MatSetValue(R, i_c + ii, i_f_2j   + 2*ii, 0.5, INSERT_VALUES);
+                                        MatSetValue(R, i_c + ii, i_f_2jp1 + 2*ii, 0.5, INSERT_VALUES);
+                                    }
+                                }
+                                else if (s(0) == 1) // right boundary
+                                {
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        //carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2jp1 + 2*ii]);
+                                        MatSetValue(R, i_c + ii, i_f_2j   + 2*ii, 0.5, INSERT_VALUES);
+                                        MatSetValue(R, i_c + ii, i_f_2jp1 + 2*ii, 0.5, INSERT_VALUES);
+                                    }
+                                }
+                                else if (s(1) == -1) // bottom boundary
+                                {
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        //carray[i_c + ii] = 0.5*(farray[i_f_2jp1 + 2*ii] + farray[i_f_2jp1 + 2*ii+1]);
+                                        MatSetValue(R, i_c + ii, i_f_2jp1 + 2*ii  , 0.5, INSERT_VALUES);
+                                        MatSetValue(R, i_c + ii, i_f_2jp1 + 2*ii+1, 0.5, INSERT_VALUES);
+                                    }
+                                }
+                                else if (s(1) == 1) // top boundary
+                                {
+                                    for (int ii=0; ii<i.size(); ++ii)
+                                    {
+                                        //carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2j + 2*ii+1]);
+                                        MatSetValue(R, i_c + ii, i_f_2j + 2*ii  , 0.5, INSERT_VALUES);
+                                        MatSetValue(R, i_c + ii, i_f_2j + 2*ii+1, 0.5, INSERT_VALUES);
+                                    }
+                                }
+                                else
+                                    assert(false);
+                            });
                         }
-                    });
+                    }
                 }
             }
 
