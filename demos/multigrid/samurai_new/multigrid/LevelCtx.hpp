@@ -16,7 +16,7 @@ namespace samurai_new
     };
 
     template<class Dsctzr>
-    class LevelCtx
+    class LevelContext
     {
     public:
         using Mesh = typename Dsctzr::Mesh;
@@ -26,12 +26,12 @@ namespace samurai_new
         Dsctzr _discretizer;
     public:
         int level;
-        LevelCtx* finer = nullptr;
-        LevelCtx* coarser = nullptr;
+        LevelContext* finer = nullptr;
+        LevelContext* coarser = nullptr;
         TransferOperators transfer_ops;
         int prediction_order;
 
-        LevelCtx(Dsctzr& d, Mesh& m, TransferOperators to, int pred_order) : 
+        LevelContext(Dsctzr& d, Mesh& m, TransferOperators to, int pred_order) : 
             _discretizer(d), _mesh(m)
         {
             level = 0;
@@ -39,7 +39,7 @@ namespace samurai_new
             prediction_order = pred_order;
         }
 
-        LevelCtx(LevelCtx& fine_ctx) :
+        LevelContext(LevelContext& fine_ctx) :
             _mesh(samurai_new::coarsen(fine_ctx.mesh())),
             _discretizer(Dsctzr::create_coarse(fine_ctx.discretizer(), _mesh))
         {

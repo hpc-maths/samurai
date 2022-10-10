@@ -9,7 +9,6 @@ class LaplacianSolver
     using Field = typename Dsctzr::field_t;
 
 private:
-    //inline static const std::string _args_prefix = "lap_";
     KSP _ksp;
     samurai_new::petsc::GeometricMultigrid<Dsctzr> _samuraiMG;
 
@@ -39,6 +38,9 @@ private:
 
         if (strcmp(user_pc_type, PCMG) != 0)
         {
+            //
+            // Any Petsc solver configured through the command line
+            //
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             Mat A;
             discretizer.create_matrix(A);
@@ -49,20 +51,21 @@ private:
         }
         else
         {
-            PetscInt mg_transfer_arg = samurai_new::TransferOperators::Assembled;
-            PetscOptionsGetInt(NULL, NULL, "-mg_transfer", &mg_transfer_arg, NULL);
-            samurai_new::TransferOperators mg_transfer = static_cast<samurai_new::TransferOperators>(mg_transfer_arg);
+            //
+            // Geometric multigrid using samurai
+            //
+            PetscInt mg_transfer_ops_arg = samurai_new::TransferOperators::Assembled;
+            PetscOptionsGetInt(NULL, NULL, "-mg_transfer_ops", &mg_transfer_ops_arg, NULL);
+            samurai_new::TransferOperators mg_transfer_ops = static_cast<samurai_new::TransferOperators>(mg_transfer_ops_arg);
 
-            PetscInt prediction_order = 0;
-            PetscOptionsGetInt(NULL, NULL, "-pred_order", &prediction_order, NULL);
+            PetscInt mg_prediction_order = 0;
+            PetscOptionsGetInt(NULL, NULL, "-mg_pred_order", &mg_prediction_order, NULL);
 
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             KSPSetFromOptions(_ksp);
 
-            _samuraiMG = samurai_new::petsc::GeometricMultigrid(discretizer, mesh, mg_transfer, prediction_order);
+            _samuraiMG = samurai_new::petsc::GeometricMultigrid(discretizer, mesh, mg_transfer_ops, mg_prediction_order);
             _samuraiMG.apply_as_pc(_ksp);
-            // Override by command line arguments
-            //KSPSetFromOptions(_ksp);
         }
     }
 
