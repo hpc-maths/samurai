@@ -29,12 +29,14 @@ namespace samurai_new
         LevelCtx* finer = nullptr;
         LevelCtx* coarser = nullptr;
         TransferOperators transfer_ops;
+        int prediction_order;
 
-        LevelCtx(Dsctzr& d, Mesh& m, TransferOperators to) : 
+        LevelCtx(Dsctzr& d, Mesh& m, TransferOperators to, int pred_order) : 
             _discretizer(d), _mesh(m)
         {
             level = 0;
             transfer_ops = to;
+            prediction_order = pred_order;
         }
 
         LevelCtx(LevelCtx& fine_ctx) :
@@ -43,25 +45,15 @@ namespace samurai_new
         {
             level = fine_ctx.level + 1;
             transfer_ops = fine_ctx.transfer_ops;
+            prediction_order = fine_ctx.prediction_order;
+
             this->finer = &fine_ctx;
             fine_ctx.coarser = this;
-            //samurai_new::coarsen(fine_ctx->mesh(), _mesh);
-            //_mesh = _hierarchy->add_coarser(fine_ctx->mesh());
-            //_mesh_ptr = &_mesh;
-            //_discretizer = Dsctzr::create_coarse(fine_ctx->discretizer(), *_mesh);
-            //_discretizer_ptr = &_discretizer;
         }
-
-        /*static void create_coarse(LevelCtx& fine_ctx)
-        {
-            fine_ctx.coarser = new LevelCtx()
-        }*/
 
         Mesh& mesh() { return _mesh; }
         Dsctzr& discretizer() { return _discretizer; }
         bool is_finest() { return level == 0; }
-
-
     };
 
 }

@@ -44,7 +44,6 @@ private:
             discretizer.create_matrix(A);
             discretizer.assemble_matrix(A);
             PetscObjectSetName((PetscObject)A, "A");
-            //KSPSetComputeOperators(_ksp, PetscDM<Dsctzr>::ComputeMatrix, NULL);
             KSPSetOperators(_ksp, A, A);
             KSPSetFromOptions(_ksp);
         }
@@ -54,13 +53,16 @@ private:
             PetscOptionsGetInt(NULL, NULL, "-mg_transfer", &mg_transfer_arg, NULL);
             samurai_new::TransferOperators mg_transfer = static_cast<samurai_new::TransferOperators>(mg_transfer_arg);
 
+            PetscInt prediction_order = 0;
+            PetscOptionsGetInt(NULL, NULL, "-pred_order", &prediction_order, NULL);
+
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             KSPSetFromOptions(_ksp);
 
-            _samuraiMG = samurai_new::petsc::GeometricMultigrid(discretizer, mesh, mg_transfer);
+            _samuraiMG = samurai_new::petsc::GeometricMultigrid(discretizer, mesh, mg_transfer, prediction_order);
             _samuraiMG.apply_as_pc(_ksp);
             // Override by command line arguments
-            //KSPSetFromOptions(_ksp);*/
+            //KSPSetFromOptions(_ksp);
         }
     }
 
