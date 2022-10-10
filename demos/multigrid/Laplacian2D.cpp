@@ -93,8 +93,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
 
     for(int i=0; i<n; ++i)
     {
-        double v = 1;
-        MatSetValues(A, 1, &i, 1, &i, &v, INSERT_VALUES);
+        MatSetValue(A, i, i, 1.0, INSERT_VALUES);
     }
 
     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
@@ -113,11 +112,11 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
             auto i_jm1 = static_cast<int>(mesh.get_index(level, ii, j-1));
             auto ip1_j = static_cast<int>(mesh.get_index(level, ii+1, j));
             auto im1_j = static_cast<int>(mesh.get_index(level, ii-1, j));
-            MatSetValues(A, 1, &i_j, 1, &i_j, &v_diag, INSERT_VALUES);
-            MatSetValues(A, 1, &i_j, 1, &ip1_j, &v_off, INSERT_VALUES);
-            MatSetValues(A, 1, &i_j, 1, &im1_j, &v_off, INSERT_VALUES);
-            MatSetValues(A, 1, &i_j, 1, &i_jp1, &v_off, INSERT_VALUES);
-            MatSetValues(A, 1, &i_j, 1, &i_jm1, &v_off, INSERT_VALUES);
+            MatSetValue(A, i_j, i_j  , v_diag, INSERT_VALUES);
+            MatSetValue(A, i_j, ip1_j, v_off, INSERT_VALUES);
+            MatSetValue(A, i_j, im1_j, v_off, INSERT_VALUES);
+            MatSetValue(A, i_j, i_jp1, v_off, INSERT_VALUES);
+            MatSetValue(A, i_j, i_jm1, v_off, INSERT_VALUES);
         }
     });
 
@@ -136,19 +135,17 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
 
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                double v = 1;
                 auto i_cell = static_cast<int>(mesh.get_index(level, ii, j));
-                MatSetValues(A, 1, &i_cell, 1, &i_cell, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i_cell, 1, INSERT_VALUES);
 
-                v = -0.25;
                 auto i1 = static_cast<int>(mesh.get_index(level + 1,     2*ii,     2*j));
                 auto i2 = static_cast<int>(mesh.get_index(level + 1, 2*ii + 1,     2*j));
                 auto i3 = static_cast<int>(mesh.get_index(level + 1,     2*ii, 2*j + 1));
                 auto i4 = static_cast<int>(mesh.get_index(level + 1, 2*ii + 1, 2*j + 1));
-                MatSetValues(A, 1, &i_cell, 1, &i1, &v, INSERT_VALUES);
-                MatSetValues(A, 1, &i_cell, 1, &i2, &v, INSERT_VALUES);
-                MatSetValues(A, 1, &i_cell, 1, &i3, &v, INSERT_VALUES);
-                MatSetValues(A, 1, &i_cell, 1, &i4, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i1, -0.25, INSERT_VALUES);
+                MatSetValue(A, i_cell, i2, -0.25, INSERT_VALUES);
+                MatSetValue(A, i_cell, i3, -0.25, INSERT_VALUES);
+                MatSetValue(A, i_cell, i4, -0.25, INSERT_VALUES);
             }
         });
     }
@@ -169,7 +166,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
             {
                 double v = 1.;
                 auto i_cell = static_cast<int>(mesh.get_index(level, ii, j));
-                MatSetValues(A, 1, &i_cell, 1, &i_cell, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i_cell, v, INSERT_VALUES);
 
                 int sign_i = (ii & 1)? -1: 1;
 
@@ -177,11 +174,11 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                 {
                     auto i1 = static_cast<int>(mesh.get_index(level - 1, (ii>>1), (j>>1) + is));
                     v = -sign_j*pred[is + 1];
-                    MatSetValues(A, 1, &i_cell, 1, &i1, &v, INSERT_VALUES);
+                    MatSetValue(A, i_cell, i1, v, INSERT_VALUES);
 
                     i1 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) + is, (j>>1)));
                     v = -sign_i*pred[is + 1];
-                    MatSetValues(A, 1, &i_cell, 1, &i1, &v, INSERT_VALUES);
+                    MatSetValue(A, i_cell, i1, v, INSERT_VALUES);
                 }
 
                 auto i1 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) - 1));
@@ -190,17 +187,16 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                 auto i4 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) + 1));
 
                 v = sign_i*sign_j*pred[0]*pred[0];
-                MatSetValues(A, 1, &i_cell, 1, &i1, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i1, v, INSERT_VALUES);
                 v = sign_i*sign_j*pred[2]*pred[0];
-                MatSetValues(A, 1, &i_cell, 1, &i2, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i2, v, INSERT_VALUES);
                 v = sign_i*sign_j*pred[0]*pred[2];
-                MatSetValues(A, 1, &i_cell, 1, &i3, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i3, v, INSERT_VALUES);
                 v = sign_i*sign_j*pred[2]*pred[2];
-                MatSetValues(A, 1, &i_cell, 1, &i4, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i4, v, INSERT_VALUES);
 
                 auto i0 = static_cast<int>(mesh.get_index(level - 1, (ii>>1), (j>>1)));
-                v = -1.;
-                MatSetValues(A, 1, &i_cell, 1, &i0, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i0, -1., INSERT_VALUES);
             }
         });
     }
@@ -223,9 +219,8 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                 {
                     auto i_out = static_cast<int>(mesh.get_index(level, ii, j));
                     auto i_in = static_cast<int>(mesh.get_index(level, ii - s[0], j - s[1]));
-                    double v = 0.5;
-                    MatSetValues(A, 1, &i_out, 1, &i_out, &v, INSERT_VALUES);
-                    MatSetValues(A, 1, &i_out, 1, &i_in, &v, INSERT_VALUES);
+                    MatSetValue(A, i_out, i_out, 0.5, INSERT_VALUES);
+                    MatSetValue(A, i_out, i_in,  0.5, INSERT_VALUES);
                 }
             });
         }
