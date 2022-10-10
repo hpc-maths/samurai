@@ -181,9 +181,10 @@ int main(int argc, char *argv[])
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")->capture_default_str()->group("Multiresolution");
+    app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("AMR parameters");
+    app.add_option("--min-level", min_level, "Minimum level of AMR")->capture_default_str()->group("AMR parameters");
+    app.add_option("--max-level", max_level, "Maximum level of AMR")->capture_default_str()->group("AMR parameters");
+    app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")->capture_default_str()->group("AMR parameters");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
     app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
@@ -212,7 +213,7 @@ int main(int argc, char *argv[])
 
     while (t != Tf)
     {
-        // adaptation
+        // AMR adaptation
         std::size_t ite_adapt = 0;
         while(1)
         {

@@ -110,15 +110,15 @@ namespace samurai
 
             // // Lax Wendroff with minmod limiter
 
-            auto minmod = [](auto & y)
-            {
-                return xt::maximum(0., xt::minimum(1., y));
-            };
+            // auto minmod = [](auto & y)
+            // {
+            //     return xt::maximum(0., xt::minimum(1., y));
+            // };
 
-            auto superbee = [](auto & y)
-            {
-                return xt::maximum(xt::maximum(xt::minimum(1., 2.*y), xt::minimum(2., y)), 0.);
-            };
+            // auto superbee = [](auto & y)
+            // {
+            //     return xt::maximum(xt::maximum(xt::minimum(1., 2.*y), xt::minimum(2., y)), 0.);
+            // };
 
             auto mc = [](auto & y)
             {
