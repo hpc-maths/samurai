@@ -2,12 +2,6 @@
 #include "intergrid_operators.hpp"
 #include "utils.hpp"
 
-// 0: P mat-free, R mat-free (via Fields)
-// 1: P mat-free, R mat-free (via double*)
-// 2: P assembled, R = P^T
-// 3: P assembled, R = assembled
-#define OPT_PROLONGATION 3
-
 namespace samurai_new
 {
     namespace petsc
@@ -25,8 +19,8 @@ namespace samurai_new
             using Mesh = typename Dsctzr::Mesh;
             using Field = typename Dsctzr::field_t;
 
-            SamuraiDM(MPI_Comm comm, Dsctzr& discretizer, Mesh& mesh) :
-                _ctx(discretizer, mesh)
+            SamuraiDM(MPI_Comm comm, Dsctzr& discretizer, Mesh& mesh, TransferOperators to) :
+                _ctx(discretizer, mesh, to)
             {
                 DMShellCreate(comm, &_dm);
                 DefineShellFunctions(_dm, _ctx);
@@ -41,7 +35,7 @@ namespace samurai_new
 
             DM& PetscDM() { return _dm; }
 
-            ~SamuraiDM()
+            void destroy_petsc_objects()
             {
                 DMDestroy(&_dm);
             }
@@ -54,16 +48,16 @@ namespace samurai_new
                 DMShellSetCreateGlobalVector(shell, CreateGlobalVector);
                 DMShellSetCreateLocalVector(shell, CreateLocalVector);
                 DMShellSetCoarsen(shell, Coarsen);
-                if (OPT_PROLONGATION == 0 || OPT_PROLONGATION == 1)
+                if (ctx.transfer_ops == TransferOperators::MatrixFree_Fields || ctx.transfer_ops == TransferOperators::MatrixFree_Arrays)
                 {
                     DMShellSetCreateInterpolation(shell, CreateMatFreeProlongation);
                     DMShellSetCreateRestriction(shell, CreateMatFreeRestriction);
                 }
-                else if (OPT_PROLONGATION == 2)
+                else if (ctx.transfer_ops == TransferOperators::Assembled_PTranspose)
                 {
                     DMShellSetCreateInterpolation(shell, CreateProlongationMatrix);
                 }
-                else if (OPT_PROLONGATION == 3)
+                else if (ctx.transfer_ops == TransferOperators::Assembled)
                 {
                     DMShellSetCreateInterpolation(shell, CreateProlongationMatrix);
                     DMShellSetCreateRestriction(shell, CreateRestrictionMatrix);
@@ -114,7 +108,6 @@ namespace samurai_new
                 MatSetOption(jac, MAT_SPD, PETSC_TRUE);
 
                 // MatView(jac, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
-                // std::cout << "ComputeMatrix - end level " << ctx->level << std::endl;
                 return 0;
             }
 
@@ -147,7 +140,7 @@ namespace samurai_new
                 // std::cout << "coarse vector x:" << std::endl;
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
-                if (OPT_PROLONGATION == 0)
+                if (coarse_ctx->transfer_ops == TransferOperators::MatrixFree_Fields)
                 {
                     Field coarse_field("coarse_field", coarse_ctx->mesh());
                     copy(x, coarse_field);
@@ -255,7 +248,7 @@ namespace samurai_new
                 // std::cout << "restriction - fine vector:" << std::endl;
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
-                if (OPT_PROLONGATION == 0)
+                if (coarse_ctx->transfer_ops == TransferOperators::MatrixFree_Fields)
                 {
                     Field fine_field("fine_field", fine_ctx->mesh());
                     copy(x, fine_field);
