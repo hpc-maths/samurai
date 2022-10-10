@@ -239,32 +239,21 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
 
                     if (prediction_order == 0)
-                    {
-                        // auto i_c_jm1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j-1));
-                        // auto i_c_jp1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j+1));
-                        
+                    {                        
                         for (int ii=0; ii<i.size(); ++ii)
                         {
-                            // Prediction 2D (order 1)
+                            // Prediction 2D (order 0)
                             auto fine_bottom_left  = i_f_2j   + 2*ii  ;
                             auto fine_bottom_right = i_f_2j   + 2*ii+1;
                             auto fine_top_left     = i_f_2jp1 + 2*ii  ;
                             auto fine_top_right    = i_f_2jp1 + 2*ii+1;
 
-                            auto center       = i_c_j  +ii  ;
-                            // auto right        = i_c_j  +ii+1;
-                            // auto left         = i_c_j  +ii-1;
-                            // auto top          = i_c_jp1+ii  ;
-                            // auto bottom       = i_c_jm1+ii  ;
-                            // auto top_right    = i_c_jp1+ii+1;
-                            // auto top_left     = i_c_jp1+ii-1;
-                            // auto bottom_right = i_c_jm1+ii+1;
-                            // auto bottom_left  = i_c_jm1+ii-1;
+                            auto coarse = i_c_j + ii;
 
-                            MatSetValue(P, fine_bottom_left , center, 1, INSERT_VALUES);
-                            MatSetValue(P, fine_bottom_right, center, 1, INSERT_VALUES);
-                            MatSetValue(P, fine_top_left    , center, 1, INSERT_VALUES);
-                            MatSetValue(P, fine_top_right   , center, 1, INSERT_VALUES);
+                            MatSetValue(P, fine_bottom_left , coarse, 1, INSERT_VALUES);
+                            MatSetValue(P, fine_bottom_right, coarse, 1, INSERT_VALUES);
+                            MatSetValue(P, fine_top_left    , coarse, 1, INSERT_VALUES);
+                            MatSetValue(P, fine_top_right   , coarse, 1, INSERT_VALUES);
                         }
                     }
                     else if (prediction_order == 1)

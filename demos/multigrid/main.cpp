@@ -73,6 +73,8 @@ static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "                             3 - P assembled, R = P^T\n"
             "                             4 - P assembled, R = assembled\n"
             "-mg_pred_order [0|1]         prediction order used in the prolongation operator\n"
+            "-save_sol [0|1]              save solution\n"
+            "-save_mesh [0|1]             save mesh\n"
             "\n"
             "Useful Petsc options:\n"
             "\n"
@@ -102,18 +104,31 @@ int main(int argc, char* argv[])
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size)); 
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
-    //---------------//
-    // Mesh creation //
-    //---------------//
+    //----------------//
+    //   Parameters   //
+    //----------------//
 
     PetscInt n = 2;
     PetscOptionsGetInt(NULL, NULL, "-n", &n, NULL);
 
+    PetscBool save_solution = PETSC_FALSE;
+    PetscOptionsGetBool(NULL, NULL, "-save_sol", &save_solution, NULL);
+
+    PetscBool save_mesh = PETSC_FALSE;
+    PetscOptionsGetBool(NULL, NULL, "-save_mesh", &save_mesh, NULL);
+
+    //---------------//
+    // Mesh creation //
+    //---------------//
+
     Mesh mesh = create_mesh<Mesh>(n);
     std::cout << "Unknowns: " << mesh.nb_cells() << std::endl;
 
-    //std::cout << "Saving mesh..." << std::endl;
-    //samurai::save("mesh", mesh);
+    if (save_mesh)
+    {
+        std::cout << "Saving mesh..." << std::endl;
+        samurai::save("mesh", mesh);
+    }
 
     /*std::cout << "fine_mesh:" << endl << fine_mesh << std::endl;
     samurai::save("fine_mesh", fine_mesh);
@@ -192,8 +207,11 @@ int main(int argc, char* argv[])
     PetscFinalize();
 
     // Save solution
-    std::cout << "Saving solution..." << std::endl;
-    samurai::save("solution", mesh, x);
+    if (save_solution)
+    {
+        std::cout << "Saving solution..." << std::endl;
+        samurai::save("solution", mesh, x);
+    }
 
     return 0;
 }
