@@ -11,13 +11,13 @@ namespace samurai
 {
     template<class TInterval>
     class H_wrap_op : public field_operator_base<TInterval>,
-                        public field_expression<H_wrap_op<TInterval>>
+                      public field_expression<H_wrap_op<TInterval>>
     {
     public:
         INIT_OPERATOR(H_wrap_op)
 
         template<class Field>
-        inline auto operator()(Dim<2> d, const Field& phi, const Field& phi_0, const std::size_t max_level) const
+        inline auto operator()(Dim<2>, const Field& phi, const Field& phi_0, const std::size_t max_level) const
         {
             double dx = this->dx();
 
@@ -25,8 +25,8 @@ namespace samurai
 
             out.fill(0.);
 
-            if (level == max_level){
-
+            if (level == max_level)
+            {
                 // // First order one sided
                 // auto dxp = (phi(level, i + 1, j) - phi(level, i    , j))/dx;
                 // auto dxm = (phi(level, i    , j) - phi(level, i - 1, j))/dx;

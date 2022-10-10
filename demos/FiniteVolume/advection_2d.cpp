@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
     std::string filename = "FV_advection_2d";
     std::size_t nfiles = 1;
 
-    CLI::App app{"Finite volume example for the advection equation in 2d"};
+    CLI::App app{"Finite volume example for the advection equation in 2d using multiresolution"};
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
