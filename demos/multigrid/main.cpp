@@ -64,8 +64,19 @@ Mesh create_mesh(int n)
 }
 
 
-static char help[] = "Multigrid program.\n\n"
-            "-n 15 -ksp_view ascii -ksp_monitor ascii -ksp_rtol 1e-9 -ksp_max_it 10 -pc_type mg -pc_mg_levels 3 -mg_levels_up_pc_sor_its 3";
+static char help[] = "Multigrid program.\n"
+            "\n"
+            "-n <int>\n"
+            "     problem size\n"
+            "-mg_transfer <int>\n"
+            "     multigrid transfer operators (default: 4):\n"
+            "     1 - P mat-free, R mat-free (via Fields)\n"
+            "     2 - P mat-free, R mat-free (via double*)\n"
+            "     3 - P assembled, R = P^T\n"
+            "     4 - P assembled, R = assembled\n"
+            "\n"
+            "Example of useful Petsc options:\n"
+            "-ksp_view ascii -ksp_monitor ascii -ksp_rtol 1e-9 -ksp_max_it 10 -pc_type mg -pc_mg_levels 3 -mg_levels_up_pc_sor_its 3";
 
 int main(int argc, char* argv[])
 {
@@ -78,13 +89,14 @@ int main(int argc, char* argv[])
     // Petsc initialize //
     //------------------//
     
-    PetscInitialize(&argc,&argv,(char*)0, help);
+    PetscInitialize(&argc, &argv, (char*)0, help);
 
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size)); 
-    PetscCheck(size == 1,PETSC_COMM_WORLD,PETSC_ERR_WRONG_MPI_SIZE,"This is a uniprocessor example only!");
+    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
+
     PetscInt n = 2;
-    PetscOptionsGetInt(NULL,NULL,"-n",&n,NULL);
+    PetscOptionsGetInt(NULL, NULL, "-n", &n, NULL);
 
     //---------------//
     // Mesh creation //
@@ -165,7 +177,7 @@ int main(int argc, char* argv[])
 
     // Destroy Petsc objects
     VecDestroy(&b);
-    solver.destroy();
+    solver.destroy_petsc_objects();
     PetscFinalize();
 
     // Save solution
