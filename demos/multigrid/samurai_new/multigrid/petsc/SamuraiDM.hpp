@@ -6,7 +6,7 @@
 // 1: P mat-free, R mat-free (via double*)
 // 2: P assembled, R = P^T
 // 3: P assembled, R = assembled
-#define OPT_PROLONGATION 0
+#define OPT_PROLONGATION 3
 
 namespace samurai_new
 {
@@ -113,8 +113,7 @@ namespace samurai_new
                 ctx->discretizer().assemble_matrix(jac);
                 MatSetOption(jac, MAT_SPD, PETSC_TRUE);
 
-                // MatView(jac, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // MatView(jac, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 // std::cout << "ComputeMatrix - end level " << ctx->level << std::endl;
                 return 0;
             }
@@ -146,8 +145,7 @@ namespace samurai_new
                 fine_ctx = coarse_ctx->finer;
 
                 // std::cout << "coarse vector x:" << std::endl;
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
                 if (OPT_PROLONGATION == 0)
                 {
@@ -157,8 +155,7 @@ namespace samurai_new
                     copy(fine_field, y);
 
                     // std::cout << "prolongated vector (marche):" << std::endl;
-                    // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
+                    // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 }
                 else
                 {
@@ -170,40 +167,37 @@ namespace samurai_new
                     VecRestoreArrayRead(x, &xarray);
                     VecRestoreArray(y, &yarray);
 
-                    // std::cout << "prolongated vector (marche):" << std::endl;
-                    // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
+                    /*std::cout << "prolongated vector (marche):" << std::endl;
+                    VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
-
-
-
-                    /*// With matrix
+                    // With matrix
                     std::size_t nf = fine_ctx->mesh().nb_cells();
                     std::size_t nc = coarse_ctx->mesh().nb_cells();
 
-                    int stencil_size = 3; // in 1D!!!!!!
+                    int stencil_size = 9; // in 2D!!!!!!
 
                     Mat P2;
                     MatCreate(PETSC_COMM_SELF, &P2);
                     MatSetSizes(P2, nf, nc, nf, nc);
                     MatSetFromOptions(P2);
                     MatSeqAIJSetPreallocation(P2, stencil_size, NULL);
-                    PetscMultigrid<Dsctzr>::set_prolong_matrix(*coarse_ctx, *fine_ctx, P2);
+                    multigrid::set_prolong_matrix(coarse_ctx->mesh(), fine_ctx->mesh(), P2);
                     MatAssemblyBegin(P2, MAT_FINAL_ASSEMBLY);
                     MatAssemblyEnd(P2, MAT_FINAL_ASSEMBLY);
 
-                    
                     std::cout << "prolongated vector with matrix (marche pas):" << std::endl;
                     Vec y2;
                     VecCreateSeq(PETSC_COMM_SELF, nf, &y2);
                     MatMult(P2, x, y2);
-                    VecView(y2, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    std::cout << std::endl;*/
+                    VecView(y2, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;*/
                 }
 
                 // std::cout << "prolongated vector:" << std::endl;
-                // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // PetscReal norm;
+                // VecNorm(y, NORM_2, &norm);
+                // std::cout << "prolongated vector norm:" << norm << std::endl;
+
                 assert(check_nan_or_inf(y) && "Nan or Inf after prolongation");
                 return 0;
             }
@@ -218,7 +212,9 @@ namespace samurai_new
                 std::size_t nf = fine_ctx->mesh().nb_cells();
                 std::size_t nc = coarse_ctx->mesh().nb_cells();
 
-                int stencil_size = 3; // in 1D!!!!!!
+                int stencil_size = 3; // 1D
+                if (std::remove_reference_t<decltype(fine_ctx->mesh())>::dim == 2)
+                    stencil_size = 9; // 2D
 
                 MatCreate(PETSC_COMM_SELF, P);
                 MatSetSizes(*P, nf, nc, nf, nc);
@@ -256,18 +252,9 @@ namespace samurai_new
                 MatShellGetContext(R, &fine_ctx);
                 LevelCtx<Dsctzr>* coarse_ctx = fine_ctx->coarser;
 
-                //std::cout << "restriction - c=" << coarse_ctx->level << " f=" << fine_ctx->level << std::endl;
-
                 // std::cout << "restriction - fine vector:" << std::endl;
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
-                /*std::cout << "fine mesh:" << std::endl;
-                print_mesh(fine_ctx->mesh());
-
-                std::cout << std::endl;
-                std::cout << "coarse mesh:" << std::endl;
-                print_mesh(coarse_ctx->mesh());*/
                 if (OPT_PROLONGATION == 0)
                 {
                     Field fine_field("fine_field", fine_ctx->mesh());
@@ -287,8 +274,10 @@ namespace samurai_new
                 }
                 
                 // std::cout << "restriction - restricted vector:" << std::endl;
-                // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // PetscReal norm;
+                // VecNorm(y, NORM_2, &norm);
+                // std::cout << "restricted vector norm:" << norm << std::endl;
                 
                 assert(check_nan_or_inf(y) && "Nan or Inf after restriction");
                 return 0;
@@ -304,7 +293,11 @@ namespace samurai_new
                 std::size_t nf = fine_ctx->mesh().nb_cells();
                 std::size_t nc = coarse_ctx->mesh().nb_cells();
 
-                int stencil_size = 2; // in 1D!!!!!!
+                int stencil_size = 2; // 1D
+                if (std::remove_reference_t<decltype(fine_ctx->mesh())>::dim == 2)
+                    stencil_size = 4; // 2D
+                else if (std::remove_reference_t<decltype(fine_ctx->mesh())>::dim == 3)
+                    assert(false); // 3D
 
                 MatCreate(PETSC_COMM_SELF, R);
                 MatSetSizes(*R, nc, nf, nc, nf);
