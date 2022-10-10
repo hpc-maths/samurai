@@ -10,11 +10,17 @@
 #include <string>
 #include <type_traits>
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
+#ifndef H5_USE_XTENSOR
+    #define H5_USE_XTENSOR
+#endif
+
+#include <highfive/H5Easy.hpp>
 #include <pugixml.hpp>
-#include <xtensor-io/xhighfive.hpp>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xadapt.hpp>
-#include <xtensor/xio.hpp>
 #include <xtensor/xview.hpp>
 
 #include <fmt/core.h>
@@ -64,11 +70,11 @@ namespace samurai
     }
 
     template<class Field, class SubMesh>
-    xt::xtensor<double, 2> extract_data(const Field& field, const SubMesh& submesh)
+    auto extract_data(const Field& field, const SubMesh& submesh)
     {
         auto data_field = field.array();
         std::array<std::size_t, 2> shape = {submesh.nb_cells(), field.size};
-        xt::xtensor<double, 2> data(shape);
+        xt::xtensor<typename Field::value_type, 2> data(shape);
         std::size_t index = 0;
         for_each_cell(submesh, [&](auto cell)
         {
@@ -82,10 +88,10 @@ namespace samurai
     template<class Mesh>
     auto extract_coords_and_connectivity(const Mesh& mesh)
     {
-        constexpr std::size_t dim = Mesh::dim;
+        static constexpr std::size_t dim = Mesh::dim;
         std::size_t nb_cells = mesh.nb_cells();
 
-        std::size_t nb_points_per_cell = std::pow(2, dim);
+        std::size_t nb_points_per_cell = 1 << dim;
 
         std::map<std::array<double, dim>, std::size_t> points_id;
         auto element = get_element(std::integral_constant<std::size_t, dim>{});
@@ -126,9 +132,9 @@ namespace samurai
         coords.fill(0.);
         for(auto& e: points_id)
         {
-            std::size_t index = e.second;
+            std::size_t idx = e.second;
             auto coords_view = xt::view(coords,
-                                        index,
+                                        idx,
                                         xt::range(0, dim));
             coords_view = xt::adapt(e.first);
         }
@@ -166,6 +172,7 @@ namespace samurai
         using derived_type_save = D;
 
         Hdf5(const std::string& filename);
+        Hdf5(const fs::path& path, const std::string& filename);
 
         ~Hdf5();
 
@@ -190,7 +197,8 @@ namespace samurai
 
     private:
         HighFive::File h5_file;
-        std::string filename;
+        fs::path m_path;
+        std::string  m_filename;
         pugi::xml_document doc;
         std::ofstream xdmf_file;
     };
@@ -206,7 +214,7 @@ namespace samurai
         using mesh_t = Mesh;
         static constexpr std::size_t dim = mesh_t::dim;
 
-        SaveBase(const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields);
+        SaveBase(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields);
 
         SaveBase(const SaveBase &) = delete;
         SaveBase &operator=(const SaveBase &) = delete;
@@ -237,8 +245,8 @@ namespace samurai
     };
 
     template <class D, class Mesh, class... T>
-    inline SaveBase<D, Mesh, T...>::SaveBase(const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
-    : hdf5_t(filename)
+    inline SaveBase<D, Mesh, T...>::SaveBase(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
+    : hdf5_t(path, filename)
     , m_mesh(mesh)
     , m_options(options)
     , m_fields(fields...)
@@ -292,13 +300,13 @@ namespace samurai
         using mesh_t = typename base_class::mesh_t;
         static constexpr std::size_t dim = base_class::dim;
 
-        SaveCellArray(const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields);
+        SaveCellArray(const fs::path& path, const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields);
         void save();
     };
 
     template <class D, class Mesh, class... T>
-    inline SaveCellArray<D, Mesh, T...>::SaveCellArray(const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields)
-    : base_class(filename, options, mesh, fields...)
+    inline SaveCellArray<D, Mesh, T...>::SaveCellArray(const fs::path& path, const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields)
+    : base_class(path, filename, options, mesh, fields...)
     {}
 
 
@@ -380,14 +388,14 @@ namespace samurai
         using mesh_t = typename base_class::mesh_t;
         static constexpr std::size_t dim = base_class::dim;
 
-        SaveLevelCellArray(const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields);
+        SaveLevelCellArray(const fs::path& path, const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields);
 
         void save();
     };
 
     template <class D, class Mesh, class... T>
-    inline SaveLevelCellArray<D, Mesh, T...>::SaveLevelCellArray(const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields)
-    : base_class(filename, options, mesh, fields...)
+    inline SaveLevelCellArray<D, Mesh, T...>::SaveLevelCellArray(const fs::path& path, const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields)
+    : base_class(path, filename, options, mesh, fields...)
     {}
 
     template <class D, class Mesh, class... T>
@@ -418,9 +426,10 @@ namespace samurai
     }
 
     template <class D>
-    inline Hdf5<D>::Hdf5(const std::string& filename)
-    : h5_file(filename + ".h5", HighFive::File::Overwrite)
-    , filename(filename)
+    inline Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename)
+    : h5_file(path.string() + '/' + filename + ".h5", HighFive::File::Overwrite)
+    , m_path(path)
+    , m_filename(filename)
     {
         doc.append_child(pugi::node_doctype).set_value("Xdmf SYSTEM \"Xdmf.dtd\"");
         auto xdmf = doc.append_child("Xdmf");
@@ -430,7 +439,7 @@ namespace samurai
     template <class D>
     inline Hdf5<D>::~Hdf5()
     {
-        doc.save_file(fmt::format("{}.xdmf", filename).data());
+        doc.save_file(fmt::format("{}.xdmf", (m_path /  m_filename).string()).data());
     }
 
     template <class D>
@@ -441,8 +450,8 @@ namespace samurai
         xt::xtensor<double, 2> coords;
         std::tie(coords, connectivity) = extract_coords_and_connectivity(submesh);
 
-        xt::dump(h5_file, prefix + "/connectivity", connectivity);
-        xt::dump(h5_file, prefix + "/points", coords);
+        H5Easy::dump(h5_file, prefix + "/connectivity", connectivity);
+        H5Easy::dump(h5_file, prefix + "/points", coords);
 
         auto grid = grid_parent.append_child("Grid");
         grid.append_attribute("Name") = mesh_name.data();
@@ -454,7 +463,7 @@ namespace samurai
         auto topo_data = topo.append_child("DataItem");
         topo_data.append_attribute("Dimensions") = connectivity.size();
         topo_data.append_attribute("Format") = "HDF";
-        topo_data.text() = fmt::format("{}.h5:{}/connectivity", filename, prefix).data();
+        topo_data.text() = fmt::format("{}.h5:{}/connectivity",  m_filename, prefix).data();
 
         auto geom = grid.append_child("Geometry");
         geom.append_attribute("GeometryType") = "XYZ";
@@ -462,7 +471,7 @@ namespace samurai
         auto geom_data = geom.append_child("DataItem");
         geom_data.append_attribute("Dimensions") = coords.size();
         geom_data.append_attribute("Format") = "HDF";
-        geom_data.text() = fmt::format("{}.h5:{}/points", filename, prefix).data();
+        geom_data.text() = fmt::format("{}.h5:{}/points",  m_filename, prefix).data();
 
         this->derived_cast().save_fields(grid, prefix, submesh);
     }
@@ -476,7 +485,7 @@ namespace samurai
         for(std::size_t i = 0; i < field.size; ++i)
         {
             std::string field_name;
-            if (field.size == 1)
+            if constexpr (Field::size == 1)
             {
                 field_name = field.name();
             }
@@ -485,7 +494,7 @@ namespace samurai
                 field_name = fmt::format("{}_{}", field.name(), i);
             }
             std::string path = fmt::format("{}/fields/{}", prefix, field_name);
-            xt::dump(h5_file, path, xt::eval(xt::view(data, xt::all(), i)));
+            H5Easy::dump(h5_file, path, xt::eval(xt::view(data, xt::all(), i)));
 
             auto attribute = grid.append_child("Attribute");
             attribute.append_attribute("Name") = field_name.data();
@@ -494,7 +503,7 @@ namespace samurai
             auto dataitem = attribute.append_child("DataItem");
             dataitem.append_attribute("Dimensions") = submesh.nb_cells();
             dataitem.append_attribute("Format") = "HDF";
-            dataitem.text() = fmt::format("{}.h5:{}", filename, path).data();
+            dataitem.text() = fmt::format("{}.h5:{}",  m_filename, path).data();
         }
     }
 
@@ -525,8 +534,8 @@ namespace samurai
         using mesh_t = Mesh;
         static constexpr std::size_t dim = mesh_t::dim;
 
-        Hdf5_CellArray(const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
-        : base_type(filename, options, mesh, fields...)
+        Hdf5_CellArray(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
+        : base_type(path, filename, options, mesh, fields...)
         {}
 
         const mesh_t& get_mesh() const
@@ -534,17 +543,17 @@ namespace samurai
             return this->m_mesh;
         }
 
-        const mesh_t& get_submesh(std::size_t i) const
+        const mesh_t& get_submesh(std::size_t) const
         {
             return this->m_mesh;
         }
 
-        std::string get_submesh_name(std::size_t i) const
+        std::string get_submesh_name(std::size_t) const
         {
             return "cell_array";
         }
 
-        const std::size_t nb_submesh() const
+        std::size_t nb_submesh() const
         {
             return 1;
         }
@@ -561,8 +570,8 @@ namespace samurai
         using ca_type = typename mesh_t::ca_type;
         static constexpr std::size_t dim = mesh_t::dim;
 
-        Hdf5_mesh_base_level(const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
-        : base_type(filename, options, mesh, fields...)
+        Hdf5_mesh_base_level(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
+        : base_type(path, filename, options, mesh, fields...)
         {}
 
         const ca_type& get_mesh() const
@@ -580,7 +589,7 @@ namespace samurai
             return fmt::format("{}", static_cast<mesh_id_t>(i));
         }
 
-        const std::size_t nb_submesh() const
+        std::size_t nb_submesh() const
         {
             return static_cast<std::size_t>(mesh_id_t::count);
         }
@@ -598,8 +607,8 @@ namespace samurai
         using ca_type = typename mesh_t::ca_type;
         static constexpr std::size_t dim = mesh_t::dim;
 
-        Hdf5_mesh_base(const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
-        : base_type(filename, options, mesh, fields...)
+        Hdf5_mesh_base(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
+        : base_type(path, filename, options, mesh, fields...)
         {}
 
         const ca_type& get_mesh() const
@@ -617,7 +626,7 @@ namespace samurai
             return fmt::format("{}", static_cast<mesh_id_t>(i));
         }
 
-        const std::size_t nb_submesh() const
+        std::size_t nb_submesh() const
         {
             return static_cast<std::size_t>(mesh_id_t::count);
         }
@@ -625,50 +634,98 @@ namespace samurai
     };
 
     template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
-    void save(std::string name, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
+    void save(const fs::path& path, const std::string& filename, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
     {
         using hdf5_t = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>;
-        auto h5 = hdf5_t(name, {}, mesh, fields...);
+        auto h5 = hdf5_t(path, filename, {}, mesh, fields...);
         h5.save();
     }
 
     template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
-    void save(std::string name, const Hdf5Options<CellArray<dim, TInterval, max_size>>& options, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
+    void save(const std::string& filename, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
     {
         using hdf5_t = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>;
-        auto h5 = hdf5_t(name, options, mesh, fields...);
+        auto h5 = hdf5_t(fs::current_path(), filename, {}, mesh, fields...);
+        h5.save();
+    }
+
+    template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
+    void save(const fs::path& path, const std::string& filename, const Hdf5Options<CellArray<dim, TInterval, max_size>>& options, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>;
+        auto h5 = hdf5_t(path, filename, options, mesh, fields...);
+        h5.save();
+    }
+
+    template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
+    void save(const std::string& filename, const Hdf5Options<CellArray<dim, TInterval, max_size>>& options, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>;
+        auto h5 = hdf5_t(fs::current_path(), filename, options, mesh, fields...);
         h5.save();
     }
 
     template <class D, class Config, class... T>
-    void save(std::string name, const Mesh_base<D, Config>& mesh, const T&... fields)
+    void save(const fs::path& path, const std::string& filename, const Mesh_base<D, Config>& mesh, const T&... fields)
     {
         using hdf5_t = Hdf5_mesh_base<Mesh_base<D, Config>, T...>;
-        auto h5 = hdf5_t(name, {}, mesh, fields...);
+        auto h5 = hdf5_t(path, filename, {}, mesh, fields...);
         h5.save();
     }
 
     template <class D, class Config, class... T>
-    void save(std::string name, const Hdf5Options<Mesh_base<D, Config>>& options, const Mesh_base<D, Config>& mesh, const T&... fields)
+    void save(const std::string& filename, const Mesh_base<D, Config>& mesh, const T&... fields)
     {
         using hdf5_t = Hdf5_mesh_base<Mesh_base<D, Config>, T...>;
-        auto h5 = hdf5_t(name, options, mesh, fields...);
+        auto h5 = hdf5_t(fs::current_path(), filename, {}, mesh, fields...);
+        h5.save();
+    }
+
+    template <class D, class Config, class... T>
+    void save(const fs::path& path, const std::string& filename, const Hdf5Options<Mesh_base<D, Config>>& options, const Mesh_base<D, Config>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_mesh_base<Mesh_base<D, Config>, T...>;
+        auto h5 = hdf5_t(path, filename, options, mesh, fields...);
+        h5.save();
+    }
+
+    template <class D, class Config, class... T>
+    void save(const std::string& filename, const Hdf5Options<Mesh_base<D, Config>>& options, const Mesh_base<D, Config>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_mesh_base<Mesh_base<D, Config>, T...>;
+        auto h5 = hdf5_t(fs::current_path(), filename, options, mesh, fields...);
         h5.save();
     }
 
     template <class Config, class... T>
-    void save(std::string name, const UniformMesh<Config>& mesh, const T&... fields)
+    void save(const fs::path& path, const std::string& filename, const UniformMesh<Config>& mesh, const T&... fields)
     {
         using hdf5_t = Hdf5_mesh_base_level<UniformMesh<Config>, T...>;
-        auto h5 = hdf5_t(name, {}, mesh, fields...);
+        auto h5 = hdf5_t(path, filename, {}, mesh, fields...);
         h5.save();
     }
 
     template <class Config, class... T>
-    void save(std::string name, const Hdf5Options<UniformMesh<Config>>& options, const UniformMesh<Config>& mesh, const T&... fields)
+    void save(const std::string& filename, const UniformMesh<Config>& mesh, const T&... fields)
     {
         using hdf5_t = Hdf5_mesh_base_level<UniformMesh<Config>, T...>;
-        auto h5 = hdf5_t(name, options, mesh, fields...);
+        auto h5 = hdf5_t(fs::current_path(), filename, {}, mesh, fields...);
+        h5.save();
+    }
+
+    template <class Config, class... T>
+    void save(const fs::path& path, const std::string& filename, const Hdf5Options<UniformMesh<Config>>& options, const UniformMesh<Config>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_mesh_base_level<UniformMesh<Config>, T...>;
+        auto h5 = hdf5_t(path, filename, options, mesh, fields...);
+        h5.save();
+    }
+
+    template <class Config, class... T>
+    void save(const std::string& filename, const Hdf5Options<UniformMesh<Config>>& options, const UniformMesh<Config>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_mesh_base_level<UniformMesh<Config>, T...>;
+        auto h5 = hdf5_t(fs::current_path(), filename, options, mesh, fields...);
         h5.save();
     }
 } // namespace samurai

@@ -76,30 +76,30 @@ namespace samurai
 
     protected:
         template<std::size_t dim>
-        inline field_operator_base(std::size_t level, const interval_t& interval,
+        inline field_operator_base(std::size_t level_, const interval_t& interval,
                                    xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
-        : level{level}, i{interval}, m_dx{1. / (1 << level)}
+        : level{level_}, i{interval}, m_dx{1. / (1 << level)}
         {
-            if (dim > 0)
+            if constexpr (dim > 0)
             {
                 j = index[0];
             }
-            if (dim > 1)
+            if constexpr (dim > 1)
             {
                 k = index[1];
             }
         }
 
-        inline field_operator_base(std::size_t level, const interval_t& interval)
-        : level{level}, i{interval}, m_dx{1. / (1 << level)}
+        inline field_operator_base(std::size_t level_, const interval_t& interval)
+        : level{level_}, i{interval}, m_dx{1. / (1 << level)}
         {}
 
-        inline field_operator_base(std::size_t level, const interval_t& interval, coord_index_t j_)
-        : level{level}, i{interval}, j{j_}, m_dx{1. / (1 << level)}
+        inline field_operator_base(std::size_t level_, const interval_t& interval, coord_index_t j_)
+        : level{level_}, i{interval}, j{j_}, m_dx{1. / (1 << level)}
         {}
 
-        inline field_operator_base(std::size_t level, const interval_t& interval, coord_index_t j_, coord_index_t k_)
-        : level{level}, i{interval}, j{j_}, k{k_}, m_dx{1. / (1 << level)}
+        inline field_operator_base(std::size_t level_, const interval_t& interval, coord_index_t j_, coord_index_t k_)
+        : level{level_}, i{interval}, j{j_}, k{k_}, m_dx{1. / (1 << level)}
         {}
 
     private:
@@ -118,13 +118,13 @@ namespace samurai
     using base::dx;                                                                          \
                                                                                              \
     template<std::size_t dim>                                                                \
-    inline NAME(std::size_t level, const interval_t& interval,                               \
+    inline NAME(std::size_t level_, const interval_t& interval,                              \
                 const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index)              \
-    : base(level, interval, index)                                                           \
+    : base(level_, interval, index)                                                          \
     {}                                                                                       \
                                                                                              \
     template<class... index_t>                                                               \
-    inline NAME(std::size_t level, const interval_t& interval, const index_t&... index)      \
-    : base(level, interval, index...)                                                        \
+    inline NAME(std::size_t level_, const interval_t& interval, const index_t&... index)     \
+    : base(level_, interval, index...)                                                       \
     {}
 } // namespace samurai

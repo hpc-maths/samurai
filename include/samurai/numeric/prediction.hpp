@@ -378,7 +378,6 @@ namespace samurai
         if (even_i.is_valid())
         {
             auto coarse_even_i = even_i >> 1;
-            auto dec_even = (i.start & 1) ? 1 : 0;
             dest(level, even_i) = src(level - 1, coarse_even_i);
         }
 
@@ -386,7 +385,6 @@ namespace samurai
         if (odd_i.is_valid())
         {
             auto coarse_odd_i = odd_i >> 1;
-            auto dec_odd = (i.end & 1) ? 1 : 0;
             dest(level, odd_i) = src(level - 1, coarse_odd_i);
         }
     }
@@ -462,7 +460,6 @@ namespace samurai
             if (even_i.is_valid())
             {
                 auto coarse_even_i = even_i >> 1;
-                auto dec_even = (i.start & 1) ? 1 : 0;
                 dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1);
             }
 
@@ -470,7 +467,6 @@ namespace samurai
             if (odd_i.is_valid())
             {
                 auto coarse_odd_i = odd_i >> 1;
-                auto dec_odd = (i.end & 1) ? 1 : 0;
                 dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1);
             }
         }
@@ -480,7 +476,6 @@ namespace samurai
             if (even_i.is_valid())
             {
                 auto coarse_even_i = even_i >> 1;
-                auto dec_even = (i.start & 1) ? 1 : 0;
                 dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1);
             }
 
@@ -488,7 +483,6 @@ namespace samurai
             if (odd_i.is_valid())
             {
                 auto coarse_odd_i = odd_i >> 1;
-                auto dec_odd = (i.end & 1) ? 1 : 0;
                 dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1);
             }
         }
@@ -607,7 +601,6 @@ namespace samurai
         if (even_i.is_valid())
         {
             auto coarse_even_i = even_i >> 1;
-            auto dec_even = (i.start & 1) ? 1 : 0;
             dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1);
         }
 
@@ -615,7 +608,6 @@ namespace samurai
         if (odd_i.is_valid())
         {
             auto coarse_odd_i = odd_i >> 1;
-            auto dec_odd = (i.end & 1) ? 1 : 0;
             dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1);
         }
     }

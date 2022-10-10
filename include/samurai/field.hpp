@@ -240,7 +240,7 @@ namespace samurai
         mesh_t* p_mesh;
         data_type m_data;
 
-        friend class detail::inner_field_types<Field<mesh_t, value_t, size_>>;
+        friend struct detail::inner_field_types<Field<mesh_t, value_t, size_>>;
     };
 
     template<class mesh_t, class value_t, std::size_t size_>
@@ -285,7 +285,7 @@ namespace samurai
     {
         const interval_t& interval_tmp = p_mesh->get_interval(level, interval, index...);
 
-        if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) or
+        if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) ||
             (interval_tmp.start > interval.start))
         {
             std::cout << fmt::format("{} FIELD ERROR on level {}: try to find interval {}",

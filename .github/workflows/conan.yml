@@ -1,0 +1,85 @@
+name: CI with conan
+
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-2022
+          - ubuntu-22.04
+          - macos-12
+        compiler:
+          - llvm
+          - gcc
+        CMAKE_GENERATOR:
+          - "Ninja Multi-Config"
+        include:
+          - os: windows-2022
+            compiler: msvc
+            CMAKE_GENERATOR: "Visual Studio 17 2022"
+
+        exclude:
+          - os: windows-2022
+            compiler: llvm
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/vcpkg
+            ~/.conan
+            ./build/vcpkg_installed
+            ${{ env.CONAN_USER_HOME }}
+            ~/.cache/pip
+            ${{ env.HOME }}/.cache/vcpkg/archives
+            ${{ env.XDG_CACHE_HOME }}/vcpkg/archives
+            ${{ env.LOCALAPPDATA }}\vcpkg\archives
+            ${{ env.APPDATA }}\vcpkg\archives
+          key: ${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v1
+        with:
+          compiler: ${{ matrix.compiler }}
+          vcvarsall: ${{ contains(matrix.os, 'windows' )}}
+
+          cmake: true
+          ninja: true
+          conan: true
+          vcpkg: false
+          ccache: true
+          clangtidy: false
+          task: false
+
+          cppcheck: false
+
+          gcovr: false
+          opencppcoverage: false
+
+      - name: Install dependencies
+        run: |
+          pip3 install pytest h5py
+      - name: Configure CMake
+        run: |
+          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+      - name: Build
+        run: |
+          cmake --build ./build --config Release
+      - name: Unix test
+        if: runner.os != 'Windows'
+        run: |
+          ./build/test/Release/test_samurai_lib
+          cd test; pytest --h5diff
+      - name: Windows test
+        if: runner.os == 'Windows'
+        run: |
+          .\build\test\Release\test_samurai_lib
+          cd test; pytest --h5diff

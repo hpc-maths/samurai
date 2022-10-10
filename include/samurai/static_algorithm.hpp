@@ -38,7 +38,7 @@ namespace samurai
         }
     } // namespace detail
 
-    template<std::size_t nloops, int start, int end, int step = 1, class Func>
+    template<std::size_t nloops, int start, int end, int step, class Func>
     inline void static_nested_loop(Func&& f)
     {
         xt::xtensor_fixed<int, xt::xshape<nloops>> index;
@@ -48,6 +48,18 @@ namespace samurai
             std::integral_constant<std::size_t, 0>{}
         );
     }
+
+    template<std::size_t nloops, int start, int end, class Func>
+    inline void static_nested_loop(Func&& f)
+    {
+        xt::xtensor_fixed<int, xt::xshape<nloops>> index;
+
+        detail::static_nested_loop_impl<nloops, start, end, 1>(
+            std::forward<Func>(f), index,
+            std::integral_constant<std::size_t, 0>{}
+        );
+    }
+
     // Static loop with boundaries known at runtime
     namespace detail
     {

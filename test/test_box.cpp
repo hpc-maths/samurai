@@ -1,7 +1,7 @@
 #include <algorithm>
 
 #include <gtest/gtest.h>
-#include <rapidcheck/gtest.h>
+// #include <rapidcheck/gtest.h>
 
 #include <xtensor/xarray.hpp>
 
@@ -10,17 +10,17 @@
 namespace samurai
 {
 
-    RC_GTEST_PROP(Box, corner,
-                  (std::array<int, 2> min,
-                   std::array<int, 2> max))
-    {
-        RC_PRE(min[0] < max[0]);
-        RC_PRE(min[1] < max[1]);
+    // RC_GTEST_PROP(Box, corner,
+    //               (std::array<int, 2> min,
+    //                std::array<int, 2> max))
+    // {
+    //     RC_PRE(min[0] < max[0]);
+    //     RC_PRE(min[1] < max[1]);
 
-        Box<int, 2> box{{min[0], min[1]}, {max[0], max[1]}};
-        xt::xarray<int> expected{min[0], min[1]};
-        RC_ASSERT(box.min_corner() == expected);
-    }
+    //     Box<int, 2> box{{min[0], min[1]}, {max[0], max[1]}};
+    //     xt::xarray<int> expected{min[0], min[1]};
+    //     RC_ASSERT(box.min_corner() == expected);
+    // }
 
     TEST(box, min_corner)
     {

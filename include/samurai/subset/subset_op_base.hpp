@@ -60,7 +60,7 @@ namespace samurai
         void reset();
         void init(std::size_t ref_level);
 
-        bool eval(coord_index_t scan, std::size_t dim) const;
+        bool eval(coord_index_t scan, std::size_t d) const;
         void update(coord_index_t scan, coord_index_t sentinel);
 
         void increment_dim();
@@ -82,7 +82,7 @@ namespace samurai
         void init_impl(std::size_t ref_level, std::index_sequence<I...>);
 
         template<std::size_t... I>
-        bool eval_impl(coord_index_t scan, std::size_t dim, std::index_sequence<I...>) const;
+        bool eval_impl(coord_index_t scan, std::size_t d, std::index_sequence<I...>) const;
 
         template<std::size_t... I>
         void update_impl(coord_index_t scan, coord_index_t sentinel, std::index_sequence<I...>);
@@ -240,9 +240,9 @@ namespace samurai
      * @param dim the current dimension
      */
     template<class F, class... CT>
-    inline bool subset_operator<F, CT...>::eval(coord_index_t scan, std::size_t dim) const
+    inline bool subset_operator<F, CT...>::eval(coord_index_t scan, std::size_t d) const
     {
-        return eval_impl(scan, dim, std::make_index_sequence<sizeof...(CT)>());
+        return eval_impl(scan, d, std::make_index_sequence<sizeof...(CT)>());
     }
 
     /**
@@ -476,9 +476,9 @@ namespace samurai
 
     template<class F, class... CT>
     template<std::size_t... I>
-    inline bool subset_operator<F, CT...>::eval_impl(coord_index_t scan, std::size_t dim, std::index_sequence<I...>) const
+    inline bool subset_operator<F, CT...>::eval_impl(coord_index_t scan, std::size_t d, std::index_sequence<I...>) const
     {
-        return m_functor(dim, std::get<I>(m_e).eval(scan, dim)...);
+        return m_functor(d, std::get<I>(m_e).eval(scan, d)...);
     }
 
     template<class F, class... CT>
