@@ -1,5 +1,5 @@
 add_executable(finite-volume-amr-burgers-hat AMR_Burgers_Hat.cpp)
-target_link_libraries(finite-volume-amr-burgers-hat samurai)
+target_link_libraries(finite-volume-amr-burgers-hat samurai CLI11::CLI11)
 
 # add_executable(finite-volume-level-set level_set.cpp)
 # target_link_libraries(finite-volume-level-set samurai)

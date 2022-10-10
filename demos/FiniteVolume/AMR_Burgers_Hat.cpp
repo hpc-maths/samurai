@@ -26,13 +26,12 @@ auto init_solution(Mesh & mesh)
 
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
     {
-        auto center = cell.center();
-        double x = center[0];
-
+        double x = cell.center(0);
         double u = 0.;
 
         // Initial hat solution
-        if (x < -1. or x > 1.)  {
+        if (x < -1. || x > 1.)
+        {
             u = 0.;
         }
         else
@@ -57,13 +56,12 @@ void AMR_criteria(const Field& f, Tag& tag)
 
     tag.fill(static_cast<int>(samurai::CellFlag::keep));
 
-    for (std::size_t level = min_level; level <= max_level; ++level)    {
+    for (std::size_t level = min_level; level <= max_level; ++level)
+    {
         double dx = 1./(1 << level);
 
-        auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                            mesh[mesh_id_t::cells][level]);
-
-        leaves([&](auto& i, auto& ) {
+        samurai::for_each_interval(mesh[mesh_id_t::cells][level], [&](std::size_t, auto& i, auto)
+        {
             auto der_approx = xt::eval(xt::abs((f(level, i + 1) - f(level, i - 1)) / (2.*dx)));
             auto der_der_approx = xt::eval(xt::abs((f(level, i + 1) - 2.*f(level, i) + f(level, i - 1)) / (dx*dx)));
 
