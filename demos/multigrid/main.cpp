@@ -66,17 +66,22 @@ Mesh create_mesh(int n)
 
 static char help[] = "Multigrid program.\n"
             "\n"
-            "-n <int>\n"
-            "     problem size\n"
-            "-mg_transfer <int>\n"
-            "     multigrid transfer operators (default: 4):\n"
-            "     1 - P mat-free, R mat-free (via Fields)\n"
-            "     2 - P mat-free, R mat-free (via double*)\n"
-            "     3 - P assembled, R = P^T\n"
-            "     4 - P assembled, R = assembled\n"
+            "-n <int>                     problem size\n"
+            "-mg_transfer <int>           multigrid transfer operators (default: 4):\n"
+            "        1 - P mat-free, R mat-free (via Fields)\n"
+            "        2 - P mat-free, R mat-free (via double*)\n"
+            "        3 - P assembled, R = P^T\n"
+            "        4 - P assembled, R = assembled\n"
+            "-pred_order <0|1>            prediction order used in the prolongation operator\n"
             "\n"
             "Example of useful Petsc options:\n"
-            "-ksp_view ascii -ksp_monitor ascii -ksp_rtol 1e-9 -ksp_max_it 10 -pc_type mg -pc_mg_levels 3 -mg_levels_up_pc_sor_its 3";
+            "       -ksp_view ascii"
+            "       -ksp_monitor ascii"
+            "       -ksp_rtol 1e-9"
+            "       -ksp_max_it 10"
+            "       -pc_type mg"
+            "       -pc_mg_levels 3"
+            "       -mg_levels_up_pc_sor_its 3";
 
 int main(int argc, char* argv[])
 {

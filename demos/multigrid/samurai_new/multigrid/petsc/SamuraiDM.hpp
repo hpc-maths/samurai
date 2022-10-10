@@ -19,8 +19,8 @@ namespace samurai_new
             using Mesh = typename Dsctzr::Mesh;
             using Field = typename Dsctzr::field_t;
 
-            SamuraiDM(MPI_Comm comm, Dsctzr& discretizer, Mesh& mesh, TransferOperators to) :
-                _ctx(discretizer, mesh, to)
+            SamuraiDM(MPI_Comm comm, Dsctzr& discretizer, Mesh& mesh, TransferOperators to, int prediction_order) :
+                _ctx(discretizer, mesh, to, prediction_order)
             {
                 DMShellCreate(comm, &_dm);
                 DefineShellFunctions(_dm, _ctx);
@@ -144,7 +144,7 @@ namespace samurai_new
                 {
                     Field coarse_field("coarse_field", coarse_ctx->mesh());
                     copy(x, coarse_field);
-                    Field fine_field = multigrid::prolong(coarse_field, fine_ctx->mesh());
+                    Field fine_field = multigrid::prolong(coarse_field, fine_ctx->mesh(), coarse_ctx->prediction_order);
                     copy(fine_field, y);
 
                     // std::cout << "prolongated vector (marche):" << std::endl;
@@ -156,7 +156,7 @@ namespace samurai_new
                     double* yarray;
                     VecGetArrayRead(x, &xarray);
                     VecGetArray(y, &yarray);
-                    multigrid::prolong(coarse_ctx->mesh(), fine_ctx->mesh(), xarray, yarray);
+                    multigrid::prolong(coarse_ctx->mesh(), fine_ctx->mesh(), xarray, yarray, coarse_ctx->prediction_order);
                     VecRestoreArrayRead(x, &xarray);
                     VecRestoreArray(y, &yarray);
 
@@ -213,7 +213,7 @@ namespace samurai_new
                 MatSetSizes(*P, nf, nc, nf, nc);
                 MatSetFromOptions(*P);
                 MatSeqAIJSetPreallocation(*P, stencil_size, NULL);
-                multigrid::set_prolong_matrix(coarse_ctx->mesh(), fine_ctx->mesh(), *P);
+                multigrid::set_prolong_matrix(coarse_ctx->mesh(), fine_ctx->mesh(), *P, coarse_ctx->prediction_order);
                 MatAssemblyBegin(*P, MAT_FINAL_ASSEMBLY);
                 MatAssemblyEnd(*P, MAT_FINAL_ASSEMBLY);
 
