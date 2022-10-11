@@ -16,6 +16,9 @@
 
 #include "../LBM/boundary_conditions.hpp"
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 template <class Mesh>
 auto init_solution(Mesh & mesh)
 {

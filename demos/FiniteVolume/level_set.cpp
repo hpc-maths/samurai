@@ -14,6 +14,8 @@
 
 #include "../LBM/boundary_conditions.hpp"
 
+#include <filesystem>
+namespace fs = std::filesystem;
 
 template <class Mesh>
 auto init_level_set(Mesh& mesh)
@@ -43,6 +45,7 @@ template <class Mesh>
 auto init_velocity(Mesh &mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
+    double PI = xt::numeric_constants<double>::PI;
 
     auto u = samurai::make_field<double, 2>("u", mesh);
     u.fill(0);
@@ -53,8 +56,8 @@ auto init_velocity(Mesh &mesh)
         double x = center[0];
         double y = center[1];
 
-        u[cell][0] = -std::pow(std::sin(M_PI*x), 2.) * std::sin(2.*M_PI*y);
-        u[cell][1] =  std::pow(std::sin(M_PI*y), 2.) * std::sin(2.*M_PI*x);
+        u[cell][0] = -std::pow(std::sin(PI*x), 2.) * std::sin(2.*PI*y);
+        u[cell][1] =  std::pow(std::sin(PI*y), 2.) * std::sin(2.*PI*x);
     });
 
     return u;
