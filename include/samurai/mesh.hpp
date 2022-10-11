@@ -125,6 +125,21 @@ namespace samurai
         std::array<bool, dim> m_periodic;
         mesh_t m_cells;
         ca_type m_union;
+
+        friend class boost::serialization::access;
+
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned long)
+        {
+            for (std::size_t id = 0; id < mesh_t::size; ++id)
+            {
+                ar& m_cells[id];
+            }
+            ar& m_domain;
+            ar& m_union;
+            ar& m_min_level;
+            ar& m_min_level;
+        }
     };
 
     template <class D, class Config>
@@ -444,7 +459,8 @@ namespace samurai
         {
             auto mt = static_cast<mesh_id_t>(id);
 
-            os << fmt::format(fmt::emphasis::bold, "{}\n{:─^50}", mt, "") << std::endl;
+            // os << fmt::format(fmt::emphasis::bold, "{}\n{:─^50}", mt, "") << std::endl;
+            os << fmt::format("{}\n{:─^50}", mt, "") << std::endl;
             os << m_cells[id];
         }
     }
