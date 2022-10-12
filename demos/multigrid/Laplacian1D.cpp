@@ -86,8 +86,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
 
     for(int i=0; i<n; ++i)
     {
-        double v = 1;
-        MatSetValues(A, 1, &i, 1, &i, &v, INSERT_VALUES);
+        MatSetValue(A, i, i, 1., INSERT_VALUES);
     }
 
     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto&)
@@ -102,9 +101,9 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
             auto i_ = static_cast<int>(mesh.get_index(level, ii));
             auto ip1_ = static_cast<int>(mesh.get_index(level, ii+1));
             auto im1_ = static_cast<int>(mesh.get_index(level, ii-1));
-            MatSetValues(A, 1, &i_, 1, &i_, &v_diag, INSERT_VALUES);
-            MatSetValues(A, 1, &i_, 1, &ip1_, &v_off, INSERT_VALUES);
-            MatSetValues(A, 1, &i_, 1, &im1_, &v_off, INSERT_VALUES);
+            MatSetValue(A, i_, i_,  v_diag, INSERT_VALUES);
+            MatSetValue(A, i_, ip1_, v_off, INSERT_VALUES);
+            MatSetValue(A, i_, im1_, v_off, INSERT_VALUES);
         }
     });
 
@@ -121,15 +120,13 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
         {
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                double v = 1;
                 auto i_cell = static_cast<int>(mesh.get_index(level, ii));
-                MatSetValues(A, 1, &i_cell, 1, &i_cell, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i_cell, 1., INSERT_VALUES);
 
-                v = -0.5;
                 auto i1 = static_cast<int>(mesh.get_index(level + 1,     2*ii));
                 auto i2 = static_cast<int>(mesh.get_index(level + 1, 2*ii + 1));
-                MatSetValues(A, 1, &i_cell, 1, &i1, &v, INSERT_VALUES);
-                MatSetValues(A, 1, &i_cell, 1, &i2, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i1, -0.5, INSERT_VALUES);
+                MatSetValue(A, i_cell, i2, -0.5, INSERT_VALUES);
             }
         });
     }
@@ -145,22 +142,20 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
         {
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                double v = 1.;
                 auto i_cell = static_cast<int>(mesh.get_index(level, ii));
-                MatSetValues(A, 1, &i_cell, 1, &i_cell, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i_cell, 1., INSERT_VALUES);
 
                 int sign_i = (ii & 1)? -1: 1;
 
                 for(int is = -1; is<2; ++is)
                 {
                     auto i1 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) + is));
-                    v = -sign_i*pred[is + 1];
-                    MatSetValues(A, 1, &i_cell, 1, &i1, &v, INSERT_VALUES);
+                    double v = -sign_i*pred[is + 1];
+                    MatSetValue(A, i_cell, i1, v, INSERT_VALUES);
                 }
 
                 auto i0 = static_cast<int>(mesh.get_index(level - 1, (ii>>1)));
-                v = -1.;
-                MatSetValues(A, 1, &i_cell, 1, &i0, &v, INSERT_VALUES);
+                MatSetValue(A, i_cell, i0, -1., INSERT_VALUES);
             }
         });
     }
@@ -182,9 +177,8 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
                 {
                     auto i_out = static_cast<int>(mesh.get_index(level, ii));
                     auto i_in = static_cast<int>(mesh.get_index(level, ii - s[0]));
-                    double v = 0.5;
-                    MatSetValues(A, 1, &i_out, 1, &i_out, &v, INSERT_VALUES);
-                    MatSetValues(A, 1, &i_out, 1, &i_in, &v, INSERT_VALUES);
+                    MatSetValue(A, i_out, i_out, 0.5, INSERT_VALUES);
+                    MatSetValue(A, i_out, i_in , 0.5, INSERT_VALUES);
                 }
             });
         }
@@ -215,5 +209,5 @@ Vec assemble_rhs_impl(std::integral_constant<std::size_t, 1>, Field& rhs_field)
         });
     }
 
-    return create_petsc_vector_from(rhs_field);
+    return samurai_new::petsc::create_petsc_vector_from(rhs_field);
 }
