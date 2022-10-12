@@ -105,7 +105,6 @@ namespace samurai_new
                 DMShellGetContext(shell, &ctx);
 
                 ctx->discretizer().assemble_matrix(jac);
-                MatSetOption(jac, MAT_SPD, PETSC_TRUE);
 
                 // MatView(jac, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 return 0;
