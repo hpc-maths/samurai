@@ -27,18 +27,24 @@ namespace samurai
     template <std::size_t dim, class TInterval, class Func>
     inline void for_each_interval(const LevelCellArray<dim, TInterval>& lca, Func&& f)
     {
-        for(auto it = lca.cbegin(); it != lca.cend(); ++it)
+        if (!lca.empty())
         {
-            f(lca.level(), *it, it.index());
+            for(auto it = lca.cbegin(); it != lca.cend(); ++it)
+            {
+                f(lca.level(), *it, it.index());
+            }
         }
     }
 
     template <std::size_t dim, class TInterval, class Func>
     inline void for_each_interval(LevelCellArray<dim, TInterval>& lca, Func&& f)
     {
-        for(auto it = lca.begin(); it != lca.end(); ++it)
+        if (!lca.empty())
         {
-            f(lca.level(), *it, it.index());
+            for(auto it = lca.begin(); it != lca.end(); ++it)
+            {
+                f(lca.level(), *it, it.index());
+            }
         }
     }
 
@@ -47,10 +53,7 @@ namespace samurai
     {
         for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
         {
-            if (!ca[level].empty())
-            {
-                for_each_interval(ca[level], std::forward<Func>(f));
-            }
+            for_each_interval(ca[level], std::forward<Func>(f));
         }
     }
 
@@ -59,10 +62,7 @@ namespace samurai
     {
         for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
         {
-            if (!ca[level].empty())
-            {
-                for_each_interval(ca[level], std::forward<Func>(f));
-            }
+            for_each_interval(ca[level], std::forward<Func>(f));
         }
     }
 

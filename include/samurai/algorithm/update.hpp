@@ -190,10 +190,10 @@ namespace samurai
 
         for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index)
         {
-            auto j = index[0];
+            std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
             for (auto i=interval.start; i<interval.end; ++i)
             {
-                if ( tag[i + interval.index] & static_cast<int>(CellFlag::refine))
+                if ( tag[itag] & static_cast<int>(CellFlag::refine))
                 {
                     static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
                     {
@@ -201,7 +201,7 @@ namespace samurai
                         cl[level + 1][new_index].add_interval({2*i, 2*i + 2});
                     });
                 }
-                else if ( tag[i + interval.index] & static_cast<int>(CellFlag::keep))
+                else if ( tag[itag] & static_cast<int>(CellFlag::keep))
                 {
                     cl[level][index].add_point(i);
                 }
@@ -209,6 +209,7 @@ namespace samurai
                 {
                     cl[level - 1][index >> 1].add_point(i >> 1);
                 }
+                itag++;
             }
         });
 
