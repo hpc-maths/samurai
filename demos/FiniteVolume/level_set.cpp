@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
     app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
     CLI11_PARSE(app, argc, argv);
 
-    samurai::Box<double, dim> box({0, 0}, {1, 1});
+    samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::amr::Mesh<Config> mesh(box, start_level, min_level, max_level);
 
     double dt = cfl/(1<<max_level);

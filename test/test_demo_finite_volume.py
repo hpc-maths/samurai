@@ -22,6 +22,7 @@ def get_executable(path, filename):
         ('finite-volume-scalar-burgers-2d', '0.001'),
         ('finite-volume-amr-burgers-hat', '1'),
         ('finite-volume-level-set', '0.1'),
+        ('finite-volume-level-set-from-scratch', '0.1'),
     ]
 )
 def test_finite_volume_demo(exec, Tf, config):

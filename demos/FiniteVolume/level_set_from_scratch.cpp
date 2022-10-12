@@ -1,6 +1,7 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+#include "CLI/CLI.hpp"
 
 #include <samurai/mesh.hpp>
 #include <samurai/mr/cell_flag.hpp>
@@ -14,9 +15,8 @@
 
 #include "../LBM/boundary_conditions.hpp"
 
-#include <chrono>
-
-constexpr size_t dim = 2;
+#include <filesystem>
+namespace fs = std::filesystem;
 
 enum class SimpleID
 {
@@ -36,6 +36,7 @@ struct fmt::formatter<SimpleID>: formatter<string_view>
     switch (c) {
     case SimpleID::cells:            name = "cells"; break;
     case SimpleID::cells_and_ghosts: name = "cells and ghosts"; break;
+    case SimpleID::count:            name = "count"; break;
     }
     return formatter<string_view>::format(name, ctx);
   }
@@ -46,7 +47,6 @@ struct AMRConfig
 {
     static constexpr std::size_t dim = dim_;
     static constexpr std::size_t max_refinement_level = 20;
-    // static constexpr int ghost_width = 1;
     static constexpr int ghost_width = 2;
 
     using interval_t = samurai::Interval<int>;
@@ -126,17 +126,14 @@ auto init_level_set(Mesh & mesh)
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
     {
         auto center = cell.center();
-
-
         double x = center[0];
         double y = center[1];
-        double radius = .15;
-        double x_center = 0.5, y_center = 0.75;
+        constexpr double radius = .15;
+        constexpr double x_center = 0.5;
+        constexpr double y_center = 0.75;
 
         phi[cell] = std::sqrt(std::pow(x - x_center, 2.) +
                               std::pow(y - y_center, 2.)) - radius;
-        // phi[cell] = std::sqrt(std::pow(x - x_center, 2.) +
-                            //   std::pow(y - y_center, 2.)) - radius > 0. ? 0. : 1.;
     });
 
     return phi;
@@ -145,24 +142,20 @@ auto init_level_set(Mesh & mesh)
 template <class Mesh>
 auto init_velocity(Mesh &mesh)
 {
-
     using mesh_id_t = typename Mesh::mesh_id_t;
+    double PI = xt::numeric_constants<double>::PI;
 
     auto u = samurai::make_field<double, 2>("u", mesh);
     u.fill(0);
 
-
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts], [&](auto &cell)
     {
         auto center = cell.center();
-
         double x = center[0];
         double y = center[1];
 
-        u[cell][0] =    -std::pow(std::sin(M_PI*x), 2.) * std::sin(2.*M_PI*y);
-        u[cell][1] =     std::pow(std::sin(M_PI*y), 2.) * std::sin(2.*M_PI*x);
-        // u[cell][0] =   .3;
-        // u[cell][1] =   .3;
+        u[cell][0] =    -std::pow(std::sin(PI*x), 2.) * std::sin(2.*PI*y);
+        u[cell][1] =     std::pow(std::sin(PI*y), 2.) * std::sin(2.*PI*x);
     });
 
     return u;
@@ -174,9 +167,8 @@ void make_graduation(Field & tag)
     auto mesh = tag.mesh();
     for (std::size_t level = mesh.max_level(); level >= 1; --level)
     {
-
         auto ghost_subset = samurai::intersection(mesh[SimpleID::cells][level],
-                                                mesh[SimpleID::reference][level-1])
+                                                  mesh[SimpleID::reference][level-1])
                         .on(level - 1);
         ghost_subset([&](const auto& i, const auto& index)
         {
@@ -184,12 +176,8 @@ void make_graduation(Field & tag)
             tag(level - 1, i, j) |= static_cast<int>(samurai::CellFlag::keep);
         });
 
-        auto subset_2 = intersection(mesh[SimpleID::cells][level],
-                                        mesh[SimpleID::cells][level]);
-
-        subset_2([&](const auto& interval, const auto& index)
+        samurai::for_each_interval(mesh[SimpleID::cells][level], [&](std::size_t, const auto& i, const auto& index)
         {
-            auto i = interval;
             auto j = index[0];
             xt::xtensor<bool, 1> mask = (tag(level, i, j) & static_cast<int>(samurai::CellFlag::refine));
 
@@ -203,17 +191,16 @@ void make_graduation(Field & tag)
         });
 
         auto keep_subset = samurai::intersection(mesh[SimpleID::cells][level],
-                                                mesh[SimpleID::cells][level])
-                        .on(level - 1);
-        keep_subset([&](const auto& interval, const auto& index)
+                                                 mesh[SimpleID::cells][level])
+                          .on(level - 1);
+        keep_subset([&](const auto& i, const auto& index)
         {
-            auto i = interval;
             auto j = index[0];
 
             xt::xtensor<bool, 1> mask = (tag(level,     2 * i,     2 * j) & static_cast<int>(samurai::CellFlag::keep))
-                                        | (tag(level, 2 * i + 1,     2 * j) & static_cast<int>(samurai::CellFlag::keep))
-                                        | (tag(level,     2 * i, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep))
-                                        | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep));
+                                      | (tag(level, 2 * i + 1,     2 * j) & static_cast<int>(samurai::CellFlag::keep))
+                                      | (tag(level,     2 * i, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep))
+                                      | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep));
 
             xt::masked_view(tag(level,     2 * i,     2 * j), mask) |= static_cast<int>(samurai::CellFlag::keep);
             xt::masked_view(tag(level, 2 * i + 1,     2 * j), mask) |= static_cast<int>(samurai::CellFlag::keep);
@@ -222,20 +209,20 @@ void make_graduation(Field & tag)
 
         });
 
-        xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 1}, {-1, -1}, {-1, 1}, {1, -1}};
+        xt::xtensor_fixed<int, xt::xshape<4, Field::dim>> stencil{{1, 1}, {-1, -1}, {-1, 1}, {1, -1}};
         // xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
         for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
         {
             auto s = xt::view(stencil, i);
             auto subset = samurai::intersection(samurai::translate(mesh[SimpleID::cells][level], s),
-                                            mesh[SimpleID::cells][level - 1])
-                        .on(level);
+                                                mesh[SimpleID::cells][level - 1])
+                         .on(level);
 
-            subset([&](const auto& interval, const auto& index)
+            subset([&](const auto& i, const auto& index)
             {
+                auto i_f = i.even_elements();
                 auto j_f = index[0];
-                auto i_f = interval.even_elements();
 
                 if (i_f.is_valid())
                 {
@@ -248,7 +235,7 @@ void make_graduation(Field & tag)
                     xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::keep);
                 }
 
-                i_f = interval.odd_elements();
+                i_f = i.odd_elements();
                 if (i_f.is_valid())
                 {
                     auto mask = tag(level, i_f  - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::refine);
@@ -273,7 +260,6 @@ void AMR_criteria(const Field& f, Tag& tag)
 
     samurai::for_each_cell(mesh[SimpleID::cells], [&](auto cell)
     {
-
         double dx = 1./(1 << (max_level));
 
         if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)
@@ -304,9 +290,8 @@ void AMR_criteria(const Field& f, Tag& tag)
 template<class Field, class Field_u, class Tag>
 bool update_mesh(Field& f, Field_u& u, Tag& tag)
 {
+    constexpr std::size_t dim = Field::dim;
     using mesh_t = typename Field::mesh_t;
-    using interval_t = typename mesh_t::interval_t;
-    using coord_index_t = typename interval_t::coord_index_t;
     using cl_type = typename mesh_t::cl_type;
 
     auto mesh = f.mesh();
@@ -315,9 +300,10 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
 
     samurai::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
     {
+        std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
         for (int i = interval.start; i < interval.end; ++i)
         {
-            if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
+            if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
             {
                 samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                 {
@@ -325,7 +311,7 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
                     cell_list[level + 1][index].add_interval({2 * i, 2 * i + 2});
                 });
             }
-            else if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
+            else if (tag[itag] & static_cast<int>(samurai::CellFlag::keep))
             {
                 cell_list[level][index_yz].add_point(i);
             }
@@ -333,6 +319,7 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
             {
                 cell_list[level-1][index_yz>>1].add_point(i>>1);
             }
+            itag++;
         }
     });
 
@@ -344,46 +331,8 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
     }
 
     samurai::update_field(tag, f, u);
-    // Field new_f{f.name(), new_mesh};
-    // new_f.fill(0.);
-
-    // Field_u new_u{u.name(), new_mesh};
-    // new_u.fill(0.);
-
-    // for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
-    // {
-    //     auto subset = samurai::intersection(mesh[SimpleID::cells][level],
-    //                                      new_mesh[SimpleID::cells][level]);
-
-    //     subset.apply_op(samurai::copy(new_f, f));
-    //     subset.apply_op(samurai::copy(new_u, u));
-    // }
-
-    // samurai::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
-    // {
-    //     for (coord_index_t i = interval.start; i < interval.end; ++i)
-    //     {
-    //         if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
-    //         {
-    //             samurai::compute_prediction(level, interval_t{i, i + 1}, index_yz, f, new_f);
-    //             samurai::compute_prediction(level, interval_t{i, i + 1}, index_yz, u, new_u);
-    //         }
-    //     }
-    // });
-
-    // for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
-    // {
-    //     auto subset = samurai::intersection(mesh[SimpleID::cells][level],
-    //                                      new_mesh[SimpleID::cells][level - 1])
-    //                  .on(level - 1);
-    //     subset.apply_op(projection(new_f, f));
-    //     subset.apply_op(projection(new_u, u));
-    // }
 
     tag.mesh_ptr()->swap(new_mesh);
-    // std::swap(f.array(), new_f.array());
-    // std::swap(u.array(), new_u.array());
-
     return false;
 }
 
@@ -447,6 +396,7 @@ void update_ghosts(Field& phi, Field_u& u, Func&& update_bc_for_level)
 template <class Field, class Field_u>
 void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, double dt)
 {
+    constexpr std::size_t dim = Field::dim;
     using mesh_t = typename Field::mesh_t;
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using interval_t = typename mesh_t::interval_t;
@@ -524,24 +474,67 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
     }
 }
 
+template <class Field, class Phi>
+void save(const fs::path& path, const std::string& filename, const Field& u, const Phi& phi, const std::string& suffix="")
+{
+    auto mesh = u.mesh();
+    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+
+    if (!fs::exists(path))
+    {
+        fs::create_directory(path);
+    }
+
+    samurai::for_each_cell(mesh, [&](auto &cell)
+    {
+        level_[cell] = cell.level;
+    });
+
+    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, phi, u, level_);
+}
+
 int main(int argc, char *argv[])
 {
+    constexpr size_t dim = 2;
     using Config = AMRConfig<dim>;
-    using interval_t = typename Config::interval_t;
 
+    // Simulation parameters
+    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
+    double Tf = 3.14;
+    double cfl = 5./8;
+
+    // AMR parameters
+    std::size_t start_level = 8;
     std::size_t min_level = 4;
-    // std::size_t min_level = 8;
-
     std::size_t max_level = 8;
-    samurai::Box<double, dim> box({0, 0}, {1, 1});
+    bool correction = false;
+
+    // Output parameters
+    fs::path path = fs::current_path();
+    std::string filename = "FV_level_set_2d";
+    std::size_t nfiles = 1;
+
+    CLI::App app{"Finite volume example with a level set in 2d using AMR"};
+    app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("AMR parameters");
+    app.add_option("--min-level", min_level, "Minimum level of AMR")->capture_default_str()->group("AMR parameters");
+    app.add_option("--max-level", max_level, "Maximum level of AMR")->capture_default_str()->group("AMR parameters");
+    app.add_flag("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")->capture_default_str()->group("AMR parameters");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
+    CLI11_PARSE(app, argc, argv);
+
+    samurai::Box<double, dim> box(min_corner, max_corner);
     AMRMesh<Config> mesh{box, max_level, min_level, max_level};
 
-    // double Tf = 1.; // Final time
-    double Tf = 3.14; // Final time
-
-
-    // double dt = 1./std::sqrt(2.) * 1./(1<<max_level);
-    double dt = 5./8/(1<<max_level);
+    double dt = cfl/(1<<max_level);
+    double dt_save = Tf/static_cast<double>(nfiles);
+    double t = 0.;
 
     // We initialize the level set function
     // We initialize the velocity field
@@ -554,12 +547,13 @@ int main(int argc, char *argv[])
         update_bc_D2Q4_3_Euler_constant_extension(field, level);
     };
 
-    std::size_t Ntot = Tf/dt;
-    for (std::size_t nt=0; nt <= Ntot; ++nt)
 
+    std::size_t nsave = 1;
+    std::size_t nt = 0;
+
+    while (t != Tf)
     {
-        std::cout<<std::endl<<"Iteration "<< nt <<std::endl;
-
+        // AMR adaptation
         std::size_t ite = 0;
         while(true)
         {
@@ -575,18 +569,24 @@ int main(int argc, char *argv[])
             }
         }
 
-        auto level_field = samurai::make_field<std::size_t, 1>("level", mesh);
-        samurai::for_each_cell(mesh[SimpleID::cells], [&](auto &cell)
+        t += dt;
+        if (t > Tf)
         {
-            level_field[cell] = cell.level;
-        });
-        samurai::save(fmt::format("LevelSet_Advection_ite_{}", nt), mesh, phi, u, level_field);
+            dt += Tf - t;
+            t = Tf;
+        }
 
+        std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
+
+        // Numerical scheme
         update_ghosts(phi, u, update_bc_for_level);
         auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
 
         phinp1 = phi - dt * samurai::upwind_variable(u, phi, dt);
-        flux_correction(phinp1, phi, u, dt);
+        if (correction)
+        {
+            flux_correction(phinp1, phi, u, dt);
+        }
 
         std::swap(phi.array(), phinp1.array());
 
@@ -610,6 +610,12 @@ int main(int argc, char *argv[])
             update_ghosts(phihat, u, update_bc_for_level); // Crucial !!!
             phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, max_level));
             std::swap(phi.array(), phinp1.array());
+        }
+
+        if ( t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
+        {
+            std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
+            save(path, filename, u, phi, suffix);
         }
     }
 
