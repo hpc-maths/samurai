@@ -1,6 +1,10 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+#include "CLI/CLI.hpp"
+
+#include <filesystem>
+namespace fs = std::filesystem;
 
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
@@ -29,28 +33,63 @@
  *
  */
 
-int main()
+int main(int argc, char *argv[])
 {
-    constexpr std::size_t dim = 1;
+    // Simulation parameters
+    double cfl = 0.99;
+    double Tf = 1.5;
+    std::size_t nfiles = 1;
+
+    // AMR parameters
     std::size_t start_level = 8;
     std::size_t min_level = 2;
     std::size_t max_level = 8;
+
+    // Output parameters
+    fs::path path = fs::current_path();
+    std::string filename = "amr_1d_burgers_step_6";
+
+    CLI::App app{"Tutorial AMR Burgers 1D step 6"};
+    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--start-level", start_level, "Start level of the AMR")->capture_default_str()->group("AMR parameter");
+    app.add_option("--min-level", min_level, "Minimum level of the AMR")->capture_default_str()->group("AMR parameter");
+    app.add_option("--max-level", max_level, "Maximum level of the AMR")->capture_default_str()->group("AMR parameter");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
+    CLI11_PARSE(app, argc, argv);
+
+    if (!fs::exists(path))
+    {
+        fs::create_directory(path);
+    }
+
+    constexpr std::size_t dim = 1;
 
     samurai::Box<double, dim> box({-3}, {3});
     Mesh<MeshConfig<dim>> mesh(box, start_level, min_level, max_level);
 
     auto phi = init_sol(mesh);
 
-    double Tf = 1.5;
     double dx = 1./(1 << max_level);
-    double dt = 0.99 * dx;
+    double dt = cfl * dx;
+    double dt_save = Tf/static_cast<double>(nfiles);
 
     double t = 0.;
-    std::size_t it = 0;
+    std::size_t nsave = 1;
+    std::size_t nt = 0;
 
-    while (t < Tf)
+    while (t != Tf)
     {
-        fmt::print("Iteration = {:4d} Time = {:5.4}\n", it, t);
+        t += dt;
+        if (t > Tf)
+        {
+            dt += Tf - t;
+            t = Tf;
+        }
+
+        fmt::print("Iteration = {:4d} Time = {:5.4}\n", nt++, t);
 
         std::size_t i_adapt = 0;
         while(i_adapt < (max_level - min_level + 1))
@@ -72,14 +111,18 @@ int main()
         auto phi_np1 = samurai::make_field<double, 1>("phi", mesh);
 
         update_sol(dt, phi, phi_np1);
-        t += dt;
 
-        auto level = samurai::make_field<int, 1>("level", mesh);
-        samurai::for_each_interval(mesh[MeshID::cells], [&](std::size_t l, const auto& i, auto)
+        if ( t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
         {
-            level(l, i) = l;
-        });
-        samurai::save(fmt::format("step_6-{}", it++), mesh, level, phi);
+            auto level = samurai::make_field<int, 1>("level", mesh);
+            samurai::for_each_interval(mesh[MeshID::cells], [&](std::size_t l, const auto& i, auto)
+            {
+                level(l, i) = l;
+            });
+
+            std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
+            samurai::save(path , fmt::format("{}{}", filename, suffix), mesh, phi, level);
+        }
     }
 
     return 0;
