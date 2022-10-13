@@ -30,26 +30,37 @@ class H5File:
     def move(ref_path, current_path, filename):
         if not os.path.exists(ref_path):
             os.mkdir(ref_path)
-        shutil.copyfile(os.path.join(current_path, filename), os.path.abspath(os.path.join(ref_path, filename)))
+        for file in os.listdir(current_path):
+            if file.startswith(filename) and file.endswith('.h5'):
+                shutil.copyfile(os.path.join(current_path, file), os.path.abspath(os.path.join(ref_path, file)))
 
     @classmethod
-    def compare(cls, reference_file, test_file, atol=None, rtol=None):
-        f1 = cls.read(reference_file)
-        f2 = cls.read(test_file)
+    def compare(cls, ref_path, current_path, filename, atol=None, rtol=None):
+        for file in os.listdir(ref_path):
+            if file.startswith(filename) and file.endswith('.h5'):
 
-        def func(name, obj):
-             if isinstance(obj, h5py.Dataset):
-                assert f1[name][...] == pytest.approx(f2[name][...], rel=rtol, abs=atol)
-        try:
-            f1.visititems(func)
-        except AssertionError as exc:
-            message = "\n\na: {0}".format(test_file) + '\n'
-            message += "b: {0}".format(reference_file) + '\n'
-            message += exc.args[0]
-            return False, message
-        else:
-            return True, ""
+                test_file = file
+                ref_file = os.path.basename(file)
+                if not os.path.exists(os.path.join(ref_path, ref_file)):
+                    raise Exception("""File not found for comparison test
+                                    Generated file:
+                                    \t{test}
+                                    This is expected for new tests.""".format(
+                        test=ref_file))
 
+                f1 = cls.read(ref_file)
+                f2 = cls.read(test_file)
+
+                def func(name, obj):
+                    if isinstance(obj, h5py.Dataset):
+                        assert f1[name][...] == pytest.approx(f2[name][...], rel=rtol, abs=atol)
+                try:
+                    f1.visititems(func)
+                except AssertionError as exc:
+                    message = "\n\na: {0}".format(test_file) + '\n'
+                    message += "b: {0}".format(reference_file) + '\n'
+                    message += exc.args[0]
+                    return False, message
         return True, ""
 
 class H5Comparison:
@@ -82,13 +93,13 @@ class H5Comparison:
             pathname = kwargs['config']['path']
 
             if single_reference:
-                filename = original.__name__ + '.' + extension
+                filename = original.__name__
             else:
-                filename = item.name + '.' + extension
+                filename = item.name
                 filename = filename.replace('[', '_').replace(']', '_')
-                filename = filename.replace('_.' + extension, '.' + extension)
+                filename = filename.rstrip('_')
 
-            kwargs['config']['filename'] = os.path.splitext(filename)[0]
+            kwargs['config']['filename'] = filename
 
             if not self.build_ref:
                 result_dir = tempfile.mkdtemp()
@@ -105,6 +116,7 @@ class H5Comparison:
             # files or simply running the test.
             if self.build_ref:
                 ref_path = os.path.join(reference_dir, pathname)
+
                 if not os.path.exists(ref_path):
                     os.makedirs(ref_path)
 
@@ -117,16 +129,9 @@ class H5Comparison:
                 test_h5file = os.path.abspath(os.path.join(result_dir, filename))
 
                 # Find path to baseline array
-                baseline_file_ref = os.path.abspath(os.path.join(os.path.dirname(item.fspath.strpath), reference_dir, pathname, filename))
+                baseline_path_ref = os.path.abspath(os.path.join(os.path.dirname(item.fspath.strpath), reference_dir, pathname))
 
-                if not os.path.exists(baseline_file_ref):
-                    raise Exception("""File not found for comparison test
-                                    Generated file:
-                                    \t{test}
-                                    This is expected for new tests.""".format(
-                        test=filename))
-
-                identical, msg = H5File.compare(baseline_file_ref, test_h5file, atol=atol, rtol=rtol)
+                identical, msg = H5File.compare(baseline_path_ref, result_dir, filename, atol=atol, rtol=rtol)
 
                 if identical:
                     shutil.rmtree(result_dir)

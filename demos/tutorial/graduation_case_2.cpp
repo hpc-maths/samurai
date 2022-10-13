@@ -1,6 +1,10 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+#include "CLI/CLI.hpp"
+
+#include <filesystem>
+namespace fs = std::filesystem;
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xview.hpp>
@@ -34,14 +38,34 @@ auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsa
     return samurai::CellArray<dim>(cl, true);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     constexpr std::size_t dim = 2;
     std::size_t min_level = 1;
     std::size_t max_level = 7;
+    bool with_corner = false;
+
+    // Output parameters
+    fs::path path = fs::current_path();
+    std::string filename = "graduation_case_2";
+
+    CLI::App app{"Graduation example: test case 2"};
+    app.add_option("--min-level", min_level, "Minimum level of the mesh generator")->capture_default_str();
+    app.add_option("--max-level", max_level, "Maximum level of the mesh generator")->capture_default_str();
+    app.add_flag("--with-corner", with_corner, "Make the graduation including the diagonal")->capture_default_str();
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    CLI11_PARSE(app, argc, argv);
+
+    if (!fs::exists(path))
+    {
+        fs::create_directory(path);
+    }
+
     auto ca = generate_mesh(min_level, max_level);
 
-    samurai::save("mesh_before", ca);
+    samurai::save(path, fmt::format("{}_initial", filename), ca);
+
     std::size_t ite = 0;
     while(true)
     {
@@ -85,10 +109,19 @@ int main()
 
         std::swap(ca, new_ca);
     }
-    samurai::save("mesh_after", ca);
 
-    // xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-    xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 1}, {-1, -1}, {-1, 1}, {1, -1}};
+    samurai::save(path, fmt::format("{}_without_intersection", filename), ca);
+
+    xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil;
+    if (with_corner)
+    {
+        stencil = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+    }
+    else
+    {
+        stencil = {{1, 1}, {-1, -1}, {-1, 1}, {1, -1}};
+    }
+
     ite = 0;
     while(true)
     {
@@ -136,7 +169,8 @@ int main()
 
         std::swap(ca, new_ca);
     }
-    samurai::save("mesh_graduated", ca);
+
+    samurai::save(path, fmt::format("{}_graduated", filename), ca);
 
     return 0;
 }

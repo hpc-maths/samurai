@@ -1,8 +1,11 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-
 #include <math.h>
+#include "CLI/CLI.hpp"
+
+#include <filesystem>
+namespace fs = std::filesystem;
 
 #include <xtensor/xmasked_view.hpp>
 
@@ -23,12 +26,32 @@ auto generate_mesh(std::size_t start_level)
     return ca;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     constexpr std::size_t dim = 2;
     std::size_t start_level = 1;
     std::size_t max_level = 6;
     bool with_graduation = true;
+
+    double PI = xt::numeric_constants<double>::PI;
+
+    // Output parameters
+    fs::path path = fs::current_path();
+    std::string filename = "graduation_case_3";
+
+    CLI::App app{"Graduation example: test case 3"};
+    app.add_option("--start-level", start_level, "where to start the mesh generator")->capture_default_str();
+    app.add_option("--max-level", max_level, "Maximum level of the mesh generator")->capture_default_str();
+    app.add_flag("--with-graduation", with_graduation, "Make the mesh graduated")->capture_default_str();
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    CLI11_PARSE(app, argc, argv);
+
+    if (!fs::exists(path))
+    {
+        fs::create_directory(path);
+    }
+
     auto ca = generate_mesh(start_level);
 
     std::size_t ite = 0;
@@ -45,13 +68,12 @@ int main()
             double dx = cell.length;
 
             std::size_t npoints = 1<<(max_level+4);
-            double dt = 2.*M_PI/npoints;
+            double dt = 2.*PI/static_cast<double>(npoints);
             double t = 0;
 
             for(std::size_t it = 0; it < npoints; ++it)
             {
-                // double a = 1, b = 2, delta = 3.1415*.5;
-                double a = 3, b = 2, delta = M_PI*.5;
+                double a = 3, b = 2, delta = PI*.5;
                 double xc = std::sin(a*t + delta);
                 double yc = std::sin(b*t);
 
@@ -130,7 +152,8 @@ int main()
 
         std::swap(ca, new_ca);
     }
-    samurai::save("mesh_case3", ca);
+
+    samurai::save(path, filename, ca);
 
     return 0;
 }

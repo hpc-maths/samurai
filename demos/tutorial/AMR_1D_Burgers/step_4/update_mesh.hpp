@@ -41,13 +41,14 @@ bool update_mesh(Field& f, const Tag& tag)
 
     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& )
     {
+        std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
         for (int i = interval.start; i < interval.end; ++i)
         {
-            if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
+            if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
             {
                 cell_list[level + 1][{}].add_interval({2 * i, 2 * i + 2});
             }
-            else if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
+            else if (tag[itag] & static_cast<int>(samurai::CellFlag::keep))
             {
                 cell_list[level][{}].add_point(i);
             }
@@ -55,6 +56,7 @@ bool update_mesh(Field& f, const Tag& tag)
             {
                 cell_list[level-1][{}].add_point(i>>1);
             }
+            itag++;
         }
     });
 

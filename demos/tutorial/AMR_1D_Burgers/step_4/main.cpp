@@ -1,7 +1,10 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+#include "CLI/CLI.hpp"
 
+#include <filesystem>
+namespace fs = std::filesystem;
 
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
@@ -24,12 +27,31 @@
  *
  */
 
-int main()
+int main(int argc, char *argv[])
 {
-    constexpr std::size_t dim = 1;
+    // AMR parameters
     std::size_t start_level = 8;
     std::size_t min_level = 2;
     std::size_t max_level = 8;
+
+    // Output parameters
+    fs::path path = fs::current_path();
+    std::string filename = "amr_1d_burgers_step_4";
+
+    CLI::App app{"Tutorial AMR Burgers 1D step 4"};
+    app.add_option("--start-level", start_level, "Start level of the AMR")->capture_default_str()->group("AMR parameter");
+    app.add_option("--min-level", min_level, "Minimum level of the AMR")->capture_default_str()->group("AMR parameter");
+    app.add_option("--max-level", max_level, "Maximum level of the AMR")->capture_default_str()->group("AMR parameter");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    CLI11_PARSE(app, argc, argv);
+
+    if (!fs::exists(path))
+    {
+        fs::create_directory(path);
+    }
+
+    constexpr std::size_t dim = 1;
 
     samurai::Box<double, dim> box({-3}, {3});
     Mesh<MeshConfig<dim>> mesh(box, start_level, min_level, max_level);
@@ -44,7 +66,7 @@ int main()
 
         AMR_criterion(phi, tag);
 
-        samurai::save(fmt::format("step_4_criterion-{}", i_adapt++), mesh, phi, tag);
+        samurai::save(path, fmt::format("{}_criterion-{}", filename, i_adapt++), mesh, phi, tag);
 
         if (update_mesh(phi, tag))
         {
@@ -57,7 +79,7 @@ int main()
     {
         level(l, i) = l;
     });
-    samurai::save("step_4", mesh, phi, level);
+    samurai::save(path, filename, mesh, phi, level);
     ////////////////////////////////
 
     return 0;

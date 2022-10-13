@@ -1,17 +1,34 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-
 #include <iostream>
+#include <CLI/CLI.hpp>
+
+#include <filesystem>
+namespace fs = std::filesystem;
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/hdf5.hpp>
 
-int main()
+int main(int argc, char *argv[])
 {
     constexpr std::size_t dim = 2;
     samurai::CellList<dim> cl;
+
+    // Output parameters
+    fs::path path = fs::current_path();
+    std::string filename = "2d_mesh_construction";
+
+    CLI::App app{"Create mesh from CellList and save it"};
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    CLI11_PARSE(app, argc, argv);
+
+    if (!fs::exists(path))
+    {
+        fs::create_directory(path);
+    }
 
     cl[0][{0}].add_interval({0, 4});
     cl[0][{1}].add_interval({0, 1});
@@ -38,6 +55,6 @@ int main()
 
     std::cout << ca << std::endl;
 
-    samurai::save("test", ca);
+    samurai::save(path, filename, ca);
     return 0;
 }
