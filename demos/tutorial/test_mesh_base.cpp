@@ -96,9 +96,9 @@ public:
     void update_sub_mesh_impl()
     {
         cl_type cl;
-        constexpr int gw = static_cast<int>(config::ghost_width);
         for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
+            constexpr int gw = static_cast<int>(config::ghost_width);
             lcl_type& lcl = cl[level];
             samurai::static_nested_loop<dim - 1, -gw, gw + 1>([&](auto stencil)
             {
