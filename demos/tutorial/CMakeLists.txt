@@ -1,22 +1,22 @@
 add_subdirectory(AMR_1D_Burgers)
 
 add_executable(tutorial-2d-mesh 2D_mesh.cpp)
-target_link_libraries(tutorial-2d-mesh PRIVATE samurai)
+target_link_libraries(tutorial-2d-mesh PRIVATE samurai CLI11::CLI11)
 
 add_executable(tutorial-interval interval.cpp)
-target_link_libraries(tutorial-interval PRIVATE samurai)
+target_link_libraries(tutorial-interval PRIVATE samurai CLI11::CLI11)
 
 add_executable(tutorial-mesh-base test_mesh_base.cpp)
-target_link_libraries(tutorial-mesh-base PRIVATE samurai)
+target_link_libraries(tutorial-mesh-base PRIVATE samurai CLI11::CLI11)
 
 add_executable(tutorial-set-operator set_operator.cpp)
-target_link_libraries(tutorial-set-operator PRIVATE samurai)
+target_link_libraries(tutorial-set-operator PRIVATE samurai CLI11::CLI11)
 
 add_executable(tutorial-graduation-case-1 graduation_case_1.cpp)
-target_link_libraries(tutorial-graduation-case-1 PRIVATE samurai)
+target_link_libraries(tutorial-graduation-case-1 PRIVATE samurai CLI11::CLI11)
 
 add_executable(tutorial-graduation-case-2 graduation_case_2.cpp)
-target_link_libraries(tutorial-graduation-case-2 PRIVATE samurai)
+target_link_libraries(tutorial-graduation-case-2 PRIVATE samurai CLI11::CLI11)
 
 add_executable(tutorial-graduation-case-3 graduation_case_3.cpp)
-target_link_libraries(tutorial-graduation-case-3 PRIVATE samurai)
+target_link_libraries(tutorial-graduation-case-3 PRIVATE samurai CLI11::CLI11)
