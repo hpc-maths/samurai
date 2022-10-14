@@ -64,7 +64,7 @@ def test_graduation_3(extra, config):
     list(range(7))
 )
 def test_burgers(step, config):
-    cmd = [get_executable("../build/demos/tutorial/", f"AMR_1D_Burgers/step_{step}/tutorial-burgers1d-step-{step}"),
+    cmd = [get_executable(f"../build/demos/tutorial/AMR_1D_Burgers/step_{step}/", f"tutorial-burgers1d-step-{step}"),
            "--path", config['path'],
            '--filename', config['filename']]
     output = subprocess.run(cmd, check=True, capture_output=True)
