@@ -1,0 +1,70 @@
+import os
+import pytest
+import subprocess
+
+path = 'tutorial'
+
+@pytest.fixture
+def config():
+    return {'path': path}
+
+def get_executable(path, filename):
+    if os.path.exists(os.path.join(path, filename)):
+        return os.path.join(path, filename)
+    return os.path.join(path, 'Release', filename)
+
+@pytest.mark.h5diff()
+def test_2d_mesh(config):
+    cmd = [get_executable("../build/demos/tutorial/", "tutorial-2d-mesh"),
+           "--path", config['path'],
+           '--filename', config['filename']]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    'exec',
+    [
+        'tutorial-graduation-case-1',
+        'tutorial-graduation-case-2',
+    ]
+)
+@pytest.mark.parametrize(
+    'extra',
+    [
+        [],
+        ['--with-corner']
+    ]
+)
+def test_graduation(exec, extra, config):
+    cmd = [get_executable("../build/demos/tutorial/", exec),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           *extra]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    'extra',
+    [
+        [],
+        ['--with-graduation']
+    ]
+)
+def test_graduation_3(extra, config):
+    cmd = [get_executable("../build/demos/tutorial/", "tutorial-graduation-case-3"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           *extra]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    'step',
+    list(range(7))
+)
+def test_burgers(step, config):
+    cmd = [get_executable("../build/demos/tutorial/", f"AMR_1D_Burgers/step_{step}/tutorial-burgers1d-step-{step}"),
+           "--path", config['path'],
+           '--filename', config['filename']]
+    output = subprocess.run(cmd, check=True, capture_output=True)
