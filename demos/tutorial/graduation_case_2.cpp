@@ -20,20 +20,19 @@ namespace fs = std::filesystem;
 auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsamples = 100)
 {
     constexpr std::size_t dim = 2;
-    xt::random::seed(time(NULL));
+    xt::random::seed(42);
 
     samurai::CellList<dim> cl;
     cl[0][{0}].add_point(0);
 
+    auto level = xt::eval(xt::random::randint<std::size_t>({nsamples}, min_level, max_level));
+    auto x = xt::eval(xt::random::rand<double>({nsamples}));
+    auto y = xt::eval(xt::random::rand<double>({nsamples}));
+
     for(std::size_t s = 0; s < nsamples; ++s)
     {
-
-        auto level = xt::random::randint<std::size_t>({1}, min_level, max_level)[0];
-        auto x = xt::random::randint<int>({1}, 0, (1<<level) - 1)[0];
-        auto y = xt::random::randint<int>({1}, 0, (1<<level) - 1)[0];
-
-        cl[level][{y}].add_point(x);
-        std::cout << x << " " << y << std::endl;
+        auto dx = 1./(1 << level[s]);
+        cl[level[s]][{static_cast<int>(y(s)/dx)}].add_point(static_cast<int>(x(s)/dx));
     }
 
     return samurai::CellArray<dim>(cl, true);
