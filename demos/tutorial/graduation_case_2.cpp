@@ -20,7 +20,7 @@ namespace fs = std::filesystem;
 auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsamples = 100)
 {
     constexpr std::size_t dim = 2;
-    xt::random::seed(42);
+    xt::random::seed(time(NULL));
 
     samurai::CellList<dim> cl;
     cl[0][{0}].add_point(0);
