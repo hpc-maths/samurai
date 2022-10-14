@@ -1,5 +1,6 @@
 #pragma once
 #include "samurai_new/multigrid/petsc/utils.hpp"
+#include "utils.hpp"
 
 //-------------------//
 //     Laplacian     //
@@ -7,7 +8,7 @@
 //-------------------//
 
 template<class Mesh>
-std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>, Mesh& mesh)
+std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
     std::size_t n = mesh.nb_cells();
@@ -77,7 +78,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>,
 }
 
 template<class Mesh>
-PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat& A, Mesh& mesh)
+PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
     using interval_t = typename Mesh::interval_t;
@@ -198,7 +199,6 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
     //         This method kills the symmetry of the matrix, but used in an iterative solver it's fine because the residual is always 0
     //         on the Dirichlet unknowns, so the behaviour of the solver is the same as if the unknowns had been eliminated.
     //         (cf. Ern-Guermont 2004 - Theory and practice of FE, §8.4.3 p. 378)
-    bool penalty_method = false;
     double penalty_coeff = 1000;
     for(std::size_t level=min_level; level<=max_level; ++level)
     {
@@ -210,7 +210,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
 
             set([&](const auto& i, const auto& index)
             {   
-                if (penalty_method)
+                if (dirichlet_enfcmt == Penalization)
                 {
                     double dx = 1./(1<<level);
                     double one_over_dx2 = 1./(dx*dx);
@@ -245,7 +245,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
 
 
 template<class Field>
-Vec assemble_rhs_impl(std::integral_constant<std::size_t, 1>, Field& rhs_field)
+Vec assemble_rhs_impl(std::integral_constant<std::size_t, 1>, Field& rhs_field, DirichletEnforcement dirichlet_enfcmt)
 {
     using Mesh = typename Field::mesh_t;
     using mesh_id_t = typename Mesh::mesh_id_t;

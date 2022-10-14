@@ -6,22 +6,22 @@ template<class Field>
 class Laplacian
 {
 private:
-    bool _eliminate_dirichlet_values;
+    DirichletEnforcement _dirichlet_enfcmt = OnesOnDiagonal;
 public:
     using field_t = Field;
     using Mesh = typename Field::mesh_t;
     //static constexpr std::size_t dim = Field::dim;
     const Mesh& mesh;
 
-    Laplacian(const Mesh& m, bool eliminate_dirichlet_values) :
+    Laplacian(const Mesh& m, DirichletEnforcement dirichlet_enfcmt) :
         mesh(m)
     {
-        _eliminate_dirichlet_values = eliminate_dirichlet_values;
+        _dirichlet_enfcmt = dirichlet_enfcmt;
     }
 
     static Laplacian create_coarse(const Laplacian& fine, const Mesh& coarse_mesh)
     {
-        return Laplacian(coarse_mesh, fine._eliminate_dirichlet_values);
+        return Laplacian(coarse_mesh, fine._dirichlet_enfcmt);
     }
 
     void create_matrix(Mat& A)
@@ -32,20 +32,20 @@ public:
         MatSetSizes(A, n, n, n, n);
         MatSetFromOptions(A);
 
-        MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, preallocate_matrix_impl(std::integral_constant<std::size_t, Field::dim>{}, mesh).data());
+        MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, preallocate_matrix_impl(std::integral_constant<std::size_t, Field::dim>{}, mesh, _dirichlet_enfcmt).data());
         // ierr = MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);CHKERRQ(ierr);
     }
 
     PetscErrorCode assemble_matrix(Mat& A)
     {
-        return assemble_matrix_impl(std::integral_constant<std::size_t, Field::dim>{}, A, mesh);
+        return assemble_matrix_impl(std::integral_constant<std::size_t, Field::dim>{}, A, mesh, _dirichlet_enfcmt);
     }
 
     Vec assemble_rhs(Field& rhs_field)
     {
         if (&rhs_field.mesh() != &mesh)
             assert(false && "Not the same mesh");
-        return assemble_rhs_impl(std::integral_constant<std::size_t, Field::dim>{}, rhs_field);
+        return assemble_rhs_impl(std::integral_constant<std::size_t, Field::dim>{}, rhs_field, _dirichlet_enfcmt);
     }
 };
 
