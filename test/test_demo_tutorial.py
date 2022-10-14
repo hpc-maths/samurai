@@ -41,6 +41,7 @@ def test_graduation(exec, extra, config):
            '--filename', config['filename'],
            *extra]
     output = subprocess.run(cmd, check=True, capture_output=True)
+    print(output.stdout)
 
 
 @pytest.mark.h5diff()

@@ -33,6 +33,7 @@ auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsa
         auto y = xt::random::randint<int>({1}, 0, (1<<level) - 1)[0];
 
         cl[level][{y}].add_point(x);
+        std::cout << x << " " << y << std::endl;
     }
 
     return samurai::CellArray<dim>(cl, true);

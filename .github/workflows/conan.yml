@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      # fail-fast: false
       matrix:
         os:
           - windows-2022
@@ -82,4 +82,4 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           .\build\test\Release\test_samurai_lib
-          cd test; pytest --h5diff
+          cd test; pytest -s --h5diff
