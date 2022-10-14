@@ -1,8 +1,6 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-#include <random>
-
 #include "CLI/CLI.hpp"
 
 #include <filesystem>
@@ -22,26 +20,18 @@ namespace fs = std::filesystem;
 auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsamples = 100)
 {
     constexpr std::size_t dim = 2;
-    xt::random::seed(42);
-
-    std::random_device rd;
-    std::default_random_engine e1(rd());
-    e1.seed(42);
-
-    std::uniform_int_distribution<std::size_t> dist(min_level, max_level);
 
     samurai::CellList<dim> cl;
     cl[0][{0}].add_point(0);
 
     for(std::size_t s = 0; s < nsamples; ++s)
     {
-        auto level = dist(e1);
-        std::uniform_int_distribution<int> xdist(0, (1<<level) - 1);
-
-        auto x = xdist(e1);
-        auto y = xdist(e1);
+        auto level = xt::random::randint<std::size_t>({1}, min_level, max_level)[0];
+        auto x = xt::random::randint<int>({1}, 0, (1<<level) - 1)[0];
+        auto y = xt::random::randint<int>({1}, 0, (1<<level) - 1)[0];
 
         cl[level][{y}].add_point(x);
+        std::cout << x << " " << y << std::endl;
     }
 
     return samurai::CellArray<dim>(cl, true);
@@ -53,6 +43,7 @@ int main(int argc, char *argv[])
     std::size_t min_level = 1;
     std::size_t max_level = 7;
     bool with_corner = false;
+    xt::random::seed(42);
 
     // Output parameters
     fs::path path = fs::current_path();
