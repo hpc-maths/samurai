@@ -66,17 +66,29 @@ Mesh create_mesh(int n)
 
 static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "\n"
+            "-------- General\n"
+            "\n"
             "-n <int>                     problem size\n"
-            "-mg_transfer_ops <int>       multigrid transfer operators (default: 4):\n"
+            "-enforce_dbc [p|1]           enforcement of Dirichlet b.c.\n"
+            "                             p  - penalization\n"
+            "                             1  - ones on the diagonal\n"
+            "-save_sol [0|1]              save solution\n"
+            "-save_mesh [0|1]             save mesh\n"
+            "\n"
+            "-------- Samurai Multigrid\n"
+            "\n"
+            "-samg_smooth <...>           smoother used in the samurai multigrid\n"
+            "                             sgs   - symmetric Gauss-Seidel\n"
+            "                             gs    - Gauss-Seidel (pre: lexico., post: antilexico.)\n"
+            "                             petsc - defined by Petsc options (default: Chebytchev polynomials)\n"
+            "-samg_transfer_ops [1:4]     samurai multigrid transfer operators (default: 4):\n"
             "                             1 - P mat-free, R mat-free (via Fields)\n"
             "                             2 - P mat-free, R mat-free (via double*)\n"
             "                             3 - P assembled, R = P^T\n"
             "                             4 - P assembled, R = assembled\n"
-            "-mg_pred_order [0|1]         prediction order used in the prolongation operator\n"
-            "-save_sol [0|1]              save solution\n"
-            "-save_mesh [0|1]             save mesh\n"
+            "-samg_pred_order [0|1]       prediction order used in the prolongation operator\n"
             "\n"
-            "Useful Petsc options:\n"
+            "-------- Useful Petsc options\n"
             "\n"
             "-pc_type [mg|gamg|hypre...]  use 'mg' for the geometric multigrid\n"
             "-ksp_monitor ascii           prints the residual at each iteration\n"
@@ -117,6 +129,25 @@ int main(int argc, char* argv[])
     PetscBool save_mesh = PETSC_FALSE;
     PetscOptionsGetBool(NULL, NULL, "-save_mesh", &save_mesh, NULL);
 
+    PetscBool enforce_dbc_is_set = PETSC_FALSE;
+    DirichletEnforcement enforce_dbc = OnesOnDiagonal;
+    char enforce_dbc_char[2];
+    PetscOptionsGetString(NULL, NULL, "-enforce_dbc", enforce_dbc_char, 2, &enforce_dbc_is_set);
+    if (enforce_dbc_is_set)
+    {
+        if (enforce_dbc_char[0] == 'p')
+            enforce_dbc = Penalization;
+        else if (enforce_dbc_char[0] == '1')
+            enforce_dbc = OnesOnDiagonal;
+        else
+            fatal_error("unknown value for argument -enforce_dbc");
+    }
+    std::cout << "Dirichlet b.c. enforcement: ";
+    if (enforce_dbc == Penalization)
+        std::cout << "penalization" << std::endl;
+    else
+        std::cout << "ones on the diagonal" << std::endl;
+
     //---------------//
     // Mesh creation //
     //---------------//
@@ -155,7 +186,7 @@ int main(int argc, char* argv[])
     // Create problem //
     //----------------//
 
-    Laplacian<Field> laplacian(mesh, false);
+    Laplacian<Field> laplacian(mesh, enforce_dbc);
 
     Field rhs_field("f", mesh);
     rhs_field.fill(1);

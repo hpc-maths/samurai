@@ -2,6 +2,12 @@
 #include <string>
 #include <iostream>
 
+enum DirichletEnforcement : int
+{
+    Penalization,
+    OnesOnDiagonal
+};
+
 void error(std::string msg)
 {
     std::string beginRed = "\033[1;31m";
