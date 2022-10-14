@@ -1,6 +1,8 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+#include <random>
+
 #include "CLI/CLI.hpp"
 
 #include <filesystem>
@@ -22,17 +24,24 @@ auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsa
     constexpr std::size_t dim = 2;
     xt::random::seed(42);
 
+    std::random_device rd;
+    std::default_random_engine e1(rd());
+    e1.seed(42);
+
+    std::uniform_int_distribution<std::size_t> dist(min_level, max_level);
+
     samurai::CellList<dim> cl;
     cl[0][{0}].add_point(0);
 
-    auto level = xt::eval(xt::random::randint<std::size_t>({nsamples}, min_level, max_level));
-    auto x = xt::eval(xt::random::rand<double>({nsamples}));
-    auto y = xt::eval(xt::random::rand<double>({nsamples}));
-
     for(std::size_t s = 0; s < nsamples; ++s)
     {
-        auto dx = 1./(1 << level[s]);
-        cl[level[s]][{static_cast<int>(y(s)/dx)}].add_point(static_cast<int>(x(s)/dx));
+        auto level = dist(e1);
+        std::uniform_int_distribution<int> xdist(0, (1<<level) - 1);
+
+        auto x = xdist(e1);
+        auto y = xdist(e1);
+
+        cl[level][{y}].add_point(x);
     }
 
     return samurai::CellArray<dim>(cl, true);
