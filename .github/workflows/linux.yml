@@ -45,6 +45,9 @@ jobs:
           path: |
             ~/micromamba-root
             ~/.cache/ccache
+          key: ${{ matrix.cpp-version }}-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ matrix.cpp-version }}-
       - name: install compiler
         run: |
           sudo apt update
