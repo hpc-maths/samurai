@@ -62,12 +62,15 @@ jobs:
           gcovr: false
           opencppcoverage: false
 
+      - name: Information about ccache
+        run: |
+          ccache -s -v
       - name: Install dependencies
         run: |
           pip3 install pytest h5py
       - name: Configure CMake
         run: |
-          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           cmake --build ./build --config Release
