@@ -69,7 +69,6 @@ jobs:
       - name: Information about ccache
         run: |
           ccache -s -v
-          echo ${{ env.APPDATA }}
       - name: Install dependencies
         run: |
           pip3 install pytest h5py
