@@ -67,6 +67,7 @@ int main(int argc, char *argv[])
     std::size_t nt = 0;
 
     auto phi_np1 = samurai::make_field<double, 1>("phi", mesh);
+    phi_np1.fill(0.);
 
     while (t != Tf)
     {

@@ -12,6 +12,7 @@ auto init_sol(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;                                // <-----------------
     auto phi = samurai::make_field<double, 1>("phi", mesh);
+    phi.fill(0.);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts], [&](auto &cell)  // <-----------------
     {
