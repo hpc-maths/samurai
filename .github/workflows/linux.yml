@@ -55,6 +55,7 @@ jobs:
           conda list
           conda install -y include-what-you-use ccache
       - name: Information about ccache
+        shell: bash -l {0}
         run: |
           ccache -s -v
       - name: Configure
