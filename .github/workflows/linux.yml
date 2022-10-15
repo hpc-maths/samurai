@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - cpp-version: gcc-9
@@ -37,7 +38,7 @@ jobs:
             cc: "clang-12"
             cxx: "clang++-12"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: install compiler
         run: |
           sudo apt update

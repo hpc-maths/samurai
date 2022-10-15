@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      # fail-fast: false
+      fail-fast: false
       matrix:
         os:
           - windows-2022
@@ -27,10 +27,10 @@ jobs:
             compiler: llvm
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/vcpkg
@@ -41,9 +41,9 @@ jobs:
             ${{ env.XDG_CACHE_HOME }}/vcpkg/archives
             ${{ env.LOCALAPPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\vcpkg\archives
-          key: ${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
+          key: vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
+            vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
       - name: Setup Cpp
         uses: aminya/setup-cpp@v1
         with:
