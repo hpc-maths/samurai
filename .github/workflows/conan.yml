@@ -35,6 +35,7 @@ jobs:
           path: |
             ~/vcpkg
             ~/.conan
+            ~/.cache/ccache
             ./build/vcpkg_installed
             ${{ env.CONAN_USER_HOME }}
             ${{ env.HOME }}/.cache

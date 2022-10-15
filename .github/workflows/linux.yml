@@ -39,6 +39,12 @@ jobs:
             cxx: "clang++-12"
     steps:
       - uses: actions/checkout@v3
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/micromamba-root
+            ~/.cache/ccache
       - name: install compiler
         run: |
           sudo apt update
