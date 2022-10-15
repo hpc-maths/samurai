@@ -36,14 +36,14 @@ jobs:
             ~/vcpkg
             ~/.conan
             ~/.cache/ccache
+            ~/Library/Caches/ccache
             ./build/vcpkg_installed
             ${{ env.CONAN_USER_HOME }}
             ${{ env.HOME }}/.cache
-            ${{ env.HOME }}/Library/Caches/ccache
             ${{ env.XDG_CACHE_HOME }}/vcpkg/archives
             ${{ env.LOCALAPPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\vcpkg\archives
-            ${{ env.APPDATA }}\ccache
+            ${{ env.APPDATA }}\Roaming\ccache
           key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
@@ -69,6 +69,7 @@ jobs:
       - name: Information about ccache
         run: |
           ccache -s -v
+          echo ${{ env.APPDATA }}
       - name: Install dependencies
         run: |
           pip3 install pytest h5py
