@@ -20,6 +20,7 @@ namespace fs = std::filesystem;
 auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsamples = 100)
 {
     constexpr std::size_t dim = 2;
+    xt::random::seed(42);
 
     samurai::CellList<dim> cl;
     cl[0][{0}].add_point(0);
@@ -31,7 +32,6 @@ auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsa
         auto y = xt::random::randint<int>({1}, 0, (1<<level) - 1)[0];
 
         cl[level][{y}].add_point(x);
-        std::cout << x << " " << y << std::endl;
     }
 
     return samurai::CellArray<dim>(cl, true);
@@ -43,7 +43,6 @@ int main(int argc, char *argv[])
     std::size_t min_level = 1;
     std::size_t max_level = 7;
     bool with_corner = false;
-    xt::random::seed(42);
 
     // Output parameters
     fs::path path = fs::current_path();
