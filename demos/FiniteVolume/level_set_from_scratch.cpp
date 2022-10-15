@@ -212,9 +212,9 @@ void make_graduation(Field & tag)
         xt::xtensor_fixed<int, xt::xshape<4, Field::dim>> stencil{{1, 1}, {-1, -1}, {-1, 1}, {1, -1}};
         // xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
-        for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
+        for(std::size_t is = 0; is < stencil.shape()[0]; ++is)
         {
-            auto s = xt::view(stencil, i);
+            auto s = xt::view(stencil, is);
             auto subset = samurai::intersection(samurai::translate(mesh[SimpleID::cells][level], s),
                                                 mesh[SimpleID::cells][level - 1])
                          .on(level);

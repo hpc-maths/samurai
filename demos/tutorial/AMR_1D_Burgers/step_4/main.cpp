@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
         };
     }
 
-    auto level = samurai::make_field<int, 1>("level", mesh);
+    auto level = samurai::make_field<std::size_t, 1>("level", mesh);
     samurai::for_each_interval(mesh[MeshID::cells], [&](std::size_t l, const auto& i, auto)
     {
         level(l, i) = l;

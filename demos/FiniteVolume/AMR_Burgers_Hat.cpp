@@ -30,17 +30,17 @@ auto init_solution(Mesh & mesh)
     samurai::for_each_cell(mesh[mesh_id_t::cells], [&](auto &cell)
     {
         double x = cell.center(0);
-        double u = 0.;
+        // double u = 0.;
 
-        // Initial hat solution
-        if (x < -1. || x > 1.)
-        {
-            u = 0.;
-        }
-        else
-        {
-            u = (x < 0.) ? (1 + x) : (1 - x);
-        }
+        // // Initial hat solution
+        // if (x < -1. || x > 1.)
+        // {
+        //     u = 0.;
+        // }
+        // else
+        // {
+        //     u = (x < 0.) ? (1 + x) : (1 - x);
+        // }
 
         // phi[cell] = u;
         phi[cell] = std::exp(-20.*x*x);

@@ -250,15 +250,15 @@ int main(int argc, char *argv[])
     auto phihat = samurai::make_field<double, 1>("phi", mesh);
     auto tag = samurai::make_field<int, 1>("tag", mesh);
 
-    auto update_bc = [](std::size_t level, auto& phi, auto& u)
+    auto update_bc = [](std::size_t level, auto& phi_, auto& u_)
     {
-        update_bc_D2Q4_3_Euler_constant_extension(phi, level);
-        update_bc_D2Q4_3_Euler_constant_extension(u, level);
+        update_bc_D2Q4_3_Euler_constant_extension(phi_, level);
+        update_bc_D2Q4_3_Euler_constant_extension(u_, level);
     };
 
-    auto update_bc_phi = [](std::size_t level, auto& phi)
+    auto update_bc_phi = [](std::size_t level, auto& phi_)
     {
-        update_bc_D2Q4_3_Euler_constant_extension(phi, level);
+        update_bc_D2Q4_3_Euler_constant_extension(phi_, level);
     };
 
     xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil_grad{{ 1, 0 }, { -1,  0 },
