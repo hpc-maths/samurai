@@ -67,7 +67,6 @@ namespace samurai
 
             prediction_map& operator*=(const double d)
             {
-                std::size_t index=0;
                 for(auto& c: coeff)
                 {
                     c.second *= d;
@@ -167,7 +166,7 @@ namespace samurai
             {
                 if (ci != order)
                 {
-                    values[{level, i}] += interp[ci]*prediction<order, index_t>(level-1, ig + ci - order);
+                    values[{level, i}] += interp[ci]*prediction<order, index_t>(level-1, ig + static_cast<index_t>(ci - order));
                 }
             }
             return values[{level, i}];
@@ -213,7 +212,7 @@ namespace samurai
                 {
                     if (ci != order || cj != order)
                     {
-                        values[{level, i, j}] += interpx[ci]*interpy[cj]*prediction_2d<order, index_t>(level-1, ig + ci - order, jg + cj - order);
+                        values[{level, i, j}] += interpx[ci]*interpy[cj]*prediction_2d<order, index_t>(level-1, ig + static_cast<index_t>(ci - order), jg + static_cast<index_t>(cj - order));
                     }
                 }
             }
@@ -265,7 +264,7 @@ namespace samurai
                     {
                        if (ci != order || cj != order || ck != order)
                         {
-                            values[{level, i, j, k}] += interpx[ci]*interpy[cj]*interpz[ck]*prediction_3d<order, index_t>(level-1, ig + ci - order, jg + cj - order, kg + ck - order);
+                            values[{level, i, j, k}] += interpx[ci]*interpy[cj]*interpz[ck]*prediction_3d<order, index_t>(level-1, ig + static_cast<index_t>(ci - order), jg + static_cast<index_t>(cj - order), kg + static_cast<index_t>(ck - order));
                         }
                     }
                 }
@@ -290,15 +289,15 @@ namespace samurai
             using index_t = typename T2::interval_t::value_t;
             constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
 
-            int delta_l = reconstruct_level - level;
+            std::size_t delta_l = reconstruct_level - level;
             if (delta_l == 0)
             {
                 dest(level, i) = src(level, i);
             }
             else
             {
-                std::size_t nb_cells = 1<<delta_l;
-                for (int ii = 0; ii < nb_cells; ++ii)
+                index_t nb_cells = 1<<delta_l;
+                for (index_t ii = 0; ii < nb_cells; ++ii)
                 {
                     auto pred = prediction<prediction_order, index_t>(delta_l, ii);
                     for(auto& kv: pred.coeff)
@@ -317,18 +316,18 @@ namespace samurai
             using index_t = typename T2::interval_t::value_t;
             constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
 
-            int delta_l = reconstruct_level - level;
+            std::size_t delta_l = reconstruct_level - level;
             if (delta_l == 0)
             {
                 dest(level, i, j) = src(level, i, j);
             }
             else
             {
-                std::size_t nb_cells = 1<<delta_l;
-                for (int jj = 0; jj < nb_cells; ++jj)
+                index_t nb_cells = 1<<delta_l;
+                for (index_t jj = 0; jj < nb_cells; ++jj)
                 {
                     auto j_f = (j<<delta_l) + jj;
-                    for (int ii = 0; ii < nb_cells; ++ii)
+                    for (index_t ii = 0; ii < nb_cells; ++ii)
                     {
                         auto pred = prediction_2d<prediction_order, index_t>(delta_l, ii, jj);
                         auto i_f = (i<<delta_l) + ii;
@@ -349,21 +348,21 @@ namespace samurai
             using index_t = typename T2::interval_t::value_t;
             constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
 
-            int delta_l = reconstruct_level - level;
+            std::size_t delta_l = reconstruct_level - level;
             if (delta_l == 0)
             {
                 dest(level, i, j, k) = src(level, i, j, k);
             }
             else
             {
-                std::size_t nb_cells = 1<<delta_l;
-                for (int kk = 0; kk < nb_cells; ++kk)
+                index_t nb_cells = 1<<delta_l;
+                for (index_t kk = 0; kk < nb_cells; ++kk)
                 {
                     auto k_f = (k<<delta_l) + kk;
-                    for (int jj = 0; jj < nb_cells; ++jj)
+                    for (index_t jj = 0; jj < nb_cells; ++jj)
                     {
                         auto j_f = (j<<delta_l) + jj;
-                        for (int ii = 0; ii < nb_cells; ++ii)
+                        for (index_t ii = 0; ii < nb_cells; ++ii)
                         {
                             auto pred = prediction_3d<prediction_order, index_t>(delta_l, ii, jj, kk);
                             auto i_f = (i<<delta_l) + ii;
@@ -393,8 +392,7 @@ namespace samurai
         using mesh_t = typename Field::mesh_t;
         using mesh_id_t = typename mesh_t::mesh_id_t;
         using ca_type = typename mesh_t::ca_type;
-        constexpr std::size_t prediction_order = mesh_t::config::prediction_order;
-        using index_t = typename Field::interval_t::value_t;
+
         auto mesh = field.mesh();
         ca_type reconstruct_mesh;
         std::size_t reconstruct_level = mesh.domain().level();
@@ -422,8 +420,6 @@ namespace samurai
     {
         using value_t = typename Field::value_type;
         using mesh_t = typename Field::mesh_t;
-        using mesh_id_t = typename mesh_t::mesh_id_t;
-        using ca_type = typename mesh_t::ca_type;
         constexpr std::size_t prediction_order = mesh_t::config::prediction_order;
         using index_t = typename Field::interval_t::value_t;
 

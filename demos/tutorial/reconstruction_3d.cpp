@@ -49,7 +49,6 @@ int main()
 
     using UConfig = samurai::UniformConfig<dim>;
     using UMesh = samurai::UniformMesh<UConfig>;
-    using umesh_id_t = typename UMesh::mesh_id_t;
 
     std::size_t min_level = 2, max_level = 6;
     samurai::Box<double, dim> box({-1, -1, -1}, {1, 1, 1});
@@ -58,7 +57,7 @@ int main()
     auto u = init(mrmesh);
     auto u_exact = init(umesh);
 
-    auto update_bc_for_level = [](auto& field, std::size_t level)
+    auto update_bc_for_level = [](auto&, std::size_t)
     {
     };
 
@@ -69,7 +68,7 @@ int main()
     auto level_ = samurai::make_field<std::size_t, 1>("level", mrmesh);
 
     samurai::for_each_cell(mrmesh[mrmesh_id_t::cells], [&](auto &cell) {
-        level_[cell] = static_cast<double>(cell.level);
+        level_[cell] = cell.level;
     });
 
     samurai::update_ghost_mr(u, update_bc_for_level);
