@@ -1,12 +1,11 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-
 #include <iostream>
-#include <sstream>
-#include <chrono>
+#include "CLI/CLI.hpp"
 
-#include <cxxopts.hpp>
+#include <filesystem>
+namespace fs = std::filesystem;
 
 #include <samurai/cell_list.hpp>
 #include <samurai/cell_array.hpp>
@@ -61,9 +60,10 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
         cl_type cl;
         samurai::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
+            std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
-                if (cell_tag[i + interval.index])
+                if (cell_tag[itag])
                 {
                     samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                     {
@@ -75,6 +75,7 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
                 {
                     cl[level][index_yz].add_point(i);
                 }
+                itag++;
             }
         });
 
@@ -115,9 +116,9 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
             // xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
             xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 1}, {-1, -1}, {-1, 1}, {1, -1}};
 
-            for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
+            for(std::size_t is = 0; is < stencil.shape()[0]; ++is)
             {
-                auto s = xt::view(stencil, i);
+                auto s = xt::view(stencil, is);
                 auto subset = samurai::intersection(samurai::translate(mesh[level], s),
                                                  mesh[level - 1])
                              .on(level);
@@ -150,9 +151,10 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
         cl_type cl;
         samurai::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
+            std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
             for (coord_index_t i = interval.start; i < interval.end; ++i)
             {
-                if (cell_tag[i + interval.index])
+                if (cell_tag[itag])
                 {
                     samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                     {
@@ -164,6 +166,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
                 {
                     cl[level][index_yz].add_point(i);
                 }
+                itag++;
             }
         });
 
@@ -174,18 +177,26 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 int main(int argc, char *argv[])
 {
     constexpr size_t dim = 2;
+
+    // Adaptation parameters
+    std::size_t max_level = 9;
+
+    // Output parameters
+    fs::path path = fs::current_path();
+    std::string filename = "simple_2d";
+
+    CLI::App app{"simple 2d p4est example (see https://github.com/cburstedde/p4est/blob/master/example/simple/simple2.c)"};
+    app.add_option("--max-level", max_level, "Maximum level of the adaptation")->capture_default_str()->group("Adaptation parameters");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    CLI11_PARSE(app, argc, argv);
+
+    if (!fs::exists(path))
+    {
+        fs::create_directory(path);
+    }
+
     samurai::CellList<dim> cl;
-
-    cxxopts::Options options("simple_2d", "simple 2d p4est examples");
-
-    options.add_options()
-                       ("max_level", "maximum level", cxxopts::value<std::size_t>()->default_value("8"));
-                    //    ("test", "test case (1: gaussian, 2: diamond, 3: circle)", cxxopts::value<std::size_t>()->default_value("1"))
-                    //    ("log", "log level", cxxopts::value<std::string>()->default_value("warning"))
-                    //    ("h, help", "Help");
-    auto result = options.parse(argc, argv);
-
-    std::size_t max_level = result["max_level"].as<std::size_t>();
 
     cl[1][{0}].add_interval({1, 2});
     cl[1][{1}].add_interval({0, 1});
@@ -217,7 +228,7 @@ int main(int argc, char *argv[])
     {
         level[cell] = cell.level;
     });
-    samurai::save("simple_2d", mesh_2, level);
+    samurai::save(path, filename, mesh_2, level);
 
     return 0;
 }
