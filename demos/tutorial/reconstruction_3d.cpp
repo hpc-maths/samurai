@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
     fs::path path = fs::current_path();
     std::string filename = "reconstruction_3d";
 
-    CLI::App app{"1d reconstruction of an adapted solution using multiresolution"};
+    CLI::App app{"3d reconstruction of an adapted solution using multiresolution"};
     app.add_option("--case", test_case, "Test case")->capture_default_str()->transform(CLI::CheckedTransformer(map, CLI::ignore_case));
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
