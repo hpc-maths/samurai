@@ -51,6 +51,7 @@ struct fmt::formatter<SimpleID>: formatter<string_view>
     switch (c) {
     case SimpleID::cells:           name = "cells"; break;
     case SimpleID::ghost_and_cells: name = "ghost_and_cells"; break;
+    case SimpleID::count:           name = "count"; break;
     }
     return formatter<string_view>::format(name, ctx);
   }
@@ -192,8 +193,6 @@ int main()
                 return 0;
             };
 
-            std::size_t min_level = mesh.min_level();
-            std::size_t max_level = mesh.max_level();
             auto tag = samurai::make_field<int, 1>("tag", mesh);
             auto level_data = samurai::make_field<std::size_t, 1>("level", mesh);
             samurai::for_each_cell(mesh[SimpleID::cells], [&](auto cell)
@@ -220,10 +219,10 @@ int main()
 
                     for(std::size_t i = 0; i < 2; ++i)
                     {
-                        double x = corner[0] + i*dx;
+                        double x = corner[0] + static_cast<double>(i)*dx;
                         for(std::size_t j = 0; j < 2; ++j)
                         {
-                            double y = corner[1] + j*dx;
+                            double y = corner[1] + static_cast<double>(j)*dx;
                             if (((!inside) && (std::pow((x - xc), 2.0) + pow((y - yc), 2.0) <= 1.25*std::pow(radius, 2.0)
                                         &&  std::pow((x - xc), 2.0) + pow((y - yc), 2.0) >= 0.75*std::pow(radius, 2.0)))
                             || ((!inside) && (std::pow((center[0] - xc), 2.0) + std::pow((center[1] - yc), 2.0) <= 1.25*std::pow(radius, 2.0)
@@ -343,9 +342,10 @@ int main()
 
             samurai::for_each_interval(mesh[SimpleID::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
             {
+                std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
                 for (int i = interval.start; i < interval.end; ++i)
                 {
-                    if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
+                    if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
                     {
                         samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
                         {
@@ -353,7 +353,7 @@ int main()
                             cell_list[level + 1][index].add_interval({2 * i, 2 * i + 2});
                         });
                     }
-                    else if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
+                    else if (tag[itag] & static_cast<int>(samurai::CellFlag::keep))
                     {
                         cell_list[level][index_yz].add_point(i);
                     }
@@ -361,6 +361,7 @@ int main()
                     {
                         cell_list[level-1][index_yz>>1].add_point(i>>1);
                     }
+                    itag++;
                 }
             });
 

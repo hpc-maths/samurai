@@ -58,15 +58,20 @@ class H5File:
                 ref_file = cls.read(os.path.join(ref_path, file))
                 test_file = cls.read(os.path.join(test_path, file))
 
+                dataset = None
                 def func(name, obj):
                     if isinstance(obj, h5py.Dataset):
-                        assert ref_file[name][...] == pytest.approx(test_file[name][...], rel=rtol, abs=atol)
+                        dataset = obj
+                        assert test_file[name][...] == pytest.approx(ref_file[name][...], rel=rtol, abs=atol)
                 try:
                     ref_file.visititems(func)
                 except AssertionError as exc:
-                    message = "\n\na: {0}".format(test_file) + '\n'
-                    message += "b: {0}".format(ref_file) + '\n'
-                    message += exc.args[0]
+                    message = f"""
+                    datatset: {dataset}
+                    a: {os.path.join(ref_path, file)}
+                    b: {os.path.join(test_path, file)}
+                    {exc.args[0]}
+                    """
                     return False, message
         return True, ""
 

@@ -1,10 +1,14 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-
 #include <iostream>
+#include "CLI/CLI.hpp"
 
-#include <xtensor/xfixed.hpp>
+#include <filesystem>
+namespace fs = std::filesystem;
+
+#include <xtensor/xtensor.hpp>
+#include <xtensor/xadapt.hpp>
 #include <xtensor/xrandom.hpp>
 
 #include <samurai/box.hpp>
@@ -13,16 +17,97 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
 
+
+template <class Mesh, class Container>
+void update_mesh(Mesh& mesh, std::size_t min_level, std::size_t max_level, const Container& bb_xcenter, const Container& bb_ycenter, const Container& bb_radius)
+{
+    constexpr std::size_t dim = Mesh::dim;
+    std::size_t nb_bubbles = bb_xcenter.shape(0);
+
+    auto tag = samurai::make_field<int, 1>("tag", mesh);
+    tag.fill(static_cast<int>(samurai::CellFlag::keep));
+
+    samurai::for_each_cell(mesh, [&](auto cell)
+    {
+        bool inside = false;
+        std::size_t ib = 0;
+
+        while (!inside && ib < nb_bubbles)
+        {
+            double xc = bb_xcenter[ib];
+            double yc = bb_ycenter[ib];
+            double radius = bb_radius[ib];
+
+            auto corner = cell.corner();
+            auto center = cell.center();
+            double dx = cell.length;
+
+            for(std::size_t i = 0; i < 2; ++i)
+            {
+                double x = corner[0] + static_cast<double>(i)*dx;
+                for(std::size_t j = 0; j < 2; ++j)
+                {
+                    double y = corner[1] + static_cast<double>(j)*dx;
+                    if (((!inside) && (std::pow((x - xc), 2.0) + pow((y - yc), 2.0) <= 1.25*std::pow(radius, 2.0)
+                                &&  std::pow((x - xc), 2.0) + pow((y - yc), 2.0) >= 0.75*std::pow(radius, 2.0)))
+                    || ((!inside) && (std::pow((center[0] - xc), 2.0) + std::pow((center[1] - yc), 2.0) <= 1.25*std::pow(radius, 2.0)
+                                &&  std::pow((center[0] - xc), 2.0) + std::pow((center[1] - yc), 2.0) >= 0.75*std::pow(radius, 2.0))))
+                    {
+                        if (cell.level < max_level)
+                        {
+                            tag[cell] = static_cast<int>(samurai::CellFlag::refine);
+                        }
+                        inside = true;
+                    }
+                }
+            }
+            ib++;
+        }
+
+        if (cell.level > min_level && !inside)
+        {
+            tag[cell] = static_cast<int>(samurai::CellFlag::coarsen);
+        }
+    });
+
+    samurai::CellList<dim> cell_list;
+
+    samurai::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
+    {
+        std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
+        for (int i = interval.start; i < interval.end; ++i)
+        {
+            if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
+            {
+                samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
+                {
+                    auto index = 2 * index_yz + stencil;
+                    cell_list[level + 1][index].add_interval({2 * i, 2 * i + 2});
+                });
+            }
+            else if (tag[itag] & static_cast<int>(samurai::CellFlag::keep))
+            {
+                cell_list[level][index_yz].add_point(i);
+            }
+            else
+            {
+                cell_list[level-1][index_yz>>1].add_point(i>>1);
+            }
+            itag++;
+        }
+    });
+
+    mesh = {cell_list, true};
+}
+
 template <std::size_t dim>
 void remove_intersection(samurai::CellArray<dim>& ca)
 {
     auto min_level = ca.min_level();
     auto max_level = ca.max_level();
-    std::size_t ite = 0;
 
     while(true)
     {
-        // std::cout << "Iteration for remove intersection: " << ite++ << "\n";
         auto tag = samurai::make_field<bool, 1>("tag", ca);
         tag.fill(false);
 
@@ -69,12 +154,10 @@ void make_graduation(samurai::CellArray<dim>& ca)
 {
     auto min_level = ca.min_level();
     auto max_level = ca.max_level();
-    std::size_t ite = 0;
     // xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil{{1, 1}, {-1, -1}, {-1, 1}, {1, -1}};
     while(true)
     {
-        // std::cout << "Iteration for graduation: " << ite++ << "\n";
         auto tag = samurai::make_field<bool, 1>("tag", ca);
         tag.fill(false);
 
@@ -82,9 +165,9 @@ void make_graduation(samurai::CellArray<dim>& ca)
         {
             for(std::size_t level_below = min_level; level_below < level - 1; ++level_below)
             {
-                for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
+                for(std::size_t is = 0; is < stencil.shape()[0]; ++is)
                 {
-                    auto s = xt::view(stencil, i);
+                    auto s = xt::view(stencil, is);
                     auto set = samurai::intersection(samurai::translate(ca[level], s), ca[level_below]).on(level_below);
                     set([&](const auto& i, const auto& index)
                     {
@@ -120,129 +203,98 @@ void make_graduation(samurai::CellArray<dim>& ca)
     }
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-    constexpr std::size_t nb_bubbles = 10;
     constexpr std::size_t dim = 2;
-    constexpr std::size_t start_level = 4;
-    constexpr std::size_t min_level = 1;
-    constexpr std::size_t max_level = 9;
 
-    using container_t = xt::xtensor_fixed<double, xt::xshape<nb_bubbles>>;
+    // Simulation parameters
+    std::vector<double> min_corner_v = {0., 0.};
+    std::vector<double> max_corner_v = {1., 1.};
+    std::size_t nb_bubbles = 10;
+    double Tf = 100;
+    double dt = 0.5;
 
-    container_t bb_xcenter, bb_ycenter;
-    container_t bb0_xcenter, bb0_ycenter;
-    container_t bb_radius;
-    container_t dy;
-    container_t omega;
-    container_t aa;
+    // Adaptation parameters
+    std::size_t start_level = 4;
+    std::size_t min_level = 1;
+    std::size_t max_level = 9;
 
-    bb_xcenter = 0.8*xt::random::rand<double>({nb_bubbles}) + 0.1;
-    bb0_xcenter = bb_xcenter;
-    bb_ycenter = xt::random::rand<double>({nb_bubbles}) - 0.5;
-    bb0_ycenter = bb_ycenter;
-    bb_radius = 0.1*xt::random::rand<double>({nb_bubbles}) + 0.02;
-    dy = 0.005 + 0.05*xt::random::rand<double>({nb_bubbles});
-    omega = 0.5*xt::random::rand<double>({nb_bubbles});
-    aa = 0.15*xt::random::rand<double>({nb_bubbles});
+    // Output parameters
+    fs::path path = fs::current_path();
+    std::string filename = "bubble_2d";
+    std::size_t nfiles = 1;
+
+    CLI::App app{"2d bubble example from pablo (see https://github.com/optimad/bitpit/blob/master/examples/PABLO_bubbles_2D.cpp)"};
+    app.add_option("--min-corner", min_corner_v, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", max_corner_v, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--nb-bubbles", nb_bubbles, "Number of bubbles")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("Adaptation parameters");
+    app.add_option("--min-level", min_level, "Minimum level of AMR")->capture_default_str()->group("Adaptation parameters");
+    app.add_option("--max-level", max_level, "Maximum level of AMR")->capture_default_str()->group("Adaptation parameters");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
+    CLI11_PARSE(app, argc, argv);
+
+    if (!fs::exists(path))
+    {
+        fs::create_directory(path);
+    }
+
+    auto min_corner(xt::adapt(min_corner_v));
+    auto max_corner(xt::adapt(max_corner_v));
+    double x_length = max_corner(0) - min_corner(0);
+    double y_length = max_corner(1) - min_corner(1);
+
+    xt::random::seed(42);
+    using container_t = xt::xtensor<double, 1>;
+    container_t bb_xcenter = 0.8*x_length*xt::random::rand<double>({nb_bubbles}) + 0.1*x_length;
+    container_t bb0_xcenter = bb_xcenter;
+    container_t bb_ycenter = y_length*xt::random::rand<double>({nb_bubbles}) - 0.5*y_length;
+    container_t bb0_ycenter = bb_ycenter;
+    container_t bb_radius = 0.1*xt::random::rand<double>({nb_bubbles}) + 0.02;
+    container_t dy = 0.005 + 0.05*xt::random::rand<double>({nb_bubbles});
+    container_t omega = 0.5*xt::random::rand<double>({nb_bubbles});
+    container_t aa = 0.15*xt::random::rand<double>({nb_bubbles});
 
     samurai::CellArray<dim> mesh;
 
-    mesh[start_level] = {start_level, samurai::Box<int, dim>({0, 0}, {1<<start_level, 1<<start_level})};
+    samurai::Box<double, dim> box(min_corner, max_corner);
+    mesh[start_level] = {start_level, box};
 
-    double t0 = 0;
-    double t = t0;
-    double Tf = 100;
-    double Dt = .5;
+    double dt_save = Tf/static_cast<double>(nfiles);
+    double t = 0.;
 
-    std::size_t ite = 0;
-    while( t < Tf)
+    std::size_t nsave = 1, nt = 0;
+
+    while (t != Tf)
     {
-        t += Dt;
-        bb_xcenter = bb0_xcenter + aa*xt::cos(omega*t);
-        bb_ycenter = bb_ycenter + Dt*dy;
+        t += dt;
+        if (t > Tf)
+        {
+            dt += Tf - t;
+            t = Tf;
+        }
 
-        std::cout << fmt::format("iteration -> {} t -> {}", ite, t) << std::endl;
+        bb_xcenter = bb0_xcenter + aa*xt::cos(omega*t);
+        bb_ycenter = bb_ycenter + dt*dy;
+
+        std::cout << fmt::format("iteration -> {} t -> {}", nt++, t) << std::endl;
 
         for(std::size_t rep = 0; rep < 10; ++rep)
         {
-            auto tag = samurai::make_field<int, 1>("tag", mesh);
-            tag.fill(static_cast<int>(samurai::CellFlag::keep));
-
-            samurai::for_each_cell(mesh, [&](auto cell)
-            {
-                bool inside = false;
-                std::size_t ib = 0;
-
-                while (!inside && ib < nb_bubbles)
-                {
-                    double xc = bb_xcenter[ib];
-                    double yc = bb_ycenter[ib];
-                    double radius = bb_radius[ib];
-
-                    auto corner = cell.corner();
-                    auto center = cell.center();
-                    double dx = cell.length;
-
-                    for(std::size_t i = 0; i < 2; ++i)
-                    {
-                        double x = corner[0] + i*dx;
-                        for(std::size_t j = 0; j < 2; ++j)
-                        {
-                            double y = corner[1] + j*dx;
-                            if (((!inside) && (std::pow((x - xc), 2.0) + pow((y - yc), 2.0) <= 1.25*std::pow(radius, 2.0)
-                                        &&  std::pow((x - xc), 2.0) + pow((y - yc), 2.0) >= 0.75*std::pow(radius, 2.0)))
-                            || ((!inside) && (std::pow((center[0] - xc), 2.0) + std::pow((center[1] - yc), 2.0) <= 1.25*std::pow(radius, 2.0)
-                                        &&  std::pow((center[0] - xc), 2.0) + std::pow((center[1] - yc), 2.0) >= 0.75*std::pow(radius, 2.0))))
-                            {
-                                if (cell.level < max_level)
-                                {
-                                    tag[cell] = static_cast<int>(samurai::CellFlag::refine);
-                                }
-                                inside = true;
-                            }
-                        }
-                    }
-                    ib++;
-                }
-
-                if (cell.level > min_level && !inside)
-                {
-                    tag[cell] = static_cast<int>(samurai::CellFlag::coarsen);
-                }
-            });
-
-            samurai::CellList<dim> cell_list;
-
-            samurai::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
-            {
-                for (int i = interval.start; i < interval.end; ++i)
-                {
-                    if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::refine))
-                    {
-                        samurai::static_nested_loop<dim - 1, 0, 2>([&](auto stencil)
-                        {
-                            auto index = 2 * index_yz + stencil;
-                            cell_list[level + 1][index].add_interval({2 * i, 2 * i + 2});
-                        });
-                    }
-                    else if (tag[i + interval.index] & static_cast<int>(samurai::CellFlag::keep))
-                    {
-                        cell_list[level][index_yz].add_point(i);
-                    }
-                    else
-                    {
-                        cell_list[level-1][index_yz>>1].add_point(i>>1);
-                    }
-                }
-            });
-
-            mesh = {cell_list, true};
-
+            update_mesh(mesh, min_level, max_level, bb_xcenter, bb_ycenter, bb_radius);
             remove_intersection(mesh);
             make_graduation(mesh);
         }
-        samurai::save(fmt::format("bubble_2d_{}", ite++), mesh);
+
+        if ( t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
+        {
+            std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
+            samurai::save(path, fmt::format("{}{}", filename, suffix), mesh);
+        }
     }
     return 0;
 }

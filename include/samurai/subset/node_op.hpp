@@ -501,14 +501,14 @@ namespace samurai
     inline auto contraction_op<T>::start(std::size_t d,
                                          std::size_t index) const noexcept
     {
-        return m_data.start(d, index) + m_contraction[d];
+        return m_data.start(d, index) + static_cast<coord_index_t>(m_contraction[d]);
     }
 
     template<class T>
     inline auto contraction_op<T>::end(std::size_t d, std::size_t index) const
         noexcept
     {
-        return m_data.end(d, index) - m_contraction[d];
+        return m_data.end(d, index) - + static_cast<coord_index_t>(m_contraction[d]);
     }
 
     template<class T>

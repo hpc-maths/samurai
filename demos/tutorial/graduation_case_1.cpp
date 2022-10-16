@@ -105,9 +105,9 @@ int main(int argc, char *argv[])
         {
             for(std::size_t level_below = min_level; level_below < level - 1; ++level_below)
             {
-                for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
+                for(std::size_t is = 0; is < stencil.shape()[0]; ++is)
                 {
-                    auto s = xt::view(stencil, i);
+                    auto s = xt::view(stencil, is);
                     auto set = samurai::intersection(samurai::translate(ca[level], s), ca[level_below]).on(level_below);
                     set([&](const auto& i, const auto& index)
                     {

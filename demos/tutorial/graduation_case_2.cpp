@@ -27,7 +27,6 @@ auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsa
 
     for(std::size_t s = 0; s < nsamples; ++s)
     {
-
         auto level = xt::random::randint<std::size_t>({1}, min_level, max_level)[0];
         auto x = xt::random::randint<int>({1}, 0, (1<<level) - 1)[0];
         auto y = xt::random::randint<int>({1}, 0, (1<<level) - 1)[0];
@@ -133,9 +132,9 @@ int main(int argc, char *argv[])
         {
             for(std::size_t level_below = ca.min_level(); level_below < level - 1; ++level_below)
             {
-                for(std::size_t i = 0; i < stencil.shape()[0]; ++i)
+                for(std::size_t is = 0; is < stencil.shape()[0]; ++is)
                 {
-                    auto s = xt::view(stencil, i);
+                    auto s = xt::view(stencil, is);
                     auto set = samurai::intersection(samurai::translate(ca[level], s), ca[level_below]).on(level_below);
                     set([&](const auto& i, const auto& index)
                     {

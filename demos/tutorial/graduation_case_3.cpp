@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 auto generate_mesh(std::size_t start_level)
 {
     constexpr std::size_t dim = 2;
-    samurai::Box<int, dim> box({-2<<start_level, -2<<start_level}, {2<<start_level, 2<<start_level});
+    samurai::Box<int, dim> box({-(2<<start_level), -(2<<start_level)}, {2<<start_level, 2<<start_level});
     samurai::CellArray<dim> ca;
 
     ca[start_level] = {start_level, box};
@@ -129,9 +129,10 @@ int main(int argc, char *argv[])
         samurai::for_each_interval(ca, [&](std::size_t level, const auto& interval, const auto& index)
         {
             auto j = index[0];
+            std::size_t itag = static_cast<std::size_t>( interval.start +  interval.index);
             for (int i = interval.start; i < interval.end; ++i)
             {
-                if (tag[i + interval.index] && level < max_level)
+                if (tag[itag] && level < max_level)
                 {
                     cl[level + 1][{2*j}].add_interval({2*i, 2*i+2});
                     cl[level + 1][{2*j + 1}].add_interval({2*i, 2*i+2});
@@ -140,6 +141,7 @@ int main(int argc, char *argv[])
                 {
                     cl[level][index].add_point(i);
                 }
+                itag++;
             }
         });
 

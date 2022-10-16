@@ -27,23 +27,27 @@ jobs:
             compiler: llvm
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/vcpkg
+            ~/.conan
+            ~/.cache/ccache
+            ~/.cache/pip
+            ~/Library/Caches/ccache
             ./build/vcpkg_installed
             ${{ env.CONAN_USER_HOME }}
-            ~/.cache/pip
             ${{ env.HOME }}/.cache/vcpkg/archives
             ${{ env.XDG_CACHE_HOME }}/vcpkg/archives
             ${{ env.LOCALAPPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\vcpkg\archives
-          key: ${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
+            ${{ env.APPDATA }}\Roaming\ccache
+          key: vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
+            vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
       - name: Setup Cpp
         uses: aminya/setup-cpp@v1
         with:
@@ -62,12 +66,15 @@ jobs:
           gcovr: false
           opencppcoverage: false
 
+      - name: Information about ccache
+        run: |
+          ccache -s -v
       - name: Install dependencies
         run: |
           pip3 install pytest h5py
       - name: Configure CMake
         run: |
-          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           cmake --build ./build --config Release
@@ -80,4 +87,4 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           .\build\test\Release\test_samurai_lib
-          cd test; pytest --h5diff
+          cd test; pytest -s --h5diff

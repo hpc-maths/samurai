@@ -27,24 +27,26 @@ jobs:
             compiler: llvm
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/vcpkg
             ~/.conan
+            ~/.cache/ccache
+            ~/Library/Caches/ccache
             ./build/vcpkg_installed
             ${{ env.CONAN_USER_HOME }}
-            ~/.cache/pip
-            ${{ env.HOME }}/.cache/vcpkg/archives
+            ${{ env.HOME }}/.cache
             ${{ env.XDG_CACHE_HOME }}/vcpkg/archives
             ${{ env.LOCALAPPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\vcpkg\archives
-          key: ${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
+            ${{ env.APPDATA }}\Roaming\ccache
+          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
+            conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
       - name: Setup Cpp
         uses: aminya/setup-cpp@v1
         with:
@@ -64,12 +66,15 @@ jobs:
           gcovr: false
           opencppcoverage: false
 
+      - name: Information about ccache
+        run: |
+          ccache -s -v
       - name: Install dependencies
         run: |
           pip3 install pytest h5py
       - name: Configure CMake
         run: |
-          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           cmake --build ./build --config Release
@@ -82,4 +87,4 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           .\build\test\Release\test_samurai_lib
-          cd test; pytest --h5diff
+          cd test; pytest -s --h5diff

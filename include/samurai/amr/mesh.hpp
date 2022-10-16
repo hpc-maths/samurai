@@ -97,7 +97,7 @@ namespace samurai
                                             interval.end + config::ghost_width});
                 // in y and z directions
                 // FIXME: make it recursive and add the possibility to have stencil box or stencil star
-                if (dim == 2)
+                if constexpr (dim == 2)
                 {
                     for(int j = -config::ghost_width; j < config::ghost_width + 1; ++j)
                     {
@@ -105,7 +105,7 @@ namespace samurai
                         lcl[index_yz + stencil].add_interval(interval);
                     }
                 }
-                if (dim == 3)
+                if constexpr (dim == 3)
                 {
                     for(int j = -config::ghost_width; j < config::ghost_width + 1; ++j)
                     {

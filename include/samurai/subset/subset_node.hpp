@@ -20,7 +20,8 @@ namespace samurai
 {
     namespace detail
     {
-        inline int shift_value(int value, int shift)
+        template <class T>
+        inline T shift_value(T value, T shift)
         {
             return (shift >= 0)? (value << shift): (value >> (-shift));
         }
