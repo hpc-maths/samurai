@@ -93,7 +93,7 @@ int main()
         u[cell] = cell.indices[0];
     });
 
-    auto subset1 = samurai::intersection(ca[0], samurai::contraction(ca[1], {1}));
+    auto subset1 = samurai::intersection(ca[0], samurai::contraction(ca[1], 1));
     subset1.on(0)([&](const auto& i, auto)
     {
         u(0, i) = 0.5*(u(1, 2*i) + u(1, 2*i + 1));
