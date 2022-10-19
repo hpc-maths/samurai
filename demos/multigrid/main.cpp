@@ -69,9 +69,10 @@ static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "-------- General\n"
             "\n"
             "-n <int>                     problem size\n"
-            "-enforce_dbc [p|1]           enforcement of Dirichlet b.c.\n"
+            "-enforce_dbc [p|e|o]         enforcement of Dirichlet b.c.\n"
             "                             p  - penalization\n"
-            "                             1  - ones on the diagonal\n"
+            "                             e  - elimination\n"
+            "                             o  - ones on the diagonal (non-symmetric)\n"
             "-save_sol [0|1]              save solution\n"
             "-save_mesh [0|1]             save mesh\n"
             "\n"
@@ -130,14 +131,16 @@ int main(int argc, char* argv[])
     PetscOptionsGetBool(NULL, NULL, "-save_mesh", &save_mesh, NULL);
 
     PetscBool enforce_dbc_is_set = PETSC_FALSE;
-    DirichletEnforcement enforce_dbc = OnesOnDiagonal;
+    DirichletEnforcement enforce_dbc = Elimination;
     char enforce_dbc_char[2];
     PetscOptionsGetString(NULL, NULL, "-enforce_dbc", enforce_dbc_char, 2, &enforce_dbc_is_set);
     if (enforce_dbc_is_set)
     {
         if (enforce_dbc_char[0] == 'p')
             enforce_dbc = Penalization;
-        else if (enforce_dbc_char[0] == '1')
+        else if (enforce_dbc_char[0] == 'e')
+            enforce_dbc = Elimination;
+        else if (enforce_dbc_char[0] == 'o')
             enforce_dbc = OnesOnDiagonal;
         else
             fatal_error("unknown value for argument -enforce_dbc");
@@ -145,8 +148,10 @@ int main(int argc, char* argv[])
     std::cout << "Dirichlet b.c. enforcement: ";
     if (enforce_dbc == Penalization)
         std::cout << "penalization" << std::endl;
-    else
-        std::cout << "ones on the diagonal" << std::endl;
+    else if (enforce_dbc == Elimination)
+        std::cout << "elimination" << std::endl;
+    else if (enforce_dbc == OnesOnDiagonal)
+        std::cout << "ones on the diagonal (--> non-symmetric)" << std::endl;
 
     //---------------//
     // Mesh creation //

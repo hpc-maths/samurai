@@ -5,6 +5,7 @@
 enum DirichletEnforcement : int
 {
     Penalization,
+    Elimination,
     OnesOnDiagonal
 };
 
