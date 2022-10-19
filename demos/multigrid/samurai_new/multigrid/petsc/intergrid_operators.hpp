@@ -3,6 +3,8 @@
 #include <samurai/numeric/prediction.hpp>
 #include "../LevelCtx.hpp"
 
+#define ENABLE_2D
+
 namespace samurai_new { namespace petsc { namespace multigrid
 {
 
@@ -55,6 +57,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                     }
                 }
+#ifdef ENABLE_2D
                 else if (Mesh::dim == 2)
                 {
                     auto j = index[0];
@@ -93,6 +96,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                     }
                 }
+#endif
             });
 
             // Boundary
@@ -110,6 +114,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                 });
             }
+#ifdef ENABLE_2D
             else if (Mesh::dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -168,6 +173,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
+#endif
         }
     }
 
@@ -229,6 +235,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                     }
                 }
+#ifdef ENABLE_2D
                 else if (Mesh::dim == 2)
                 {
                     auto j = index[0];
@@ -331,6 +338,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     else
                         assert(false && "not implemented");
                 }
+#endif
             });
 
             // Boundary
@@ -349,6 +357,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                 });
             }
+#ifdef ENABLE_2D
             else if (Mesh::dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -421,6 +430,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
+#endif
         }
     }
 
@@ -462,6 +472,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     fine_field(level, i) = coarse_field(level - 1, i/2);
                 });
             }
+#ifdef ENABLE_2D
             else if (Field::mesh_t::dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -497,6 +508,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
+#endif
             else
                 assert(false);
         }
@@ -550,6 +562,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         carray[i_c + ii] = 0.5*(farray[i_f + 2*ii] + farray[i_f + 2*ii+1]);
                     }
                 }
+#ifdef ENABLE_2D
                 else if (Mesh::dim == 2)
                 {
                     auto j = index[0];
@@ -565,6 +578,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                                                     farray[i_f_2jp1 + 2*ii+1]);
                     }
                 }
+#endif
 
             });
 
@@ -583,6 +597,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                 });
             }
+#ifdef ENABLE_2D
             else if (Mesh::dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -638,6 +653,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
+#endif
         }
     }
 
@@ -680,6 +696,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         MatSetValue(R, i_c + ii, i_f + 2*ii + 1, 0.5, INSERT_VALUES);
                     }
                 }
+#ifdef ENABLE_2D
                 else if (Mesh::dim == 2)
                 {
                     auto j = index[0];
@@ -696,6 +713,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         MatSetValue(R, i_c + ii, i_f_2jp1 + 2*ii+1, 0.25, INSERT_VALUES);
                     }
                 }
+#endif
             });
 
             // Boundary
@@ -715,6 +733,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                 });
             }
+#ifdef ENABLE_2D
             else if (Mesh::dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -779,6 +798,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
+#endif
         }
     }
 
@@ -819,6 +839,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     coarse_field(level, i/2) = fine_field(level+1, i);
                 });
             }
+#ifdef ENABLE_2D
             else if (Field::mesh_t::dim == 2)
             {
                 // !!! This code might be specific to the square domain !!!
@@ -878,6 +899,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }*/
             }
+#endif
             else
                 assert(false);
         }
