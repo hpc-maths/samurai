@@ -17,7 +17,7 @@
 using namespace std;
 
 template<class Mesh>
-Mesh create_mesh(int n)
+Mesh create_mesh(std::size_t n)
 {
     using Box = samurai::Box<double, Mesh::dim>;
     /*constexpr std::size_t start_level = 2;
@@ -30,7 +30,7 @@ Mesh create_mesh(int n)
     m[start_level+1] = {start_level+1, rightBox};
     return m;*/
 
-    using cl_type = typename Mesh::cl_type;
+    //using cl_type = typename Mesh::cl_type;
 
     Box box;
     if (Mesh::dim == 1)
@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
     // Petsc initialize //
     //------------------//
     
-    PetscInitialize(&argc, &argv, (char*)0, help);
+    PetscInitialize(&argc, &argv, 0, help);
 
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size)); 
@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
     // Mesh creation //
     //---------------//
 
-    Mesh mesh = create_mesh<Mesh>(n);
+    Mesh mesh = create_mesh<Mesh>(static_cast<std::size_t>(n));
     std::cout << "Unknowns: " << mesh.nb_cells() << std::endl;
 
     if (save_mesh)

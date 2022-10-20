@@ -8,7 +8,7 @@
 //-------------------//
 
 template<class Mesh>
-std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
+std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>, Mesh& mesh, DirichletEnforcement /*dirichlet_enfcmt*/)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
     std::size_t n = mesh.nb_cells();
@@ -19,7 +19,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>,
     {
         for(int ii=i.start; ii<i.end; ++ii)
         {
-            auto i_ = static_cast<int>(mesh.get_index(level, ii));
+            auto i_ = mesh.get_index(level, ii);
             nnz[i_] = 3;
         }
     });
@@ -37,7 +37,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>,
         {
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                auto i_cell = static_cast<int>(mesh.get_index(level, ii));
+                auto i_cell = mesh.get_index(level, ii);
                 nnz[i_cell] = 3;
             }
         });
@@ -53,7 +53,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>,
         {
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                auto i_cell = static_cast<int>(mesh.get_index(level, ii));
+                auto i_cell = mesh.get_index(level, ii);
                 nnz[i_cell] = 4;
             }
         });
@@ -69,7 +69,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>,
         {
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                auto i_cell = static_cast<int>(mesh.get_index(level, ii));
+                auto i_cell = mesh.get_index(level, ii);
                 nnz[i_cell] = 2;
             }
         });
@@ -81,11 +81,11 @@ template<class Mesh>
 PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    using interval_t = typename Mesh::interval_t;
+    //using interval_t = typename Mesh::interval_t;
 
-    std::size_t n = mesh.nb_cells();
+    auto n = static_cast<PetscInt>(mesh.nb_cells());
 
-    for(int i=0; i<n; ++i)
+    for(PetscInt i=0; i<n; ++i)
     {
         MatSetValue(A, i, i, 1., INSERT_VALUES);
     }
@@ -141,7 +141,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
                 .on(level);
 
         std::array<double, 3> pred{{1./8, 0, -1./8}};
-        set([&](const auto& i, const auto& index)
+        set([&](const auto& i, const auto&)
         {
             for(int ii=i.start; ii<i.end; ++ii)
             {
@@ -174,7 +174,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
             auto set = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], s),
                                         mesh.domain()).on(level);
 
-            set([&](const auto& i, const auto& index)
+            set([&](const auto& i, const auto&)
             {
                 double dx = 1./(1<<level);
                 double one_over_dx2 = 1./(dx*dx);
@@ -208,7 +208,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
             auto set = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], s),
                                         mesh.domain()).on(level);
 
-            set([&](const auto& i, const auto& index)
+            set([&](const auto& i, const auto&)
             {   
                 if (dirichlet_enfcmt == Penalization)
                 {
@@ -245,11 +245,11 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
 
 
 template<class Field>
-Vec assemble_rhs_impl(std::integral_constant<std::size_t, 1>, Field& rhs_field, DirichletEnforcement dirichlet_enfcmt)
+Vec assemble_rhs_impl(std::integral_constant<std::size_t, 1>, Field& rhs_field, DirichletEnforcement /*dirichlet_enfcmt*/)
 {
     using Mesh = typename Field::mesh_t;
     using mesh_id_t = typename Mesh::mesh_id_t;
-    using interval_t = typename Mesh::interval_t;
+    //using interval_t = typename Mesh::interval_t;
 
     Mesh& mesh = rhs_field.mesh();
 

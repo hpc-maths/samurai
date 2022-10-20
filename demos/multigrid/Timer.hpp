@@ -32,7 +32,7 @@ public:
 
 	double InSeconds()
 	{
-		return (double)_inMilliseconds / 1000.0;
+		return static_cast<double>(_inMilliseconds) / 1000.0;
 	}
 
 	friend ostream& operator<<(ostream& os, const Duration& d)
@@ -103,15 +103,15 @@ public:
 
 	Duration CPU() const
 	{
-		double span = (double)(_cpu_stop - _cpu_start);
-		Duration d((int)((double)span / CLOCKS_PER_SEC * 1000));
+		double span = static_cast<double>(_cpu_stop - _cpu_start);
+		Duration d(int(span / CLOCKS_PER_SEC * 1000));
 		return d;
 	}
 
 	Duration Elapsed() const
 	{
 		double durationInMilliseconds = chrono::duration_cast<chrono::duration<double, std::milli>>(_elapsed_stop - _elapsed_start).count();
-		Duration d(durationInMilliseconds);
+		Duration d(int(round(durationInMilliseconds)));
 		return d;
 	}
 

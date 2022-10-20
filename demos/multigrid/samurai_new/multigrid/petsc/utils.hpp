@@ -7,7 +7,7 @@ namespace samurai_new { namespace petsc
     Vec create_petsc_vector_from(Field& f)
     {
         Vec v;
-        std::size_t n = f.mesh().nb_cells();
+        auto n = static_cast<PetscInt>(f.mesh().nb_cells());
         VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, f.array().data(), &v);
         return v;
     }
@@ -15,13 +15,13 @@ namespace samurai_new { namespace petsc
     template<class Field>
     void copy(Field& f, Vec& v)
     {
-        std::size_t n = f.mesh().nb_cells();
+        auto n = static_cast<PetscInt>(f.mesh().nb_cells());
 
         PetscInt n_vec;
         VecGetSize(v, &n_vec);
         assert(n == n_vec);
 
-        for (PetscInt i; i<n; ++i)
+        for (PetscInt i = 0; i<n; ++i)
         {
             double value = f.array().data()[i];
             VecSetValues(v, 1, &i, &value, INSERT_VALUES);
@@ -35,7 +35,7 @@ namespace samurai_new { namespace petsc
 
         PetscInt n_vec;
         VecGetSize(v, &n_vec);
-        assert(n == n_vec);
+        assert(static_cast<PetscInt>(n) == n_vec);
 
         const double *arr;
         VecGetArrayRead(v, &arr);
@@ -54,7 +54,7 @@ namespace samurai_new { namespace petsc
         VecGetArrayRead(v, &arr);
 
         bool is_nan_or_inf = false;
-        for(std::size_t i=0; i<n; ++i)
+        for(PetscInt i=0; i<n; ++i)
         {
             if (std::isnan(arr[i]) || std::isinf(arr[i]))
             {
