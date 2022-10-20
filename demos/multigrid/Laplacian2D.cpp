@@ -16,7 +16,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
 
     std::vector<int> nnz(n, 1);
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells_and_ghosts], [&](std::size_t level, const auto& i, const auto& index)
+    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
     {
         auto j = index[0];
         for(int ii=i.start; ii<i.end; ++ii)
@@ -109,38 +109,34 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
 
     constexpr int stencil_size = 4;
 
-    auto n = static_cast<PetscInt>(mesh.nb_cells());
-
-    for(int i=0; i<n; ++i)
-    {
-        MatSetValue(A, i, i, 1, INSERT_VALUES);
-    }
-
-    auto& cells = dirichlet_enfcmt == Penalization ? mesh[mesh_id_t::cells] : mesh[mesh_id_t::cells];
-
-    samurai::for_each_interval(cells, [&](std::size_t level, const auto& i, const auto& index)
+    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
     {
         auto j = index[0];
 
         double v_off = off_diag_coeff_2D(level);
         double v_diag = -stencil_size*v_off;
 
-        for(int ii=i.start; ii<i.end; ++ii)
+        PetscInt stencil_row[3];
+        double coeffs_stencil_row[3];
+        coeffs_stencil_row[0] = v_off;
+        coeffs_stencil_row[1] = -stencil_size*v_off;
+        coeffs_stencil_row[2] = v_off;
+
+        auto i_j_start   = static_cast<PetscInt>(mesh.get_index(level, i.start, j  ));
+        auto i_jp1_start = static_cast<PetscInt>(mesh.get_index(level, i.start, j+1));
+        auto i_jm1_start = static_cast<PetscInt>(mesh.get_index(level, i.start, j-1));
+
+        for(PetscInt ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
         {
-            auto i_j = static_cast<int>(mesh.get_index(level, ii  , j));
-            // bool exists_i_jp1;
-            // bool exists_i_jm1;
-            // bool exists_ip1_j;
-            // bool exists_im1_j;
-            auto i_jp1 = static_cast<int>(mesh.get_index(level, ii  , j+1));
-            auto i_jm1 = static_cast<int>(mesh.get_index(level, ii  , j-1));
-            auto ip1_j = static_cast<int>(mesh.get_index(level, ii+1, j));
-            auto im1_j = static_cast<int>(mesh.get_index(level, ii-1, j));
-            MatSetValue(A, i_j, i_j  , v_diag, INSERT_VALUES);
+            auto i_j = i_j_start + ii;
+            stencil_row[0] = i_j - 1;
+            stencil_row[1] = i_j;
+            stencil_row[2] = i_j + 1;
+            MatSetValues(A, 1, &i_j, 3, stencil_row, coeffs_stencil_row, INSERT_VALUES);
+            auto i_jp1 = i_jp1_start + ii;
+            auto i_jm1 = i_jm1_start + ii;
             MatSetValue(A, i_j, i_jp1,  v_off, INSERT_VALUES);
             MatSetValue(A, i_j, i_jm1,  v_off, INSERT_VALUES);
-            MatSetValue(A, i_j, ip1_j,  v_off, INSERT_VALUES);
-            MatSetValue(A, i_j, im1_j,  v_off, INSERT_VALUES);
         }
     });
 
@@ -160,13 +156,13 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
 
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                auto i_cell = static_cast<int>(mesh.get_index(level, ii, j));
+                auto i_cell = static_cast<PetscInt>(mesh.get_index(level, ii, j));
                 MatSetValue(A, i_cell, i_cell, 1, INSERT_VALUES);
 
-                auto i1 = static_cast<int>(mesh.get_index(level + 1,     2*ii,     2*j));
-                auto i2 = static_cast<int>(mesh.get_index(level + 1, 2*ii + 1,     2*j));
-                auto i3 = static_cast<int>(mesh.get_index(level + 1,     2*ii, 2*j + 1));
-                auto i4 = static_cast<int>(mesh.get_index(level + 1, 2*ii + 1, 2*j + 1));
+                auto i1 = static_cast<PetscInt>(mesh.get_index(level + 1, 2*ii    , 2*j    ));
+                auto i2 = static_cast<PetscInt>(mesh.get_index(level + 1, 2*ii + 1, 2*j    ));
+                auto i3 = static_cast<PetscInt>(mesh.get_index(level + 1, 2*ii    , 2*j + 1));
+                auto i4 = static_cast<PetscInt>(mesh.get_index(level + 1, 2*ii + 1, 2*j + 1));
                 MatSetValue(A, i_cell, i1, -0.25, INSERT_VALUES);
                 MatSetValue(A, i_cell, i2, -0.25, INSERT_VALUES);
                 MatSetValue(A, i_cell, i3, -0.25, INSERT_VALUES);
@@ -191,26 +187,26 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
             for(int ii=i.start; ii<i.end; ++ii)
             {
                 double v = 1.;
-                auto i_cell = static_cast<int>(mesh.get_index(level, ii, j));
+                auto i_cell = static_cast<PetscInt>(mesh.get_index(level, ii, j));
                 MatSetValue(A, i_cell, i_cell, v, INSERT_VALUES);
 
                 int sign_i = (ii & 1)? -1: 1;
 
                 for(int is = -1; is<2; ++is)
                 {
-                    auto i1 = static_cast<int>(mesh.get_index(level - 1, (ii>>1), (j>>1) + is));
+                    auto i1 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1), (j>>1) + is));
                     v = -sign_j*pred[is + 1];
                     MatSetValue(A, i_cell, i1, v, INSERT_VALUES);
 
-                    i1 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) + is, (j>>1)));
+                    i1 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1) + is, (j>>1)));
                     v = -sign_i*pred[is + 1];
                     MatSetValue(A, i_cell, i1, v, INSERT_VALUES);
                 }
 
-                auto i1 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) - 1));
-                auto i2 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) - 1));
-                auto i3 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) + 1));
-                auto i4 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) + 1));
+                auto i1 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) - 1));
+                auto i2 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) - 1));
+                auto i3 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) + 1));
+                auto i4 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) + 1));
 
                 v = sign_i*sign_j*pred[0]*pred[0];
                 MatSetValue(A, i_cell, i1, v, INSERT_VALUES);
@@ -221,15 +217,13 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                 v = sign_i*sign_j*pred[2]*pred[2];
                 MatSetValue(A, i_cell, i4, v, INSERT_VALUES);
 
-                auto i0 = static_cast<int>(mesh.get_index(level - 1, (ii>>1), (j>>1)));
+                auto i0 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1), (j>>1)));
                 MatSetValue(A, i_cell, i0, -1., INSERT_VALUES);
             }
         });
     }
 
-    // Boundary:
-    // First, this sets the b.c. to full Neumann.
-    //xt::xtensor_fixed<int, xt::xshape<4, 2>> stencils{{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    // Boundary
     double penalty_coeff = 1000;
     for(std::size_t level=min_level; level<=max_level; ++level)
     {
@@ -240,9 +234,10 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
 
             if (out_vect[0] != 0 && out_vect[1] != 0) // corners
             {
-                for(int ii=i.start; ii<i.end; ++ii)
+                auto i_out_start = static_cast<PetscInt>(mesh.get_index(level, i.start, j));
+                for(int ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
                 {
-                    auto i_out   = static_cast<int>(mesh.get_index(level, ii, j));
+                    PetscInt i_out = i_out_start + ii;
                     MatSetValue(A, i_out, i_out, 1, INSERT_VALUES);
                 }
             }
@@ -255,29 +250,35 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                     double v_diag = -v_off;
                     if (dirichlet_enfcmt == Penalization)
                         v_diag *= (1 + penalty_coeff);
-                    for(int ii=i.start; ii<i.end; ++ii)
+
+                    auto i_out_start = static_cast<PetscInt>(mesh.get_index(level, i.start              , j              ));
+                    auto i_in_start  = static_cast<PetscInt>(mesh.get_index(level, i.start - out_vect[0], j - out_vect[1]));
+                    for(int ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
                     {
-                        auto i_out = static_cast<int>(mesh.get_index(level, ii              , j              ));
-                        auto i_in  = static_cast<int>(mesh.get_index(level, ii - out_vect[0], j - out_vect[1]));
+                        auto i_out = i_out_start + ii;
+                        auto i_in  = i_in_start + ii;
                         MatSetValue(A, i_out, i_out, v_diag, INSERT_VALUES);
                         MatSetValue(A, i_out, i_in ,  v_off, INSERT_VALUES);
                     }
                 }
                 else if (dirichlet_enfcmt == Elimination)
                 {
-                    for(int ii=i.start; ii<i.end; ++ii)
+                    auto i_out_start = static_cast<PetscInt>(mesh.get_index(level, i.start              , j              ));
+                    auto i_in_start  = static_cast<PetscInt>(mesh.get_index(level, i.start - out_vect[0], j - out_vect[1]));
+                    for(int ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
                     {
-                        auto i_out = static_cast<int>(mesh.get_index(level, ii              , j              ));
-                        auto i_in  = static_cast<int>(mesh.get_index(level, ii - out_vect[0], j - out_vect[1]));
+                        auto i_out = i_out_start + ii;
+                        auto i_in  = i_in_start + ii;
                         MatSetValue(A, i_out, i_out, 1, INSERT_VALUES);
                         MatSetValue(A, i_in , i_out, 0, INSERT_VALUES); // Remove the coefficient that was added before
                     }
                 }
                 else if (dirichlet_enfcmt == OnesOnDiagonal)
                 {
-                    for(int ii=i.start; ii<i.end; ++ii)
+                    auto i_out_start = static_cast<PetscInt>(mesh.get_index(level, i.start, j));
+                    for(int ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
                     {
-                        auto i_out   = static_cast<int>(mesh.get_index(level, ii, j));
+                        auto i_out = i_out_start + ii;
                         MatSetValue(A, i_out, i_out, 1, INSERT_VALUES);
                     }
                 }
@@ -315,7 +316,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                     double v_diag *= (1 + penalty_coeff);
                     for(int ii=i.start; ii<i.end; ++ii)
                     {
-                        auto i_out = static_cast<int>(mesh.get_index(level, ii, j));
+                        auto i_out = static_cast<PetscInt>(mesh.get_index(level, ii, j));
                         MatSetValue(A, i_out, i_out, v_diag, INSERT_VALUES);
                     }
                 }
@@ -323,11 +324,11 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                 {
                     for(int ii=i.start; ii<i.end; ++ii)
                     {
-                        auto i_j   = static_cast<int>(mesh.get_index(level, ii  , j  ));
-                        auto i_jp1 = static_cast<int>(mesh.get_index(level, ii  , j+1));
-                        auto i_jm1 = static_cast<int>(mesh.get_index(level, ii  , j-1));
-                        auto ip1_j = static_cast<int>(mesh.get_index(level, ii+1, j  ));
-                        auto im1_j = static_cast<int>(mesh.get_index(level, ii-1, j  ));
+                        auto i_j   = static_cast<PetscInt>(mesh.get_index(level, ii  , j  ));
+                        auto i_jp1 = static_cast<PetscInt>(mesh.get_index(level, ii  , j+1));
+                        auto i_jm1 = static_cast<PetscInt>(mesh.get_index(level, ii  , j-1));
+                        auto ip1_j = static_cast<PetscInt>(mesh.get_index(level, ii+1, j  ));
+                        auto im1_j = static_cast<PetscInt>(mesh.get_index(level, ii-1, j  ));
                             MatSetValue(A, i_j  , i_j  , 1, INSERT_VALUES);
                         if (ip1_j < n) 
                         {
@@ -355,16 +356,16 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                 {
                     for(int ii=i.start; ii<i.end; ++ii)
                     {
-                        // auto i_out = static_cast<int>(mesh.get_index(level, ii, j));
-                        // auto i_in  = static_cast<int>(mesh.get_index(level, ii - s[0], j - s[1]));
+                        // auto i_out = static_cast<PetscInt>(mesh.get_index(level, ii, j));
+                        // auto i_in  = static_cast<PetscInt>(mesh.get_index(level, ii - s[0], j - s[1]));
                         // MatSetValue(A, i_out, i_out, 1., INSERT_VALUES);
                         // MatSetValue(A, i_out, i_in , 0., INSERT_VALUES);
 
-                        auto i_j   = static_cast<int>(mesh.get_index(level, ii  , j  ));
-                        auto i_jp1 = static_cast<int>(mesh.get_index(level, ii  , j+1));
-                        auto i_jm1 = static_cast<int>(mesh.get_index(level, ii  , j-1));
-                        auto ip1_j = static_cast<int>(mesh.get_index(level, ii+1, j  ));
-                        auto im1_j = static_cast<int>(mesh.get_index(level, ii-1, j  ));
+                        auto i_j   = static_cast<PetscInt>(mesh.get_index(level, ii  , j  ));
+                        auto i_jp1 = static_cast<PetscInt>(mesh.get_index(level, ii  , j+1));
+                        auto i_jm1 = static_cast<PetscInt>(mesh.get_index(level, ii  , j-1));
+                        auto ip1_j = static_cast<PetscInt>(mesh.get_index(level, ii+1, j  ));
+                        auto im1_j = static_cast<PetscInt>(mesh.get_index(level, ii-1, j  ));
                                        MatSetValue(A, i_j, i_j  , 1, INSERT_VALUES);
                         if (ip1_j < n) MatSetValue(A, i_j, ip1_j, 0, INSERT_VALUES);
                         if (im1_j < n) MatSetValue(A, i_j, im1_j, 0, INSERT_VALUES);
