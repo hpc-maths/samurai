@@ -9,7 +9,7 @@
 //-------------------//
 
 template<class Mesh>
-std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
+std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>, Mesh& mesh, DirichletEnforcement /*dirichlet_enfcmt*/)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
     std::size_t n = mesh.nb_cells();
@@ -21,7 +21,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
         auto j = index[0];
         for(int ii=i.start; ii<i.end; ++ii)
         {
-            auto i_j = static_cast<int>(mesh.get_index(level, ii, j));
+            auto i_j = mesh.get_index(level, ii, j);
             nnz[i_j] = 5;
         }
     });
@@ -41,7 +41,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
 
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                auto i_cell = static_cast<int>(mesh.get_index(level, ii, j));
+                auto i_cell = mesh.get_index(level, ii, j);
                 nnz[i_cell] = 5;
             }
         });
@@ -59,7 +59,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
 
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                auto i_cell = static_cast<int>(mesh.get_index(level, ii, j));
+                auto i_cell = mesh.get_index(level, ii, j);
                 nnz[i_cell] = 10;
             }
         });
@@ -77,7 +77,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
             auto j = index[0];
             for(int ii=i.start; ii<i.end; ++ii)
             {
-                auto i_cell = static_cast<int>(mesh.get_index(level, ii, j));
+                auto i_cell = mesh.get_index(level, ii, j);
                 nnz[i_cell] = 5;
             }
         });
@@ -105,11 +105,11 @@ template<class Mesh>
 PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    using interval_t = typename Mesh::interval_t;
+    //using interval_t = typename Mesh::interval_t;
 
     constexpr int stencil_size = 4;
 
-    std::size_t n = mesh.nb_cells();
+    auto n = static_cast<PetscInt>(mesh.nb_cells());
 
     for(int i=0; i<n; ++i)
     {
@@ -386,27 +386,24 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
 
 
 template<class Field>
-Vec assemble_rhs_impl(std::integral_constant<std::size_t, 2>, Field& rhs_field, DirichletEnforcement dirichlet_enfcmt)
+Vec assemble_rhs_impl(std::integral_constant<std::size_t, 2>, Field& rhs_field, DirichletEnforcement /*dirichlet_enfcmt*/)
 {
     using Mesh = typename Field::mesh_t;
     using mesh_id_t = typename Mesh::mesh_id_t;
-    using interval_t = typename Mesh::interval_t;
+    //using interval_t = typename Mesh::interval_t;
 
-    //if (!eliminate_dirichlet_values)
-    //{
-        Mesh& mesh = rhs_field.mesh();
+    Mesh& mesh = rhs_field.mesh();
 
-        for(std::size_t level=mesh.min_level(); level<=mesh.max_level(); ++level)
+    for(std::size_t level=mesh.min_level(); level<=mesh.max_level(); ++level)
+    {
+        auto set = samurai::difference(mesh[mesh_id_t::reference][level],
+                                    mesh[mesh_id_t::cells][level]);
+        set([&](const auto& i, const auto& index)
         {
-            auto set = samurai::difference(mesh[mesh_id_t::reference][level],
-                                        mesh[mesh_id_t::cells][level]);
-            set([&](const auto& i, const auto& index)
-            {
-                auto j = index[0];
-                rhs_field(level, i, j) = 0.;
-            });
-        }
-    //}
+            auto j = index[0];
+            rhs_field(level, i, j) = 0.;
+        });
+    }
 
     return samurai_new::petsc::create_petsc_vector_from(rhs_field);
 }

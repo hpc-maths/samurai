@@ -116,12 +116,12 @@ namespace samurai_new { namespace petsc {
                         PCMGGetSmoother(mg, i, &smoother_ksp);
                         KSPSetType(smoother_ksp, "richardson");
                         KSPSetTolerances(smoother_ksp, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, 1);
-                        PC smoother;
-                        KSPGetPC(smoother_ksp, &smoother);
-                        PCSetType(smoother, PCSOR);
-                        PCSORSetSymmetric(smoother, MatSORType::SOR_SYMMETRIC_SWEEP);
-                        //PCSetType(smoother, PCJACOBI);
-                        PCSORSetIterations(smoother, 1, 1);
+                        PC smoother_pc;
+                        KSPGetPC(smoother_ksp, &smoother_pc);
+                        PCSetType(smoother_pc, PCSOR);
+                        PCSORSetSymmetric(smoother_pc, MatSORType::SOR_SYMMETRIC_SWEEP);
+                        //PCSetType(smoother_pc, PCJACOBI);
+                        PCSORSetIterations(smoother_pc, 1, 1);
                     }
                     else if (smoother == GaussSeidel)
                     {

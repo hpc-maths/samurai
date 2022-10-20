@@ -22,9 +22,9 @@ namespace samurai_new { namespace petsc { namespace multigrid
             auto shared = samurai::intersection(cm[level], fm[level]);
             shared([&](auto& i, auto&)
             {
-                auto index_f = static_cast<int>(fine_mesh.get_index(level, i.start));
-                auto index_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                for (int ii=0; ii<i.size(); ++ii)
+                auto index_f = fine_mesh.get_index(level, i.start);
+                auto index_c = coarse_mesh.get_index(level, i.start);
+                for (std::size_t ii=0; ii<i.size(); ++ii)
                 {
                     farray[index_f + ii] = carray[index_c + ii];
                 }
@@ -36,11 +36,11 @@ namespace samurai_new { namespace petsc { namespace multigrid
             {
                 if (Mesh::dim == 1)
                 {
-                    auto i_f = static_cast<int>(fine_mesh.get_index(level, (2*i).start));
-                    auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start));
+                    auto i_f = fine_mesh.get_index(level, (2*i).start);
+                    auto i_c = coarse_mesh.get_index(level-1, i.start);
                     if (prediction_order == 0)
                     {
-                        for (int ii=0; ii<i.size(); ++ii)
+                        for (std::size_t ii=0; ii<i.size(); ++ii)
                         {
                             // Prediction 1D (order 0)
                             farray[i_f + 2*ii  ] = carray[i_c+ii];
@@ -49,7 +49,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                     else if (prediction_order == 1)
                     {
-                        for (int ii=0; ii<i.size(); ++ii)
+                        for (std::size_t ii=0; ii<i.size(); ++ii)
                         {
                             // Prediction 1D (order 1)
                             farray[i_f + 2*ii  ] = carray[i_c+ii] - 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
@@ -62,14 +62,14 @@ namespace samurai_new { namespace petsc { namespace multigrid
                 {
                     auto j = index[0];
                     
-                    auto i_c_j    = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j  ));
+                    auto i_c_j    = coarse_mesh.get_index(level-1, i.start, j  );
 
-                    auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
-                    auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
+                    auto i_f_2j   = fine_mesh.get_index(level, (2*i).start, 2*j  );
+                    auto i_f_2jp1 = fine_mesh.get_index(level, (2*i).start, 2*j+1);
                     
                     if (prediction_order == 0)
                     {
-                        for (int ii=0; ii<i.size(); ++ii)
+                        for (std::size_t ii=0; ii<i.size(); ++ii)
                         {
                             // Prediction 2D (order 0)
                             farray[i_f_2j   + 2*ii  ] = carray[i_c_j + ii];
@@ -80,10 +80,10 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                     else if (prediction_order == 1)
                     {
-                        auto i_c_jm1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j-1));
-                        auto i_c_jp1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j+1));
+                        auto i_c_jm1  = coarse_mesh.get_index(level-1, i.start, j-1);
+                        auto i_c_jp1  = coarse_mesh.get_index(level-1, i.start, j+1);
                         
-                        for (int ii=0; ii<i.size(); ++ii)
+                        for (std::size_t ii=0; ii<i.size(); ++ii)
                         {
                             // Prediction 2D (order 1)
                             double qs_i  = -1./8*(carray[i_c_j  +ii+1] - carray[i_c_j  +ii-1]);
@@ -106,9 +106,9 @@ namespace samurai_new { namespace petsc { namespace multigrid
                                                         fine_mesh.domain()).on(level);
                 fine_boundary([&](const auto& i, auto)
                 {
-                    auto i_f = static_cast<int>(fine_mesh.get_index(level, i.start));
-                    auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, (i/2).start));
-                    for (int ii=0; ii<i.size(); ++ii)
+                    auto i_f = fine_mesh.get_index(level, i.start);
+                    auto i_c = coarse_mesh.get_index(level-1, (i/2).start);
+                    for (std::size_t ii=0; ii<i.size(); ++ii)
                     {
                         farray[i_f + ii] = carray[i_c + ii];
                     }
@@ -127,16 +127,16 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     bdry_intersect([&](const auto& i, const auto& index)
                     {
                         auto j = index[0];
-                        auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j));
+                        auto i_c = coarse_mesh.get_index(level-1, i.start, j);
                         if (s(0) == -1) // left boundary
                         {
                             // In this case, i_f_2j and i_f_2jp1 do not exist because (2*1).start is outside of the boundary,
                             // so the index does not exist (if it did, it would be negative; in practive, the variable seems to contain a random value).
                             // Consequently, we use (2*i+1).start to get the index, and to compensate, 
                             // we only use 2*ii instead of 2*ii+1 in the affectation.
-                            auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i+1).start, 2*j  ));
-                            auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i+1).start, 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            auto i_f_2j   = fine_mesh.get_index(level, (2*i+1).start, 2*j  );
+                            auto i_f_2jp1 = fine_mesh.get_index(level, (2*i+1).start, 2*j+1);
+                            for (std::size_t ii=0; ii<i.size(); ++ii)
                             {
                                 farray[i_f_2j   + 2*ii] = carray[i_c + ii];
                                 farray[i_f_2jp1 + 2*ii] = carray[i_c + ii];
@@ -144,9 +144,9 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                         else if (s(0) == 1) // right boundary
                         {
-                            auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
-                            auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            auto i_f_2j   = fine_mesh.get_index(level, (2*i).start, 2*j  );
+                            auto i_f_2jp1 = fine_mesh.get_index(level, (2*i).start, 2*j+1);
+                            for (std::size_t ii=0; ii<i.size(); ++ii)
                             {
                                 farray[i_f_2j   + 2*ii] = carray[i_c + ii];
                                 farray[i_f_2jp1 + 2*ii] = carray[i_c + ii];
@@ -154,8 +154,8 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                         else if (s(1) == -1) // bottom boundary
                         {
-                            auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            auto i_f_2jp1 = fine_mesh.get_index(level, (2*i).start, 2*j+1);
+                            for (std::size_t ii=0; ii<i.size(); ++ii)
                             {
                                 farray[i_f_2jp1 + 2*ii  ] = carray[i_c + ii];
                                 farray[i_f_2jp1 + 2*ii+1] = carray[i_c + ii];
@@ -163,8 +163,8 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                         else if (s(1) == 1) // top boundary
                         {
-                            auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            auto i_f_2j   = fine_mesh.get_index(level, (2*i).start, 2*j  );
+                            for (std::size_t ii=0; ii<i.size(); ++ii)
                             {
                                 farray[i_f_2j + 2*ii  ] = carray[i_c + ii];
                                 farray[i_f_2j + 2*ii+1] = carray[i_c + ii];
@@ -193,7 +193,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
             {
                 auto index_f = static_cast<int>(fine_mesh.get_index(level, i.start));
                 auto index_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                for (int ii=0; ii<i.size(); ++ii)
+                for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                 {
                     //farray[index_f + ii] = carray[index_c + ii];
                     MatSetValue(P, index_f + ii, index_c + ii, 1, INSERT_VALUES);
@@ -210,7 +210,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start));
                     if (prediction_order == 0)
                     {
-                        for (int ii=0; ii<i.size(); ++ii)
+                        for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                         {
                             // Prediction 1D (order 0)
                             MatSetValue(P, i_f + 2*ii,     i_c+ii    ,  1   , INSERT_VALUES);
@@ -220,7 +220,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                     else if (prediction_order == 1)
                     {
-                        for (int ii=0; ii<i.size(); ++ii)
+                        for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                         {
                             // Prediction 1D (order 1)
                             //farray[i_f + 2*ii  ] = carray[i_c+ii] - 1./8*(carray[i_c+ii + 1] - carray[i_c+ii - 1]);
@@ -247,7 +247,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
 
                     if (prediction_order == 0)
                     {                        
-                        for (int ii=0; ii<i.size(); ++ii)
+                        for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                         {
                             // Prediction 2D (order 0)
                             auto fine_bottom_left  = i_f_2j   + 2*ii  ;
@@ -268,7 +268,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         auto i_c_jm1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j-1));
                         auto i_c_jp1  = static_cast<int>(coarse_mesh.get_index(level-1, i.start, j+1));
                         
-                        for (int ii=0; ii<i.size(); ++ii)
+                        for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                         {
                             // Prediction 2D (order 1)
                             auto fine_bottom_left  = i_f_2j   + 2*ii  ;
@@ -350,7 +350,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                 {
                     auto i_f = static_cast<int>(fine_mesh.get_index(level, i.start));
                     auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, (i/2).start));
-                    for (int ii=0; ii<i.size(); ++ii)
+                    for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                     {
                         //farray[i_f + ii] = carray[i_c + ii];
                         MatSetValue(P, i_f + ii, i_c + ii, 1, INSERT_VALUES);
@@ -379,7 +379,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                             // we only use 2*ii instead of 2*ii+1 in the affectation.
                             auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2*i+1).start, 2*j  ));
                             auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2*i+1).start, 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                             {
                                 auto coarse = i_c + ii;
                                 auto fine_bottom_right = i_f_2j   + 2*ii;
@@ -394,7 +394,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         {
                             auto fine_bottom = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
                             auto fine_top    = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                             {
                                 auto left = 2*ii;
                                 auto coarse = i_c + ii;
@@ -406,7 +406,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         else if (s(1) == -1) // bottom boundary
                         {
                             auto fine_top = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                             {
                                 auto left  = 2*ii;
                                 auto right = 2*ii+1;
@@ -418,7 +418,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         else if (s(1) == 1) // top boundary
                         {
                             auto fine_bottom = static_cast<int>(fine_mesh.get_index(level, (2*i).start, 2*j  ));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                             {
                                 auto left  = 2*ii;
                                 auto right = 2*ii+1;
@@ -540,9 +540,9 @@ namespace samurai_new { namespace petsc { namespace multigrid
             auto shared = samurai::intersection(cm[level], fm[level]);
             shared([&](auto& i, auto&)
             {
-                auto index_f = static_cast<int>(fine_mesh.get_index(level, i.start));
-                auto index_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                for(int ii=0; ii<i.size(); ++ii)
+                auto index_f = fine_mesh.get_index(level, i.start);
+                auto index_c = coarse_mesh.get_index(level, i.start);
+                for(std::size_t ii=0; ii<i.size(); ++ii)
                 {
                     carray[index_c + ii] = farray[index_f + ii];
                 }
@@ -554,9 +554,9 @@ namespace samurai_new { namespace petsc { namespace multigrid
             {
                 if (Mesh::dim == 1)
                 {
-                    auto i_f = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start));
-                    auto i_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                    for(int ii=0; ii<i.size(); ++ii)
+                    auto i_f = fine_mesh.get_index(level+1, (2*i).start);
+                    auto i_c = coarse_mesh.get_index(level, i.start);
+                    for(std::size_t ii=0; ii<i.size(); ++ii)
                     {
                         // Projection 1D
                         carray[i_c + ii] = 0.5*(farray[i_f + 2*ii] + farray[i_f + 2*ii+1]);
@@ -566,10 +566,10 @@ namespace samurai_new { namespace petsc { namespace multigrid
                 else if (Mesh::dim == 2)
                 {
                     auto j = index[0];
-                    auto i_c    = static_cast<int>(coarse_mesh.get_index(level, i.start, j));
-                    auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j  ));
-                    auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j+1));
-                    for(int ii=0; ii<i.size(); ++ii)
+                    auto i_c      = coarse_mesh.get_index(level, i.start, j);
+                    auto i_f_2j   = fine_mesh.get_index(level+1, (2*i).start, 2*j  );
+                    auto i_f_2jp1 = fine_mesh.get_index(level+1, (2*i).start, 2*j+1);
+                    for(std::size_t ii=0; ii<i.size(); ++ii)
                     {
                         // Projection 2D
                         carray[i_c + ii] = 0.25*(farray[i_f_2j   + 2*ii  ] + 
@@ -589,9 +589,9 @@ namespace samurai_new { namespace petsc { namespace multigrid
                 fine_boundary([&](const auto& i, auto)
                 {
                     //cf(level, i>>1) = fine_field(level + 1, i);
-                    auto i_f = static_cast<int>(fine_mesh.get_index(level+1, i.start));
-                    auto i_c = static_cast<int>(coarse_mesh.get_index(level, (i/2).start));
-                    for (int ii=0; ii<i.size(); ++ii)
+                    auto i_f = fine_mesh.get_index(level+1, i.start);
+                    auto i_c = coarse_mesh.get_index(level, (i/2).start);
+                    for (std::size_t ii=0; ii<i.size(); ++ii)
                     {
                         carray[i_c + ii] = farray[i_f + ii];
                     }
@@ -611,41 +611,41 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     {
                         auto j = index[0];
 
-                        auto i_c   = static_cast<int>(coarse_mesh.get_index(level, i.start, j));
-                        auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j  ));
-                        auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j+1));
+                        auto i_c   = coarse_mesh.get_index(level, i.start, j);
+                        auto i_f_2j   = fine_mesh.get_index(level+1, (2*i).start, 2*j  );
+                        auto i_f_2jp1 = fine_mesh.get_index(level+1, (2*i).start, 2*j+1);
 
                         if (s(0) == -1) // left boundary
                         {
                             //coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i+1, 2*j  ) + fine_field(level+1, 2*i+1, 2*j+1));
-                            //for (int ii=0; ii<i.size(); ++ii)
+                            //for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                                 //carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii+1] + farray[i_f_2jp1 + 2*ii+1]);
                             
                             // In this case, i_f_2j and i_f_2jp1 do not exist because (2*1).start is outside of the boundary,
                             // so the index does not exist (if it did, it would be negative; in practive, the variable seems to contain a random value).
                             // Consequently, we use (2*i+1).start to get the index, and to compensate, 
                             // we only use 2*ii instead of 2*ii+1 in the affectation.
-                            auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j  ));
-                            auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            i_f_2j   = fine_mesh.get_index(level+1, (2*i+1).start, 2*j  );
+                            i_f_2jp1 = fine_mesh.get_index(level+1, (2*i+1).start, 2*j+1);
+                            for (std::size_t ii=0; ii<i.size(); ++ii)
                                 carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2jp1 + 2*ii]);
                         }
                         else if (s(0) == 1) // right boundary
                         {
                             //coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i  , 2*j  ) + fine_field(level+1, 2*i  , 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (std::size_t ii=0; ii<i.size(); ++ii)
                                 carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2jp1 + 2*ii]);
                         }
                         else if (s(1) == -1) // bottom boundary
                         {
                             //coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i  , 2*j+1) + fine_field(level+1, 2*i+1, 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (std::size_t ii=0; ii<i.size(); ++ii)
                                 carray[i_c + ii] = 0.5*(farray[i_f_2jp1 + 2*ii] + farray[i_f_2jp1 + 2*ii+1]);
                         }
                         else if (s(1) == 1) // top boundary
                         {
                             //coarse_field(level, i, j) = 0.5*(fine_field(level+1, 2*i  , 2*j  ) + fine_field(level+1, 2*i+1, 2*j  ));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (std::size_t ii=0; ii<i.size(); ++ii)
                                 carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2j + 2*ii+1]);
                         }
                         else
@@ -673,7 +673,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
             {
                 auto index_f = static_cast<int>(fine_mesh.get_index(level, i.start));
                 auto index_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                for (int ii=0; ii<i.size(); ++ii)
+                for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                 {
                     //carray[index_c + ii] = farray[index_f + ii];
                     MatSetValue(R, index_c + ii, index_f + ii, 1, INSERT_VALUES);
@@ -688,7 +688,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                 {
                     auto i_f = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start));
                     auto i_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
-                    for (int ii=0; ii<i.size(); ++ii)
+                    for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                     {
                         // Projection (here in 1D only)
                         //carray[i_c + ii] = 0.5*(farray[i_f + 2*ii] + farray[i_f + 2*ii+1]);
@@ -703,7 +703,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     auto i_c    = static_cast<int>(coarse_mesh.get_index(level, i.start, j));
                     auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j  ));
                     auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start, 2*j+1));
-                    for (int ii=0; ii<i.size(); ++ii)
+                    for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                     {
                         // Projection 2D
                         //carray[i_c + ii] = 0.25*(farray[i_f_2j   + 2*ii  ] + farray[i_f_2jp1 + 2*ii  ] + farray[i_f_2j   + 2*ii+1] + farray[i_f_2jp1 + 2*ii+1]);
@@ -726,7 +726,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     //cf(level, i>>1) = fine_field(level + 1, i);
                     auto i_f = static_cast<int>(fine_mesh.get_index(level+1, i.start));
                     auto i_c = static_cast<int>(coarse_mesh.get_index(level, (i/2).start));
-                    for (int ii=0; ii<i.size(); ++ii)
+                    for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                     {
                         //carray[i_c + ii] = farray[i_f + ii];
                         MatSetValue(R, i_c + ii, i_f + ii, 1, INSERT_VALUES);
@@ -754,12 +754,12 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         if (s(0) == -1) // left boundary
                         {
                             // In this case, i_f_2j and i_f_2jp1 do not exist because (2*1).start is outside of the boundary,
-                            // so the index does not exist (if it did, it would be negative; in practive, the variable seems to contain a random value).
+                            // so the index does not exist (if it did, it would be negative; in practice, the variable seems to contain a random value).
                             // Consequently, we use (2*i+1).start to get the index, and to compensate, 
                             // we only use 2*ii instead of 2*ii+1 in the affectation.
-                            auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j  ));
-                            auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j+1));
-                            for (int ii=0; ii<i.size(); ++ii)
+                            i_f_2j   = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j  ));
+                            i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level+1, (2*i+1).start, 2*j+1));
+                            for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                             {
                                 //carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2jp1 + 2*ii]);
                                 MatSetValue(R, i_c + ii, i_f_2j   + 2*ii, 0.5, INSERT_VALUES);
@@ -768,7 +768,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                         else if (s(0) == 1) // right boundary
                         {
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                             {
                                 //carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2jp1 + 2*ii]);
                                 MatSetValue(R, i_c + ii, i_f_2j   + 2*ii, 0.5, INSERT_VALUES);
@@ -777,7 +777,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                         else if (s(1) == -1) // bottom boundary
                         {
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                             {
                                 //carray[i_c + ii] = 0.5*(farray[i_f_2jp1 + 2*ii] + farray[i_f_2jp1 + 2*ii+1]);
                                 MatSetValue(R, i_c + ii, i_f_2jp1 + 2*ii  , 0.5, INSERT_VALUES);
@@ -786,7 +786,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                         else if (s(1) == 1) // top boundary
                         {
-                            for (int ii=0; ii<i.size(); ++ii)
+                            for (int ii=0; ii<static_cast<int>(i.size()); ++ii)
                             {
                                 //carray[i_c + ii] = 0.5*(farray[i_f_2j + 2*ii] + farray[i_f_2j + 2*ii+1]);
                                 MatSetValue(R, i_c + ii, i_f_2j + 2*ii  , 0.5, INSERT_VALUES);

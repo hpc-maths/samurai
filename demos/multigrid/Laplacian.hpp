@@ -26,7 +26,7 @@ public:
 
     void create_matrix(Mat& A)
     {
-        std::size_t n = mesh.nb_cells();
+        auto n = static_cast<PetscInt>(mesh.nb_cells());
 
         MatCreate(PETSC_COMM_SELF, &A);
         MatSetSizes(A, n, n, n, n);

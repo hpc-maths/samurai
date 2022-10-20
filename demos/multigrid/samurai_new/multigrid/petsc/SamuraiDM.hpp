@@ -64,7 +64,7 @@ namespace samurai_new
                 }
             }
 
-            static PetscErrorCode Coarsen(DM fine_dm, MPI_Comm comm, DM *coarse_dm) 
+            static PetscErrorCode Coarsen(DM fine_dm, MPI_Comm /*comm*/, DM *coarse_dm) 
             {
                 //std::cout << "Coarsen - begin" << std::endl;
                 LevelContext<Dsctzr>* fine_ctx;
@@ -97,7 +97,7 @@ namespace samurai_new
             }
 
         public:
-            static PetscErrorCode ComputeMatrix(KSP ksp, Mat J, Mat jac, void *dummy_ctx) 
+            static PetscErrorCode ComputeMatrix(KSP ksp, Mat /*J*/, Mat jac, void */*dummy_ctx*/) 
             {
                 DM shell;
                 KSPGetDM(ksp, &shell);
@@ -118,8 +118,8 @@ namespace samurai_new
                 LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
-                std::size_t nf = fine_ctx->mesh().nb_cells();
-                std::size_t nc = coarse_ctx->mesh().nb_cells();
+                auto nf = static_cast<PetscInt>(fine_ctx->mesh().nb_cells());
+                auto nc = static_cast<PetscInt>(coarse_ctx->mesh().nb_cells());
 
                 MatCreateShell(PetscObjectComm((PetscObject)fine_dm), nf, nc, nf, nc, coarse_ctx, P);
                 MatShellSetOperation(*P, MATOP_MULT, (void(*)(void))prolongation);
@@ -201,8 +201,8 @@ namespace samurai_new
                 LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
-                std::size_t nf = fine_ctx->mesh().nb_cells();
-                std::size_t nc = coarse_ctx->mesh().nb_cells();
+                auto nf = static_cast<PetscInt>(fine_ctx->mesh().nb_cells());
+                auto nc = static_cast<PetscInt>(coarse_ctx->mesh().nb_cells());
 
                 int stencil_size = 3; // 1D
                 if (std::remove_reference_t<decltype(fine_ctx->mesh())>::dim == 2)
@@ -230,8 +230,8 @@ namespace samurai_new
                 LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
-                std::size_t nf = fine_ctx->mesh().nb_cells();
-                std::size_t nc = coarse_ctx->mesh().nb_cells();
+                auto nf = static_cast<PetscInt>(fine_ctx->mesh().nb_cells());
+                auto nc = static_cast<PetscInt>(coarse_ctx->mesh().nb_cells());
 
                 MatCreateShell(PetscObjectComm((PetscObject)fine_dm), nc, nf, nc, nf, fine_ctx, R);
                 MatShellSetOperation(*R, MATOP_MULT, (void(*)(void))restriction);
@@ -282,8 +282,8 @@ namespace samurai_new
                 LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
-                std::size_t nf = fine_ctx->mesh().nb_cells();
-                std::size_t nc = coarse_ctx->mesh().nb_cells();
+                auto nf = static_cast<PetscInt>(fine_ctx->mesh().nb_cells());
+                auto nc = static_cast<PetscInt>(coarse_ctx->mesh().nb_cells());
 
                 int stencil_size = 2; // 1D
                 if (std::remove_reference_t<decltype(fine_ctx->mesh())>::dim == 2)
@@ -310,7 +310,7 @@ namespace samurai_new
                 //std::cout << "CreateGlobalVector - begin " << std::endl;
                 LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
-                VecCreateSeq(PETSC_COMM_SELF, ctx->mesh().nb_cells(), x);
+                VecCreateSeq(PETSC_COMM_SELF, static_cast<PetscInt>(ctx->mesh().nb_cells()), x);
                 VecSetDM(*x, shell);
                 //std::cout << "CreateGlobalVector - level " << ctx->level << std::endl;
                 return 0;
@@ -320,7 +320,7 @@ namespace samurai_new
                 //std::cout << "CreateLocalVector - begin" << std::endl;
                 LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
-                VecCreateSeq(PETSC_COMM_SELF, ctx->mesh().nb_cells(), x);
+                VecCreateSeq(PETSC_COMM_SELF, static_cast<PetscInt>(ctx->mesh().nb_cells()), x);
                 VecSetDM(*x, shell);
                 //std::cout << "CreateLocalVector - end" << std::endl;
                 return 0;

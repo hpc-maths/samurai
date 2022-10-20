@@ -11,7 +11,7 @@ namespace samurai_new
         typename Mesh::cl_type coarse_cell_list;
         if (Mesh::dim == 1)
         {
-            samurai::for_each_interval(mesh[mesh_id_t::cells], [&](size_t level, const auto& i, const auto& index)
+            samurai::for_each_interval(mesh[mesh_id_t::cells], [&](size_t level, const auto& i, const auto&)
             {
                 coarse_cell_list[level-1][{}].add_interval(i >> 1);
             });
@@ -29,10 +29,10 @@ namespace samurai_new
     }
 
     
-    template <class Mesh>
+    /*template <class Mesh>
     Mesh refine(const Mesh& mesh)
     {
         assert(false && "refine() not implemented");
-    }
+    }*/
 
 } // namespace samurai_new

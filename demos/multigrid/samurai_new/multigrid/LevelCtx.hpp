@@ -32,7 +32,7 @@ namespace samurai_new
         int prediction_order;
 
         LevelContext(Dsctzr& d, Mesh& m, TransferOperators to, int pred_order) : 
-            _discretizer(d), _mesh(m)
+            _mesh(m), _discretizer(d)
         {
             level = 0;
             transfer_ops = to;
