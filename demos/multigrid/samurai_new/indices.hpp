@@ -9,21 +9,23 @@ namespace samurai_new
         auto i_start = static_cast<TIndex>(mesh.get_index(level, i.start, j));
         for(TIndex ii=0; ii<static_cast<TIndex>(i.size()); ++ii)
         {
-            auto index = i_start + ii;
-            f(index);
+            f(i_start + ii);
         }
     }
 
     template <typename TIndex, class Mesh, typename TJ, typename TDirection, class Func>
     inline void for_each_index_and_nghb_index(const Mesh& mesh, std::size_t level, const typename Mesh::config::interval_t& i, const TJ j, const TDirection& nghb_direction, Func &&f)
     {
-        auto i_start      = static_cast<TIndex>(mesh.get_index(level, i.start                    , j                    ));
-        auto i_nghb_start = static_cast<TIndex>(mesh.get_index(level, i.start + nghb_direction[0], j + nghb_direction[1]));
+        auto i_start = static_cast<TIndex>(mesh.get_index(level, i.start, j));
+        auto i_nghb_start = i_start;
+        if (nghb_direction[1] == 0) // the neighbour is on the same row
+            i_nghb_start += nghb_direction[0];
+        else
+            i_nghb_start = static_cast<TIndex>(mesh.get_index(level, i.start + nghb_direction[0], j + nghb_direction[1]));
+        
         for(TIndex ii=0; ii<static_cast<TIndex>(i.size()); ++ii)
         {
-            auto index      = i_start      + ii;
-            auto index_nghb = i_nghb_start + ii;
-            f(index, index_nghb);
+            f(i_start + ii, i_nghb_start + ii);
         }
     }
 

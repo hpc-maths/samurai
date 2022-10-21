@@ -5,14 +5,14 @@ namespace samurai_new
 {
     enum TransferOperators : int
     {
-        // P mat-free, R mat-free (via Fields)
-        MatrixFree_Fields = 1,
-        // P mat-free, R mat-free (via double*)
-        MatrixFree_Arrays,
+        // P assembled, R = assembled
+        Assembled = 1,
         // P assembled, R = P^T
         Assembled_PTranspose,
-        // P assembled, R = assembled
-        Assembled
+        // P mat-free, R mat-free (via double*)
+        MatrixFree_Arrays,
+        // P mat-free, R mat-free (via Fields)
+        MatrixFree_Fields
     };
 
     template<class Dsctzr>
