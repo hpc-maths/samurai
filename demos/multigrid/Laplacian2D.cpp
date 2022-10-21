@@ -10,20 +10,20 @@
 //-------------------//
 
 template<class Mesh>
-std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>, Mesh& mesh, DirichletEnforcement /*dirichlet_enfcmt*/)
+std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
     std::size_t n = mesh.nb_cells();
 
-    std::vector<int> nnz(n, 1);
+    std::vector<PetscInt> nnz(n, 1);
 
     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
     {
         auto j = index[0];
-        for(int ii=i.start; ii<i.end; ++ii)
+        auto i_j_start = mesh.get_index(level, i.start, j);
+        for(std::size_t ii=0; ii<i.size(); ++ii)
         {
-            auto i_j = mesh.get_index(level, ii, j);
-            nnz[i_j] = 5;
+            nnz[i_j_start + ii] = 5;
         }
     });
 
@@ -66,22 +66,25 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
         });
     }
 
-    
-    for(std::size_t level=min_level; level<=max_level; ++level)
-    {
-        auto set = samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level],
-                                    mesh.domain())
-                .on(level);
 
-        set([&](const auto& i, const auto& index)
+    if (dirichlet_enfcmt != OnesOnDiagonal)
+    {
+        for(std::size_t level=min_level; level<=max_level; ++level)
         {
-            auto j = index[0];
-            for(int ii=i.start; ii<i.end; ++ii)
+            samurai_new::boundary(mesh, level, 
+            [&] (const auto& i, const auto& index, const auto& out_vect)
             {
-                auto i_cell = mesh.get_index(level, ii, j);
-                nnz[i_cell] = 5;
-            }
-        });
+                auto j = index[0];
+                if (out_vect[0] == 0 || out_vect[1] == 0) // Cartesian direction
+                {
+                    samurai_new::for_each_index<std::size_t>(mesh, level, i, j, 
+                    [&] (std::size_t i_out)
+                    {
+                        nnz[i_out] = 2;
+                    });
+                }
+            });
+        }
     }
 
     return nnz;
