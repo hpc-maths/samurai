@@ -21,18 +21,14 @@ namespace samurai_new { namespace petsc {
         Dsctzr* _discretizer = nullptr;
         Mesh* _mesh = nullptr;
         SamuraiDM<Dsctzr>* _samuraiDM = nullptr;
-        TransferOperators _transfer_ops;
-        int _prediction_order;
 
     public:
         GeometricMultigrid() {}
 
-        GeometricMultigrid(Dsctzr& discretizer, Mesh& mesh, TransferOperators transfer_ops, int prediction_order)
+        GeometricMultigrid(Dsctzr& discretizer, Mesh& mesh)
         {
             _discretizer = &discretizer;
             _mesh = &mesh;
-            _transfer_ops = transfer_ops;
-            _prediction_order = prediction_order;
         }
 
         void destroy_petsc_objects()
@@ -49,6 +45,13 @@ namespace samurai_new { namespace petsc {
 
         void apply_as_pc(KSP& ksp)
         {
+            PetscInt transfer_ops_arg = samurai_new::TransferOperators::Assembled;
+            PetscOptionsGetInt(NULL, NULL, "-samg_transfer_ops", &transfer_ops_arg, NULL);
+            samurai_new::TransferOperators transfer_ops = static_cast<samurai_new::TransferOperators>(transfer_ops_arg);
+
+            PetscInt prediction_order = 0;
+            PetscOptionsGetInt(NULL, NULL, "-samg_pred_order", &prediction_order, NULL);
+
             PetscBool smoother_is_set = PETSC_FALSE;
             Smoothers smoother = SymGaussSeidel;
             char smoother_char_array[10];
@@ -67,6 +70,7 @@ namespace samurai_new { namespace petsc {
             }
 
             std::cout << "Samurai multigrid: " << std::endl;
+
             std::cout << "    smoothers         : ";
             if (smoother == GaussSeidel)
                 std::cout << "Gauss-Seidel (pre: lexico., post: antilexico.)";
@@ -75,10 +79,21 @@ namespace samurai_new { namespace petsc {
             else if (smoother == Petsc)
                 std::cout << "petsc options";
             std::cout << std::endl;
-            std::cout << "    transfer operators: " << _transfer_ops << std::endl;
-            std::cout << "    prediction order  : " << _prediction_order << std::endl;
 
-            _samuraiDM = new SamuraiDM<Dsctzr>(PETSC_COMM_SELF, *_discretizer, *_mesh, _transfer_ops, _prediction_order);
+            std::cout << "    transfer operators: ";
+            if (transfer_ops == TransferOperators::Assembled)
+                std::cout << "P assembled, R assembled";
+            else if (transfer_ops == TransferOperators::Assembled_PTranspose)
+                std::cout << "P assembled, R = P^T";
+            else if (transfer_ops == TransferOperators::MatrixFree_Arrays)
+                std::cout << "P mat-free, R mat-free (via double*)";
+            else if (transfer_ops == TransferOperators::MatrixFree_Fields)
+                std::cout << "P mat-free, R mat-free (via Fields)";
+            std::cout << std::endl;
+
+            std::cout << "    prediction order  : " << prediction_order << std::endl;
+
+            _samuraiDM = new SamuraiDM<Dsctzr>(PETSC_COMM_SELF, *_discretizer, *_mesh, transfer_ops, prediction_order);
             KSPSetDM(ksp, _samuraiDM->PetscDM());
 
             // Default outer solver: CG
@@ -95,8 +110,13 @@ namespace samurai_new { namespace petsc {
             PCMGGetLevels(mg, &levels);
             if (levels < 2)
             {
-                levels = std::max(static_cast<int>(_mesh->max_level()) - 3, 2);
-                levels = std::min(levels, 8);
+                if (_mesh->max_level() == 1)
+                    levels = 1;
+                else
+                {
+                    levels = std::max(static_cast<int>(_mesh->max_level()) - 3, 2);
+                    levels = std::min(levels, 8);
+                }
             }
             std::cout << "    levels            : " << levels << std::endl;
             PCMGSetLevels(mg, levels, nullptr);

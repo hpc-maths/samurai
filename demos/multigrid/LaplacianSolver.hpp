@@ -54,17 +54,10 @@ private:
             //
             // Geometric multigrid using samurai
             //
-            PetscInt mg_transfer_ops_arg = samurai_new::TransferOperators::Assembled;
-            PetscOptionsGetInt(NULL, NULL, "-samg_transfer_ops", &mg_transfer_ops_arg, NULL);
-            samurai_new::TransferOperators mg_transfer_ops = static_cast<samurai_new::TransferOperators>(mg_transfer_ops_arg);
-
-            PetscInt mg_prediction_order = 0;
-            PetscOptionsGetInt(NULL, NULL, "-samg_pred_order", &mg_prediction_order, NULL);
-
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             KSPSetFromOptions(_ksp);
 
-            _samuraiMG = samurai_new::petsc::GeometricMultigrid(discretizer, mesh, mg_transfer_ops, mg_prediction_order);
+            _samuraiMG = samurai_new::petsc::GeometricMultigrid(discretizer, mesh);
             _samuraiMG.apply_as_pc(_ksp);
         }
     }
