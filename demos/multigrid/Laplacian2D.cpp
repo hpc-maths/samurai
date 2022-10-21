@@ -2,6 +2,7 @@
 #include "samurai_new/multigrid/petsc/utils.hpp"
 #include "utils.hpp"
 #include "samurai_new/boundary.hpp"
+#include "samurai_new/indices.hpp"
 
 //-------------------//
 //     Laplacian     //
@@ -105,39 +106,37 @@ template<class Mesh>
 PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    //using interval_t = typename Mesh::interval_t;
-
-    constexpr int stencil_size = 4;
 
     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
     {
         auto j = index[0];
 
         double v_off = off_diag_coeff_2D(level);
-        double v_diag = -stencil_size*v_off;
 
         PetscInt stencil_row[3];
         double coeffs_stencil_row[3];
-        coeffs_stencil_row[0] = v_off;
-        coeffs_stencil_row[1] = -stencil_size*v_off;
-        coeffs_stencil_row[2] = v_off;
+        coeffs_stencil_row[0] =      v_off;
+        coeffs_stencil_row[1] = -4 * v_off;
+        coeffs_stencil_row[2] =      v_off;
 
-        auto i_j_start   = static_cast<PetscInt>(mesh.get_index(level, i.start, j  ));
-        auto i_jp1_start = static_cast<PetscInt>(mesh.get_index(level, i.start, j+1));
-        auto i_jm1_start = static_cast<PetscInt>(mesh.get_index(level, i.start, j-1));
-
-        for(PetscInt ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
+        // 5-point stencil:                               bottom, right,   top,     left
+        xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+        samurai_new::for_each_stencil<PetscInt>(mesh, level, i, j, stencil,
+        [&] (const PetscInt indices[5])
         {
-            auto i_j = i_j_start + ii;
-            stencil_row[0] = i_j - 1;
-            stencil_row[1] = i_j;
-            stencil_row[2] = i_j + 1;
-            MatSetValues(A, 1, &i_j, 3, stencil_row, coeffs_stencil_row, INSERT_VALUES);
-            auto i_jp1 = i_jp1_start + ii;
-            auto i_jm1 = i_jm1_start + ii;
-            MatSetValue(A, i_j, i_jp1,  v_off, INSERT_VALUES);
-            MatSetValue(A, i_j, i_jm1,  v_off, INSERT_VALUES);
-        }
+            auto center = indices[0];
+            auto bottom = indices[1];
+            auto right  = indices[2];
+            auto top    = indices[3];
+            auto left   = indices[4];
+
+            stencil_row[0] = left;
+            stencil_row[1] = center;
+            stencil_row[2] = right;
+            MatSetValues(A, 1, &center, 3, stencil_row, coeffs_stencil_row, INSERT_VALUES);
+            MatSetValue(A, center, top   , v_off, INSERT_VALUES);
+            MatSetValue(A, center, bottom, v_off, INSERT_VALUES);
+        });
     });
 
     auto min_level = mesh[mesh_id_t::cells].min_level();
@@ -224,6 +223,16 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
     }
 
     // Boundary
+
+    // Dirichlet condition enforcement.
+    // Penalty method: 
+    //         The diagonal coefficient of the Dirichlet rows is replaced with itself plus a penalty.
+    //         The other coeff in the row is unchanged.
+    // Non-symmetric: 
+    //         The diagonal coefficient of the Dirichlet rows is replaced with 1. The other coeff in the row is set to 0.
+    //         This method kills the symmetry of the matrix, but used in an iterative solver it's fine because the residual is always 0
+    //         on the Dirichlet unknowns, so the behaviour of the solver is the same as if the unknowns had been eliminated.
+    //         (cf. Ern-Guermont 2004 - Theory and practice of FE, §8.4.3 p. 378)
     double penalty_coeff = 1000;
     for(std::size_t level=min_level; level<=max_level; ++level)
     {
@@ -234,12 +243,11 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
 
             if (out_vect[0] != 0 && out_vect[1] != 0) // corners
             {
-                auto i_out_start = static_cast<PetscInt>(mesh.get_index(level, i.start, j));
-                for(int ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
+                samurai_new::for_each_index<PetscInt>(mesh, level, i, j, 
+                [&] (PetscInt i_out)
                 {
-                    PetscInt i_out = i_out_start + ii;
                     MatSetValue(A, i_out, i_out, 1, INSERT_VALUES);
-                }
+                });
             }
             else // Cartesian direction
             {
@@ -251,131 +259,34 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                     if (dirichlet_enfcmt == Penalization)
                         v_diag *= (1 + penalty_coeff);
 
-                    auto i_out_start = static_cast<PetscInt>(mesh.get_index(level, i.start              , j              ));
-                    auto i_in_start  = static_cast<PetscInt>(mesh.get_index(level, i.start - out_vect[0], j - out_vect[1]));
-                    for(int ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
+                    samurai_new::for_each_index_and_nghb_index<PetscInt>(mesh, level, i, j, -out_vect,
+                    [&] (PetscInt i_out, PetscInt i_in)
                     {
-                        auto i_out = i_out_start + ii;
-                        auto i_in  = i_in_start + ii;
                         MatSetValue(A, i_out, i_out, v_diag, INSERT_VALUES);
                         MatSetValue(A, i_out, i_in ,  v_off, INSERT_VALUES);
-                    }
+                    });
                 }
                 else if (dirichlet_enfcmt == Elimination)
                 {
-                    auto i_out_start = static_cast<PetscInt>(mesh.get_index(level, i.start              , j              ));
-                    auto i_in_start  = static_cast<PetscInt>(mesh.get_index(level, i.start - out_vect[0], j - out_vect[1]));
-                    for(int ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
+                    samurai_new::for_each_index_and_nghb_index<PetscInt>(mesh, level, i, j, -out_vect,
+                    [&] (PetscInt i_out, PetscInt i_in)
                     {
-                        auto i_out = i_out_start + ii;
-                        auto i_in  = i_in_start + ii;
                         MatSetValue(A, i_out, i_out, 1, INSERT_VALUES);
                         MatSetValue(A, i_in , i_out, 0, INSERT_VALUES); // Remove the coefficient that was added before
-                    }
+                    });
                 }
                 else if (dirichlet_enfcmt == OnesOnDiagonal)
                 {
-                    auto i_out_start = static_cast<PetscInt>(mesh.get_index(level, i.start, j));
-                    for(int ii=0; ii<static_cast<PetscInt>(i.size()); ++ii)
+                    samurai_new::for_each_index<PetscInt>(mesh, level, i, j, 
+                    [&] (PetscInt i_out)
                     {
-                        auto i_out = i_out_start + ii;
                         MatSetValue(A, i_out, i_out, 1, INSERT_VALUES);
-                    }
+                    });
                 }
             }
         });
     }
 
-    // Dirichlet condition enforcement.
-    // Penalty method: 
-    //         The diagonal coefficient of the Dirichlet rows is replaced with itself plus a penalty.
-    //         The other coeff in the row is unchanged.
-    // Non-symmetric: 
-    //         The diagonal coefficient of the Dirichlet rows is replaced with 1. The other coeff in the row is set to 0.
-    //         This method kills the symmetry of the matrix, but used in an iterative solver it's fine because the residual is always 0
-    //         on the Dirichlet unknowns, so the behaviour of the solver is the same as if the unknowns had been eliminated.
-    //         (cf. Ern-Guermont 2004 - Theory and practice of FE, §8.4.3 p. 378)
-    /*double penalty_coeff = 1000;
-    for(std::size_t level=min_level; level<=max_level; ++level)
-    {
-        // for(std::size_t is = 0; is < stencils.shape()[0]; ++is)
-        // {
-        //     auto s = xt::view(stencils, is);
-        //     auto set = samurai::difference(samurai::translate(mesh[mesh_id_t::cells_and_ghosts][level], s),
-        //                                 mesh.domain()).on(level);
-            auto set = samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level],
-                                         mesh.domain()).on(level);
-
-            set([&](const auto& i, const auto& index)
-            {
-                auto j = index[0];
-                if (dirichlet_enfcmt == Penalization)
-                {
-                    double v_diag, v_off;
-                    coeffs_2D(level, v_diag, v_off);
-                    double v_diag *= (1 + penalty_coeff);
-                    for(int ii=i.start; ii<i.end; ++ii)
-                    {
-                        auto i_out = static_cast<PetscInt>(mesh.get_index(level, ii, j));
-                        MatSetValue(A, i_out, i_out, v_diag, INSERT_VALUES);
-                    }
-                }
-                else if (dirichlet_enfcmt == Elimination)
-                {
-                    for(int ii=i.start; ii<i.end; ++ii)
-                    {
-                        auto i_j   = static_cast<PetscInt>(mesh.get_index(level, ii  , j  ));
-                        auto i_jp1 = static_cast<PetscInt>(mesh.get_index(level, ii  , j+1));
-                        auto i_jm1 = static_cast<PetscInt>(mesh.get_index(level, ii  , j-1));
-                        auto ip1_j = static_cast<PetscInt>(mesh.get_index(level, ii+1, j  ));
-                        auto im1_j = static_cast<PetscInt>(mesh.get_index(level, ii-1, j  ));
-                            MatSetValue(A, i_j  , i_j  , 1, INSERT_VALUES);
-                        if (ip1_j < n) 
-                        {
-                            MatSetValue(A, i_j  , ip1_j, 0, INSERT_VALUES);
-                            MatSetValue(A, ip1_j, i_j  , 0, INSERT_VALUES);
-                        }
-                        if (im1_j < n) 
-                        {
-                            MatSetValue(A, i_j  , im1_j, 0, INSERT_VALUES);
-                            MatSetValue(A, im1_j, i_j  , 0, INSERT_VALUES);
-                        }
-                        if (i_jp1 < n) 
-                        {
-                            MatSetValue(A, i_j  , i_jp1, 0, INSERT_VALUES);
-                            MatSetValue(A, i_jp1, i_j  , 0, INSERT_VALUES);
-                        }
-                        if (i_jm1 < n) 
-                        {
-                            MatSetValue(A, i_j  , i_jm1, 0, INSERT_VALUES);
-                            MatSetValue(A, i_jm1, i_j  , 0, INSERT_VALUES);
-                        }
-                    }
-                }
-                else if (dirichlet_enfcmt == OnesOnDiagonal)
-                {
-                    for(int ii=i.start; ii<i.end; ++ii)
-                    {
-                        // auto i_out = static_cast<PetscInt>(mesh.get_index(level, ii, j));
-                        // auto i_in  = static_cast<PetscInt>(mesh.get_index(level, ii - s[0], j - s[1]));
-                        // MatSetValue(A, i_out, i_out, 1., INSERT_VALUES);
-                        // MatSetValue(A, i_out, i_in , 0., INSERT_VALUES);
-
-                        auto i_j   = static_cast<PetscInt>(mesh.get_index(level, ii  , j  ));
-                        auto i_jp1 = static_cast<PetscInt>(mesh.get_index(level, ii  , j+1));
-                        auto i_jm1 = static_cast<PetscInt>(mesh.get_index(level, ii  , j-1));
-                        auto ip1_j = static_cast<PetscInt>(mesh.get_index(level, ii+1, j  ));
-                        auto im1_j = static_cast<PetscInt>(mesh.get_index(level, ii-1, j  ));
-                                       MatSetValue(A, i_j, i_j  , 1, INSERT_VALUES);
-                        if (ip1_j < n) MatSetValue(A, i_j, ip1_j, 0, INSERT_VALUES);
-                        if (im1_j < n) MatSetValue(A, i_j, im1_j, 0, INSERT_VALUES);
-                        if (i_jp1 < n) MatSetValue(A, i_j, i_jp1, 0, INSERT_VALUES);
-                        if (i_jm1 < n) MatSetValue(A, i_j, i_jm1, 0, INSERT_VALUES);
-                    }
-                }
-            });
-        //}
-    }*/
 
     if (dirichlet_enfcmt != OnesOnDiagonal)
         MatSetOption(A, MAT_SPD, PETSC_TRUE);
