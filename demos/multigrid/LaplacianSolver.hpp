@@ -9,19 +9,22 @@ class LaplacianSolver
     using Field = typename Dsctzr::field_t;
 
 private:
+    Dsctzr& _discretizer;
     KSP _ksp;
-    samurai_new::petsc::GeometricMultigrid<Dsctzr> _samuraiMG;
+    bool _use_samurai_mg;
+    samurai_new::petsc::GeometricMultigrid<Dsctzr> _samurai_mg;
 
 
 public:
     LaplacianSolver(Dsctzr& discretizer, Mesh& mesh)
+    : _discretizer(discretizer)
     {
         create_solver(discretizer, mesh);
     }
 
     void destroy_petsc_objects()
     {
-        _samuraiMG.destroy_petsc_objects();
+        _samurai_mg.destroy_petsc_objects();
         KSPDestroy(&_ksp);
     }
 
@@ -35,36 +38,29 @@ private:
         KSPGetPC(user_ksp, &user_pc);
         PCType user_pc_type;
         PCGetType(user_pc, &user_pc_type);
+        _use_samurai_mg = strcmp(user_pc_type, PCMG) == 0;
+        KSPDestroy(&user_ksp);
 
-        if (strcmp(user_pc_type, PCMG) != 0)
+        KSPCreate(PETSC_COMM_SELF, &_ksp);
+        KSPSetFromOptions(_ksp);
+        if (_use_samurai_mg)
         {
-            //
-            // Any Petsc solver configured through the command line
-            //
-            KSPCreate(PETSC_COMM_SELF, &_ksp);
-            Mat A;
-            discretizer.create_matrix(A);
-            discretizer.assemble_matrix(A);
-            PetscObjectSetName((PetscObject)A, "A");
-            KSPSetOperators(_ksp, A, A);
-            KSPSetFromOptions(_ksp);
-        }
-        else
-        {
-            //
-            // Geometric multigrid using samurai
-            //
-            KSPCreate(PETSC_COMM_SELF, &_ksp);
-            KSPSetFromOptions(_ksp);
-
-            _samuraiMG = samurai_new::petsc::GeometricMultigrid(discretizer, mesh);
-            _samuraiMG.apply_as_pc(_ksp);
+            _samurai_mg = samurai_new::petsc::GeometricMultigrid(discretizer, mesh);
+            _samurai_mg.apply_as_pc(_ksp);
         }
     }
 
 public:
     void setup()
     {
+        if (!_use_samurai_mg)
+        {
+            Mat A;
+            _discretizer.create_matrix(A);
+            _discretizer.assemble_matrix(A);
+            PetscObjectSetName((PetscObject)A, "A");
+            KSPSetOperators(_ksp, A, A);
+        }
         KSPSetUp(_ksp);
     }
 

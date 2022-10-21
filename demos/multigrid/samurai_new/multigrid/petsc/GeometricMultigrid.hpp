@@ -65,8 +65,8 @@ namespace samurai_new { namespace petsc {
                     smoother = SymGaussSeidel;
                 else if (value == "petsc")
                     smoother = Petsc;
-                //else
-                    //fatal_error("unknown value for argument -smooth");
+                else
+                    std::cout << "ERROR: unknown value for argument -smooth" << std::endl << std::endl;
             }
 
             std::cout << "Samurai multigrid: " << std::endl;
