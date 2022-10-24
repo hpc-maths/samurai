@@ -108,15 +108,12 @@ namespace samurai_new { namespace petsc {
 
             PetscInt levels = -1;
             PCMGGetLevels(mg, &levels);
-            if (levels < 2)
+            if (_mesh->max_level() == 1)
+                levels = 1;
+            else if (levels < 2)
             {
-                if (_mesh->max_level() == 1)
-                    levels = 1;
-                else
-                {
-                    levels = std::max(static_cast<int>(_mesh->max_level()) - 3, 2);
-                    levels = std::min(levels, 8);
-                }
+                levels = std::max(static_cast<int>(_mesh->max_level()) - 3, 2);
+                levels = std::min(levels, 8);
             }
             std::cout << "    levels            : " << levels << std::endl;
             PCMGSetLevels(mg, levels, nullptr);

@@ -20,6 +20,35 @@ namespace samurai
     template<class D, class Config>
     class Mesh_base;
 
+    ///////////////////////////////////
+    // for_each_level implementation //
+    ///////////////////////////////////
+
+    template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
+    inline void for_each_level(const CellArray<dim, TInterval, max_size>& ca, Func&& f)
+    {
+        for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
+        {
+            if (!ca[level].empty())
+            {
+                f(level);
+            }
+        }
+    }
+
+    template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
+    inline void for_each_level(CellArray<dim, TInterval, max_size>& ca, Func&& f)
+    {
+        for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
+        {
+            if (!ca[level].empty())
+            {
+                f(level);
+            }
+        }
+    }
+
+
     //////////////////////////////////////
     // for_each_interval implementation //
     //////////////////////////////////////
