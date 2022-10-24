@@ -15,21 +15,24 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
     using mesh_id_t = typename Mesh::mesh_id_t;
     std::size_t n = mesh.nb_cells();
 
+    static constexpr PetscInt scheme_stencil_size =  5; // 5-point stencil Finite Volume scheme
+    static constexpr PetscInt proj_stencil_size   =  5; // cell + 4 children
+    static constexpr PetscInt pred_stencil_size   = 10; // cell + parent's 9-point stencil
+
     std::vector<PetscInt> nnz(n, 1);
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
+    // Cells on the same level
+    samurai_new::for_each_cell_index<PetscInt>(mesh, mesh[mesh_id_t::cells], [&](PetscInt idx)
     {
-        auto j = index[0];
-        auto i_j_start = mesh.get_index(level, i.start, j);
-        for(std::size_t ii=0; ii<i.size(); ++ii)
-        {
-            nnz[i_j_start + ii] = 5;
-        }
+        nnz[idx] = scheme_stencil_size;
     });
+
+
 
     auto min_level = mesh[mesh_id_t::cells].min_level();
     auto max_level = mesh[mesh_id_t::cells].max_level();
 
+    // Projection
     for(std::size_t level=min_level; level<max_level; ++level)
     {
         auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
@@ -43,11 +46,12 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
             for(int ii=i.start; ii<i.end; ++ii)
             {
                 auto i_cell = mesh.get_index(level, ii, j);
-                nnz[i_cell] = 5;
+                nnz[i_cell] = proj_stencil_size;
             }
         });
     }
 
+    // Prediction (order 1)
     for(std::size_t level=min_level+1; level<=max_level; ++level)
     {
         auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
@@ -61,7 +65,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
             for(int ii=i.start; ii<i.end; ++ii)
             {
                 auto i_cell = mesh.get_index(level, ii, j);
-                nnz[i_cell] = 10;
+                nnz[i_cell] = pred_stencil_size;
             }
         });
     }
@@ -77,7 +81,7 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
                 auto j = index[0];
                 if (out_vect[0] == 0 || out_vect[1] == 0) // Cartesian direction
                 {
-                    samurai_new::for_each_index<std::size_t>(mesh, level, i, j, 
+                    samurai_new::for_each_cell_index<std::size_t>(mesh, level, i, j, 
                     [&] (std::size_t i_out)
                     {
                         nnz[i_out] = 2;
@@ -109,23 +113,23 @@ template<class Mesh>
 PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
+    static constexpr std::size_t dim = Mesh::dim;
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
+    // For each group of cells given by stencil_shape, we want to capture the indices as PetscInt.
+    // 5-point stencil:                                    center,  bottom, right,   top,     left
+    samurai_new::StencilIndices<PetscInt, dim, 5> stencil({{0, 0}, {0, -1}, {1, 0}, {0, 1}, {-1, 0}});
+
+    samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level)
     {
-        auto j = index[0];
-
         double v_off = off_diag_coeff_2D(level);
 
-        PetscInt stencil_row[3];
         double coeffs_stencil_row[3];
         coeffs_stencil_row[0] =      v_off;
         coeffs_stencil_row[1] = -4 * v_off;
         coeffs_stencil_row[2] =      v_off;
 
-        // 5-point stencil:                               bottom, right,   top,     left
-        xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
-        samurai_new::for_each_stencil<PetscInt>(mesh, level, i, j, stencil,
-        [&] (const PetscInt indices[5])
+        samurai_new::for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil,
+        [&] (const std::array<PetscInt, 5>& indices)
         {
             auto center = indices[0];
             auto bottom = indices[1];
@@ -133,6 +137,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
             auto top    = indices[3];
             auto left   = indices[4];
 
+            PetscInt stencil_row[3];
             stencil_row[0] = left;
             stencil_row[1] = center;
             stencil_row[2] = right;
@@ -246,10 +251,10 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
 
             if (out_vect[0] != 0 && out_vect[1] != 0) // corners
             {
-                samurai_new::for_each_index<PetscInt>(mesh, level, i, j, 
-                [&] (PetscInt i_out)
+                samurai_new::for_each_cell_index<PetscInt>(mesh, level, i, j, 
+                [&] (PetscInt out_cell)
                 {
-                    MatSetValue(A, i_out, i_out, 1, INSERT_VALUES);
+                    MatSetValue(A, out_cell, out_cell, 1, INSERT_VALUES);
                 });
             }
             else // Cartesian direction
@@ -261,29 +266,34 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                     double v_diag = -v_off;
                     if (dirichlet_enfcmt == Penalization)
                         v_diag *= (1 + penalty_coeff);
-
-                    samurai_new::for_each_index_and_nghb_index<PetscInt>(mesh, level, i, j, -out_vect,
-                    [&] (PetscInt i_out, PetscInt i_in)
+                                                                             // out_cell,           in_cell
+                    samurai_new::StencilIndices<PetscInt, dim, 2> out_in_stencil({{0, 0}, {-out_vect[0], -out_vect[1]}});
+                    samurai_new::for_each_stencil<PetscInt>(mesh, level, i, index, out_in_stencil, [&] (const std::array<PetscInt, 2>& indices)
                     {
-                        MatSetValue(A, i_out, i_out, v_diag, INSERT_VALUES);
-                        MatSetValue(A, i_out, i_in ,  v_off, INSERT_VALUES);
+                        auto& out_cell = indices[0];
+                        auto& in_cell  = indices[1];
+                        MatSetValue(A, out_cell, out_cell, v_diag, INSERT_VALUES);
+                        MatSetValue(A, out_cell, in_cell ,  v_off, INSERT_VALUES);
                     });
                 }
                 else if (dirichlet_enfcmt == Elimination)
                 {
-                    samurai_new::for_each_index_and_nghb_index<PetscInt>(mesh, level, i, j, -out_vect,
-                    [&] (PetscInt i_out, PetscInt i_in)
+                                                                             // out_cell,           in_cell
+                    samurai_new::StencilIndices<PetscInt, dim, 2> out_in_stencil({{0, 0}, {-out_vect[0], -out_vect[1]}});
+                    samurai_new::for_each_stencil<PetscInt>(mesh, level, i, index, out_in_stencil, [&] (const std::array<PetscInt, 2>& indices)
                     {
-                        MatSetValue(A, i_out, i_out, 1, INSERT_VALUES);
-                        MatSetValue(A, i_in , i_out, 0, INSERT_VALUES); // Remove the coefficient that was added before
+                        auto& out_cell = indices[0];
+                        auto& in_cell  = indices[1];
+                        MatSetValue(A, out_cell, out_cell, 1, INSERT_VALUES);
+                        MatSetValue(A, out_cell, in_cell , 0, INSERT_VALUES); // Remove the coefficient that was added before
                     });
                 }
                 else if (dirichlet_enfcmt == OnesOnDiagonal)
                 {
-                    samurai_new::for_each_index<PetscInt>(mesh, level, i, j, 
-                    [&] (PetscInt i_out)
+                    samurai_new::for_each_cell_index<PetscInt>(mesh, level, i, j, 
+                    [&] (PetscInt out_cell)
                     {
-                        MatSetValue(A, i_out, i_out, 1, INSERT_VALUES);
+                        MatSetValue(A, out_cell, out_cell, 1, INSERT_VALUES);
                     });
                 }
             }
