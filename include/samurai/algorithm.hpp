@@ -31,7 +31,7 @@ namespace samurai
         {
             if (!ca[level].empty())
             {
-                f(level);
+                f(level, 1./(1<<level));
             }
         }
     }
@@ -43,7 +43,7 @@ namespace samurai
         {
             if (!ca[level].empty())
             {
-                f(level);
+                f(level, 1./(1<<level));
             }
         }
     }

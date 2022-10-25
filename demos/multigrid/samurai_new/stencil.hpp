@@ -25,11 +25,11 @@ namespace samurai_new
         {
             //using coord_index_t = typename Mesh::config::interval_t::coord_index_t;
             bool origin_found = false;
-            for (std::size_t id = 0; id<stencil_size; ++id)
+            for (unsigned int id = 0; id<stencil_size; ++id)
             {
                 auto d = xt::view(stencil, id);
                 bool is_zero_vector = true;
-                for (int i=0; i<dim; ++i)
+                for (unsigned int i=0; i<dim; ++i)
                 {
                     if (d[i] != 0)
                     {
