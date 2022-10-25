@@ -4,7 +4,7 @@
 namespace samurai_new
 {
     template <typename TIndex, class Mesh, typename TJ, class Func>
-    inline void for_each_cell_index(const Mesh& mesh, std::size_t level, const typename Mesh::config::interval_t& i, const TJ j, Func &&f)
+    inline void for_each_cell(const Mesh& mesh, std::size_t level, const typename Mesh::config::interval_t& i, const TJ j, Func &&f)
     {
         auto i_start = static_cast<TIndex>(mesh.get_index(level, i.start, j));
         for(TIndex ii=0; ii<static_cast<TIndex>(i.size()); ++ii)
@@ -13,54 +13,19 @@ namespace samurai_new
         }
     }
 
-    /*template <typename TIndex, class Mesh, typename TJ, typename TDirection, class Func>
-    inline void for_each_index_and_nghb_index(const Mesh& mesh, std::size_t level, const typename Mesh::config::interval_t& i, const TJ j, const TDirection& nghb_direction, Func &&f)
+    template <typename DesiredIndexType, class Mesh, class Set, class Func>
+    inline void for_each_cell(const Mesh& mesh, const Set& set, Func &&f)
     {
-        auto i_start = static_cast<TIndex>(mesh.get_index(level, i.start, j));
-        auto i_nghb_start = i_start;
-        if (nghb_direction[1] == 0) // the neighbour is on the same row
+        for_each_interval(set, [&](std::size_t level, const auto& i, const auto& index)
         {
-            i_nghb_start += nghb_direction[0];
-        }
-        else
-        {
-            i_nghb_start = static_cast<TIndex>(mesh.get_index(level, i.start + nghb_direction[0], j + nghb_direction[1]));
-        }
-        
-        for(TIndex ii=0; ii<static_cast<TIndex>(i.size()); ++ii)
-        {
-            f(i_start + ii, i_nghb_start + ii);
-        }
-    }*/
-
-    /*template <typename TIndex, class Mesh, typename TJ, class TStencil, class Func>
-    inline void for_each_stencil(const Mesh& mesh, std::size_t level, const typename Mesh::config::interval_t& i, const TJ j, const TStencil& stencil, Func &&f)
-    {
-        TIndex i_stencil[stencil.shape()[0]+1];
-        i_stencil[0] = static_cast<TIndex>(mesh.get_index(level, i.start, j)); // center of the stencil
-        for (std::size_t id = 0; id<stencil.shape()[0]; ++id)
-        {
-            auto d = xt::view(stencil, id);
-            if (d[1] == 0) // same row as the stencil center
+            auto j = index[0];
+            auto i_j_start = static_cast<DesiredIndexType>(mesh.get_index(level, i.start, j));
+            for(DesiredIndexType ii=0; static_cast<DesiredIndexType>(ii<i.size()); ++ii)
             {
-                i_stencil[id+1] = i_stencil[0] + d[0];
+                f(i_j_start + ii);
             }
-            else
-            {
-                i_stencil[id+1] = static_cast<TIndex>(mesh.get_index(level, i.start + d[0], j + d[1]));
-            }
-        }
-
-        f(i_stencil);
-        for(TIndex ii=1; ii<static_cast<TIndex>(i.size()); ++ii)
-        {
-            for (int cell = 0; cell < stencil.shape()[0]+1; ++cell)
-            {
-                i_stencil[cell]++;
-            }
-            f(i_stencil);
-        }
-    }*/
+        });
+    }
 
     template <typename DesiredIndexType, class Mesh, typename TIndex, class StencilType, class Func>
     inline void for_each_stencil(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t i, const TIndex& index, StencilType& stencil, Func &&f)
@@ -75,23 +40,16 @@ namespace samurai_new
     }
 
     template <typename DesiredIndexType, class Mesh, class Set, class StencilType, class Func>
-    inline void for_each_stencil(const Mesh& mesh, Set& set, std::size_t level, StencilType& stencil, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const Set& set, std::size_t level, StencilType& stencil, Func &&f)
     {
-        samurai::for_each_interval(set[level], [&](std::size_t level, const auto& i, const auto& index)
+        for_each_interval(set[level], [&](std::size_t level, const auto& i, const auto& index)
         {
-            /*stencil.init(mesh, level, i, index);
-            f(stencil.indices());
-            for(DesiredIndexType ii=1; ii<static_cast<DesiredIndexType>(i.size()); ++ii)
-            {
-                stencil.move_next();
-                f(stencil.indices());
-            }*/
             for_each_stencil<DesiredIndexType>(mesh, level, i, index, stencil, f);
         });
     }
 
     template <typename DesiredIndexType, class Mesh, class Set, class StencilType, class Func>
-    inline void for_each_stencil(const Mesh& mesh, Set& set, StencilType& stencil, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const Set& set, StencilType& stencil, Func &&f)
     {
         for_each_level(set, [&](std::size_t level)
         {
@@ -99,17 +57,102 @@ namespace samurai_new
         });
     }
 
-    template <typename DesiredIndexType, class Mesh, class Set, class Func>
-    inline void for_each_cell_index(const Mesh& mesh, Set& set, Func &&f)
+    /*
+     * Used to define the projection operator.
+     */
+    template <typename DesiredIndexType, class Mesh, class Func>
+    inline void for_each_cell_and_children(const Mesh& mesh, Func &&f)
     {
-        samurai::for_each_interval(set, [&](std::size_t level, const auto& i, const auto& index)
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto min_level = mesh[mesh_id_t::cells].min_level();
+        auto max_level = mesh[mesh_id_t::cells].max_level();
+
+        for(std::size_t level=min_level; level<max_level; ++level)
         {
-            auto j = index[0];
-            auto i_j_start = static_cast<DesiredIndexType>(mesh.get_index(level, i.start, j));
-            for(DesiredIndexType ii=0; static_cast<DesiredIndexType>(ii<i.size()); ++ii)
+            auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+                                             mesh[mesh_id_t::cells][level+1])
+                        .on(level);
+
+            set([&](const auto& i, const auto& index)
             {
-                f(i_j_start + ii);
-            }
-        });
+                auto j = index[0];
+
+                auto cell_start       = static_cast<DesiredIndexType>(mesh.get_index(level    ,   i.start    ,   j    ));
+                auto child_2j___start = static_cast<DesiredIndexType>(mesh.get_index(level + 1, 2*i.start    , 2*j    ));
+                auto child_2jp1_start = static_cast<DesiredIndexType>(mesh.get_index(level + 1, 2*i.start    , 2*j + 1));
+
+                for(DesiredIndexType ii=0; ii<static_cast<DesiredIndexType>(i.size()); ++ii)
+                {
+                    auto cell = cell_start + ii;
+
+                    // Children following the the direct orientation
+                    std::array<DesiredIndexType, 4> children;
+                    children[0] = child_2j___start + 2*ii;   // bottom-left:  (2i  , 2j  )
+                    children[1] = child_2j___start + 2*ii+1; // bottom-right: (2i+1, 2j  )
+                    children[2] = child_2jp1_start + 2*ii+1; // top-right:    (2i+1, 2j+1)
+                    children[3] = child_2jp1_start + 2*ii;   // top-left:     (2i  , 2j+1)
+                    f(cell, children);
+                }
+            });
+        }
+    }
+
+    /*
+     * Used for the allocation of the matrix rows where the projection operator is used.
+     */
+    template <typename DesiredIndexType, class Mesh, class Func>
+    inline void for_each_cell_having_children(const Mesh& mesh, Func &&f)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto min_level = mesh[mesh_id_t::cells].min_level();
+        auto max_level = mesh[mesh_id_t::cells].max_level();
+
+        for(std::size_t level=min_level; level<max_level; ++level)
+        {
+            auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+                                             mesh[mesh_id_t::cells][level+1])
+                        .on(level);
+
+            set([&](const auto& i, const auto& index)
+            {
+                auto j = index[0];
+                auto cell_start = static_cast<DesiredIndexType>(mesh.get_index(level, i.start, j));
+                for(DesiredIndexType ii=0; ii<static_cast<DesiredIndexType>(i.size()); ++ii)
+                {
+                    f(cell_start + ii);
+                }
+            });
+        }
+    }
+
+    /*
+     * Used for the allocation of the matrix rows where the prediction operator is used.
+     */
+    template <typename DesiredIndexType, class Mesh, class Func>
+    inline void for_each_cell_having_parent(const Mesh& mesh, Func &&f)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto min_level = mesh[mesh_id_t::cells].min_level();
+        auto max_level = mesh[mesh_id_t::cells].max_level();
+
+        for(std::size_t level=min_level+1; level<=max_level; ++level)
+        {
+            auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+                                             mesh[mesh_id_t::cells][level-1])
+                    .on(level);
+
+            set([&](const auto& i, const auto& index)
+            {
+                auto j = index[0];
+                auto cell_start = static_cast<DesiredIndexType>(mesh.get_index(level, i.start, j));
+                for(DesiredIndexType ii=0; ii<static_cast<DesiredIndexType>(i.size()); ++ii)
+                {
+                    f(cell_start + ii);
+                }
+            });
+        }
     }
 }

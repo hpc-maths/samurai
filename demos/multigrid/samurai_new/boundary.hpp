@@ -1,17 +1,18 @@
 #pragma once
 #include <samurai/algorithm.hpp>
+#include "stencil.hpp"
 
 namespace samurai_new
 {
 
 
     template <class Mesh, class Func>
-    auto boundary(const Mesh& mesh, std::size_t level, Func &&func)
+    void out_boundary(const Mesh& mesh, std::size_t level, Func &&func)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         // Cartesian directions: bottom, right, top, left (the order is important)
-        xt::xtensor_fixed<int, xt::xshape<4, 2>> cart_directions{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+        StencilShape<2, 4> cart_directions{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
 
         for (std::size_t id1 = 0; id1<cart_directions.shape()[0]; ++id1)
         {
@@ -44,7 +45,7 @@ namespace samurai_new
                 func(i, index, diag);
             });
         }
-
-        
     }
+
+
 }
