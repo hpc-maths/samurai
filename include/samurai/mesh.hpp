@@ -77,8 +77,10 @@ namespace samurai
         template<typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
 
-        template<class T1, typename... T>
-        std::size_t get_index(std::size_t level, T1 i, T... index) const;
+        template<typename... T>
+        std::size_t get_index(std::size_t level, coord_index_t i, T... index) const;
+
+        std::size_t get_index(std::size_t level, const std::array<coord_index_t, dim>& coord) const;
 
         void to_stream(std::ostream &os) const;
 
@@ -208,11 +210,18 @@ namespace samurai
     }
 
     template<class D, class Config>
-    template<class T1, typename... T>
-    inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, T1 i, T... index) const
+    template<typename... T>
+    inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, coord_index_t i, T... index) const
     {
         auto interval = m_cells[mesh_id_t::reference].get_interval(level, interval_t{i, i +1}, index...);
         return interval.index + i;
+    }
+
+    template<class D, class Config>
+    inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, const std::array<coord_index_t, dim>& coord) const
+    {
+        auto interval = m_cells[mesh_id_t::reference].get_interval(level, coord);
+        return interval.index + coord[0];
     }
 
     template<class D, class Config>
