@@ -89,6 +89,8 @@ namespace samurai
         template<typename... T>
         const interval_t& get_interval(const interval_t& interval, T... index) const;
 
+        const interval_t& get_interval(const std::array<coord_index_t, dim>& coord) const;
+
         void update_index();
 
         //// checks whether the container is empty
@@ -376,6 +378,13 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
     {
         auto row = find(*this, {interval.start, index...});
+        return m_cells[0][static_cast<std::size_t>(row)];
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::get_interval(const std::array<coord_index_t, dim>& coord) const -> const interval_t&
+    {
+        auto row = find(*this, coord);
         return m_cells[0][static_cast<std::size_t>(row)];
     }
 

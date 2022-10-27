@@ -177,7 +177,7 @@ namespace samurai
                   class coord_index_t = typename TInterval::coord_index_t>
         inline auto find_impl(const LevelCellArray<dim, TInterval>& lca,
                               std::size_t start_index, std::size_t end_index,
-                              std::array<coord_index_t, dim> coord,
+                              const std::array<coord_index_t, dim>& coord,
                               std::integral_constant<std::size_t, 0>) -> index_t
         {
             using lca_t = const LevelCellArray<dim, TInterval>;
@@ -195,7 +195,7 @@ namespace samurai
                   std::size_t N>
         inline auto find_impl(const LevelCellArray<dim, TInterval>& lca,
                               std::size_t start_index, std::size_t end_index,
-                              std::array<coord_index_t, dim> coord,
+                              const std::array<coord_index_t, dim>& coord,
                               std::integral_constant<std::size_t, N>) -> index_t
         {
             using lca_t = const LevelCellArray<dim, TInterval>;
@@ -217,7 +217,7 @@ namespace samurai
     template <std::size_t dim, class TInterval,
               class index_t = typename TInterval::index_t,
               class coord_index_t = typename TInterval::coord_index_t>
-    inline auto find(const LevelCellArray<dim, TInterval>& lca, std::array<coord_index_t, dim> coord) -> index_t
+    inline auto find(const LevelCellArray<dim, TInterval>& lca, const std::array<coord_index_t, dim>& coord) -> index_t
     {
         return detail::find_impl(lca, 0, lca[dim - 1].size(), coord, std::integral_constant<std::size_t, dim - 1>{});
     }
