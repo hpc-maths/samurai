@@ -47,10 +47,9 @@ std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>,
             samurai_new::out_boundary(mesh, level, 
             [&] (const auto& i, const auto& index, const auto& out_vect)
             {
-                auto j = index[0];
                 if (out_vect[0] == 0 || out_vect[1] == 0) // Cartesian direction
                 {
-                    samurai_new::for_each_cell<std::size_t>(mesh, level, i, j, 
+                    samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
                     [&] (std::size_t i_out)
                     {
                         nnz[i_out] = 2;
@@ -179,11 +178,11 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
         samurai_new::out_boundary(mesh, level, 
         [&] (const auto& i, const auto& index, const auto& out_vect)
         {
-            auto j = index[0];
+            //auto j = index[0];
 
             if (out_vect[0] != 0 && out_vect[1] != 0) // corners
             {
-                samurai_new::for_each_cell<PetscInt>(mesh, level, i, j, 
+                samurai_new::for_each_cell<PetscInt>(mesh, level, i, index, 
                 [&] (PetscInt out_cell)
                 {
                     MatSetValue(A, out_cell, out_cell, 1, INSERT_VALUES);
@@ -222,7 +221,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
                 }
                 else if (dirichlet_enfcmt == OnesOnDiagonal)
                 {
-                    samurai_new::for_each_cell<PetscInt>(mesh, level, i, j, 
+                    samurai_new::for_each_cell<PetscInt>(mesh, level, i, index, 
                     [&] (PetscInt out_cell)
                     {
                         MatSetValue(A, out_cell, out_cell, 1, INSERT_VALUES);
