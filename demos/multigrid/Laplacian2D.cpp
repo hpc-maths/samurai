@@ -10,7 +10,7 @@
 //-------------------//
 
 template<class Mesh>
-PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
+void assemble_numerical_scheme_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
     static constexpr std::size_t dim = Mesh::dim;
@@ -18,8 +18,6 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
     // Finite Volume cell-centered scheme: 3-point stencil in 1D, 5-point stencil in 2D, etc.
     // center + 1 neighbour in each Cartesian direction (2*dim directions)
     static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
-
-    static constexpr PetscInt number_of_children = (1 << dim);
 
     // For each group of cells given by stencil_shape, we want to capture the indices as PetscInt.
     // 5-point stencil:                                    center,  bottom, right,   top,     left
@@ -52,19 +50,15 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
             MatSetValue(A, center, bottom, -one_over_h2, INSERT_VALUES);
         });
     });
+}
 
-    // Projection
-    samurai_new::for_each_cell_and_children<PetscInt>(mesh, 
-    [&] (PetscInt cell, const std::array<PetscInt, number_of_children>& children)
-    {
-        MatSetValue(A, cell, cell, 1, INSERT_VALUES);
-        for (unsigned int i=0; i<number_of_children; ++i)
-        {
-            MatSetValue(A, cell, children[i], -1./number_of_children, INSERT_VALUES);
-        }
-    });
 
-    // Prediction (order 1)
+// Prediction (order 1)
+template<class Mesh>
+void assemble_prediction_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh)
+{
+    using mesh_id_t = typename Mesh::mesh_id_t;
+
     auto min_level = mesh[mesh_id_t::cells].min_level();
     auto max_level = mesh[mesh_id_t::cells].max_level();
     for(std::size_t level=min_level+1; level<=max_level; ++level)
@@ -110,19 +104,25 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
             }
         });
     }
+}
 
-    // Boundary
-
-    // Dirichlet condition enforcement.
-    // Penalty method: 
-    //         The diagonal coefficient of the Dirichlet rows is replaced with itself plus a penalty.
-    //         The other coeff in the row is unchanged.
-    // Non-symmetric: 
-    //         The diagonal coefficient of the Dirichlet rows is replaced with 1. The other coeff in the row is set to 0.
-    //         This method kills the symmetry of the matrix, but used in an iterative solver it's fine because the residual is always 0
-    //         on the Dirichlet unknowns, so the behaviour of the solver is the same as if the unknowns had been eliminated.
-    //         (cf. Ern-Guermont 2004 - Theory and practice of FE, §8.4.3 p. 378)
+// Dirichlet condition enforcement.
+// Penalty method: 
+//         The diagonal coefficient of the Dirichlet rows is replaced with itself plus a penalty.
+//         The other coeff in the row is unchanged.
+// Non-symmetric: 
+//         The diagonal coefficient of the Dirichlet rows is replaced with 1. The other coeff in the row is set to 0.
+//         This method kills the symmetry of the matrix, but used in an iterative solver it's fine because the residual is always 0
+//         on the Dirichlet unknowns, so the behaviour of the solver is the same as if the unknowns had been eliminated.
+//         (cf. Ern-Guermont 2004 - Theory and practice of FE, §8.4.3 p. 378)
+template<class Mesh>
+void assemble_boundary_condition_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
+{
+    using mesh_id_t = typename Mesh::mesh_id_t;
+    static constexpr std::size_t dim = Mesh::dim;
+    static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
     static constexpr double penalty_coeff = 1000;
+
     samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
     {
         samurai_new::out_boundary(mesh, level, 
@@ -179,13 +179,8 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
         });
     });
 
-
     if (dirichlet_enfcmt != OnesOnDiagonal)
         MatSetOption(A, MAT_SPD, PETSC_TRUE);
-
-    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-    PetscFunctionReturn(0);
 }
 
 

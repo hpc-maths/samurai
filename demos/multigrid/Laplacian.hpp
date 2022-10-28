@@ -49,15 +49,10 @@ private:
         // Stencil size on outer boundary cells (in the diagonal directions)
         static constexpr PetscInt diag_bdry_stencil_size = 1;
 
-
         std::size_t n = mesh.nb_cells();
-        std::vector<PetscInt> nnz(n, scheme_stencil_size);
 
-        // Cells on the same level
-        /*samurai_new::for_each_cell<std::size_t>(mesh, mesh[mesh_id_t::cells], [&](std::size_t cell)
-        {
-            nnz[cell] = scheme_stencil_size;
-        });*/
+        // Number of non-zeros per row. By default, the stencil size.
+        std::vector<PetscInt> nnz(n, scheme_stencil_size);
 
         // Projection
         samurai_new::for_each_cell_having_children<std::size_t>(mesh, [&] (std::size_t cell)
@@ -72,34 +67,46 @@ private:
         });
 
         // Boundary conditions
-        //if (_dirichlet_enfcmt != OnesOnDiagonal)
-        //{
-            samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double)
+        samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double)
+        {
+            samurai_new::out_boundary(mesh, level, 
+            [&] (const auto& i, const auto& index, const auto& out_vect)
             {
-                samurai_new::out_boundary(mesh, level, 
-                [&] (const auto& i, const auto& index, const auto& out_vect)
+                if (samurai_new::is_cartesian_direction(out_vect))
                 {
-                    if (samurai_new::is_cartesian_direction(out_vect))
+                    samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
+                    [&] (std::size_t i_out)
                     {
-                        samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
-                        [&] (std::size_t i_out)
-                        {
-                            nnz[i_out] = cart_bdry_stencil_size;
-                        });
-                    }
-                    else
+                        nnz[i_out] = cart_bdry_stencil_size;
+                    });
+                }
+                else
+                {
+                    samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
+                    [&] (std::size_t i_out)
                     {
-                        samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
-                        [&] (std::size_t i_out)
-                        {
-                            nnz[i_out] = diag_bdry_stencil_size;
-                        });
-                    }
-                });
+                        nnz[i_out] = diag_bdry_stencil_size;
+                    });
+                }
             });
-        //}
+        });
 
         return nnz;
+    }
+
+    void assemble_projection(Mat& A)
+    {
+        static constexpr PetscInt number_of_children = (1 << dim);
+
+        samurai_new::for_each_cell_and_children<PetscInt>(mesh, 
+        [&] (PetscInt cell, const std::array<PetscInt, number_of_children>& children)
+        {
+            MatSetValue(A, cell, cell, 1, INSERT_VALUES);
+            for (unsigned int i=0; i<number_of_children; ++i)
+            {
+                MatSetValue(A, cell, children[i], -1./number_of_children, INSERT_VALUES);
+            }
+        });
     }
 
 public:
@@ -117,7 +124,14 @@ public:
 
     PetscErrorCode assemble_matrix(Mat& A)
     {
-        return assemble_matrix_impl(std::integral_constant<std::size_t, Field::dim>{}, A, mesh, _dirichlet_enfcmt);
+        assemble_numerical_scheme_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
+        assemble_projection(A);
+        assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
+        assemble_boundary_condition_impl(std::integral_constant<std::size_t, dim>{}, A, mesh, _dirichlet_enfcmt);
+
+        MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+        MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+        PetscFunctionReturn(0);
     }
 
     Vec assemble_rhs(Field& rhs_field)
