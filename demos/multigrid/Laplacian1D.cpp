@@ -1,6 +1,8 @@
 #pragma once
 #include "samurai_new/multigrid/petsc/utils.hpp"
 #include "utils.hpp"
+#include "samurai_new/boundary.hpp"
+#include "samurai_new/indices.hpp"
 
 //-------------------//
 //     Laplacian     //
@@ -8,132 +10,59 @@
 //-------------------//
 
 template<class Mesh>
-std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 1>, Mesh& mesh, DirichletEnforcement /*dirichlet_enfcmt*/)
-{
-    using mesh_id_t = typename Mesh::mesh_id_t;
-    std::size_t n = mesh.nb_cells();
-
-    std::vector<int> nnz(n, 1);
-
-    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& )
-    {
-        for(int ii=i.start; ii<i.end; ++ii)
-        {
-            auto i_ = mesh.get_index(level, ii);
-            nnz[i_] = 3;
-        }
-    });
-
-    auto min_level = mesh[mesh_id_t::cells].min_level();
-    auto max_level = mesh[mesh_id_t::cells].max_level();
-
-    for(std::size_t level=min_level; level<max_level; ++level)
-    {
-        auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
-                                        mesh[mesh_id_t::cells][level+1])
-                    .on(level);
-
-        set([&](const auto& i, const auto& )
-        {
-            for(int ii=i.start; ii<i.end; ++ii)
-            {
-                auto i_cell = mesh.get_index(level, ii);
-                nnz[i_cell] = 3;
-            }
-        });
-    }
-
-    for(std::size_t level=min_level+1; level<=max_level; ++level)
-    {
-        auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
-                                        mesh[mesh_id_t::cells][level-1])
-                .on(level);
-
-        set([&](const auto& i, const auto&)
-        {
-            for(int ii=i.start; ii<i.end; ++ii)
-            {
-                auto i_cell = mesh.get_index(level, ii);
-                nnz[i_cell] = 4;
-            }
-        });
-    }
-
-    for(std::size_t level=min_level; level<=max_level; ++level)
-    {
-        auto set = samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level],
-                                    mesh.domain())
-                .on(level);
-
-        set([&](const auto& i, const auto&)
-        {
-            for(int ii=i.start; ii<i.end; ++ii)
-            {
-                auto i_cell = mesh.get_index(level, ii);
-                nnz[i_cell] = 2;
-            }
-        });
-    }
-    return nnz;
-}
-
-template<class Mesh>
 PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    //using interval_t = typename Mesh::interval_t;
+    static constexpr std::size_t dim = Mesh::dim;
 
-    auto n = static_cast<PetscInt>(mesh.nb_cells());
+    // Finite Volume cell-centered scheme: 3-point stencil in 1D, 5-point stencil in 2D, etc.
+    // center + 1 neighbour in each Cartesian direction (2*dim directions)
+    static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
 
-    for(PetscInt i=0; i<n; ++i)
+    static constexpr PetscInt number_of_children = (1 << dim);
+
+    // For each group of cells given by stencil_shape, we want to capture the indices as PetscInt.
+    // 3-point stencil:                                                   center, left, right
+    samurai_new::StencilIndices<PetscInt, dim, scheme_stencil_size> stencil({{0}, {-1}, {1}});
+
+    samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
     {
-        MatSetValue(A, i, i, 1., INSERT_VALUES);
-    }
+        double one_over_h2 = 1/(h*h);
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto&)
-    {
-        double dx = 1./(1<<level);
-        double one_over_dx2 = 1./(dx*dx);
+        double coeffs_stencil_row[3];
+        coeffs_stencil_row[0] =                          -one_over_h2;
+        coeffs_stencil_row[1] = (scheme_stencil_size-1) * one_over_h2;
+        coeffs_stencil_row[2] =                          -one_over_h2;
 
-        double v_diag = 2*one_over_dx2;
-        double v_off = -one_over_dx2;
-        for(int ii=i.start; ii<i.end; ++ii)
+        samurai_new::for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil,
+        [&] (const std::array<PetscInt, scheme_stencil_size>& indices)
         {
-            auto i_ = static_cast<int>(mesh.get_index(level, ii));
-            auto ip1_ = static_cast<int>(mesh.get_index(level, ii+1));
-            auto im1_ = static_cast<int>(mesh.get_index(level, ii-1));
-            MatSetValue(A, i_, i_,  v_diag, INSERT_VALUES);
-            MatSetValue(A, i_, ip1_, v_off, INSERT_VALUES);
-            MatSetValue(A, i_, im1_, v_off, INSERT_VALUES);
+            auto& center = indices[0];
+            auto& left   = indices[1];
+            auto& right  = indices[2];
+
+            PetscInt stencil_row[3];
+            stencil_row[0] = left;
+            stencil_row[1] = center;
+            stencil_row[2] = right;
+            MatSetValues(A, 1, &center, 3, stencil_row, coeffs_stencil_row, INSERT_VALUES);
+        });
+    });
+
+    // Projection
+    samurai_new::for_each_cell_and_children<PetscInt>(mesh, 
+    [&] (PetscInt cell, const std::array<PetscInt, number_of_children>& children)
+    {
+        MatSetValue(A, cell, cell, 1, INSERT_VALUES);
+        for (unsigned int i=0; i<number_of_children; ++i)
+        {
+            MatSetValue(A, cell, children[i], -1./number_of_children, INSERT_VALUES);
         }
     });
 
+    // Prediction (order 1)
     auto min_level = mesh[mesh_id_t::cells].min_level();
     auto max_level = mesh[mesh_id_t::cells].max_level();
-
-    // Projection
-    for(std::size_t level=min_level; level<max_level; ++level)
-    {
-        auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
-                                        mesh[mesh_id_t::cells][level+1])
-                    .on(level);
-
-        set([&](const auto& i, const auto&)
-        {
-            for(int ii=i.start; ii<i.end; ++ii)
-            {
-                auto i_cell = static_cast<int>(mesh.get_index(level, ii));
-                MatSetValue(A, i_cell, i_cell, 1., INSERT_VALUES);
-
-                auto i1 = static_cast<int>(mesh.get_index(level + 1,     2*ii));
-                auto i2 = static_cast<int>(mesh.get_index(level + 1, 2*ii + 1));
-                MatSetValue(A, i_cell, i1, -0.5, INSERT_VALUES);
-                MatSetValue(A, i_cell, i2, -0.5, INSERT_VALUES);
-            }
-        });
-    }
-
-    // Prediction (order 1)
     for(std::size_t level=min_level+1; level<=max_level; ++level)
     {
         auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
