@@ -87,13 +87,13 @@ namespace samurai_new
                 for (std::size_t yz=0; yz<dim; ++yz)
                 {
                     std::array<int, dim> translation_vect { 0 };
-                    children_yz_start[yz * (1<<dim - 1)] = static_cast<DesiredIndexType>(get_index_start_children(mesh, level, i, index, translation_vect));
+                    children_yz_start[yz * ((1<<dim) - 1)] = static_cast<DesiredIndexType>(get_index_start_children(mesh, level, i, index, translation_vect));
                     for (std::size_t other_dim=1; other_dim<dim; ++other_dim)
                     {
                         translation_vect[other_dim] = 1;
                         for (std::size_t cell=0; cell<(1<<dim); ++cell)
                         {
-                            children_yz_start[yz * (1<<dim - 1) + cell] = static_cast<DesiredIndexType>(get_index_start_children(mesh, level, i, index, translation_vect));
+                            children_yz_start[yz * ((1<<dim) - 1) + cell] = static_cast<DesiredIndexType>(get_index_start_children(mesh, level, i, index, translation_vect));
                         }
                     }
                 }

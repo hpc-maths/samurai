@@ -10,7 +10,7 @@
 //-------------------//
 
 template<class Mesh>
-PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
+void assemble_numerical_scheme_impl(std::integral_constant<std::size_t, 1>, Mat& A, Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
     static constexpr std::size_t dim = Mesh::dim;
@@ -18,8 +18,6 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
     // Finite Volume cell-centered scheme: 3-point stencil in 1D, 5-point stencil in 2D, etc.
     // center + 1 neighbour in each Cartesian direction (2*dim directions)
     static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
-
-    static constexpr PetscInt number_of_children = (1 << dim);
 
     // For each group of cells given by stencil_shape, we want to capture the indices as PetscInt.
     // 3-point stencil:                                                   center, left, right
@@ -48,19 +46,14 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
             MatSetValues(A, 1, &center, 3, stencil_row, coeffs_stencil_row, INSERT_VALUES);
         });
     });
+}
 
-    // Projection
-    samurai_new::for_each_cell_and_children<PetscInt>(mesh, 
-    [&] (PetscInt cell, const std::array<PetscInt, number_of_children>& children)
-    {
-        MatSetValue(A, cell, cell, 1, INSERT_VALUES);
-        for (unsigned int i=0; i<number_of_children; ++i)
-        {
-            MatSetValue(A, cell, children[i], -1./number_of_children, INSERT_VALUES);
-        }
-    });
 
-    // Prediction (order 1)
+// Prediction (order 1)
+template<class Mesh>
+void assemble_prediction_impl(std::integral_constant<std::size_t, 1>, Mat& A, Mesh& mesh)
+{
+    using mesh_id_t = typename Mesh::mesh_id_t;
     auto min_level = mesh[mesh_id_t::cells].min_level();
     auto max_level = mesh[mesh_id_t::cells].max_level();
     for(std::size_t level=min_level+1; level<=max_level; ++level)
@@ -91,85 +84,58 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 1>, Mat&
             }
         });
     }
+}
 
-    // Boundary:
-    // First, this sets the b.c. to full Neumann.
-    xt::xtensor_fixed<int, xt::xshape<2, 1>> stencils{{-1}, {1}};
-    for(std::size_t level=min_level; level<=max_level; ++level)
+// Boundary
+
+// Dirichlet condition enforcement.
+// Penalty method: 
+//         The diagonal coefficient of the Dirichlet rows is replaced with itself plus a penalty.
+//         The other coeff in the row is unchanged.
+// Non-symmetric: 
+//         The diagonal coefficient of the Dirichlet rows is replaced with 1. The other coeff in the row is set to 0.
+//         This method kills the symmetry of the matrix, but used in an iterative solver it's fine because the residual is always 0
+//         on the Dirichlet unknowns, so the behaviour of the solver is the same as if the unknowns had been eliminated.
+//         (cf. Ern-Guermont 2004 - Theory and practice of FE, §8.4.3 p. 378)
+template<class Mesh>
+void assemble_boundary_condition_impl(std::integral_constant<std::size_t, 1>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
+{
+    using mesh_id_t = typename Mesh::mesh_id_t;
+    static constexpr std::size_t dim = Mesh::dim;
+    static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
+
+    samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
     {
-        for(std::size_t is = 0; is < stencils.shape()[0]; ++is)
-        {
-            auto s = xt::view(stencils, is);
-            auto set = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], s),
-                                        mesh.domain()).on(level);
+        double one_over_h2 = 1/(h*h);
 
-            set([&](const auto& i, const auto&)
+        samurai_new::out_boundary(mesh, level, 
+        [&] (const auto& i, const auto& index, const auto& out_vect)
+        {
+            if (!samurai_new::is_cartesian_direction(out_vect)) // corners
             {
-                double dx = 1./(1<<level);
-                double one_over_dx2 = 1./(dx*dx);
-                double v_off = -one_over_dx2;
-                for(int ii=i.start; ii<i.end; ++ii)
+                samurai_new::for_each_cell<PetscInt>(mesh, level, i, index, 
+                [&] (PetscInt out_cell)
                 {
-                    auto i_out = static_cast<int>(mesh.get_index(level, ii));
-                    auto i_in  = static_cast<int>(mesh.get_index(level, ii - s[0]));
-                    MatSetValue(A, i_out, i_out, -v_off, INSERT_VALUES);
-                    MatSetValue(A, i_out, i_in ,  v_off, INSERT_VALUES);
-                }
-            });
-        }
-    }
-
-    // Dirichlet condition enforcement.
-    // Penalty method: 
-    //         The diagonal coefficient of the Dirichlet rows is replaced with itself plus a penalty.
-    //         The other coeff in the row is unchanged.
-    // Non-symmetric: 
-    //         The diagonal coefficient of the Dirichlet rows is replaced with 1. The other coeff in the row is set to 0.
-    //         This method kills the symmetry of the matrix, but used in an iterative solver it's fine because the residual is always 0
-    //         on the Dirichlet unknowns, so the behaviour of the solver is the same as if the unknowns had been eliminated.
-    //         (cf. Ern-Guermont 2004 - Theory and practice of FE, §8.4.3 p. 378)
-    double penalty_coeff = 1000;
-    for(std::size_t level=min_level; level<=max_level; ++level)
-    {
-        for(std::size_t is = 0; is < stencils.shape()[0]; ++is)
-        {
-            auto s = xt::view(stencils, is);
-            auto set = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], s),
-                                        mesh.domain()).on(level);
-
-            set([&](const auto& i, const auto&)
-            {   
-                if (dirichlet_enfcmt == Penalization)
+                    MatSetValue(A, out_cell, out_cell, 1, INSERT_VALUES);
+                });
+            }
+            else // Cartesian direction
+            {
+                                                                         // out_cell, in_cell
+                samurai_new::StencilIndices<PetscInt, dim, 2> out_in_stencil({{0}, {-out_vect[0]}});
+                samurai_new::for_each_stencil<PetscInt>(mesh, level, i, index, out_in_stencil, [&] (const std::array<PetscInt, 2>& indices)
                 {
-                    double dx = 1./(1<<level);
-                    double one_over_dx2 = 1./(dx*dx);
-                    double v_off = -one_over_dx2;
-                    double v = -v_off + penalty_coeff*one_over_dx2;
-                    for(int ii=i.start; ii<i.end; ++ii)
-                    {
-                        auto i_out = static_cast<int>(mesh.get_index(level, ii));
-                        MatSetValue(A, i_out, i_out, v, INSERT_VALUES);
-                    }
-                }
-                else
-                {
-                    for(int ii=i.start; ii<i.end; ++ii)
-                    {
-                        auto i_out = static_cast<int>(mesh.get_index(level, ii));
-                        auto i_in = static_cast<int>(mesh.get_index(level, ii - s[0]));
-                        MatSetValue(A, i_out, i_out, 1., INSERT_VALUES);
-                        MatSetValue(A, i_out, i_in,  0., INSERT_VALUES);
-                    }
-                }
-            });
-        }
-    }
+                    auto& out_cell = indices[0];
+                    auto& in_cell  = indices[1];
+                    MatSetValue(A, out_cell, out_cell,                               1, INSERT_VALUES); // The outer unknown is eliminated from the system
+                    MatSetValue(A,  in_cell, in_cell , scheme_stencil_size*one_over_h2, INSERT_VALUES);
+                    MatSetValue(A,  in_cell, out_cell,                               0, INSERT_VALUES); // Remove the coefficient that was added before
+                });
+            }
+        });
+    });
 
     MatSetOption(A, MAT_SPD, PETSC_TRUE);
-
-    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-    PetscFunctionReturn(0);
 }
 
 
