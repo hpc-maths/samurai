@@ -2,6 +2,14 @@
 #include "Laplacian1D.cpp"
 #include "Laplacian2D.cpp"
 
+
+// constexpr power function
+template <typename T>
+constexpr T ce_pow(T num, unsigned int pow)
+{
+    return pow == 0 ? 1 : num * ce_pow(num, pow-1);
+}
+
 template<class Field>
 class Laplacian
 {
@@ -10,8 +18,24 @@ private:
 public:
     using field_t = Field;
     using Mesh = typename Field::mesh_t;
+    using mesh_id_t = typename Mesh::mesh_id_t;
     static constexpr std::size_t dim = Field::dim;
     const Mesh& mesh;
+
+    // Finite Volume cell-centered scheme: 3-point stencil in 1D, 5-point stencil in 2D, etc.
+    // center + 1 neighbour in each Cartesian direction (2*dim directions)
+    static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
+    // Projection:
+    // cell + 2^dim children --> 1+2 in 1D, 1+4 in 2D
+    static constexpr PetscInt proj_stencil_size   = 1 + (1 << dim);
+    // Prediction (order 1): cell + parent's 9-point stencil (in 2D)
+    // cell + hypercube of 3 cells --> 1+3 in 1D, 1+9 in 2D
+    static constexpr PetscInt pred_stencil_size   = 1 + ce_pow(3, dim);
+    // Stencil size on outer boundary cells (in the Cartesian directions)
+    static constexpr PetscInt cart_bdry_stencil_size = 2;
+    // Stencil size on outer boundary cells (in the diagonal directions)
+    static constexpr PetscInt diag_bdry_stencil_size = 1;
+
 
     Laplacian(const Mesh& m, DirichletEnforcement dirichlet_enfcmt) :
         mesh(m)
@@ -25,30 +49,8 @@ public:
     }
 
 private:
-    // constexpr power function
-    template <typename T>
-    static constexpr T ce_pow(T num, unsigned int pow)
-    {
-        return pow == 0 ? 1 : num * ce_pow(num, pow-1);
-    }
     std::vector<PetscInt> sparsity_pattern()
     {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-
-        // Finite Volume cell-centered scheme: 3-point stencil in 1D, 5-point stencil in 2D, etc.
-        // center + 1 neighbour in each Cartesian direction (2*dim directions)
-        static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
-        // Projection:
-        // cell + 2^dim children --> 1+2 in 1D, 1+4 in 2D
-        static constexpr PetscInt proj_stencil_size   = 1 + (1 << dim);
-        // Prediction (order 1): cell + parent's 9-point stencil (in 2D)
-        // cell + hypercube of 3 cells --> 1+3 in 1D, 1+9 in 2D
-        static constexpr PetscInt pred_stencil_size   = 1 + ce_pow(3, dim);
-        // Stencil size on outer boundary cells (in the Cartesian directions)
-        static constexpr PetscInt cart_bdry_stencil_size = 2;
-        // Stencil size on outer boundary cells (in the diagonal directions)
-        static constexpr PetscInt diag_bdry_stencil_size = 1;
-
         std::size_t n = mesh.nb_cells();
 
         // Number of non-zeros per row. By default, the stencil size.
@@ -94,6 +96,68 @@ private:
         return nnz;
     }
 
+    void assemble_numerical_scheme(Mat& A)
+    {
+        static_assert(dim >= 1 || dim <= 3, "Finite Volume stencil not implemented for this dimension");
+
+        samurai_new::StencilShape<dim, scheme_stencil_size> stencil_shape;
+        if constexpr (dim == 1)
+        {   // 3-point stencil:                                               left, center, right
+            stencil_shape = samurai_new::StencilShape<dim, scheme_stencil_size>{{-1}, {0}, {1}};
+        }
+        else if constexpr (dim == 2)
+        {   // 5-point stencil:                                                  left,   center,  right,   bottom,  top 
+            stencil_shape = samurai_new::StencilShape<dim, scheme_stencil_size>{{-1, 0}, {0, 0},  {1, 0}, {0, -1}, {0, 1}};
+        }
+        else if constexpr (dim == 3)
+        {   // 7-point stencil:                                                   left,   center,    right,   front,    back,    bottom,    top
+            stencil_shape = samurai_new::StencilShape<dim, scheme_stencil_size>{{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
+        }
+
+        static constexpr unsigned int contiguous_indices_start = 0;
+        static constexpr unsigned int contiguous_indices_size = 3; // left, center, right
+        static constexpr unsigned int center_index = 1;
+
+        samurai_new::StencilIndices<PetscInt, dim, scheme_stencil_size> stencil(stencil_shape);
+
+        samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
+        {
+            double one_over_h2 = 1/(h*h);
+
+            std::array<double, scheme_stencil_size> coeffs;
+            for (unsigned int i = 0; i<scheme_stencil_size; ++i)
+            {
+                coeffs[i] = -one_over_h2;
+            }
+            coeffs[center_index] = (scheme_stencil_size-1) * one_over_h2;
+
+            samurai_new::for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil,
+            [&] (const std::array<PetscInt, scheme_stencil_size>& indices)
+            {
+                if constexpr(contiguous_indices_start > 0)
+                {
+                    for (unsigned int i=0; i<contiguous_indices_start; ++i)
+                    {
+                        MatSetValue(A, indices[center_index], indices[i], coeffs[i], INSERT_VALUES);
+                    }
+                }
+
+                if constexpr(contiguous_indices_size > 0)
+                {
+                    MatSetValues(A, 1, &indices[center_index], static_cast<PetscInt>(contiguous_indices_size), &indices[contiguous_indices_start], &coeffs[contiguous_indices_start], INSERT_VALUES);
+                }
+
+                if constexpr(contiguous_indices_start + contiguous_indices_size < scheme_stencil_size)
+                {
+                    for (unsigned int i=contiguous_indices_start + contiguous_indices_size; i<scheme_stencil_size; ++i)
+                    {
+                        MatSetValue(A, indices[center_index], indices[i], coeffs[i], INSERT_VALUES);
+                    }
+                }
+            });
+        });
+    }
+
     void assemble_projection(Mat& A)
     {
         static constexpr PetscInt number_of_children = (1 << dim);
@@ -124,7 +188,7 @@ public:
 
     PetscErrorCode assemble_matrix(Mat& A)
     {
-        assemble_numerical_scheme_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
+        assemble_numerical_scheme(A);
         assemble_projection(A);
         assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
         assemble_boundary_condition_impl(std::integral_constant<std::size_t, dim>{}, A, mesh, _dirichlet_enfcmt);

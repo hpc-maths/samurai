@@ -9,50 +9,6 @@
 // Implementation 2D //
 //-------------------//
 
-template<class Mesh>
-void assemble_numerical_scheme_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh)
-{
-    using mesh_id_t = typename Mesh::mesh_id_t;
-    static constexpr std::size_t dim = Mesh::dim;
-
-    // Finite Volume cell-centered scheme: 3-point stencil in 1D, 5-point stencil in 2D, etc.
-    // center + 1 neighbour in each Cartesian direction (2*dim directions)
-    static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
-
-    // For each group of cells given by stencil_shape, we want to capture the indices as PetscInt.
-    // 5-point stencil:                                    center,  bottom, right,   top,     left
-    samurai_new::StencilIndices<PetscInt, dim, scheme_stencil_size> stencil({{0, 0}, {0, -1}, {1, 0}, {0, 1}, {-1, 0}});
-
-    samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
-    {
-        double one_over_h2 = 1/(h*h);
-
-        double coeffs_stencil_row[3];
-        coeffs_stencil_row[0] =                          -one_over_h2;
-        coeffs_stencil_row[1] = (scheme_stencil_size-1) * one_over_h2;
-        coeffs_stencil_row[2] =                          -one_over_h2;
-
-        samurai_new::for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil,
-        [&] (const std::array<PetscInt, scheme_stencil_size>& indices)
-        {
-            auto& center = indices[0];
-            auto& bottom = indices[1];
-            auto& right  = indices[2];
-            auto& top    = indices[3];
-            auto& left   = indices[4];
-
-            PetscInt stencil_row[3];
-            stencil_row[0] = left;
-            stencil_row[1] = center;
-            stencil_row[2] = right;
-            MatSetValues(A, 1, &center, 3, stencil_row, coeffs_stencil_row, INSERT_VALUES);
-            MatSetValue(A, center, top   , -one_over_h2, INSERT_VALUES);
-            MatSetValue(A, center, bottom, -one_over_h2, INSERT_VALUES);
-        });
-    });
-}
-
-
 // Prediction (order 1)
 template<class Mesh>
 void assemble_prediction_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh)
