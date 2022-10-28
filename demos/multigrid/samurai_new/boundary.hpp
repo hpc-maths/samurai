@@ -4,23 +4,65 @@
 
 namespace samurai_new
 {
+    template <std::size_t dim>
+    inline StencilShape<dim, 2*dim> cartesian_directions()
+    {
+        assert(false && "Not implemented in N-D");
+        return StencilShape<dim, 2*dim>();
+    }
+    template<> 
+    inline StencilShape<1, 2> cartesian_directions<1>()
+    {
+        //                       left, right
+        return StencilShape<1, 2>{{-1}, {1}};
+    }
+    template<> 
+    inline StencilShape<2, 4> cartesian_directions<2>()
+    {
+        //                        bottom,   right,  top,    left      (the order is important)
+        return StencilShape<2, 4>{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+    }
+
+    template<class Vector>
+    inline bool is_cartesian_direction(const Vector& v)
+    {
+        bool only_one_non_zero = false;
+        for (std::size_t i=0; i<v.shape()[0]; ++i)
+        {
+            if (v[i] != 0)
+            {
+                if (!only_one_non_zero)
+                {
+                    only_one_non_zero = true;
+                }
+                else
+                {
+                    only_one_non_zero = false; // second non-zero found
+                    break;
+                }
+            }
+            
+        }
+        return only_one_non_zero;
+    }
 
 
     template <class Mesh, class Func>
     void out_boundary(const Mesh& mesh, std::size_t level, Func &&func)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
+        static constexpr std::size_t dim = Mesh::dim;
+        static constexpr std::size_t n_cart_dir = (2*dim); // number of Cartesian directions
 
-        // Cartesian directions: bottom, right, top, left (the order is important)
-        StencilShape<2, 4> cart_directions{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+        const StencilShape<dim, n_cart_dir> cart_directions = cartesian_directions<dim>();
 
-        for (std::size_t id1 = 0; id1<cart_directions.shape()[0]; ++id1)
+        for (std::size_t id1 = 0; id1<n_cart_dir; ++id1)
         {
             // Cartesian direction
             auto d1 = xt::view(cart_directions, id1);
             // Next Cartesian direction
             std::size_t id2 = id1+1;
-            if (id2 == cart_directions.shape()[0])
+            if (id2 == n_cart_dir)
                 id2 = 0;
             auto d2 = xt::view(cart_directions, id2);
 
@@ -46,6 +88,4 @@ namespace samurai_new
             });
         }
     }
-
-
 }

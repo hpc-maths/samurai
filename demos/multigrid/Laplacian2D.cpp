@@ -10,88 +10,38 @@
 //-------------------//
 
 template<class Mesh>
-std::vector<int> preallocate_matrix_impl(std::integral_constant<std::size_t, 2>, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
-{
-    using mesh_id_t = typename Mesh::mesh_id_t;
-    std::size_t n = mesh.nb_cells();
-
-    static constexpr PetscInt scheme_stencil_size =  5; // 5-point stencil Finite Volume scheme
-    static constexpr PetscInt proj_stencil_size   =  5; // cell + 4 children
-    static constexpr PetscInt pred_stencil_size   = 10; // cell + parent's 9-point stencil (prediction order 1)
-
-    std::vector<PetscInt> nnz(n, 1);
-
-    // Cells on the same level
-    samurai_new::for_each_cell<std::size_t>(mesh, mesh[mesh_id_t::cells], [&](std::size_t cell)
-    {
-        nnz[cell] = scheme_stencil_size;
-    });
-
-    // Projection
-    samurai_new::for_each_cell_having_children<std::size_t>(mesh, [&] (std::size_t cell)
-    {
-        nnz[cell] = proj_stencil_size;
-    });
-
-    // Prediction
-    samurai_new::for_each_cell_having_parent<std::size_t>(mesh, [&] (std::size_t cell)
-    {
-        nnz[cell] = pred_stencil_size;
-    });
-
-    // Boundary conditions
-    if (dirichlet_enfcmt != OnesOnDiagonal)
-    {
-        samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double)
-        {
-            samurai_new::out_boundary(mesh, level, 
-            [&] (const auto& i, const auto& index, const auto& out_vect)
-            {
-                if (out_vect[0] == 0 || out_vect[1] == 0) // Cartesian direction
-                {
-                    samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
-                    [&] (std::size_t i_out)
-                    {
-                        nnz[i_out] = 2;
-                    });
-                }
-            });
-        });
-    }
-
-    return nnz;
-}
-
-
-
-
-template<class Mesh>
 PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat& A, Mesh& mesh, DirichletEnforcement dirichlet_enfcmt)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
     static constexpr std::size_t dim = Mesh::dim;
 
+    // Finite Volume cell-centered scheme: 3-point stencil in 1D, 5-point stencil in 2D, etc.
+    // center + 1 neighbour in each Cartesian direction (2*dim directions)
+    static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
+
+    static constexpr PetscInt number_of_children = (1 << dim);
+
     // For each group of cells given by stencil_shape, we want to capture the indices as PetscInt.
     // 5-point stencil:                                    center,  bottom, right,   top,     left
-    samurai_new::StencilIndices<PetscInt, dim, 5> stencil({{0, 0}, {0, -1}, {1, 0}, {0, 1}, {-1, 0}});
+    samurai_new::StencilIndices<PetscInt, dim, scheme_stencil_size> stencil({{0, 0}, {0, -1}, {1, 0}, {0, 1}, {-1, 0}});
 
     samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
     {
         double one_over_h2 = 1/(h*h);
 
         double coeffs_stencil_row[3];
-        coeffs_stencil_row[0] =    -one_over_h2;
-        coeffs_stencil_row[1] = 4 * one_over_h2;
-        coeffs_stencil_row[2] =    -one_over_h2;
+        coeffs_stencil_row[0] =                          -one_over_h2;
+        coeffs_stencil_row[1] = (scheme_stencil_size-1) * one_over_h2;
+        coeffs_stencil_row[2] =                          -one_over_h2;
 
         samurai_new::for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil,
-        [&] (const std::array<PetscInt, 5>& indices)
+        [&] (const std::array<PetscInt, scheme_stencil_size>& indices)
         {
-            auto center = indices[0];
-            auto bottom = indices[1];
-            auto right  = indices[2];
-            auto top    = indices[3];
-            auto left   = indices[4];
+            auto& center = indices[0];
+            auto& bottom = indices[1];
+            auto& right  = indices[2];
+            auto& top    = indices[3];
+            auto& left   = indices[4];
 
             PetscInt stencil_row[3];
             stencil_row[0] = left;
@@ -105,12 +55,12 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
 
     // Projection
     samurai_new::for_each_cell_and_children<PetscInt>(mesh, 
-    [&] (PetscInt cell, const std::array<PetscInt, 4>& children)
+    [&] (PetscInt cell, const std::array<PetscInt, number_of_children>& children)
     {
         MatSetValue(A, cell, cell, 1, INSERT_VALUES);
-        for (unsigned int i=0; i<4; ++i)
+        for (unsigned int i=0; i<number_of_children; ++i)
         {
-            MatSetValue(A, cell, children[i], -0.25, INSERT_VALUES);
+            MatSetValue(A, cell, children[i], -1./number_of_children, INSERT_VALUES);
         }
     });
 
@@ -178,9 +128,7 @@ PetscErrorCode assemble_matrix_impl(std::integral_constant<std::size_t, 2>, Mat&
         samurai_new::out_boundary(mesh, level, 
         [&] (const auto& i, const auto& index, const auto& out_vect)
         {
-            //auto j = index[0];
-
-            if (out_vect[0] != 0 && out_vect[1] != 0) // corners
+            if (!samurai_new::is_cartesian_direction(out_vect)) // corners
             {
                 samurai_new::for_each_cell<PetscInt>(mesh, level, i, index, 
                 [&] (PetscInt out_cell)
