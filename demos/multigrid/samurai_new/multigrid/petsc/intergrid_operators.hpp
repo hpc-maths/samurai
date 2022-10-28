@@ -3,8 +3,6 @@
 #include <samurai/numeric/prediction.hpp>
 #include "../LevelCtx.hpp"
 
-#define ENABLE_2D
-
 namespace samurai_new { namespace petsc { namespace multigrid
 {
 
@@ -12,6 +10,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
     void prolong(const Mesh& coarse_mesh, const Mesh& fine_mesh, const double* carray, double* farray, int prediction_order)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
+        static constexpr std::size_t dim = Mesh::dim;
 
         auto& cm = coarse_mesh[mesh_id_t::cells];
         auto& fm = fine_mesh[mesh_id_t::cells];
@@ -34,7 +33,8 @@ namespace samurai_new { namespace petsc { namespace multigrid
             auto others = samurai::intersection(cm[level - 1], fm[level]).on(level-1);
             others([&](auto& i, const auto& index)
             {
-                if (Mesh::dim == 1)
+                static_assert(dim == 1 || dim == 2, "prolong() not implemented for this dimension");
+                if constexpr (dim == 1)
                 {
                     auto i_f = fine_mesh.get_index(level, (2*i).start);
                     auto i_c = coarse_mesh.get_index(level-1, i.start);
@@ -57,8 +57,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                     }
                 }
-#ifdef ENABLE_2D
-                else if (Mesh::dim == 2)
+                else if constexpr (dim == 2)
                 {
                     auto j = index[0];
                     
@@ -96,11 +95,10 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                     }
                 }
-#endif
             });
 
             // Boundary
-            if (Mesh::dim == 1)
+            if constexpr (dim == 1)
             {
                 auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level],
                                                         fine_mesh.domain()).on(level);
@@ -114,8 +112,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                 });
             }
-#ifdef ENABLE_2D
-            else if (Mesh::dim == 2)
+            else if constexpr (dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
                 for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
@@ -173,7 +170,6 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
-#endif
         }
     }
 
@@ -181,6 +177,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
     void set_prolong_matrix(const Mesh& coarse_mesh, const Mesh& fine_mesh, Mat& P, int prediction_order)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
+        static constexpr std::size_t dim = Mesh::dim;
 
         auto& cm = coarse_mesh[mesh_id_t::cells];
         auto& fm = fine_mesh[mesh_id_t::cells];
@@ -204,7 +201,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
             auto others = samurai::intersection(cm[level - 1], fm[level]).on(level-1);
             others([&](auto& i, const auto& index)
             {
-                if (Mesh::dim == 1)
+                if constexpr (dim == 1)
                 {
                     auto i_f = static_cast<int>(fine_mesh.get_index(level, (2*i).start));
                     auto i_c = static_cast<int>(coarse_mesh.get_index(level-1, i.start));
@@ -235,8 +232,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                     }
                 }
-#ifdef ENABLE_2D
-                else if (Mesh::dim == 2)
+                else if constexpr (dim == 2)
                 {
                     auto j = index[0];
 
@@ -338,11 +334,10 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     else
                         assert(false && "not implemented");
                 }
-#endif
             });
 
             // Boundary
-            if (Mesh::dim == 1)
+            if constexpr (dim == 1)
             {
                 auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level],
                                                         fine_mesh.domain()).on(level);
@@ -357,8 +352,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                 });
             }
-#ifdef ENABLE_2D
-            else if (Mesh::dim == 2)
+            else if constexpr (dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
                 for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
@@ -430,7 +424,6 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
-#endif
         }
     }
 
@@ -438,6 +431,8 @@ namespace samurai_new { namespace petsc { namespace multigrid
     Field prolong(const Field& coarse_field, typename Field::mesh_t& fine_mesh, int prediction_order)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        static constexpr std::size_t dim = Field::mesh_t::dim;
+
         auto coarse_mesh = coarse_field.mesh();
 
         auto& cm = coarse_mesh[mesh_id_t::cells];
@@ -463,7 +458,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                 others.apply_op(samurai::prediction<1, true>(fine_field, coarse_field));
 
             // Boundary
-            if (Field::mesh_t::dim == 1)
+            if constexpr (dim == 1)
             {
                 auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level],
                                                         fine_mesh.domain()).on(level);
@@ -472,8 +467,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     fine_field(level, i) = coarse_field(level - 1, i/2);
                 });
             }
-#ifdef ENABLE_2D
-            else if (Field::mesh_t::dim == 2)
+            else if constexpr (dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
                 for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
@@ -508,9 +502,6 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
-#endif
-            else
-                assert(false);
         }
 
         return fine_field;
@@ -527,6 +518,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
     void restrict(const Mesh& fine_mesh, const Mesh& coarse_mesh, const double* farray, double* carray)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
+        static constexpr std::size_t dim = Mesh::dim;
 
         auto& cm = coarse_mesh[mesh_id_t::cells];
         auto& fm = fine_mesh[mesh_id_t::cells];
@@ -552,7 +544,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
             auto others = samurai::intersection(cm[level], fm[level + 1]).on(level);
             others([&](auto& i, const auto& index)
             {
-                if (Mesh::dim == 1)
+                if constexpr (dim == 1)
                 {
                     auto i_f = fine_mesh.get_index(level+1, (2*i).start);
                     auto i_c = coarse_mesh.get_index(level, i.start);
@@ -562,8 +554,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         carray[i_c + ii] = 0.5*(farray[i_f + 2*ii] + farray[i_f + 2*ii+1]);
                     }
                 }
-#ifdef ENABLE_2D
-                else if (Mesh::dim == 2)
+                else if constexpr (dim == 2)
                 {
                     auto j = index[0];
                     auto i_c      = coarse_mesh.get_index(level, i.start, j);
@@ -578,12 +569,10 @@ namespace samurai_new { namespace petsc { namespace multigrid
                                                     farray[i_f_2jp1 + 2*ii+1]);
                     }
                 }
-#endif
-
             });
 
             // Boundary
-            if (Mesh::dim == 1)
+            if constexpr (dim == 1)
             {
                 auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1], fine_mesh.domain()).on(level+1);
                 fine_boundary([&](const auto& i, auto)
@@ -597,8 +586,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                 });
             }
-#ifdef ENABLE_2D
-            else if (Mesh::dim == 2)
+            else if constexpr (dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
                 for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
@@ -653,7 +641,6 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
-#endif
         }
     }
 
@@ -661,6 +648,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
     void set_restrict_matrix(const Mesh& fine_mesh, const Mesh& coarse_mesh, Mat& R)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
+        static constexpr std::size_t dim = Mesh::dim;
 
         auto& cm = coarse_mesh[mesh_id_t::cells];
         auto& fm = fine_mesh[mesh_id_t::cells];
@@ -684,7 +672,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
             auto others = samurai::intersection(cm[level], fm[level + 1]).on(level);
             others([&](auto& i, const auto& index)
             {
-                if (Mesh::dim == 1)
+                if constexpr (dim == 1)
                 {
                     auto i_f = static_cast<int>(fine_mesh.get_index(level+1, (2*i).start));
                     auto i_c = static_cast<int>(coarse_mesh.get_index(level, i.start));
@@ -696,8 +684,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         MatSetValue(R, i_c + ii, i_f + 2*ii + 1, 0.5, INSERT_VALUES);
                     }
                 }
-#ifdef ENABLE_2D
-                else if (Mesh::dim == 2)
+                else if constexpr (dim == 2)
                 {
                     auto j = index[0];
                     auto i_c    = static_cast<int>(coarse_mesh.get_index(level, i.start, j));
@@ -713,11 +700,10 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         MatSetValue(R, i_c + ii, i_f_2jp1 + 2*ii+1, 0.25, INSERT_VALUES);
                     }
                 }
-#endif
             });
 
             // Boundary
-            if (Mesh::dim == 1)
+            if constexpr (dim == 1)
             {
                 auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1],
                                                         fine_mesh.domain()).on(level+1);
@@ -733,8 +719,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     }
                 });
             }
-#ifdef ENABLE_2D
-            else if (Mesh::dim == 2)
+            else if constexpr (dim == 2)
             {
                 xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
                 for (std::size_t is = 0; is<stencil.shape()[0]; ++is)
@@ -798,7 +783,6 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }
             }
-#endif
         }
     }
 
@@ -808,6 +792,8 @@ namespace samurai_new { namespace petsc { namespace multigrid
     auto restrict(const Field& fine_field, typename Field::mesh_t& coarse_mesh)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        static constexpr std::size_t dim = Field::mesh_t::dim;
+
         auto fine_mesh = fine_field.mesh();
 
         auto& cm = coarse_mesh[mesh_id_t::cells];
@@ -831,7 +817,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
             others.apply_op(samurai::projection(coarse_field, fine_field));
 
             // Boundary
-            if (Field::mesh_t::dim == 1)
+            if constexpr (dim == 1)
             {
                 auto fine_boundary = samurai::difference(fine_mesh[mesh_id_t::reference][level+1], fine_mesh.domain());
                 fine_boundary([&](const auto& i, auto)
@@ -839,8 +825,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     coarse_field(level, i/2) = fine_field(level+1, i);
                 });
             }
-#ifdef ENABLE_2D
-            else if (Field::mesh_t::dim == 2)
+            else if constexpr (dim == 2)
             {
                 // !!! This code might be specific to the square domain !!!
 
@@ -899,9 +884,6 @@ namespace samurai_new { namespace petsc { namespace multigrid
                     });
                 }*/
             }
-#endif
-            else
-                assert(false);
         }
 
         return coarse_field;
