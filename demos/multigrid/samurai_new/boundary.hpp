@@ -7,6 +7,7 @@ namespace samurai_new
     template <std::size_t dim>
     inline StencilShape<dim, 2*dim> cartesian_directions()
     {
+        // The order is important: the opposite of a vector must be located 'dim' indices after.
         assert(false && "Not implemented in N-D");
         return StencilShape<dim, 2*dim>();
     }
@@ -22,8 +23,14 @@ namespace samurai_new
         //                        bottom,   right,  top,    left      (the order is important)
         return StencilShape<2, 4>{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
     }
+    template<> 
+    inline StencilShape<3, 6> cartesian_directions<3>()
+    {
+        //                         bottom,   front,   right,    top,     back,     left     (the order is important)
+        return StencilShape<3, 6>{{0,0,-1}, {0,1,0}, {1,0,0}, {0,0,1}, {0,-1,0}, {-1,0,0}};
+    }
 
-    template<class Vector>
+    /*template<class Vector>
     inline bool is_cartesian_direction(const Vector& v)
     {
         bool only_one_non_zero = false;
@@ -44,6 +51,17 @@ namespace samurai_new
             
         }
         return only_one_non_zero;
+    }*/
+
+    template<class Vector>
+    inline unsigned int number_of_zeros(const Vector& v)
+    {
+        unsigned int n_zeros = 0;
+        for (std::size_t i=0; i<v.shape()[0]; ++i)
+        {
+            n_zeros += v[i] == 0 ? 1 : 0;
+        }
+        return n_zeros;
     }
 
 
