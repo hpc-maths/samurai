@@ -1,6 +1,7 @@
 #pragma once
 #include "Laplacian1D.cpp"
 #include "Laplacian2D.cpp"
+#include "samurai_new/petsc_assembly.hpp"
 
 
 // constexpr power function
@@ -20,22 +21,8 @@ public:
     using Mesh = typename Field::mesh_t;
     using mesh_id_t = typename Mesh::mesh_id_t;
     static constexpr std::size_t dim = Field::dim;
+
     const Mesh& mesh;
-
-    // Finite Volume cell-centered scheme: 3-point stencil in 1D, 5-point stencil in 2D, etc.
-    // center + 1 neighbour in each Cartesian direction (2*dim directions)
-    static constexpr PetscInt scheme_stencil_size = 1 + 2*dim;
-    // Projection:
-    // cell + 2^dim children --> 1+2 in 1D, 1+4 in 2D
-    static constexpr PetscInt proj_stencil_size   = 1 + (1 << dim);
-    // Prediction (order 1): cell + parent's 9-point stencil (in 2D)
-    // cell + hypercube of 3 cells --> 1+3 in 1D, 1+9 in 2D
-    static constexpr PetscInt pred_stencil_size   = 1 + ce_pow(3, dim);
-    // Stencil size on outer boundary cells (in the Cartesian directions)
-    static constexpr PetscInt cart_bdry_stencil_size = 2;
-    // Stencil size on outer boundary cells (in the diagonal directions)
-    static constexpr PetscInt diag_bdry_stencil_size = 1;
-
 
     Laplacian(const Mesh& m, DirichletEnforcement dirichlet_enfcmt) :
         mesh(m)
@@ -48,25 +35,102 @@ public:
         return Laplacian(coarse_mesh, fine._dirichlet_enfcmt);
     }
 
+    void create_matrix(Mat& A)
+    {
+        auto n = static_cast<PetscInt>(mesh.nb_cells());
+
+        MatCreate(PETSC_COMM_SELF, &A);
+        MatSetSizes(A, n, n, n, n);
+        MatSetFromOptions(A);
+
+        MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, sparsity_pattern().data());
+        // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+    }
+
+    PetscErrorCode assemble_matrix(Mat& A)
+    {
+        assemble_scheme_on_uniform_grid(A);
+        assemble_projection(A);
+        assemble_prediction(A);
+        assemble_boundary_condition(A);
+
+        MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+        MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+        PetscFunctionReturn(0);
+    }
+
+    Vec assemble_rhs(Field& rhs_field)
+    {
+        if (&rhs_field.mesh() != &mesh)
+            assert(false && "Not the same mesh");
+        return assemble_rhs_impl(std::integral_constant<std::size_t, Field::dim>{}, rhs_field, _dirichlet_enfcmt);
+    }
+
 private:
+
+    using cfg = samurai_new::petsc::PetscAssemblyConfig
+    <
+        // ----  Stencil size 
+        // Cell-centered Finite Volume scheme:
+        // center + 1 neighbour in each Cartesian direction (2*dim directions) --> 1+2=3 in 1D
+        //                                                                         1+4=5 in 2D
+        1 + 2*dim,
+
+        // ----  Projection stencil size
+        // cell + 2^dim children --> 1+2=3 in 1D 
+        //                           1+4=5 in 2D
+        1 + (1 << dim), 
+
+        // ----  Prediction stencil size
+        // Here, order 1:
+        // cell + hypercube of 3 cells --> 1+3= 4 in 1D
+        //                                 1+9=10 in 2D
+        1 + ce_pow(3, dim), 
+
+        // ---- Index of the stencil center
+        // (as defined in FV_stencil())
+        1, 
+
+        // ---- Start index and size of contiguous cell indices
+        // (as defined in FV_stencil())
+        // Here, [left, center, right].
+        0, 3
+    >;
+
+    // Stencil size on outer boundary cells (in the Cartesian directions)
+    static constexpr PetscInt cart_bdry_stencil_size = 2;
+    // Stencil size on outer boundary cells (in the diagonal directions)
+    static constexpr PetscInt diag_bdry_stencil_size = 1;
+
+    inline samurai_new::StencilShape<dim, cfg::scheme_stencil_size> FV_stencil()
+    {
+        static_assert(dim >= 1 || dim <= 3, "Finite Volume stencil not implemented for this dimension");
+
+        if constexpr (dim == 1)
+        {
+            // 3-point stencil:
+            //    left, center, right
+            return {{-1}, {0}, {1}};
+        }
+        else if constexpr (dim == 2)
+        {
+            // 5-point stencil:
+            //       left,   center,  right,   bottom,  top 
+            return {{-1, 0}, {0, 0},  {1, 0}, {0, -1}, {0, 1}};
+        }
+        else if constexpr (dim == 3)
+        {
+            // 7-point stencil:
+            //       left,   center,    right,   front,    back,    bottom,    top
+            return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
+        }
+        return samurai_new::StencilShape<dim, cfg::scheme_stencil_size>();
+    }
+
     std::vector<PetscInt> sparsity_pattern()
     {
-        std::size_t n = mesh.nb_cells();
-
-        // Number of non-zeros per row. By default, the stencil size.
-        std::vector<PetscInt> nnz(n, scheme_stencil_size);
-
-        // Projection
-        samurai_new::for_each_cell_having_children<std::size_t>(mesh, [&] (std::size_t cell)
-        {
-            nnz[cell] = proj_stencil_size;
-        });
-
-        // Prediction
-        samurai_new::for_each_cell_having_parent<std::size_t>(mesh, [&] (std::size_t cell)
-        {
-            nnz[cell] = pred_stencil_size;
-        });
+        // Scheme, projection, prediction
+        std::vector<PetscInt> nnz = samurai_new::petsc::nnz_per_row<cfg>(mesh);
 
         // Boundary conditions
         samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double)
@@ -87,65 +151,23 @@ private:
         return nnz;
     }
 
-    void assemble_numerical_scheme(Mat& A)
+    void assemble_scheme_on_uniform_grid(Mat& A)
     {
-        static_assert(dim >= 1 || dim <= 3, "Finite Volume stencil not implemented for this dimension");
+        static constexpr PetscInt stencil_size = cfg::scheme_stencil_size;
+        static constexpr PetscInt stencil_center = cfg::center_index;
 
-        samurai_new::StencilShape<dim, scheme_stencil_size> stencil_shape;
-        if constexpr (dim == 1)
-        {   // 3-point stencil:                                               left, center, right
-            stencil_shape = samurai_new::StencilShape<dim, scheme_stencil_size>{{-1}, {0}, {1}};
-        }
-        else if constexpr (dim == 2)
-        {   // 5-point stencil:                                                  left,   center,  right,   bottom,  top 
-            stencil_shape = samurai_new::StencilShape<dim, scheme_stencil_size>{{-1, 0}, {0, 0},  {1, 0}, {0, -1}, {0, 1}};
-        }
-        else if constexpr (dim == 3)
-        {   // 7-point stencil:                                                   left,   center,    right,   front,    back,    bottom,    top
-            stencil_shape = samurai_new::StencilShape<dim, scheme_stencil_size>{{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
-        }
-
-        static constexpr unsigned int contiguous_indices_start = 0;
-        static constexpr unsigned int contiguous_indices_size = 3; // left, center, right
-        static constexpr unsigned int center_index = 1;
-
-        samurai_new::StencilIndices<PetscInt, dim, scheme_stencil_size> stencil(stencil_shape);
-
-        samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
+        samurai_new::petsc::set_coefficients<cfg>(A, mesh, FV_stencil(), 
+        [&] (double h)
         {
             double one_over_h2 = 1/(h*h);
 
-            std::array<double, scheme_stencil_size> coeffs;
-            for (unsigned int i = 0; i<scheme_stencil_size; ++i)
+            std::array<double, stencil_size> coeffs;
+            for (unsigned int i = 0; i<stencil_size; ++i)
             {
                 coeffs[i] = -one_over_h2;
             }
-            coeffs[center_index] = (scheme_stencil_size-1) * one_over_h2;
-
-            samurai_new::for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil,
-            [&] (const std::array<PetscInt, scheme_stencil_size>& indices)
-            {
-                if constexpr(contiguous_indices_start > 0)
-                {
-                    for (unsigned int i=0; i<contiguous_indices_start; ++i)
-                    {
-                        MatSetValue(A, indices[center_index], indices[i], coeffs[i], INSERT_VALUES);
-                    }
-                }
-
-                if constexpr(contiguous_indices_size > 0)
-                {
-                    MatSetValues(A, 1, &indices[center_index], static_cast<PetscInt>(contiguous_indices_size), &indices[contiguous_indices_start], &coeffs[contiguous_indices_start], INSERT_VALUES);
-                }
-
-                if constexpr(contiguous_indices_start + contiguous_indices_size < scheme_stencil_size)
-                {
-                    for (unsigned int i=contiguous_indices_start + contiguous_indices_size; i<scheme_stencil_size; ++i)
-                    {
-                        MatSetValue(A, indices[center_index], indices[i], coeffs[i], INSERT_VALUES);
-                    }
-                }
-            });
+            coeffs[stencil_center] = (stencil_size-1) * one_over_h2;
+            return coeffs;
         });
     }
 
@@ -158,24 +180,11 @@ private:
             samurai_new::out_boundary(mesh, level, 
             [&] (const auto& i, const auto& index, const auto& out_vect)
             {
-                samurai_new::StencilShape<dim, 2> out_in_stencil_shape;
-                if constexpr (dim == 1)
-                {   //                                                    out_cell,  in_cell
-                    out_in_stencil_shape = samurai_new::StencilShape<dim, 2>{{0}, {-out_vect[0]}};
-                }
-                else if constexpr (dim == 2)
-                {   //                                                      out_cell,           in_cell
-                    out_in_stencil_shape = samurai_new::StencilShape<dim, 2>{{0, 0}, {-out_vect[0], -out_vect[1]}};
-                }
-                else if constexpr (dim == 3)
-                {   //                                                        out_cell,                 in_cell
-                    out_in_stencil_shape = samurai_new::StencilShape<dim, 2>{{0, 0, 0}, {-out_vect[0], -out_vect[1], -out_vect[2]}};
-                }
-                samurai_new::StencilIndices<PetscInt, dim, 2> out_in_stencil(out_in_stencil_shape);
+                samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(out_in_stencil(out_vect));
                 auto n_zeros = samurai_new::number_of_zeros(out_vect);
-                double in_diag_value = (scheme_stencil_size-1) + dim - n_zeros;
+                double in_diag_value = (cfg::scheme_stencil_size-1) + dim - n_zeros;
                 in_diag_value *= one_over_h2;
-                samurai_new::for_each_stencil<PetscInt>(mesh, level, i, index, out_in_stencil, [&] (const std::array<PetscInt, 2>& indices)
+                samurai_new::for_each_stencil<PetscInt>(mesh, level, i, index, out_in_indices, [&] (const std::array<PetscInt, 2>& indices)
                 {
                     auto& out_cell = indices[0];
                     auto& in_cell  = indices[1];
@@ -196,6 +205,26 @@ private:
             MatSetOption(A, MAT_SPD, PETSC_TRUE);
     }
 
+    template<class Vector>
+    samurai_new::StencilShape<dim, 2> out_in_stencil(const Vector& out_vect)
+    {
+        static_assert(dim >= 1 || dim <= 3, "out_in_stencil() not implemented for this dimension");
+
+        if constexpr (dim == 1)
+        {   //   out_cell,  in_cell
+            return {{0}, {-out_vect[0]}};
+        }
+        else if constexpr (dim == 2)
+        {   //     out_cell,           in_cell
+            return {{0, 0}, {-out_vect[0], -out_vect[1]}};
+        }
+        else if constexpr (dim == 3)
+        {   //      out_cell,                   in_cell
+            return {{0, 0, 0}, {-out_vect[0], -out_vect[1], -out_vect[2]}};
+        }
+        return samurai_new::StencilShape<dim, 2>();
+    }
+
     void assemble_projection(Mat& A)
     {
         static constexpr PetscInt number_of_children = (1 << dim);
@@ -211,36 +240,9 @@ private:
         });
     }
 
-public:
-    void create_matrix(Mat& A)
+    void assemble_prediction(Mat& A)
     {
-        auto n = static_cast<PetscInt>(mesh.nb_cells());
-
-        MatCreate(PETSC_COMM_SELF, &A);
-        MatSetSizes(A, n, n, n, n);
-        MatSetFromOptions(A);
-
-        MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, sparsity_pattern().data());
-        // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
-    }
-
-    PetscErrorCode assemble_matrix(Mat& A)
-    {
-        assemble_numerical_scheme(A);
-        assemble_projection(A);
         assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
-        assemble_boundary_condition(A);
-
-        MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-        MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-        PetscFunctionReturn(0);
-    }
-
-    Vec assemble_rhs(Field& rhs_field)
-    {
-        if (&rhs_field.mesh() != &mesh)
-            assert(false && "Not the same mesh");
-        return assemble_rhs_impl(std::integral_constant<std::size_t, Field::dim>{}, rhs_field, _dirichlet_enfcmt);
     }
 };
 
