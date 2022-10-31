@@ -74,22 +74,13 @@ private:
             samurai_new::out_boundary(mesh, level, 
             [&] (const auto& i, const auto& index, const auto& out_vect)
             {
-                if (samurai_new::is_cartesian_direction(out_vect))
+                auto n_zeros = samurai_new::number_of_zeros(out_vect);
+                PetscInt n_coeffs = (dim == 0 || n_zeros > 0) ? cart_bdry_stencil_size : diag_bdry_stencil_size;
+                samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
+                [&] (std::size_t i_out)
                 {
-                    samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
-                    [&] (std::size_t i_out)
-                    {
-                        nnz[i_out] = cart_bdry_stencil_size;
-                    });
-                }
-                else
-                {
-                    samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
-                    [&] (std::size_t i_out)
-                    {
-                        nnz[i_out] = diag_bdry_stencil_size;
-                    });
-                }
+                    nnz[i_out] = n_coeffs;
+                });
             });
         });
 
@@ -158,6 +149,53 @@ private:
         });
     }
 
+    void assemble_boundary_condition(Mat& A)
+    {
+        samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
+        {
+            double one_over_h2 = 1/(h*h);
+
+            samurai_new::out_boundary(mesh, level, 
+            [&] (const auto& i, const auto& index, const auto& out_vect)
+            {
+                samurai_new::StencilShape<dim, 2> out_in_stencil_shape;
+                if constexpr (dim == 1)
+                {   //                                                    out_cell,  in_cell
+                    out_in_stencil_shape = samurai_new::StencilShape<dim, 2>{{0}, {-out_vect[0]}};
+                }
+                else if constexpr (dim == 2)
+                {   //                                                      out_cell,           in_cell
+                    out_in_stencil_shape = samurai_new::StencilShape<dim, 2>{{0, 0}, {-out_vect[0], -out_vect[1]}};
+                }
+                else if constexpr (dim == 3)
+                {   //                                                        out_cell,                 in_cell
+                    out_in_stencil_shape = samurai_new::StencilShape<dim, 2>{{0, 0, 0}, {-out_vect[0], -out_vect[1], -out_vect[2]}};
+                }
+                samurai_new::StencilIndices<PetscInt, dim, 2> out_in_stencil(out_in_stencil_shape);
+                auto n_zeros = samurai_new::number_of_zeros(out_vect);
+                double in_diag_value = (scheme_stencil_size-1) + dim - n_zeros;
+                in_diag_value *= one_over_h2;
+                samurai_new::for_each_stencil<PetscInt>(mesh, level, i, index, out_in_stencil, [&] (const std::array<PetscInt, 2>& indices)
+                {
+                    auto& out_cell = indices[0];
+                    auto& in_cell  = indices[1];
+                    // The outer unknown is eliminated from the system:
+                    MatSetValue(A, out_cell, out_cell,             1, INSERT_VALUES);
+                    MatSetValue(A,  in_cell, in_cell , in_diag_value, INSERT_VALUES);
+                    // The coefficient that was added before (via the interior stencil) is removed.
+                    // Note that if n_zeros==0, then its a corner: out_cell is not in the stencil of in_cell, so nothing to remove.
+                    if (dim == 0 || n_zeros > 0) 
+                    {  
+                        MatSetValue(A,  in_cell, out_cell,         0, INSERT_VALUES); 
+                    }
+                });
+            });
+        });
+
+        if (_dirichlet_enfcmt != OnesOnDiagonal)
+            MatSetOption(A, MAT_SPD, PETSC_TRUE);
+    }
+
     void assemble_projection(Mat& A)
     {
         static constexpr PetscInt number_of_children = (1 << dim);
@@ -191,7 +229,7 @@ public:
         assemble_numerical_scheme(A);
         assemble_projection(A);
         assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
-        assemble_boundary_condition_impl(std::integral_constant<std::size_t, dim>{}, A, mesh, _dirichlet_enfcmt);
+        assemble_boundary_condition(A);
 
         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
