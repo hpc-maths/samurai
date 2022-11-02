@@ -30,29 +30,6 @@ namespace samurai_new
         return StencilShape<3, 6>{{0,0,-1}, {0,1,0}, {1,0,0}, {0,0,1}, {0,-1,0}, {-1,0,0}};
     }
 
-    /*template<class Vector>
-    inline bool is_cartesian_direction(const Vector& v)
-    {
-        bool only_one_non_zero = false;
-        for (std::size_t i=0; i<v.shape()[0]; ++i)
-        {
-            if (v[i] != 0)
-            {
-                if (!only_one_non_zero)
-                {
-                    only_one_non_zero = true;
-                }
-                else
-                {
-                    only_one_non_zero = false; // second non-zero found
-                    break;
-                }
-            }
-            
-        }
-        return only_one_non_zero;
-    }*/
-
     template<class Vector>
     inline unsigned int number_of_zeros(const Vector& v)
     {
@@ -62,6 +39,14 @@ namespace samurai_new
             n_zeros += v[i] == 0 ? 1 : 0;
         }
         return n_zeros;
+    }
+
+    template<class Vector>
+    inline bool is_cartesian_direction(const Vector& v)
+    {
+        std::size_t dim = v.shape()[0];
+        auto n_zeros = number_of_zeros(v);
+        return (dim == 0 || n_zeros == dim-1);
     }
 
 
@@ -78,32 +63,71 @@ namespace samurai_new
         {
             // Cartesian direction
             auto d1 = xt::view(cart_directions, id1);
-            // Next Cartesian direction
-            std::size_t id2 = id1+1;
-            if (id2 == n_cart_dir)
-                id2 = 0;
-            auto d2 = xt::view(cart_directions, id2);
 
-            // Boundaries in the direction d1 and d2
+            // Boundary in the direction d1
             auto boundary_d1 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], d1), mesh.domain());
-            auto boundary_d2 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], d2), mesh.domain());
 
-            // Corners between boundary_d1 and boundary_d2
-            auto diag = d1 + d2;
-            auto boundaries_d1d2 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], diag), mesh.domain());
-            auto corners = samurai::difference(samurai::difference(boundaries_d1d2, boundary_d1), boundary_d2);
+            // Outwards vector
+            auto out_vect_d1 = d1;
 
             // Apply func to boundary_d1
             boundary_d1([&](const auto& i, const auto& index)
             {
-                func(i, index, d1);
+                func(i, index, out_vect_d1);
             });
 
-            // Apply func to corners
-            corners([&](const auto& i, const auto& index)
+            if constexpr(dim > 1)
             {
-                func(i, index, diag);
-            });
+                // Next Cartesian direction
+                std::size_t id2 = id1+1;
+                if (id2 == n_cart_dir)
+                    id2 = 0;
+                auto d2 = xt::view(cart_directions, id2);
+
+                // Boundary in the direction d2
+                auto boundary_d2 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], d2), mesh.domain());
+
+                auto out_vect_d1d2 = out_vect_d1 + d2;
+
+                // Corners between boundary_d1 and boundary_d2
+                auto boundaries_d1d2 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], out_vect_d1d2), mesh.domain());
+                auto corners_d1d2 = samurai::difference(samurai::difference(boundaries_d1d2, boundary_d1), boundary_d2);
+
+                // Apply func to corners
+                corners_d1d2([&](const auto& i, const auto& index)
+                {
+                    func(i, index, out_vect_d1d2);
+                });
+
+                if constexpr(dim > 2)
+                {
+                    // Next Cartesian direction
+                    std::size_t id3 = id2+1;
+                    if (id3 == n_cart_dir)
+                        id3 = 0;
+                    auto d3 = xt::view(cart_directions, id3);
+
+                    // Boundary in the direction d3
+                    auto boundary_d3 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], d3), mesh.domain());
+
+                    auto out_vect_d1d2d3 = out_vect_d1d2 + d3;
+
+                    // Corners between boundary_d1, boundary_d2 and boundary_d3
+                    auto boundaries_d1d2d3 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], out_vect_d1d2d3), mesh.domain());
+                    auto corners_d1d2d3 = samurai::difference(samurai::difference(samurai::difference(boundaries_d1d2d3, boundary_d1), boundary_d2), boundary_d3);
+
+                    // Apply func to corners
+                    corners_d1d2d3([&](const auto& i, const auto& index)
+                    {
+                        func(i, index, out_vect_d1d2d3);
+                    });
+
+                    if constexpr(dim > 3)
+                    {
+                        static_assert(dim < 4, "out_boundary() not implemented for dim > 3.");
+                    }
+                }
+            }
         }
     }
 }

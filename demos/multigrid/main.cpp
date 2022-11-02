@@ -72,21 +72,15 @@ Mesh create_mesh(std::size_t n)
     Box box;
     if constexpr(Mesh::dim == 1)
     {
-        //constexpr std::size_t start_level = 2;
-        //constexpr std::size_t min_level = 2;
-        //constexpr std::size_t max_level = 3;
         box = Box({0}, {1});
-        //Box leftBox({0}, {0.5});
-        //Box rightBox({0.5}, {1});
     }
     else if constexpr(Mesh::dim == 2)
     {
-        //constexpr std::size_t start_level = 2;
-        //constexpr std::size_t min_level = 2;
-        //constexpr std::size_t max_level = 3;
         box = Box({0,0}, {1,1});
-        //Box leftBox({0}, {0.5});
-        //Box rightBox({0.5}, {1});
+    }
+    else if constexpr(Mesh::dim == 3)
+    {
+        box = Box({0,0,0}, {1,1,1});
     }
 
     /*cl_type cl;
@@ -188,7 +182,7 @@ int source_poly_degree()
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 3;
     using Config = samurai::amr::Config<dim>;
     using Mesh = samurai::amr::Mesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;

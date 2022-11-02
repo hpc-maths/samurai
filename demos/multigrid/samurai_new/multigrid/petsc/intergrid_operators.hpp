@@ -33,7 +33,8 @@ namespace samurai_new { namespace petsc { namespace multigrid
             auto others = samurai::intersection(cm[level - 1], fm[level]).on(level-1);
             others([&](auto& i, const auto& index)
             {
-                static_assert(dim == 1 || dim == 2, "prolong() not implemented for this dimension");
+                //static_assert(dim == 1 || dim == 2, "prolong() not implemented for this dimension");
+                assert((dim == 1 || dim == 2) && "prolong() not implemented for this dimension");
                 if constexpr (dim == 1)
                 {
                     auto i_f = fine_mesh.get_index(level, (2*i).start);
@@ -201,6 +202,8 @@ namespace samurai_new { namespace petsc { namespace multigrid
             auto others = samurai::intersection(cm[level - 1], fm[level]).on(level-1);
             others([&](auto& i, const auto& index)
             {
+                //static_assert(dim == 1 || dim == 2, "set_prolong_matrix() not implemented for this dimension");
+
                 if constexpr (dim == 1)
                 {
                     auto i_f = static_cast<int>(fine_mesh.get_index(level, (2*i).start));
@@ -332,7 +335,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                         }
                     }
                     else
-                        assert(false && "not implemented");
+                        assert(false && "set_prolong_matrix() not implemented for dim > 2.");
                 }
             });
 
@@ -779,7 +782,7 @@ namespace samurai_new { namespace petsc { namespace multigrid
                             }
                         }
                         else
-                            assert(false);
+                            assert(false && "set_rectrict_matrix() not implemented for dim > 2.");
                     });
                 }
             }

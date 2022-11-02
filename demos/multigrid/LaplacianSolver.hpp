@@ -45,6 +45,10 @@ private:
         KSPSetFromOptions(_ksp);
         if (_use_samurai_mg)
         {
+            if constexpr(Mesh::dim > 2)
+            {
+                fatal_error("Samurai Multigrid is not implemented for dim > 2.");
+            }
             _samurai_mg = samurai_new::petsc::GeometricMultigrid(discretizer, mesh);
             _samurai_mg.apply_as_pc(_ksp);
         }
