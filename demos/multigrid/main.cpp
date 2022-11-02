@@ -14,56 +14,6 @@
 #include "LaplacianSolver.hpp"
 #include "Timer.hpp"
 
-using namespace std;
-
-template<class Mesh>
-Mesh create_mesh(std::size_t n)
-{
-    using Box = samurai::Box<double, Mesh::dim>;
-    /*constexpr std::size_t start_level = 2;
-
-    Box leftBox({0}, {0.5});
-    Box rightBox({0.5}, {1});
-
-    Mesh m;
-    m[start_level] = {start_level, leftBox};
-    m[start_level+1] = {start_level+1, rightBox};
-    return m;*/
-
-    //using cl_type = typename Mesh::cl_type;
-
-    Box box;
-    if (Mesh::dim == 1)
-    {
-        //constexpr std::size_t start_level = 2;
-        //constexpr std::size_t min_level = 2;
-        //constexpr std::size_t max_level = 3;
-        box = Box({0}, {1});
-        //Box leftBox({0}, {0.5});
-        //Box rightBox({0.5}, {1});
-    }
-    else if (Mesh::dim == 2)
-    {
-        //constexpr std::size_t start_level = 2;
-        //constexpr std::size_t min_level = 2;
-        //constexpr std::size_t max_level = 3;
-        box = Box({0,0}, {1,1});
-        //Box leftBox({0}, {0.5});
-        //Box rightBox({0.5}, {1});
-    }
-
-    /*cl_type cl;
-    cl[start_level] = {start_level, leftBox};
-    cl[start_level+1] = {start_level+1, rightBox};*/
-    std::size_t start_level, min_level, max_level;
-    start_level = n;
-    min_level = n;
-    max_level = n;
-
-    return Mesh(box, start_level, min_level, max_level);
-}
-
-
 static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "\n"
             "-------- General\n"
@@ -100,6 +50,141 @@ static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "-mg_levels_up_pc_sor_its <int> sets the number of post-smoothing iterations\n"
             "-log_view -pc_mg_log         monitors the multigrid performance\n"
             "\n";
+
+
+
+template<class Mesh>
+Mesh create_mesh(std::size_t n)
+{
+    using Box = samurai::Box<double, Mesh::dim>;
+    /*constexpr std::size_t start_level = 2;
+
+    Box leftBox({0}, {0.5});
+    Box rightBox({0.5}, {1});
+
+    Mesh m;
+    m[start_level] = {start_level, leftBox};
+    m[start_level+1] = {start_level+1, rightBox};
+    return m;*/
+
+    //using cl_type = typename Mesh::cl_type;
+
+    Box box;
+    if constexpr(Mesh::dim == 1)
+    {
+        //constexpr std::size_t start_level = 2;
+        //constexpr std::size_t min_level = 2;
+        //constexpr std::size_t max_level = 3;
+        box = Box({0}, {1});
+        //Box leftBox({0}, {0.5});
+        //Box rightBox({0.5}, {1});
+    }
+    else if constexpr(Mesh::dim == 2)
+    {
+        //constexpr std::size_t start_level = 2;
+        //constexpr std::size_t min_level = 2;
+        //constexpr std::size_t max_level = 3;
+        box = Box({0,0}, {1,1});
+        //Box leftBox({0}, {0.5});
+        //Box rightBox({0.5}, {1});
+    }
+
+    /*cl_type cl;
+    cl[start_level] = {start_level, leftBox};
+    cl[start_level+1] = {start_level+1, rightBox};*/
+    std::size_t start_level, min_level, max_level;
+    start_level = n;
+    min_level = n;
+    max_level = n;
+
+    return Mesh(box, start_level, min_level, max_level);
+}
+
+//-----------------------------------------//
+// Test cases:                             //
+//      exact solution and source function //
+//-----------------------------------------//
+
+template<std::size_t dim>
+auto solution()
+{
+    if constexpr(dim == 1)
+    {
+        return [](const auto& coord) 
+        {
+            const auto& x = coord[0];
+            return x * (1 - x);
+        };
+    }
+    else if constexpr(dim == 2)
+    {
+        return [](const auto& coord) 
+        {
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            return x * (1 - x) * y*(1 - y);
+        };
+    }
+    else if constexpr(dim == 3)
+    {
+        return [](const auto& coord) 
+        {
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            const auto& z = coord[2];
+            return x * (1 - x)*y*(1 - y)*z*(1 - z);
+        };
+    }
+}
+template<std::size_t dim>
+int solution_poly_degree()
+{
+    return static_cast<int>(pow(2, dim));
+}
+
+template<std::size_t dim>
+auto source()
+{
+    if constexpr(dim == 1)
+    {
+        return [](const auto&) 
+        { 
+            return 2.0; 
+        };
+    }
+    else if constexpr(dim == 2)
+    {
+        return [](const auto& coord) 
+        { 
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            return 2 * (y*(1 - y) + x * (1 - x)); 
+        };
+    }
+    else if constexpr(dim == 3)
+    {
+        return [](const auto& coord) 
+        {
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            const auto& z = coord[2];
+            return 2 * ((y*(1 - y)*z*(1 - z) + x * (1 - x)*z*(1 - z) + x * (1 - x)*y*(1 - y)));
+        };
+    }
+}
+template<std::size_t dim>
+int source_poly_degree()
+{
+    int solution_degree = solution_poly_degree<dim>();
+    return solution_degree < 0 ? -1 : max(solution_degree - 2, 0);
+}
+
+
+
+
+
+
+
 
 int main(int argc, char* argv[])
 {
@@ -194,8 +279,8 @@ int main(int argc, char* argv[])
 
     Laplacian<Field> laplacian(mesh, enforce_dbc);
 
-    Field rhs_field("f", mesh);
-    rhs_field.fill(1);
+    Field rhs_field = laplacian.create_rhs(source<dim>(), source_poly_degree<dim>());
+
     Vec b = laplacian.assemble_rhs(rhs_field);
     PetscObjectSetName((PetscObject)b, "b");
     //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
@@ -217,8 +302,8 @@ int main(int argc, char* argv[])
 
     std::cout << "Solving..." << std::endl;
     solve_timer.Start();
-    Field& x = rhs_field;
-    solver.solve(b, x);
+    Field sol("solution", mesh);
+    solver.solve(b, sol);
     solve_timer.Stop();
 
     total_timer.Stop();
@@ -227,16 +312,50 @@ int main(int argc, char* argv[])
     //  Print exec times  //
     //--------------------//
 
-    std::cout << "---- Setup ----" << endl;
-    std::cout << "CPU time    : " << setup_timer.CPU() << endl;
-    std::cout << "Elapsed time: " << setup_timer.Elapsed() << endl;
-    std::cout << "---- Solve ----" << endl;
-    std::cout << "CPU time    : " << solve_timer.CPU() << endl;
-    std::cout << "Elapsed time: " << solve_timer.Elapsed() << endl;
-    std::cout << "---- Total ----" << endl;
-    std::cout << "CPU time    : " << total_timer.CPU() << endl;
-    std::cout << "Elapsed time: " << total_timer.Elapsed() << endl;
+    std::cout << "---- Setup ----" << std::endl;
+    std::cout << "CPU time    : " << setup_timer.CPU() << std::endl;
+    std::cout << "Elapsed time: " << setup_timer.Elapsed() << std::endl;
+    std::cout << "---- Solve ----" << std::endl;
+    std::cout << "CPU time    : " << solve_timer.CPU() << std::endl;
+    std::cout << "Elapsed time: " << solve_timer.Elapsed() << std::endl;
+    std::cout << "---- Total ----" << std::endl;
+    std::cout << "CPU time    : " << total_timer.CPU() << std::endl;
+    std::cout << "Elapsed time: " << total_timer.Elapsed() << std::endl;
     std::cout << std::endl;
+
+    //--------------------//
+    //       Error        //
+    //--------------------//
+
+    auto exact_solution = solution<dim>();
+    int solution_degree = solution_poly_degree<dim>();
+
+    samurai_new::GaussLegendre gl(solution_degree);
+    double error_norm = 0;
+    double solution_norm = 0;
+    samurai::for_each_cell(mesh, [&](const auto& cell)
+    {
+        error_norm += gl.quadrature(cell, [&](const auto& point)
+        {
+            return pow(exact_solution(point) - sol(cell.index), 2);
+        });
+
+        solution_norm += gl.quadrature(cell, [&](const auto& point)
+        {
+            return pow(exact_solution(point), 2);
+        });
+    });
+
+    error_norm = sqrt(error_norm);
+    solution_norm = sqrt(solution_norm);
+    double relative_error = error_norm/solution_norm;
+
+    std::cout.precision(2);
+    std::cout << "L2-error: " << std::scientific << relative_error << std::endl;
+
+    //--------------------//
+    //     Finalize       //
+    //--------------------//
 
     // Destroy Petsc objects
     VecDestroy(&b);
@@ -247,7 +366,7 @@ int main(int argc, char* argv[])
     if (save_solution)
     {
         std::cout << "Saving solution..." << std::endl;
-        samurai::save("solution", mesh, x);
+        samurai::save("solution", mesh, sol);
     }
 
     return 0;
