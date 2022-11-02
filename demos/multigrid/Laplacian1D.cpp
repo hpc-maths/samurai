@@ -3,6 +3,7 @@
 #include "utils.hpp"
 #include "samurai_new/boundary.hpp"
 #include "samurai_new/indices.hpp"
+#include "samurai_new/gauss_legendre.hpp"
 
 //-------------------//
 //     Laplacian     //

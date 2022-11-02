@@ -22,15 +22,15 @@ public:
     using mesh_id_t = typename Mesh::mesh_id_t;
     static constexpr std::size_t dim = Field::dim;
 
-    const Mesh& mesh;
+    Mesh& mesh;
 
-    Laplacian(const Mesh& m, DirichletEnforcement dirichlet_enfcmt) :
+    Laplacian(Mesh& m, DirichletEnforcement dirichlet_enfcmt) :
         mesh(m)
     {
         _dirichlet_enfcmt = dirichlet_enfcmt;
     }
 
-    static Laplacian create_coarse(const Laplacian& fine, const Mesh& coarse_mesh)
+    static Laplacian create_coarse(const Laplacian& fine, Mesh& coarse_mesh)
     {
         return Laplacian(coarse_mesh, fine._dirichlet_enfcmt);
     }
@@ -57,6 +57,21 @@ public:
         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
         PetscFunctionReturn(0);
+    }
+
+    template<class Func>
+    Field create_rhs(Func&& source_function, int source_poly_degree=-1)
+    {
+        Field rhs("rhs", mesh);
+        rhs.fill(0);
+        samurai_new::GaussLegendre gl(source_poly_degree);
+
+        samurai::for_each_cell(mesh, [&](const auto& cell)
+        {
+            const double& h = cell.length;
+            rhs.array()[cell.index] = gl.quadrature(cell, source_function) / pow(h, dim);
+        });
+        return rhs;
     }
 
     Vec assemble_rhs(Field& rhs_field)
@@ -184,7 +199,9 @@ private:
                 auto n_zeros = samurai_new::number_of_zeros(out_vect);
                 double in_diag_value = (cfg::scheme_stencil_size-1) + dim - n_zeros;
                 in_diag_value *= one_over_h2;
-                samurai_new::for_each_stencil<PetscInt>(mesh, level, i, index, out_in_indices, [&] (const std::array<PetscInt, 2>& indices)
+
+                samurai_new::for_each_stencil<PetscInt>(mesh, level, i, index, out_in_indices, 
+                [&] (const std::array<PetscInt, 2>& indices)
                 {
                     auto& out_cell = indices[0];
                     auto& in_cell  = indices[1];
