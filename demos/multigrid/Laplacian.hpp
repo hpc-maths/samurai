@@ -1,6 +1,7 @@
 #pragma once
 #include "Laplacian1D.cpp"
 #include "Laplacian2D.cpp"
+#include "Laplacian3D.cpp"
 #include "samurai_new/petsc_assembly.hpp"
 
 
@@ -153,8 +154,7 @@ private:
             samurai_new::out_boundary(mesh, level, 
             [&] (const auto& i, const auto& index, const auto& out_vect)
             {
-                auto n_zeros = samurai_new::number_of_zeros(out_vect);
-                PetscInt n_coeffs = (dim == 0 || n_zeros > 0) ? cart_bdry_stencil_size : diag_bdry_stencil_size;
+                PetscInt n_coeffs = samurai_new::is_cartesian_direction(out_vect) ? cart_bdry_stencil_size : diag_bdry_stencil_size;
                 samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
                 [&] (std::size_t i_out)
                 {
@@ -196,6 +196,7 @@ private:
             [&] (const auto& i, const auto& index, const auto& out_vect)
             {
                 samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(out_in_stencil(out_vect));
+                bool is_cartesian_direction = samurai_new::is_cartesian_direction(out_vect);
                 auto n_zeros = samurai_new::number_of_zeros(out_vect);
                 double in_diag_value = (cfg::scheme_stencil_size-1) + dim - n_zeros;
                 in_diag_value *= one_over_h2;
@@ -209,8 +210,8 @@ private:
                     MatSetValue(A, out_cell, out_cell,             1, INSERT_VALUES);
                     MatSetValue(A,  in_cell, in_cell , in_diag_value, INSERT_VALUES);
                     // The coefficient that was added before (via the interior stencil) is removed.
-                    // Note that if n_zeros==0, then its a corner: out_cell is not in the stencil of in_cell, so nothing to remove.
-                    if (dim == 0 || n_zeros > 0) 
+                    // Note that if out_vect is not a Cartesian direction (out_cell is a corner), then out_cell is not in the stencil of in_cell, so nothing to remove.
+                    if (is_cartesian_direction) 
                     {  
                         MatSetValue(A,  in_cell, out_cell,         0, INSERT_VALUES); 
                     }
