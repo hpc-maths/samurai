@@ -26,6 +26,8 @@ namespace samurai
         static constexpr std::size_t dim = dim_;
         using coord_index_t = TCoord_index;
 
+        Cell();
+
         template <class T>
         Cell(std::size_t level, const T& indices, std::size_t index);
 
@@ -50,6 +52,9 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
     };
+
+    template<class TCoord_index, std::size_t dim_>
+    inline Cell<TCoord_index, dim_>::Cell() {}
 
     template<class TCoord_index, std::size_t dim_>
     template <class T>

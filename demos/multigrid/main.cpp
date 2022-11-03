@@ -116,7 +116,8 @@ auto solution()
         {
             const auto& x = coord[0];
             const auto& y = coord[1];
-            return x * (1 - x) * y*(1 - y);
+            //return x * (1 - x) * y*(1 - y);
+		    return exp(x*y*y);
         };
     }
     else if constexpr(dim == 3)
@@ -152,7 +153,8 @@ auto source()
         { 
             const auto& x = coord[0];
             const auto& y = coord[1];
-            return 2 * (y*(1 - y) + x * (1 - x)); 
+            //return 2 * (y*(1 - y) + x * (1 - x));
+            return (-pow(y, 4) - 2 * x*(1 + 2 * x*y*y))*exp(x*y*y);
         };
     }
     else if constexpr(dim == 3)
@@ -173,7 +175,11 @@ int source_poly_degree()
     return solution_degree < 0 ? -1 : max(solution_degree - 2, 0);
 }
 
-
+template<std::size_t dim>
+auto dirichlet()
+{
+    return solution<dim>();
+}
 
 
 
@@ -182,7 +188,7 @@ int source_poly_degree()
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 3;
+    constexpr std::size_t dim = 2;
     using Config = samurai::amr::Config<dim>;
     using Mesh = samurai::amr::Mesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
@@ -274,8 +280,10 @@ int main(int argc, char* argv[])
     Laplacian<Field> laplacian(mesh, enforce_dbc);
 
     Field rhs_field = laplacian.create_rhs(source<dim>(), source_poly_degree<dim>());
+    laplacian.enforce_dirichlet_bc(rhs_field, dirichlet<dim>());
 
-    Vec b = laplacian.assemble_rhs(rhs_field);
+    Vec b = samurai_new::petsc::create_petsc_vector_from(rhs_field);
+    //Vec b = laplacian.assemble_rhs(rhs_field);
     PetscObjectSetName((PetscObject)b, "b");
     //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 

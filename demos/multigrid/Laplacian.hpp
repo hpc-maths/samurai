@@ -75,11 +75,38 @@ public:
         return rhs;
     }
 
-    Vec assemble_rhs(Field& rhs_field)
+
+
+    template<class Func>
+    void enforce_dirichlet_bc(Field& rhs_field, Func&& dirichlet)
     {
         if (&rhs_field.mesh() != &mesh)
             assert(false && "Not the same mesh");
-        return assemble_rhs_impl(std::integral_constant<std::size_t, Field::dim>{}, rhs_field, _dirichlet_enfcmt);
+
+        samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
+        {
+            double one_over_h2 = 1/(h*h);
+
+            samurai_new::out_boundary(mesh, level, 
+            [&] (const auto& i, const auto& index, const auto& out_vect)
+            {
+                if (samurai_new::is_cartesian_direction(out_vect))
+                {
+                    samurai_new::StencilCells<Mesh, 2> out_in_cells(out_in_stencil(out_vect));
+
+                    samurai_new::for_each_stencil(mesh, level, i, index, out_in_cells, 
+                    [&] (const auto& cells)
+                    {
+                        auto& in_cell  = cells[1];
+
+                        // translate center by h/2
+                        auto bdry_point = in_cell.center() + (h/2)* out_vect;
+
+                        rhs_field.array()[in_cell.index] += 2 * one_over_h2 * dirichlet(bdry_point);
+                    });
+                }
+            });
+        });
     }
 
 private:
