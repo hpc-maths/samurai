@@ -6,7 +6,7 @@
 
 //-------------------//
 //     Laplacian     //
-// Implementation 2D //
+// Implementation 3D //
 //-------------------//
 
 // Prediction (order 1)
@@ -29,27 +29,4 @@ void assemble_prediction_impl(std::integral_constant<std::size_t, 3>, Mat& /*A*/
             assert(false && "non implemented");
         });
     }
-}
-
-template<class Field>
-Vec assemble_rhs_impl(std::integral_constant<std::size_t, 3>, Field& rhs_field, DirichletEnforcement /*dirichlet_enfcmt*/)
-{
-    using Mesh = typename Field::mesh_t;
-    using mesh_id_t = typename Mesh::mesh_id_t;
-
-    Mesh& mesh = rhs_field.mesh();
-
-    for(std::size_t level=mesh.min_level(); level<=mesh.max_level(); ++level)
-    {
-        auto set = samurai::difference(mesh[mesh_id_t::reference][level],
-                                    mesh[mesh_id_t::cells][level]);
-        set([&](const auto& i, const auto& index)
-        {
-            auto j = index[0];
-            auto k = index[1];
-            rhs_field(level, i, j, k) = 0.;
-        });
-    }
-
-    return samurai_new::petsc::create_petsc_vector_from(rhs_field);
 }

@@ -34,6 +34,18 @@ namespace samurai_new
         }
     }
 
+    template <class Mesh, typename TIndex, class StencilType, class Func>
+    inline void for_each_stencil(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t i, const TIndex& index, StencilType& stencil, Func &&f)
+    {
+        stencil.init(mesh, level, i, index);
+        f(stencil.cells());
+        for(std::size_t ii=1; ii<i.size(); ++ii)
+        {
+            stencil.move_next();
+            f(stencil.cells());
+        }
+    }
+
     template <typename DesiredIndexType, class Mesh, class Set, class StencilType, class Func>
     inline void for_each_stencil(const Mesh& mesh, const Set& set, std::size_t level, StencilType& stencil, Func &&f)
     {
