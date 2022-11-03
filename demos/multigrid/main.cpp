@@ -10,6 +10,7 @@
 #include <samurai/subset/subset_op.hpp>
 #include <samurai/amr/mesh.hpp>
 
+#include "test_cases.hpp"
 #include "Laplacian.hpp"
 #include "LaplacianSolver.hpp"
 #include "Timer.hpp"
@@ -18,7 +19,12 @@ static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "\n"
             "-------- General\n"
             "\n"
-            "-n <int>                     problem size\n"
+            "-n <int>                     problem size of the Laplacian problem on the domain [0,1]^d\n"
+            "-tc <...>                    test case:\n"
+            "                             poly  - The solution is a polynomial function.\n"
+            "                                     Homogeneous Dirichlet b.c.\n"
+            "                             exp   - The solution is an exponential function.\n"
+            "                                     Non-homogeneous Dirichlet b.c.\n"
             "-enforce_dbc [p|e|o]         enforcement of Dirichlet b.c.\n"
             "                             p  - penalization\n"
             "                             e  - elimination\n"
@@ -28,11 +34,11 @@ static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "\n"
             "-------- Samurai Multigrid ('-pc_type mg' to activate)\n"
             "\n"
-            "-samg_smooth <...>           smoother used in the samurai multigrid\n"
+            "-samg_smooth <...>           smoother used in the samurai multigrid:\n"
             "                             sgs   - symmetric Gauss-Seidel\n"
             "                             gs    - Gauss-Seidel (pre: lexico., post: antilexico.)\n"
             "                             petsc - defined by Petsc options (default: Chebytchev polynomials)\n"
-            "-samg_transfer_ops [1:4]     samurai multigrid transfer operators (default: 4):\n"
+            "-samg_transfer_ops [1:4]     samurai multigrid transfer operators (default: 1):\n"
             "                             1 - P assembled, R assembled\n"
             "                             2 - P assembled, R = P^T\n"
             "                             3 - P mat-free, R mat-free (via double*)\n"
@@ -94,101 +100,12 @@ Mesh create_mesh(std::size_t n)
     return Mesh(box, start_level, min_level, max_level);
 }
 
-//-----------------------------------------//
-// Test cases:                             //
-//      exact solution and source function //
-//-----------------------------------------//
-
-template<std::size_t dim>
-auto solution()
-{
-    if constexpr(dim == 1)
-    {
-        return [](const auto& coord) 
-        {
-            const auto& x = coord[0];
-            return x * (1 - x);
-        };
-    }
-    else if constexpr(dim == 2)
-    {
-        return [](const auto& coord) 
-        {
-            const auto& x = coord[0];
-            const auto& y = coord[1];
-            //return x * (1 - x) * y*(1 - y);
-		    return exp(x*y*y);
-        };
-    }
-    else if constexpr(dim == 3)
-    {
-        return [](const auto& coord) 
-        {
-            const auto& x = coord[0];
-            const auto& y = coord[1];
-            const auto& z = coord[2];
-            return x * (1 - x)*y*(1 - y)*z*(1 - z);
-        };
-    }
-}
-template<std::size_t dim>
-int solution_poly_degree()
-{
-    return static_cast<int>(pow(2, dim));
-}
-
-template<std::size_t dim>
-auto source()
-{
-    if constexpr(dim == 1)
-    {
-        return [](const auto&) 
-        { 
-            return 2.0; 
-        };
-    }
-    else if constexpr(dim == 2)
-    {
-        return [](const auto& coord) 
-        { 
-            const auto& x = coord[0];
-            const auto& y = coord[1];
-            //return 2 * (y*(1 - y) + x * (1 - x));
-            return (-pow(y, 4) - 2 * x*(1 + 2 * x*y*y))*exp(x*y*y);
-        };
-    }
-    else if constexpr(dim == 3)
-    {
-        return [](const auto& coord) 
-        {
-            const auto& x = coord[0];
-            const auto& y = coord[1];
-            const auto& z = coord[2];
-            return 2 * ((y*(1 - y)*z*(1 - z) + x * (1 - x)*z*(1 - z) + x * (1 - x)*y*(1 - y)));
-        };
-    }
-}
-template<std::size_t dim>
-int source_poly_degree()
-{
-    int solution_degree = solution_poly_degree<dim>();
-    return solution_degree < 0 ? -1 : max(solution_degree - 2, 0);
-}
-
-template<std::size_t dim>
-auto dirichlet()
-{
-    return solution<dim>();
-}
-
-
-
 
 
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 1;
     using Config = samurai::amr::Config<dim>;
     using Mesh = samurai::amr::Mesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
@@ -209,6 +126,26 @@ int main(int argc, char* argv[])
 
     PetscInt n = 2;
     PetscOptionsGetInt(NULL, NULL, "-n", &n, NULL);
+
+    TestCase<dim>* test_case = nullptr;
+    PetscBool test_case_is_set = PETSC_FALSE;
+    char test_case_char_array[10];
+    PetscOptionsGetString(NULL, NULL, "-tc", test_case_char_array, 10, &test_case_is_set);
+    std::string test_case_code = test_case_is_set ? test_case_char_array : "poly";
+    if (test_case_code == "poly")
+    {
+        test_case = new PolynomialTestCase<dim>();
+    }
+    else if (test_case_code == "exp")
+    {
+        test_case = new ExponentialTestCase<dim>();
+    }
+    else
+    {
+        fatal_error("unknown value for argument -tc");
+    }
+    std::cout << "Test case: " << test_case_code << std::endl;
+
 
     PetscBool save_solution = PETSC_FALSE;
     PetscOptionsGetBool(NULL, NULL, "-save_sol", &save_solution, NULL);
@@ -279,11 +216,10 @@ int main(int argc, char* argv[])
 
     Laplacian<Field> laplacian(mesh, enforce_dbc);
 
-    Field rhs_field = laplacian.create_rhs(source<dim>(), source_poly_degree<dim>());
-    laplacian.enforce_dirichlet_bc(rhs_field, dirichlet<dim>());
+    Field rhs_field = laplacian.create_rhs(test_case->source(), test_case->source_poly_degree());
+    laplacian.enforce_dirichlet_bc(rhs_field, test_case->dirichlet());
 
     Vec b = samurai_new::petsc::create_petsc_vector_from(rhs_field);
-    //Vec b = laplacian.assemble_rhs(rhs_field);
     PetscObjectSetName((PetscObject)b, "b");
     //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
@@ -329,40 +265,33 @@ int main(int argc, char* argv[])
     //       Error        //
     //--------------------//
 
-    auto exact_solution = solution<dim>();
-    int solution_degree = solution_poly_degree<dim>();
-
-    samurai_new::GaussLegendre gl(solution_degree);
-    double error_norm = 0;
-    double solution_norm = 0;
-    samurai::for_each_cell(mesh, [&](const auto& cell)
+    if (test_case->solution_is_known())
     {
-        error_norm += gl.quadrature(cell, [&](const auto& point)
+        auto exact_solution = test_case->solution();
+
+        samurai_new::GaussLegendre gl(test_case->solution_poly_degree());
+        double error_norm = 0;
+        double solution_norm = 0;
+        samurai::for_each_cell(mesh, [&](const auto& cell)
         {
-            return pow(exact_solution(point) - sol(cell.index), 2);
+            error_norm += gl.quadrature(cell, [&](const auto& point)
+            {
+                return pow(exact_solution(point) - sol(cell.index), 2);
+            });
+
+            solution_norm += gl.quadrature(cell, [&](const auto& point)
+            {
+                return pow(exact_solution(point), 2);
+            });
         });
 
-        solution_norm += gl.quadrature(cell, [&](const auto& point)
-        {
-            return pow(exact_solution(point), 2);
-        });
-    });
+        error_norm = sqrt(error_norm);
+        solution_norm = sqrt(solution_norm);
+        double relative_error = error_norm/solution_norm;
 
-    error_norm = sqrt(error_norm);
-    solution_norm = sqrt(solution_norm);
-    double relative_error = error_norm/solution_norm;
-
-    std::cout.precision(2);
-    std::cout << "L2-error: " << std::scientific << relative_error << std::endl;
-
-    //--------------------//
-    //     Finalize       //
-    //--------------------//
-
-    // Destroy Petsc objects
-    VecDestroy(&b);
-    solver.destroy_petsc_objects();
-    PetscFinalize();
+        std::cout.precision(2);
+        std::cout << "L2-error: " << std::scientific << relative_error << std::endl;
+    }
 
     // Save solution
     if (save_solution)
@@ -370,6 +299,17 @@ int main(int argc, char* argv[])
         std::cout << "Saving solution..." << std::endl;
         samurai::save("solution", mesh, sol);
     }
+
+    //--------------------//
+    //     Finalize       //
+    //--------------------//
+
+    delete test_case;
+
+    // Destroy Petsc objects
+    VecDestroy(&b);
+    solver.destroy_petsc_objects();
+    PetscFinalize();
 
     return 0;
 }
