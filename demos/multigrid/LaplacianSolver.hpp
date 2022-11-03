@@ -62,7 +62,7 @@ public:
             Mat A;
             _discretizer.create_matrix(A);
             _discretizer.assemble_matrix(A);
-            PetscObjectSetName((PetscObject)A, "A");
+            PetscObjectSetName(reinterpret_cast<PetscObject>(A), "A");
             KSPSetOperators(_ksp, A, A);
         }
         KSPSetUp(_ksp);
