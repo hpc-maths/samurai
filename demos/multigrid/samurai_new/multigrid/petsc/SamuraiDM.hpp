@@ -75,7 +75,7 @@ namespace samurai_new
                 //_coarse = new SamuraiDM(PetscObjectComm((PetscObject)fine_dm), *fine_ctx);
                 //*coarse_dm = _coarse->PetscDM();
 
-                DMShellCreate(PetscObjectComm((PetscObject)fine_dm), coarse_dm);
+                DMShellCreate(PetscObjectComm(reinterpret_cast<PetscObject>(fine_dm)), coarse_dm);
                 DefineShellFunctions(*coarse_dm, *coarse_ctx);
 
                 //DMShellCreate(PetscObjectComm((PetscObject)fine_dm), coarse_dm);
@@ -121,8 +121,8 @@ namespace samurai_new
                 auto nf = static_cast<PetscInt>(fine_ctx->mesh().nb_cells());
                 auto nc = static_cast<PetscInt>(coarse_ctx->mesh().nb_cells());
 
-                MatCreateShell(PetscObjectComm((PetscObject)fine_dm), nf, nc, nf, nc, coarse_ctx, P);
-                MatShellSetOperation(*P, MATOP_MULT, (void(*)(void))prolongation);
+                MatCreateShell(PetscObjectComm(reinterpret_cast<PetscObject>(fine_dm)), nf, nc, nf, nc, coarse_ctx, P);
+                MatShellSetOperation(*P, MATOP_MULT, reinterpret_cast<void(*)(void)>(prolongation));
 
                 *scaling = nullptr; // Why???
 
@@ -233,8 +233,8 @@ namespace samurai_new
                 auto nf = static_cast<PetscInt>(fine_ctx->mesh().nb_cells());
                 auto nc = static_cast<PetscInt>(coarse_ctx->mesh().nb_cells());
 
-                MatCreateShell(PetscObjectComm((PetscObject)fine_dm), nc, nf, nc, nf, fine_ctx, R);
-                MatShellSetOperation(*R, MATOP_MULT, (void(*)(void))restriction);
+                MatCreateShell(PetscObjectComm(reinterpret_cast<PetscObject>(fine_dm)), nc, nf, nc, nf, fine_ctx, R);
+                MatShellSetOperation(*R, MATOP_MULT, reinterpret_cast<void(*)(void)>(restriction));
                 return 0;
             }
 

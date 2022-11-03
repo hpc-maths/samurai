@@ -105,7 +105,7 @@ Mesh create_mesh(std::size_t n)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 1;
+    constexpr std::size_t dim = 2;
     using Config = samurai::amr::Config<dim>;
     using Mesh = samurai::amr::Mesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
@@ -220,7 +220,7 @@ int main(int argc, char* argv[])
     laplacian.enforce_dirichlet_bc(rhs_field, test_case->dirichlet());
 
     Vec b = samurai_new::petsc::create_petsc_vector_from(rhs_field);
-    PetscObjectSetName((PetscObject)b, "b");
+    PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
     //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
     //---------------------//
