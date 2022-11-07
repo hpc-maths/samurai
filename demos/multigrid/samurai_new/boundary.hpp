@@ -1,5 +1,6 @@
 #pragma once
 #include <samurai/algorithm.hpp>
+#include <utility>
 #include "stencil.hpp"
 
 namespace samurai_new
@@ -7,27 +8,25 @@ namespace samurai_new
     template <std::size_t dim>
     inline StencilShape<dim, 2*dim> cartesian_directions()
     {
-        // The order is important: the opposite of a vector must be located 'dim' indices after.
-        assert(false && "Not implemented in N-D");
+        static_assert((dim >= 1 && dim <=3), "cartesian_directions() not implemented in this dimension");
+
+        // !!! The order is important: the opposite of a vector must be located 'dim' indices after.
+        if constexpr (dim == 1)
+        {
+            //                       left, right
+            return StencilShape<1, 2>{{-1}, {1}};
+        }
+        else if constexpr (dim == 2)
+        {
+            //                        bottom,   right,  top,    left
+            return StencilShape<2, 4>{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+        }
+        else if constexpr (dim == 3)
+        {
+            //                         bottom,   front,   right,    top,     back,     left
+            return StencilShape<3, 6>{{0,0,-1}, {0,1,0}, {1,0,0}, {0,0,1}, {0,-1,0}, {-1,0,0}};
+        }
         return StencilShape<dim, 2*dim>();
-    }
-    template<> 
-    inline StencilShape<1, 2> cartesian_directions<1>()
-    {
-        //                       left, right
-        return StencilShape<1, 2>{{-1}, {1}};
-    }
-    template<> 
-    inline StencilShape<2, 4> cartesian_directions<2>()
-    {
-        //                        bottom,   right,  top,    left      (the order is important)
-        return StencilShape<2, 4>{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
-    }
-    template<> 
-    inline StencilShape<3, 6> cartesian_directions<3>()
-    {
-        //                         bottom,   front,   right,    top,     back,     left     (the order is important)
-        return StencilShape<3, 6>{{0,0,-1}, {0,1,0}, {1,0,0}, {0,0,1}, {0,-1,0}, {-1,0,0}};
     }
 
     template<class Vector>
@@ -57,6 +56,8 @@ namespace samurai_new
         static constexpr std::size_t dim = Mesh::dim;
         static constexpr std::size_t n_cart_dir = (2*dim); // number of Cartesian directions
 
+        MeshInterval<Mesh> mesh_interval(level);
+
         const StencilShape<dim, n_cart_dir> cart_directions = cartesian_directions<dim>();
 
         for (std::size_t id1 = 0; id1<n_cart_dir; ++id1)
@@ -67,13 +68,15 @@ namespace samurai_new
             // Boundary in the direction d1
             auto boundary_d1 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], d1), mesh.domain());
 
-            // Outwards vector
+            // Outwards normal vector
             auto out_vect_d1 = d1;
 
             // Apply func to boundary_d1
             boundary_d1([&](const auto& i, const auto& index)
             {
-                func(i, index, out_vect_d1);
+                mesh_interval.i = i;
+                mesh_interval.index = index;
+                func(mesh_interval, out_vect_d1);
             });
 
             if constexpr(dim > 1)
@@ -96,7 +99,9 @@ namespace samurai_new
                 // Apply func to corners
                 corners_d1d2([&](const auto& i, const auto& index)
                 {
-                    func(i, index, out_vect_d1d2);
+                    mesh_interval.i = i;
+                    mesh_interval.index = index;
+                    func(mesh_interval, out_vect_d1d2);
                 });
 
                 if constexpr(dim > 2)
@@ -119,7 +124,9 @@ namespace samurai_new
                     // Apply func to corners
                     corners_d1d2d3([&](const auto& i, const auto& index)
                     {
-                        func(i, index, out_vect_d1d2d3);
+                        mesh_interval.i = i;
+                        mesh_interval.index = index;
+                        func(mesh_interval, out_vect_d1d2d3);
                     });
 
                     if constexpr(dim > 3)
@@ -127,6 +134,22 @@ namespace samurai_new
                         static_assert(dim < 4, "out_boundary() not implemented for dim > 3.");
                     }
                 }
+            }
+        }
+    }
+
+
+    template <class Mesh, class Func>
+    inline void out_boundary(const Mesh& mesh, Func &&func)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto& cells = mesh[mesh_id_t::cells];
+        for(std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
+        {
+            if (!cells[level].empty())
+            {
+                out_boundary(mesh, level, std::forward<Func>(func));
             }
         }
     }

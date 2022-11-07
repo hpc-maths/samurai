@@ -83,29 +83,25 @@ public:
         if (&rhs_field.mesh() != &mesh)
             assert(false && "Not the same mesh");
 
-        samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
+        samurai_new::out_boundary(mesh,
+        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_vect)
         {
-            double one_over_h2 = 1/(h*h);
-
-            samurai_new::out_boundary(mesh, level, 
-            [&] (const auto& i, const auto& index, const auto& out_vect)
+            if (samurai_new::is_cartesian_direction(out_vect))
             {
-                if (samurai_new::is_cartesian_direction(out_vect))
+                samurai_new::StencilCells<Mesh, 2> out_in_cells(out_in_stencil(out_vect));
+
+                samurai_new::for_each_stencil(mesh, mesh_interval, out_in_cells, 
+                [&] (const auto& cells)
                 {
-                    samurai_new::StencilCells<Mesh, 2> out_in_cells(out_in_stencil(out_vect));
+                    auto& in_cell  = cells[1];
+                    double h = in_cell.length;
 
-                    samurai_new::for_each_stencil(mesh, level, i, index, out_in_cells, 
-                    [&] (const auto& cells)
-                    {
-                        auto& in_cell  = cells[1];
+                    // translate center by h/2
+                    auto bdry_point = in_cell.center() + (h/2)* out_vect;
 
-                        // translate center by h/2
-                        auto bdry_point = in_cell.center() + (h/2)* out_vect;
-
-                        rhs_field.array()[in_cell.index] += 2 * one_over_h2 * dirichlet(bdry_point);
-                    });
-                }
-            });
+                    rhs_field.array()[in_cell.index] += 2 / (h*h) * dirichlet(bdry_point);
+                });
+            }
         });
     }
 
@@ -176,17 +172,14 @@ private:
         std::vector<PetscInt> nnz = samurai_new::petsc::nnz_per_row<cfg>(mesh);
 
         // Boundary conditions
-        samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double)
+        samurai_new::out_boundary(mesh,
+        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_vect)
         {
-            samurai_new::out_boundary(mesh, level, 
-            [&] (const auto& i, const auto& index, const auto& out_vect)
+            PetscInt n_coeffs = samurai_new::is_cartesian_direction(out_vect) ? cart_bdry_stencil_size : diag_bdry_stencil_size;
+            samurai_new::for_each_cell<std::size_t>(mesh, mesh_interval, 
+            [&] (std::size_t i_out)
             {
-                PetscInt n_coeffs = samurai_new::is_cartesian_direction(out_vect) ? cart_bdry_stencil_size : diag_bdry_stencil_size;
-                samurai_new::for_each_cell<std::size_t>(mesh, level, i, index, 
-                [&] (std::size_t i_out)
-                {
-                    nnz[i_out] = n_coeffs;
-                });
+                nnz[i_out] = n_coeffs;
             });
         });
 
@@ -215,34 +208,30 @@ private:
 
     void assemble_boundary_condition(Mat& A)
     {
-        samurai::for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
+        samurai_new::out_boundary(mesh, 
+        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_vect)
         {
-            double one_over_h2 = 1/(h*h);
+            const double& h = mesh_interval.cell_length;
+            samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(out_in_stencil(out_vect));
+            bool is_cartesian_direction = samurai_new::is_cartesian_direction(out_vect);
+            auto n_out_cells_in_stencil = dim - samurai_new::number_of_zeros(out_vect);
+            double in_diag_value = (cfg::scheme_stencil_size-1) + n_out_cells_in_stencil;
+            in_diag_value /= (h*h);
 
-            samurai_new::out_boundary(mesh, level, 
-            [&] (const auto& i, const auto& index, const auto& out_vect)
+            samurai_new::for_each_stencil<PetscInt>(mesh, mesh_interval, out_in_indices, 
+            [&] (const std::array<PetscInt, 2>& indices)
             {
-                samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(out_in_stencil(out_vect));
-                bool is_cartesian_direction = samurai_new::is_cartesian_direction(out_vect);
-                auto n_zeros = samurai_new::number_of_zeros(out_vect);
-                double in_diag_value = (cfg::scheme_stencil_size-1) + dim - n_zeros;
-                in_diag_value *= one_over_h2;
-
-                samurai_new::for_each_stencil<PetscInt>(mesh, level, i, index, out_in_indices, 
-                [&] (const std::array<PetscInt, 2>& indices)
-                {
-                    auto& out_cell = indices[0];
-                    auto& in_cell  = indices[1];
-                    // The outer unknown is eliminated from the system:
-                    MatSetValue(A, out_cell, out_cell,             1, INSERT_VALUES);
-                    MatSetValue(A,  in_cell, in_cell , in_diag_value, INSERT_VALUES);
-                    // The coefficient that was added before (via the interior stencil) is removed.
-                    // Note that if out_vect is not a Cartesian direction (out_cell is a corner), then out_cell is not in the stencil of in_cell, so nothing to remove.
-                    if (is_cartesian_direction) 
-                    {  
-                        MatSetValue(A,  in_cell, out_cell,         0, INSERT_VALUES); 
-                    }
-                });
+                auto& out_cell = indices[0];
+                auto& in_cell  = indices[1];
+                // The outer unknown is eliminated from the system:
+                MatSetValue(A, out_cell, out_cell,             1, INSERT_VALUES);
+                MatSetValue(A,  in_cell, in_cell , in_diag_value, INSERT_VALUES);
+                // The coefficient that was added before (via the interior stencil) is removed.
+                // Note that if out_vect is not a Cartesian direction (out_cell is a corner), then out_cell is not in the stencil of in_cell, so nothing to remove.
+                if (is_cartesian_direction) 
+                {  
+                    MatSetValue(A,  in_cell, out_cell,         0, INSERT_VALUES); 
+                }
             });
         });
 
@@ -253,21 +242,10 @@ private:
     template<class Vector>
     samurai_new::StencilShape<dim, 2> out_in_stencil(const Vector& out_vect)
     {
-        static_assert(dim >= 1 || dim <= 3, "out_in_stencil() not implemented for this dimension");
-
-        if constexpr (dim == 1)
-        {   //   out_cell,  in_cell
-            return {{0}, {-out_vect[0]}};
-        }
-        else if constexpr (dim == 2)
-        {   //     out_cell,           in_cell
-            return {{0, 0}, {-out_vect[0], -out_vect[1]}};
-        }
-        else if constexpr (dim == 3)
-        {   //      out_cell,                   in_cell
-            return {{0, 0, 0}, {-out_vect[0], -out_vect[1], -out_vect[2]}};
-        }
-        return samurai_new::StencilShape<dim, 2>();
+        auto stencil_shape = samurai_new::StencilShape<dim, 2>();
+        xt::view(stencil_shape, 0) = 0;
+        xt::view(stencil_shape, 1) = -out_vect;
+        return stencil_shape;
     }
 
     void assemble_projection(Mat& A)

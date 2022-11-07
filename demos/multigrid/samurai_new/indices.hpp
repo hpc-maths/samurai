@@ -3,11 +3,11 @@
 
 namespace samurai_new
 {
-    template <typename DesiredIndexType, class Mesh, typename TIndex, class Func>
-    inline void for_each_cell(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t& i, const TIndex& index, Func &&f)
+    template <typename DesiredIndexType, class Mesh, class Func>
+    inline void for_each_cell(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, Func &&f)
     {
-        auto i_start = static_cast<DesiredIndexType>(get_index_start(mesh, level, i, index));
-        for(DesiredIndexType ii=0; ii<static_cast<DesiredIndexType>(i.size()); ++ii)
+        auto i_start = static_cast<DesiredIndexType>(get_index_start(mesh, mesh_interval));
+        for(DesiredIndexType ii=0; ii<static_cast<DesiredIndexType>(mesh_interval.i.size()); ++ii)
         {
             f(i_start + ii);
         }
@@ -22,24 +22,24 @@ namespace samurai_new
         });
     }
 
-    template <typename DesiredIndexType, class Mesh, typename TIndex, class StencilType, class Func>
-    inline void for_each_stencil(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t i, const TIndex& index, StencilType& stencil, Func &&f)
+    template <typename DesiredIndexType, class Mesh, class StencilType, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, StencilType& stencil, Func &&f)
     {
-        stencil.init(mesh, level, i, index);
+        stencil.init(mesh, mesh_interval);
         f(stencil.indices());
-        for(DesiredIndexType ii=1; ii<static_cast<DesiredIndexType>(i.size()); ++ii)
+        for(DesiredIndexType ii=1; ii<static_cast<DesiredIndexType>(mesh_interval.i.size()); ++ii)
         {
             stencil.move_next();
             f(stencil.indices());
         }
     }
 
-    template <class Mesh, typename TIndex, class StencilType, class Func>
-    inline void for_each_stencil(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t i, const TIndex& index, StencilType& stencil, Func &&f)
+    template <class Mesh, class StencilType, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, StencilType& stencil, Func &&f)
     {
-        stencil.init(mesh, level, i, index);
+        stencil.init(mesh, mesh_interval);
         f(stencil.cells());
-        for(std::size_t ii=1; ii<i.size(); ++ii)
+        for(std::size_t ii=1; ii<mesh_interval.i.size(); ++ii)
         {
             stencil.move_next();
             f(stencil.cells());
@@ -51,7 +51,8 @@ namespace samurai_new
     {
         for_each_interval(set[level], [&](std::size_t level, const auto& i, const auto& index)
         {
-            for_each_stencil<DesiredIndexType>(mesh, level, i, index, stencil, std::forward<Func>(f));
+            MeshInterval<Mesh> mesh_interval(level, i, index);
+            for_each_stencil<DesiredIndexType>(mesh, mesh_interval, stencil, std::forward<Func>(f));
         });
     }
 
@@ -86,26 +87,30 @@ namespace samurai_new
             /*auto set = samurai::intersection(mesh[mesh_id_t::cells][level],
                                              mesh[mesh_id_t::cells][level])
                         .on(level);*/
+            MeshInterval<Mesh> mesh_interval(level);
 
             set([&](const auto& i, const auto& index)
             {
+                mesh_interval.i = i;
+                mesh_interval.index = index;
                 //auto j = index[0];
 
                 /*auto cell_start       = static_cast<DesiredIndexType>(mesh.get_index(level    ,   i.start,   j    ));
                 auto child_2j___start = static_cast<DesiredIndexType>(mesh.get_index(level + 1, 2*i.start, 2*j    ));
                 auto child_2jp1_start = static_cast<DesiredIndexType>(mesh.get_index(level + 1, 2*i.start, 2*j + 1));*/
-                auto cell_start = static_cast<DesiredIndexType>(get_index_start(mesh, level, i, index));
+
+                auto cell_start = static_cast<DesiredIndexType>(get_index_start(mesh, mesh_interval));
                 std::array<DesiredIndexType, dim> children_yz_start;
                 for (std::size_t yz=0; yz<dim; ++yz)
                 {
                     std::array<int, dim> translation_vect { 0 };
-                    children_yz_start[yz * ((1<<dim) - 1)] = static_cast<DesiredIndexType>(get_index_start_children(mesh, level, i, index, translation_vect));
+                    children_yz_start[yz * ((1<<dim) - 1)] = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, translation_vect));
                     for (std::size_t other_dim=1; other_dim<dim; ++other_dim)
                     {
                         translation_vect[other_dim] = 1;
                         for (std::size_t cell=0; cell<(1<<dim); ++cell)
                         {
-                            children_yz_start[yz * ((1<<dim) - 1) + cell] = static_cast<DesiredIndexType>(get_index_start_children(mesh, level, i, index, translation_vect));
+                            children_yz_start[yz * ((1<<dim) - 1) + cell] = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, translation_vect));
                         }
                     }
                 }
@@ -147,9 +152,12 @@ namespace samurai_new
                                              mesh[mesh_id_t::cells][level+1])
                         .on(level);
 
+            MeshInterval<Mesh> mesh_interval(level);
             set([&](const auto& i, const auto& index)
             {
-                for_each_cell<DesiredIndexType>(mesh, level, i, index, std::forward<Func>(f));
+                mesh_interval.i = i;
+                mesh_interval.index = index;
+                for_each_cell<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
             });
         }
     }
@@ -171,9 +179,12 @@ namespace samurai_new
                                              mesh[mesh_id_t::cells][level-1])
                     .on(level);
 
+            MeshInterval<Mesh> mesh_interval(level);
             set([&](const auto& i, const auto& index)
             {
-                for_each_cell<DesiredIndexType>(mesh, level, i, index, std::forward<Func>(f));
+                mesh_interval.i = i;
+                mesh_interval.index = index;
+                for_each_cell<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
             });
         }
     }
