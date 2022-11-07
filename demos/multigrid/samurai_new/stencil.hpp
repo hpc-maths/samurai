@@ -3,54 +3,79 @@
 
 namespace samurai_new
 {
-    template <class Mesh, typename TIndex>
-    inline auto get_index_start(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t& i, const TIndex& index)
+    template<class Mesh>
+    struct MeshInterval
+    {
+        using interval_t = typename Mesh::interval_t;
+        using coord_type = typename Mesh::lca_type::iterator::coord_type;
+
+        std::size_t level;
+        interval_t i;
+        coord_type index;
+        double cell_length;
+
+        MeshInterval(std::size_t l) 
+        : level(l) 
+        {
+            cell_length = 1./(1 << level);
+        }
+
+        MeshInterval(std::size_t l, const interval_t& _i, const coord_type& _index) 
+        : level(l) , i(_i), index(_index)
+        {
+            cell_length = 1./(1 << level);
+        }
+    };
+
+
+    template <class Mesh>
+    inline auto get_index_start(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::coord_index_t;
 
         std::array<coord_index_t, dim> coord;
-        std::copy(index.cbegin(), index.end(), coord.begin()+1);
-        coord[0] = i.start;
-        return mesh.get_index(level, coord);
+        std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin()+1);
+        coord[0] = mesh_interval.i.start;
+        return mesh.get_index(mesh_interval.level, coord);
     }
 
-    template <class Mesh, typename TIndex, class Vector>
-    inline auto get_index_start_translated(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t& i, const TIndex& index, const Vector translation_vect)
+    template <class Mesh, class Vector>
+    inline auto get_index_start_translated(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const Vector& translation_vect)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::coord_index_t;
 
         std::array<coord_index_t, dim> coord;
-        std::copy(index.cbegin(), index.end(), coord.begin()+1);
-        coord[0] = i.start;
+        std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin()+1);
+        coord[0] = mesh_interval.i.start;
         for (std::size_t d=0; d<dim; ++d)
         {
             coord[d] += translation_vect[d];
         }
-        return mesh.get_index(level, coord);
+        return mesh.get_index(mesh_interval.level, coord);
     }
 
-    template <class Mesh, typename TIndex, class Vector>
-    inline auto get_index_start_children(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t& i, const TIndex& index, const Vector translation_vect)
+    template <class Mesh, class Vector>
+    inline auto get_index_start_children(const Mesh& mesh, MeshInterval<Mesh>& mesh_interval, const Vector& translation_vect)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::coord_index_t;
 
         std::array<coord_index_t, dim> coord;
-        std::copy(index.cbegin(), index.end(), coord.begin()+1);
-        coord[0] = i.start;
+        std::copy(mesh_interval.index.cbegin(), mesh_interval.index.cend(), coord.begin()+1);
+        coord[0] = mesh_interval.i.start;
         for (std::size_t d=0; d<dim; ++d)
         {
             coord[d] = 2*coord[d] + translation_vect[d];
         }
 
-        return mesh.get_index(level+1, coord);
+        return mesh.get_index(mesh_interval.level+1, coord);
     }
 
 
 
-
+    // TODO inverser les dimensions
     template<std::size_t dim, std::size_t stencil_size>
     using StencilShape = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
 
@@ -94,10 +119,10 @@ namespace samurai_new
             assert(origin_found && "the zero vector is required in the stencil definition.");
         }
 
-        template<class Mesh, typename Coords>
-        void init(const Mesh& mesh, std::size_t level, const typename Mesh::config::interval_t& i, const Coords& index)
+        template<class Mesh>
+        void init(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval)
         {
-            _cell_indices[_origin_cell] = static_cast<DesiredIndexType>(get_index_start(mesh, level, i, index)); // origin of the stencil
+            _cell_indices[_origin_cell] = static_cast<DesiredIndexType>(get_index_start(mesh, mesh_interval)); // origin of the stencil
             for (unsigned int id = 0; id<stencil_size; ++id)
             {
                 if (id == _origin_cell)
@@ -122,7 +147,7 @@ namespace samurai_new
                 }
                 else
                 {
-                    _cell_indices[id] = static_cast<DesiredIndexType>(get_index_start_translated(mesh, level, i, index, d));
+                    _cell_indices[id] = static_cast<DesiredIndexType>(get_index_start_translated(mesh, mesh_interval, d));
                 }
             }
         }
@@ -183,24 +208,23 @@ namespace samurai_new
             assert(origin_found && "the zero vector is required in the stencil definition.");
         }
 
-        template<typename Coords>
-        void init(const Mesh& mesh, std::size_t level, const typename Mesh::config::interval_t& i, const Coords& index)
+        void init(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval)
         {
-            double length = 1./(1 << level);
+            double length = 1./(1 << mesh_interval.level);
             for (Cell& cell : _cells)
             {
-                cell.level = level;
+                cell.level = mesh_interval.level;
                 cell.length = length;
             }
 
             // origin of the stencil
             Cell& origin_cell = _cells[_origin_cell];
-            origin_cell.indices[0] = i.start; 
+            origin_cell.indices[0] = mesh_interval.i.start; 
             for(unsigned int d = 0; d < dim - 1; ++d)
             {
-                origin_cell.indices[d + 1] = index[d];
+                origin_cell.indices[d + 1] = mesh_interval.index[d];
             }
-            origin_cell.index = get_index_start(mesh, level, i, index);
+            origin_cell.index = get_index_start(mesh, mesh_interval);
 
             for (unsigned int id = 0; id<stencil_size; ++id)
             {
@@ -232,7 +256,7 @@ namespace samurai_new
                 }
                 else
                 {
-                    cell.index = get_index_start_translated(mesh, level, i, index, d);
+                    cell.index = get_index_start_translated(mesh, mesh_interval, d);
                 }
             }
         }
