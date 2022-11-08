@@ -3,6 +3,9 @@
 
 namespace samurai_new
 {
+    //
+    // Functions that return cell indices
+    //
     template <typename DesiredIndexType, class Mesh, class Func>
     inline void for_each_cell(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, Func &&f)
     {
@@ -22,8 +25,8 @@ namespace samurai_new
         });
     }
 
-    template <typename DesiredIndexType, class Mesh, class StencilType, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, StencilType& stencil, Func &&f)
+    template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, StencilIndices<DesiredIndexType, Mesh::dim, stencil_size>& stencil, Func &&f)
     {
         stencil.init(mesh, mesh_interval);
         f(stencil.indices());
@@ -34,8 +37,34 @@ namespace samurai_new
         }
     }
 
-    template <class Mesh, class StencilType, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, StencilType& stencil, Func &&f)
+    template <typename DesiredIndexType, class Mesh, class Set, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const Set& set, std::size_t level, StencilIndices<DesiredIndexType, Mesh::dim, stencil_size>& stencil, Func &&f)
+    {
+        MeshInterval<Mesh> mesh_interval(level);
+        for_each_interval(set[level], [&](std::size_t /*level*/, const auto& i, const auto& index)
+        {
+            mesh_interval.i = i;
+            mesh_interval.index = index;
+            for_each_stencil<DesiredIndexType>(mesh, mesh_interval, stencil, std::forward<Func>(f));
+        });
+    }
+
+    /*template <typename DesiredIndexType, class Mesh, class Set, class StencilType, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const Set& set, StencilType& stencil, Func &&f)
+    {
+        for_each_level(set, [&](std::size_t level)
+        {
+            for_each_stencil<DesiredIndexType>(mesh, set, level, stencil, std::forward<Func>(f));
+        });
+    }*/
+
+
+
+    //
+    // Functions that return cells
+    //
+    template <class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, StencilCells<Mesh, stencil_size>& stencil, Func &&f)
     {
         stencil.init(mesh, mesh_interval);
         f(stencil.cells());
@@ -46,24 +75,14 @@ namespace samurai_new
         }
     }
 
-    template <typename DesiredIndexType, class Mesh, class Set, class StencilType, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const Set& set, std::size_t level, StencilType& stencil, Func &&f)
+    template <class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const StencilShape<Mesh::dim, stencil_size>& stencil_shape, Func &&f)
     {
-        for_each_interval(set[level], [&](std::size_t level, const auto& i, const auto& index)
-        {
-            MeshInterval<Mesh> mesh_interval(level, i, index);
-            for_each_stencil<DesiredIndexType>(mesh, mesh_interval, stencil, std::forward<Func>(f));
-        });
+        StencilCells<Mesh, stencil_size> stencil(stencil_shape);
+        for_each_stencil(mesh, mesh_interval, stencil, std::forward<Func>(f));
     }
 
-    template <typename DesiredIndexType, class Mesh, class Set, class StencilType, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const Set& set, StencilType& stencil, Func &&f)
-    {
-        for_each_level(set, [&](std::size_t level)
-        {
-            for_each_stencil<DesiredIndexType>(mesh, set, level, stencil, std::forward<Func>(f));
-        });
-    }
+
 
     /**
      * Used to define the projection operator.

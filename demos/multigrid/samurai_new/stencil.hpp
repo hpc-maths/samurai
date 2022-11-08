@@ -83,6 +83,30 @@ namespace samurai_new
     using StencilShape = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
 
 
+    template<std::size_t dim, std::size_t stencil_size>
+    int find_stencil_origin(const StencilShape<dim, stencil_size>& stencil)
+    {
+        for (unsigned int id = 0; id<stencil_size; ++id)
+        {
+            auto d = xt::view(stencil, id);
+            bool is_zero_vector = true;
+            for (unsigned int i=0; i<dim; ++i)
+            {
+                if (d[i] != 0)
+                {
+                    is_zero_vector = false;
+                    break;
+                }
+            }
+            if (is_zero_vector)
+            {
+                return static_cast<int>(id);
+            }
+        }
+        return -1;
+    }
+
+
 
 
     template<typename DesiredIndexType, std::size_t dim, std::size_t stencil_size>
@@ -98,28 +122,9 @@ namespace samurai_new
         StencilIndices(const StencilShape<dim, stencil_size>& stencil)
         : _stencil(stencil)
         {
-            //using coord_index_t = typename Mesh::config::interval_t::coord_index_t;
-            bool origin_found = false;
-            for (unsigned int id = 0; id<stencil_size; ++id)
-            {
-                auto d = xt::view(stencil, id);
-                bool is_zero_vector = true;
-                for (unsigned int i=0; i<dim; ++i)
-                {
-                    if (d[i] != 0)
-                    {
-                        is_zero_vector = false;
-                        break;
-                    }
-                }
-                if (is_zero_vector)
-                {
-                    origin_found = true;
-                    _origin_cell = id;
-                    break;
-                }
-            }
-            assert(origin_found && "the zero vector is required in the stencil definition.");
+            int origin_index = find_stencil_origin(stencil);
+            assert(origin_index >= 0 && "the zero vector is required in the stencil definition.");
+            _origin_cell = static_cast<unsigned int>(origin_index);
         }
 
         template<class Mesh>
@@ -187,28 +192,9 @@ namespace samurai_new
         StencilCells(const StencilShape<dim, stencil_size>& stencil)
         : _stencil(stencil)
         {
-            //using coord_index_t = typename Mesh::config::interval_t::coord_index_t;
-            bool origin_found = false;
-            for (unsigned int id = 0; id<stencil_size; ++id)
-            {
-                auto d = xt::view(stencil, id);
-                bool is_zero_vector = true;
-                for (unsigned int i=0; i<dim; ++i)
-                {
-                    if (d[i] != 0)
-                    {
-                        is_zero_vector = false;
-                        break;
-                    }
-                }
-                if (is_zero_vector)
-                {
-                    origin_found = true;
-                    _origin_cell = id;
-                    break;
-                }
-            }
-            assert(origin_found && "the zero vector is required in the stencil definition.");
+            int origin_index = find_stencil_origin(stencil);
+            assert(origin_index >= 0 && "the zero vector is required in the stencil definition.");
+            _origin_cell = static_cast<unsigned int>(origin_index);
         }
 
         void init(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval)
