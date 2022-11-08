@@ -104,22 +104,20 @@ public:
             assert(false && "Not the same mesh");
 
         samurai_new::out_boundary(mesh,
-        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_normal_vect)
+        [&] (const auto& mesh_interval, const auto& out_normal_vect)
         {
             if (samurai_new::is_cartesian_direction(out_normal_vect))
             {
-                samurai_new::StencilCells<Mesh, 2> out_in_cells(samurai_new::out_in_stencil<dim>(out_normal_vect));
-
-                samurai_new::for_each_stencil(mesh, mesh_interval, out_in_cells, 
+                const samurai_new::StencilShape<dim, 2> out_in_stencil = samurai_new::out_in_stencil<dim>(out_normal_vect);
+                samurai_new::for_each_stencil(mesh, mesh_interval, out_in_stencil, 
                 [&] (const auto& cells)
                 {
                     auto& in_cell  = cells[1];
                     double h = in_cell.length;
 
-                    // translate center by h/2
-                    auto bdry_point = in_cell.center() + (h/2)* out_normal_vect;
+                    auto boundary_point = in_cell.face_center(out_normal_vect);
 
-                    rhs_field.array()[in_cell.index] += 2 / (h*h) * dirichlet(bdry_point);
+                    rhs_field.array()[in_cell.index] += 2/(h*h) * dirichlet(boundary_point);
                 });
             }
         });
@@ -204,7 +202,7 @@ private:
 
         // Boundary conditions
         samurai_new::out_boundary(mesh,
-        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_normal_vect)
+        [&] (const auto& mesh_interval, const auto& out_normal_vect)
         {
             PetscInt n_coeffs = samurai_new::is_cartesian_direction(out_normal_vect) ? cart_bdry_stencil_size : diag_bdry_stencil_size;
             samurai_new::for_each_cell<std::size_t>(mesh, mesh_interval, 
@@ -249,15 +247,15 @@ private:
     void assemble_boundary_condition(Mat& A)
     {
         samurai_new::out_boundary(mesh, 
-        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_normal_vect)
+        [&] (const auto& mesh_interval, const auto& out_normal_vect)
         {
-            const double& h = mesh_interval.cell_length;
-            samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(samurai_new::out_in_stencil<dim>(out_normal_vect));
+            double h = mesh_interval.cell_length;
             bool is_cartesian_direction = samurai_new::is_cartesian_direction(out_normal_vect);
             auto n_out_cells_in_stencil = dim - samurai_new::number_of_zeros(out_normal_vect);
-            double in_diag_value = (cfg::scheme_stencil_size-1) + n_out_cells_in_stencil;
+            double in_diag_value = static_cast<double>((cfg::scheme_stencil_size-1) + n_out_cells_in_stencil);
             in_diag_value /= (h*h);
 
+            samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(samurai_new::out_in_stencil<dim>(out_normal_vect));
             samurai_new::for_each_stencil<PetscInt>(mesh, mesh_interval, out_in_indices, 
             [&] (const std::array<PetscInt, 2>& indices)
             {
