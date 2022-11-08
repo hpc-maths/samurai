@@ -12,11 +12,12 @@ constexpr T ce_pow(T num, unsigned int pow)
     return pow == 0 ? 1 : num * ce_pow(num, pow-1);
 }
 
+
+
+
 template<class Field>
 class Laplacian
 {
-private:
-    DirichletEnforcement _dirichlet_enfcmt = OnesOnDiagonal;
 public:
     using field_t = Field;
     using Mesh = typename Field::mesh_t;
@@ -25,15 +26,13 @@ public:
 
     Mesh& mesh;
 
-    Laplacian(Mesh& m, DirichletEnforcement dirichlet_enfcmt) :
+    Laplacian(Mesh& m) :
         mesh(m)
-    {
-        _dirichlet_enfcmt = dirichlet_enfcmt;
-    }
+    {}
 
-    static Laplacian create_coarse(const Laplacian& fine, Mesh& coarse_mesh)
+    static Laplacian create_coarse(const Laplacian& /*fine*/, Mesh& coarse_mesh)
     {
-        return Laplacian(coarse_mesh, fine._dirichlet_enfcmt);
+        return Laplacian(coarse_mesh);
     }
 
     void create_matrix(Mat& A)
@@ -45,7 +44,6 @@ public:
         MatSetFromOptions(A);
 
         MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, sparsity_pattern().data());
-        // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
     }
 
     PetscErrorCode assemble_matrix(Mat& A)
@@ -84,11 +82,11 @@ public:
             assert(false && "Not the same mesh");
 
         samurai_new::out_boundary(mesh,
-        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_vect)
+        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_normal_vect)
         {
-            if (samurai_new::is_cartesian_direction(out_vect))
+            if (samurai_new::is_cartesian_direction(out_normal_vect))
             {
-                samurai_new::StencilCells<Mesh, 2> out_in_cells(out_in_stencil(out_vect));
+                samurai_new::StencilCells<Mesh, 2> out_in_cells(out_in_stencil(out_normal_vect));
 
                 samurai_new::for_each_stencil(mesh, mesh_interval, out_in_cells, 
                 [&] (const auto& cells)
@@ -97,7 +95,7 @@ public:
                     double h = in_cell.length;
 
                     // translate center by h/2
-                    auto bdry_point = in_cell.center() + (h/2)* out_vect;
+                    auto bdry_point = in_cell.center() + (h/2)* out_normal_vect;
 
                     rhs_field.array()[in_cell.index] += 2 / (h*h) * dirichlet(bdry_point);
                 });
@@ -173,9 +171,9 @@ private:
 
         // Boundary conditions
         samurai_new::out_boundary(mesh,
-        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_vect)
+        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_normal_vect)
         {
-            PetscInt n_coeffs = samurai_new::is_cartesian_direction(out_vect) ? cart_bdry_stencil_size : diag_bdry_stencil_size;
+            PetscInt n_coeffs = samurai_new::is_cartesian_direction(out_normal_vect) ? cart_bdry_stencil_size : diag_bdry_stencil_size;
             samurai_new::for_each_cell<std::size_t>(mesh, mesh_interval, 
             [&] (std::size_t i_out)
             {
@@ -209,12 +207,12 @@ private:
     void assemble_boundary_condition(Mat& A)
     {
         samurai_new::out_boundary(mesh, 
-        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_vect)
+        [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_normal_vect)
         {
             const double& h = mesh_interval.cell_length;
-            samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(out_in_stencil(out_vect));
-            bool is_cartesian_direction = samurai_new::is_cartesian_direction(out_vect);
-            auto n_out_cells_in_stencil = dim - samurai_new::number_of_zeros(out_vect);
+            samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(out_in_stencil(out_normal_vect));
+            bool is_cartesian_direction = samurai_new::is_cartesian_direction(out_normal_vect);
+            auto n_out_cells_in_stencil = dim - samurai_new::number_of_zeros(out_normal_vect);
             double in_diag_value = (cfg::scheme_stencil_size-1) + n_out_cells_in_stencil;
             in_diag_value /= (h*h);
 
@@ -235,16 +233,15 @@ private:
             });
         });
 
-        if (_dirichlet_enfcmt != OnesOnDiagonal)
-            MatSetOption(A, MAT_SPD, PETSC_TRUE);
+        MatSetOption(A, MAT_SPD, PETSC_TRUE);
     }
 
     template<class Vector>
-    samurai_new::StencilShape<dim, 2> out_in_stencil(const Vector& out_vect)
+    samurai_new::StencilShape<dim, 2> out_in_stencil(const Vector& out_normal_vect)
     {
         auto stencil_shape = samurai_new::StencilShape<dim, 2>();
         xt::view(stencil_shape, 0) = 0;
-        xt::view(stencil_shape, 1) = -out_vect;
+        xt::view(stencil_shape, 1) = -out_normal_vect;
         return stencil_shape;
     }
 
