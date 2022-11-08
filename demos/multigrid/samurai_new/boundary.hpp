@@ -5,30 +5,6 @@
 
 namespace samurai_new
 {
-    template <std::size_t dim>
-    inline StencilShape<dim, 2*dim> cartesian_directions()
-    {
-        static_assert((dim >= 1 && dim <=3), "cartesian_directions() not implemented in this dimension");
-
-        // !!! The order is important: the opposite of a vector must be located 'dim' indices after.
-        if constexpr (dim == 1)
-        {
-            //                       left, right
-            return StencilShape<1, 2>{{-1}, {1}};
-        }
-        else if constexpr (dim == 2)
-        {
-            //                        bottom,   right,  top,    left
-            return StencilShape<2, 4>{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
-        }
-        else if constexpr (dim == 3)
-        {
-            //                         bottom,   front,   right,    top,     back,     left
-            return StencilShape<3, 6>{{0,0,-1}, {0,1,0}, {1,0,0}, {0,0,1}, {0,-1,0}, {-1,0,0}};
-        }
-        return StencilShape<dim, 2*dim>();
-    }
-
     template<class Vector>
     inline unsigned int number_of_zeros(const Vector& v)
     {

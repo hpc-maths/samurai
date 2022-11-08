@@ -1,7 +1,7 @@
 #pragma once
 #include <petsc.h>
 #include <samurai/algorithm.hpp>
-#include "stencil.hpp"
+#include "indices.hpp"
 
 namespace samurai_new { namespace petsc
 {

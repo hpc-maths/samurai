@@ -3,6 +3,8 @@
 #include "Laplacian2D.cpp"
 #include "Laplacian3D.cpp"
 #include "samurai_new/petsc_assembly.hpp"
+#include "samurai_new/gauss_legendre.hpp"
+#include "samurai_new/boundary.hpp"
 
 
 // constexpr power function
@@ -30,11 +32,19 @@ public:
         mesh(m)
     {}
 
+    /**
+     * @brief Creates a coarse object from a coarse mesh and a fine object.
+     * @note  This method is used by the multigrid.
+    */
     static Laplacian create_coarse(const Laplacian& /*fine*/, Mesh& coarse_mesh)
     {
         return Laplacian(coarse_mesh);
     }
 
+    /**
+     * @brief Performs the memory preallocation of the Petsc matrix.
+     * @see assemble_matrix
+    */
     void create_matrix(Mat& A)
     {
         auto n = static_cast<PetscInt>(mesh.nb_cells());
@@ -46,7 +56,10 @@ public:
         MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, sparsity_pattern().data());
     }
 
-    PetscErrorCode assemble_matrix(Mat& A)
+    /**
+     * @brief Inserts the coefficent into a preallocated matrix and performs the assembly.
+    */
+    void assemble_matrix(Mat& A)
     {
         assemble_scheme_on_uniform_grid(A);
         assemble_projection(A);
@@ -55,9 +68,14 @@ public:
 
         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-        PetscFunctionReturn(0);
     }
 
+    /**
+     * @brief Creates a right-hand side in the form of a Field.
+     * @param source_function Source function of the diffusion problem (must return double).
+     * @param source_poly_degree Polynomial degree of the source function (use -1 if it is not a polynomial function)
+     * @note Sets homogeneous Dirichlet boundary condition. For non-homogeneous condition, use enforce_dirichlet_bc().
+    */
     template<class Func>
     Field create_rhs(Func&& source_function, int source_poly_degree=-1)
     {
@@ -73,8 +91,12 @@ public:
         return rhs;
     }
 
-
-
+    /**
+     * @brief Enforces Dirichlet boundary condition (on the whole boundary).
+     * @param rhs_field rhs_field to update (created by create_rhs()).
+     * @param dirichlet Dirichlet function: takes coordinates and returns double.
+     *                  It will be called with coordinates on the boundary.
+    */
     template<class Func>
     void enforce_dirichlet_bc(Field& rhs_field, Func&& dirichlet)
     {
@@ -86,7 +108,7 @@ public:
         {
             if (samurai_new::is_cartesian_direction(out_normal_vect))
             {
-                samurai_new::StencilCells<Mesh, 2> out_in_cells(out_in_stencil(out_normal_vect));
+                samurai_new::StencilCells<Mesh, 2> out_in_cells(samurai_new::out_in_stencil<dim>(out_normal_vect));
 
                 samurai_new::for_each_stencil(mesh, mesh_interval, out_in_cells, 
                 [&] (const auto& cells)
@@ -104,7 +126,10 @@ public:
     }
 
 private:
-
+    /**
+     * Set useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
+     * @see samurai_new::petsc::nnz_per_row<cfg>(mesh), used in sparsity_pattern()
+    */
     using cfg = samurai_new::petsc::PetscAssemblyConfig
     <
         // ----  Stencil size 
@@ -139,6 +164,10 @@ private:
     // Stencil size on outer boundary cells (in the diagonal directions)
     static constexpr PetscInt diag_bdry_stencil_size = 1;
 
+
+    /**
+     * @return the stencil of the Finite Volume scheme.
+    */
     inline samurai_new::StencilShape<dim, cfg::scheme_stencil_size> FV_stencil()
     {
         static_assert(dim >= 1 || dim <= 3, "Finite Volume stencil not implemented for this dimension");
@@ -164,9 +193,13 @@ private:
         return samurai_new::StencilShape<dim, cfg::scheme_stencil_size>();
     }
 
+    /**
+     * @brief sparsity pattern of the matrix
+     * @return vector that stores, for each row index in the matrix, the number of non-zero coefficients.
+    */
     std::vector<PetscInt> sparsity_pattern()
     {
-        // Scheme, projection, prediction
+        // Scheme in the interior of the domain + projection + prediction
         std::vector<PetscInt> nnz = samurai_new::petsc::nnz_per_row<cfg>(mesh);
 
         // Boundary conditions
@@ -184,6 +217,12 @@ private:
         return nnz;
     }
 
+    /**
+     * @brief Inserts coefficients into the matrix.
+     * This function defines the scheme on a uniform, Cartesian grid.
+     * It takes care of the interior cells.
+     * @see assemble_boundary_condition() for the Dirichlet b.c.
+    */
     void assemble_scheme_on_uniform_grid(Mat& A)
     {
         static constexpr PetscInt stencil_size = cfg::scheme_stencil_size;
@@ -204,13 +243,16 @@ private:
         });
     }
 
+    /**
+     * @brief Inserts boundary coefficients into the matrix.
+    */
     void assemble_boundary_condition(Mat& A)
     {
         samurai_new::out_boundary(mesh, 
         [&] (const samurai_new::MeshInterval<Mesh>& mesh_interval, const auto& out_normal_vect)
         {
             const double& h = mesh_interval.cell_length;
-            samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(out_in_stencil(out_normal_vect));
+            samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(samurai_new::out_in_stencil<dim>(out_normal_vect));
             bool is_cartesian_direction = samurai_new::is_cartesian_direction(out_normal_vect);
             auto n_out_cells_in_stencil = dim - samurai_new::number_of_zeros(out_normal_vect);
             double in_diag_value = (cfg::scheme_stencil_size-1) + n_out_cells_in_stencil;
@@ -233,18 +275,13 @@ private:
             });
         });
 
+        // Flags the matrix as symmetric positive-definite.
         MatSetOption(A, MAT_SPD, PETSC_TRUE);
     }
 
-    template<class Vector>
-    samurai_new::StencilShape<dim, 2> out_in_stencil(const Vector& out_normal_vect)
-    {
-        auto stencil_shape = samurai_new::StencilShape<dim, 2>();
-        xt::view(stencil_shape, 0) = 0;
-        xt::view(stencil_shape, 1) = -out_normal_vect;
-        return stencil_shape;
-    }
-
+    /**
+     * @brief Inserts the coefficients corresponding the projection operator into the matrix.
+    */
     void assemble_projection(Mat& A)
     {
         static constexpr PetscInt number_of_children = (1 << dim);
@@ -260,6 +297,9 @@ private:
         });
     }
 
+    /**
+     * @brief Inserts the coefficients corresponding the prediction operator into the matrix.
+    */
     void assemble_prediction(Mat& A)
     {
         assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);

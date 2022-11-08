@@ -1,8 +1,5 @@
 #pragma once
-#include "samurai_new/multigrid/petsc/utils.hpp"
-#include "utils.hpp"
-#include "samurai_new/boundary.hpp"
-#include "samurai_new/indices.hpp"
+#include "samurai_new/petsc_assembly.hpp"
 
 //-------------------//
 //     Laplacian     //
