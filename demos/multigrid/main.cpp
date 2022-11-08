@@ -25,10 +25,6 @@ static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "                                     Homogeneous Dirichlet b.c.\n"
             "                             exp   - The solution is an exponential function.\n"
             "                                     Non-homogeneous Dirichlet b.c.\n"
-            "-enforce_dbc [p|e|o]         enforcement of Dirichlet b.c.\n"
-            "                             p  - penalization\n"
-            "                             e  - elimination\n"
-            "                             o  - ones on the diagonal (non-symmetric)\n"
             "-save_sol [0|1]              save solution\n"
             "-save_mesh [0|1]             save mesh\n"
             "\n"
@@ -153,29 +149,6 @@ int main(int argc, char* argv[])
     PetscBool save_mesh = PETSC_FALSE;
     PetscOptionsGetBool(NULL, NULL, "-save_mesh", &save_mesh, NULL);
 
-    PetscBool enforce_dbc_is_set = PETSC_FALSE;
-    DirichletEnforcement enforce_dbc = Elimination;
-    char enforce_dbc_char[2];
-    PetscOptionsGetString(NULL, NULL, "-enforce_dbc", enforce_dbc_char, 2, &enforce_dbc_is_set);
-    if (enforce_dbc_is_set)
-    {
-        if (enforce_dbc_char[0] == 'p')
-            enforce_dbc = Penalization;
-        else if (enforce_dbc_char[0] == 'e')
-            enforce_dbc = Elimination;
-        else if (enforce_dbc_char[0] == 'o')
-            enforce_dbc = OnesOnDiagonal;
-        else
-            fatal_error("unknown value for argument -enforce_dbc");
-    }
-    std::cout << "Dirichlet b.c. enforcement: ";
-    if (enforce_dbc == Penalization)
-        std::cout << "penalization" << std::endl;
-    else if (enforce_dbc == Elimination)
-        std::cout << "elimination" << std::endl;
-    else if (enforce_dbc == OnesOnDiagonal)
-        std::cout << "ones on the diagonal (--> non-symmetric)" << std::endl;
-
     //---------------//
     // Mesh creation //
     //---------------//
@@ -189,32 +162,11 @@ int main(int argc, char* argv[])
         samurai::save("mesh", mesh);
     }
 
-    /*std::cout << "fine_mesh:" << endl << fine_mesh << std::endl;
-    samurai::save("fine_mesh", fine_mesh);
-    samurai::for_each_cell(fine_mesh, [](const auto& cell)
-    {
-        cout << cell.level << " " << cell.center(0) << endl; 
-    });
-
-    Mesh coarse_mesh = coarsen(fine_mesh);
-    std::cout << "coarse_mesh:" << endl << coarse_mesh << std::endl;
-    samurai::save("coarse_mesh", coarse_mesh);
-
-    auto fine_field = samurai::make_field<double, 1>("f", fine_mesh);
-    fine_field.fill(1.);
-    std::cout << "fine_field:" << endl << fine_field << std::endl;
-
-    auto coarse_field = restrict(fine_field, coarse_mesh);
-    std::cout << "coarse_field (after restrict):" << endl << coarse_field << std::endl;
-
-    fine_field = prolong(coarse_field, fine_mesh);
-    std::cout << "fine_field (after prolong):" << endl << fine_field << std::endl;*/
-
     //----------------//
     // Create problem //
     //----------------//
 
-    Laplacian<Field> laplacian(mesh, enforce_dbc);
+    Laplacian<Field> laplacian(mesh);
 
     Field rhs_field = laplacian.create_rhs(test_case->source(), test_case->source_poly_degree());
     laplacian.enforce_dirichlet_bc(rhs_field, test_case->dirichlet());
