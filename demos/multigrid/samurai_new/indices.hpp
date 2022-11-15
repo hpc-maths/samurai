@@ -1,6 +1,8 @@
 #pragma once
 #include "stencil.hpp"
 
+using namespace samurai;
+
 namespace samurai_new
 {
     //
@@ -16,12 +18,25 @@ namespace samurai_new
         }
     }
 
-    template <typename DesiredIndexType, class Mesh, class Set, class Func>
-    inline void for_each_cell(const Mesh& mesh, const Set& set, Func &&f)
+    template <typename DesiredIndexType, class Mesh, class Func>
+    inline void for_each_cell(const Mesh& mesh, const typename Mesh::ca_type& set, Func &&f)
     {
         for_each_interval(set, [&](std::size_t level, const auto& i, const auto& index)
         {
-            for_each_cell<DesiredIndexType>(mesh, level, i, index, std::forward<Func>(f));
+            MeshInterval<Mesh> mesh_interval(level, i, index);
+            for_each_cell<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
+        });
+    }
+
+    template <typename DesiredIndexType, class Mesh, class Subset, class Func>
+    inline void for_each_cell(const Mesh& mesh, std::size_t level, Subset& subset, Func &&f)
+    {
+        MeshInterval<Mesh> mesh_interval(level);
+        subset([&](const auto& i, const auto& index)
+        {
+            mesh_interval.i = i;
+            mesh_interval.index = index;
+            for_each_cell<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
         });
     }
 
@@ -63,6 +78,35 @@ namespace samurai_new
     //
     // Functions that return cells
     //
+
+    template <class Mesh, class coord_type, class Func>
+    inline void for_each_cell(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t& i, const coord_type& index, Func &&f)
+    {
+        using coord_index_t = typename Mesh::interval_t::coord_index_t;
+        static constexpr std::size_t dim = Mesh::dim;
+
+        // TODO: only one of the two arrays should be used.
+        // problem --> mesh.get_index wants an array
+        //             Cell constructor wants an xtensor
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> xtensor_coord;
+        std::array<coord_index_t, dim> array_coord;
+        array_coord[0] = i.start;
+        xtensor_coord[0] = i.start;
+        for(std::size_t d = 0; d < dim - 1; ++d)
+        {
+            array_coord[d + 1] = index[d];
+            xtensor_coord[d + 1] = index[d];
+        }
+        auto cell_index = mesh.get_index(level, array_coord);
+        Cell<coord_index_t, dim> cell{level, xtensor_coord, cell_index};
+        for(coord_index_t ii = 0; ii < i.size(); ++ii)
+        {
+            f(cell);
+            cell.indices[0]++;
+            cell.index++;
+        }
+    }
+
     template <class Mesh, std::size_t stencil_size, class Func>
     inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, StencilCells<Mesh, stencil_size>& stencil, Func &&f)
     {

@@ -64,7 +64,9 @@ public:
         assemble_scheme_on_uniform_grid(A);
         assemble_projection(A);
         assemble_prediction(A);
-        assemble_boundary_condition(A);
+
+        // Flags the matrix as symmetric positive-definite.
+        MatSetOption(A, MAT_SPD, PETSC_TRUE);
 
         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
@@ -103,23 +105,18 @@ public:
         if (&rhs_field.mesh() != &mesh)
             assert(false && "Not the same mesh");
 
-        samurai_new::out_boundary(mesh,
-        [&] (const auto& mesh_interval, const auto& out_normal_vect)
+        using coord_index_t = typename Mesh::interval_t::coord_index_t;
+
+        samurai_new::in_boundary(mesh, FV_stencil(),
+        [&] (const auto& mesh_interval, const auto& towards_bdry)
         {
-            if (samurai_new::is_cartesian_direction(out_normal_vect))
+            samurai_new::for_each_cell(mesh, mesh_interval.level, mesh_interval.i, mesh_interval.index, [&](const samurai::Cell<coord_index_t, dim>& cell)
             {
-                const samurai_new::StencilShape<dim, 2> out_in_stencil = samurai_new::out_in_stencil<dim>(out_normal_vect);
-                samurai_new::for_each_stencil(mesh, mesh_interval, out_in_stencil, 
-                [&] (const auto& cells)
-                {
-                    auto& in_cell  = cells[1];
-                    double h = in_cell.length;
-
-                    auto boundary_point = in_cell.face_center(out_normal_vect);
-
-                    rhs_field.array()[in_cell.index] += 2/(h*h) * dirichlet(boundary_point);
-                });
-            }
+                double h = cell.length;
+                auto boundary_point = cell.face_center(towards_bdry);
+                auto dirichlet_value = dirichlet(boundary_point);
+                rhs_field.array()[cell.index] += 2/(h*h) * dirichlet_value;
+            });
         });
     }
 
@@ -157,11 +154,6 @@ private:
         0, 3
     >;
 
-    // Stencil size on outer boundary cells (in the Cartesian directions)
-    static constexpr PetscInt cart_bdry_stencil_size = 2;
-    // Stencil size on outer boundary cells (in the diagonal directions)
-    static constexpr PetscInt diag_bdry_stencil_size = 1;
-
 
     /**
      * @return the stencil of the Finite Volume scheme.
@@ -191,90 +183,40 @@ private:
         return samurai_new::StencilShape<dim, cfg::scheme_stencil_size>();
     }
 
+    std::array<double, cfg::scheme_stencil_size> FV_coefficients(double h)
+    {
+        double one_over_h2 = 1/(h*h);
+
+        std::array<double, cfg::scheme_stencil_size> coeffs;
+        for (unsigned int i = 0; i<cfg::scheme_stencil_size; ++i)
+        {
+            coeffs[i] = -one_over_h2;
+        }
+        coeffs[cfg::center_index] = (cfg::scheme_stencil_size-1) * one_over_h2;
+        return coeffs;
+    }
+
     /**
      * @brief sparsity pattern of the matrix
      * @return vector that stores, for each row index in the matrix, the number of non-zero coefficients.
     */
     std::vector<PetscInt> sparsity_pattern()
     {
-        // Scheme in the interior of the domain + projection + prediction
+        // Scheme + projection + prediction
         std::vector<PetscInt> nnz = samurai_new::petsc::nnz_per_row<cfg>(mesh);
-
-        // Boundary conditions
-        samurai_new::out_boundary(mesh,
-        [&] (const auto& mesh_interval, const auto& out_normal_vect)
-        {
-            PetscInt n_coeffs = samurai_new::is_cartesian_direction(out_normal_vect) ? cart_bdry_stencil_size : diag_bdry_stencil_size;
-            samurai_new::for_each_cell<std::size_t>(mesh, mesh_interval, 
-            [&] (std::size_t i_out)
-            {
-                nnz[i_out] = n_coeffs;
-            });
-        });
-
         return nnz;
     }
 
     /**
      * @brief Inserts coefficients into the matrix.
      * This function defines the scheme on a uniform, Cartesian grid.
-     * It takes care of the interior cells.
-     * @see assemble_boundary_condition() for the Dirichlet b.c.
     */
     void assemble_scheme_on_uniform_grid(Mat& A)
     {
-        static constexpr PetscInt stencil_size = cfg::scheme_stencil_size;
-        static constexpr PetscInt stencil_center = cfg::center_index;
-
-        samurai_new::petsc::set_coefficients<cfg>(A, mesh, FV_stencil(), 
-        [&] (double h)
+        samurai_new::petsc::set_coefficients<cfg>(A, mesh, FV_stencil(), [&] (double h)
         {
-            double one_over_h2 = 1/(h*h);
-
-            std::array<double, stencil_size> coeffs;
-            for (unsigned int i = 0; i<stencil_size; ++i)
-            {
-                coeffs[i] = -one_over_h2;
-            }
-            coeffs[stencil_center] = (stencil_size-1) * one_over_h2;
-            return coeffs;
+            return FV_coefficients(h);
         });
-    }
-
-    /**
-     * @brief Inserts boundary coefficients into the matrix.
-    */
-    void assemble_boundary_condition(Mat& A)
-    {
-        samurai_new::out_boundary(mesh, 
-        [&] (const auto& mesh_interval, const auto& out_normal_vect)
-        {
-            double h = mesh_interval.cell_length;
-            bool is_cartesian_direction = samurai_new::is_cartesian_direction(out_normal_vect);
-            auto n_out_cells_in_stencil = dim - samurai_new::number_of_zeros(out_normal_vect);
-            double in_diag_value = static_cast<double>((cfg::scheme_stencil_size-1) + n_out_cells_in_stencil);
-            in_diag_value /= (h*h);
-
-            samurai_new::StencilIndices<PetscInt, dim, 2> out_in_indices(samurai_new::out_in_stencil<dim>(out_normal_vect));
-            samurai_new::for_each_stencil<PetscInt>(mesh, mesh_interval, out_in_indices, 
-            [&] (const std::array<PetscInt, 2>& indices)
-            {
-                auto& out_cell = indices[0];
-                auto& in_cell  = indices[1];
-                // The outer unknown is eliminated from the system:
-                MatSetValue(A, out_cell, out_cell,             1, INSERT_VALUES);
-                MatSetValue(A,  in_cell, in_cell , in_diag_value, INSERT_VALUES);
-                // The coefficient that was added before (via the interior stencil) is removed.
-                // Note that if out_vect is not a Cartesian direction (out_cell is a corner), then out_cell is not in the stencil of in_cell, so nothing to remove.
-                if (is_cartesian_direction) 
-                {  
-                    MatSetValue(A,  in_cell, out_cell,         0, INSERT_VALUES); 
-                }
-            });
-        });
-
-        // Flags the matrix as symmetric positive-definite.
-        MatSetOption(A, MAT_SPD, PETSC_TRUE);
     }
 
     /**

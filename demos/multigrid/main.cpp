@@ -101,7 +101,7 @@ Mesh create_mesh(std::size_t n)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 1;
     using Config = samurai::amr::Config<dim>;
     using Mesh = samurai::amr::Mesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
