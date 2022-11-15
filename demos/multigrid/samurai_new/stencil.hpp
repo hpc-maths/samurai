@@ -300,4 +300,13 @@ namespace samurai_new
         xt::view(stencil_shape, 1) = -out_normal_vect;
         return stencil_shape;
     }
+
+    template<std::size_t dim, class Vector>
+    samurai_new::StencilShape<dim, 2> in_out_stencil(const Vector& out_normal_vect)
+    {
+        auto stencil_shape = samurai_new::StencilShape<dim, 2>();
+        xt::view(stencil_shape, 0) = 0;
+        xt::view(stencil_shape, 1) = out_normal_vect;
+        return stencil_shape;
+    }
 }

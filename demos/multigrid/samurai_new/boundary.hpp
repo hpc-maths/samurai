@@ -3,6 +3,8 @@
 #include <utility>
 #include "stencil.hpp"
 
+using namespace samurai;
+
 namespace samurai_new
 {
     template<class Vector>
@@ -24,6 +26,55 @@ namespace samurai_new
         return (dim == 0 || n_zeros == dim-1);
     }
 
+    template <class Mesh, class Vector, class Func>
+    void in_boundary(const Mesh& mesh, std::size_t level, const Vector& direction, Func &&func)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto& cells = mesh[mesh_id_t::cells][level];
+        auto& domain = mesh.domain();
+
+        MeshInterval<Mesh> mesh_interval(level);
+
+        auto boundary = difference(cells, translate(domain, -direction));
+
+        boundary([&](const auto& i, const auto& index)
+        {
+            mesh_interval.i = i;
+            mesh_interval.index = index;
+            func(mesh_interval, direction);
+        });
+    }
+
+    template <class Mesh, std::size_t stencil_size, class Func>
+    inline void in_boundary(const Mesh& mesh, std::size_t level, const StencilShape<Mesh::dim, stencil_size>& stencil, Func &&func)
+    {
+        for (int is = 0; is<static_cast<int>(stencil_size); ++is)
+        {
+            auto direction = xt::view(stencil, is);
+            if (xt::any(direction)) // if (direction != 0)
+            {
+                in_boundary(mesh, level, direction, std::forward<Func>(func));
+            }
+        }
+    }
+
+    template <class Mesh, std::size_t stencil_size, class Func>
+    inline void in_boundary(const Mesh& mesh, const StencilShape<Mesh::dim, stencil_size>& stencil, Func &&func)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto& cells = mesh[mesh_id_t::cells];
+        for(std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
+        {
+            if (!cells[level].empty())
+            {
+                in_boundary(mesh, level, stencil, std::forward<Func>(func));
+            }
+        }
+    }
+
+
 
     template <class Mesh, class Func>
     void out_boundary(const Mesh& mesh, std::size_t level, Func &&func)
@@ -42,7 +93,7 @@ namespace samurai_new
             auto d1 = xt::view(cart_directions, id1);
 
             // Boundary in the direction d1
-            auto boundary_d1 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], d1), mesh.domain());
+            auto boundary_d1 = difference(translate(mesh[mesh_id_t::cells][level], d1), mesh.domain());
 
             // Outwards normal vector
             auto out_vect_d1 = d1;
@@ -64,13 +115,13 @@ namespace samurai_new
                 auto d2 = xt::view(cart_directions, id2);
 
                 // Boundary in the direction d2
-                auto boundary_d2 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], d2), mesh.domain());
+                auto boundary_d2 = difference(translate(mesh[mesh_id_t::cells][level], d2), mesh.domain());
 
                 auto out_vect_d1d2 = out_vect_d1 + d2;
 
                 // Corners between boundary_d1 and boundary_d2
-                auto boundaries_d1d2 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], out_vect_d1d2), mesh.domain());
-                auto corners_d1d2 = samurai::difference(samurai::difference(boundaries_d1d2, boundary_d1), boundary_d2);
+                auto boundaries_d1d2 = difference(translate(mesh[mesh_id_t::cells][level], out_vect_d1d2), mesh.domain());
+                auto corners_d1d2 = difference(difference(boundaries_d1d2, boundary_d1), boundary_d2);
 
                 // Apply func to corners
                 corners_d1d2([&](const auto& i, const auto& index)
@@ -89,13 +140,13 @@ namespace samurai_new
                     auto d3 = xt::view(cart_directions, id3);
 
                     // Boundary in the direction d3
-                    auto boundary_d3 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], d3), mesh.domain());
+                    auto boundary_d3 = difference(translate(mesh[mesh_id_t::cells][level], d3), mesh.domain());
 
                     auto out_vect_d1d2d3 = out_vect_d1d2 + d3;
 
                     // Corners between boundary_d1, boundary_d2 and boundary_d3
-                    auto boundaries_d1d2d3 = samurai::difference(samurai::translate(mesh[mesh_id_t::cells][level], out_vect_d1d2d3), mesh.domain());
-                    auto corners_d1d2d3 = samurai::difference(samurai::difference(samurai::difference(boundaries_d1d2d3, boundary_d1), boundary_d2), boundary_d3);
+                    auto boundaries_d1d2d3 = difference(translate(mesh[mesh_id_t::cells][level], out_vect_d1d2d3), mesh.domain());
+                    auto corners_d1d2d3 = difference(difference(difference(boundaries_d1d2d3, boundary_d1), boundary_d2), boundary_d3);
 
                     // Apply func to corners
                     corners_d1d2d3([&](const auto& i, const auto& index)
@@ -129,4 +180,86 @@ namespace samurai_new
             }
         }
     }
+
+    /*template <class Mesh, class Func>
+    void interior(const Mesh& mesh, std::size_t level, Func &&func)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        static constexpr std::size_t dim = Mesh::dim;
+        static constexpr std::size_t n_cart_dir = (2*dim); // number of Cartesian directions
+
+        const auto& cells = mesh[mesh_id_t::cells][level];
+        auto& domain = mesh.domain();
+
+        const StencilShape<dim, n_cart_dir> cart_directions = cartesian_directions<dim>();
+        MeshInterval<Mesh> mesh_interval(level);
+
+
+        //auto bdry0 = translate(mesh.domain(), xt::view(cart_directions, 0));
+        //auto minus_bdry0 = intersection(mesh[mesh_id_t::cells][level], bdry0);
+
+
+        unsigned int d = 0;
+        if constexpr(dim >= 1)
+        {
+            auto minus_bdry0 = intersection(      cells, translate(domain, xt::view(cart_directions, d++)));
+            auto minus_bdry1 = intersection(minus_bdry0, translate(domain, xt::view(cart_directions, d++)));
+            if constexpr(dim == 1)
+            {
+                minus_bdry1([&](const auto& i, const auto& index)
+                {
+                    mesh_interval.i = i;
+                    mesh_interval.index = index;
+                    func(mesh_interval);
+                });
+            }
+            if constexpr(dim >= 2)
+            {
+                auto minus_bdry2 = intersection(minus_bdry1, translate(domain, xt::view(cart_directions, d++)));
+                auto minus_bdry3 = intersection(minus_bdry2, translate(domain, xt::view(cart_directions, d++)));
+                if constexpr(dim == 2)
+                {
+                    minus_bdry3([&](const auto& i, const auto& index)
+                    {
+                        mesh_interval.i = i;
+                        mesh_interval.index = index;
+                        func(mesh_interval);
+                    });
+                }
+                if constexpr(dim >= 3)
+                {
+                    auto minus_bdry4 = intersection(minus_bdry3, translate(domain, xt::view(cart_directions, d++)));
+                    auto minus_bdry5 = intersection(minus_bdry4, translate(domain, xt::view(cart_directions, d++)));
+                    if constexpr(dim == 3)
+                    {
+                        minus_bdry5([&](const auto& i, const auto& index)
+                        {
+                            mesh_interval.i = i;
+                            mesh_interval.index = index;
+                            func(mesh_interval);
+                        });
+                    }
+                    if constexpr(dim > 3)
+                    {
+                        static_assert(dim < 4, "interior() not implemented for dim > 3.");
+                    }
+                }
+            }
+        }
+    }
+
+    template <class Mesh, class Func>
+    inline void interior(const Mesh& mesh, Func &&func)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto& cells = mesh[mesh_id_t::cells];
+        for(std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
+        {
+            if (!cells[level].empty())
+            {
+                interior(mesh, level, std::forward<Func>(func));
+            }
+        }
+    }*/
 }
