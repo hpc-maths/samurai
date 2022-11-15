@@ -11,7 +11,7 @@
 #include <samurai/amr/mesh.hpp>
 
 #include "test_cases.hpp"
-#include "Laplacian.hpp"
+#include "LaplacianFV.hpp"
 #include "LaplacianSolver.hpp"
 #include "Timer.hpp"
 
@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
     // Create problem //
     //----------------//
 
-    Laplacian<Field> laplacian(mesh);
+    LaplacianFV<Field> laplacian(mesh);
 
     Field rhs_field = laplacian.create_rhs(test_case->source(), test_case->source_poly_degree());
     laplacian.enforce_dirichlet_bc(rhs_field, test_case->dirichlet());
@@ -179,7 +179,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    LaplacianSolver<Laplacian<Field>> solver(laplacian, mesh);
+    LaplacianSolver<LaplacianFV<Field>> solver(laplacian, mesh);
 
     Timer setup_timer, solve_timer, total_timer;
 
