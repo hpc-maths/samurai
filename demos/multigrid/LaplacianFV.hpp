@@ -134,8 +134,10 @@ public:
         assemble_projection(A);
         assemble_prediction(A);
 
-        // Flags the matrix as symmetric positive-definite.
-        MatSetOption(A, MAT_SPD, PETSC_TRUE);
+        // If the mesh is not refined, then the matrix is flagged as symmetric positive-definite.
+        // (The projections/predictions kill the symmetry.)
+        PetscBool is_spd = mesh.min_level() == mesh.max_level() ? PETSC_TRUE : PETSC_FALSE;
+        MatSetOption(A, MAT_SPD, is_spd);
 
         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);

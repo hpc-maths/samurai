@@ -9,11 +9,13 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
 #include <samurai/amr/mesh.hpp>
+#include <samurai/mr/mesh.hpp>
 
 #include "test_cases.hpp"
 #include "LaplacianFV.hpp"
 #include "LaplacianSolver.hpp"
 #include "Timer.hpp"
+#include "samurai_new/utils.cpp"
 
 static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "\n"
@@ -56,20 +58,9 @@ static char help[] = "Geometric multigrid using the samurai meshes.\n"
 
 
 template<class Mesh>
-Mesh create_mesh(std::size_t n)
+Mesh create_uniform_mesh(std::size_t n)
 {
     using Box = samurai::Box<double, Mesh::dim>;
-    /*constexpr std::size_t start_level = 2;
-
-    Box leftBox({0}, {0.5});
-    Box rightBox({0.5}, {1});
-
-    Mesh m;
-    m[start_level] = {start_level, leftBox};
-    m[start_level+1] = {start_level+1, rightBox};
-    return m;*/
-
-    //using cl_type = typename Mesh::cl_type;
 
     Box box;
     if constexpr(Mesh::dim == 1)
@@ -84,18 +75,37 @@ Mesh create_mesh(std::size_t n)
     {
         box = Box({0,0,0}, {1,1,1});
     }
-
-    /*cl_type cl;
-    cl[start_level] = {start_level, leftBox};
-    cl[start_level+1] = {start_level+1, rightBox};*/
     std::size_t start_level, min_level, max_level;
     start_level = n;
     min_level = n;
     max_level = n;
 
-    return Mesh(box, start_level, min_level, max_level);
+    return Mesh(box, start_level, min_level, max_level); // amr::Mesh
+    //return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
+template<class Mesh>
+Mesh create_refined_mesh(std::size_t n)
+{
+    using cl_type = typename Mesh::cl_type;
+
+    std::size_t min_level, max_level;
+    min_level = n-1;
+    max_level = n;
+
+    int i = static_cast<int>(1<<min_level);
+
+    cl_type cl;
+    if constexpr(Mesh::dim == 1)
+    {
+        cl[min_level][{}].add_interval({0, i/2});
+        cl[max_level][{}].add_interval({i, 2*i});
+    }
+    static_assert(Mesh::dim == 1, "create_refined_mesh() not implemented for this dimension");
+
+    return Mesh(cl, min_level, max_level); // amr::Mesh
+    //return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
+}
 
 
 
@@ -104,6 +114,8 @@ int main(int argc, char* argv[])
     constexpr std::size_t dim = 1;
     using Config = samurai::amr::Config<dim>;
     using Mesh = samurai::amr::Mesh<Config>;
+    //using Config = samurai::MRConfig<dim>;
+    //using Mesh = samurai::MRMesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
 
     //------------------//
@@ -153,14 +165,16 @@ int main(int argc, char* argv[])
     // Mesh creation //
     //---------------//
 
-    Mesh mesh = create_mesh<Mesh>(static_cast<std::size_t>(n));
-    std::cout << "Unknowns: " << mesh.nb_cells() << std::endl;
+    Mesh mesh = create_uniform_mesh<Mesh>(static_cast<std::size_t>(n));
+    //print_mesh(mesh);
 
     if (save_mesh)
     {
         std::cout << "Saving mesh..." << std::endl;
         samurai::save("mesh", mesh);
     }
+
+    std::cout << "Unknowns: " << mesh.nb_cells() << std::endl;
 
     //----------------//
     // Create problem //

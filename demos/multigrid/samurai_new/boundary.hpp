@@ -36,7 +36,10 @@ namespace samurai_new
 
         MeshInterval<Mesh> mesh_interval(level);
 
-        auto boundary = difference(cells, translate(domain, -direction));
+        auto max_level = mesh[mesh_id_t::cells].max_level();
+        auto one_interval = 1<<(max_level-level);
+
+        auto boundary = difference(cells, translate(domain, -one_interval * direction)).on(level);
 
         boundary([&](const auto& i, const auto& index)
         {
