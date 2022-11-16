@@ -7,7 +7,7 @@ void print_mesh(Mesh& mesh)
     std::cout << mesh << std::endl;
     samurai::for_each_cell(mesh, [](const auto& cell)
     {
-        std::cout << cell.level << " " << cell.center(0) << std::endl; 
+        std::cout << "level: " << cell.level << ", cell index: " << cell.index << ", center: " << cell.center(0) << std::endl; 
     });
 }
 

@@ -109,7 +109,7 @@ namespace samurai_new { namespace petsc
         for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
         {
             // 1 - The boundary ghosts are 'eliminated' from the system, we simply add 1 on the diagonal.
-            auto boundary_ghosts = difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.domain());
+            auto boundary_ghosts = difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.domain()).on(level);
             for_each_cell<PetscInt>(mesh, level, boundary_ghosts, [&](PetscInt ghost)
             {
                 MatSetValue(A, ghost, ghost, 1, ADD_VALUES);
@@ -135,12 +135,22 @@ namespace samurai_new { namespace petsc
                 double out_coeff = coeffs[out_coeff_index];
 
                 // The contribution is added to the center of the stencil
-                samurai_new::for_each_cell<PetscInt>(mesh, mesh_interval, [&] (PetscInt cell)
+                samurai_new::StencilIndices<PetscInt, dim, 2> in_out_indices(samurai_new::in_out_stencil<dim>(towards_bdry_ghost));
+                samurai_new::for_each_stencil<PetscInt>(mesh, mesh_interval, in_out_indices, 
+                [&] (const std::array<PetscInt, 2>& indices)
                 {
-                    MatSetValue(A, cell, cell , -out_coeff, ADD_VALUES); 
+                    auto& in_cell  = indices[0];
+                    auto& out_ghost = indices[1];
+                    MatSetValue(A,   in_cell,    in_cell, -out_coeff, ADD_VALUES);
+                    MatSetValue(A,   in_cell,  out_ghost, -out_coeff, ADD_VALUES); // the coeff of the ghost is removed
                 });
             });
         });
+
+
+        // Must flush to use INSERT_VALUES instead of ADD_VALUES
+        MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
+        MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
 
     }
 
