@@ -19,7 +19,7 @@ constexpr T ce_pow(T num, unsigned int pow)
  * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
 */
 template<class Field>
-class LaplacianFV
+class LaplacianFV : public samurai_new::petsc::PetscAssembly
 {
 public:
     using field_t = Field;
@@ -111,40 +111,50 @@ private:
         return coeffs;
     }
 
+private:
+    PetscInt matrix_size() override
+    {
+        return static_cast<PetscInt>(mesh.nb_cells());
+    }
+
+    bool matrix_is_spd() override
+    {
+        // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
+        return mesh.min_level() == mesh.max_level();
+    }
+
+    std::vector<PetscInt> sparsity_pattern() override
+    {
+        // Scheme + projection + prediction
+        return samurai_new::petsc::nnz_per_row<cfg>(mesh);
+    }
+
+    void assemble_scheme_on_uniform_grid(Mat& A) override
+    {
+        samurai_new::petsc::set_coefficients<cfg>(A, mesh, FV_stencil(), FV_coefficients);
+    }
+
+    void assemble_projection(Mat& A) override
+    {
+        static constexpr PetscInt number_of_children = (1 << dim);
+
+        samurai_new::for_each_cell_and_children<PetscInt>(mesh, 
+        [&] (PetscInt cell, const std::array<PetscInt, number_of_children>& children)
+        {
+            MatSetValue(A, cell, cell, 1, INSERT_VALUES);
+            for (unsigned int i=0; i<number_of_children; ++i)
+            {
+                MatSetValue(A, cell, children[i], -1./number_of_children, INSERT_VALUES);
+            }
+        });
+    }
+    
+    void assemble_prediction(Mat& A) override
+    {
+        assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
+    }
+
 public:
-    /**
-     * @brief Performs the memory preallocation of the Petsc matrix.
-     * @see assemble_matrix
-    */
-    void create_matrix(Mat& A)
-    {
-        auto n = static_cast<PetscInt>(mesh.nb_cells());
-
-        MatCreate(PETSC_COMM_SELF, &A);
-        MatSetSizes(A, n, n, n, n);
-        MatSetFromOptions(A);
-
-        MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, sparsity_pattern().data());
-    }
-
-    /**
-     * @brief Inserts the coefficent into a preallocated matrix and performs the assembly.
-    */
-    void assemble_matrix(Mat& A)
-    {
-        assemble_scheme_on_uniform_grid(A);
-        assemble_projection(A);
-        assemble_prediction(A);
-
-        // If the mesh is not refined, then the matrix is flagged as symmetric positive-definite.
-        // (The projections/predictions kill the symmetry.)
-        PetscBool is_spd = mesh.min_level() == mesh.max_level() ? PETSC_TRUE : PETSC_FALSE;
-        MatSetOption(A, MAT_SPD, is_spd);
-
-        MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-        MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-    }
-
     /**
      * @brief Creates a right-hand side in the form of a Field.
      * @param source_function Source function of the diffusion problem (must return double).
@@ -178,61 +188,13 @@ public:
         if (&field.mesh() != &mesh)
             assert(false && "Not the same mesh");
 
-        using coord_index_t = typename Mesh::interval_t::coord_index_t;
-
         samurai_new::foreach_cell_on_boundary(mesh, FV_stencil(), FV_coefficients,
-        [&] (const samurai::Cell<coord_index_t, dim>& cell, const auto& towards_bdry, double out_coeff)
+        [&] (const auto& cell, const auto& towards_bdry, double out_coeff)
         {
             auto boundary_point = cell.face_center(towards_bdry);
             auto dirichlet_value = dirichlet(boundary_point);
             field[cell] -= 2 * out_coeff * dirichlet_value;
         });
-    }
-
-private:
-    /**
-     * @brief sparsity pattern of the matrix
-     * @return vector that stores, for each row index in the matrix, the number of non-zero coefficients.
-    */
-    std::vector<PetscInt> sparsity_pattern()
-    {
-        // Scheme + projection + prediction
-        return samurai_new::petsc::nnz_per_row<cfg>(mesh);
-    }
-
-    /**
-     * @brief Inserts coefficients into the matrix.
-     * This function defines the scheme on a uniform, Cartesian grid.
-    */
-    void assemble_scheme_on_uniform_grid(Mat& A)
-    {
-        samurai_new::petsc::set_coefficients<cfg>(A, mesh, FV_stencil(), FV_coefficients);
-    }
-
-    /**
-     * @brief Inserts the coefficients corresponding the projection operator into the matrix.
-    */
-    void assemble_projection(Mat& A)
-    {
-        static constexpr PetscInt number_of_children = (1 << dim);
-
-        samurai_new::for_each_cell_and_children<PetscInt>(mesh, 
-        [&] (PetscInt cell, const std::array<PetscInt, number_of_children>& children)
-        {
-            MatSetValue(A, cell, cell, 1, INSERT_VALUES);
-            for (unsigned int i=0; i<number_of_children; ++i)
-            {
-                MatSetValue(A, cell, children[i], -1./number_of_children, INSERT_VALUES);
-            }
-        });
-    }
-
-    /**
-     * @brief Inserts the coefficients corresponding the prediction operator into the matrix.
-    */
-    void assemble_prediction(Mat& A)
-    {
-        assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
     }
 
 public:
