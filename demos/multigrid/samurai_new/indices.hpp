@@ -120,7 +120,7 @@ namespace samurai_new
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const StencilShape<stencil_size, Mesh::dim>& stencil_shape, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil_shape, Func &&f)
     {
         StencilCells<Mesh, stencil_size> stencil(stencil_shape);
         for_each_stencil(mesh, mesh_interval, stencil, std::forward<Func>(f));
