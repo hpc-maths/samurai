@@ -71,7 +71,7 @@ private:
     /**
      * @return the stencil of the Finite Volume scheme.
     */
-    inline samurai_new::StencilShape<dim, cfg::scheme_stencil_size> FV_stencil()
+    static inline samurai_new::StencilShape<dim, cfg::scheme_stencil_size> FV_stencil()
     {
         static_assert(dim >= 1 || dim <= 3, "Finite Volume stencil not implemented for this dimension");
 
@@ -159,7 +159,7 @@ public:
         samurai::for_each_cell(mesh, [&](const auto& cell)
         {
             const double& h = cell.length;
-            rhs.array()[cell.index] = gl.quadrature(cell, source_function) / pow(h, dim);
+            rhs[cell] = gl.quadrature(cell, source_function) / pow(h, dim);
         });
         return rhs;
     }
@@ -171,23 +171,19 @@ public:
      *                  It will be called with coordinates on the boundary.
     */
     template<class Func>
-    void enforce_dirichlet_bc(Field& rhs_field, Func&& dirichlet)
+    void enforce_dirichlet_bc(Field& field, Func&& dirichlet)
     {
-        if (&rhs_field.mesh() != &mesh)
+        if (&field.mesh() != &mesh)
             assert(false && "Not the same mesh");
 
         using coord_index_t = typename Mesh::interval_t::coord_index_t;
 
-        samurai_new::in_boundary(mesh, FV_stencil(),
-        [&] (const auto& mesh_interval, const auto& towards_bdry)
+        samurai_new::foreach_cell_on_boundary(mesh, FV_stencil(), FV_coefficients,
+        [&] (const samurai::Cell<coord_index_t, dim>& cell, const auto& towards_bdry, double out_coeff)
         {
-            samurai_new::for_each_cell(mesh, mesh_interval.level, mesh_interval.i, mesh_interval.index, [&](const samurai::Cell<coord_index_t, dim>& cell)
-            {
-                double h = cell.length;
-                auto boundary_point = cell.face_center(towards_bdry);
-                auto dirichlet_value = dirichlet(boundary_point);
-                rhs_field.array()[cell.index] += 2/(h*h) * dirichlet_value;
-            });
+            auto boundary_point = cell.face_center(towards_bdry);
+            auto dirichlet_value = dirichlet(boundary_point);
+            field[cell] -= 2 * out_coeff * dirichlet_value;
         });
     }
 

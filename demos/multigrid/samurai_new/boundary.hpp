@@ -26,44 +26,43 @@ namespace samurai_new
         return (dim == 0 || n_zeros == dim-1);
     }
 
-    template <class Mesh, class Vector, class Func>
-    void in_boundary(const Mesh& mesh, std::size_t level, const Vector& direction, Func &&func)
+    template <class Mesh, class Vector>
+    auto in_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         auto& cells = mesh[mesh_id_t::cells][level];
         auto& domain = mesh.domain();
 
-        MeshInterval<Mesh> mesh_interval(level);
-
         auto max_level = mesh[mesh_id_t::cells].max_level();
         auto one_interval = 1<<(max_level-level);
 
-        auto boundary = difference(cells, translate(domain, -one_interval * direction)).on(level);
-
-        boundary([&](const auto& i, const auto& index)
-        {
-            mesh_interval.i = i;
-            mesh_interval.index = index;
-            func(mesh_interval, direction);
-        });
+        return difference(cells, translate(domain, -one_interval * direction)).on(level);
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void in_boundary(const Mesh& mesh, std::size_t level, const StencilShape<Mesh::dim, stencil_size>& stencil, Func &&func)
+    inline void foreach_interval_on_boundary(const Mesh& mesh, std::size_t level, const StencilShape<Mesh::dim, stencil_size>& stencil, const std::array<double, stencil_size>& coefficients, Func &&func)
     {
-        for (int is = 0; is<static_cast<int>(stencil_size); ++is)
+        MeshInterval<Mesh> mesh_interval(level);
+        for (unsigned int is = 0; is<stencil_size; ++is)
         {
             auto direction = xt::view(stencil, is);
             if (xt::any(direction)) // if (direction != 0)
             {
-                in_boundary(mesh, level, direction, std::forward<Func>(func));
+                double coeff = coefficients[is];
+                auto boundary = in_boundary(mesh, level, direction);
+                boundary([&](auto& i, auto& index)
+                {
+                    mesh_interval.i = i;
+                    mesh_interval.index = index;
+                    func(mesh_interval, direction, coeff);
+                });
             }
         }
     }
 
-    template <class Mesh, std::size_t stencil_size, class Func>
-    inline void in_boundary(const Mesh& mesh, const StencilShape<Mesh::dim, stencil_size>& stencil, Func &&func)
+    template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
+    void foreach_interval_on_boundary(const Mesh& mesh, const StencilShape<Mesh::dim, stencil_size>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -72,9 +71,24 @@ namespace samurai_new
         {
             if (!cells[level].empty())
             {
-                in_boundary(mesh, level, stencil, std::forward<Func>(func));
+                double h = 1./(1<<level);
+                auto coeffs = get_coefficients(h);
+                foreach_interval_on_boundary(mesh, level, stencil, coeffs, std::forward<Func>(func));
             }
         }
+    }
+
+    template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
+    void foreach_cell_on_boundary(const Mesh& mesh, const StencilShape<Mesh::dim, stencil_size>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
+    {
+        samurai_new::foreach_interval_on_boundary(mesh, stencil, get_coefficients,
+        [&] (auto& mesh_interval, auto& stencil_vector, double out_coeff)
+        {
+            samurai_new::for_each_cell(mesh, mesh_interval.level, mesh_interval.i, mesh_interval.index, [&](auto& cell)
+            {
+                func(cell, stencil_vector, out_coeff);
+            });
+        });
     }
 
 

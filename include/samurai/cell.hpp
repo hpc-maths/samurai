@@ -103,6 +103,7 @@ namespace samurai
     template<class Vector>
     inline auto Cell<TCoord_index, dim_>::face_center(const Vector& direction) const -> xt::xtensor_fixed<double, xt::xshape<dim>>
     {
+        assert(abs(xt::sum(direction)(0)) == 1); // We only want a Cartesian unit vector
         return center() + (length/2) * direction;
     }
 

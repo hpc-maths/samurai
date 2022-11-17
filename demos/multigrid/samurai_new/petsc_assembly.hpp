@@ -118,31 +118,17 @@ namespace samurai_new { namespace petsc
             // 2 - The (opposite of the) contribution of the outer ghost is added to the diagonal of stencil center
             auto coeffs = get_coefficients(h);
 
-            in_boundary(mesh, level, stencil,
-            [&] (const auto& mesh_interval, const auto& towards_bdry_ghost)
+            foreach_interval_on_boundary(mesh, level, stencil, coeffs,
+            [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, double out_coeff)
             {
-                // The vector towards_bdry_ghost is searched in the stencil to identify the coefficient associated to the ghost
-                unsigned int out_coeff_index = 0;
-                for (unsigned int is = 0; is<cfg::scheme_stencil_size; ++is)
-                {
-                    auto direction = xt::view(stencil, is);
-                    if (xt::all(xt::eval(xt::equal(direction, towards_bdry_ghost)))) //if (direction == towards_bdry_ghost)
-                    {
-                        out_coeff_index = is;
-                        break;
-                    }
-                }
-                double out_coeff = coeffs[out_coeff_index];
-
-                // The contribution is added to the center of the stencil
                 samurai_new::StencilIndices<PetscInt, dim, 2> in_out_indices(samurai_new::in_out_stencil<dim>(towards_bdry_ghost));
                 samurai_new::for_each_stencil<PetscInt>(mesh, mesh_interval, in_out_indices, 
                 [&] (const std::array<PetscInt, 2>& indices)
                 {
-                    auto& in_cell  = indices[0];
+                    auto& in_cell   = indices[0];
                     auto& out_ghost = indices[1];
-                    MatSetValue(A,   in_cell,    in_cell, -out_coeff, ADD_VALUES);
-                    MatSetValue(A,   in_cell,  out_ghost, -out_coeff, ADD_VALUES); // the coeff of the ghost is removed
+                    MatSetValue(A, in_cell,   in_cell, -out_coeff, ADD_VALUES); // the coeff is added to the center of the stencil
+                    MatSetValue(A, in_cell, out_ghost, -out_coeff, ADD_VALUES); // the coeff of the ghost is removed
                 });
             });
         });
