@@ -41,7 +41,7 @@ namespace samurai_new
     }
 
     template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, StencilIndices<DesiredIndexType, Mesh::dim, stencil_size>& stencil, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, StencilIndices<DesiredIndexType, stencil_size, Mesh::dim>& stencil, Func &&f)
     {
         stencil.init(mesh, mesh_interval);
         f(stencil.indices());
@@ -53,7 +53,7 @@ namespace samurai_new
     }
 
     template <typename DesiredIndexType, class Mesh, class Set, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const Set& set, std::size_t level, StencilIndices<DesiredIndexType, Mesh::dim, stencil_size>& stencil, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const Set& set, std::size_t level, StencilIndices<DesiredIndexType, stencil_size, Mesh::dim>& stencil, Func &&f)
     {
         MeshInterval<Mesh> mesh_interval(level);
         for_each_interval(set[level], [&](std::size_t /*level*/, const auto& i, const auto& index)
@@ -120,7 +120,7 @@ namespace samurai_new
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const StencilShape<Mesh::dim, stencil_size>& stencil_shape, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const StencilShape<stencil_size, Mesh::dim>& stencil_shape, Func &&f)
     {
         StencilCells<Mesh, stencil_size> stencil(stencil_shape);
         for_each_stencil(mesh, mesh_interval, stencil, std::forward<Func>(f));
@@ -146,7 +146,7 @@ namespace samurai_new
 
         for(std::size_t level=min_level; level<max_level; ++level)
         {
-            auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+            auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level],
                                              mesh[mesh_id_t::cells][level+1])
                         .on(level);
             MeshInterval<Mesh> mesh_interval(level);
@@ -227,7 +227,7 @@ namespace samurai_new
 
         for(std::size_t level=min_level; level<max_level; ++level)
         {
-            auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+            auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level],
                                              mesh[mesh_id_t::cells][level+1])
                         .on(level);
 
@@ -254,7 +254,7 @@ namespace samurai_new
 
         for(std::size_t level=min_level+1; level<=max_level; ++level)
         {
-            auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+            auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level],
                                              mesh[mesh_id_t::cells][level-1])
                     .on(level);
 

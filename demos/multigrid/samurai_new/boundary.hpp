@@ -41,7 +41,7 @@ namespace samurai_new
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void foreach_interval_on_boundary(const Mesh& mesh, std::size_t level, const StencilShape<Mesh::dim, stencil_size>& stencil, const std::array<double, stencil_size>& coefficients, Func &&func)
+    inline void foreach_interval_on_boundary(const Mesh& mesh, std::size_t level, const StencilShape<stencil_size, Mesh::dim>& stencil, const std::array<double, stencil_size>& coefficients, Func &&func)
     {
         MeshInterval<Mesh> mesh_interval(level);
         for (unsigned int is = 0; is<stencil_size; ++is)
@@ -62,7 +62,7 @@ namespace samurai_new
     }
 
     template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    void foreach_interval_on_boundary(const Mesh& mesh, const StencilShape<Mesh::dim, stencil_size>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
+    void foreach_interval_on_boundary(const Mesh& mesh, const StencilShape<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -79,7 +79,7 @@ namespace samurai_new
     }
 
     template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    void foreach_cell_on_boundary(const Mesh& mesh, const StencilShape<Mesh::dim, stencil_size>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
+    void foreach_cell_on_boundary(const Mesh& mesh, const StencilShape<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
         samurai_new::foreach_interval_on_boundary(mesh, stencil, get_coefficients,
         [&] (auto& mesh_interval, auto& stencil_vector, double out_coeff)
@@ -102,7 +102,7 @@ namespace samurai_new
 
         MeshInterval<Mesh> mesh_interval(level);
 
-        const StencilShape<dim, n_cart_dir> cart_directions = cartesian_directions<dim>();
+        const StencilShape<n_cart_dir, dim> cart_directions = cartesian_directions<dim>();
 
         for (std::size_t id1 = 0; id1<n_cart_dir; ++id1)
         {

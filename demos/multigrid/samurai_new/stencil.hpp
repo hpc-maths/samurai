@@ -79,12 +79,12 @@ namespace samurai_new
 
 
     // TODO inverser les dimensions
-    template<std::size_t dim, std::size_t stencil_size>
+    template<std::size_t stencil_size, std::size_t dim>
     using StencilShape = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
 
 
-    template<std::size_t dim, std::size_t stencil_size>
-    int find_stencil_origin(const StencilShape<dim, stencil_size>& stencil)
+    template<std::size_t stencil_size, std::size_t dim>
+    int find_stencil_origin(const StencilShape<stencil_size, dim>& stencil)
     {
         for (unsigned int id = 0; id<stencil_size; ++id)
         {
@@ -109,17 +109,17 @@ namespace samurai_new
 
 
 
-    template<typename DesiredIndexType, std::size_t dim, std::size_t stencil_size>
+    template<typename DesiredIndexType, std::size_t stencil_size, std::size_t dim>
     class StencilIndices
     {
     private:
-        const StencilShape<dim, stencil_size> _stencil;
+        const StencilShape<stencil_size, dim> _stencil;
         std::array<DesiredIndexType, stencil_size> _cell_indices;
         std::array<int, stencil_size>  _origin_in_row;
         unsigned int _origin_cell;
 
     public:
-        StencilIndices(const StencilShape<dim, stencil_size>& stencil)
+        StencilIndices(const StencilShape<stencil_size, dim>& stencil)
         : _stencil(stencil)
         {
             int origin_index = find_stencil_origin(stencil);
@@ -183,13 +183,13 @@ namespace samurai_new
         using coord_index_t = typename Mesh::config::interval_t::coord_index_t;
         using Cell = typename samurai::Cell<coord_index_t, dim>;
     private:
-        const StencilShape<dim, stencil_size> _stencil;
+        const StencilShape<stencil_size, dim> _stencil;
         std::array<Cell, stencil_size> _cells;
         std::array<int, stencil_size>  _origin_in_row;
         unsigned int _origin_cell;
 
     public:
-        StencilCells(const StencilShape<dim, stencil_size>& stencil)
+        StencilCells(const StencilShape<stencil_size, dim>& stencil)
         : _stencil(stencil)
         {
             int origin_index = find_stencil_origin(stencil);
@@ -268,7 +268,7 @@ namespace samurai_new
 
 
     template <std::size_t dim>
-    inline StencilShape<dim, 2*dim> cartesian_directions()
+    inline StencilShape<2*dim, dim> cartesian_directions()
     {
         static_assert((dim >= 1 && dim <=3), "cartesian_directions() not implemented in this dimension");
 
@@ -293,18 +293,18 @@ namespace samurai_new
 
 
     template<std::size_t dim, class Vector>
-    samurai_new::StencilShape<dim, 2> out_in_stencil(const Vector& out_normal_vect)
+    samurai_new::StencilShape<2, dim> out_in_stencil(const Vector& out_normal_vect)
     {
-        auto stencil_shape = samurai_new::StencilShape<dim, 2>();
+        auto stencil_shape = samurai_new::StencilShape<2, dim>();
         xt::view(stencil_shape, 0) = 0;
         xt::view(stencil_shape, 1) = -out_normal_vect;
         return stencil_shape;
     }
 
     template<std::size_t dim, class Vector>
-    samurai_new::StencilShape<dim, 2> in_out_stencil(const Vector& out_normal_vect)
+    samurai_new::StencilShape<2, dim> in_out_stencil(const Vector& out_normal_vect)
     {
-        auto stencil_shape = samurai_new::StencilShape<dim, 2>();
+        auto stencil_shape = samurai_new::StencilShape<2, dim>();
         xt::view(stencil_shape, 0) = 0;
         xt::view(stencil_shape, 1) = out_normal_vect;
         return stencil_shape;

@@ -55,7 +55,7 @@ namespace samurai_new { namespace petsc
 
 
     template<class cfg, class Mesh, class GetCoefficientsFunc>
-    void set_coefficients(Mat& A, const Mesh& mesh, const StencilShape<Mesh::dim, cfg::scheme_stencil_size>& stencil, GetCoefficientsFunc &&get_coefficients)
+    void set_coefficients(Mat& A, const Mesh& mesh, const StencilShape<cfg::scheme_stencil_size, Mesh::dim>& stencil, GetCoefficientsFunc &&get_coefficients)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
@@ -64,7 +64,7 @@ namespace samurai_new { namespace petsc
         //   Interior   //
         //--------------//
 
-        StencilIndices<PetscInt, dim, cfg::scheme_stencil_size> stencil_indices(stencil);
+        StencilIndices<PetscInt, cfg::scheme_stencil_size, dim> stencil_indices(stencil);
 
         for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
         {
@@ -121,7 +121,7 @@ namespace samurai_new { namespace petsc
             foreach_interval_on_boundary(mesh, level, stencil, coeffs,
             [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, double out_coeff)
             {
-                samurai_new::StencilIndices<PetscInt, dim, 2> in_out_indices(samurai_new::in_out_stencil<dim>(towards_bdry_ghost));
+                samurai_new::StencilIndices<PetscInt, 2, dim> in_out_indices(samurai_new::in_out_stencil<dim>(towards_bdry_ghost));
                 samurai_new::for_each_stencil<PetscInt>(mesh, mesh_interval, in_out_indices, 
                 [&] (const std::array<PetscInt, 2>& indices)
                 {

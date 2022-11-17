@@ -71,7 +71,7 @@ private:
     /**
      * @return the stencil of the Finite Volume scheme.
     */
-    static inline samurai_new::StencilShape<dim, cfg::scheme_stencil_size> FV_stencil()
+    static inline samurai_new::StencilShape<cfg::scheme_stencil_size, dim> FV_stencil()
     {
         static_assert(dim >= 1 || dim <= 3, "Finite Volume stencil not implemented for this dimension");
 
@@ -93,7 +93,7 @@ private:
             //       left,   center,    right,   front,    back,    bottom,    top
             return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
         }
-        return samurai_new::StencilShape<dim, cfg::scheme_stencil_size>();
+        return samurai_new::StencilShape<cfg::scheme_stencil_size, dim>();
     }
 
     static std::array<double, cfg::scheme_stencil_size> FV_coefficients(double h)
