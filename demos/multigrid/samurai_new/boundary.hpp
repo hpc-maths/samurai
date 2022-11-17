@@ -92,7 +92,7 @@ namespace samurai_new
     }
 
 
-
+    /*
     template <class Mesh, class Func>
     void out_boundary(const Mesh& mesh, std::size_t level, Func &&func)
     {
@@ -196,7 +196,7 @@ namespace samurai_new
                 out_boundary(mesh, level, std::forward<Func>(func));
             }
         }
-    }
+    }*/
 
     /*template <class Mesh, class Func>
     void interior(const Mesh& mesh, std::size_t level, Func &&func)
