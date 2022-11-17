@@ -111,12 +111,13 @@ Mesh create_refined_mesh(std::size_t n)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 1;
+    constexpr std::size_t dim = 2;
     using Config = samurai::amr::Config<dim>;
     using Mesh = samurai::amr::Mesh<Config>;
     //using Config = samurai::MRConfig<dim>;
     //using Mesh = samurai::MRMesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
+    using DiscreteLaplacian = LaplacianFV<Field>;
 
     //------------------//
     // Petsc initialize //
@@ -180,7 +181,7 @@ int main(int argc, char* argv[])
     // Create problem //
     //----------------//
 
-    LaplacianFV<Field> laplacian(mesh);
+    DiscreteLaplacian laplacian(mesh);
 
     Field rhs_field = laplacian.create_rhs(test_case->source(), test_case->source_poly_degree());
     laplacian.enforce_dirichlet_bc(rhs_field, test_case->dirichlet());
@@ -193,7 +194,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    LaplacianSolver<LaplacianFV<Field>> solver(laplacian, mesh);
+    LaplacianSolver<DiscreteLaplacian> solver(laplacian, mesh);
 
     Timer setup_timer, solve_timer, total_timer;
 
