@@ -55,7 +55,7 @@ namespace samurai_new { namespace petsc
 
 
     template<class cfg, class Mesh, class GetCoefficientsFunc>
-    void set_coefficients(Mat& A, const Mesh& mesh, const StencilShape<cfg::scheme_stencil_size, Mesh::dim>& stencil, GetCoefficientsFunc &&get_coefficients)
+    void set_coefficients(Mat& A, const Mesh& mesh, const Stencil<cfg::scheme_stencil_size, Mesh::dim>& stencil, GetCoefficientsFunc &&get_coefficients)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
@@ -68,7 +68,7 @@ namespace samurai_new { namespace petsc
 
         for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
         {
-            std::array<double, cfg::scheme_stencil_size> coeffs = get_coefficients(h);
+            auto coeffs = get_coefficients(h);
 
             for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil_indices,
             [&] (const std::array<PetscInt, cfg::scheme_stencil_size>& indices)
