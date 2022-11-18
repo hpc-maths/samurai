@@ -12,8 +12,8 @@
 #include <samurai/mr/mesh.hpp>
 
 #include "test_cases.hpp"
-#include "LaplacianFV.hpp"
-#include "LaplacianSolver.hpp"
+#include "samurai_new/petsc_diffusion_FV_star_stencil.hpp"
+#include "samurai_new/petsc_diffusion_solver.hpp"
 #include "Timer.hpp"
 #include "samurai_new/utils.cpp"
 
@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
     //using Config = samurai::MRConfig<dim>;
     //using Mesh = samurai::MRMesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
-    using DiscreteDiffusion = LaplacianFV<Field>;
+    using DiscreteDiffusion = samurai_new::petsc::PetscDiffusionFV_StarStencil<Field>;
 
     //------------------//
     // Petsc initialize //
@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    LaplacianSolver<DiscreteDiffusion> solver(diffusion, mesh);
+    samurai_new::petsc::PetscDiffusionSolver<DiscreteDiffusion> solver(diffusion, mesh);
 
     Timer setup_timer, solve_timer, total_timer;
 
