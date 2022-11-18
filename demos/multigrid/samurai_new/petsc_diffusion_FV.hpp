@@ -8,12 +8,12 @@
 namespace samurai_new { namespace petsc
 {
     template<class cfg, class Field>
-    class PetscFV : public PetscAssembly
+    class PetscDiffusionFV : public PetscAssembly
     {
         using Mesh = typename Field::mesh_t;
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
-        using Stencil = samurai_new::Stencil<cfg::scheme_stencil_size, dim>;
+        using Stencil = Stencil<cfg::scheme_stencil_size, dim>;
         using GetCoefficientsFunc = std::function<std::array<double, cfg::scheme_stencil_size>(double)>;
     public:
         using PetscAssembly::assemble_matrix;
@@ -24,7 +24,7 @@ namespace samurai_new { namespace petsc
         Stencil stencil;
         GetCoefficientsFunc get_coefficients;
 
-        PetscFV(Mesh& m, Stencil s, GetCoefficientsFunc get_coeffs) :
+        PetscDiffusionFV(Mesh& m, Stencil s, GetCoefficientsFunc get_coeffs) :
             mesh(m), stencil(s), get_coefficients(get_coeffs)
         {}
 
@@ -50,19 +50,19 @@ namespace samurai_new { namespace petsc
             std::vector<PetscInt> nnz(n, 1);
 
             // Cells
-            samurai_new::for_each_cell<std::size_t>(mesh, mesh[mesh_id_t::cells], [&](std::size_t cell)
+            for_each_cell<std::size_t>(mesh, mesh[mesh_id_t::cells], [&](std::size_t cell)
             {
                 nnz[cell] = cfg::scheme_stencil_size;
             });
 
             // Projection
-            samurai_new::for_each_cell_having_children<std::size_t>(mesh, [&] (std::size_t cell)
+            for_each_cell_having_children<std::size_t>(mesh, [&] (std::size_t cell)
             {
                 nnz[cell] = cfg::proj_stencil_size;
             });
 
             // Prediction
-            samurai_new::for_each_cell_having_parent<std::size_t>(mesh, [&] (std::size_t cell)
+            for_each_cell_having_parent<std::size_t>(mesh, [&] (std::size_t cell)
             {
                 nnz[cell] = cfg::pred_stencil_size;
             });
@@ -131,11 +131,11 @@ namespace samurai_new { namespace petsc
                 // 2 - The (opposite of the) contribution of the outer ghost is added to the diagonal of stencil center
                 auto coeffs = get_coefficients(h);
 
-                foreach_interval_on_boundary(mesh, level, stencil, coeffs,
+                for_each_interval_on_boundary(mesh, level, stencil, coeffs,
                 [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, double out_coeff)
                 {
-                    samurai_new::StencilIndices<PetscInt, 2, dim> in_out_indices(samurai_new::in_out_stencil<dim>(towards_bdry_ghost));
-                    samurai_new::for_each_stencil<PetscInt>(mesh, mesh_interval, in_out_indices, 
+                    StencilIndices<PetscInt, 2, dim> in_out_indices(in_out_stencil<dim>(towards_bdry_ghost));
+                    for_each_stencil<PetscInt>(mesh, mesh_interval, in_out_indices, 
                     [&] (const std::array<PetscInt, 2>& indices)
                     {
                         auto& in_cell   = indices[0];
@@ -158,7 +158,7 @@ namespace samurai_new { namespace petsc
         {
             static constexpr PetscInt number_of_children = (1 << dim);
 
-            samurai_new::for_each_cell_and_children<PetscInt>(mesh, 
+            for_each_cell_and_children<PetscInt>(mesh, 
             [&] (PetscInt cell, const std::array<PetscInt, number_of_children>& children)
             {
                 MatSetValue(A, cell, cell, 1, INSERT_VALUES);
@@ -190,9 +190,9 @@ namespace samurai_new { namespace petsc
         {
             Field field(name, mesh);
             field.fill(0);
-            samurai_new::GaussLegendre gl(poly_degree);
+            GaussLegendre gl(poly_degree);
 
-            samurai::for_each_cell(mesh, [&](const auto& cell)
+            for_each_cell(mesh, [&](const auto& cell)
             {
                 const double& h = cell.length;
                 field[cell] = gl.quadrature(cell, f) / pow(h, dim);
@@ -221,7 +221,7 @@ void assemble_prediction_impl(std::integral_constant<std::size_t, 1>, Mat& A, Me
     auto max_level = mesh[mesh_id_t::cells].max_level();
     for(std::size_t level=min_level+1; level<=max_level; ++level)
     {
-        auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+        auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level],
                                         mesh[mesh_id_t::cells][level-1])
                 .on(level);
 
@@ -261,8 +261,8 @@ void assemble_prediction_impl(std::integral_constant<std::size_t, 2>, Mat& A, Me
     auto max_level = mesh[mesh_id_t::cells].max_level();
     for(std::size_t level=min_level+1; level<=max_level; ++level)
     {
-        auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
-                                         mesh[mesh_id_t::cells][level-1])
+        auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+                                mesh[mesh_id_t::cells][level-1])
                 .on(level);
 
         std::array<double, 3> pred{{1./8, 0, -1./8}};
@@ -316,8 +316,8 @@ void assemble_prediction_impl(std::integral_constant<std::size_t, 3>, Mat& /*A*/
     auto max_level = mesh[mesh_id_t::cells].max_level();
     for(std::size_t level=min_level+1; level<=max_level; ++level)
     {
-        auto set = samurai::intersection(mesh[mesh_id_t::cells_and_ghosts][level],
-                                         mesh[mesh_id_t::cells][level-1])
+        auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level],
+                                mesh[mesh_id_t::cells][level-1])
                 .on(level);
 
         //std::array<double, 3> pred{{1./8, 0, -1./8}};

@@ -41,7 +41,7 @@ namespace samurai_new
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void foreach_interval_on_boundary(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil, const std::array<double, stencil_size>& coefficients, Func &&func)
+    inline void for_each_interval_on_boundary(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil, const std::array<double, stencil_size>& coefficients, Func &&func)
     {
         MeshInterval<Mesh> mesh_interval(level);
         for (unsigned int is = 0; is<stencil_size; ++is)
@@ -62,7 +62,7 @@ namespace samurai_new
     }
 
     template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    void foreach_interval_on_boundary(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
+    void for_each_interval_on_boundary(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -73,15 +73,15 @@ namespace samurai_new
             {
                 double h = 1./(1<<level);
                 auto coeffs = get_coefficients(h);
-                foreach_interval_on_boundary(mesh, level, stencil, coeffs, std::forward<Func>(func));
+                for_each_interval_on_boundary(mesh, level, stencil, coeffs, std::forward<Func>(func));
             }
         }
     }
 
     template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    void foreach_cell_on_boundary(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
+    void for_each_cell_on_boundary(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
-        samurai_new::foreach_interval_on_boundary(mesh, stencil, get_coefficients,
+        samurai_new::for_each_interval_on_boundary(mesh, stencil, get_coefficients,
         [&] (auto& mesh_interval, auto& stencil_vector, double out_coeff)
         {
             samurai_new::for_each_cell(mesh, mesh_interval.level, mesh_interval.i, mesh_interval.index, [&](auto& cell)
