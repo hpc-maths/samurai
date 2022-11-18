@@ -1,14 +1,16 @@
 #pragma once
 #include "petsc_assembly.hpp"
 #include <samurai/algorithm.hpp>
+#include "gauss_legendre.hpp"
 #include "indices.hpp"
 #include "boundary.hpp"
 
 namespace samurai_new { namespace petsc
 {
-    template<class cfg, class Mesh>
+    template<class cfg, class Field>
     class PetscFV : public PetscAssembly
     {
+        using Mesh = typename Field::mesh_t;
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
         using Stencil = samurai_new::Stencil<cfg::scheme_stencil_size, dim>;
@@ -172,6 +174,30 @@ namespace samurai_new { namespace petsc
         void assemble_prediction(Mat& A) override
         {
             assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
+        }
+
+
+    public:
+        /**
+         * @brief Creates a right-hand side in the form of a Field.
+         * @param name Name of the returned Field.
+         * @param f Continuous function (must return double).
+         * @param poly_degree Polynomial degree of the function (use -1 if it is not a polynomial function)
+         * @note Sets homogeneous Dirichlet boundary condition. For non-homogeneous condition, use enforce_dirichlet_bc().
+        */
+        template<class Func>
+        Field discretize(const std::string& name, Func&& f, int poly_degree=-1)
+        {
+            Field field(name, mesh);
+            field.fill(0);
+            samurai_new::GaussLegendre gl(poly_degree);
+
+            samurai::for_each_cell(mesh, [&](const auto& cell)
+            {
+                const double& h = cell.length;
+                field[cell] = gl.quadrature(cell, f) / pow(h, dim);
+            });
+            return field;
         }
     };
 

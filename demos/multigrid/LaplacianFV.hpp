@@ -1,6 +1,5 @@
 #pragma once
 #include "samurai_new/petsc_FV.hpp"
-#include "samurai_new/gauss_legendre.hpp"
 #include "samurai_new/boundary.hpp"
 
 
@@ -52,16 +51,15 @@ using starStencilFV = samurai_new::petsc::PetscAssemblyConfig
  * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
 */
 template<class Field, std::size_t dim=Field::dim, class cfg=starStencilFV<dim>>
-class LaplacianFV : public samurai_new::petsc::PetscFV<cfg, typename Field::mesh_t>
+class LaplacianFV : public samurai_new::petsc::PetscFV<cfg, Field>
 {
 public:
     using field_t = Field;
     using Mesh = typename Field::mesh_t;
     using mesh_id_t = typename Mesh::mesh_id_t;
-    //static constexpr std::size_t dim = Field::dim;
 
     LaplacianFV(Mesh& m) : 
-        samurai_new::petsc::PetscFV<cfg, Mesh>(m, FV_stencil(), FV_coefficients)
+        samurai_new::petsc::PetscFV<cfg, Field>(m, FV_stencil(), FV_coefficients)
     {}
 
 private:
@@ -112,27 +110,6 @@ private:
 
 public:
     /**
-     * @brief Creates a right-hand side in the form of a Field.
-     * @param source_function Source function of the diffusion problem (must return double).
-     * @param source_poly_degree Polynomial degree of the source function (use -1 if it is not a polynomial function)
-     * @note Sets homogeneous Dirichlet boundary condition. For non-homogeneous condition, use enforce_dirichlet_bc().
-    */
-    template<class Func>
-    Field create_rhs(Func&& source_function, int source_poly_degree=-1)
-    {
-        Field rhs("rhs", this->mesh);
-        rhs.fill(0);
-        samurai_new::GaussLegendre gl(source_poly_degree);
-
-        samurai::for_each_cell(this->mesh, [&](const auto& cell)
-        {
-            const double& h = cell.length;
-            rhs[cell] = gl.quadrature(cell, source_function) / pow(h, dim);
-        });
-        return rhs;
-    }
-
-    /**
      * @brief Enforces Dirichlet boundary condition (on the whole boundary).
      * @param rhs_field rhs_field to update (created by create_rhs()).
      * @param dirichlet Dirichlet function: takes coordinates and returns double.
@@ -153,7 +130,6 @@ public:
         });
     }
 
-public:
     /**
      * @brief Creates a coarse object from a coarse mesh and a fine object.
      * @note  This method is used by the multigrid.
