@@ -21,7 +21,7 @@ static char help[] = "Geometric multigrid using the samurai meshes.\n"
             "\n"
             "-------- General\n"
             "\n"
-            "-n <int>                     problem size of the Laplacian problem on the domain [0,1]^d\n"
+            "-n <int>                     problem size of the Poisson problem in the domain [0,1]^d\n"
             "-tc <...>                    test case:\n"
             "                             poly  - The solution is a polynomial function.\n"
             "                                     Homogeneous Dirichlet b.c.\n"
@@ -111,13 +111,13 @@ Mesh create_refined_mesh(std::size_t n)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 1;
+    constexpr std::size_t dim = 2;
     using Config = samurai::amr::Config<dim>;
     using Mesh = samurai::amr::Mesh<Config>;
     //using Config = samurai::MRConfig<dim>;
     //using Mesh = samurai::MRMesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
-    using DiscreteLaplacian = LaplacianFV<Field>;
+    using DiscreteDiffusion = LaplacianFV<Field>;
 
     //------------------//
     // Petsc initialize //
@@ -181,10 +181,10 @@ int main(int argc, char* argv[])
     // Create problem //
     //----------------//
 
-    DiscreteLaplacian laplacian(mesh);
+    DiscreteDiffusion diffusion(mesh);
 
-    Field rhs_field = laplacian.create_rhs(test_case->source(), test_case->source_poly_degree());
-    laplacian.enforce_dirichlet_bc(rhs_field, test_case->dirichlet());
+    Field rhs_field = diffusion.discretize("rhs", test_case->source(), test_case->source_poly_degree());
+    diffusion.enforce_dirichlet_bc(rhs_field, test_case->dirichlet());
 
     Vec b = samurai_new::petsc::create_petsc_vector_from(rhs_field);
     PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    LaplacianSolver<DiscreteLaplacian> solver(laplacian, mesh);
+    LaplacianSolver<DiscreteDiffusion> solver(diffusion, mesh);
 
     Timer setup_timer, solve_timer, total_timer;
 
