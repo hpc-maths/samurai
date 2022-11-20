@@ -232,7 +232,7 @@ namespace samurai
     {
         using coord_index_t = typename interval_t::coord_index_t;
         const auto& lca = this->m_cells[type][level];
-        std::size_t size = interval.size()/interval.step;
+        std::size_t size = interval.size()/static_cast<std::size_t>(interval.step);
         xt::xtensor<bool, 1> out = xt::empty<bool>({size});
         std::size_t iout = 0;
         for(coord_index_t i = interval.start; i < interval.end; i+=interval.step)

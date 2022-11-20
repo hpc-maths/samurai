@@ -1,5 +1,8 @@
-*build
-*xml
-*.vscode
-*.h5
-*.xdmf
+build*
+xml
+.vscode
+.VSCodeCounter
+.h5
+.xdmf
+.DS_Store
+__pycache__
