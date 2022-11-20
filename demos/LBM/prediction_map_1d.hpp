@@ -51,7 +51,6 @@ class prediction_map
 
         prediction_map<index_t>& operator*=(const double d)
         {
-            std::size_t index=0;
             for(auto& c: coeff)
             {
                 c.second *= d;
@@ -72,7 +71,7 @@ class prediction_map
         {
             for(auto &c: coeff)
             {
-                std::cout << "( " << c.first << ", ): " << c.second << "\n";
+                out << "( " << c.first << ", ): " << c.second << "\n";
             }
         }
     // private:

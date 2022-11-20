@@ -3,7 +3,7 @@ find_package(CLI11)
 
 # add_subdirectory(apple EXCLUDE_FROM_ALL)
 add_subdirectory(FiniteVolume)
-# add_subdirectory(LBM)
+add_subdirectory(LBM)
 add_subdirectory(p4est)
 add_subdirectory(pablo)
 add_subdirectory(tutorial)

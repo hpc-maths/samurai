@@ -32,7 +32,8 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
 
         xt::xtensor<double, 2> mask_all = xt::empty<double>(shape_x);
 
-        for (int h_field = 0; h_field < nvel; ++h_field)  {
+        for (std::size_t h_field = 0; h_field < nvel; ++h_field)
+        {
             xt::view(mask_all, xt::all(), h_field) = mask;
         }
 
@@ -55,7 +56,7 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
         // This is to deal with odd/even indices in the x direction
         std::size_t start_even = (k.start & 1) ?     1         :     0        ;
         std::size_t start_odd  = (k.start & 1) ?     0         :     1        ;
-        std::size_t end_even   = (k.end & 1)   ? kg.size()     : kg.size() - 1;
+        // std::size_t end_even   = (k.end & 1)   ? kg.size()     : kg.size() - 1;
         std::size_t end_odd    = (k.end & 1)   ? kg.size() - 1 : kg.size()    ;
 
         xt::view(val, xt::range(start_even, _, 2)) = xt::view(earth + 1./8 * (W - E), xt::range(start_even, _      ));
@@ -63,12 +64,14 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
 
         xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
 
-        for(int k_mask = 0, k_int = k.start; k_int < k.end; ++k_mask, ++k_int)
+        std::size_t k_mask = 0;
+        for(int k_int = k.start; k_int < k.end; ++k_int)
         {
             if (mask[k_mask])
             {
                 xt::view(out, k_mask) = xt::view(f(0, nvel, level_g + level, {k_int, k_int + 1}), 0);
             }
+            ++k_mask;
         }
 
         // It is crucial to use insert and not []
