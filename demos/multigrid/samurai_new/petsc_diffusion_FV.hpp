@@ -1,8 +1,6 @@
 #pragma once
 #include "petsc_assembly.hpp"
-#include <samurai/algorithm.hpp>
 #include "gauss_legendre.hpp"
-#include "indices.hpp"
 #include "boundary.hpp"
 
 namespace samurai_new { namespace petsc
@@ -50,7 +48,7 @@ namespace samurai_new { namespace petsc
             std::vector<PetscInt> nnz(n, 1);
 
             // Cells
-            for_each_cell<std::size_t>(mesh, mesh[mesh_id_t::cells], [&](std::size_t cell)
+            for_each_cell<std::size_t>(mesh, [&](std::size_t cell)
             {
                 nnz[cell] = cfg::scheme_stencil_size;
             });
@@ -77,13 +75,13 @@ namespace samurai_new { namespace petsc
             //   Interior   //
             //--------------//
 
-            StencilIndices<PetscInt, cfg::scheme_stencil_size, dim> stencil_indices(stencil);
+            IteratorStencil_Indices<PetscInt, cfg::scheme_stencil_size, dim> stencil_it(stencil);
 
-            for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
+            for_each_level(mesh, [&](std::size_t level, double h)
             {
                 auto coeffs = get_coefficients(h);
 
-                for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil_indices,
+                for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil_it,
                 [&] (const std::array<PetscInt, cfg::scheme_stencil_size>& indices)
                 {
                     if constexpr(cfg::contiguous_indices_start > 0)
@@ -119,7 +117,7 @@ namespace samurai_new { namespace petsc
             //   Boundary   //
             //--------------//
 
-            for_each_level(mesh[mesh_id_t::cells], [&](std::size_t level, double h)
+            for_each_level(mesh, [&](std::size_t level, double h)
             {
                 // 1 - The boundary ghosts are 'eliminated' from the system, we simply add 1 on the diagonal.
                 auto boundary_ghosts = difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.domain()).on(level);
@@ -134,8 +132,7 @@ namespace samurai_new { namespace petsc
                 for_each_interval_on_boundary(mesh, level, stencil, coeffs,
                 [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, double out_coeff)
                 {
-                    StencilIndices<PetscInt, 2, dim> in_out_indices(in_out_stencil<dim>(towards_bdry_ghost));
-                    for_each_stencil<PetscInt>(mesh, mesh_interval, in_out_indices, 
+                    for_each_stencil<PetscInt>(mesh, mesh_interval, in_out_stencil<dim>(towards_bdry_ghost), 
                     [&] (const std::array<PetscInt, 2>& indices)
                     {
                         auto& in_cell   = indices[0];
