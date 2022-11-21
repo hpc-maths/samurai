@@ -74,38 +74,30 @@ namespace samurai_new { namespace petsc
             //--------------//
             //   Interior   //
             //--------------//
-
-            IteratorStencil_Indices<PetscInt, cfg::scheme_stencil_size, dim> stencil_it(stencil);
-
-            for_each_level(mesh, [&](std::size_t level, double h)
+            
+            for_each_stencil<PetscInt>(mesh, stencil, get_coefficients,
+            [&] (const std::array<PetscInt, cfg::scheme_stencil_size>& indices, const std::array<double, cfg::scheme_stencil_size>& coeffs)
             {
-                auto coeffs = get_coefficients(h);
-
-                for_each_stencil<PetscInt>(mesh, mesh[mesh_id_t::cells], level, stencil_it,
-                [&] (const std::array<PetscInt, cfg::scheme_stencil_size>& indices)
+                if constexpr(cfg::contiguous_indices_start > 0)
                 {
-                    if constexpr(cfg::contiguous_indices_start > 0)
+                    for (unsigned int i=0; i<cfg::contiguous_indices_start; ++i)
                     {
-                        for (unsigned int i=0; i<cfg::contiguous_indices_start; ++i)
-                        {
-                            MatSetValue(A, indices[cfg::center_index], indices[i], coeffs[i], INSERT_VALUES);
-                        }
+                        MatSetValue(A, indices[cfg::center_index], indices[i], coeffs[i], INSERT_VALUES);
                     }
+                }
 
-                    if constexpr(cfg::contiguous_indices_size > 0)
+                if constexpr(cfg::contiguous_indices_size > 0)
+                {
+                    MatSetValues(A, 1, &indices[cfg::center_index], static_cast<PetscInt>(cfg::contiguous_indices_size), &indices[cfg::contiguous_indices_start], &coeffs[cfg::contiguous_indices_start], INSERT_VALUES);
+                }
+
+                if constexpr(cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
+                {
+                    for (unsigned int i=cfg::contiguous_indices_start + cfg::contiguous_indices_size; i<cfg::scheme_stencil_size; ++i)
                     {
-                        MatSetValues(A, 1, &indices[cfg::center_index], static_cast<PetscInt>(cfg::contiguous_indices_size), &indices[cfg::contiguous_indices_start], &coeffs[cfg::contiguous_indices_start], INSERT_VALUES);
+                        MatSetValue(A, indices[cfg::center_index], indices[i], coeffs[i], INSERT_VALUES);
                     }
-
-                    if constexpr(cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
-                    {
-                        for (unsigned int i=cfg::contiguous_indices_start + cfg::contiguous_indices_size; i<cfg::scheme_stencil_size; ++i)
-                        {
-                            MatSetValue(A, indices[cfg::center_index], indices[i], coeffs[i], INSERT_VALUES);
-                        }
-                    }
-                });
-
+                }
             });
 
             // Must flush to use ADD_VALUES instead of INSERT_VALUES

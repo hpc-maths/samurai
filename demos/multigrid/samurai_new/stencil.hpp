@@ -134,6 +134,30 @@ namespace samurai_new
         });
     }
 
+    template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, std::size_t level, IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim>& stencil_it, Func &&f)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        for_each_stencil<DesiredIndexType>(mesh, mesh[mesh_id_t::cells], level, stencil_it, std::forward<Func>(f));
+    }
+
+    template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
+    inline void for_each_stencil(const Mesh& mesh, Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&f)
+    {
+        IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim> stencil_it(stencil);
+
+        for_each_level(mesh, [&](std::size_t level, double h)
+        {
+            auto coeffs = get_coefficients(h);
+
+            for_each_stencil<DesiredIndexType>(mesh, level, stencil_it,
+            [&] (const std::array<DesiredIndexType, stencil_size>& indices)
+            {
+                f(indices, coeffs);
+            });
+        });
+    }
+
     
 
 
