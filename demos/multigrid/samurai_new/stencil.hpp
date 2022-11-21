@@ -1,84 +1,8 @@
 #pragma once
-#include <xtensor/xfixed.hpp>
+#include "indices.hpp"
 
 namespace samurai_new
 {
-    /**
-     * Stores the triplet (level, i, index)
-    */
-    template<class Mesh>
-    struct MeshInterval
-    {
-        using interval_t = typename Mesh::interval_t;
-        using coord_type = typename Mesh::lca_type::iterator::coord_type;
-
-        std::size_t level;
-        interval_t i;
-        coord_type index;
-        double cell_length;
-
-        MeshInterval(std::size_t l) 
-        : level(l) 
-        {
-            cell_length = 1./(1 << level);
-        }
-
-        MeshInterval(std::size_t l, const interval_t& _i, const coord_type& _index) 
-        : level(l) , i(_i), index(_index)
-        {
-            cell_length = 1./(1 << level);
-        }
-    };
-
-
-    template <class Mesh>
-    inline auto get_index_start(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval)
-    {
-        static constexpr std::size_t dim = Mesh::dim;
-        using coord_index_t = typename Mesh::coord_index_t;
-
-        std::array<coord_index_t, dim> coord;
-        std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin()+1);
-        coord[0] = mesh_interval.i.start;
-        return mesh.get_index(mesh_interval.level, coord);
-    }
-
-    template <class Mesh, class Vector>
-    inline auto get_index_start_translated(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const Vector& translation_vect)
-    {
-        static constexpr std::size_t dim = Mesh::dim;
-        using coord_index_t = typename Mesh::coord_index_t;
-
-        std::array<coord_index_t, dim> coord;
-        std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin()+1);
-        coord[0] = mesh_interval.i.start;
-        for (std::size_t d=0; d<dim; ++d)
-        {
-            coord[d] += translation_vect[d];
-        }
-        return mesh.get_index(mesh_interval.level, coord);
-    }
-
-    template <class Mesh, class Vector>
-    inline auto get_index_start_children(const Mesh& mesh, MeshInterval<Mesh>& mesh_interval, const Vector& translation_vect)
-    {
-        static constexpr std::size_t dim = Mesh::dim;
-        using coord_index_t = typename Mesh::coord_index_t;
-
-        std::array<coord_index_t, dim> coord;
-        std::copy(mesh_interval.index.cbegin(), mesh_interval.index.cend(), coord.begin()+1);
-        coord[0] = mesh_interval.i.start;
-        for (std::size_t d=0; d<dim; ++d)
-        {
-            coord[d] = 2*coord[d] + translation_vect[d];
-        }
-
-        return mesh.get_index(mesh_interval.level+1, coord);
-    }
-
-
-
-    // TODO inverser les dimensions
     template<std::size_t stencil_size, std::size_t dim>
     using Stencil = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
 
@@ -110,7 +34,7 @@ namespace samurai_new
 
 
     template<typename DesiredIndexType, std::size_t stencil_size, std::size_t dim>
-    class StencilIndices
+    class IteratorStencil_Indices
     {
     private:
         const Stencil<stencil_size, dim> _stencil;
@@ -119,7 +43,7 @@ namespace samurai_new
         unsigned int _origin_cell;
 
     public:
-        StencilIndices(const Stencil<stencil_size, dim>& stencil)
+        IteratorStencil_Indices(const Stencil<stencil_size, dim>& stencil)
         : _stencil(stencil)
         {
             int origin_index = find_stencil_origin(stencil);
@@ -176,8 +100,46 @@ namespace samurai_new
 
 
 
+
+    
+
+    template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim>& stencil_it, Func &&f)
+    {
+        stencil_it.init(mesh, mesh_interval);
+        f(stencil_it.indices());
+        for(DesiredIndexType ii=1; ii<static_cast<DesiredIndexType>(mesh_interval.i.size()); ++ii)
+        {
+            stencil_it.move_next();
+            f(stencil_it.indices());
+        }
+    }
+    
+    template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&f)
+    {
+        IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim> stencil_it(stencil);
+        for_each_stencil(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+    }
+
+    template <typename DesiredIndexType, class Mesh, class Set, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const Set& set, std::size_t level, IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim>& stencil_it, Func &&f)
+    {
+        MeshInterval<Mesh> mesh_interval(level);
+        for_each_interval(set[level], [&](std::size_t /*level*/, const auto& i, const auto& index)
+        {
+            mesh_interval.i = i;
+            mesh_interval.index = index;
+            for_each_stencil<DesiredIndexType>(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+        });
+    }
+
+    
+
+
+
     template<class Mesh, std::size_t stencil_size>
-    class StencilCells
+    class IteratorStencil_Cells
     {
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::config::interval_t::coord_index_t;
@@ -189,7 +151,7 @@ namespace samurai_new
         unsigned int _origin_cell;
 
     public:
-        StencilCells(const Stencil<stencil_size, dim>& stencil)
+        IteratorStencil_Cells(const Stencil<stencil_size, dim>& stencil)
         : _stencil(stencil)
         {
             int origin_index = find_stencil_origin(stencil);
@@ -264,6 +226,25 @@ namespace samurai_new
             return _cells;
         }
     };
+
+    template <class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, IteratorStencil_Cells<Mesh, stencil_size>& stencil, Func &&f)
+    {
+        stencil.init(mesh, mesh_interval);
+        f(stencil.cells());
+        for(std::size_t ii=1; ii<mesh_interval.i.size(); ++ii)
+        {
+            stencil.move_next();
+            f(stencil.cells());
+        }
+    }
+
+    template <class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil_shape, Func &&f)
+    {
+        IteratorStencil_Cells<Mesh, stencil_size> stencil(stencil_shape);
+        for_each_stencil(mesh, mesh_interval, stencil, std::forward<Func>(f));
+    }
 
 
 

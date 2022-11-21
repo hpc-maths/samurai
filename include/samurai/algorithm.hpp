@@ -48,6 +48,13 @@ namespace samurai
         }
     }
 
+    template <class Mesh, class Func>
+    inline void for_each_level(Mesh& mesh, Func&& f)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        for_each_level(mesh[mesh_id_t::cells], std::forward<Func>(f));
+    }
+
 
     //////////////////////////////////////
     // for_each_interval implementation //

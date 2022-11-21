@@ -1,5 +1,4 @@
 #pragma once
-#include <samurai/algorithm.hpp>
 #include <utility>
 #include "stencil.hpp"
 
