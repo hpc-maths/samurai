@@ -6,7 +6,7 @@
 namespace samurai { namespace petsc
 {
     template<class cfg, class Field>
-    class PetscDiffusionFV : public PetscAssembly
+    class PetscCellBasedSchemeAssembly : public PetscAssembly
     {
         using Mesh = typename Field::mesh_t;
         using mesh_id_t = typename Mesh::mesh_id_t;
@@ -22,7 +22,7 @@ namespace samurai { namespace petsc
         Stencil stencil;
         GetCoefficientsFunc get_coefficients;
 
-        PetscDiffusionFV(Mesh& m, Stencil s, GetCoefficientsFunc get_coeffs) :
+        PetscCellBasedSchemeAssembly(Mesh& m, Stencil s, GetCoefficientsFunc get_coeffs) :
             mesh(m), stencil(s), get_coefficients(get_coeffs)
         {}
 
@@ -30,13 +30,6 @@ namespace samurai { namespace petsc
         PetscInt matrix_size() override
         {
             return static_cast<PetscInt>(mesh.nb_cells());
-        }
-
-
-        bool matrix_is_spd() override
-        {
-            // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
-            return mesh.min_level() == mesh.max_level();
         }
 
 

@@ -1,5 +1,5 @@
 #pragma once
-#include "petsc_diffusion_FV.hpp"
+#include "petsc_cell_based_scheme_assembly.hpp"
 
 
 // constexpr power function
@@ -50,20 +50,25 @@ namespace samurai { namespace petsc
      * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
     */
     template<class Field, std::size_t dim=Field::dim, class cfg=starStencilFV<dim>>
-    class PetscDiffusionFV_StarStencil : public PetscDiffusionFV<cfg, Field>
+    class PetscDiffusionFV_StarStencil : public PetscCellBasedSchemeAssembly<cfg, Field>
     {
     public:
         using field_t = Field;
         using Mesh = typename Field::mesh_t;
         using mesh_id_t = typename Mesh::mesh_id_t;
+        using Stencil = Stencil<cfg::scheme_stencil_size, dim>;
 
         PetscDiffusionFV_StarStencil(Mesh& m) : 
-            PetscDiffusionFV<cfg, Field>(m, FV_stencil(), FV_coefficients)
+            PetscCellBasedSchemeAssembly<cfg, Field>(m, FV_stencil(), FV_coefficients)
         {}
 
     private:
 
-        using Stencil = samurai::Stencil<cfg::scheme_stencil_size, dim>;
+        bool matrix_is_spd() override
+        {
+            // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
+            return this->mesh.min_level() == this->mesh.max_level();
+        }
 
 
         /**
