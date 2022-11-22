@@ -1,7 +1,7 @@
 #pragma once
 #include <petsc.h>
 
-namespace samurai_new { namespace petsc
+namespace samurai { namespace petsc
 {
     template<class Field>
     Vec create_petsc_vector_from(Field& f)

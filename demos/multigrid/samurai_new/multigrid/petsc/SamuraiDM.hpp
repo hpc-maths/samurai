@@ -1,6 +1,6 @@
 #pragma once
 #include "intergrid_operators.hpp"
-#include "utils.hpp"
+#include <samurai/petsc/utils.hpp>
 
 namespace samurai_new
 {
@@ -142,9 +142,9 @@ namespace samurai_new
                 if (coarse_ctx->transfer_ops == TransferOperators::MatrixFree_Fields)
                 {
                     Field coarse_field("coarse_field", coarse_ctx->mesh());
-                    copy(x, coarse_field);
+                    samurai::petsc::copy(x, coarse_field);
                     Field fine_field = multigrid::prolong(coarse_field, fine_ctx->mesh(), coarse_ctx->prediction_order);
-                    copy(fine_field, y);
+                    samurai::petsc::copy(fine_field, y);
 
                     // std::cout << "prolongated vector (marche):" << std::endl;
                     // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
@@ -190,7 +190,7 @@ namespace samurai_new
                 // VecNorm(y, NORM_2, &norm);
                 // std::cout << "prolongated vector norm:" << norm << std::endl;
 
-                assert(check_nan_or_inf(y) && "Nan or Inf after prolongation");
+                assert(samurai::petsc::check_nan_or_inf(y) && "Nan or Inf after prolongation");
                 return 0;
             }
 
@@ -250,9 +250,9 @@ namespace samurai_new
                 if (coarse_ctx->transfer_ops == TransferOperators::MatrixFree_Fields)
                 {
                     Field fine_field("fine_field", fine_ctx->mesh());
-                    copy(x, fine_field);
+                    samurai::petsc::copy(x, fine_field);
                     Field coarse_field = multigrid::restrict(fine_field, coarse_ctx->mesh());
-                    copy(coarse_field, y);
+                    samurai::petsc::copy(coarse_field, y);
                 }
                 else
                 {
@@ -271,7 +271,7 @@ namespace samurai_new
                 // VecNorm(y, NORM_2, &norm);
                 // std::cout << "restricted vector norm:" << norm << std::endl;
                 
-                assert(check_nan_or_inf(y) && "Nan or Inf after restriction");
+                assert(samurai::petsc::check_nan_or_inf(y) && "Nan or Inf after restriction");
                 return 0;
             }
 

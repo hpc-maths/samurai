@@ -93,7 +93,7 @@ namespace samurai_new { namespace petsc
             std::cout << std::endl;
             //VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
-            copy(x, x_field);
+            samurai::petsc::copy(x, x_field);
             VecDestroy(&x);
         }
     };
