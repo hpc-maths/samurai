@@ -54,6 +54,8 @@ namespace samurai
         using ca_type = CellArray<dim, interval_t, max_refinement_level>;
         using lca_type = typename ca_type::lca_type;
 
+        using mesh_interval_t = typename ca_type::lca_type::mesh_interval_t;
+
         using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
 
         Mesh_base(const Mesh_base&) = default;

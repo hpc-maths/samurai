@@ -1,9 +1,9 @@
 #pragma once
 #include "petsc_assembly.hpp"
-#include "gauss_legendre.hpp"
-#include "boundary.hpp"
+#include "../numeric/gauss_legendre.hpp"
+#include "../boundary.hpp"
 
-namespace samurai_new { namespace petsc
+namespace samurai { namespace petsc
 {
     template<class cfg, class Field>
     class PetscDiffusionFV : public PetscAssembly
@@ -48,7 +48,7 @@ namespace samurai_new { namespace petsc
             std::vector<PetscInt> nnz(n, 1);
 
             // Cells
-            for_each_cell<std::size_t>(mesh, [&](std::size_t cell)
+            for_each_cell_index<std::size_t>(mesh, [&](std::size_t cell)
             {
                 nnz[cell] = cfg::scheme_stencil_size;
             });
@@ -74,7 +74,7 @@ namespace samurai_new { namespace petsc
             //--------------//
             //   Interior   //
             //--------------//
-            
+
             for_each_stencil<PetscInt>(mesh, stencil, get_coefficients,
             [&] (const std::array<PetscInt, cfg::scheme_stencil_size>& indices, const std::array<double, cfg::scheme_stencil_size>& coeffs)
             {
@@ -113,7 +113,7 @@ namespace samurai_new { namespace petsc
             {
                 // 1 - The boundary ghosts are 'eliminated' from the system, we simply add 1 on the diagonal.
                 auto boundary_ghosts = difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.domain()).on(level);
-                for_each_cell<PetscInt>(mesh, level, boundary_ghosts, [&](PetscInt ghost)
+                for_each_cell_index<PetscInt>(mesh, level, boundary_ghosts, [&](PetscInt ghost)
                 {
                     MatSetValue(A, ghost, ghost, 1, ADD_VALUES);
                 });

@@ -5,9 +5,9 @@
 #pragma once
 
 #include <type_traits>
-#include <xtensor/xfixed.hpp>
 
 #include "cell.hpp"
+#include "mesh_interval.hpp"
 
 namespace samurai
 {
@@ -101,6 +101,41 @@ namespace samurai
             }
         }
     }
+
+
+    //////////////////////////////////////////
+    // for_each_meshinterval implementation //
+    //////////////////////////////////////////
+
+
+
+    template <std::size_t dim, class TInterval, class Func>
+    inline void for_each_meshinterval(const LevelCellArray<dim, TInterval>& lca, Func&& f)
+    {
+        using MeshInterval = typename LevelCellArray<dim, TInterval>::mesh_interval_t;
+
+        for(auto it = lca.cbegin(); it != lca.cend(); ++it)
+        {
+            f(MeshInterval(lca.level(), *it, it.index()));
+        }
+    }
+
+    template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
+    inline void for_each_meshinterval(const CellArray<dim, TInterval, max_size>& ca, Func&& f)//std::function<void(const MeshInterval<dim, TInterval>&)> f)//std::function<void(const TMeshInterval&)> f)//, 
+    {
+        //using MeshInterval = typename CellArray<dim, TInterval>::lca_type::mesh_interval_t;
+        
+        for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
+        {
+            if (!ca[level].empty())
+            {
+                for_each_meshinterval(ca[level], std::forward<Func>(f));
+            }
+        }
+    }
+
+
+
 
     //////////////////////////////////
     // for_each_cell implementation //
