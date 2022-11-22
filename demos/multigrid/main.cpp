@@ -234,30 +234,9 @@ int main(int argc, char* argv[])
 
     if (test_case->solution_is_known())
     {
-        auto exact_solution = test_case->solution();
-
-        samurai::GaussLegendre gl(test_case->solution_poly_degree());
-        double error_norm = 0;
-        double solution_norm = 0;
-        samurai::for_each_cell(mesh, [&](const auto& cell)
-        {
-            error_norm += gl.quadrature(cell, [&](const auto& point)
-            {
-                return pow(exact_solution(point) - sol(cell.index), 2);
-            });
-
-            solution_norm += gl.quadrature(cell, [&](const auto& point)
-            {
-                return pow(exact_solution(point), 2);
-            });
-        });
-
-        error_norm = sqrt(error_norm);
-        solution_norm = sqrt(solution_norm);
-        double relative_error = error_norm/solution_norm;
-
+        double error = DiscreteDiffusion::L2Error(sol, test_case->solution(), test_case->solution_poly_degree());
         std::cout.precision(2);
-        std::cout << "L2-error: " << std::scientific << relative_error << std::endl;
+        std::cout << "L2-error: " << std::scientific << error << std::endl;
     }
 
     // Save solution

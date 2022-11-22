@@ -168,6 +168,31 @@ namespace samurai { namespace petsc
             });
             return field;
         }
+
+        template<class Func>
+        static double L2Error(const Field& approximate, Func&& exact, int exact_polynomial_degree)
+        {
+            GaussLegendre gl(exact_polynomial_degree);
+            double error_norm = 0;
+            double solution_norm = 0;
+            for_each_cell(approximate.mesh(), [&](const auto& cell)
+            {
+                error_norm += gl.quadrature(cell, [&](const auto& point)
+                {
+                    return pow(exact(point) - approximate(cell.index), 2);
+                });
+
+                solution_norm += gl.quadrature(cell, [&](const auto& point)
+                {
+                    return pow(exact(point), 2);
+                });
+            });
+
+            error_norm = sqrt(error_norm);
+            solution_norm = sqrt(solution_norm);
+            double relative_error = error_norm/solution_norm;
+            return relative_error;
+        }
     };
 
 }} // end namespace
