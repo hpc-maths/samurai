@@ -266,4 +266,15 @@ namespace samurai
             });
         }
     }
+
+    template <typename DesiredIndexType, class Mesh, class Func>
+    inline void for_each_outside_ghost_index(const Mesh& mesh, Func &&f)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        for_each_level(mesh, [&](std::size_t level, double)
+        {
+            auto boundary_ghosts = difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.domain()).on(level);
+            for_each_cell_index<DesiredIndexType>(mesh, level, boundary_ghosts, std::forward<Func>(f));
+        });
+    }
 }

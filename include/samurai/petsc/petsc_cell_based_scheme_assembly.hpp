@@ -15,15 +15,13 @@ namespace samurai { namespace petsc
         using GetCoefficientsFunc = std::function<std::array<double, cfg::scheme_stencil_size>(double)>;
     public:
         using PetscAssembly::assemble_matrix;
-
-
-    public:
         Mesh& mesh;
-        Stencil stencil;
-        GetCoefficientsFunc get_coefficients;
-
+    private:
+        Stencil _stencil;
+        GetCoefficientsFunc _get_coefficients;
+    public:
         PetscCellBasedSchemeAssembly(Mesh& m, Stencil s, GetCoefficientsFunc get_coeffs) :
-            mesh(m), stencil(s), get_coefficients(get_coeffs)
+            mesh(m), _stencil(s), _get_coefficients(get_coeffs)
         {}
 
     private:
@@ -68,7 +66,7 @@ namespace samurai { namespace petsc
             //   Interior   //
             //--------------//
 
-            for_each_stencil<PetscInt>(mesh, stencil, get_coefficients,
+            for_each_stencil<PetscInt>(mesh, _stencil, _get_coefficients,
             [&] (const std::array<PetscInt, cfg::scheme_stencil_size>& indices, const std::array<double, cfg::scheme_stencil_size>& coeffs)
             {
                 if constexpr(cfg::contiguous_indices_start > 0)
@@ -102,30 +100,19 @@ namespace samurai { namespace petsc
             //   Boundary   //
             //--------------//
 
-            for_each_level(mesh, [&](std::size_t level, double h)
+            // 1 - The outside ghosts are 'eliminated' from the system, we simply add 1 on the diagonal.
+            for_each_outside_ghost_index<PetscInt>(mesh, [&](PetscInt ghost)
             {
-                // 1 - The boundary ghosts are 'eliminated' from the system, we simply add 1 on the diagonal.
-                auto boundary_ghosts = difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.domain()).on(level);
-                for_each_cell_index<PetscInt>(mesh, level, boundary_ghosts, [&](PetscInt ghost)
-                {
-                    MatSetValue(A, ghost, ghost, 1, ADD_VALUES);
-                });
+                MatSetValue(A, ghost, ghost, 1, ADD_VALUES);
+            });
 
-                // 2 - The (opposite of the) contribution of the outer ghost is added to the diagonal of stencil center
-                auto coeffs = get_coefficients(h);
-
-                for_each_interval_on_boundary(mesh, level, stencil, coeffs,
-                [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, double out_coeff)
-                {
-                    for_each_stencil<PetscInt>(mesh, mesh_interval, in_out_stencil<dim>(towards_bdry_ghost), 
-                    [&] (const std::array<PetscInt, 2>& indices)
-                    {
-                        auto& in_cell   = indices[0];
-                        auto& out_ghost = indices[1];
-                        MatSetValue(A, in_cell,   in_cell, -out_coeff, ADD_VALUES); // the coeff is added to the center of the stencil
-                        MatSetValue(A, in_cell, out_ghost, -out_coeff, ADD_VALUES); // the coeff of the ghost is removed
-                    });
-                });
+            // 2 - The (opposite of the) contribution of the outer ghost is added to the diagonal of stencil center
+            for_each_stencil_center_and_outside_ghost<PetscInt>(mesh, _stencil, _get_coefficients, [&] (const std::array<PetscInt, 2>& indices, const auto&, double ghost_coeff)
+            {
+                auto& cell  = indices[0];
+                auto& ghost = indices[1];
+                MatSetValue(A, cell,  cell, -ghost_coeff, ADD_VALUES); // the coeff is added to the center of the stencil
+                MatSetValue(A, cell, ghost, -ghost_coeff, ADD_VALUES); // the coeff of the ghost is removed
             });
 
 

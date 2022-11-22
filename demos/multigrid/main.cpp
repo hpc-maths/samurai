@@ -186,7 +186,7 @@ int main(int argc, char* argv[])
     Field rhs_field = diffusion.discretize("rhs", test_case->source(), test_case->source_poly_degree());
     diffusion.enforce_dirichlet_bc(rhs_field, test_case->dirichlet());
 
-    Vec b = samurai_new::petsc::create_petsc_vector_from(rhs_field);
+    Vec b = samurai::petsc::create_petsc_vector_from(rhs_field);
     PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
     //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
