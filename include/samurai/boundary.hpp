@@ -88,6 +88,24 @@ namespace samurai
         });
     }
 
+    template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
+    void for_each_stencil_center_and_outside_ghost(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
+    {
+        for_each_level(mesh, [&](std::size_t level, double h)
+        {
+            auto coeffs = get_coefficients(h);
+
+            for_each_interval_on_boundary(mesh, level, stencil, coeffs,
+            [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, double out_coeff)
+            {
+                for_each_stencil<DesiredIndexType>(mesh, mesh_interval, in_out_stencil<Mesh::dim>(towards_bdry_ghost), 
+                [&] (const std::array<DesiredIndexType, 2>& indices)
+                {
+                    func(indices, towards_bdry_ghost, out_coeff);
+                });
+            });
+        });
+    }
 
     /*
     template <class Mesh, class Func>
