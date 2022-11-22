@@ -2,11 +2,9 @@
 #include <utility>
 #include "stencil.hpp"
 
-using namespace samurai;
-
-namespace samurai_new
+namespace samurai
 {
-    template<class Vector>
+    /*template<class Vector>
     inline unsigned int number_of_zeros(const Vector& v)
     {
         unsigned int n_zeros = 0;
@@ -23,7 +21,7 @@ namespace samurai_new
         std::size_t dim = v.shape()[0];
         auto n_zeros = number_of_zeros(v);
         return (dim == 0 || n_zeros == dim-1);
-    }
+    }*/
 
     template <class Mesh, class Vector>
     auto in_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
@@ -42,7 +40,7 @@ namespace samurai_new
     template <class Mesh, std::size_t stencil_size, class Func>
     inline void for_each_interval_on_boundary(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil, const std::array<double, stencil_size>& coefficients, Func &&func)
     {
-        MeshInterval<Mesh> mesh_interval(level);
+        typename Mesh::mesh_interval_t mesh_interval(level);
         for (unsigned int is = 0; is<stencil_size; ++is)
         {
             auto direction = xt::view(stencil, is);
@@ -80,10 +78,10 @@ namespace samurai_new
     template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_cell_on_boundary(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
-        samurai_new::for_each_interval_on_boundary(mesh, stencil, get_coefficients,
+        for_each_interval_on_boundary(mesh, stencil, get_coefficients,
         [&] (auto& mesh_interval, auto& stencil_vector, double out_coeff)
         {
-            samurai_new::for_each_cell(mesh, mesh_interval.level, mesh_interval.i, mesh_interval.index, [&](auto& cell)
+            for_each_cell(mesh, mesh_interval.level, mesh_interval.i, mesh_interval.index, [&](auto& cell)
             {
                 func(cell, stencil_vector, out_coeff);
             });

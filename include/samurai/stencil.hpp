@@ -1,7 +1,7 @@
 #pragma once
 #include "indices.hpp"
 
-namespace samurai_new
+namespace samurai
 {
     template<std::size_t stencil_size, std::size_t dim>
     using Stencil = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
@@ -52,7 +52,7 @@ namespace samurai_new
         }
 
         template<class Mesh>
-        void init(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval)
+        void init(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval)
         {
             _cell_indices[_origin_cell] = static_cast<DesiredIndexType>(get_index_start(mesh, mesh_interval)); // origin of the stencil
             for (unsigned int id = 0; id<stencil_size; ++id)
@@ -104,7 +104,7 @@ namespace samurai_new
     
 
     template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim>& stencil_it, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim>& stencil_it, Func &&f)
     {
         stencil_it.init(mesh, mesh_interval);
         f(stencil_it.indices());
@@ -116,7 +116,7 @@ namespace samurai_new
     }
     
     template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&f)
     {
         IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim> stencil_it(stencil);
         for_each_stencil(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
@@ -125,7 +125,7 @@ namespace samurai_new
     template <typename DesiredIndexType, class Mesh, class Set, std::size_t stencil_size, class Func>
     inline void for_each_stencil(const Mesh& mesh, const Set& set, std::size_t level, IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim>& stencil_it, Func &&f)
     {
-        MeshInterval<Mesh> mesh_interval(level);
+        typename Mesh::mesh_interval_t mesh_interval(level);
         for_each_interval(set[level], [&](std::size_t /*level*/, const auto& i, const auto& index)
         {
             mesh_interval.i = i;
@@ -183,7 +183,7 @@ namespace samurai_new
             _origin_cell = static_cast<unsigned int>(origin_index);
         }
 
-        void init(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval)
+        void init(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval)
         {
             double length = 1./(1 << mesh_interval.level);
             for (Cell& cell : _cells)
@@ -252,7 +252,7 @@ namespace samurai_new
     };
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, IteratorStencil_Cells<Mesh, stencil_size>& stencil, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, IteratorStencil_Cells<Mesh, stencil_size>& stencil, Func &&f)
     {
         stencil.init(mesh, mesh_interval);
         f(stencil.cells());
@@ -264,7 +264,7 @@ namespace samurai_new
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil_shape, Func &&f)
+    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil_shape, Func &&f)
     {
         IteratorStencil_Cells<Mesh, stencil_size> stencil(stencil_shape);
         for_each_stencil(mesh, mesh_interval, stencil, std::forward<Func>(f));
@@ -298,18 +298,18 @@ namespace samurai_new
 
 
     template<std::size_t dim, class Vector>
-    samurai_new::Stencil<2, dim> out_in_stencil(const Vector& out_normal_vect)
+    Stencil<2, dim> out_in_stencil(const Vector& out_normal_vect)
     {
-        auto stencil_shape = samurai_new::Stencil<2, dim>();
+        auto stencil_shape = Stencil<2, dim>();
         xt::view(stencil_shape, 0) = 0;
         xt::view(stencil_shape, 1) = -out_normal_vect;
         return stencil_shape;
     }
 
     template<std::size_t dim, class Vector>
-    samurai_new::Stencil<2, dim> in_out_stencil(const Vector& out_normal_vect)
+    Stencil<2, dim> in_out_stencil(const Vector& out_normal_vect)
     {
-        auto stencil_shape = samurai_new::Stencil<2, dim>();
+        auto stencil_shape = Stencil<2, dim>();
         xt::view(stencil_shape, 0) = 0;
         xt::view(stencil_shape, 1) = out_normal_vect;
         return stencil_shape;

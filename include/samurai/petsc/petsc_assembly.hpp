@@ -1,7 +1,7 @@
 #pragma once
 #include <petsc.h>
 
-namespace samurai_new { namespace petsc
+namespace samurai { namespace petsc
 {
     class PetscAssembly
     {

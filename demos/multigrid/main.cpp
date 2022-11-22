@@ -10,10 +10,10 @@
 #include <samurai/subset/subset_op.hpp>
 #include <samurai/amr/mesh.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/petsc/petsc_diffusion_FV_star_stencil.hpp>
+#include "samurai_new/petsc_diffusion_solver.hpp"
 
 #include "test_cases.hpp"
-#include "samurai_new/petsc_diffusion_FV_star_stencil.hpp"
-#include "samurai_new/petsc_diffusion_solver.hpp"
 #include "Timer.hpp"
 #include "samurai_new/utils.cpp"
 
@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
     //using Config = samurai::MRConfig<dim>;
     //using Mesh = samurai::MRMesh<Config>;
     using Field = samurai::Field<Mesh, double, 1>;
-    using DiscreteDiffusion = samurai_new::petsc::PetscDiffusionFV_StarStencil<Field>;
+    using DiscreteDiffusion = samurai::petsc::PetscDiffusionFV_StarStencil<Field>;
 
     //------------------//
     // Petsc initialize //
@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
     {
         auto exact_solution = test_case->solution();
 
-        samurai_new::GaussLegendre gl(test_case->solution_poly_degree());
+        samurai::GaussLegendre gl(test_case->solution_poly_degree());
         double error_norm = 0;
         double solution_norm = 0;
         samurai::for_each_cell(mesh, [&](const auto& cell)

@@ -1,6 +1,5 @@
 #pragma once
 #include "petsc_diffusion_FV.hpp"
-#include "boundary.hpp"
 
 
 // constexpr power function
@@ -10,7 +9,7 @@ constexpr T ce_pow(T num, unsigned int pow)
     return pow == 0 ? 1 : num * ce_pow(num, pow-1);
 }
 
-namespace samurai_new { namespace petsc
+namespace samurai { namespace petsc
 {
     /**
      * Set useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
@@ -64,7 +63,7 @@ namespace samurai_new { namespace petsc
 
     private:
 
-        using Stencil = Stencil<cfg::scheme_stencil_size, dim>;
+        using Stencil = samurai::Stencil<cfg::scheme_stencil_size, dim>;
 
 
         /**

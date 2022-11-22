@@ -1,7 +1,7 @@
 #pragma once
-#include <samurai/cell.hpp>
+#include "../cell.hpp"
 
-namespace samurai_new 
+namespace samurai
 {
     class GaussLegendre
     {

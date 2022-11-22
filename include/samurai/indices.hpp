@@ -1,39 +1,10 @@
 #pragma once
-#include <samurai/algorithm.hpp>
+#include "algorithm.hpp"
 
-using namespace samurai;
-
-namespace samurai_new
+namespace samurai
 {
-    /**
-     * Stores the triplet (level, i, index)
-    */
-    template<class Mesh>
-    struct MeshInterval
-    {
-        using interval_t = typename Mesh::interval_t;
-        using coord_type = typename Mesh::lca_type::iterator::coord_type;
-
-        std::size_t level;
-        interval_t i;
-        coord_type index;
-        double cell_length;
-
-        MeshInterval(std::size_t l) 
-        : level(l) 
-        {
-            cell_length = 1./(1 << level);
-        }
-
-        MeshInterval(std::size_t l, const interval_t& _i, const coord_type& _index) 
-        : level(l) , i(_i), index(_index)
-        {
-            cell_length = 1./(1 << level);
-        }
-    };
-
     template <class Mesh>
-    inline auto get_index_start(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval)
+    inline auto get_index_start(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::coord_index_t;
@@ -45,7 +16,7 @@ namespace samurai_new
     }
 
     template <class Mesh, class Vector>
-    inline auto get_index_start_translated(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, const Vector& translation_vect)
+    inline auto get_index_start_translated(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Vector& translation_vect)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::coord_index_t;
@@ -61,7 +32,7 @@ namespace samurai_new
     }
 
     template <class Mesh, class Vector>
-    inline auto get_index_start_children(const Mesh& mesh, MeshInterval<Mesh>& mesh_interval, const Vector& translation_vect)
+    inline auto get_index_start_children(const Mesh& mesh, typename Mesh::mesh_interval_t& mesh_interval, const Vector& translation_vect)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::coord_index_t;
@@ -82,7 +53,7 @@ namespace samurai_new
     // Functions that return cell indices
     //
     template <typename DesiredIndexType, class Mesh, class Func>
-    inline void for_each_cell(const Mesh& mesh, const MeshInterval<Mesh>& mesh_interval, Func &&f)
+    inline void for_each_cell_index(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, Func &&f)
     {
         auto i_start = static_cast<DesiredIndexType>(get_index_start(mesh, mesh_interval));
         for(DesiredIndexType ii=0; ii<static_cast<DesiredIndexType>(mesh_interval.i.size()); ++ii)
@@ -92,31 +63,31 @@ namespace samurai_new
     }
 
     template <typename DesiredIndexType, class Mesh, class Func>
-    inline void for_each_cell(const Mesh& mesh, const typename Mesh::ca_type& set, Func &&f)
+    inline void for_each_cell_index(const Mesh& mesh, const typename Mesh::ca_type& set, Func &&f)
     {
-        for_each_interval(set, [&](std::size_t level, const auto& i, const auto& index)
+        for_each_meshinterval(set, [&](const auto mesh_interval)//std::size_t level, const auto& i, const auto& index)
         {
-            MeshInterval<Mesh> mesh_interval(level, i, index);
-            for_each_cell<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
+            //typename Mesh::mesh_interval_t mesh_interval(level, i, index);
+            for_each_cell_index<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
         });
     }
 
     template <typename DesiredIndexType, class Mesh, class Func>
-    inline void for_each_cell(const Mesh& mesh, Func &&f)
+    inline void for_each_cell_index(const Mesh& mesh, Func &&f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
-        for_each_cell<DesiredIndexType>(mesh, mesh[mesh_id_t::cells], std::forward<Func>(f));
+        for_each_cell_index<DesiredIndexType>(mesh, mesh[mesh_id_t::cells], std::forward<Func>(f));
     }
 
     template <typename DesiredIndexType, class Mesh, class Subset, class Func>
-    inline void for_each_cell(const Mesh& mesh, std::size_t level, Subset& subset, Func &&f)
+    inline void for_each_cell_index(const Mesh& mesh, std::size_t level, Subset& subset, Func &&f)
     {
-        MeshInterval<Mesh> mesh_interval(level);
+        typename Mesh::mesh_interval_t mesh_interval(level);
         subset([&](const auto& i, const auto& index)
         {
             mesh_interval.i = i;
             mesh_interval.index = index;
-            for_each_cell<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
+            for_each_cell_index<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
         });
     }
 
@@ -177,7 +148,7 @@ namespace samurai_new
             auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level],
                                              mesh[mesh_id_t::cells][level+1])
                         .on(level);
-            MeshInterval<Mesh> mesh_interval(level);
+            typename Mesh::mesh_interval_t mesh_interval(level);
 
             set([&](const auto& i, const auto& index)
             {
@@ -259,12 +230,12 @@ namespace samurai_new
                                              mesh[mesh_id_t::cells][level+1])
                         .on(level);
 
-            MeshInterval<Mesh> mesh_interval(level);
+            typename Mesh::mesh_interval_t mesh_interval(level);
             set([&](const auto& i, const auto& index)
             {
                 mesh_interval.i = i;
                 mesh_interval.index = index;
-                for_each_cell<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
+                for_each_cell_index<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
             });
         }
     }
@@ -286,12 +257,12 @@ namespace samurai_new
                                              mesh[mesh_id_t::cells][level-1])
                     .on(level);
 
-            MeshInterval<Mesh> mesh_interval(level);
+            typename Mesh::mesh_interval_t mesh_interval(level);
             set([&](const auto& i, const auto& index)
             {
                 mesh_interval.i = i;
                 mesh_interval.index = index;
-                for_each_cell<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
+                for_each_cell_index<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
             });
         }
     }
