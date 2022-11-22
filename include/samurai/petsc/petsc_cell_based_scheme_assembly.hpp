@@ -220,7 +220,7 @@ void assemble_prediction_impl(std::integral_constant<std::size_t, 1>, Mat& A, Me
                 for(int is = -1; is<2; ++is)
                 {
                     auto i1 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) + is));
-                    double v = -sign_i*pred[is + 1];
+                    double v = -sign_i*pred[static_cast<unsigned int>(is + 1)];
                     MatSetValue(A, i_cell, i1, v, INSERT_VALUES);
                 }
 
@@ -263,10 +263,10 @@ void assemble_prediction_impl(std::integral_constant<std::size_t, 2>, Mat& A, Me
                 for(int is = -1; is<2; ++is)
                 {
                     auto i1 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1), (j>>1) + is));
-                    MatSetValue(A, i_cell, i1, -sign_j*pred[is + 1], INSERT_VALUES);
+                    MatSetValue(A, i_cell, i1, -sign_j*pred[static_cast<unsigned int>(is + 1)], INSERT_VALUES);
 
                     i1 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1) + is, (j>>1)));
-                    MatSetValue(A, i_cell, i1, -sign_i*pred[is + 1], INSERT_VALUES);
+                    MatSetValue(A, i_cell, i1, -sign_i*pred[static_cast<unsigned int>(is + 1)], INSERT_VALUES);
                 }
 
                 auto i1 = static_cast<PetscInt>(mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) - 1));

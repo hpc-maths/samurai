@@ -117,7 +117,7 @@ namespace samurai
         }
         auto cell_index = mesh.get_index(level, array_coord);
         Cell<coord_index_t, dim> cell{level, xtensor_coord, cell_index};
-        for(coord_index_t ii = 0; ii < i.size(); ++ii)
+        for(coord_index_t ii = 0; ii < static_cast<coord_index_t>(i.size()); ++ii)
         {
             f(cell);
             cell.indices[0]++;
