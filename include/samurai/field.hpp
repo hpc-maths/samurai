@@ -293,7 +293,7 @@ namespace samurai
             inline auto operator()(std::size_t item, std::size_t level, const interval_t &interval, T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
-                return xt::view(this->derived_cast().m_data(), item,
+                return xt::view(this->derived_cast().m_data, item,
                                 xt::range(interval_tmp.index + interval.start,
                                             interval_tmp.index + interval.end,
                                             interval.step));
