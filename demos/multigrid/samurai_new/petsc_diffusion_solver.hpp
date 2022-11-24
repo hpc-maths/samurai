@@ -70,11 +70,20 @@ namespace samurai_new { namespace petsc
             KSPSetUp(_ksp);
         }
 
-        void solve(const Vec& b, Field& x_field)
+        void solve(const Field& source, Field& solution)
         {
+            // Create right-hand side vector from the source field
+            Vec b = samurai::petsc::create_petsc_vector_from(source);
+            PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
+
+            // Update the right-hand side with the boundary conditions stored in the solution field
+            _discretizer.enforce_bc(b, solution);
+
+            // Create the solution vector
             Vec x;
             VecDuplicate(b, &x);
             
+            // Solve the system
             KSPSolve(_ksp, b, x);
 
             KSPConvergedReason reason_code;
@@ -93,7 +102,8 @@ namespace samurai_new { namespace petsc
             std::cout << std::endl;
             //VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
-            samurai::petsc::copy(x, x_field);
+            VecDestroy(&b);
+            samurai::petsc::copy(x, solution);
             VecDestroy(&x);
         }
     };

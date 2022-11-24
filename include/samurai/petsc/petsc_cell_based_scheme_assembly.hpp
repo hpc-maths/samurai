@@ -13,15 +13,17 @@ namespace samurai { namespace petsc
         static constexpr std::size_t dim = Mesh::dim;
         using Stencil = Stencil<cfg::scheme_stencil_size, dim>;
         using GetCoefficientsFunc = std::function<std::array<double, cfg::scheme_stencil_size>(double)>;
+        using boundary_condition_t = typename Field::boundary_condition_t;
     public:
         using PetscAssembly::assemble_matrix;
         Mesh& mesh;
-    private:
+    protected:
         Stencil _stencil;
         GetCoefficientsFunc _get_coefficients;
+        const std::vector<boundary_condition_t>& _boundary_conditions;
     public:
-        PetscCellBasedSchemeAssembly(Mesh& m, Stencil s, GetCoefficientsFunc get_coeffs) :
-            mesh(m), _stencil(s), _get_coefficients(get_coeffs)
+        PetscCellBasedSchemeAssembly(Mesh& m, Stencil s, GetCoefficientsFunc get_coeffs, const std::vector<boundary_condition_t>& boundary_conditions) :
+            mesh(m), _stencil(s), _get_coefficients(get_coeffs), _boundary_conditions(boundary_conditions)
         {}
 
     private:
@@ -35,7 +37,8 @@ namespace samurai { namespace petsc
         {
             std::size_t n = mesh.nb_cells();
 
-            // Number of non-zeros per row. By default, 1 (for the unused ghosts on the boundary).
+            // Number of non-zeros per row. 
+            // 1 by default (for the unused ghosts outside of the domain).
             std::vector<PetscInt> nnz(n, 1);
 
             // Cells
@@ -43,6 +46,22 @@ namespace samurai { namespace petsc
             {
                 nnz[cell] = cfg::scheme_stencil_size;
             });
+
+            // Boundary ghosts on the Neumann boundary (on the Dirichlet boundary, nnz=1, the default value)
+            if (has_neumann(_boundary_conditions))
+            {
+                for_each_stencil_center_and_outside_ghost(mesh, _stencil, [&](const auto& cells, const auto& towards_ghost)
+                {
+                    auto& cell  = cells[0];
+                    auto& ghost = cells[1];
+                    auto boundary_point = cell.face_center(towards_ghost);
+                    auto bc = find(_boundary_conditions, boundary_point);
+                    if (bc.is_neumann())
+                    {
+                        nnz[ghost.index] = 2;
+                    }
+                });
+            }
 
             // Projection
             for_each_cell_having_children<std::size_t>(mesh, [&] (std::size_t cell)
@@ -100,20 +119,50 @@ namespace samurai { namespace petsc
             //   Boundary   //
             //--------------//
 
-            // 1 - The outside ghosts are 'eliminated' from the system, we simply add 1 on the diagonal.
+            // We add 1 on the diagonal of each outside ghost in order to tackle the ones that are not used by the scheme.
+            // This also includes the outside Dirichlet ghosts used by the scheme, which are 'eliminated' from the system.
+            // For the Neumann ghosts on the other hand, we'll have to remove the 1.
             for_each_outside_ghost_index<PetscInt>(mesh, [&](PetscInt ghost)
             {
                 MatSetValue(A, ghost, ghost, 1, ADD_VALUES);
             });
 
-            // 2 - The (opposite of the) contribution of the outer ghost is added to the diagonal of stencil center
-            for_each_stencil_center_and_outside_ghost<PetscInt>(mesh, _stencil, _get_coefficients, [&] (const std::array<PetscInt, 2>& indices, const auto&, double ghost_coeff)
+            // If full Dirichlet, we only need the indices (not the whole cells)
+            if (!has_neumann(_boundary_conditions))
             {
-                auto& cell  = indices[0];
-                auto& ghost = indices[1];
-                MatSetValue(A, cell,  cell, -ghost_coeff, ADD_VALUES); // the coeff is added to the center of the stencil
-                MatSetValue(A, cell, ghost, -ghost_coeff, ADD_VALUES); // the coeff of the ghost is removed
-            });
+                // Dirichlet: the (opposite of the) contribution of the outer ghost is added to the diagonal of stencil center
+                for_each_stencil_center_and_outside_ghost_indices<PetscInt>(mesh, _stencil, _get_coefficients, 
+                [&] (const std::array<PetscInt, 2>& indices, const auto&, double ghost_coeff)
+                {
+                    auto& cell  = indices[0];
+                    auto& ghost = indices[1];
+                    MatSetValue(A, cell,  cell, -ghost_coeff, ADD_VALUES); // the coeff is added to the center of the stencil
+                    MatSetValue(A, cell, ghost, -ghost_coeff, ADD_VALUES); // the coeff of the ghost is removed from the stencil
+                });
+            }
+            else
+            {
+                for_each_stencil_center_and_outside_ghost(mesh, _stencil, _get_coefficients, 
+                [&] (const auto& cells, const auto& towards_ghost, double ghost_coeff)
+                {
+                    const auto& cell  = cells[0];
+                    const auto& ghost = cells[1];
+                    auto boundary_point = cell.face_center(towards_ghost);
+                    auto bc = find(_boundary_conditions, boundary_point);
+
+                    if (bc.is_dirichlet())
+                    {
+                        MatSetValue(A, static_cast<PetscInt>(cell.index), static_cast<PetscInt>(cell.index),  -ghost_coeff, ADD_VALUES); // the coeff is added to the center of the stencil
+                        MatSetValue(A, static_cast<PetscInt>(cell.index), static_cast<PetscInt>(ghost.index), -ghost_coeff, ADD_VALUES); // the coeff of the ghost is removed from the stencil
+                    }
+                    else
+                    {
+                        const double& h = cell.length;
+                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(ghost.index), 1/h -1, ADD_VALUES); // We want 1/h in the matrix, but we had added 1 before, so we remove it
+                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(cell.index), -1/h, ADD_VALUES);
+                    }
+                });
+            }
 
 
             // Must flush to use INSERT_VALUES instead of ADD_VALUES
@@ -147,28 +196,6 @@ namespace samurai { namespace petsc
 
 
     public:
-        /**
-         * @brief Creates a right-hand side in the form of a Field.
-         * @param name Name of the returned Field.
-         * @param f Continuous function (must return double).
-         * @param poly_degree Polynomial degree of the function (use -1 if it is not a polynomial function)
-         * @note Sets homogeneous Dirichlet boundary condition. For non-homogeneous condition, use enforce_dirichlet_bc().
-        */
-        template<class Func>
-        Field discretize(const std::string& name, Func&& f, int poly_degree=-1)
-        {
-            Field field(name, mesh);
-            field.fill(0);
-            GaussLegendre gl(poly_degree);
-
-            for_each_cell(mesh, [&](const auto& cell)
-            {
-                const double& h = cell.length;
-                field[cell] = gl.quadrature(cell, f) / pow(h, dim);
-            });
-            return field;
-        }
-
         template<class Func>
         static double L2Error(const Field& approximate, Func&& exact, int exact_polynomial_degree)
         {

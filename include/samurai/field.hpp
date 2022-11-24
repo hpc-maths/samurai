@@ -16,6 +16,8 @@
 #include "cell.hpp"
 #include "field_expression.hpp"
 #include "mr/operators.hpp"
+#include "numeric/gauss_legendre.hpp"
+#include "boundary_condition.hpp"
 
 namespace samurai
 {
@@ -197,7 +199,15 @@ namespace samurai
         using interval_t = typename mesh_t::interval_t;
         using cell_t = Cell<typename interval_t::coord_index_t, dim>;
 
+        using boundary_condition_t = BoundaryCondition<value_t, dim>;
+        using boundary_point_t = typename boundary_condition_t::boundary_point_t;
+        using boundary_part_t = typename boundary_condition_t::boundary_part_t;
+        using boundary_cond_t = typename boundary_condition_t::boundary_cond_t;
 
+      private:
+        std::vector<boundary_condition_t> m_boundary_conditions;
+
+      public:
         Field(const std::string& name, mesh_t& mesh);
 
         Field() = default;
@@ -231,6 +241,10 @@ namespace samurai
         mesh_t* mesh_ptr();
 
         void to_stream(std::ostream& os) const;
+
+        const std::vector<boundary_condition_t>& boundary_conditions() const;
+        boundary_condition_t& set_dirichlet(boundary_cond_t dirichlet_value);
+        boundary_condition_t& set_neumann(boundary_cond_t neumann_value);
 
     private:
         template<class... T>
@@ -380,11 +394,57 @@ namespace samurai
         return out;
     }
 
+
+    template<class mesh_t, class value_t, std::size_t size_>
+    const std::vector<typename Field<mesh_t, value_t, size_>::boundary_condition_t>&
+    Field<mesh_t, value_t, size_>::boundary_conditions() const
+    {
+        return m_boundary_conditions;
+    }
+
+    template<class mesh_t, class value_t, std::size_t size_>
+    typename Field<mesh_t, value_t, size_>::boundary_condition_t& 
+    Field<mesh_t, value_t, size_>::set_dirichlet(boundary_cond_t dirichlet_value)
+    {
+        m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Dirichlet, dirichlet_value);
+        return m_boundary_conditions.back();
+    }
+
+    template<class mesh_t, class value_t, std::size_t size_>
+    typename Field<mesh_t, value_t, size_>::boundary_condition_t& 
+    Field<mesh_t, value_t, size_>::set_neumann(boundary_cond_t neumann_value)
+    {
+        m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Neumann, neumann_value);
+        return m_boundary_conditions.back();
+    }    
+
     template <class value_t, std::size_t size, class mesh_t>
     auto make_field(std::string name, mesh_t& mesh)
     {
         using field_t = Field<mesh_t, value_t, size>;
         return field_t(name, mesh);
+    }
+
+    /**
+     * @brief Creates a field.
+     * @param name Name of the returned Field.
+     * @param f Continuous function.
+     * @param polynomial_degree Polynomial degree of the function (-1 if not polynomial).
+    */
+    template<class value_t, std::size_t size, class mesh_t, class Func>
+    auto make_field(std::string name, mesh_t& mesh, Func&& f, int polynomial_degree=-1)
+    {
+        //Field field(name, mesh);
+        //field.fill(0);
+        auto field = make_field<value_t, size, mesh_t>(name, mesh);
+        GaussLegendre gl(polynomial_degree);
+
+        for_each_cell(mesh, [&](const auto& cell)
+        {
+            const double& h = cell.length;
+            field[cell] = gl.quadrature(cell, f) / pow(h, mesh_t::dim);
+        });
+        return field;
     }
 
 } // namespace samurai
