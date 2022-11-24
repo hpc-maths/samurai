@@ -181,19 +181,30 @@ int main(int argc, char* argv[])
     // Create problem //
     //----------------//
 
-    DiscreteDiffusion diffusion(mesh);
+    auto source   = samurai::make_field<double, 1>("source",   mesh, test_case->source(), test_case->source_poly_degree());
+    auto solution = samurai::make_field<double, 1>("solution", mesh);
+    solution.set_dirichlet(test_case->dirichlet()).everywhere();
 
-    Field rhs_field = diffusion.discretize("rhs", test_case->source(), test_case->source_poly_degree());
-    diffusion.enforce_dirichlet_bc(rhs_field, test_case->dirichlet());
+    /*solution.set_dirichlet([](const auto&) { return 0; })
+            .where([](const auto& coord)
+            {
+                auto& x = coord[0];
+                return x > 0;//abs(x) > 1e-12; // x != 0
+            });
 
-    Vec b = samurai::petsc::create_petsc_vector_from(rhs_field);
-    PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
-    //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+    solution.set_neumann([](const auto&) { return -1; })
+            .where([](const auto& coord)
+            {
+                auto& x = coord[0];
+                return x == 0;//abs(x) < 1e-12; // x == 0
+            });*/
+
 
     //---------------------//
     // Solve linear system //
     //---------------------//
 
+    DiscreteDiffusion diffusion(mesh, solution.boundary_conditions());
     samurai_new::petsc::PetscDiffusionSolver<DiscreteDiffusion> solver(diffusion, mesh);
 
     Timer setup_timer, solve_timer, total_timer;
@@ -207,8 +218,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Solving..." << std::endl;
     solve_timer.Start();
-    Field sol("solution", mesh);
-    solver.solve(b, sol);
+    solver.solve(source, solution);
     solve_timer.Stop();
 
     total_timer.Stop();
@@ -234,7 +244,7 @@ int main(int argc, char* argv[])
 
     if (test_case->solution_is_known())
     {
-        double error = DiscreteDiffusion::L2Error(sol, test_case->solution(), test_case->solution_poly_degree());
+        double error = DiscreteDiffusion::L2Error(solution, test_case->solution(), test_case->solution_poly_degree());
         std::cout.precision(2);
         std::cout << "L2-error: " << std::scientific << error << std::endl;
     }
@@ -243,7 +253,7 @@ int main(int argc, char* argv[])
     if (save_solution)
     {
         std::cout << "Saving solution..." << std::endl;
-        samurai::save("solution", mesh, sol);
+        samurai::save("solution", mesh, solution);
     }
 
     //--------------------//
@@ -253,7 +263,6 @@ int main(int argc, char* argv[])
     delete test_case;
 
     // Destroy Petsc objects
-    VecDestroy(&b);
     solver.destroy_petsc_objects();
     PetscFinalize();
 

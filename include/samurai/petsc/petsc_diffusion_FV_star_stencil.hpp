@@ -56,10 +56,11 @@ namespace samurai { namespace petsc
         using field_t = Field;
         using Mesh = typename Field::mesh_t;
         using mesh_id_t = typename Mesh::mesh_id_t;
+        using boundary_condition_t = typename Field::boundary_condition_t;
         using Stencil = Stencil<cfg::scheme_stencil_size, dim>;
 
-        PetscDiffusionFV_StarStencil(Mesh& m) : 
-            PetscCellBasedSchemeAssembly<cfg, Field>(m, FV_stencil(), FV_coefficients)
+        PetscDiffusionFV_StarStencil(Mesh& m, const std::vector<boundary_condition_t>& boundary_conditions) : 
+            PetscCellBasedSchemeAssembly<cfg, Field>(m, FV_stencil(), FV_coefficients, boundary_conditions)
         {}
 
     private:
@@ -113,24 +114,26 @@ namespace samurai { namespace petsc
         }
 
     public:
-        /**
-         * @brief Enforces Dirichlet boundary condition (on the whole boundary).
-         * @param rhs_field rhs_field to update (created by create_rhs()).
-         * @param dirichlet Dirichlet function: takes coordinates and returns double.
-         *                  It will be called with coordinates on the boundary.
-        */
-        template<class Func>
-        void enforce_dirichlet_bc(Field& field, Func&& dirichlet)
+        static void enforce_bc(Vec& b, const Field& solution)
         {
-            if (&field.mesh() != &this->mesh)
-                assert(false && "Not the same mesh");
-
-            for_each_cell_on_boundary(this->mesh, FV_stencil(), FV_coefficients,
-            [&] (const auto& cell, const auto& towards_bdry, double out_coeff)
+            for_each_stencil_center_and_outside_ghost(solution.mesh(), FV_stencil(), FV_coefficients,
+                [&] (const auto& cells, const auto& towards_ghost, double ghost_coeff)
             {
-                auto boundary_point = cell.face_center(towards_bdry);
-                auto dirichlet_value = dirichlet(boundary_point);
-                field[cell] -= 2 * out_coeff * dirichlet_value;
+                auto& cell  = cells[0];
+                auto& ghost = cells[1];
+                auto boundary_point = cell.face_center(towards_ghost);
+                auto bc = find(solution.boundary_conditions(), boundary_point);
+
+                if (bc.is_dirichlet())
+                {
+                    auto dirichlet_value = bc.get_value(boundary_point);
+                    VecSetValue(b, static_cast<PetscInt>(cell.index), - 2 * ghost_coeff * dirichlet_value, ADD_VALUES);
+                }
+                else
+                {
+                    auto neumann_value = bc.get_value(boundary_point);
+                    VecSetValue(b, static_cast<PetscInt>(ghost.index), neumann_value, ADD_VALUES);
+                }
             });
         }
 
@@ -138,9 +141,9 @@ namespace samurai { namespace petsc
          * @brief Creates a coarse object from a coarse mesh and a fine object.
          * @note  This method is used by the multigrid.
         */
-        static PetscDiffusionFV_StarStencil create_coarse(const PetscDiffusionFV_StarStencil& /*fine*/, Mesh& coarse_mesh)
+        static PetscDiffusionFV_StarStencil create_coarse(const PetscDiffusionFV_StarStencil& fine, Mesh& coarse_mesh)
         {
-            return PetscDiffusionFV_StarStencil(coarse_mesh);
+            return PetscDiffusionFV_StarStencil(coarse_mesh, fine._boundary_conditions);
         }
     };
 

@@ -38,6 +38,26 @@ namespace samurai
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_interval_on_boundary(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&func)
+    {
+        typename Mesh::mesh_interval_t mesh_interval(level);
+        for (unsigned int is = 0; is<stencil_size; ++is)
+        {
+            auto direction = xt::view(stencil, is);
+            if (xt::any(direction)) // if (direction != 0)
+            {
+                auto boundary = in_boundary(mesh, level, direction);
+                boundary([&](auto& i, auto& index)
+                {
+                    mesh_interval.i = i;
+                    mesh_interval.index = index;
+                    func(mesh_interval, direction);
+                });
+            }
+        }
+    }
+
+    template <class Mesh, std::size_t stencil_size, class Func>
     inline void for_each_interval_on_boundary(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil, const std::array<double, stencil_size>& coefficients, Func &&func)
     {
         typename Mesh::mesh_interval_t mesh_interval(level);
@@ -89,7 +109,7 @@ namespace samurai
     }
 
     template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    void for_each_stencil_center_and_outside_ghost(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
+    void for_each_stencil_center_and_outside_ghost_indices(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
         for_each_level(mesh, [&](std::size_t level, double h)
         {
@@ -102,6 +122,42 @@ namespace samurai
                 [&] (const std::array<DesiredIndexType, 2>& indices)
                 {
                     func(indices, towards_bdry_ghost, out_coeff);
+                });
+            });
+        });
+    }
+
+    template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
+    void for_each_stencil_center_and_outside_ghost(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
+    {
+        for_each_level(mesh, [&](std::size_t level, double h)
+        {
+            auto coeffs = get_coefficients(h);
+
+            for_each_interval_on_boundary(mesh, level, stencil, coeffs,
+            [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, double out_coeff)
+            {
+                for_each_stencil(mesh, mesh_interval, in_out_stencil<Mesh::dim>(towards_bdry_ghost), 
+                [&] (auto& cells)
+                {
+                    func(cells, towards_bdry_ghost, out_coeff);
+                });
+            });
+        });
+    }
+
+    template <class Mesh, std::size_t stencil_size, class Func>
+    void for_each_stencil_center_and_outside_ghost(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&func)
+    {
+        for_each_level(mesh, [&](std::size_t level, double)
+        {
+            for_each_interval_on_boundary(mesh, level, stencil,
+            [&] (const auto& mesh_interval, const auto& towards_bdry_ghost)
+            {
+                for_each_stencil(mesh, mesh_interval, in_out_stencil<Mesh::dim>(towards_bdry_ghost), 
+                [&] (auto& cells)
+                {
+                    func(cells, towards_bdry_ghost);
                 });
             });
         });
