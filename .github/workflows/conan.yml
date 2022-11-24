@@ -36,6 +36,7 @@ jobs:
             ~/vcpkg
             ~/.conan
             ~/.cache/ccache
+            ~/.cache/pip
             ~/Library/Caches/ccache
             ./build/vcpkg_installed
             ${{ env.CONAN_USER_HOME }}

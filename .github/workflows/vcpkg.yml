@@ -69,6 +69,9 @@ jobs:
       - name: Information about ccache
         run: |
           ccache -s -v
+      - name: Update vcpkg
+        run: |
+          vcpkg update
       - name: Configure CMake
         run: |
           cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
