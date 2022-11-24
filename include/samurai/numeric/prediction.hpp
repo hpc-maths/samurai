@@ -7,6 +7,8 @@
 #include <array>
 #include <type_traits>
 
+#include <xtensor/xadapt.hpp>
+
 #include "../operators_base.hpp"
 
 namespace samurai
@@ -526,10 +528,20 @@ namespace samurai
             {
                 auto coarse_even_i = even_i >> 1;
                 auto dec_even = (i.start & 1) ? 1 : 0;
-                dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1)
-                                       + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
-                                       - xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
-                                       + xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
+                if constexpr (T1::is_soa && T1::size >1)
+                {
+                    dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1)
+                                        + xt::view(qs_i, xt::all(), xt::range(dec_even, qs_i.shape()[1]))
+                                        - xt::view(qs_j, xt::all(), xt::range(dec_even, qs_j.shape()[1]))
+                                        + xt::view(qs_ij, xt::all(), xt::range(dec_even, qs_ij.shape()[1]));
+                }
+                else
+                {
+                    dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1)
+                                        + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
+                                        - xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
+                                        + xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
+                }
             }
 
             auto odd_i = i.odd_elements();
@@ -537,10 +549,20 @@ namespace samurai
             {
                 auto coarse_odd_i = odd_i >> 1;
                 auto dec_odd = (i.end & 1) ? 1 : 0;
-                dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1)
-                                      - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
-                                      - xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
-                                      - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                if constexpr (T1::is_soa && T1::size >1)
+                {
+                    dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1)
+                                        - xt::view(qs_i, xt::all(), xt::range(0, safe_subs<int>(qs_i.shape()[1], dec_odd)))
+                                        - xt::view(qs_j, xt::all(), xt::range(0, safe_subs<int>(qs_j.shape()[1], dec_odd)))
+                                        - xt::view(qs_ij, xt::all(), xt::range(0, safe_subs<int>(qs_ij.shape()[1], dec_odd)));
+                }
+                else
+                {
+                    dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1)
+                                        - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
+                                        - xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
+                                        - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                }
             }
         }
         else
@@ -550,10 +572,20 @@ namespace samurai
             {
                 auto coarse_even_i = even_i >> 1;
                 auto dec_even = (i.start & 1) ? 1 : 0;
-                dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1)
-                                       + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
-                                       + xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
-                                       - xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
+                if constexpr (T1::is_soa && T1::size >1)
+                {
+                    dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1)
+                                        + xt::view(qs_i, xt::all(), xt::range(dec_even, qs_i.shape()[1]))
+                                        + xt::view(qs_j, xt::all(), xt::range(dec_even, qs_j.shape()[1]))
+                                        - xt::view(qs_ij, xt::all(), xt::range(dec_even, qs_ij.shape()[1]));
+                }
+                else
+                {
+                    dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1)
+                                        + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]))
+                                        + xt::view(qs_j, xt::range(dec_even, qs_j.shape()[0]))
+                                        - xt::view(qs_ij, xt::range(dec_even, qs_ij.shape()[0]));
+                }
             }
 
             auto odd_i = i.odd_elements();
@@ -561,10 +593,20 @@ namespace samurai
             {
                 auto coarse_odd_i = odd_i >> 1;
                 auto dec_odd = (i.end & 1) ? 1 : 0;
-                dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1)
-                                      - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
-                                      + xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
-                                      + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                if constexpr (T1::is_soa && T1::size >1)
+                {
+                    dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1)
+                                        - xt::view(qs_i, xt::all(), xt::range(0, safe_subs<int>(qs_i.shape()[1], dec_odd)))
+                                        + xt::view(qs_j, xt::all(), xt::range(0, safe_subs<int>(qs_j.shape()[1], dec_odd)))
+                                        + xt::view(qs_ij, xt::all(), xt::range(0, safe_subs<int>(qs_ij.shape()[1], dec_odd)));
+                }
+                else
+                {
+                    dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1)
+                                        - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
+                                        + xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
+                                        + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
+                }
             }
         }
     }
