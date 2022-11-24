@@ -91,7 +91,7 @@ namespace samurai
     template <class TField, class Func>
     void Adapt<TField, Func>::operator()(double eps, double regularity)
     {
-        auto mesh = m_field.mesh();
+        auto& mesh = m_field.mesh();
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
@@ -119,7 +119,7 @@ namespace samurai
     template <class TField, class Func>
     bool Adapt<TField, Func>::harten(std::size_t ite, double eps, double regularity, field_type& field_old)
     {
-        auto mesh = m_field.mesh();
+        auto& mesh = m_field.mesh();
 
         std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
 
