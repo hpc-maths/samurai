@@ -96,7 +96,9 @@ jobs:
       - name: Install Python dependencies
         run: |
           brew install hdf5
-          pip3 install pytest h5py
+          export HDF5_DIR=/usr/local/Cellar/hdf5/1.12.2_2
+          pip3 install --no-binary=h5py h5py
+          pip3 install pytest
       - name: Configure CMake
         run: |
           cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
