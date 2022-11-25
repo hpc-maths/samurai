@@ -86,8 +86,8 @@ jobs:
       #     export DYLD_LIBRARY_PATH=~/.bin
       - name: Update conan profile for clang
         if: |
-          runner.os == "Macos" &&
-          matrix.compiler == "llvm"
+          runner.os == 'Macos' &&
+          matrix.compiler == 'llvm'
         run: |
           conan profile update settings.compiler.libcxx=libc++ default
       - name: Install dependencies
