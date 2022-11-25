@@ -82,9 +82,8 @@ jobs:
       #     conan profile update settings.compiler.libcxx=libstdc++11 default
       #     export DYLD_LIBRARY_PATH=~/.bin
       - name: Update conan profile for clang
-        if: |
-          runner.compiler == 'llvm'
         run: |
+          echo ${{ runner.compiler }}
           conan profile update settings.compiler.libcxx=libc++ default
           export DYLD_LIBRARY_PATH=~/.bin
       - name: Install dependencies
