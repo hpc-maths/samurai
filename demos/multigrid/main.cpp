@@ -185,6 +185,19 @@ int main(int argc, char* argv[])
     auto solution = samurai::make_field<double, 1>("solution", mesh);
     solution.set_dirichlet(test_case->dirichlet()).everywhere();
 
+    /*solution.set_dirichlet(test_case->dirichlet())
+            .where([](const auto& coord)
+            {
+                auto& x = coord[0];
+                return x == 0 || x == 1;
+            });
+    solution.set_neumann(test_case->neumann())
+            .where([](const auto& coord)
+            {
+                auto& y = coord[1];
+                return y == 0 || y == 1;
+            });*/
+
     /*solution.set_dirichlet([](const auto&) { return 0; })
             .where([](const auto& coord)
             {
@@ -204,8 +217,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    DiscreteDiffusion diffusion(mesh, solution.boundary_conditions());
-    samurai_new::petsc::PetscDiffusionSolver<DiscreteDiffusion> solver(diffusion, mesh);
+    samurai_new::petsc::PetscDiffusionSolver<DiscreteDiffusion> solver(mesh, solution.boundary_conditions());
 
     Timer setup_timer, solve_timer, total_timer;
 

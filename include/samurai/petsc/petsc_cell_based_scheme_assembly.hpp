@@ -153,13 +153,14 @@ namespace samurai { namespace petsc
                     if (bc.is_dirichlet())
                     {
                         MatSetValue(A, static_cast<PetscInt>(cell.index), static_cast<PetscInt>(cell.index),  -ghost_coeff, ADD_VALUES); // the coeff is added to the center of the stencil
-                        MatSetValue(A, static_cast<PetscInt>(cell.index), static_cast<PetscInt>(ghost.index), -ghost_coeff, ADD_VALUES); // the coeff of the ghost is removed from the stencil
+                        MatSetValue(A, static_cast<PetscInt>(cell.index), static_cast<PetscInt>(ghost.index), -ghost_coeff, ADD_VALUES); // the coeff of the ghost is removed from the stencil (we want 0 so we substract the coeff we set before)
                     }
                     else
                     {
-                        const double& h = cell.length;
-                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(ghost.index), 1/h -1, ADD_VALUES); // We want 1/h in the matrix, but we had added 1 before, so we remove it
-                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(cell.index), -1/h, ADD_VALUES);
+                        // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is   [     1/h        -1/h    ] = neumann_value             
+                        // However, to have symmetry, we want to have ghost_coeff as the off-diagonal coefficient, so [-ghost_coeff ghost_coeff] = -ghost_coeff * h * neumann_value
+                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(ghost.index), -ghost_coeff -1, ADD_VALUES); // We want -ghost_coeff in the matrix, but we added 1 before, so we remove it
+                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(cell.index),   ghost_coeff   , ADD_VALUES);
                     }
                 });
             }
@@ -171,7 +172,33 @@ namespace samurai { namespace petsc
         }
 
 
+    public:
+        void enforce_bc(Vec& b, const Field& solution)
+        {
+            for_each_stencil_center_and_outside_ghost(solution.mesh(), _stencil, _get_coefficients,
+                [&] (const auto& cells, const auto& towards_ghost, double ghost_coeff)
+            {
+                auto& cell  = cells[0];
+                auto& ghost = cells[1];
+                auto boundary_point = cell.face_center(towards_ghost);
+                auto bc = find(solution.boundary_conditions(), boundary_point);
 
+                if (bc.is_dirichlet())
+                {
+                    auto dirichlet_value = bc.get_value(boundary_point);
+                    VecSetValue(b, static_cast<PetscInt>(cell.index), - 2 * ghost_coeff * dirichlet_value, ADD_VALUES);
+                }
+                else
+                {
+                    auto& h = cell.length;
+                    auto neumann_value = bc.get_value(boundary_point);
+                    VecSetValue(b, static_cast<PetscInt>(ghost.index), -ghost_coeff * h * neumann_value, ADD_VALUES);
+                }
+            });
+        }
+
+
+    private:
         void assemble_projection(Mat& A) override
         {
             static constexpr PetscInt number_of_children = (1 << dim);
@@ -187,8 +214,6 @@ namespace samurai { namespace petsc
             });
         }
 
-
-        
         void assemble_prediction(Mat& A) override
         {
             assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);

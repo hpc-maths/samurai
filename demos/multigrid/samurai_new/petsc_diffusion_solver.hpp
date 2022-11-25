@@ -9,19 +9,20 @@ namespace samurai_new { namespace petsc
     {
         using Mesh = typename Dsctzr::Mesh;
         using Field = typename Dsctzr::field_t;
+        using boundary_condition_t = typename Field::boundary_condition_t;
 
     private:
-        Dsctzr& _discretizer;
+        Dsctzr _discretizer;
         KSP _ksp;
         bool _use_samurai_mg;
         GeometricMultigrid<Dsctzr> _samurai_mg;
 
 
     public:
-        PetscDiffusionSolver(Dsctzr& discretizer, Mesh& mesh)
-        : _discretizer(discretizer)
+        PetscDiffusionSolver(Mesh& mesh, const std::vector<boundary_condition_t>& boundary_conditions)
+        : _discretizer(mesh, boundary_conditions)
         {
-            create_solver(discretizer, mesh);
+            create_solver(mesh);
         }
 
         void destroy_petsc_objects()
@@ -31,7 +32,7 @@ namespace samurai_new { namespace petsc
         }
 
     private:
-        void create_solver(Dsctzr& discretizer, Mesh& mesh)
+        void create_solver(Mesh& mesh)
         {
             KSP user_ksp;
             KSPCreate(PETSC_COMM_SELF, &user_ksp);
@@ -51,7 +52,7 @@ namespace samurai_new { namespace petsc
                 {
                     fatal_error("Samurai Multigrid is not implemented for dim > 2.");
                 }
-                _samurai_mg = GeometricMultigrid(discretizer, mesh);
+                _samurai_mg = GeometricMultigrid(_discretizer, mesh);
                 _samurai_mg.apply_as_pc(_ksp);
             }
         }
