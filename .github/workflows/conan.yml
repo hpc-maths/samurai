@@ -59,7 +59,7 @@ jobs:
           ninja: true
           conan: true
           vcpkg: false
-          ccache: true
+          ccache: false
           clangtidy: false
           task: false
 
@@ -68,9 +68,9 @@ jobs:
           gcovr: false
           opencppcoverage: false
 
-      - name: Information about ccache
-        run: |
-          ccache -s -v
+      # - name: Information about ccache
+      #   run: |
+      #     ccache -s -v
       - name: Create profile
         run: |
           conan profile new default --detect
