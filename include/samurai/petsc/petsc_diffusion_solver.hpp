@@ -1,8 +1,14 @@
 #pragma once
-#include "multigrid/petsc/GeometricMultigrid.hpp"
-#include "../utils.hpp"
 
-namespace samurai_new { namespace petsc
+//#define ENABLE_MG
+
+#ifdef ENABLE_MG
+#include "multigrid/petsc/GeometricMultigrid.hpp"
+#else
+#include "utils.hpp"
+#endif
+
+namespace samurai { namespace petsc
 {
     template<class Dsctzr>
     class PetscDiffusionSolver
@@ -14,8 +20,10 @@ namespace samurai_new { namespace petsc
     private:
         Dsctzr _discretizer;
         KSP _ksp;
-        bool _use_samurai_mg;
+        bool _use_samurai_mg = false;
+#ifdef ENABLE_MG
         GeometricMultigrid<Dsctzr> _samurai_mg;
+#endif
 
 
     public:
@@ -27,7 +35,9 @@ namespace samurai_new { namespace petsc
 
         void destroy_petsc_objects()
         {
+#ifdef ENABLE_MG
             _samurai_mg.destroy_petsc_objects();
+#endif
             KSPDestroy(&_ksp);
         }
 
@@ -41,11 +51,14 @@ namespace samurai_new { namespace petsc
             KSPGetPC(user_ksp, &user_pc);
             PCType user_pc_type;
             PCGetType(user_pc, &user_pc_type);
+#ifdef ENABLE_MG
             _use_samurai_mg = strcmp(user_pc_type, PCMG) == 0;
+#endif
             KSPDestroy(&user_ksp);
 
             KSPCreate(PETSC_COMM_SELF, &_ksp);
             KSPSetFromOptions(_ksp);
+#ifdef ENABLE_MG
             if (_use_samurai_mg)
             {
                 if constexpr(Mesh::dim > 2)
@@ -55,6 +68,7 @@ namespace samurai_new { namespace petsc
                 _samurai_mg = GeometricMultigrid(_discretizer, mesh);
                 _samurai_mg.apply_as_pc(_ksp);
             }
+#endif
         }
 
     public:
@@ -96,16 +110,18 @@ namespace samurai_new { namespace petsc
                 KSPGetConvergedReasonString(_ksp, &reason_text);
                 fatal_error("Divergence of the solver ("s + reason_text + ")");
             }
-
-            PetscInt n_iterations;
-            KSPGetIterationNumber(_ksp, &n_iterations);
-            std::cout << n_iterations << " iterations" << std::endl;
-            std::cout << std::endl;
             //VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
             VecDestroy(&b);
-            samurai::petsc::copy(x, solution);
+            copy(x, solution);
             VecDestroy(&x);
+        }
+
+        int iterations()
+        {
+            PetscInt n_iterations;
+            KSPGetIterationNumber(_ksp, &n_iterations);
+            return n_iterations;
         }
     };
 }} // end namespace
