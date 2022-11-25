@@ -49,7 +49,7 @@ jobs:
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
       - name: Setup Cpp
-        uses: aminya/setup-cpp@v1
+        uses: aminya/setup-cpp@v0.22.0
         # uses: aminya/setup-cpp@v1
         with:
           compiler: ${{ matrix.compiler }}
@@ -86,9 +86,8 @@ jobs:
       #     export DYLD_LIBRARY_PATH=~/.bin
       - name: Update conan profile for clang
         run: |
-          echo ${{ runner.compiler }}
+          echo ${{ matrix.compiler }}
           conan profile update settings.compiler.libcxx=libc++ samurai-env
-          export DYLD_LIBRARY_PATH=~/.bin
       - name: Install dependencies
         run: |
           conan install . --build missing --profile samurai-env

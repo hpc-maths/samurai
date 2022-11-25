@@ -18,6 +18,7 @@ endif()
 
 if (${ENABLE_CONAN_OPTION})
   set(ENABLE_CONAN "ENABLE_CONAN")
+  set(profile_path "samurai-env")
 endif()
 
 # Enable sanitizers and static analyzers when running the tests
@@ -78,7 +79,7 @@ project_options(
   # ENABLE_USER_LINKER
   #   ENABLE_BUILD_WITH_TIME_TRACE
   # ENABLE_UNITY
-  # CONAN_PROFILE ${profile_path}  # passes a profile to conan: see https://docs.conan.io/en/latest/reference/profiles.html
+  CONAN_PROFILE ${profile_path}  # passes a profile to conan: see https://docs.conan.io/en/latest/reference/profiles.html
 )
 
 add_library(samurai INTERFACE)
