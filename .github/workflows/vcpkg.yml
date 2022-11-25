@@ -72,21 +72,16 @@ jobs:
           ccache -s -v
       - name: Install python using vcpkg
         run: |
-          vcpkg install python3 hdf5
+          vcpkg install hdf5
       - name: Install dependencies
         run: |
-          which pip3
-          which pip
-          which python
+          pip3 install pytest h5py
       - name: Configure CMake
         run: |
           cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           cmake --build ./build --config Release
-      - name: Install dependencies
-        run: |
-          pip3 install pytest h5py
       - name: Unix test
         if: runner.os != 'Windows'
         run: |

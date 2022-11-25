@@ -78,7 +78,7 @@ jobs:
         run: |
           cmake --build ./build --config Release
       - name: Install dependencies
-        run:
+        run: |
           conan install hdf5
           pip3 install pytest h5py
       - name: Unix test
