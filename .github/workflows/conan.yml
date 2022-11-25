@@ -95,6 +95,7 @@ jobs:
           conan install . --build missing
       - name: Install Python dependencies
         run: |
+          export DYLD_LIBRARY_PATH=/Users/runner/llvm/lib
           pip3 install pytest h5py
       - name: Configure CMake
         run: |
