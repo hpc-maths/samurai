@@ -29,6 +29,13 @@ public:
         return [](const coords&) { return 0.0; };
     }
 
+    virtual scalar_function neumann()
+    {
+        //return [](const coords&) { return 0.0; };
+        assert(false && "Neumann not implemented for this test case");
+        return nullptr;
+    }
+
     virtual ~TestCase() {}
 };
 
@@ -41,6 +48,7 @@ template <std::size_t dim>
 class PolynomialTestCase : public TestCase<dim>
 {
     using scalar_function = typename TestCase<dim>::scalar_function;
+    using coords = typename TestCase<dim>::coords;
 
     bool solution_is_known() override { return true; }
 
@@ -78,6 +86,54 @@ class PolynomialTestCase : public TestCase<dim>
     int solution_poly_degree() override 
     { 
         return static_cast<int>(pow(2, dim)); 
+    }
+
+    scalar_function dirichlet() override
+    {
+        return [](const coords&) { return 0.0; };
+    }
+
+    scalar_function neumann() override
+    {
+        if constexpr(dim == 1)
+        {
+            return [](const coords& coord) 
+            {
+                const auto& x = coord[0];
+                if (x == 0 || x == 1)
+                {
+                    return -1.;
+                }
+                else
+                {
+                    assert(false);
+                    return 0.;
+                }
+            };
+        }
+        else if constexpr(dim == 2)
+        {
+            return [](const auto& coord) 
+            {
+                const auto& x = coord[0];
+                const auto& y = coord[1];
+                if (x == 0 || x == 1)
+                {
+                    return y * (y - 1);
+                }
+                else if (y == 0 || y == 1)
+                {
+                    return x * (x - 1);
+                }
+                assert(false);
+                return 0.;
+            };
+        }
+        else if constexpr(dim == 3)
+        {
+            assert(false && "Neumann not implemented for this test case");
+            return nullptr;
+        }
     }
 
     scalar_function source() override

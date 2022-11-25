@@ -114,29 +114,6 @@ namespace samurai { namespace petsc
         }
 
     public:
-        static void enforce_bc(Vec& b, const Field& solution)
-        {
-            for_each_stencil_center_and_outside_ghost(solution.mesh(), FV_stencil(), FV_coefficients,
-                [&] (const auto& cells, const auto& towards_ghost, double ghost_coeff)
-            {
-                auto& cell  = cells[0];
-                auto& ghost = cells[1];
-                auto boundary_point = cell.face_center(towards_ghost);
-                auto bc = find(solution.boundary_conditions(), boundary_point);
-
-                if (bc.is_dirichlet())
-                {
-                    auto dirichlet_value = bc.get_value(boundary_point);
-                    VecSetValue(b, static_cast<PetscInt>(cell.index), - 2 * ghost_coeff * dirichlet_value, ADD_VALUES);
-                }
-                else
-                {
-                    auto neumann_value = bc.get_value(boundary_point);
-                    VecSetValue(b, static_cast<PetscInt>(ghost.index), neumann_value, ADD_VALUES);
-                }
-            });
-        }
-
         /**
          * @brief Creates a coarse object from a coarse mesh and a fine object.
          * @note  This method is used by the multigrid.
