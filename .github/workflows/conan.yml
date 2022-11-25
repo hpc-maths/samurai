@@ -11,7 +11,7 @@ jobs:
         os:
           # - windows-2022
           # - ubuntu-22.04
-          - macos-13
+          - macos-12
         compiler:
           - llvm
           # - gcc
@@ -94,6 +94,8 @@ jobs:
         run: |
           conan install . --build missing
       - name: Install Python dependencies
+        env:
+          SYSTEM_VERSION_COMPAT: 0
         run: |
           brew install hdf5
           export HDF5_DIR=/usr/local/Cellar/hdf5/1.12.2_2
