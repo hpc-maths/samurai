@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Add project_options v0.25.2
+# Add project_options v0.26.1
 # https://github.com/aminya/project_options
 include(FetchContent)
-FetchContent_Declare(_project_options URL https://github.com/aminya/project_options/archive/refs/tags/v0.25.2.zip)
+FetchContent_Declare(_project_options URL https://github.com/aminya/project_options/archive/refs/tags/v0.26.1.zip)
 FetchContent_MakeAvailable(_project_options)
 include(${_project_options_SOURCE_DIR}/Index.cmake)
 
@@ -18,7 +18,6 @@ endif()
 
 if (${ENABLE_CONAN_OPTION})
   set(ENABLE_CONAN "ENABLE_CONAN")
-  set(profile_path "samurai-env")
 endif()
 
 # Enable sanitizers and static analyzers when running the tests
@@ -79,7 +78,7 @@ project_options(
   # ENABLE_USER_LINKER
   #   ENABLE_BUILD_WITH_TIME_TRACE
   # ENABLE_UNITY
-  CONAN_PROFILE ${profile_path}  # passes a profile to conan: see https://docs.conan.io/en/latest/reference/profiles.html
+  # CONAN_PROFILE ${profile_path}  # passes a profile to conan: see https://docs.conan.io/en/latest/reference/profiles.html
 )
 
 add_library(samurai INTERFACE)
