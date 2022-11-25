@@ -52,7 +52,7 @@ jobs:
         env:
           SYSTEM_VERSION_COMPAT: 0
         run: |
-          brew install hdf5
+          arch -arm64 brew install hdf5
           export HDF5_DIR=/usr/local/Cellar/hdf5/1.12.2_2
           pip3 install --no-binary=h5py h5py
           pip3 install pytest
