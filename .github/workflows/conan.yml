@@ -49,7 +49,7 @@ jobs:
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
       - name: Setup Cpp
-        uses: aminya/setup-cpp@v0.20.1
+        uses: aminya/setup-cpp@v0.22.0
         # uses: aminya/setup-cpp@v1
         with:
           compiler: ${{ matrix.compiler }}
@@ -74,6 +74,7 @@ jobs:
       - name: Install dependencies
         run: |
           conan install . --build missing
+          echo $DYLD_LIBRARY_PATH
           pip3 install pytest h5py
       - name: Configure CMake
         run: |
