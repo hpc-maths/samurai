@@ -73,7 +73,7 @@ jobs:
           ccache -s -v
       - name: Install dependencies
         run: |
-          conan install .
+          conan install . --build missing
           pip3 install pytest h5py
       - name: Configure CMake
         run: |
