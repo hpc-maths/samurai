@@ -11,7 +11,7 @@
 #include <samurai/amr/mesh.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc/petsc_diffusion_FV_star_stencil.hpp>
-#include "samurai_new/petsc_diffusion_solver.hpp"
+#include <samurai/petsc/petsc_diffusion_solver.hpp>
 
 #include "test_cases.hpp"
 #include "Timer.hpp"
@@ -151,7 +151,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-        fatal_error("unknown value for argument -tc");
+        samurai::fatal_error("unknown value for argument -tc");
     }
     std::cout << "Test case: " << test_case_code << std::endl;
 
@@ -217,7 +217,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    samurai_new::petsc::PetscDiffusionSolver<DiscreteDiffusion> solver(mesh, solution.boundary_conditions());
+    samurai::petsc::PetscDiffusionSolver<DiscreteDiffusion> solver(mesh, solution.boundary_conditions());
 
     Timer setup_timer, solve_timer, total_timer;
 
@@ -234,6 +234,8 @@ int main(int argc, char* argv[])
     solve_timer.Stop();
 
     total_timer.Stop();
+
+    std::cout << solver.iterations() << " iterations" << std::endl << std::endl;
 
     //--------------------//
     //  Print exec times  //
