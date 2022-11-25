@@ -74,17 +74,16 @@ jobs:
       - name: List conan profile
         run: |
           conan profile list
-      - name: Update conan profile for gcc
-        if: |
-          runner.os == 'Macos' &&
-          runner.compiler == 'gcc'
-        run: |
-          conan profile update settings.compiler.libcxx=libstdc++11 default
-          export DYLD_LIBRARY_PATH=~/.bin
+      # - name: Update conan profile for gcc
+      #   if: |
+      #     runner.os == 'Macos' &&
+      #     runner.compiler == 'gcc'
+      #   run: |
+      #     conan profile update settings.compiler.libcxx=libstdc++11 default
+      #     export DYLD_LIBRARY_PATH=~/.bin
       - name: Update conan profile for clang
         if: |
-          runner.os == 'Macos' &&
-          runner.compiler == 'clang'
+          runner.compiler == 'llvm'
         run: |
           conan profile update settings.compiler.libcxx=libc++ default
           export DYLD_LIBRARY_PATH=~/.bin
