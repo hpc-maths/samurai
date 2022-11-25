@@ -48,6 +48,14 @@ jobs:
           key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
+      - name: Install Python dependencies
+        env:
+          SYSTEM_VERSION_COMPAT: 0
+        run: |
+          brew install hdf5
+          export HDF5_DIR=/usr/local/Cellar/hdf5/1.12.2_2
+          pip3 install --no-binary=h5py h5py
+          pip3 install pytest
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.22.0
         # uses: aminya/setup-cpp@v1
@@ -93,14 +101,6 @@ jobs:
       - name: Install dependencies
         run: |
           conan install . --build missing
-      - name: Install Python dependencies
-        env:
-          SYSTEM_VERSION_COMPAT: 0
-        run: |
-          brew install hdf5
-          export HDF5_DIR=/usr/local/Cellar/hdf5/1.12.2_2
-          pip3 install --no-binary=h5py h5py
-          pip3 install pytest
       - name: Configure CMake
         run: |
           cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
