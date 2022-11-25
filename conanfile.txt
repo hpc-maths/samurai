@@ -1,5 +1,6 @@
 [requires]
 xtensor/0.24.2
+hdf5/1.13.1
 highfive/2.3.1
 pugixml/1.12.1
 cli11/2.2.0
@@ -11,6 +12,7 @@ rapidcheck/cci.20220514
 highfive:with_boost=False
 highfive:with_opencv=False
 highfive:with_eigen=False
+hdf5:shared=True
 rapidcheck:enable_gtest=True
 
 [generators]
