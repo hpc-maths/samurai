@@ -91,7 +91,7 @@ jobs:
           export DYLD_LIBRARY_PATH=~/.bin
       - name: Install dependencies
         run: |
-          conan install . --build missing
+          conan install . --build missing --profile samurai-env
           pip3 install pytest h5py
       - name: Configure CMake
         run: |
