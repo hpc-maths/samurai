@@ -71,16 +71,16 @@ jobs:
       - name: Information about ccache
         run: |
           ccache -s -v
+      - name: Install dependencies
+        run: |
+          conan install .
+          pip3 install pytest h5py
       - name: Configure CMake
         run: |
           cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           cmake --build ./build --config Release
-      - name: Install dependencies
-        run: |
-          conan install hdf5
-          pip3 install pytest h5py
       - name: Unix test
         if: runner.os != 'Windows'
         run: |
