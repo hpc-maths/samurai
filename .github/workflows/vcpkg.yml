@@ -80,7 +80,8 @@ jobs:
       #     cmake --build ./build --config Release
       - name: Install dependencies
         run: |
-          brew install hdf5
+          brew install hdf5@1.10
+          export HDF5_DIR=/usr/local/opt/hdf5@1.10
           pip3 install pytest h5py
       - name: Unix test
         if: runner.os != 'Windows'
