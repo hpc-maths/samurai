@@ -52,7 +52,7 @@ jobs:
         run: |
           brew install hdf5@1.10
           export HDF5_DIR=/usr/local/opt/hdf5@1.10
-          pip3 install h5py==3.6
+          pip3 install h5py==3.2
           pip3 install pytest
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.22.0
