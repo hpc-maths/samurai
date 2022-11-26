@@ -57,6 +57,7 @@ jobs:
         run: |
           brew install hdf5@1.10
           export HDF5_DIR=/usr/local/opt/hdf5@1.10
+          export ARCHFLAGS="-arch x86_64"
           pip3 install h5py
           pip3 install pytest
       - name: Setup Cpp
