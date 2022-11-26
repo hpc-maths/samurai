@@ -53,10 +53,10 @@ jobs:
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
       - name: Install Python dependencies
         run: |
-          # brew install hdf5@1.10
-          # export HDF5_DIR=/usr/local/opt/hdf5@1.10
-          # pip3 install h5py==3.2
-          pip3 install pytest h5py
+          brew install hdf5@1.10
+          export HDF5_DIR=/usr/local/opt/hdf5@1.10
+          pip3 install h5py
+          pip3 install pytest
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.22.0
         # uses: aminya/setup-cpp@v1
