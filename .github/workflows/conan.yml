@@ -51,6 +51,9 @@ jobs:
       - name: Install Python dependencies
         run: |
           brew install hdf5@1.10
+          export LDFLAGS="-L/usr/local/opt/hdf5@1.10/lib"
+          export CPPFLAGS="-I/usr/local/opt/hdf5@1.10/include"
+
           # export HDF5_DIR=/usr/local/Cellar/hdf5/1.12.2
           pip3 install h5py==3.6
           pip3 install pytest
