@@ -9,14 +9,16 @@ jobs:
       fail-fast: true
       matrix:
         os:
-          - windows-2022
-          - ubuntu-22.04
+          # - windows-2022
+          # - ubuntu-22.04
           - macos-12
         compiler:
           - llvm
           - gcc
         CMAKE_GENERATOR:
           - "Ninja Multi-Config"
+        ARCHFLAGS:
+          - "-arch x86_64"
         include:
           - os: windows-2022
             compiler: msvc
@@ -70,18 +72,15 @@ jobs:
       - name: Information about ccache
         run: |
           ccache -s -v
-      - name: Install python using vcpkg
-        run: |
-          vcpkg install hdf5
-      - name: Install dependencies
-        run: |
-          pip3 install pytest h5py
       - name: Configure CMake
         run: |
           cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           cmake --build ./build --config Release
+      - name: Install dependencies
+        run: |
+          pip3 install pytest h5py
       - name: Unix test
         if: runner.os != 'Windows'
         run: |

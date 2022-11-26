@@ -17,8 +17,8 @@ jobs:
           # - gcc
         CMAKE_GENERATOR:
           - "Ninja Multi-Config"
-        arch:
-          - x86_64
+        ARCHFLAGS:
+          - "-arch x86_64"
         # include:
         #   - os: windows-2022
         #     compiler: msvc
@@ -50,16 +50,6 @@ jobs:
           key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
-      - name: Environment variables
-        run: |
-          env
-      - name: Install Python dependencies
-        run: |
-          brew install hdf5@1.10
-          export HDF5_DIR=/usr/local/opt/hdf5@1.10
-          export ARCHFLAGS="-arch x86_64"
-          pip3 install h5py
-          pip3 install pytest
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.22.0
         # uses: aminya/setup-cpp@v1
@@ -71,7 +61,7 @@ jobs:
           ninja: true
           conan: true
           vcpkg: false
-          ccache: false
+          ccache: true
           clangtidy: false
           task: false
 
@@ -80,9 +70,9 @@ jobs:
           gcovr: false
           opencppcoverage: false
 
-      # - name: Information about ccache
-      #   run: |
-      #     ccache -s -v
+      - name: Information about ccache
+        run: |
+          ccache -s -v
       - name: Create profile
         run: |
           conan profile new default --detect
@@ -111,6 +101,9 @@ jobs:
       - name: Build
         run: |
           cmake --build ./build --config Release
+      - name: Install Python dependencies
+        run: |
+          pip3 install pytest h5py
       - name: Unix test
         if: runner.os != 'Windows'
         run: |
