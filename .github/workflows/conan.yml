@@ -50,6 +50,9 @@ jobs:
           key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
+      - name: Environment variables
+        run: |
+          env
       - name: Install Python dependencies
         run: |
           brew install hdf5@1.10
