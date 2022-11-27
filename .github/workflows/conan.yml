@@ -98,12 +98,14 @@ jobs:
           cmake --build ./build --config Release
       - name: Install hdf5 with brew
         if: runner.os == 'Macos'
+        env:
+          ARCHFLAGS: "-arch x86_64"
         run: |
           brew install hdf5@1.10
           export HDF5_DIR=/usr/local/opt/hdf5@1.10
+          pip3 install pytest h5py
       - name: Install Python dependencies
-        env:
-          ARCHFLAGS: "-arch x86_64"
+        if: runner.os != 'Macos'
         run: |
           pip3 install pytest h5py
       - name: Unix test
