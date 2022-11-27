@@ -9,22 +9,22 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          # - windows-2022
-          # - ubuntu-22.04
+          - windows-2022
+          - ubuntu-22.04
           - macos-12
         compiler:
           - llvm
-          # - gcc
+          - gcc
         CMAKE_GENERATOR:
           - "Ninja Multi-Config"
-        # include:
-        #   - os: windows-2022
-        #     compiler: msvc
-        #     CMAKE_GENERATOR: "Visual Studio 17 2022"
+        include:
+          - os: windows-2022
+            compiler: msvc
+            CMAKE_GENERATOR: "Visual Studio 17 2022"
 
-        # exclude:
-        #   - os: windows-2022
-        #     compiler: llvm
+        exclude:
+          - os: windows-2022
+            compiler: llvm
 
     steps:
       - uses: actions/checkout@v3
