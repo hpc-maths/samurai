@@ -32,3 +32,4 @@ def test_finite_volume_demo(exec, Tf, config):
            '--filename', config['filename'],
            '--Tf', Tf]
     output = subprocess.run(cmd, check=True, capture_output=True)
+    print('error: ', output.stderr)

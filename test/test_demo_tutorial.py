@@ -20,6 +20,7 @@ def test_2d_mesh(config):
            "--path", config['path'],
            '--filename', config['filename']]
     output = subprocess.run(cmd, check=True, capture_output=True)
+    print('error: ', output.stderr)
 
 # The random generator doesn't make the same result
 # so this test failed depending on the compiler version
@@ -61,6 +62,7 @@ def test_graduation_3(extra, config):
            '--filename', config['filename'],
            *extra]
     output = subprocess.run(cmd, check=True, capture_output=True)
+    print('error: ', output.stderr)
 
 @pytest.mark.h5diff()
 @pytest.mark.parametrize(
@@ -72,3 +74,4 @@ def test_burgers(step, config):
            "--path", config['path'],
            '--filename', config['filename']]
     output = subprocess.run(cmd, check=True, capture_output=True)
+    print('error: ', output.stderr)

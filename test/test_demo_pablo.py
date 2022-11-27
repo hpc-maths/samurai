@@ -21,3 +21,4 @@ def test_2d_bubbles(config):
            '--filename', config['filename'],
            '--Tf', '3']
     output = subprocess.run(cmd, check=True, capture_output=True)
+    print('error: ', output.stderr)
