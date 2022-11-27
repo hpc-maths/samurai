@@ -1,6 +1,7 @@
 import os
 import pytest
 import subprocess
+from pathlib import Path
 
 path = 'tutorial'
 
@@ -15,7 +16,7 @@ def get_executable(path, filename):
 
 @pytest.mark.h5diff()
 def test_2d_mesh(config):
-    cmd = [get_executable("../build/demos/tutorial/", "tutorial-2d-mesh"),
+    cmd = [get_executable(Path("../build/demos/tutorial/"), "tutorial-2d-mesh"),
            "--path", config['path'],
            '--filename', config['filename']]
     output = subprocess.run(cmd, check=True, capture_output=True)
@@ -55,7 +56,7 @@ def test_2d_mesh(config):
     ]
 )
 def test_graduation_3(extra, config):
-    cmd = [get_executable("../build/demos/tutorial/", "tutorial-graduation-case-3"),
+    cmd = [get_executable(Path("../build/demos/tutorial/"), "tutorial-graduation-case-3"),
            "--path", config['path'],
            '--filename', config['filename'],
            *extra]
@@ -67,7 +68,7 @@ def test_graduation_3(extra, config):
     list(range(7))
 )
 def test_burgers(step, config):
-    cmd = [get_executable(f"../build/demos/tutorial/AMR_1D_Burgers/step_{step}/", f"tutorial-burgers1d-step-{step}"),
+    cmd = [get_executable(Path(f"../build/demos/tutorial/AMR_1D_Burgers/step_{step}/"), f"tutorial-burgers1d-step-{step}"),
            "--path", config['path'],
            '--filename', config['filename']]
     output = subprocess.run(cmd, check=True, capture_output=True)
