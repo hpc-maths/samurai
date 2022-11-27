@@ -17,8 +17,6 @@ jobs:
           - gcc
         CMAKE_GENERATOR:
           - "Ninja Multi-Config"
-        ARCHFLAGS:
-          - "-arch x86_64"
         # include:
         #   - os: windows-2022
         #     compiler: msvc
@@ -79,6 +77,8 @@ jobs:
       #   run: |
       #     cmake --build ./build --config Release
       - name: Install dependencies
+        env:
+          ARCHFLAGS: "-arch x86_64"
         run: |
           brew install hdf5@1.10
           export HDF5_DIR=/usr/local/opt/hdf5@1.10
