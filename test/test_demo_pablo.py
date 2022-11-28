@@ -1,6 +1,7 @@
 import os
 import pytest
 import subprocess
+from pathlib import Path
 
 path = 'pablo'
 
@@ -15,7 +16,7 @@ def get_executable(path, filename):
 
 @pytest.mark.h5diff()
 def test_2d_bubbles(config):
-    cmd = [get_executable("../build/demos/pablo/", "pablo-bubble-2d"),
+    cmd = [get_executable(Path("../build/demos/pablo/"), "pablo-bubble-2d"),
            "--path", config['path'],
            '--filename', config['filename'],
            '--Tf', '3']

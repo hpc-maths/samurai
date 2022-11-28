@@ -41,7 +41,7 @@ namespace samurai
                 else
                 {
                     //auto mask = xt::sum((xt::abs(detail(level, 2*i))/maxd < eps), {1}) > (size-1);
-                    auto mask = xt::sum((xt::abs(detail(fine_level, 2*i)) < eps), {1}) > (size-1); // No normalization
+                    auto mask = xt::sum((xt::abs(detail(fine_level, 2*i)) < eps), {detail.is_soa?0:1}) > (size-1); // No normalization
 
                     xt::masked_view(tag(fine_level, 2*i), mask) = static_cast<int>(CellFlag::coarsen);
                     xt::masked_view(tag(fine_level, 2*i+1), mask) = static_cast<int>(CellFlag::coarsen);
@@ -84,7 +84,7 @@ namespace samurai
                     auto mask = xt::sum((xt::abs(detail(fine_level, 2*i  ,   2*j)) < eps) &&
                                         (xt::abs(detail(fine_level, 2*i+1,   2*j)) < eps) &&
                                         (xt::abs(detail(fine_level, 2*i  , 2*j+1)) < eps) &&
-                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1)) < eps), {1}) > (size-1);
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1)) < eps), {detail.is_soa?0:1}) > (size-1);
 
                     xt::masked_view(tag(fine_level, 2*i  ,   2*j), mask) = static_cast<int>(CellFlag::coarsen);
                     xt::masked_view(tag(fine_level, 2*i+1,   2*j), mask) = static_cast<int>(CellFlag::coarsen);
@@ -138,7 +138,7 @@ namespace samurai
                 {
                     auto mask = xt::sum((xt::abs(.25 * ( detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) < eps) &&
                                         (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)+detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                < eps &&
-                                        (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)+detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                < eps, {1}) > (size-1);
+                                        (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)+detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                < eps, {detail.is_soa?0:1}) > (size-1);
 
                     xt::masked_view(tag(fine_level, 2*i  ,   2*j), mask) = static_cast<int>(CellFlag::coarsen);
                     xt::masked_view(tag(fine_level, 2*i+1,   2*j), mask) = static_cast<int>(CellFlag::coarsen);
@@ -190,7 +190,7 @@ namespace samurai
                     //                     ((xt::abs(detail(fine_level, 2*i+1))/maxd) > eps), {1}) > 0;
 
                     auto mask = xt::sum(((xt::abs(detail(fine_level, 2*i  ))) > eps) ||
-                                        ((xt::abs(detail(fine_level, 2*i+1))) > eps), {1}) > 0; // No normalization
+                                        ((xt::abs(detail(fine_level, 2*i+1))) > eps), {detail.is_soa?0:1}) > 0; // No normalization
 
                     xt::masked_view(tag(fine_level, 2*i  ), mask) = static_cast<int>(CellFlag::refine);
                     xt::masked_view(tag(fine_level, 2*i+1), mask) = static_cast<int>(CellFlag::refine);
@@ -233,7 +233,7 @@ namespace samurai
                     auto mask = xt::sum((xt::abs(detail(fine_level, 2*i  , 2*j  )) > eps) ||
                                         (xt::abs(detail(fine_level, 2*i+1, 2*j  )) > eps) ||
                                         (xt::abs(detail(fine_level, 2*i  , 2*j+1)) > eps) ||
-                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1)) > eps), {1}) > 0;
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1)) > eps), {detail.is_soa?0:1}) > 0;
 
                     xt::masked_view(tag(fine_level, 2*i  , 2*j  ), mask) = static_cast<int>(CellFlag::refine);
                     xt::masked_view(tag(fine_level, 2*i+1, 2*j  ), mask) = static_cast<int>(CellFlag::refine);
@@ -285,7 +285,7 @@ namespace samurai
                 {
                     auto mask = xt::sum((xt::abs(.25 * ( detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd * C_fourth_term) > eps) ||
                                         (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)+detail(fine_level, 2*i+1, 2*j)-detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                > eps  ||
-                                        (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)+detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                > eps, {1}) > 0;
+                                        (xt::abs(.25 * (-detail(fine_level, 2*i, 2*j)-detail(fine_level, 2*i+1, 2*j)+detail(fine_level, 2*i, 2*j+1)+detail(fine_level, 2*i+1, 2*j+1)) / maxd))                > eps, {detail.is_soa?0:1}) > 0;
 
 
                     xt::masked_view(tag(fine_level, 2*i  , 2*j  ), mask) = static_cast<int>(CellFlag::refine);

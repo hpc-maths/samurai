@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os:
           - windows-2022
@@ -49,7 +49,7 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
       - name: Setup Cpp
-        uses: aminya/setup-cpp@v1
+        uses: aminya/setup-cpp@v0.22.0
         with:
           compiler: ${{ matrix.compiler }}
           vcvarsall: ${{ contains(matrix.os, 'windows' )}}
@@ -69,15 +69,24 @@ jobs:
       - name: Information about ccache
         run: |
           ccache -s -v
-      - name: Install dependencies
-        run: |
-          pip3 install pytest h5py
       - name: Configure CMake
         run: |
           cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           cmake --build ./build --config Release
+      - name: Install hdf5 with brew
+        if: runner.os == 'Macos'
+        env:
+          ARCHFLAGS: "-arch x86_64"
+        run: |
+          brew install hdf5@1.10
+          export HDF5_DIR=/usr/local/opt/hdf5@1.10
+          pip3 install pytest h5py
+      - name: Install Python dependencies
+        if: runner.os != 'Macos'
+        run: |
+          pip3 install pytest h5py
       - name: Unix test
         if: runner.os != 'Windows'
         run: |

@@ -72,13 +72,12 @@ namespace samurai
     template<class Field, class SubMesh>
     auto extract_data(const Field& field, const SubMesh& submesh)
     {
-        auto data_field = field.array();
         std::array<std::size_t, 2> shape = {submesh.nb_cells(), field.size};
         xt::xtensor<typename Field::value_type, 2> data(shape);
         std::size_t index = 0;
         for_each_cell(submesh, [&](auto cell)
         {
-            xt::view(data, index) = xt::view(data_field, cell.index);
+            xt::view(data, index) = field[cell.index];
             index++;
         });
 

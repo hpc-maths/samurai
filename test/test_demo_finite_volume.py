@@ -1,6 +1,7 @@
 import os
 import pytest
 import subprocess
+from pathlib import Path
 
 path = 'finite_volume'
 
@@ -26,7 +27,7 @@ def get_executable(path, filename):
     ]
 )
 def test_finite_volume_demo(exec, Tf, config):
-    cmd = [get_executable("../build/demos/FiniteVolume/", exec),
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), exec),
            "--path", config['path'],
            '--filename', config['filename'],
            '--Tf', Tf]
