@@ -20,4 +20,3 @@ def test_simple_2d(config):
            "--path", config['path'],
            '--filename', config['filename']]
     output = subprocess.run(cmd, check=True, capture_output=True)
-    print('error: ', output.stderr)
