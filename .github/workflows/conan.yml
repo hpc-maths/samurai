@@ -10,8 +10,8 @@ jobs:
       matrix:
         os:
           - windows-2022
-          - ubuntu-22.04
-          - macos-12
+          # - ubuntu-22.04
+          # - macos-12
         compiler:
           - llvm
           - gcc
@@ -104,4 +104,5 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           .\build\test\Release\test_samurai_lib
+          .\build\demos\tutorial\Release\tutorial-graduation-case-3
           cd test; pytest -s --h5diff
