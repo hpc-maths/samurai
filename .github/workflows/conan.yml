@@ -103,6 +103,6 @@ jobs:
       - name: Windows test
         if: runner.os == 'Windows'
         run: |
-          .\build\test\Release\test_samurai_lib
-          .\build\demos\FiniteVolume\Release\finite-volume-advection-1d
+          # .\build\test\Release\test_samurai_lib
+          .\build\demos\FiniteVolume\Release\finite-volume-advection-1d.exe
           # cd test; pytest -s --h5diff
