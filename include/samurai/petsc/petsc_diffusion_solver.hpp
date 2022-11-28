@@ -42,7 +42,11 @@ namespace samurai { namespace petsc
         }
 
     private:
-        void create_solver(Mesh& mesh)
+        void create_solver(Mesh& 
+#ifdef ENABLE_MG
+        mesh
+#endif
+        )
         {
             KSP user_ksp;
             KSPCreate(PETSC_COMM_SELF, &user_ksp);
