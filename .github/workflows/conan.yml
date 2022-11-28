@@ -104,5 +104,5 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           .\build\test\Release\test_samurai_lib
-          .\build\demos\tutorial\Release\tutorial-graduation-case-3
-          cd test; pytest -s --h5diff
+          .\build\demos\FiniteVolume\Release\finite-volume-advection-1d
+          # cd test; pytest -s --h5diff
