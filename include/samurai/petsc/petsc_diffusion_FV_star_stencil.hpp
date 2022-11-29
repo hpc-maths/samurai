@@ -1,14 +1,6 @@
 #pragma once
 #include "petsc_cell_based_scheme_assembly.hpp"
 
-
-// constexpr power function
-template <typename T>
-constexpr T ce_pow(T num, unsigned int pow)
-{
-    return pow == 0 ? 1 : num * ce_pow(num, pow-1);
-}
-
 namespace samurai { namespace petsc
 {
     /**
@@ -35,11 +27,11 @@ namespace samurai { namespace petsc
         1 + ce_pow(3, dim), 
 
         // ---- Index of the stencil center
-        // (as defined in FV_stencil())
+        // (as defined in star_stencil())
         1, 
 
         // ---- Start index and size of contiguous cell indices
-        // (as defined in FV_stencil())
+        // (as defined in star_stencil())
         // Here, [left, center, right].
         0, 3
     >;
@@ -55,12 +47,10 @@ namespace samurai { namespace petsc
     public:
         using field_t = Field;
         using Mesh = typename Field::mesh_t;
-        using mesh_id_t = typename Mesh::mesh_id_t;
         using boundary_condition_t = typename Field::boundary_condition_t;
-        using Stencil = Stencil<cfg::scheme_stencil_size, dim>;
 
         PetscDiffusionFV_StarStencil(Mesh& m, const std::vector<boundary_condition_t>& boundary_conditions) : 
-            PetscCellBasedSchemeAssembly<cfg, Field>(m, FV_stencil(), FV_coefficients, boundary_conditions)
+            PetscCellBasedSchemeAssembly<cfg, Field>(m, star_stencil<dim>(), FV_coefficients, boundary_conditions)
         {}
 
     private:
@@ -69,35 +59,6 @@ namespace samurai { namespace petsc
         {
             // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
             return this->mesh.min_level() == this->mesh.max_level();
-        }
-
-
-        /**
-         * @return the star stencil of the Finite Volume scheme.
-        */
-        static constexpr Stencil FV_stencil()
-        {
-            static_assert(dim >= 1 || dim <= 3, "Finite Volume stencil not implemented for this dimension");
-
-            if constexpr (dim == 1)
-            {
-                // 3-point stencil:
-                //    left, center, right
-                return {{-1}, {0}, {1}};
-            }
-            else if constexpr (dim == 2)
-            {
-                // 5-point stencil:
-                //       left,   center,  right,   bottom,  top 
-                return {{-1, 0}, {0, 0},  {1, 0}, {0, -1}, {0, 1}};
-            }
-            else if constexpr (dim == 3)
-            {
-                // 7-point stencil:
-                //       left,   center,    right,   front,    back,    bottom,    top
-                return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
-            }
-            return Stencil();
         }
 
         static std::array<double, cfg::scheme_stencil_size> FV_coefficients(double h)

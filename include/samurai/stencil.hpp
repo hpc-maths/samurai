@@ -297,6 +297,38 @@ namespace samurai
     }
 
 
+    //-----------------------//
+    //    Useful stencils    //
+    //-----------------------//
+
+
+    template<std::size_t dim>
+    constexpr Stencil<dim, 1+2*dim> star_stencil()
+    {
+        static_assert(dim >= 1 || dim <= 3, "Star stencil not implemented for this dimension");
+
+        if constexpr (dim == 1)
+        {
+            // 3-point stencil:
+            //    left, center, right
+            return {{-1}, {0}, {1}};
+        }
+        else if constexpr (dim == 2)
+        {
+            // 5-point stencil:
+            //       left,   center,  right,   bottom,  top 
+            return {{-1, 0}, {0, 0},  {1, 0}, {0, -1}, {0, 1}};
+        }
+        else if constexpr (dim == 3)
+        {
+            // 7-point stencil:
+            //       left,   center,    right,   front,    back,    bottom,    top
+            return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
+        }
+        return Stencil<dim, 1+2*dim>();
+    }
+
+
     template<std::size_t dim, class Vector>
     Stencil<2, dim> out_in_stencil(const Vector& out_normal_vect)
     {

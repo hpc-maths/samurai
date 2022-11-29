@@ -132,6 +132,18 @@ namespace samurai
         return static_cast<R>(static_cast<std::ptrdiff_t>(a) - static_cast<std::ptrdiff_t>(b));
     }
 
+
+
+
+    /**
+     * constexpr power function
+    */
+    template <typename T>
+    constexpr T ce_pow(T num, unsigned int pow)
+    {
+        return pow == 0 ? 1 : num * ce_pow(num, pow-1);
+    }
+
     //------------------//
     // Error management //
     //------------------//
