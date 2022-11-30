@@ -11,18 +11,18 @@ namespace samurai { namespace petsc
         using Mesh = typename Field::mesh_t;
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
-        using Stencil = Stencil<cfg::scheme_stencil_size, dim>;
+        using stencil_t = Stencil<cfg::scheme_stencil_size, dim>;
         using GetCoefficientsFunc = std::function<std::array<double, cfg::scheme_stencil_size>(double)>;
         using boundary_condition_t = typename Field::boundary_condition_t;
     public:
         using PetscAssembly::assemble_matrix;
         Mesh& mesh;
     protected:
-        Stencil _stencil;
+        stencil_t _stencil;
         GetCoefficientsFunc _get_coefficients;
         const std::vector<boundary_condition_t>& _boundary_conditions;
     public:
-        PetscCellBasedSchemeAssembly(Mesh& m, Stencil s, GetCoefficientsFunc get_coeffs, const std::vector<boundary_condition_t>& boundary_conditions) :
+        PetscCellBasedSchemeAssembly(Mesh& m, stencil_t s, GetCoefficientsFunc get_coeffs, const std::vector<boundary_condition_t>& boundary_conditions) :
             mesh(m), _stencil(s), _get_coefficients(get_coeffs), _boundary_conditions(boundary_conditions)
         {}
 
