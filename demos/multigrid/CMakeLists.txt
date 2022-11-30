@@ -1,7 +1,9 @@
 include(FindPkgConfig)
 pkg_check_modules(PETSC PETSc)
-find_package(MPI)
+if (PETSC_FOUND)
+    find_package(MPI)
 
-add_executable(multigrid main.cpp)
+    add_executable(multigrid main.cpp)
 
-target_link_libraries(multigrid samurai ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+    target_link_libraries(multigrid samurai ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+endif()
