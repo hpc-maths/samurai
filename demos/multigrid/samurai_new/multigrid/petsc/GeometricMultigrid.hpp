@@ -46,16 +46,16 @@ namespace samurai_new { namespace petsc {
         void apply_as_pc(KSP& ksp)
         {
             PetscInt transfer_ops_arg = samurai_new::TransferOperators::Assembled;
-            PetscOptionsGetInt(NULL, NULL, "-samg_transfer_ops", &transfer_ops_arg, NULL);
+            PetscOptionsGetInt(NULL, NULL, "--samg_transfer_ops", &transfer_ops_arg, NULL);
             samurai_new::TransferOperators transfer_ops = static_cast<samurai_new::TransferOperators>(transfer_ops_arg);
 
             PetscInt prediction_order = 0;
-            PetscOptionsGetInt(NULL, NULL, "-samg_pred_order", &prediction_order, NULL);
+            PetscOptionsGetInt(NULL, NULL, "--samg_pred_order", &prediction_order, NULL);
 
             PetscBool smoother_is_set = PETSC_FALSE;
             Smoothers smoother = SymGaussSeidel;
             char smoother_char_array[10];
-            PetscOptionsGetString(NULL, NULL, "-samg_smooth", smoother_char_array, 10, &smoother_is_set);
+            PetscOptionsGetString(NULL, NULL, "--samg_smooth", smoother_char_array, 10, &smoother_is_set);
             if (smoother_is_set)
             {
                 std::string value = smoother_char_array;
@@ -66,7 +66,7 @@ namespace samurai_new { namespace petsc {
                 else if (value == "petsc")
                     smoother = Petsc;
                 else
-                    std::cout << "ERROR: unknown value for argument -smooth" << std::endl << std::endl;
+                    std::cout << "ERROR: unknown value for argument --smooth" << std::endl << std::endl;
             }
 
             std::cout << "Samurai multigrid: " << std::endl;

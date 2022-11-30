@@ -4,10 +4,8 @@
 
 #include <iostream>
 #include <samurai/box.hpp>
-#include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
-#include <samurai/subset/subset_op.hpp>
 #include <samurai/amr/mesh.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc/petsc_diffusion_FV_star_stencil.hpp>
@@ -17,48 +15,51 @@
 #include "Timer.hpp"
 #include "samurai_new/utils.cpp"
 
-static char help[] = "Geometric multigrid using the samurai meshes.\n"
+static char help[] = "Solution of the Poisson problem in the domain [0,1]^d.\n"
+                     "Geometric multigrid using the samurai meshes.\n"
             "\n"
             "-------- General\n"
             "\n"
-            "-n <int>                     problem size of the Poisson problem in the domain [0,1]^d\n"
-            "-tc <...>                    test case:\n"
-            "                             poly  - The solution is a polynomial function.\n"
-            "                                     Homogeneous Dirichlet b.c.\n"
-            "                             exp   - The solution is an exponential function.\n"
-            "                                     Non-homogeneous Dirichlet b.c.\n"
-            "-save_sol [0|1]              save solution\n"
-            "-save_mesh [0|1]             save mesh\n"
+            "--level        <int>           Level used to set the problem size\n"
+            "--tc           <enum>          Test case:\n"
+            "                                   poly  - The solution is a polynomial function.\n"
+            "                                           Homogeneous Dirichlet b.c.\n"
+            "                                   exp   - The solution is an exponential function.\n"
+            "                                           Non-homogeneous Dirichlet b.c.\n"
+            "--save_sol     [0|1]           Save solution (default 0)\n"
+            "--save_mesh    [0|1]           Save mesh (default 0)\n"
+            "--path         <string>        Output path\n"
+            "--filename     <string>        Solution file name\n"
             "\n"
             "-------- Samurai Multigrid ('-pc_type mg' to activate)\n"
             "\n"
-            "-samg_smooth <...>           smoother used in the samurai multigrid:\n"
-            "                             sgs   - symmetric Gauss-Seidel\n"
-            "                             gs    - Gauss-Seidel (pre: lexico., post: antilexico.)\n"
-            "                             petsc - defined by Petsc options (default: Chebytchev polynomials)\n"
-            "-samg_transfer_ops [1:4]     samurai multigrid transfer operators (default: 1):\n"
-            "                             1 - P assembled, R assembled\n"
-            "                             2 - P assembled, R = P^T\n"
-            "                             3 - P mat-free, R mat-free (via double*)\n"
-            "                             4 - P mat-free, R mat-free (via Fields)\n"
-            "-samg_pred_order [0|1]       prediction order used in the prolongation operator\n"
+            "--samg_smooth       <enum>     Smoother used in the samurai multigrid:\n"
+            "                                   sgs   - symmetric Gauss-Seidel\n"
+            "                                   gs    - Gauss-Seidel (pre: lexico., post: antilexico.)\n"
+            "                                   petsc - defined by Petsc options (default: Chebytchev polynomials)\n"
+            "--samg_transfer_ops [1:4]      Samurai multigrid transfer operators (default: 1):\n"
+            "                                   1 - P assembled, R assembled\n"
+            "                                   2 - P assembled, R = P^T\n"
+            "                                   3 - P mat-free, R mat-free (via double*)\n"
+            "                                   4 - P mat-free, R mat-free (via Fields)\n"
+            "--samg_pred_order   [0|1]      Prediction order used in the prolongation operator\n"
             "\n"
             "-------- Useful Petsc options\n"
             "\n"
-            "-pc_type [mg|gamg|hypre...]  sets the preconditioner ('mg' for the samurai multigrid)\n"
-            "-ksp_monitor ascii           prints the residual at each iteration\n"
-            "-ksp_view ascii              view the solver's parametrization\n"
-            "-ksp_rtol <double>           sets the solver tolerance\n"
-            "-ksp_max_it <int>            sets the maximum number of iterations\n"
-            "-pc_mg_levels <int>          sets the number of multigrid levels\n"
-            "-mg_levels_up_pc_sor_its <int> sets the number of post-smoothing iterations\n"
-            "-log_view -pc_mg_log         monitors the multigrid performance\n"
+            "-pc_type [mg|gamg|hypre...]    Sets the preconditioner ('mg' for the samurai multigrid)\n"
+            "-ksp_monitor ascii             Prints the residual at each iteration\n"
+            "-ksp_view ascii                View the solver's parametrization\n"
+            "-ksp_rtol          <double>    Sets the solver tolerance\n"
+            "-ksp_max_it        <int>       Sets the maximum number of iterations\n"
+            "-pc_mg_levels      <int>       Sets the number of multigrid levels\n"
+            "-mg_levels_up_pc_sor_its <int> Sets the number of post-smoothing iterations\n"
+            "-log_view -pc_mg_log           Monitors the multigrid performance\n"
             "\n";
 
 
 
 template<class Mesh>
-Mesh create_uniform_mesh(std::size_t n)
+Mesh create_uniform_mesh(std::size_t level)
 {
     using Box = samurai::Box<double, Mesh::dim>;
 
@@ -76,22 +77,22 @@ Mesh create_uniform_mesh(std::size_t n)
         box = Box({0,0,0}, {1,1,1});
     }
     std::size_t start_level, min_level, max_level;
-    start_level = n;
-    min_level = n;
-    max_level = n;
+    start_level = level;
+    min_level = level;
+    max_level = level;
 
     return Mesh(box, start_level, min_level, max_level); // amr::Mesh
     //return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
 template<class Mesh>
-Mesh create_refined_mesh(std::size_t n)
+Mesh create_refined_mesh(std::size_t level)
 {
     using cl_type = typename Mesh::cl_type;
 
     std::size_t min_level, max_level;
-    min_level = n-1;
-    max_level = n;
+    min_level = level-1;
+    max_level = level;
 
     int i = static_cast<int>(1<<min_level);
 
@@ -133,14 +134,23 @@ int main(int argc, char* argv[])
     //   Parameters   //
     //----------------//
 
-    PetscInt n = 2;
-    PetscOptionsGetInt(NULL, NULL, "-n", &n, NULL);
+    // Default values
+    PetscInt level = 2;
+    std::string test_case_code = "poly";
+    PetscBool save_solution = PETSC_FALSE;
+    PetscBool save_mesh = PETSC_FALSE;
+    fs::path path = fs::current_path();
+    std::string filename = "solution";
+
+    // Get user options
+    PetscOptionsGetInt(NULL, NULL, "--level", &level, NULL);
 
     TestCase<dim>* test_case = nullptr;
     PetscBool test_case_is_set = PETSC_FALSE;
     char test_case_char_array[10];
-    PetscOptionsGetString(NULL, NULL, "-tc", test_case_char_array, 10, &test_case_is_set);
-    std::string test_case_code = test_case_is_set ? test_case_char_array : "poly";
+    PetscOptionsGetString(NULL, NULL, "--tc", test_case_char_array, 10, &test_case_is_set);
+    if (test_case_is_set)
+        test_case_code = test_case_char_array;
     if (test_case_code == "poly")
     {
         test_case = new PolynomialTestCase<dim>();
@@ -151,28 +161,45 @@ int main(int argc, char* argv[])
     }
     else
     {
-        samurai::fatal_error("unknown value for argument -tc");
+        samurai::fatal_error("unknown value for argument --tc");
     }
     std::cout << "Test case: " << test_case_code << std::endl;
 
+    PetscOptionsGetBool(NULL, NULL, "--save_sol", &save_solution, NULL); 
+    PetscOptionsGetBool(NULL, NULL, "--save_mesh", &save_mesh, NULL);
 
-    PetscBool save_solution = PETSC_FALSE;
-    PetscOptionsGetBool(NULL, NULL, "-save_sol", &save_solution, NULL);
+    PetscBool path_is_set = PETSC_FALSE;
+    std::string path_str(100, '\0');
+    PetscOptionsGetString(NULL, NULL, "--path", path_str.data(), path_str.size(), &path_is_set);
+    if (path_is_set)
+    {
+        path = path_str.substr(0, path_str.find('\0'));
+        if (!fs::exists(path))
+        {
+            fs::create_directory(path);
+        }
+    }
 
-    PetscBool save_mesh = PETSC_FALSE;
-    PetscOptionsGetBool(NULL, NULL, "-save_mesh", &save_mesh, NULL);
+    PetscBool filename_is_set = PETSC_FALSE;
+    std::string filename_str(100, '\0');
+    PetscOptionsGetString(NULL, NULL, "--filename", filename_str.data(), filename_str.size(), &filename_is_set);
+    if (path_is_set)
+    {
+        filename = filename_str.substr(0, filename_str.find('\0'));
+    }
+    
 
     //---------------//
     // Mesh creation //
     //---------------//
 
-    Mesh mesh = create_uniform_mesh<Mesh>(static_cast<std::size_t>(n));
+    Mesh mesh = create_uniform_mesh<Mesh>(static_cast<std::size_t>(level));
     //print_mesh(mesh);
 
     if (save_mesh)
     {
         std::cout << "Saving mesh..." << std::endl;
-        samurai::save("mesh", mesh);
+        samurai::save(path, "mesh", mesh);
     }
 
     std::cout << "Unknowns: " << mesh.nb_cells() << std::endl;
@@ -185,6 +212,7 @@ int main(int argc, char* argv[])
     auto solution = samurai::make_field<double, 1>("solution", mesh);
     solution.set_dirichlet(test_case->dirichlet()).everywhere();
 
+    // Other possibilities:
     /*solution.set_dirichlet(test_case->dirichlet())
             .where([](const auto& coord)
             {
@@ -267,7 +295,7 @@ int main(int argc, char* argv[])
     if (save_solution)
     {
         std::cout << "Saving solution..." << std::endl;
-        samurai::save("solution", mesh, solution);
+        samurai::save(path, filename, mesh, solution);
     }
 
     //--------------------//
