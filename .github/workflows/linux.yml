@@ -53,7 +53,7 @@ jobs:
         run: |
           conda info
           conda list
-          conda install -y include-what-you-use
+          conda install -y include-what-you-use petsc pkg-config
       - name: Configure
         shell: bash -l {0}
         run: |
