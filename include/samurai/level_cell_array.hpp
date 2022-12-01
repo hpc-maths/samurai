@@ -14,6 +14,7 @@
 #include "algorithm.hpp"
 #include "box.hpp"
 #include "interval.hpp"
+#include "mesh_interval.hpp"
 #include "level_cell_list.hpp"
 #include "utils.hpp"
 #include "samurai_config.hpp"
@@ -53,6 +54,7 @@ namespace samurai
         using interval_t = TInterval;
         using index_t = typename interval_t::index_t;
         using coord_index_t = typename interval_t::value_t;
+        using mesh_interval_t = MeshInterval<Dim, TInterval>;
 
         using iterator = LevelCellArray_iterator<LevelCellArray<Dim, TInterval>, false>;
         using reverse_iterator = LevelCellArray_reverse_iterator<iterator>;
@@ -88,6 +90,8 @@ namespace samurai
 
         template<typename... T>
         const interval_t& get_interval(const interval_t& interval, T... index) const;
+
+        const interval_t& get_interval(const std::array<coord_index_t, dim>& coord) const;
 
         void update_index();
 
@@ -376,6 +380,13 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
     {
         auto row = find(*this, {interval.start, index...});
+        return m_cells[0][static_cast<std::size_t>(row)];
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::get_interval(const std::array<coord_index_t, dim>& coord) const -> const interval_t&
+    {
+        auto row = find(*this, coord);
         return m_cells[0][static_cast<std::size_t>(row)];
     }
 

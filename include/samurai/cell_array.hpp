@@ -41,6 +41,7 @@ namespace samurai
         static constexpr auto max_size = max_size_;
 
         using interval_t = TInterval;
+        using coord_index_t = typename interval_t::coord_index_t;
         using lca_type = LevelCellArray<dim, TInterval>;
         using cl_type = CellList<dim, TInterval, max_size>;
 
@@ -52,6 +53,8 @@ namespace samurai
 
         template<typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
+
+        const interval_t& get_interval(std::size_t level, const std::array<coord_index_t, dim>& coord) const;
 
         std::size_t nb_cells() const;
         std::size_t nb_cells(std::size_t level) const;
@@ -127,6 +130,12 @@ namespace samurai
     inline auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
     {
         return m_cells[level].get_interval(interval, index...);
+    }
+
+    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const std::array<coord_index_t, dim>& coord) const -> const interval_t&
+    {
+        return m_cells[level].get_interval(coord);
     }
 
     /**
