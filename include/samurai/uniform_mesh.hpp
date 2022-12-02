@@ -51,10 +51,10 @@ namespace samurai
         using cl_type = LevelCellList<dim, interval_t>;
         using ca_type = LevelCellArray<dim, interval_t>;
 
-        using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
+        using mesh_t = MeshIDArray<ca_type, mesh_id_t>;
 
         UniformMesh(const cl_type &cl);
-        UniformMesh(const samurai::Box<double, dim>& b, std::size_t level);
+        UniformMesh(const Box<double, dim>& b, std::size_t level);
 
         UniformMesh(const UniformMesh&) = default;
         UniformMesh& operator=(const UniformMesh&) = default;
@@ -85,7 +85,7 @@ namespace samurai
 
 
     template<class Config>
-    inline UniformMesh<Config>::UniformMesh(const samurai::Box<double, dim>& b, std::size_t level)
+    inline UniformMesh<Config>::UniformMesh(const Box<double, dim>& b, std::size_t level)
     {
         this->m_cells[mesh_id_t::cells] = {level, b};
 
