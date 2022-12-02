@@ -4,44 +4,11 @@
 namespace samurai { namespace petsc
 {
     /**
-     * Set useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
-    */
-    template<std::size_t dim>
-    using starStencilFV = PetscAssemblyConfig
-    <
-        // ----  Stencil size 
-        // Cell-centered Finite Volume scheme:
-        // center + 1 neighbour in each Cartesian direction (2*dim directions) --> 1+2=3 in 1D
-        //                                                                         1+4=5 in 2D
-        1 + 2*dim,
-
-        // ----  Projection stencil size
-        // cell + 2^dim children --> 1+2=3 in 1D 
-        //                           1+4=5 in 2D
-        1 + (1 << dim), 
-
-        // ----  Prediction stencil size
-        // Here, order 1:
-        // cell + hypercube of 3 cells --> 1+3= 4 in 1D
-        //                                 1+9=10 in 2D
-        1 + ce_pow(3, dim), 
-
-        // ---- Index of the stencil center
-        // (as defined in star_stencil())
-        1, 
-
-        // ---- Start index and size of contiguous cell indices
-        // (as defined in star_stencil())
-        // Here, [left, center, right].
-        0, 3
-    >;
-
-    /**
      * @class PetscDiffusionFV_StarStencil
      * Assemble the matrix for the problem -Lap(u)=f.
      * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
     */
-    template<class Field, std::size_t dim=Field::dim, class cfg=starStencilFV<dim>>
+    template<class Field, std::size_t dim=Field::dim, class cfg=starStencilFV<dim, DirichletEnforcement::Equation>>
     class PetscDiffusionFV_StarStencil : public PetscCellBasedSchemeAssembly<cfg, Field>
     {
     public:
@@ -50,18 +17,17 @@ namespace samurai { namespace petsc
         using boundary_condition_t = typename Field::boundary_condition_t;
 
         PetscDiffusionFV_StarStencil(Mesh& m, const std::vector<boundary_condition_t>& boundary_conditions) : 
-            PetscCellBasedSchemeAssembly<cfg, Field>(m, star_stencil<dim>(), FV_coefficients, boundary_conditions)
+            PetscCellBasedSchemeAssembly<cfg, Field>(m, star_stencil<dim>(), coefficients, boundary_conditions)
         {}
 
     private:
-
         bool matrix_is_spd() override
         {
             // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
             return this->mesh.min_level() == this->mesh.max_level();
         }
 
-        static std::array<double, cfg::scheme_stencil_size> FV_coefficients(double h)
+        static std::array<double, cfg::scheme_stencil_size> coefficients(double h)
         {
             double one_over_h2 = 1/(h*h);
 

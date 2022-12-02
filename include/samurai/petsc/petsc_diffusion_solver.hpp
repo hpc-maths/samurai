@@ -27,6 +27,11 @@ namespace samurai { namespace petsc
 
 
     public:
+        PetscDiffusionSolver(Dsctzr& discretizer)
+        : _discretizer(discretizer)
+        {
+            create_solver(_discretizer.mesh);
+        }
         PetscDiffusionSolver(Mesh& mesh, const std::vector<boundary_condition_t>& boundary_conditions)
         : _discretizer(mesh, boundary_conditions)
         {
