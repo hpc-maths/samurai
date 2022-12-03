@@ -110,7 +110,7 @@ namespace samurai
 
             void resize()
             {
-                this->derived_cast().m_data.resize({this->derived_cast().p_mesh->nb_cells()});
+                this->derived_cast().m_data.resize({this->derived_cast().mesh().nb_cells()});
             }
         };
 
@@ -218,7 +218,7 @@ namespace samurai
 
             void resize()
             {
-                this->derived_cast().m_data.resize({this->derived_cast().p_mesh->nb_cells(), size});
+                this->derived_cast().m_data.resize({this->derived_cast().mesh().nb_cells(), size});
             }
 
         };
@@ -330,14 +330,106 @@ namespace samurai
 
     } // namespace detail
 
+    template <class Mesh>
+    class hold
+    {
+        public:
+            static constexpr std::size_t dim = Mesh::dim;
+            using interval_t = typename Mesh::interval_t;
+
+            hold(Mesh& mesh)
+            : m_mesh(mesh)
+            {}
+
+            Mesh& get()
+            {
+                return m_mesh;
+            }
+
+        private:
+            Mesh& m_mesh;
+    };
+
+    template <class Mesh>
+    auto holder(Mesh& mesh)
+    {
+        return hold<Mesh>(mesh);
+    }
+
+    template<class Mesh>
+    class inner_mesh_type
+    {
+        public:
+            using mesh_t = Mesh;
+
+            inner_mesh_type(mesh_t& mesh)
+            : p_mesh(&mesh)
+            {}
+
+            const mesh_t& mesh() const
+            {
+                return *p_mesh;
+            }
+            mesh_t& mesh()
+            {
+                return *p_mesh;
+            }
+
+            const mesh_t* mesh_ptr() const
+            {
+                return p_mesh;
+            }
+            mesh_t* mesh_ptr()
+            {
+                return p_mesh;
+            }
+
+        private:
+            mesh_t* p_mesh;
+    };
+
+    template<class Mesh>
+    class inner_mesh_type<hold<Mesh>>
+    {
+        public:
+            using mesh_t = Mesh;
+
+            inner_mesh_type(hold<Mesh>& mesh)
+            : m_mesh(mesh.get())
+            {}
+
+            const mesh_t& mesh() const
+            {
+                return m_mesh;
+            }
+            mesh_t& mesh()
+            {
+                return m_mesh;
+            }
+
+            const mesh_t* mesh_ptr() const
+            {
+                return &m_mesh;
+            }
+            mesh_t* mesh_ptr()
+            {
+                return &m_mesh;
+            }
+
+        private:
+            mesh_t m_mesh;
+    };
+
     template<class mesh_t_, class value_t = double, std::size_t size_ = 1, bool SOA=false>
     class Field : public field_expression<Field<mesh_t_, value_t, size_, SOA>>,
-                  public detail::inner_field_types<Field<mesh_t_, value_t, size_, SOA>>
+                  public detail::inner_field_types<Field<mesh_t_, value_t, size_, SOA>>,
+                  public inner_mesh_type<mesh_t_>
     {
       public:
         static constexpr std::size_t size = size_;
         static constexpr bool is_soa = SOA;
 
+        using inner_mesh_t = inner_mesh_type<mesh_t_>;
         using mesh_t = mesh_t_;
 
         using value_type = value_t;
@@ -384,12 +476,6 @@ namespace samurai
 
         std::string name() const;
 
-        const mesh_t& mesh() const;
-        mesh_t& mesh();
-
-        const mesh_t* mesh_ptr() const;
-        mesh_t* mesh_ptr();
-
         void to_stream(std::ostream& os) const;
 
         const std::vector<boundary_condition_t>& boundary_conditions() const;
@@ -401,7 +487,6 @@ namespace samurai
         const interval_t& get_interval(std::string rw, const std::size_t level, const interval_t &interval, const T... index) const;
 
         std::string m_name;
-        mesh_t* p_mesh;
         data_type m_data;
 
         friend struct detail::inner_field_types<Field<mesh_t, value_t, size_, SOA>>;
@@ -415,7 +500,7 @@ namespace samurai
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline Field<mesh_t, value_t, size_, SOA>::Field(const std::string& name, mesh_t& mesh)
-        : m_name(name), p_mesh(&mesh)
+        : inner_mesh_t(mesh), m_name(name)
     {
         this->resize();
     }
@@ -429,13 +514,13 @@ namespace samurai
         //
         using mesh_id_t = typename mesh_t::mesh_id_t;
 
-        auto min_level = (*p_mesh)[mesh_id_t::cells].min_level();
-        auto max_level = (*p_mesh)[mesh_id_t::cells].max_level();
+        auto min_level = this->mesh()[mesh_id_t::cells].min_level();
+        auto max_level = this->mesh()[mesh_id_t::cells].max_level();
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto subset = intersection((*p_mesh)[mesh_id_t::cells][level],
-                                       (*p_mesh)[mesh_id_t::cells][level]);
+            auto subset = intersection(this->mesh()[mesh_id_t::cells][level],
+                                       this->mesh()[mesh_id_t::cells][level]);
 
             subset.apply_op(apply_expr(*this, e));
         }
@@ -447,13 +532,15 @@ namespace samurai
     inline auto Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw, const std::size_t level,
                                                             const interval_t &interval, const T... index) const -> const interval_t&
     {
-        const interval_t& interval_tmp = p_mesh->get_interval(level, interval, index...);
+        const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index...);
 
         if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) ||
             (interval_tmp.start > interval.start))
         {
             std::cout << fmt::format("{} FIELD ERROR on level {}: try to find interval {}",
-                             rw, level, interval) << std::endl;
+                                rw, level, interval) << std::endl;
+            // std::cout << this->mesh() << std::endl;
+            throw;
         }
 
         return interval_tmp;
@@ -503,34 +590,10 @@ namespace samurai
     }
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline auto Field<mesh_t, value_t, size_, SOA>::mesh() const -> const mesh_t&
-    {
-        return *p_mesh;
-    }
-
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline auto Field<mesh_t, value_t, size_, SOA>::mesh() -> mesh_t&
-    {
-        return *p_mesh;
-    }
-
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline auto Field<mesh_t, value_t, size_, SOA>::mesh_ptr() const -> const mesh_t*
-    {
-        return p_mesh;
-    }
-
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline auto Field<mesh_t, value_t, size_, SOA>::mesh_ptr() -> mesh_t*
-    {
-        return p_mesh;
-    }
-
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline void Field<mesh_t, value_t, size_, SOA>::to_stream(std::ostream& os) const
     {
         os << "Field " << m_name << "\n";
-        for_each_cell(*p_mesh, [&](auto &cell)
+        for_each_cell(this->mesh(), [&](auto &cell)
         {
                 os << "\tlevel: " << cell.level << " coords: " << cell.center()
                     << " value: " << this->operator[](cell) << "\n";
@@ -553,7 +616,7 @@ namespace samurai
     }
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    typename Field<mesh_t, value_t, size_, SOA>::boundary_condition_t& 
+    typename Field<mesh_t, value_t, size_, SOA>::boundary_condition_t&
     Field<mesh_t, value_t, size_, SOA>::set_dirichlet(boundary_cond_t dirichlet_value)
     {
         m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Dirichlet, dirichlet_value);
@@ -561,12 +624,12 @@ namespace samurai
     }
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    auto 
+    auto
     Field<mesh_t, value_t, size_, SOA>::set_neumann(boundary_cond_t neumann_value) -> boundary_condition_t&
     {
         m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Neumann, neumann_value);
         return m_boundary_conditions.back();
-    }    
+    }
 
     template <class value_t, std::size_t size, bool SOA=false, class mesh_t>
     auto make_field(std::string name, mesh_t& mesh)

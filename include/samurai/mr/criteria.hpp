@@ -93,6 +93,67 @@ namespace samurai
                 }
             }
         }
+
+        template<class T1, class T2>
+        inline void operator()(Dim<3>, const T1& detail, T2 &tag, double eps, std::size_t min_lev) const
+        {
+            constexpr auto size = T1::size;
+            std::size_t fine_level = level + 1;
+
+            if (fine_level > min_lev)
+            {
+                // auto maxd = xt::view(max_detail, level);
+
+                if (size == 1)
+                {
+                    // auto mask = (xt::abs(detail(level, 2*i  ,   2*j))/maxd < eps) and
+                    //             (xt::abs(detail(level, 2*i+1,   2*j))/maxd < eps) and
+                    //             (xt::abs(detail(level, 2*i  , 2*j+1))/maxd < eps) and
+                    //             (xt::abs(detail(level, 2*i+1, 2*j+1))/maxd < eps);
+                    auto mask = (xt::abs(detail(fine_level, 2*i  ,   2*j,   2*k)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i+1,   2*j,   2*k)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i  , 2*j+1,   2*k)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i+1, 2*j+1,   2*k)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i  ,   2*j, 2*k+1)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i+1,   2*j, 2*k+1)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i  , 2*j+1, 2*k+1)) < eps) and
+                                (xt::abs(detail(fine_level, 2*i+1, 2*j+1, 2*k+1)) < eps);
+
+                    xt::masked_view(tag(fine_level, 2*i  ,   2*j,   2*k), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1,   2*j,   2*k), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1,   2*k), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1,   2*k), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  ,   2*j, 2*k+1), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1,   2*j, 2*k+1), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1, 2*k+1), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1, 2*k+1), mask) = static_cast<int>(CellFlag::coarsen);
+                }
+                else
+                {
+                    // auto mask = xt::sum((xt::abs(detail(level, 2*i  ,   2*j))/maxd < eps) and
+                    //                     (xt::abs(detail(level, 2*i+1,   2*j))/maxd < eps) and
+                    //                     (xt::abs(detail(level, 2*i  , 2*j+1))/maxd < eps) and
+                    //                     (xt::abs(detail(level, 2*i+1, 2*j+1))/maxd < eps), {1}) > (size-1);
+                    auto mask = xt::sum((xt::abs(detail(fine_level, 2*i  ,   2*j,   2*k)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i+1,   2*j,   2*k)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i  , 2*j+1,   2*k)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1,   2*k)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i  ,   2*j, 2*k+1)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i+1,   2*j, 2*k+1)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i  , 2*j+1, 2*k+1)) < eps) and
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1, 2*k+1)) < eps), {1}) > (size-1);
+
+                    xt::masked_view(tag(fine_level, 2*i  ,   2*j,   2*k), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1,   2*j,   2*k), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1,   2*k), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1,   2*k), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  ,   2*j, 2*k+1), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1,   2*j, 2*k+1), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1, 2*k+1), mask) = static_cast<int>(CellFlag::coarsen);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1, 2*k+1), mask) = static_cast<int>(CellFlag::coarsen);
+                }
+            }
+        }
     };
 
 
@@ -239,6 +300,67 @@ namespace samurai
                     xt::masked_view(tag(fine_level, 2*i+1, 2*j  ), mask) = static_cast<int>(CellFlag::refine);
                     xt::masked_view(tag(fine_level, 2*i  , 2*j+1), mask) = static_cast<int>(CellFlag::refine);
                     xt::masked_view(tag(fine_level, 2*i+1, 2*j+1), mask) = static_cast<int>(CellFlag::refine);
+                }
+            }
+        }
+
+        template<class T1, class T2>
+        inline void operator()(Dim<3>, const T1& detail,
+                               T2 &tag, double eps, std::size_t max_level) const
+        {
+            constexpr auto size = T1::size;
+            std::size_t fine_level = level + 1;
+
+            if (fine_level < max_level)
+            {
+                // auto maxd = xt::view(max_detail, fine_level);
+                if (size == 1)
+                {
+                    // auto mask = ((xt::abs(detail(fine_level, 2*i  , 2*j  ))/maxd) > eps) or
+                    //             ((xt::abs(detail(fine_level, 2*i+1, 2*j  ))/maxd) > eps) or
+                    //             ((xt::abs(detail(fine_level, 2*i  , 2*j+1))/maxd) > eps) or
+                    //             ((xt::abs(detail(fine_level, 2*i+1, 2*j+1))/maxd) > eps);
+                    auto mask = (xt::abs(detail(fine_level, 2*i  , 2*j  , 2*k  )) > eps) or
+                                (xt::abs(detail(fine_level, 2*i+1, 2*j  , 2*k  )) > eps) or
+                                (xt::abs(detail(fine_level, 2*i  , 2*j+1, 2*k  )) > eps) or
+                                (xt::abs(detail(fine_level, 2*i+1, 2*j+1, 2*k  )) > eps) or
+                                (xt::abs(detail(fine_level, 2*i  , 2*j  , 2*k+1)) > eps) or
+                                (xt::abs(detail(fine_level, 2*i+1, 2*j  , 2*k+1)) > eps) or
+                                (xt::abs(detail(fine_level, 2*i  , 2*j+1, 2*k+1)) > eps) or
+                                (xt::abs(detail(fine_level, 2*i+1, 2*j+1, 2*k+1)) > eps);
+
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j  , 2*k  ), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j  , 2*k  ), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1, 2*k  ), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1, 2*k  ), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j  , 2*k+1), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j  , 2*k+1), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1, 2*k+1), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1, 2*k+1), mask) = static_cast<int>(CellFlag::refine);
+                }
+                else
+                {
+                    // auto mask = xt::sum(((xt::abs(detail(fine_level, 2*i  , 2*j  ))/maxd) > eps) or
+                    //                     ((xt::abs(detail(fine_level, 2*i+1, 2*j  ))/maxd) > eps) or
+                    //                     ((xt::abs(detail(fine_level, 2*i  , 2*j+1))/maxd) > eps) or
+                    //                     ((xt::abs(detail(fine_level, 2*i+1, 2*j+1))/maxd) > eps), {1}) > 0;
+                    auto mask = xt::sum((xt::abs(detail(fine_level, 2*i  , 2*j  , 2*k  )) > eps) or
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j  , 2*k  )) > eps) or
+                                        (xt::abs(detail(fine_level, 2*i  , 2*j+1, 2*k  )) > eps) or
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1, 2*k  )) > eps) or
+                                        (xt::abs(detail(fine_level, 2*i  , 2*j  , 2*k+1)) > eps) or
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j  , 2*k+1)) > eps) or
+                                        (xt::abs(detail(fine_level, 2*i  , 2*j+1, 2*k+1)) > eps) or
+                                        (xt::abs(detail(fine_level, 2*i+1, 2*j+1, 2*k+1)) > eps), {1}) > 0;
+
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j  , 2*k  ), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j  , 2*k  ), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1, 2*k  ), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1, 2*k  ), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j  , 2*k+1), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j  , 2*k+1), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i  , 2*j+1, 2*k+1), mask) = static_cast<int>(CellFlag::refine);
+                    xt::masked_view(tag(fine_level, 2*i+1, 2*j+1, 2*k+1), mask) = static_cast<int>(CellFlag::refine);
                 }
             }
         }

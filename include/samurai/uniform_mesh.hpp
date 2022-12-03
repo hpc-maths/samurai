@@ -51,10 +51,10 @@ namespace samurai
         using cl_type = LevelCellList<dim, interval_t>;
         using ca_type = LevelCellArray<dim, interval_t>;
 
-        using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
+        using mesh_t = MeshIDArray<ca_type, mesh_id_t>;
 
         UniformMesh(const cl_type &cl);
-        UniformMesh(const samurai::Box<double, dim>& b, std::size_t level);
+        UniformMesh(const Box<double, dim>& b, std::size_t level);
 
         UniformMesh(const UniformMesh&) = default;
         UniformMesh& operator=(const UniformMesh&) = default;
@@ -72,7 +72,7 @@ namespace samurai
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
 
         template<class T1, typename... T>
-        const std::size_t get_index(T1 i, T... index) const;
+        std::size_t get_index(T1 i, T... index) const;
 
         void to_stream(std::ostream &os) const;
 
@@ -85,7 +85,7 @@ namespace samurai
 
 
     template<class Config>
-    inline UniformMesh<Config>::UniformMesh(const samurai::Box<double, dim>& b, std::size_t level)
+    inline UniformMesh<Config>::UniformMesh(const Box<double, dim>& b, std::size_t level)
     {
         this->m_cells[mesh_id_t::cells] = {level, b};
 
@@ -123,7 +123,7 @@ namespace samurai
 
     template<class Config>
     template<class T1, typename... T>
-    inline const std::size_t UniformMesh<Config>::get_index(T1 i, T... index) const
+    inline std::size_t UniformMesh<Config>::get_index(T1 i, T... index) const
     {
         auto interval = m_cells[mesh_id_t::reference].get_interval(interval_t{i, i +1}, index...);
         return interval.index + i;

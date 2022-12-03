@@ -181,13 +181,14 @@ namespace samurai
             for (std::size_t d = 0; d < dim; ++d)
             {
                 stencil.fill(0);
-                for (int s = -1; s <= 1; ++s)
+                int grad_width = static_cast<int>(mesh_t::config::graduation_width);
+                for (int s = -grad_width; s <= grad_width; ++s)
                 {
                     if (s != 0)
                     {
                         stencil[d] = s;
                         auto subset = intersection(mesh[mesh_id_t::cells][level],
-                                                translate(mesh[mesh_id_t::cells][level - 1], stencil))
+                                                   translate(mesh[mesh_id_t::cells][level - 1], stencil))
                                     .on(level - 1);
                         subset.apply_op(balance_2to1(m_tag, stencil));
                     }

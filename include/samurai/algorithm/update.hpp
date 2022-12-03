@@ -16,6 +16,7 @@ namespace samurai
     void update_ghost(Func&& update_bc_for_level, Field& field, Fields&... fields)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
         auto mesh = field.mesh();
         std::size_t min_level = mesh.min_level();
@@ -35,7 +36,7 @@ namespace samurai
                                              mesh[mesh_id_t::reference][level-1])
                                .on(level);
             update_bc_for_level(level-1, field, fields...);
-            set_at_level.apply_op(variadic_prediction<1, false>(field, fields...));
+            set_at_level.apply_op(variadic_prediction<pred_order, false>(field, fields...));
             update_bc_for_level(level, field, fields...);
         }
     }
@@ -44,8 +45,9 @@ namespace samurai
     void update_ghost_mro(Field& field, Func&& update_bc_for_level)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
         auto mesh = field.mesh();
+
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
@@ -61,17 +63,22 @@ namespace samurai
         {
             // We eliminate the overleaves from the computation since they
             // are done separately
-            auto expr = difference(intersection(difference(mesh[mesh_id_t::all_cells][level],
+            // auto expr = difference(intersection(difference(mesh[mesh_id_t::all_cells][level],
+            //                                                union_(mesh[mesh_id_t::cells][level],
+            //                                                       mesh[mesh_id_t::proj_cells][level])),
+            //                                     mesh.domain()),
+            //                        difference(mesh[mesh_id_t::overleaves][level],
+            //                                   union_(mesh[mesh_id_t::union_cells][level],
+            //                                          mesh[mesh_id_t::cells_and_ghosts][level])))
+            //             .on(level);
+
+            auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
                                                            union_(mesh[mesh_id_t::cells][level],
                                                                   mesh[mesh_id_t::proj_cells][level])),
-                                                mesh.domain()),
-                                   difference(mesh[mesh_id_t::overleaves][level],
-                                              union_(mesh[mesh_id_t::union_cells][level],
-                                                     mesh[mesh_id_t::cells_and_ghosts][level])))
+                                                mesh.domain())
                         .on(level);
-
             update_bc_for_level(field, level-1);
-            expr.apply_op(prediction<1, false>(field));
+            expr.apply_op(prediction<pred_order, false>(field));
             update_bc_for_level(field, level);
         }
     }
@@ -136,6 +143,7 @@ namespace samurai
         void update_fields(Mesh& new_mesh, Field& field)
         {
             using mesh_id_t = typename Mesh::mesh_id_t;
+            constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
             Field new_field("new_f", new_mesh);
             new_field.fill(0);
@@ -162,7 +170,7 @@ namespace samurai
                 auto set_refine = intersection(new_mesh[mesh_id_t::cells][level],
                                                mesh[mesh_id_t::cells][level-1])
                                  .on(level - 1);
-                set_refine.apply_op(prediction<1, true>(new_field, field));
+                set_refine.apply_op(prediction<pred_order, true>(new_field, field));
             }
 
             std::swap(field.array(), new_field.array());
@@ -230,6 +238,7 @@ namespace samurai
     {
         static constexpr std::size_t dim = Field::dim;
         using mesh_t = typename Field::mesh_t;
+        constexpr std::size_t pred_order = mesh_t::config::prediction_order;
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         using interval_t = typename mesh_t::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
@@ -294,7 +303,7 @@ namespace samurai
             auto set_refine = intersection(new_mesh[mesh_id_t::cells][level],
                                            mesh[mesh_id_t::cells][level-1])
                              .on(level - 1);
-            set_refine.apply_op(prediction<1, true>(new_field, field));
+            set_refine.apply_op(prediction<pred_order, true>(new_field, field));
         }
 
         auto old_mesh = old_field.mesh();

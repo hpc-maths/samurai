@@ -47,7 +47,7 @@ namespace samurai { namespace petsc
         }
 
     private:
-        void create_solver(Mesh& 
+        void create_solver(Mesh&
 #ifdef ENABLE_MG
         mesh
 #endif
@@ -72,7 +72,9 @@ namespace samurai { namespace petsc
             {
                 if constexpr(Mesh::dim > 2)
                 {
-                    fatal_error("Samurai Multigrid is not implemented for dim > 2.");
+                    std::cerr << "Samurai Multigrid is not implemented for dim > 2." << std::endl;
+                    assert(false);
+                    exit(EXIT_FAILURE);
                 }
                 _samurai_mg = GeometricMultigrid(_discretizer, mesh);
                 _samurai_mg.apply_as_pc(_ksp);
@@ -106,7 +108,7 @@ namespace samurai { namespace petsc
             // Create the solution vector
             Vec x;
             VecDuplicate(b, &x);
-            
+
             // Solve the system
             KSPSolve(_ksp, b, x);
 
@@ -117,7 +119,9 @@ namespace samurai { namespace petsc
                 using namespace std::string_literals;
                 const char* reason_text;
                 KSPGetConvergedReasonString(_ksp, &reason_text);
-                fatal_error("Divergence of the solver ("s + reason_text + ")");
+                std::cerr << "Divergence of the solver ("s + reason_text + ")" << std::endl;
+                assert(false);
+                exit(EXIT_FAILURE);
             }
             //VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 

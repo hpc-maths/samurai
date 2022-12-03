@@ -71,3 +71,27 @@ def test_burgers(step, config):
            "--path", config['path'],
            '--filename', config['filename']]
     output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    'exec',
+    [
+        'tutorial-reconstruction-1d',
+        'tutorial-reconstruction-2d',
+        'tutorial-reconstruction-3d',
+    ]
+)
+@pytest.mark.parametrize(
+    'extra',
+    [
+        ['--case', 'abs'],
+        ['--case', 'exp'],
+        ['--case', 'tanh'],
+    ]
+)
+def test_reconstruction(exec, extra, config):
+    cmd = [get_executable("../build/demos/tutorial/", exec),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           *extra]
+    output = subprocess.run(cmd, check=True, capture_output=True)

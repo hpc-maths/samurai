@@ -121,10 +121,10 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
-    inline void for_each_meshinterval(const CellArray<dim, TInterval, max_size>& ca, Func&& f)//std::function<void(const MeshInterval<dim, TInterval>&)> f)//std::function<void(const TMeshInterval&)> f)//, 
+    inline void for_each_meshinterval(const CellArray<dim, TInterval, max_size>& ca, Func&& f)//std::function<void(const MeshInterval<dim, TInterval>&)> f)//std::function<void(const TMeshInterval&)> f)//,
     {
         //using MeshInterval = typename CellArray<dim, TInterval>::lca_type::mesh_interval_t;
-        
+
         for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
         {
             if (!ca[level].empty())

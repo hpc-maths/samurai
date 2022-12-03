@@ -123,11 +123,11 @@ int main(int argc, char* argv[])
     //------------------//
     // Petsc initialize //
     //------------------//
-    
+
     PetscInitialize(&argc, &argv, 0, help);
 
     PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size)); 
+    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
     //----------------//
@@ -161,11 +161,11 @@ int main(int argc, char* argv[])
     }
     else
     {
-        samurai::fatal_error("unknown value for argument --tc");
+        std::cerr << "unknown value for argument --tc" << std::endl;
     }
     std::cout << "Test case: " << test_case_code << std::endl;
 
-    PetscOptionsGetBool(NULL, NULL, "--save_sol", &save_solution, NULL); 
+    PetscOptionsGetBool(NULL, NULL, "--save_sol", &save_solution, NULL);
     PetscOptionsGetBool(NULL, NULL, "--save_mesh", &save_mesh, NULL);
 
     PetscBool path_is_set = PETSC_FALSE;
@@ -187,7 +187,7 @@ int main(int argc, char* argv[])
     {
         filename = filename_str.substr(0, filename_str.find('\0'));
     }
-    
+
 
     //---------------//
     // Mesh creation //

@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os:
           - windows-2022
@@ -76,6 +76,8 @@ jobs:
           runner.os == 'Macos' &&
           matrix.compiler == 'llvm'
         run: |
+          rm -r ~/.conan/profiles
+          conan profile new default --detect
           conan profile update settings.compiler.libcxx=libc++ default
       - name: Configure CMake
         run: |
