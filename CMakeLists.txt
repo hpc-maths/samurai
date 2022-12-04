@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
+set(CMAKE_CXX_STANDARD 17)
+
 # Add project_options v0.26.1
 # https://github.com/aminya/project_options
 include(FetchContent)
