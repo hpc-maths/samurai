@@ -83,6 +83,7 @@ project_options(
 
 add_library(samurai INTERFACE)
 target_link_libraries(samurai INTERFACE project_options project_warnings)
+target_compile_features(samurai INTERFACE cxx_std_17)
 
 # Includes
 set(INCLUDE_DIR "include") # must be relative paths
