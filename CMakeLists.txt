@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_CXX_STANDARD 17)
-
 # Add project_options v0.26.1
 # https://github.com/aminya/project_options
 include(FetchContent)
@@ -83,6 +81,7 @@ project_options(
 
 add_library(samurai INTERFACE)
 target_link_libraries(samurai INTERFACE project_options project_warnings)
+target_compile_features(samurai INTERFACE cxx_std_17)
 
 # Includes
 set(INCLUDE_DIR "include") # must be relative paths
