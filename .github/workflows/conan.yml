@@ -76,7 +76,10 @@ jobs:
           runner.os == 'Macos' &&
           matrix.compiler == 'llvm'
         run: |
-          rm -r ~/.conan/profiles
+          if [[ -d "~/.conan/profiles" ]]
+          then
+            rm -r ~/.conan/profiles
+          fi
           conan profile new default --detect
           conan profile update settings.compiler.libcxx=libc++ default
       - name: Configure CMake
