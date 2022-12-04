@@ -1,51 +1,29 @@
-if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    project(samurai-test)
-
-    find_package(samurai REQUIRED CONFIG)
-    set(SAMURAI_INCLUDE_DIR ${SAMURAI_INCLUDE_DIRS})
-endif ()
-
-include(CheckCXXCompilerFlag)
-
-string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
-
-find_package(g QUIET)
-
 include(addGoogleTest)
-# include(addRapidCheck)
+include_directories(${GTEST_INCLUDE_DIRS} SYSTEM)
 
 find_package(rapidcheck QUIET)
+message(STATUS "Found Rapidcheck: ${rapidcheck_FOUND}")
+
 find_package(Threads)
 
-include_directories(${GTEST_INCLUDE_DIRS} SYSTEM)
-message(STATUS ${rapidcheck_FOUND})
+# set(CMAKE_CXX_STANDARD 17)
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR (CMAKE_CXX_COMPILER_ID MATCHES "Intel" AND NOT WIN32))
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast -Wunused-variable")
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion")
-    CHECK_CXX_COMPILER_FLAG("-std=c++14" HAS_CPP14_FLAG)
-    CHECK_CXX_COMPILER_FLAG("-std=c++17" HAS_CPP17_FLAG)
+# if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR (CMAKE_CXX_COMPILER_ID MATCHES "Intel" AND NOT WIN32))
+#     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion -Wsign-conversion")
+#     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast -Wunused-variable")
+#     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -Wunused-parameter -Wextra -Wreorder -Wconversion")
+#     CHECK_CXX_COMPILER_FLAG("-std=c++17" HAS_CPP17_FLAG)
 
-    if (CPP17 AND HAS_CPP17_FLAG)
-        set(CMAKE_CXX_STANDARD 17)
-        message(STATUS "Building with -std=c++17")
-    elseif (HAS_CPP14_FLAG)
-        set(CMAKE_CXX_STANDARD 14)
-        message(STATUS "Building with -std=c++14")
-    else()
-        message(FATAL_ERROR "Unsupported compiler -- samurai requires C++14 support!")
-    endif()
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-    set(CMAKE_CXX_EXTENSIONS OFF)
-endif()
+#     set(CMAKE_CXX_STANDARD_REQUIRED ON)
+#     set(CMAKE_CXX_EXTENSIONS OFF)
+# endif()
 
-if(MSVC)
-    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-    add_definitions(-D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /MP /bigobj /wd4800")
-    set(CMAKE_EXE_LINKER_FLAGS /MANIFEST:NO)
-endif()
+# if(MSVC)
+#     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+#     add_definitions(-D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
+#     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /MP /bigobj /wd4800")
+#     set(CMAKE_EXE_LINKER_FLAGS /MANIFEST:NO)
+# endif()
 
 set(COMMON_BASE
     main.cpp
@@ -59,8 +37,6 @@ set(SAMURAI_TESTS
     test_level_cell_list.cpp
     test_list_of_intervals.cpp
     test_portion.cpp
-    # test_param.cpp
-    # test_operator_set.cpp
 )
 
 if (rapidcheck_FOUND)
