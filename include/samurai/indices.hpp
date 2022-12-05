@@ -93,40 +93,6 @@ namespace samurai
 
 
 
-    //
-    // Functions that return cells
-    //
-
-    template <class Mesh, class coord_type, class Func>
-    inline void for_each_cell(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t& i, const coord_type& index, Func &&f)
-    {
-        using coord_index_t = typename Mesh::interval_t::coord_index_t;
-        static constexpr std::size_t dim = Mesh::dim;
-
-        // TODO: only one of the two arrays should be used.
-        // problem --> mesh.get_index wants an array
-        //             Cell constructor wants an xtensor
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> xtensor_coord;
-        std::array<coord_index_t, dim> array_coord;
-        array_coord[0] = i.start;
-        xtensor_coord[0] = i.start;
-        for(std::size_t d = 0; d < dim - 1; ++d)
-        {
-            array_coord[d + 1] = index[d];
-            xtensor_coord[d + 1] = index[d];
-        }
-        auto cell_index = mesh.get_index(level, array_coord);
-        Cell<coord_index_t, dim> cell{level, xtensor_coord, cell_index};
-        for(coord_index_t ii = 0; ii < static_cast<coord_index_t>(i.size()); ++ii)
-        {
-            f(cell);
-            cell.indices[0]++;
-            cell.index++;
-        }
-    }
-
-
-
     /**
      * Used to define the projection operator.
      */
@@ -216,7 +182,7 @@ namespace samurai
     /**
      * Used for the allocation of the matrix rows where the projection operator is used.
      */
-    template <typename DesiredIndexType, class Mesh, class Func>
+    template <class Mesh, class Func>
     inline void for_each_cell_having_children(const Mesh& mesh, Func &&f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
@@ -230,20 +196,14 @@ namespace samurai
                                              mesh[mesh_id_t::cells][level+1])
                         .on(level);
 
-            typename Mesh::mesh_interval_t mesh_interval(level);
-            set([&](const auto& i, const auto& index)
-            {
-                mesh_interval.i = i;
-                mesh_interval.index = index;
-                for_each_cell_index<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
-            });
+            for_each_cell(mesh, set, level, std::forward<Func>(f));
         }
     }
 
     /**
      * Used for the allocation of the matrix rows where the prediction operator is used.
      */
-    template <typename DesiredIndexType, class Mesh, class Func>
+    template <class Mesh, class Func>
     inline void for_each_cell_having_parent(const Mesh& mesh, Func &&f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
@@ -257,13 +217,7 @@ namespace samurai
                                              mesh[mesh_id_t::cells][level-1])
                     .on(level);
 
-            typename Mesh::mesh_interval_t mesh_interval(level);
-            set([&](const auto& i, const auto& index)
-            {
-                mesh_interval.i = i;
-                mesh_interval.index = index;
-                for_each_cell_index<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
-            });
+            for_each_cell(mesh, set, level, std::forward<Func>(f));
         }
     }
 
