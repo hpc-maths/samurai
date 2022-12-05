@@ -42,9 +42,9 @@ namespace samurai { namespace petsc
             std::vector<PetscInt> nnz(n, 1);
 
             // Cells
-            for_each_cell_index<std::size_t>(mesh, [&](std::size_t cell)
+            for_each_cell(mesh, [&](auto& cell)
             {
-                nnz[cell] = cfg::scheme_stencil_size;
+                nnz[cell.index] = cfg::scheme_stencil_size;
             });
 
 
@@ -81,15 +81,15 @@ namespace samurai { namespace petsc
             }
 
             // Projection
-            for_each_cell_having_children<std::size_t>(mesh, [&] (std::size_t cell)
+            for_each_cell_having_children(mesh, [&](auto& cell)
             {
-                nnz[cell] = cfg::proj_stencil_size;
+                nnz[cell.index] = cfg::proj_stencil_size;
             });
 
             // Prediction
-            for_each_cell_having_parent<std::size_t>(mesh, [&] (std::size_t cell)
+            for_each_cell_having_parent(mesh, [&](auto& cell)
             {
-                nnz[cell] = cfg::pred_stencil_size;
+                nnz[cell.index] = cfg::pred_stencil_size;
             });
 
             return nnz;

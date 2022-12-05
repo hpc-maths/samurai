@@ -102,6 +102,15 @@ namespace samurai
         }
     }
 
+    template <class SetType, class Func>
+    inline void for_each_interval(SetType& set, Func&& f)
+    {
+        set([&](const auto& i, const auto& index)
+        {
+            f(i, index);
+        });
+    }
+
 
     //////////////////////////////////////////
     // for_each_meshinterval implementation //
@@ -121,10 +130,8 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
-    inline void for_each_meshinterval(const CellArray<dim, TInterval, max_size>& ca, Func&& f)//std::function<void(const MeshInterval<dim, TInterval>&)> f)//std::function<void(const TMeshInterval&)> f)//,
+    inline void for_each_meshinterval(const CellArray<dim, TInterval, max_size>& ca, Func&& f)
     {
-        //using MeshInterval = typename CellArray<dim, TInterval>::lca_type::mesh_interval_t;
-
         for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
         {
             if (!ca[level].empty())
@@ -132,6 +139,18 @@ namespace samurai
                 for_each_meshinterval(ca[level], std::forward<Func>(f));
             }
         }
+    }
+
+    template <class MeshIntervalType, class SetType, class Func>
+    inline void for_each_meshinterval(SetType& set, std::size_t level, Func&& f)
+    {
+        MeshIntervalType mesh_interval(level);
+        set([&](const auto& i, const auto& index)
+        {
+            mesh_interval.i = i;
+            mesh_interval.index = index;
+            f(mesh_interval);
+        });
     }
 
 
@@ -180,6 +199,43 @@ namespace samurai
     {
         using mesh_id_t = typename Config::mesh_id_t;
         for_each_cell(mesh[mesh_id_t::cells], std::forward<Func>(f));
+    }
+
+    template <class Mesh, class coord_type, class Func>
+    inline void for_each_cell(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t& i, const coord_type& index, Func &&f)
+    {
+        using coord_index_t = typename Mesh::interval_t::coord_index_t;
+        static constexpr std::size_t dim = Mesh::dim;
+
+        // TODO: only one of the two following arrays should be used.
+        // problem --> mesh.get_index() wants an array
+        //             Cell constructor wants an xtensor
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> xtensor_coord;
+        std::array<coord_index_t, dim> array_coord;
+        array_coord[0] = i.start;
+        xtensor_coord[0] = i.start;
+        for(std::size_t d = 0; d < dim - 1; ++d)
+        {
+            array_coord[d + 1] = index[d];
+            xtensor_coord[d + 1] = index[d];
+        }
+        auto cell_index = mesh.get_index(level, array_coord);
+        Cell<coord_index_t, dim> cell{level, xtensor_coord, cell_index};
+        for(coord_index_t ii = 0; ii < static_cast<coord_index_t>(i.size()); ++ii)
+        {
+            f(cell);
+            cell.indices[0]++; // increment x coordinate
+            cell.index++;      // increment cell index
+        }
+    }
+
+    template <class Mesh, class SetType, class Func>
+    inline void for_each_cell(const Mesh& mesh, SetType& set, std::size_t level, Func&& f)
+    {
+        set([&](const auto& i, const auto& index)
+        {
+            for_each_cell(mesh, level, i, index, std::forward<Func>(f));
+        });
     }
 
     /////////////////////////

@@ -40,17 +40,16 @@ namespace samurai
     template <class Mesh, std::size_t stencil_size, class Func>
     inline void for_each_interval_on_boundary(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&func)
     {
-        typename Mesh::mesh_interval_t mesh_interval(level);
+        using mesh_interval_t = typename Mesh::mesh_interval_t;
+
         for (unsigned int is = 0; is<stencil_size; ++is)
         {
             auto direction = xt::view(stencil, is);
             if (xt::any(direction)) // if (direction != 0)
             {
                 auto boundary = in_boundary(mesh, level, direction);
-                boundary([&](auto& i, auto& index)
+                for_each_meshinterval<mesh_interval_t>(boundary, level, [&](auto& mesh_interval)
                 {
-                    mesh_interval.i = i;
-                    mesh_interval.index = index;
                     func(mesh_interval, direction);
                 });
             }
@@ -60,7 +59,8 @@ namespace samurai
     template <class Mesh, std::size_t stencil_size, class Func>
     inline void for_each_interval_on_boundary(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil, const std::array<double, stencil_size>& coefficients, Func &&func)
     {
-        typename Mesh::mesh_interval_t mesh_interval(level);
+        using mesh_interval_t = typename Mesh::mesh_interval_t;
+
         for (unsigned int is = 0; is<stencil_size; ++is)
         {
             auto direction = xt::view(stencil, is);
@@ -68,10 +68,8 @@ namespace samurai
             {
                 double coeff = coefficients[is];
                 auto boundary = in_boundary(mesh, level, direction);
-                boundary([&](auto& i, auto& index)
+                for_each_meshinterval<mesh_interval_t>(boundary, level, [&](auto& mesh_interval)
                 {
-                    mesh_interval.i = i;
-                    mesh_interval.index = index;
                     func(mesh_interval, direction, coeff);
                 });
             }
