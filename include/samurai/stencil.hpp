@@ -146,8 +146,9 @@ namespace samurai
     {
         IteratorStencil_Indices<DesiredIndexType, stencil_size, Mesh::dim> stencil_it(stencil);
 
-        for_each_level(mesh, [&](std::size_t level, double h)
+        for_each_level(mesh, [&](std::size_t level)
         {
+            double h = cell_length(level);
             auto coeffs = get_coefficients(h);
 
             for_each_stencil<DesiredIndexType>(mesh, level, stencil_it,

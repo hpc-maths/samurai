@@ -25,34 +25,22 @@ namespace samurai
     ///////////////////////////////////
 
     template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
-    inline void for_each_level(const CellArray<dim, TInterval, max_size>& ca, Func&& f)
+    inline void for_each_level(const CellArray<dim, TInterval, max_size>& ca, Func&& f, bool include_empty_levels = false)
     {
         for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
         {
-            if (!ca[level].empty())
+            if (include_empty_levels || !ca[level].empty())
             {
-                f(level, 1./(1<<level));
-            }
-        }
-    }
-
-    template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
-    inline void for_each_level(CellArray<dim, TInterval, max_size>& ca, Func&& f)
-    {
-        for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
-        {
-            if (!ca[level].empty())
-            {
-                f(level, 1./(1<<level));
+                f(level);
             }
         }
     }
 
     template <class Mesh, class Func>
-    inline void for_each_level(Mesh& mesh, Func&& f)
+    inline void for_each_level(Mesh& mesh, Func&& f, bool include_empty_levels = false)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
-        for_each_level(mesh[mesh_id_t::cells], std::forward<Func>(f));
+        for_each_level(mesh[mesh_id_t::cells], std::forward<Func>(f), include_empty_levels);
     }
 
 

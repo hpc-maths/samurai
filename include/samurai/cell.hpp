@@ -11,6 +11,13 @@
 
 namespace samurai
 {
+    template<typename LevelType, std::enable_if_t<std::is_integral<LevelType>::value, bool> = true>
+    inline double cell_length(LevelType level)
+    {
+        return 1./(1<<level);
+    }
+    
+
     /** @class Cell
      *  @brief Define a mesh cell in multi dimensions.
      *
@@ -65,7 +72,7 @@ namespace samurai
     inline Cell<TCoord_index, dim_>::Cell(std::size_t level_, const T& indices_, std::size_t index_)
     : level(level_), indices(indices_), index(index_)
     {
-        length = 1./(1 << level);
+        length = cell_length(level);
         // center = length*(indices + 0.5);
     }
 

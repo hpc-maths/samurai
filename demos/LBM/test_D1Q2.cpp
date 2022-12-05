@@ -204,7 +204,7 @@ void one_time_step(Field &f, Func&& update_bc_for_level,
         samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std))
         for (std::size_t level = 0; level <= max_level; ++level)    {
 
-            double dx = 1./(1 << level);
+            double dx = samurai::cell_length(level);
 
             auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level],
                                                 mesh[mesh_id_t::cells][level]);
