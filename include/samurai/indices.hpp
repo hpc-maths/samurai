@@ -9,7 +9,7 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::coord_index_t;
 
-        std::array<coord_index_t, dim> coord;
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord;
         std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin()+1);
         coord[0] = mesh_interval.i.start;
         return mesh.get_index(mesh_interval.level, coord);
@@ -21,7 +21,7 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::coord_index_t;
 
-        std::array<coord_index_t, dim> coord;
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord;
         std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin()+1);
         coord[0] = mesh_interval.i.start;
         for (std::size_t d=0; d<dim; ++d)
@@ -37,7 +37,7 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using coord_index_t = typename Mesh::coord_index_t;
 
-        std::array<coord_index_t, dim> coord;
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord;
         std::copy(mesh_interval.index.cbegin(), mesh_interval.index.cend(), coord.begin()+1);
         coord[0] = mesh_interval.i.start;
         for (std::size_t d=0; d<dim; ++d)
