@@ -18,19 +18,14 @@ namespace samurai
         std::size_t level;
         interval_t i;
         coord_type index;
-        double cell_length;
 
         MeshInterval(std::size_t l) 
         : level(l) 
-        {
-            cell_length = 1./(1 << level);
-        }
+        {}
 
         MeshInterval(std::size_t l, const interval_t& _i, const coord_type& _index) 
         : level(l) , i(_i), index(_index)
-        {
-            cell_length = 1./(1 << level);
-        }
+        {}
     };
 
     template<std::size_t dim, class TInterval>

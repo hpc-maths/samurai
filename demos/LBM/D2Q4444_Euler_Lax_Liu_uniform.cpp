@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
             auto f = init_f(mesh, configuration, lambda); // Adaptive  scheme
             auto fnp1 = init_f(mesh, configuration, lambda); // Adaptive  scheme
 
-            double dx = 1.0 / (1 << level);
+            double dx = samurai::cell_length(level);
             double dt = dx / lambda;
 
             std::size_t N = static_cast<std::size_t>(T / dt);

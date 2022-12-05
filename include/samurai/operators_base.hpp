@@ -78,7 +78,7 @@ namespace samurai
         template<std::size_t dim>
         inline field_operator_base(std::size_t level_, const interval_t& interval,
                                    xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
-        : level{level_}, i{interval}, m_dx{1. / (1 << level)}
+        : level{level_}, i{interval}, m_dx{cell_length(level)}
         {
             if constexpr (dim > 0)
             {
@@ -91,15 +91,15 @@ namespace samurai
         }
 
         inline field_operator_base(std::size_t level_, const interval_t& interval)
-        : level{level_}, i{interval}, m_dx{1. / (1 << level)}
+        : level{level_}, i{interval}, m_dx{cell_length(level)}
         {}
 
         inline field_operator_base(std::size_t level_, const interval_t& interval, coord_index_t j_)
-        : level{level_}, i{interval}, j{j_}, m_dx{1. / (1 << level)}
+        : level{level_}, i{interval}, j{j_}, m_dx{cell_length(level)}
         {}
 
         inline field_operator_base(std::size_t level_, const interval_t& interval, coord_index_t j_, coord_index_t k_)
-        : level{level_}, i{interval}, j{j_}, k{k_}, m_dx{1. / (1 << level)}
+        : level{level_}, i{interval}, j{j_}, k{k_}, m_dx{cell_length(level)}
         {}
 
     private:

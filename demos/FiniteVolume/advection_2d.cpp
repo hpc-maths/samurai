@@ -65,7 +65,7 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
         subset_right([&](const auto& i, const auto& index)
         {
             auto j = index[0];
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             unp1(level, i, j) = unp1(level, i, j) + dt/dx * (samurai::upwind_op<interval_t>(level, i, j).right_flux(a, u)
                                                             - .5*samurai::upwind_op<interval_t>(level+1, 2*i+1, 2*j).right_flux(a, u)
@@ -81,7 +81,7 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
         subset_left([&](const auto& i, const auto& index)
         {
             auto j = index[0];
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             unp1(level, i, j) = unp1(level, i, j) - dt/dx * (samurai::upwind_op<interval_t>(level, i, j).left_flux(a, u)
                                                             - .5 * samurai::upwind_op<interval_t>(level+1, 2*i, 2*j).left_flux(a, u)
@@ -97,7 +97,7 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
         subset_up([&](const auto& i, const auto& index)
         {
             auto j = index[0];
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             unp1(level, i, j) = unp1(level, i, j) + dt/dx * (samurai::upwind_op<interval_t>(level, i, j).up_flux(a, u)
                                                             - .5 * samurai::upwind_op<interval_t>(level+1, 2*i, 2*j+1).up_flux(a, u)
@@ -113,7 +113,7 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
         subset_down([&](const auto& i, const auto& index)
         {
             auto j = index[0];
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             unp1(level, i, j) = unp1(level, i, j) - dt/dx * (samurai::upwind_op<interval_t>(level, i, j).down_flux(a, u)
                                                             - .5 * samurai::upwind_op<interval_t>(level+1, 2*i, 2*j).down_flux(a, u)

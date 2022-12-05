@@ -61,7 +61,7 @@ void AMR_criteria(const Field& f, Tag& tag)
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        double dx = 1./(1 << level);
+        double dx = samurai::cell_length(level);
 
         samurai::for_each_interval(mesh[mesh_id_t::cells][level], [&](std::size_t, auto& i, auto)
         {
@@ -131,7 +131,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
 
     for (std::size_t level = min_level; level < max_level; ++level)
     {
-        double dx_loc = 1./(1<<level);
+        double dx_loc = samurai::cell_length(level);
         xt::xtensor_fixed<int, xt::xshape<1>> stencil;
 
         stencil = {-1};

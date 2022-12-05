@@ -27,7 +27,7 @@ auto init(Mesh& mesh, Case& c)
 
     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, auto& i, auto)
     {
-        double dx = 1./(1<<level);
+        double dx = samurai::cell_length(level);
         auto x = dx*xt::arange(i.start, i.end) + 0.5*dx;
 
         switch(c)

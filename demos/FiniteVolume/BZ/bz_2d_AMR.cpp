@@ -406,7 +406,7 @@ void AMR_criterion(Field & f, Func && update_bc_for_level, Tag & tag, std::size_
     // The fact of considering at which iteration of the refinement process we are
     // lets one get rid of oscillations which generate an infinite loop in the process
     for (std::size_t level = min_level; level <= max_level - ite; ++level)    {
-        double dx = 1./(1 << level);
+        double dx = samurai::cell_length(level);
 
         auto leaves = samurai::intersection(mesh[SimpleID::cells][level],
                                             mesh[SimpleID::cells][level]);
