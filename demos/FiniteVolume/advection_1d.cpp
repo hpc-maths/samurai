@@ -60,7 +60,7 @@ void flux_correction(double dt, double a, const Field& u, Field& unp1)
 
         subset_right([&](const auto& i, auto)
         {
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             unp1(level, i) = unp1(level, i) - dt/dx * (-samurai::upwind_op<interval_t>(level, i).right_flux(a, u)
                                                        +samurai::upwind_op<interval_t>(level+1, 2*i+1).right_flux(a, u));
@@ -74,7 +74,7 @@ void flux_correction(double dt, double a, const Field& u, Field& unp1)
 
         subset_left([&](const auto& i, auto)
         {
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             unp1(level, i) = unp1(level, i) - dt/dx * (samurai::upwind_op<interval_t>(level, i).left_flux(a, u)
                                                       -samurai::upwind_op<interval_t>(level+1, 2*i).left_flux(a, u));

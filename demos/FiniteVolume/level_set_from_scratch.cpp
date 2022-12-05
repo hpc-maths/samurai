@@ -417,7 +417,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
         subset_right([&](const auto& i, const auto& index)
         {
             auto j = index[0];
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             phi_np1(level, i, j) = phi_np1(level, i, j) + dt/dx * (samurai::upwind_variable_op<interval_t>(level, i, j).right_flux(u, phi_n, dt)
                                                             - .5*samurai::upwind_variable_op<interval_t>(level+1, 2*i+1, 2*j).right_flux(u, phi_n, dt)
@@ -433,7 +433,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
         subset_left([&](const auto& i, const auto& index)
         {
             auto j = index[0];
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             phi_np1(level, i, j) = phi_np1(level, i, j) - dt/dx * (samurai::upwind_variable_op<interval_t>(level, i, j).left_flux(u, phi_n, dt)
                                                             - .5 * samurai::upwind_variable_op<interval_t>(level+1, 2*i, 2*j).left_flux(u, phi_n, dt)
@@ -449,7 +449,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
         subset_up([&](const auto& i, const auto& index)
         {
             auto j = index[0];
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             phi_np1(level, i, j) = phi_np1(level, i, j) + dt/dx * (samurai::upwind_variable_op<interval_t>(level, i, j).up_flux(u, phi_n, dt)
                                                             - .5 * samurai::upwind_variable_op<interval_t>(level+1, 2*i, 2*j+1).up_flux(u, phi_n, dt)
@@ -465,7 +465,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
         subset_down([&](const auto& i, const auto& index)
         {
             auto j = index[0];
-            double dx = 1./(1<<level);
+            double dx = samurai::cell_length(level);
 
             phi_np1(level, i, j) = phi_np1(level, i, j) - dt/dx * (samurai::upwind_variable_op<interval_t>(level, i, j).down_flux(u, phi_n, dt)
                                                             - .5 * samurai::upwind_variable_op<interval_t>(level+1, 2*i, 2*j).down_flux(u, phi_n, dt)

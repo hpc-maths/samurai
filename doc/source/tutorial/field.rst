@@ -155,7 +155,7 @@ For example
 
 .. code-block:: c++
 
-    double dx = 1./(1<<level);
+    double dx = samurai::cell_length(level);
     auto x = dx * xt::arange(i.start, i.end);
     auto y = dx * j;
     u(level, i, j) = xt::cos(x)*xt::sin(y);

@@ -37,7 +37,7 @@ void AMR_criterion(const Field& f, Tag& tag)
 
     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, auto& i, auto& )
     {
-        double dx = 1./(1<<level);
+        double dx = samurai::cell_length(level);
 
         auto der_approx = xt::eval(xt::abs((f(level, i + 1) - f(level, i - 1)) / (2.*dx)));
         auto mask = der_approx > 0.01;

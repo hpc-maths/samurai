@@ -111,8 +111,9 @@ namespace samurai
     template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_stencil_center_and_outside_ghost_indices(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
-        for_each_level(mesh, [&](std::size_t level, double h)
+        for_each_level(mesh, [&](std::size_t level)
         {
+            double h = cell_length(level);
             auto coeffs = get_coefficients(h);
 
             for_each_interval_on_boundary(mesh, level, stencil, coeffs,
@@ -130,8 +131,9 @@ namespace samurai
     template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_stencil_center_and_outside_ghost(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
-        for_each_level(mesh, [&](std::size_t level, double h)
+        for_each_level(mesh, [&](std::size_t level)
         {
+            double h = cell_length(level);
             auto coeffs = get_coefficients(h);
 
             for_each_interval_on_boundary(mesh, level, stencil, coeffs,
@@ -149,7 +151,7 @@ namespace samurai
     template <class Mesh, std::size_t stencil_size, class Func>
     void for_each_stencil_center_and_outside_ghost(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&func)
     {
-        for_each_level(mesh, [&](std::size_t level, double)
+        for_each_level(mesh, [&](std::size_t level)
         {
             for_each_interval_on_boundary(mesh, level, stencil,
             [&] (const auto& mesh_interval, const auto& towards_bdry_ghost)
