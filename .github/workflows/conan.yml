@@ -34,7 +34,7 @@ jobs:
         with:
           path: |
             ~/vcpkg
-            ~/.conan
+            ~/.conan/data
             ~/.cache/ccache
             ~/.cache/pip
             ~/Library/Caches/ccache
@@ -76,10 +76,6 @@ jobs:
           runner.os == 'Macos' &&
           matrix.compiler == 'llvm'
         run: |
-          if [[ -d "~/.conan/profiles" ]]
-          then
-            rm -r ~/.conan/profiles
-          fi
           conan profile new default --detect
           conan profile update settings.compiler.libcxx=libc++ default
       - name: Configure CMake
