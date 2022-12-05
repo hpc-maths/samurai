@@ -119,4 +119,11 @@ namespace samurai
         cell.to_stream(out);
         return out;
     }
+
+
+    template<typename LevelType>
+    inline double cell_length(LevelType level)
+    {
+        return 1./(1<<level);
+    }
 } // namespace samurai
