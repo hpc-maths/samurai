@@ -48,7 +48,7 @@ namespace samurai
             if (xt::any(direction)) // if (direction != 0)
             {
                 auto boundary = in_boundary(mesh, level, direction);
-                for_each_meshinterval<mesh_interval_t>(boundary, level, [&](auto& mesh_interval)
+                for_each_meshinterval<mesh_interval_t>(boundary, [&](auto& mesh_interval)
                 {
                     func(mesh_interval, direction);
                 });
@@ -68,7 +68,7 @@ namespace samurai
             {
                 double coeff = coefficients[is];
                 auto boundary = in_boundary(mesh, level, direction);
-                for_each_meshinterval<mesh_interval_t>(boundary, level, [&](auto& mesh_interval)
+                for_each_meshinterval<mesh_interval_t>(boundary, [&](auto& mesh_interval)
                 {
                     func(mesh_interval, direction, coeff);
                 });

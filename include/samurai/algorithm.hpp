@@ -95,7 +95,7 @@ namespace samurai
     {
         set([&](const auto& i, const auto& index)
         {
-            f(i, index);
+            f(set.level(), i, index);
         });
     }
 
@@ -130,9 +130,9 @@ namespace samurai
     }
 
     template <class MeshIntervalType, class SetType, class Func>
-    inline void for_each_meshinterval(SetType& set, std::size_t level, Func&& f)
+    inline void for_each_meshinterval(SetType& set, Func&& f)
     {
-        MeshIntervalType mesh_interval(level);
+        MeshIntervalType mesh_interval(set.level());
         set([&](const auto& i, const auto& index)
         {
             mesh_interval.i = i;
@@ -212,11 +212,11 @@ namespace samurai
     }
 
     template <class Mesh, class SetType, class Func>
-    inline void for_each_cell(const Mesh& mesh, SetType& set, std::size_t level, Func&& f)
+    inline void for_each_cell(const Mesh& mesh, SetType& set, Func&& f)
     {
         set([&](const auto& i, const auto& index)
         {
-            for_each_cell(mesh, level, i, index, std::forward<Func>(f));
+            for_each_cell(mesh, set.level(), i, index, std::forward<Func>(f));
         });
     }
 

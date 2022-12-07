@@ -71,6 +71,7 @@ namespace samurai
         coord_index_t min() const;
         coord_index_t max() const;
         std::size_t common_level() const;
+        std::size_t level() const;
 
         bool is_empty() const;
 
@@ -325,6 +326,15 @@ namespace samurai
     inline std::size_t subset_operator<F, CT...>::common_level() const
     {
         return common_level_impl(std::make_index_sequence<sizeof...(CT)>());
+    }
+
+    /**
+     * Return the level of the resulting subset.
+     */
+    template<class F, class... CT>
+    inline std::size_t subset_operator<F, CT...>::level() const
+    {
+        return m_ref_level;
     }
 
     /**

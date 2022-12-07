@@ -32,9 +32,10 @@ namespace samurai
         auto set = intersection(m1[mesh_id_t::cells][level], m2[mesh_id_t::cells][level]);
 
         int nb_intervals = 0;
-        for_each_interval(set, [&](auto& i, auto&)
+        for_each_interval(set, [&](auto l, auto& i, auto&)
         {
             nb_intervals++;
+            EXPECT_EQ(l, level);
             EXPECT_EQ(i.start, 0);
             EXPECT_EQ(i.end, 2);
         });
@@ -63,7 +64,7 @@ namespace samurai
          */
 
         int nb_cells = 0;
-        for_each_cell(m1, set, level, [&](auto& cell)
+        for_each_cell(m1, set, [&](auto& cell)
         {
             if (nb_cells == 0)
             {
