@@ -63,7 +63,7 @@ namespace samurai
          */
 
         int nb_cells = 0;
-        for_each_cell(m1, set, level, [&](auto& cell)
+        for_each_cell(m1, set, [&](auto& cell)
         {
             if (nb_cells == 0)
             {

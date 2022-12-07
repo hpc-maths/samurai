@@ -196,7 +196,7 @@ namespace samurai
                                              mesh[mesh_id_t::cells][level+1])
                         .on(level);
 
-            for_each_cell(mesh, set, level, std::forward<Func>(f));
+            for_each_cell(mesh, set, std::forward<Func>(f));
         }
     }
 
@@ -217,7 +217,7 @@ namespace samurai
                                              mesh[mesh_id_t::cells][level-1])
                     .on(level);
 
-            for_each_cell(mesh, set, level, std::forward<Func>(f));
+            for_each_cell(mesh, set, std::forward<Func>(f));
         }
     }
 
