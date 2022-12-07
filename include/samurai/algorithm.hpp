@@ -90,6 +90,15 @@ namespace samurai
         }
     }
 
+    template <class SetType, class Func>
+    inline void for_each_interval(SetType& set, Func&& f)
+    {
+        set([&](const auto& i, const auto& index)
+        {
+            f(i, index);
+        });
+    }
+
 
     //////////////////////////////////////////
     // for_each_meshinterval implementation //
@@ -109,10 +118,8 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
-    inline void for_each_meshinterval(const CellArray<dim, TInterval, max_size>& ca, Func&& f)//std::function<void(const MeshInterval<dim, TInterval>&)> f)//std::function<void(const TMeshInterval&)> f)//,
+    inline void for_each_meshinterval(const CellArray<dim, TInterval, max_size>& ca, Func&& f)
     {
-        //using MeshInterval = typename CellArray<dim, TInterval>::lca_type::mesh_interval_t;
-
         for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
         {
             if (!ca[level].empty())
@@ -120,6 +127,18 @@ namespace samurai
                 for_each_meshinterval(ca[level], std::forward<Func>(f));
             }
         }
+    }
+
+    template <class MeshIntervalType, class SetType, class Func>
+    inline void for_each_meshinterval(SetType& set, std::size_t level, Func&& f)
+    {
+        MeshIntervalType mesh_interval(level);
+        set([&](const auto& i, const auto& index)
+        {
+            mesh_interval.i = i;
+            mesh_interval.index = index;
+            f(mesh_interval);
+        });
     }
 
 
@@ -170,6 +189,37 @@ namespace samurai
         for_each_cell(mesh[mesh_id_t::cells], std::forward<Func>(f));
     }
 
+    template <class Mesh, class coord_type, class Func>
+    inline void for_each_cell(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t& i, const coord_type& index, Func &&f)
+    {
+        using coord_index_t = typename Mesh::interval_t::coord_index_t;
+        static constexpr std::size_t dim = Mesh::dim;
+
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord;
+        coord[0] = i.start;
+        for(std::size_t d = 0; d < dim - 1; ++d)
+        {
+            coord[d + 1] = index[d];
+        }
+        auto cell_index = mesh.get_index(level, coord);
+        Cell<coord_index_t, dim> cell{level, coord, cell_index};
+        for(coord_index_t ii = 0; ii < static_cast<coord_index_t>(i.size()); ++ii)
+        {
+            f(cell);
+            cell.indices[0]++; // increment x coordinate
+            cell.index++;      // increment cell index
+        }
+    }
+
+    template <class Mesh, class SetType, class Func>
+    inline void for_each_cell(const Mesh& mesh, SetType& set, std::size_t level, Func&& f)
+    {
+        set([&](const auto& i, const auto& index)
+        {
+            for_each_cell(mesh, level, i, index, std::forward<Func>(f));
+        });
+    }
+
     /////////////////////////
     // find implementation //
     /////////////////////////
@@ -207,7 +257,7 @@ namespace samurai
                   class coord_index_t = typename TInterval::coord_index_t>
         inline auto find_impl(const LevelCellArray<dim, TInterval>& lca,
                               std::size_t start_index, std::size_t end_index,
-                              const std::array<coord_index_t, dim>& coord,
+                              const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord,
                               std::integral_constant<std::size_t, 0>) -> index_t
         {
             using lca_t = const LevelCellArray<dim, TInterval>;
@@ -225,7 +275,7 @@ namespace samurai
                   std::size_t N>
         inline auto find_impl(const LevelCellArray<dim, TInterval>& lca,
                               std::size_t start_index, std::size_t end_index,
-                              const std::array<coord_index_t, dim>& coord,
+                              const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord,
                               std::integral_constant<std::size_t, N>) -> index_t
         {
             using lca_t = const LevelCellArray<dim, TInterval>;
@@ -247,7 +297,7 @@ namespace samurai
     template <std::size_t dim, class TInterval,
               class index_t = typename TInterval::index_t,
               class coord_index_t = typename TInterval::coord_index_t>
-    inline auto find(const LevelCellArray<dim, TInterval>& lca, const std::array<coord_index_t, dim>& coord) -> index_t
+    inline auto find(const LevelCellArray<dim, TInterval>& lca, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) -> index_t
     {
         return detail::find_impl(lca, 0, lca[dim - 1].size(), coord, std::integral_constant<std::size_t, dim - 1>{});
     }
