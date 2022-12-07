@@ -95,7 +95,7 @@ namespace samurai
     {
         set([&](const auto& i, const auto& index)
         {
-            f(i, index);
+            f(set.level(), i, index);
         });
     }
 
