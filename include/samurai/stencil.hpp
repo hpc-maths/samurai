@@ -154,8 +154,7 @@ namespace samurai
 
         for_each_level(mesh, [&](std::size_t level)
         {
-            double h = cell_length(level);
-            auto coeffs = get_coefficients(h);
+            auto coeffs = get_coefficients(cell_length(level));
 
             for_each_stencil(mesh, level, stencil_it,
             [&] (auto& cells)
