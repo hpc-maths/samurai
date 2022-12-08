@@ -8,7 +8,7 @@ namespace samurai { namespace petsc
      * Assemble the matrix for the problem -Lap(u)=f.
      * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
     */
-    template<class Field, std::size_t dim=Field::dim, class cfg=starStencilFV<dim, DirichletEnforcement::Equation>>
+    template<class Field, std::size_t dim=Field::dim, class cfg=starStencilFV<dim, DirichletEnforcement::Elimination>>
     class PetscDiffusionFV_StarStencil : public PetscCellBasedSchemeAssembly<cfg, Field>
     {
     public:
