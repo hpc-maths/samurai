@@ -647,9 +647,8 @@ namespace samurai
     template<class value_t, std::size_t size, bool SOA=false, class mesh_t, class Func>
     auto make_field(std::string name, mesh_t& mesh, Func&& f, int polynomial_degree=-1)
     {
-        //Field field(name, mesh);
-        //field.fill(0);
         auto field = make_field<value_t, size, SOA, mesh_t>(name, mesh);
+        field.fill(0);
         GaussLegendre gl(polynomial_degree);
 
         for_each_cell(mesh, [&](const auto& cell)
