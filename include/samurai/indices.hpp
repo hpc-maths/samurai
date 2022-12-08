@@ -44,54 +44,8 @@ namespace samurai
         {
             coord[d] = 2*coord[d] + translation_vect[d];
         }
-
         return mesh.get_index(mesh_interval.level+1, coord);
     }
-
-
-    //
-    // Functions that return cell indices
-    //
-    template <typename DesiredIndexType, class Mesh, class Func>
-    inline void for_each_cell_index(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, Func &&f)
-    {
-        auto i_start = static_cast<DesiredIndexType>(get_index_start(mesh, mesh_interval));
-        for(DesiredIndexType ii=0; ii<static_cast<DesiredIndexType>(mesh_interval.i.size()); ++ii)
-        {
-            f(i_start + ii);
-        }
-    }
-
-    template <typename DesiredIndexType, class Mesh, class Func>
-    inline void for_each_cell_index(const Mesh& mesh, const typename Mesh::ca_type& set, Func &&f)
-    {
-        for_each_meshinterval(set, [&](const auto mesh_interval)//std::size_t level, const auto& i, const auto& index)
-        {
-            //typename Mesh::mesh_interval_t mesh_interval(level, i, index);
-            for_each_cell_index<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
-        });
-    }
-
-    template <typename DesiredIndexType, class Mesh, class Func>
-    inline void for_each_cell_index(const Mesh& mesh, Func &&f)
-    {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        for_each_cell_index<DesiredIndexType>(mesh, mesh[mesh_id_t::cells], std::forward<Func>(f));
-    }
-
-    template <typename DesiredIndexType, class Mesh, class Subset, class Func>
-    inline void for_each_cell_index(const Mesh& mesh, std::size_t level, Subset& subset, Func &&f)
-    {
-        typename Mesh::mesh_interval_t mesh_interval(level);
-        subset([&](const auto& i, const auto& index)
-        {
-            mesh_interval.i = i;
-            mesh_interval.index = index;
-            for_each_cell_index<DesiredIndexType>(mesh, mesh_interval, std::forward<Func>(f));
-        });
-    }
-
-
 
     /**
      * Used to define the projection operator.
@@ -219,16 +173,5 @@ namespace samurai
 
             for_each_cell(mesh, set, std::forward<Func>(f));
         }
-    }
-
-    template <typename DesiredIndexType, class Mesh, class Func>
-    inline void for_each_outside_ghost_index(const Mesh& mesh, Func &&f)
-    {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        for_each_level(mesh, [&](std::size_t level, double)
-        {
-            auto boundary_ghosts = difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.domain()).on(level);
-            for_each_cell_index<DesiredIndexType>(mesh, level, boundary_ghosts, std::forward<Func>(f));
-        });
     }
 }
