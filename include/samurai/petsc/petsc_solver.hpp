@@ -11,7 +11,7 @@
 namespace samurai { namespace petsc
 {
     template<class Dsctzr>
-    class PetscDiffusionSolver
+    class PetscSolver
     {
         using Mesh = typename Dsctzr::Mesh;
         using Field = typename Dsctzr::field_t;
@@ -21,18 +21,20 @@ namespace samurai { namespace petsc
         Dsctzr _discretizer;
         KSP _ksp;
         bool _use_samurai_mg = false;
+        Mat _A = nullptr;
+        bool _is_set_up = false;
 #ifdef ENABLE_MG
         GeometricMultigrid<Dsctzr> _samurai_mg;
 #endif
 
 
     public:
-        PetscDiffusionSolver(Dsctzr& discretizer)
+        PetscSolver(Dsctzr& discretizer)
         : _discretizer(discretizer)
         {
             create_solver(_discretizer.mesh);
         }
-        PetscDiffusionSolver(Mesh& mesh, const std::vector<boundary_condition_t>& boundary_conditions)
+        PetscSolver(Mesh& mesh, const std::vector<boundary_condition_t>& boundary_conditions)
         : _discretizer(mesh, boundary_conditions)
         {
             create_solver(mesh);
@@ -43,6 +45,10 @@ namespace samurai { namespace petsc
 #ifdef ENABLE_MG
             _samurai_mg.destroy_petsc_objects();
 #endif
+            if (_A)
+            {
+                MatDestroy(&_A);
+            }
             KSPDestroy(&_ksp);
         }
 
@@ -85,19 +91,28 @@ namespace samurai { namespace petsc
     public:
         void setup()
         {
+            if (_is_set_up)
+            {
+                return;
+            }
             if (!_use_samurai_mg)
             {
-                Mat A;
-                _discretizer.create_matrix(A);
-                _discretizer.assemble_matrix(A);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(A), "A");
-                KSPSetOperators(_ksp, A, A);
+                _discretizer.create_matrix(_A);
+                _discretizer.assemble_matrix(_A);
+                PetscObjectSetName(reinterpret_cast<PetscObject>(_A), "A");
+                KSPSetOperators(_ksp, _A, _A);
             }
             KSPSetUp(_ksp);
+            _is_set_up = true;
         }
 
         void solve(const Field& source, Field& solution)
         {
+            if (!_is_set_up)
+            {
+                setup();
+            }
+
             // Create right-hand side vector from the source field
             Vec b = samurai::petsc::create_petsc_vector_from(source);
             PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
