@@ -4,25 +4,6 @@
 
 namespace samurai
 {
-    /*template<class Vector>
-    inline unsigned int number_of_zeros(const Vector& v)
-    {
-        unsigned int n_zeros = 0;
-        for (std::size_t i=0; i<v.shape()[0]; ++i)
-        {
-            n_zeros += v[i] == 0 ? 1 : 0;
-        }
-        return n_zeros;
-    }
-
-    template<class Vector>
-    inline bool is_cartesian_direction(const Vector& v)
-    {
-        std::size_t dim = v.shape()[0];
-        auto n_zeros = number_of_zeros(v);
-        return (dim == 0 || n_zeros == dim-1);
-    }*/
-
     template <class Mesh, class Vector>
     auto in_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
     {
@@ -86,7 +67,7 @@ namespace samurai
         {
             if (!cells[level].empty())
             {
-                double h = 1./(1<<level);
+                double h = cell_length(level);
                 auto coeffs = get_coefficients(h);
                 for_each_interval_on_boundary(mesh, level, stencil, coeffs, std::forward<Func>(func));
             }
@@ -102,26 +83,6 @@ namespace samurai
             for_each_cell(mesh, mesh_interval.level, mesh_interval.i, mesh_interval.index, [&](auto& cell)
             {
                 func(cell, stencil_vector, out_coeff);
-            });
-        });
-    }
-
-    template <typename DesiredIndexType, class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    void for_each_stencil_center_and_outside_ghost_indices(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
-    {
-        for_each_level(mesh, [&](std::size_t level)
-        {
-            double h = cell_length(level);
-            auto coeffs = get_coefficients(h);
-
-            for_each_interval_on_boundary(mesh, level, stencil, coeffs,
-            [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, double out_coeff)
-            {
-                for_each_stencil<DesiredIndexType>(mesh, mesh_interval, in_out_stencil<Mesh::dim>(towards_bdry_ghost), 
-                [&] (const std::array<DesiredIndexType, 2>& indices)
-                {
-                    func(indices, towards_bdry_ghost, out_coeff);
-                });
             });
         });
     }

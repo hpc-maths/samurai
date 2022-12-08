@@ -106,9 +106,12 @@ namespace samurai { namespace petsc
             }
 
             // Apply the given coefficents on the given stencil
-            for_each_stencil<PetscInt>(mesh, _stencil, _get_coefficients,
-            [&] (const std::array<PetscInt, cfg::scheme_stencil_size>& indices, const std::array<double, cfg::scheme_stencil_size>& coeffs)
+            for_each_stencil(mesh, _stencil, _get_coefficients,
+            [&] (const auto& cells, const std::array<double, cfg::scheme_stencil_size>& coeffs)
             {
+                std::array<PetscInt, cfg::scheme_stencil_size> indices;
+                std::transform(cells.begin(), cells.end(), indices.begin(), [](auto& cell) { return cell.index; });
+
                 if constexpr(cfg::contiguous_indices_start > 0)
                 {
                     for (unsigned int i=0; i<cfg::contiguous_indices_start; ++i)
