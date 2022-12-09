@@ -17,8 +17,13 @@ namespace samurai { namespace petsc
         using boundary_condition_t = typename Field::boundary_condition_t;
 
         PetscDiffusionFV_StarStencil(Mesh& m, const std::vector<boundary_condition_t>& boundary_conditions) : 
-            PetscCellBasedSchemeAssembly<cfg, Field>(m, star_stencil<dim>(), coefficients, boundary_conditions)
+            PetscCellBasedSchemeAssembly<cfg, Field>(m, stencil(), coefficients, boundary_conditions)
         {}
+
+        static constexpr auto stencil()
+        {
+            return star_stencil<dim>();
+        }
 
         bool matrix_is_spd() const override
         {

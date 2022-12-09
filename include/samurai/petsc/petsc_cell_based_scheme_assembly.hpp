@@ -311,7 +311,7 @@ namespace samurai { namespace petsc
 
     public:
         template<class Func>
-        static double L2Error(const Field& approximate, Func&& exact, int exact_polynomial_degree)
+        static double L2Error(const Field& approximate, Func&& exact, int exact_polynomial_degree = -1)
         {
             GaussLegendre gl(exact_polynomial_degree);
             double error_norm = 0;

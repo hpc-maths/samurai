@@ -115,11 +115,10 @@ namespace samurai { namespace petsc
 
             // Create right-hand side vector from the source field
             Vec b = samurai::petsc::create_petsc_vector_from(source);
-            PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
+            PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b"); //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
             // Update the right-hand side with the boundary conditions stored in the solution field
-            _discretizer.enforce_bc(b, solution);
-            //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+            _discretizer.enforce_bc(b, solution);                      //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
             // Create the solution vector
             Vec x;
