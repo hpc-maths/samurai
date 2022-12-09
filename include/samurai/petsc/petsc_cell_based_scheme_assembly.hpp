@@ -93,15 +93,15 @@ namespace samurai { namespace petsc
             }
 
             // Projection
-            for_each_cell_having_children(mesh, [&](auto& cell)
+            for_each_projection_ghost(mesh, [&](auto& ghost)
             {
-                nnz[cell.index] = cfg::proj_stencil_size;
+                nnz[ghost.index] = cfg::proj_stencil_size;
             });
 
             // Prediction
-            for_each_cell_having_parent(mesh, [&](auto& cell)
+            for_each_prediction_ghost(mesh, [&](auto& ghost)
             {
-                nnz[cell.index] = cfg::pred_stencil_size;
+                nnz[ghost.index] = cfg::pred_stencil_size;
             });
 
             return nnz;
@@ -280,13 +280,13 @@ namespace samurai { namespace petsc
         {
             static constexpr PetscInt number_of_children = (1 << dim);
 
-            for_each_cell_and_children<PetscInt>(mesh, 
-            [&] (PetscInt cell, const std::array<PetscInt, number_of_children>& children)
+            for_each_projection_ghost_and_children_cells<PetscInt>(mesh, 
+            [&] (PetscInt ghost, const std::array<PetscInt, number_of_children>& children)
             {
-                MatSetValue(A, cell, cell, 1, INSERT_VALUES);
+                MatSetValue(A, ghost, ghost, 1, INSERT_VALUES);
                 for (unsigned int i=0; i<number_of_children; ++i)
                 {
-                    MatSetValue(A, cell, children[i], -1./number_of_children, INSERT_VALUES);
+                    MatSetValue(A, ghost, children[i], -1./number_of_children, INSERT_VALUES);
                 }
             });
         }
