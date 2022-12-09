@@ -39,13 +39,13 @@ namespace samurai { namespace petsc
         }
 
     private:
-        PetscInt matrix_size() override
+        PetscInt matrix_size() const override
         {
             return static_cast<PetscInt>(mesh.nb_cells());
         }
 
 
-        std::vector<PetscInt> sparsity_pattern() override
+        std::vector<PetscInt> sparsity_pattern() const override
         {
             std::size_t n = mesh.nb_cells();
 
@@ -108,7 +108,7 @@ namespace samurai { namespace petsc
         }
 
 
-        void assemble_scheme_on_uniform_grid(Mat& A) override
+        void assemble_scheme_on_uniform_grid(Mat& A) const override
         {
             // Add 1 on the diagonal
             std::size_t n = mesh.nb_cells();
@@ -147,7 +147,7 @@ namespace samurai { namespace petsc
             });
         }
 
-        void assemble_boundary_conditions(Mat& A) override
+        void assemble_boundary_conditions(Mat& A) const override
         {
             if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Equation)
             {
@@ -159,7 +159,7 @@ namespace samurai { namespace petsc
             }
         }
 
-        void assemble_boundary_conditions__dirich_by_elimination(Mat& A)
+        void assemble_boundary_conditions__dirich_by_elimination(Mat& A) const
         {
             // Must flush to use ADD_VALUES instead of INSERT_VALUES
             MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
@@ -193,7 +193,7 @@ namespace samurai { namespace petsc
         }
 
 
-        void assemble_boundary_conditions__dirich_by_equation(Mat& A)
+        void assemble_boundary_conditions__dirich_by_equation(Mat& A) const
         {
             for_each_stencil_center_and_outside_ghost(mesh, _stencil, _get_coefficients, 
             [&] (const auto& cells, const auto& towards_ghost, double ghost_coeff)
@@ -223,7 +223,7 @@ namespace samurai { namespace petsc
 
 
     public:
-        virtual void enforce_bc(Vec& b, const Field& solution)
+        virtual void enforce_bc(Vec& b, const Field& solution) const
         {
             if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Equation)
             {
@@ -272,11 +272,23 @@ namespace samurai { namespace petsc
                     }
                 });
             }
+
+            // Projection
+            for_each_projection_ghost(solution.mesh(), [&](auto& ghost)
+            {
+                VecSetValue(b, static_cast<PetscInt>(ghost.index), 0, INSERT_VALUES);
+            });
+
+            // Prediction
+            for_each_prediction_ghost(solution.mesh(), [&](auto& ghost)
+            {
+                VecSetValue(b, static_cast<PetscInt>(ghost.index), 0, INSERT_VALUES);
+            });
         }
 
 
     private:
-        void assemble_projection(Mat& A) override
+        void assemble_projection(Mat& A) const override
         {
             static constexpr PetscInt number_of_children = (1 << dim);
 
@@ -291,7 +303,7 @@ namespace samurai { namespace petsc
             });
         }
 
-        void assemble_prediction(Mat& A) override
+        void assemble_prediction(Mat& A) const override
         {
             assemble_prediction_impl(std::integral_constant<std::size_t, dim>{}, A, mesh);
         }

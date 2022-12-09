@@ -4,7 +4,7 @@
 namespace samurai { namespace petsc
 {
     /**
-     * @class PetscImplicitScheme
+     * @class PetscBackwardEuler
     */
     template<class Operator>
     class PetscBackwardEuler : public PetscCellBasedSchemeAssembly<typename Operator::cfg_t, typename Operator::field_t>
@@ -15,18 +15,18 @@ namespace samurai { namespace petsc
         using Mesh = typename field_t::mesh_t;
         using boundary_condition_t = typename field_t::boundary_condition_t;
     private:
-        Operator _operator;
+        const Operator& _operator;
         double _dt;
 
     public:
-        PetscBackwardEuler(Operator op, double dt) : 
+        PetscBackwardEuler(Operator& op, double dt) : 
             PetscCellBasedSchemeAssembly<cfg, field_t>(op.mesh, op.stencil(), [&](double h) { return coefficients(h); }, op.boundary_conditions()),
             _operator(op),
             _dt(dt)
         {}
 
     private:
-        bool matrix_is_spd() override
+        bool matrix_is_spd() const override
         {
             return _operator.matrix_is_spd();
         }

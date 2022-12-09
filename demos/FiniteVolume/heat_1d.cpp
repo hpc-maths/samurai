@@ -174,12 +174,8 @@ int main(int argc, char *argv[])
 
         samurai::update_ghost_mr(u, update_bc);
         unp1.resize();
-        //std::cout << mesh << std::endl;
         DiscreteDiffusion diff(unp1.mesh(), unp1.boundary_conditions());
-        BackwardEuler backward_euler(diff, dt);
-        samurai::petsc::PetscSolver<BackwardEuler> solver(backward_euler);
-        //solver.setup();
-        solver.solve(u, unp1);
+        samurai::petsc::solve(BackwardEuler(diff, dt), u, unp1);
 
         std::swap(u.array(), unp1.array());
 

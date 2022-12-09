@@ -20,7 +20,7 @@ namespace samurai { namespace petsc
             PetscCellBasedSchemeAssembly<cfg, Field>(m, star_stencil<dim>(), coefficients, boundary_conditions)
         {}
 
-        bool matrix_is_spd() override
+        bool matrix_is_spd() const override
         {
             // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
             return this->mesh.min_level() == this->mesh.max_level();

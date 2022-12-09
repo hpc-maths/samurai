@@ -18,7 +18,7 @@ namespace samurai { namespace petsc
         using boundary_condition_t = typename Field::boundary_condition_t;
 
     private:
-        Dsctzr _discretizer;
+        const Dsctzr& _discretizer;
         KSP _ksp;
         bool _use_samurai_mg = false;
         Mat _A = nullptr;
@@ -29,7 +29,7 @@ namespace samurai { namespace petsc
 
 
     public:
-        PetscSolver(Dsctzr& discretizer)
+        PetscSolver(const Dsctzr& discretizer)
         : _discretizer(discretizer)
         {
             create_solver(_discretizer.mesh);
@@ -119,6 +119,7 @@ namespace samurai { namespace petsc
 
             // Update the right-hand side with the boundary conditions stored in the solution field
             _discretizer.enforce_bc(b, solution);
+            //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
             // Create the solution vector
             Vec x;
@@ -152,4 +153,12 @@ namespace samurai { namespace petsc
             return n_iterations;
         }
     };
+
+    template<class Dsctzr>
+    void solve(const Dsctzr& discretizer, const typename Dsctzr::field_t& rhs, typename Dsctzr::field_t& solution)
+    {
+        PetscSolver<Dsctzr> solver(discretizer);
+        solver.solve(rhs, solution);
+    }
+
 }} // end namespace
