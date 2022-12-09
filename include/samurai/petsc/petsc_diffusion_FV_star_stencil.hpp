@@ -20,7 +20,6 @@ namespace samurai { namespace petsc
             PetscCellBasedSchemeAssembly<cfg, Field>(m, star_stencil<dim>(), coefficients, boundary_conditions)
         {}
 
-    private:
         bool matrix_is_spd() override
         {
             // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
@@ -40,7 +39,6 @@ namespace samurai { namespace petsc
             return coeffs;
         }
 
-    public:
         /**
          * @brief Creates a coarse object from a coarse mesh and a fine object.
          * @note  This method is used by the multigrid.

@@ -8,13 +8,15 @@ namespace samurai { namespace petsc
     template<class cfg, class Field>
     class PetscCellBasedSchemeAssembly : public PetscAssembly
     {
+    public:
+        using cfg_t = cfg;
         using Mesh = typename Field::mesh_t;
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
         using stencil_t = Stencil<cfg::scheme_stencil_size, dim>;
         using GetCoefficientsFunc = std::function<std::array<double, cfg::scheme_stencil_size>(double)>;
         using boundary_condition_t = typename Field::boundary_condition_t;
-    public:
+    
         using PetscAssembly::assemble_matrix;
         Mesh& mesh;
     protected:
@@ -25,6 +27,16 @@ namespace samurai { namespace petsc
         PetscCellBasedSchemeAssembly(Mesh& m, stencil_t s, GetCoefficientsFunc get_coeffs, const std::vector<boundary_condition_t>& boundary_conditions) :
             mesh(m), _stencil(s), _get_coefficients(get_coeffs), _boundary_conditions(boundary_conditions)
         {}
+
+        auto& stencil()
+        {
+            return _stencil;
+        }
+
+        const auto& boundary_conditions()
+        {
+            return _boundary_conditions;
+        }
 
     private:
         PetscInt matrix_size() override
