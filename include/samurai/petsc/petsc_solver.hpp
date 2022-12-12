@@ -34,11 +34,6 @@ namespace samurai { namespace petsc
         {
             create_solver(_discretizer.mesh);
         }
-        PetscSolver(Mesh& mesh, const std::vector<boundary_condition_t>& boundary_conditions)
-        : _discretizer(mesh, boundary_conditions)
-        {
-            create_solver(mesh);
-        }
 
         void destroy_petsc_objects()
         {

@@ -245,7 +245,8 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    samurai::petsc::PetscSolver<DiscreteDiffusion> solver(mesh, solution.boundary_conditions());
+    DiscreteDiffusion diff(mesh, solution.boundary_conditions());
+    samurai::petsc::PetscSolver<DiscreteDiffusion> solver(diff);
 
     Timer setup_timer, solve_timer, total_timer;
 
