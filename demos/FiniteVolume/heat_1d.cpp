@@ -14,6 +14,10 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Not working with LU solver!!!!!!!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 auto exact_solution(double x, double t)
 {
     assert(t > 0 && "t must be > 0");
@@ -55,8 +59,7 @@ int main(int argc, char *argv[])
     // Simulation parameters
     double left_box = -2, right_box = 2;
     double Tf = 1.;
-    double dt = Tf / 10;//dx*dx/2;
-    //double cfl = 0.95;
+    double dt = Tf / 10;
 
     // Multiresolution parameters
     std::size_t min_level = 4, max_level = 7;
@@ -71,7 +74,6 @@ int main(int argc, char *argv[])
     CLI::App app{"Finite volume example for the heat equation in 1d using backward Euler multiresolution"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
-    //app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -101,30 +103,15 @@ int main(int argc, char *argv[])
     samurai::Box<double, dim> box({left_box}, {right_box});
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    //double dx = samurai::cell_length(max_level);
-    //double dt = cfl * samurai::cell_length(max_level);//dx*dx/2;
     double dt_save = Tf/static_cast<double>(nfiles);
     double t = 1e-3;
 
     auto u = samurai::make_field<double, 1>("u", mesh);
     samurai::for_each_cell(mesh, [&](auto &cell) {
-        auto x = cell.center(0);
-        u[cell] = exact_solution(x, t);
-        /*auto center = cell.center();
-        double radius = .2;
-        double x_center = 0;
-        if (std::abs(center[0] - x_center) <= radius)
-        {
-            u[cell] = 1;
-        }
-        else
-        {
-            u[cell] = 0;
-        }*/
+        u[cell] = exact_solution(cell.center(0), t);
     });
     
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
-    //unp1.fill(0);
 
     bool is_dirichlet = false;
     if (is_dirichlet)
@@ -141,13 +128,30 @@ int main(int argc, char *argv[])
     auto update_bc = [&](auto& field, std::size_t)
     {
         samurai::for_each_stencil_center_and_outside_ghost(field.mesh(), DiscreteDiffusion::stencil(),
-        [&] (const auto& cells, const auto&)
+        [&] (const auto& cells, const auto& towards_ghost)
         {
             const auto& cell  = cells[0];
             const auto& ghost = cells[1];
-            field[ghost] = is_dirichlet ? 0 : field[cell];
+            const double& h = cell.length;
+            auto boundary_point = cell.face_center(towards_ghost);
+            auto bc = find(solution.boundary_conditions(), boundary_point);
+
+            if (bc.is_dirichlet())
+            {
+                auto dirichlet_value = bc.get_value(boundary_point);
+                field[ghost] = 2 * dirichlet_value - field[cell];
+            }
+            else
+            {
+                auto neumann_value = bc.get_value(boundary_point);
+                field[ghost] = h * neumann_value + field[cell];
+            }
         });
     };
+
+    //--------------------//
+    //   Time iteration   //
+    //--------------------//
 
     auto MRadaptation = samurai::make_MRAdapt(u, update_bc);
     MRadaptation(mr_epsilon, mr_regularity);
