@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
             const auto& ghost = cells[1];
             const double& h = cell.length;
             auto boundary_point = cell.face_center(towards_ghost);
-            auto bc = find(solution.boundary_conditions(), boundary_point);
+            auto bc = find(field.boundary_conditions(), boundary_point);
 
             if (bc.is_dirichlet())
             {
