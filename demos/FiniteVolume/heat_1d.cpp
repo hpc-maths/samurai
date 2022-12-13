@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
     double dt_save = Tf/static_cast<double>(nfiles);
-    double t = 1e-3;
+    double t = 1e-2;
 
     auto u = samurai::make_field<double, 1>("u", mesh);
     samurai::for_each_cell(mesh, [&](auto &cell) {

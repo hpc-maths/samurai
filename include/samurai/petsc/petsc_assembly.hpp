@@ -24,7 +24,7 @@ namespace samurai { namespace petsc
         /**
          * @brief Inserts the coefficent into a preallocated matrix and performs the assembly.
         */
-        void assemble_matrix(Mat& A) const
+        virtual void assemble_matrix(Mat& A) const
         {
             assemble_scheme_on_uniform_grid(A);
             assemble_boundary_conditions(A);

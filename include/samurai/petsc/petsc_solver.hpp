@@ -15,7 +15,6 @@ namespace samurai { namespace petsc
     {
         using Mesh = typename Dsctzr::Mesh;
         using Field = typename Dsctzr::field_t;
-        using boundary_condition_t = typename Field::boundary_condition_t;
 
     private:
         const Dsctzr& _discretizer;
@@ -32,7 +31,7 @@ namespace samurai { namespace petsc
         PetscSolver(const Dsctzr& discretizer)
         : _discretizer(discretizer)
         {
-            create_solver(_discretizer.mesh);
+            create_solver(_discretizer.mesh());
         }
 
         void destroy_petsc_objects()

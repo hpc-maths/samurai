@@ -7,40 +7,66 @@ namespace samurai { namespace petsc
      * @class PetscBackwardEuler
     */
     template<class Operator>
-    class PetscBackwardEuler : public PetscCellBasedSchemeAssembly<typename Operator::cfg_t, typename Operator::field_t>
+    class PetscBackwardEuler : public PetscAssembly
     {
     public:
-        using cfg = typename Operator::cfg_t;
         using field_t = typename Operator::field_t;
         using Mesh = typename field_t::mesh_t;
-        using boundary_condition_t = typename field_t::boundary_condition_t;
     private:
         const Operator& _operator;
         double _dt;
 
     public:
         PetscBackwardEuler(Operator& op, double dt) : 
-            PetscCellBasedSchemeAssembly<cfg, field_t>(op.mesh, op.stencil(), [&](double h) { return coefficients(h); }, op.boundary_conditions()),
             _operator(op),
             _dt(dt)
         {}
 
-    private:
+        auto& mesh() const
+        {
+            return _operator.mesh();
+        }
+
+        PetscInt matrix_size() const override
+        {
+            return _operator.matrix_size();
+        }
+
+        std::vector<PetscInt> sparsity_pattern() const override
+        {
+            return _operator.sparsity_pattern();
+        }
+
         bool matrix_is_spd() const override
         {
             return _operator.matrix_is_spd();
         }
 
-        std::array<double, cfg::scheme_stencil_size> coefficients(double h)
+        void assemble_matrix(Mat& A) const override
         {
-            auto coeffs = _operator.coefficients(h);
-            for (unsigned int i=0; i<cfg::scheme_stencil_size; ++i)
-            {
-                coeffs[i] *= _dt;
-            }
-            coeffs[cfg::center_index] += 1;
-            return coeffs;
+            _operator.assemble_matrix(A);
+
+            // A = I + _dt*A
+            MatScale(A, _dt); // A = _dt*A;
+            MatShift(A, 1);   // A = A + 1*I
+
+            PetscBool is_spd = matrix_is_spd() ? PETSC_TRUE : PETSC_FALSE;
+            MatSetOption(A, MAT_SPD, is_spd);
         }
+
+        void enforce_bc(Vec& b, const field_t& solution) const
+        {
+            _operator.enforce_bc(b, solution);
+        }
+        
+
+        void assemble_scheme_on_uniform_grid(Mat&) const override {}
+
+        void assemble_boundary_conditions(Mat&) const override {}
+
+        void assemble_projection(Mat&) const override {}
+
+        void assemble_prediction(Mat&) const override {}
     };
     
 }} // end namespace

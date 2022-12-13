@@ -28,7 +28,7 @@ namespace samurai { namespace petsc
         bool matrix_is_spd() const override
         {
             // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
-            return this->mesh.min_level() == this->mesh.max_level();
+            return this->mesh().min_level() == this->mesh().max_level();
         }
 
         static std::array<double, cfg::scheme_stencil_size> coefficients(double h)
