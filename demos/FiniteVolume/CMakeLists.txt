@@ -1,11 +1,9 @@
 include(FindPkgConfig)
 pkg_check_modules(PETSC PETSc)
 if (PETSC_FOUND)
-    message(STATUS "PETSC found")
     find_package(MPI)
 
     add_executable(finite-volume-heat-1d heat_1d.cpp)
-
     target_link_libraries(finite-volume-heat-1d samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
 endif()
 

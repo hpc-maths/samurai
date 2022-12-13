@@ -5,7 +5,6 @@
 
 #include <samurai/mr/mesh.hpp>
 #include <samurai/mr/adapt.hpp>
-#include <samurai/stencil_field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/petsc/petsc_diffusion_FV_star_stencil.hpp>
 #include <samurai/petsc/petsc_backward_euler.hpp>
@@ -13,10 +12,6 @@
 
 #include <filesystem>
 namespace fs = std::filesystem;
-
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// Not working with LU solver!!!!!!!
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 auto exact_solution(double x, double t)
 {
@@ -95,6 +90,7 @@ int main(int argc, char *argv[])
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size)); 
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
+    PetscOptionsSetValue(NULL, "-options_left", "off"); // If on, Petsc will issue warnings saying that the options managed by CLI are unused
 
     //--------------------//
     // Problem definition //

@@ -34,6 +34,11 @@ namespace samurai { namespace petsc
             create_solver(_discretizer.mesh());
         }
 
+        ~PetscSolver()
+        {
+            destroy_petsc_objects();
+        }
+
         void destroy_petsc_objects()
         {
 #ifdef ENABLE_MG

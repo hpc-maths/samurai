@@ -59,13 +59,10 @@ namespace samurai { namespace petsc
             _operator.enforce_bc(b, solution);
         }
         
-
+    private:
         void assemble_scheme_on_uniform_grid(Mat&) const override {}
-
         void assemble_boundary_conditions(Mat&) const override {}
-
         void assemble_projection(Mat&) const override {}
-
         void assemble_prediction(Mat&) const override {}
     };
     
