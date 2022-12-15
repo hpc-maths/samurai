@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 
     // Simulation parameters
     double left_box = -2, right_box = 2;
-    bool is_periodic = true;
+    bool is_periodic = false;
     double a = 1.;
     double Tf = 1.;
     double cfl = 0.95;
