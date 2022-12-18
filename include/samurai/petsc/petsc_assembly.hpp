@@ -10,7 +10,7 @@ namespace samurai { namespace petsc
          * @brief Performs the memory preallocation of the Petsc matrix.
          * @see assemble_matrix
         */
-        void create_matrix(Mat& A)
+        void create_matrix(Mat& A) const
         {
             auto n = matrix_size();
 
@@ -24,7 +24,7 @@ namespace samurai { namespace petsc
         /**
          * @brief Inserts the coefficent into a preallocated matrix and performs the assembly.
         */
-        void assemble_matrix(Mat& A)
+        virtual void assemble_matrix(Mat& A) const
         {
             assemble_scheme_on_uniform_grid(A);
             assemble_boundary_conditions(A);
@@ -44,39 +44,39 @@ namespace samurai { namespace petsc
         /**
          * @brief Returns the matrix size.
         */
-        virtual PetscInt matrix_size() = 0;
+        virtual PetscInt matrix_size() const = 0;
 
         /**
          * @brief Sparsity pattern of the matrix.
          * @return vector that stores, for each row index in the matrix, the number of non-zero coefficients.
         */
-        virtual std::vector<PetscInt> sparsity_pattern() = 0;
+        virtual std::vector<PetscInt> sparsity_pattern() const = 0;
 
         /**
          * @brief Is the matrix symmetric positive-definite?
         */
-        virtual bool matrix_is_spd() = 0;
+        virtual bool matrix_is_spd() const = 0;
 
         /**
          * @brief Inserts coefficients into the matrix.
          * This function defines the scheme on a uniform, Cartesian grid.
         */
-        virtual void assemble_scheme_on_uniform_grid(Mat& A) = 0;
+        virtual void assemble_scheme_on_uniform_grid(Mat& A) const = 0;
 
         /**
          * @brief Inserts the coefficients into the matrix in order to enforce the boundary conditions.
         */
-        virtual void assemble_boundary_conditions(Mat& A) = 0;
+        virtual void assemble_boundary_conditions(Mat& A) const = 0;
 
         /**
          * @brief Inserts the coefficients corresponding to the projection operator into the matrix.
         */
-        virtual void assemble_projection(Mat& A) = 0;
+        virtual void assemble_projection(Mat& A) const = 0;
 
         /**
          * @brief Inserts the coefficients corresponding the prediction operator into the matrix.
         */
-        virtual void assemble_prediction(Mat& A) = 0;
+        virtual void assemble_prediction(Mat& A) const = 0;
     };
 
 

@@ -51,7 +51,7 @@ namespace samurai
      * Used to define the projection operator.
      */
     template <typename DesiredIndexType, class Mesh, class Func>
-    inline void for_each_cell_and_children(const Mesh& mesh, Func &&f)
+    inline void for_each_projection_ghost_and_children_cells(const Mesh& mesh, Func &&f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
@@ -137,7 +137,7 @@ namespace samurai
      * Used for the allocation of the matrix rows where the projection operator is used.
      */
     template <class Mesh, class Func>
-    inline void for_each_cell_having_children(const Mesh& mesh, Func &&f)
+    inline void for_each_projection_ghost(const Mesh& mesh, Func &&f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -158,7 +158,7 @@ namespace samurai
      * Used for the allocation of the matrix rows where the prediction operator is used.
      */
     template <class Mesh, class Func>
-    inline void for_each_cell_having_parent(const Mesh& mesh, Func &&f)
+    inline void for_each_prediction_ghost(const Mesh& mesh, Func &&f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 

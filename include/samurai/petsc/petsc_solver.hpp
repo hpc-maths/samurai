@@ -11,31 +11,32 @@
 namespace samurai { namespace petsc
 {
     template<class Dsctzr>
-    class PetscDiffusionSolver
+    class PetscSolver
     {
         using Mesh = typename Dsctzr::Mesh;
         using Field = typename Dsctzr::field_t;
-        using boundary_condition_t = typename Field::boundary_condition_t;
 
     private:
-        Dsctzr _discretizer;
+        const Dsctzr& _discretizer;
         KSP _ksp;
         bool _use_samurai_mg = false;
+        Mat _A = nullptr;
+        bool _is_set_up = false;
 #ifdef ENABLE_MG
         GeometricMultigrid<Dsctzr> _samurai_mg;
 #endif
 
 
     public:
-        PetscDiffusionSolver(Dsctzr& discretizer)
+        PetscSolver(const Dsctzr& discretizer)
         : _discretizer(discretizer)
         {
-            create_solver(_discretizer.mesh);
+            create_solver(_discretizer.mesh());
         }
-        PetscDiffusionSolver(Mesh& mesh, const std::vector<boundary_condition_t>& boundary_conditions)
-        : _discretizer(mesh, boundary_conditions)
+
+        ~PetscSolver()
         {
-            create_solver(mesh);
+            destroy_petsc_objects();
         }
 
         void destroy_petsc_objects()
@@ -43,6 +44,10 @@ namespace samurai { namespace petsc
 #ifdef ENABLE_MG
             _samurai_mg.destroy_petsc_objects();
 #endif
+            if (_A)
+            {
+                MatDestroy(&_A);
+            }
             KSPDestroy(&_ksp);
         }
 
@@ -85,25 +90,34 @@ namespace samurai { namespace petsc
     public:
         void setup()
         {
+            if (_is_set_up)
+            {
+                return;
+            }
             if (!_use_samurai_mg)
             {
-                Mat A;
-                _discretizer.create_matrix(A);
-                _discretizer.assemble_matrix(A);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(A), "A");
-                KSPSetOperators(_ksp, A, A);
+                _discretizer.create_matrix(_A);
+                _discretizer.assemble_matrix(_A);
+                PetscObjectSetName(reinterpret_cast<PetscObject>(_A), "A");
+                KSPSetOperators(_ksp, _A, _A);
             }
             KSPSetUp(_ksp);
+            _is_set_up = true;
         }
 
         void solve(const Field& source, Field& solution)
         {
+            if (!_is_set_up)
+            {
+                setup();
+            }
+
             // Create right-hand side vector from the source field
             Vec b = samurai::petsc::create_petsc_vector_from(source);
-            PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
+            PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b"); //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
             // Update the right-hand side with the boundary conditions stored in the solution field
-            _discretizer.enforce_bc(b, solution);
+            _discretizer.enforce_bc(b, solution);                      //VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
             // Create the solution vector
             Vec x;
@@ -137,4 +151,12 @@ namespace samurai { namespace petsc
             return n_iterations;
         }
     };
+
+    template<class Dsctzr>
+    void solve(const Dsctzr& discretizer, const typename Dsctzr::field_t& rhs, typename Dsctzr::field_t& solution)
+    {
+        PetscSolver<Dsctzr> solver(discretizer);
+        solver.solve(rhs, solution);
+    }
+
 }} // end namespace

@@ -17,14 +17,18 @@ namespace samurai { namespace petsc
         using boundary_condition_t = typename Field::boundary_condition_t;
 
         PetscDiffusionFV_StarStencil(Mesh& m, const std::vector<boundary_condition_t>& boundary_conditions) : 
-            PetscCellBasedSchemeAssembly<cfg, Field>(m, star_stencil<dim>(), coefficients, boundary_conditions)
+            PetscCellBasedSchemeAssembly<cfg, Field>(m, stencil(), coefficients, boundary_conditions)
         {}
 
-    private:
-        bool matrix_is_spd() override
+        static constexpr auto stencil()
+        {
+            return star_stencil<dim>();
+        }
+
+        bool matrix_is_spd() const override
         {
             // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
-            return this->mesh.min_level() == this->mesh.max_level();
+            return this->mesh().min_level() == this->mesh().max_level();
         }
 
         static std::array<double, cfg::scheme_stencil_size> coefficients(double h)
@@ -40,7 +44,6 @@ namespace samurai { namespace petsc
             return coeffs;
         }
 
-    public:
         /**
          * @brief Creates a coarse object from a coarse mesh and a fine object.
          * @note  This method is used by the multigrid.

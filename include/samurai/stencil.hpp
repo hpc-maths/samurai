@@ -171,7 +171,7 @@ namespace samurai
 
 
     template<std::size_t dim>
-    constexpr Stencil<dim, 1+2*dim> star_stencil()
+    constexpr Stencil<1+2*dim, dim> star_stencil()
     {
         static_assert(dim >= 1 || dim <= 3, "Star stencil not implemented for this dimension");
 
@@ -193,7 +193,7 @@ namespace samurai
             //       left,   center,    right,   front,    back,    bottom,    top
             return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
         }
-        return Stencil<dim, 1+2*dim>();
+        return Stencil<1+2*dim, dim>();
     }
 
     template<std::size_t dim, class Vector>
