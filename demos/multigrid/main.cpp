@@ -117,7 +117,9 @@ int main(int argc, char* argv[])
     using Mesh = samurai::amr::Mesh<Config>;
     //using Config = samurai::MRConfig<dim>;
     //using Mesh = samurai::MRMesh<Config>;
-    using Field = samurai::Field<Mesh, double, 1>;
+    constexpr unsigned int field_size = 2;
+    constexpr bool is_soa = true;
+    using Field = samurai::Field<Mesh, double, field_size, is_soa>;
     using DiscreteDiffusion = samurai::petsc::PetscDiffusionFV_StarStencil<Field>;
 
     //------------------//
@@ -208,8 +210,8 @@ int main(int argc, char* argv[])
     // Create problem //
     //----------------//
 
-    auto source   = samurai::make_field<double, 1>("source",   mesh, test_case->source(), test_case->source_poly_degree());
-    auto solution = samurai::make_field<double, 1>("solution", mesh);
+    auto source   = samurai::make_field<double, field_size, is_soa>("source",   mesh, test_case->source(), test_case->source_poly_degree());
+    auto solution = samurai::make_field<double, field_size, is_soa>("solution", mesh);
     solution.set_dirichlet(test_case->dirichlet()).everywhere();
 
     // Other possibilities:
@@ -285,11 +287,14 @@ int main(int argc, char* argv[])
     //       Error        //
     //--------------------//
 
-    if (test_case->solution_is_known())
+    if constexpr (field_size == 1)
     {
-        double error = DiscreteDiffusion::L2Error(solution, test_case->solution(), test_case->solution_poly_degree());
-        std::cout.precision(2);
-        std::cout << "L2-error: " << std::scientific << error << std::endl;
+        if (test_case->solution_is_known())
+        {
+            double error = DiscreteDiffusion::L2Error(solution, test_case->solution(), test_case->solution_poly_degree());
+            std::cout.precision(2);
+            std::cout << "L2-error: " << std::scientific << error << std::endl;
+        }
     }
 
     // Save solution

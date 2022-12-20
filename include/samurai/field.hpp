@@ -323,7 +323,7 @@ namespace samurai
 
             void resize()
             {
-                this->derived_cast().m_data.resize({size, this->derived_cast().p_mesh->nb_cells()});
+                this->derived_cast().m_data.resize({size, this->derived_cast().mesh().nb_cells()});
             }
 
         };

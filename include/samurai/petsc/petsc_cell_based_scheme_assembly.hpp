@@ -10,23 +10,31 @@ namespace samurai { namespace petsc
     {
     public:
         using cfg_t = cfg;
+
         using Mesh = typename Field::mesh_t;
+        using field_value_type = typename Field::value_type;
+        static constexpr std::size_t field_size = Field::size;
+        using local_matrix_t = xt::xtensor_fixed<field_value_type, xt::xshape<field_size, field_size>>;
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
+
         using stencil_t = Stencil<cfg::scheme_stencil_size, dim>;
-        using GetCoefficientsFunc = std::function<std::array<double, cfg::scheme_stencil_size>(double)>;
+        using GetCoefficientsFunc = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
         using boundary_condition_t = typename Field::boundary_condition_t;
     
         using PetscAssembly::assemble_matrix;
     protected:
         Mesh& _mesh;
+        std::size_t _n_cells;
         stencil_t _stencil;
         GetCoefficientsFunc _get_coefficients;
         const std::vector<boundary_condition_t>& _boundary_conditions;
     public:
         PetscCellBasedSchemeAssembly(Mesh& m, stencil_t s, GetCoefficientsFunc get_coeffs, const std::vector<boundary_condition_t>& boundary_conditions) :
             _mesh(m), _stencil(s), _get_coefficients(get_coeffs), _boundary_conditions(boundary_conditions)
-        {}
+        {
+            _n_cells = _mesh.nb_cells();
+        }
 
         auto& mesh() const
         {
@@ -45,23 +53,68 @@ namespace samurai { namespace petsc
 
         PetscInt matrix_size() const override
         {
-            return static_cast<PetscInt>(_mesh.nb_cells());
+            return static_cast<PetscInt>(_n_cells * field_size);
         }
 
+    private:
+        template <class CellT>
+        inline auto data_index(const CellT& cell, unsigned int field_i) const
+        {
+            if constexpr (field_size == 1)
+            {
+                return cell.index;
+            }
+            if constexpr (Field::is_soa)
+            {
+                return field_i * _n_cells + cell.index;
+            }
+            else
+            {
+                return cell.index * field_size + field_i;
+            }
+        }
 
+        inline auto local_data_index(unsigned int cell_local_index, unsigned int field_i) const
+        {
+            if constexpr (field_size == 1)
+            {
+                return cell_local_index;
+            }
+            if constexpr (Field::is_soa)
+            {
+                return field_i * cfg::scheme_stencil_size + cell_local_index;
+            }
+            else
+            {
+                return cell_local_index * field_size + field_i;
+            }
+        }
+
+    public:
         std::vector<PetscInt> sparsity_pattern() const override
         {
-            std::size_t n = _mesh.nb_cells();
-
             // Number of non-zeros per row. 
             // 1 by default (for the unused ghosts outside of the domain).
-            std::vector<PetscInt> nnz(n, 1);
+            std::vector<PetscInt> nnz(_n_cells * field_size, 1);
 
             // Cells
-            for_each_cell(_mesh, [&](auto& cell)
+            auto coeffs = _get_coefficients(cell_length(0));
+            for (unsigned int field_i = 0; field_i < field_size; ++field_i)
             {
-                nnz[cell.index] = cfg::scheme_stencil_size;
-            });
+                PetscInt scheme_nnz = cfg::scheme_stencil_size * field_size;
+                /*if constexpr (Field::is_soa)
+                {
+                    auto coeffs_i = xt::row(coeffs, field_i);
+                    if (xt::all(coeffs_i != 0))
+                    {
+                        scheme_nnz -= cfg::scheme_stencil_size;
+                    }
+                }*/
+                for_each_cell(_mesh, [&](auto& cell)
+                {
+                    nnz[data_index(cell, field_i)] = scheme_nnz;
+                });
+            }
 
 
             // Boundary ghosts on the Dirichlet boundary (if Elimination, nnz=1, the default value)
@@ -75,7 +128,10 @@ namespace samurai { namespace petsc
                     auto bc = find(_boundary_conditions, boundary_point);
                     if (bc.is_dirichlet())
                     {
-                        nnz[ghost.index] = 2;
+                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                        {
+                            nnz[data_index(ghost, field_i)] = 2;
+                        }
                     }
                 });
             }
@@ -91,7 +147,10 @@ namespace samurai { namespace petsc
                     auto bc = find(_boundary_conditions, boundary_point);
                     if (bc.is_neumann())
                     {
-                        nnz[ghost.index] = 2;
+                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                        {
+                            nnz[data_index(ghost, field_i)] = 2;
+                        }
                     }
                 });
             }
@@ -99,13 +158,19 @@ namespace samurai { namespace petsc
             // Projection
             for_each_projection_ghost(_mesh, [&](auto& ghost)
             {
-                nnz[ghost.index] = cfg::proj_stencil_size;
+                for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                {
+                    nnz[data_index(ghost, field_i)] = cfg::proj_stencil_size;
+                }
             });
 
             // Prediction
             for_each_prediction_ghost(_mesh, [&](auto& ghost)
             {
-                nnz[ghost.index] = cfg::pred_stencil_size;
+                for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                {
+                    nnz[data_index(ghost, field_i)] = cfg::pred_stencil_size;
+                }
             });
 
             return nnz;
@@ -115,38 +180,111 @@ namespace samurai { namespace petsc
         void assemble_scheme_on_uniform_grid(Mat& A) const override
         {
             // Add 1 on the diagonal
-            std::size_t n = _mesh.nb_cells();
-            for (PetscInt i=0; i<static_cast<PetscInt>(n); ++i)
+            for (PetscInt i = 0; i < matrix_size(); ++i)
             {
                 MatSetValue(A, i, i, 1, INSERT_VALUES);
             }
 
-            // Apply the given coefficents on the given stencil
+            // Apply the given coefficents to the given stencil
             for_each_stencil(_mesh, _stencil, _get_coefficients,
-            [&] (const auto& cells, const std::array<double, cfg::scheme_stencil_size>& coeffs)
+            [&] (const auto& cells, const auto& coeffs)
             {
-                std::array<PetscInt, cfg::scheme_stencil_size> indices;
-                std::transform(cells.begin(), cells.end(), indices.begin(), [](auto& cell) { return cell.index; });
-
-                if constexpr(cfg::contiguous_indices_start > 0)
+                // Indices and coefficients
+                std::array<PetscInt, cfg::scheme_stencil_size * field_size> indices;
+                for (unsigned int c = 0; c < cfg::scheme_stencil_size; ++c)
                 {
-                    for (unsigned int i=0; i<cfg::contiguous_indices_start; ++i)
+                    for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                     {
-                        MatSetValue(A, indices[cfg::center_index], indices[i], coeffs[i], INSERT_VALUES);
+                        indices[local_data_index(c, field_i)] = static_cast<PetscInt>(data_index(cells[c], field_i));
                     }
                 }
+                //auto center_index = indices[local_data_index(cfg::center_index, field_i)];
 
-                if constexpr(cfg::contiguous_indices_size > 0)
+                // Insertion into the matrix
+                /*if constexpr(field_size == 1)
                 {
-                    MatSetValues(A, 1, &indices[cfg::center_index], static_cast<PetscInt>(cfg::contiguous_indices_size), &indices[cfg::contiguous_indices_start], &coeffs[cfg::contiguous_indices_start], INSERT_VALUES);
-                }
-
-                if constexpr(cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
-                {
-                    for (unsigned int i=cfg::contiguous_indices_start + cfg::contiguous_indices_size; i<cfg::scheme_stencil_size; ++i)
+                    if constexpr(cfg::contiguous_indices_start > 0)
                     {
-                        MatSetValue(A, indices[cfg::center_index], indices[i], coeffs[i], INSERT_VALUES);
+                        for (unsigned int c=0; c<cfg::contiguous_indices_start; ++c)
+                        {
+                            if (coeffs[c][0] != 0)
+                            {
+                                MatSetValue(A, indices[cfg::center_index], indices[c], coeffs[c][0], INSERT_VALUES);
+                            }
+                        }
                     }
+
+                    if constexpr(cfg::contiguous_indices_size > 0)
+                    {
+                        std::array<double, cfg::contiguous_indices_size> contiguous_coeffs;
+                        for (unsigned int c=0; c<cfg::contiguous_indices_size; ++c)
+                        {
+                            contiguous_coeffs[c] = coeffs[cfg::contiguous_indices_start + c](0, 0);
+                        }
+                        MatSetValues(A, 1, &indices[cfg::center_index], static_cast<PetscInt>(cfg::contiguous_indices_size), &indices[cfg::contiguous_indices_start], contiguous_coeffs.data(), INSERT_VALUES);
+                    }
+
+                    if constexpr(cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
+                    {
+                        for (unsigned int c=cfg::contiguous_indices_start + cfg::contiguous_indices_size; c<cfg::scheme_stencil_size; ++c)
+                        {
+                            if (coeffs[c][0] != 0)
+                            {
+                                MatSetValue(A, indices[cfg::center_index], indices[c], coeffs[c][0], INSERT_VALUES);
+                            }
+                        }
+                    }
+                }
+                else*/ if constexpr(field_size == 1 || Field::is_soa)
+                {
+                    for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                    {
+                        for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                        {
+
+                            if constexpr(cfg::contiguous_indices_start > 0)
+                            {
+                                for (unsigned int c=0; c<cfg::contiguous_indices_start; ++c)
+                                {
+                                    auto coeff = coeffs[c](field_i, field_j);
+                                    if (coeff != 0)
+                                    {
+                                        MatSetValue(A, indices[local_data_index(cfg::center_index, field_i)], indices[local_data_index(c, field_j)], coeff, INSERT_VALUES);
+                                    }
+                                }
+                            }
+
+                            if constexpr(cfg::contiguous_indices_size > 0)
+                            {
+                                std::array<double, cfg::contiguous_indices_size> contiguous_coeffs;
+                                for (unsigned int c=0; c<cfg::contiguous_indices_size; ++c)
+                                {
+                                    contiguous_coeffs[c] = coeffs[cfg::contiguous_indices_start + c](field_i, field_j);
+                                }
+                                if (std::any_of(contiguous_coeffs.begin(), contiguous_coeffs.end(), [](auto coeff){ return coeff != 0; }))
+                                {
+                                    MatSetValues(A, 1, &indices[local_data_index(cfg::center_index, field_i)], static_cast<PetscInt>(cfg::contiguous_indices_size), &indices[local_data_index(cfg::contiguous_indices_start, field_j)], contiguous_coeffs.data(), INSERT_VALUES);
+                                }
+                            }
+
+                            if constexpr(cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
+                            {
+                                for (unsigned int c=cfg::contiguous_indices_start + cfg::contiguous_indices_size; c<cfg::scheme_stencil_size; ++c)
+                                {
+                                    auto coeff = coeffs[c](field_i, field_j);
+                                    if (coeff != 0)
+                                    {
+                                        MatSetValue(A, indices[local_data_index(cfg::center_index, field_i)], indices[local_data_index(c, field_j)], coeff, INSERT_VALUES);
+                                    }
+                                }
+                            }
+
+                        }
+                    }
+                }
+                else
+                {
+                    static_assert(Field::is_soa, "AOS is not implemented");
                 }
             });
         }
@@ -161,42 +299,47 @@ namespace samurai { namespace petsc
             }
 
             for_each_stencil_center_and_outside_ghost(_mesh, _stencil, _get_coefficients, 
-            [&] (const auto& cells, const auto& towards_ghost, double ghost_coeff)
+            [&] (const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
             {
                 const auto& cell  = cells[0];
                 const auto& ghost = cells[1];
                 auto boundary_point = cell.face_center(towards_ghost);
                 auto bc = find(_boundary_conditions, boundary_point);
-                ghost_coeff = ghost_coeff == 0 ? 1 : ghost_coeff;
 
-                if (bc.is_dirichlet())
+                for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                 {
-                    if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                    PetscInt cell_index = static_cast<PetscInt>(data_index(cell, field_i));
+                    PetscInt ghost_index = static_cast<PetscInt>(data_index(ghost, field_i));
+                    double coeff = ghost_coeff(field_i, field_i) == 0 ? 1 : ghost_coeff(field_i, field_i);
+                    if (bc.is_dirichlet())
                     {
-                        MatSetValue(A, static_cast<PetscInt>(cell.index), static_cast<PetscInt>(cell.index),  -ghost_coeff, ADD_VALUES); // the coeff is added to the center of the stencil
-                        MatSetValue(A, static_cast<PetscInt>(cell.index), static_cast<PetscInt>(ghost.index), -ghost_coeff, ADD_VALUES); // the coeff of the ghost is removed from the stencil (we want 0 so we substract the coeff we set before)
+                        if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                        {
+                            MatSetValue(A, cell_index, cell_index,  -coeff, ADD_VALUES); // the coeff is added to the center of the stencil
+                            MatSetValue(A, cell_index, ghost_index, -coeff, ADD_VALUES); // the coeff of the ghost is removed from the stencil (we want 0 so we substract the coeff we set before)
+                        }
+                        else
+                        {
+                            // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [  1/2    1/2 ] = dirichlet_value
+                            // which is equivalent to                                                         [-coeff -coeff] = -2 * coeff * dirichlet_value
+                            MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, cell_index , -coeff, INSERT_VALUES);
+                        }
                     }
                     else
                     {
-                        // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [     1/2          1/2    ] = dirichlet_value
-                        // which is equivalent to                                                         [-ghost_coeff -ghost_coeff] = -2 * ghost_coeff * dirichlet_value
-                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(ghost.index), -ghost_coeff, INSERT_VALUES);
-                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(cell.index) , -ghost_coeff, INSERT_VALUES);
-                    }
-                }
-                else
-                {
-                    // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is   [     1/h        -1/h    ] = neumann_value             
-                    // However, to have symmetry, we want to have ghost_coeff as the off-diagonal coefficient, so [-ghost_coeff ghost_coeff] = -ghost_coeff * h * neumann_value
-                    if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                    {
-                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(ghost.index), -ghost_coeff -1, ADD_VALUES); // We want -ghost_coeff in the matrix, but we added 1 before, so we remove it
-                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(cell.index),   ghost_coeff   , ADD_VALUES);
-                    }
-                    else
-                    {
-                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(ghost.index), -ghost_coeff, INSERT_VALUES);
-                        MatSetValue(A, static_cast<PetscInt>(ghost.index), static_cast<PetscInt>(cell.index),   ghost_coeff, INSERT_VALUES);
+                        // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is [  1/h  -1/h ] = neumann_value             
+                        // However, to have symmetry, we want to have coeff as the off-diagonal coefficient, so     [-coeff coeff] = -coeff * h * neumann_value
+                        if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                        {
+                            MatSetValue(A, ghost_index, ghost_index, -coeff -1, ADD_VALUES); // We want -coeff in the matrix, but we added 1 before, so we remove it
+                            MatSetValue(A, ghost_index, cell_index,   coeff   , ADD_VALUES);
+                        }
+                        else
+                        {
+                            MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, cell_index,   coeff, INSERT_VALUES);
+                        }
                     }
                 }
             });
@@ -214,44 +357,56 @@ namespace samurai { namespace petsc
         virtual void enforce_bc(Vec& b, const Field& solution) const
         {
             for_each_stencil_center_and_outside_ghost(solution.mesh(), _stencil, _get_coefficients,
-            [&] (const auto& cells, const auto& towards_ghost, double ghost_coeff)
+            [&] (const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
             {
                 auto& cell  = cells[0];
                 auto& ghost = cells[1];
                 auto boundary_point = cell.face_center(towards_ghost);
                 auto bc = find(solution.boundary_conditions(), boundary_point);
-                ghost_coeff = ghost_coeff == 0 ? 1 : ghost_coeff;
 
-                if (bc.is_dirichlet())
+                for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                 {
-                    auto dirichlet_value = bc.get_value(boundary_point);
-                    if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                    PetscInt cell_index = static_cast<PetscInt>(data_index(cell, field_i));
+                    PetscInt ghost_index = static_cast<PetscInt>(data_index(ghost, field_i));
+                    double coeff = ghost_coeff(field_i, field_i) == 0 ? 1 : ghost_coeff(field_i, field_i);
+
+                    if (bc.is_dirichlet())
                     {
-                        VecSetValue(b, static_cast<PetscInt>(cell.index), - 2 * ghost_coeff * dirichlet_value, ADD_VALUES);
+                        auto dirichlet_value = bc.get_value(boundary_point);
+                        if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                        {
+                            VecSetValue(b, cell_index, - 2 * coeff * dirichlet_value, ADD_VALUES);
+                        }
+                        else
+                        {
+                            VecSetValue(b, ghost_index, - 2 * coeff * dirichlet_value, INSERT_VALUES);
+                        }
                     }
                     else
                     {
-                        VecSetValue(b, static_cast<PetscInt>(ghost.index), - 2 * ghost_coeff * dirichlet_value, INSERT_VALUES);
+                        auto& h = cell.length;
+                        auto neumann_value = bc.get_value(boundary_point);
+                        VecSetValue(b, ghost_index, -coeff * h * neumann_value, INSERT_VALUES);
                     }
-                }
-                else
-                {
-                    auto& h = cell.length;
-                    auto neumann_value = bc.get_value(boundary_point);
-                    VecSetValue(b, static_cast<PetscInt>(ghost.index), -ghost_coeff * h * neumann_value, INSERT_VALUES);
                 }
             });
 
             // Projection
             for_each_projection_ghost(solution.mesh(), [&](auto& ghost)
             {
-                VecSetValue(b, static_cast<PetscInt>(ghost.index), 0, INSERT_VALUES);
+                for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                {
+                    VecSetValue(b, static_cast<PetscInt>(data_index(ghost, field_i)), 0, INSERT_VALUES);
+                }
             });
 
             // Prediction
             for_each_prediction_ghost(solution.mesh(), [&](auto& ghost)
             {
-                VecSetValue(b, static_cast<PetscInt>(ghost.index), 0, INSERT_VALUES);
+                for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                {
+                    VecSetValue(b, static_cast<PetscInt>(data_index(ghost, field_i)), 0, INSERT_VALUES);
+                }
             });
         }
 

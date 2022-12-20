@@ -37,8 +37,8 @@ namespace samurai
         }
     }
 
-    template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_interval_on_boundary(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil, const std::array<double, stencil_size>& coefficients, Func &&func)
+    template <class Mesh, class local_matrix_t, std::size_t stencil_size, class Func>
+    inline void for_each_interval_on_boundary(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil, std::array<local_matrix_t, stencil_size>& coefficients, Func &&func)
     {
         using mesh_interval_t = typename Mesh::mesh_interval_t;
 
@@ -47,7 +47,7 @@ namespace samurai
             auto direction = xt::view(stencil, is);
             if (xt::any(direction)) // if (direction != 0)
             {
-                double coeff = coefficients[is];
+                auto coeff = coefficients[is];
                 auto boundary = in_boundary(mesh, level, direction);
                 for_each_meshinterval<mesh_interval_t>(boundary, [&](auto& mesh_interval)
                 {
@@ -67,8 +67,7 @@ namespace samurai
         {
             if (!cells[level].empty())
             {
-                double h = cell_length(level);
-                auto coeffs = get_coefficients(h);
+                auto coeffs = get_coefficients(cell_length(level));
                 for_each_interval_on_boundary(mesh, level, stencil, coeffs, std::forward<Func>(func));
             }
         }
@@ -92,11 +91,10 @@ namespace samurai
     {
         for_each_level(mesh, [&](std::size_t level)
         {
-            double h = cell_length(level);
-            auto coeffs = get_coefficients(h);
+            auto coeffs = get_coefficients(cell_length(level));
 
             for_each_interval_on_boundary(mesh, level, stencil, coeffs,
-            [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, double out_coeff)
+            [&] (const auto& mesh_interval, const auto& towards_bdry_ghost, auto& out_coeff)
             {
                 for_each_stencil(mesh, mesh_interval, in_out_stencil<Mesh::dim>(towards_bdry_ghost), 
                 [&] (auto& cells)
