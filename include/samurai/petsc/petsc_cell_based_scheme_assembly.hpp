@@ -97,22 +97,54 @@ namespace samurai { namespace petsc
             // 1 by default (for the unused ghosts outside of the domain).
             std::vector<PetscInt> nnz(_n_cells * field_size, 1);
 
+
             // Cells
             auto coeffs = _get_coefficients(cell_length(0));
             for (unsigned int field_i = 0; field_i < field_size; ++field_i)
             {
-                PetscInt scheme_nnz = cfg::scheme_stencil_size * field_size;
-                /*if constexpr (Field::is_soa)
+                PetscInt scheme_nnz_i = cfg::scheme_stencil_size * field_size;
+                if constexpr (Field::is_soa)
                 {
-                    auto coeffs_i = xt::row(coeffs, field_i);
-                    if (xt::all(coeffs_i != 0))
+                    scheme_nnz_i = 0;
+                    for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                     {
-                        scheme_nnz -= cfg::scheme_stencil_size;
+                        if constexpr(cfg::contiguous_indices_start > 0)
+                        {
+                            for (unsigned int c=0; c<cfg::contiguous_indices_start; ++c)
+                            {
+                                if (coeffs[c](field_i, field_j) != 0)
+                                {
+                                    scheme_nnz_i++;
+                                }
+                            }
+                        }
+                        if constexpr(cfg::contiguous_indices_size > 0)
+                        {
+                            for (unsigned int c=0; c<cfg::contiguous_indices_size; ++c)
+                            {
+                                if (coeffs[cfg::contiguous_indices_start + c](field_i, field_j) != 0)
+                                {
+                                    scheme_nnz_i += cfg::contiguous_indices_size;
+                                    break;
+                                }
+                            }
+                        }
+                        if constexpr(cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
+                        {
+                            for (unsigned int c=cfg::contiguous_indices_start + cfg::contiguous_indices_size; c<cfg::scheme_stencil_size; ++c)
+                            {
+                                if (coeffs[c](field_i, field_j) != 0)
+                                {
+                                    scheme_nnz_i++;
+                                }
+                            }
+                        }
+
                     }
-                }*/
+                }
                 for_each_cell(_mesh, [&](auto& cell)
                 {
-                    nnz[data_index(cell, field_i)] = scheme_nnz;
+                    nnz[data_index(cell, field_i)] = scheme_nnz_i;
                 });
             }
 
@@ -189,7 +221,7 @@ namespace samurai { namespace petsc
             for_each_stencil(_mesh, _stencil, _get_coefficients,
             [&] (const auto& cells, const auto& coeffs)
             {
-                // Indices and coefficients
+                // Indices
                 std::array<PetscInt, cfg::scheme_stencil_size * field_size> indices;
                 for (unsigned int c = 0; c < cfg::scheme_stencil_size; ++c)
                 {
@@ -198,44 +230,9 @@ namespace samurai { namespace petsc
                         indices[local_data_index(c, field_i)] = static_cast<PetscInt>(data_index(cells[c], field_i));
                     }
                 }
-                //auto center_index = indices[local_data_index(cfg::center_index, field_i)];
-
-                // Insertion into the matrix
-                /*if constexpr(field_size == 1)
-                {
-                    if constexpr(cfg::contiguous_indices_start > 0)
-                    {
-                        for (unsigned int c=0; c<cfg::contiguous_indices_start; ++c)
-                        {
-                            if (coeffs[c][0] != 0)
-                            {
-                                MatSetValue(A, indices[cfg::center_index], indices[c], coeffs[c][0], INSERT_VALUES);
-                            }
-                        }
-                    }
-
-                    if constexpr(cfg::contiguous_indices_size > 0)
-                    {
-                        std::array<double, cfg::contiguous_indices_size> contiguous_coeffs;
-                        for (unsigned int c=0; c<cfg::contiguous_indices_size; ++c)
-                        {
-                            contiguous_coeffs[c] = coeffs[cfg::contiguous_indices_start + c](0, 0);
-                        }
-                        MatSetValues(A, 1, &indices[cfg::center_index], static_cast<PetscInt>(cfg::contiguous_indices_size), &indices[cfg::contiguous_indices_start], contiguous_coeffs.data(), INSERT_VALUES);
-                    }
-
-                    if constexpr(cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
-                    {
-                        for (unsigned int c=cfg::contiguous_indices_start + cfg::contiguous_indices_size; c<cfg::scheme_stencil_size; ++c)
-                        {
-                            if (coeffs[c][0] != 0)
-                            {
-                                MatSetValue(A, indices[cfg::center_index], indices[c], coeffs[c][0], INSERT_VALUES);
-                            }
-                        }
-                    }
-                }
-                else*/ if constexpr(field_size == 1 || Field::is_soa)
+                
+                // Coefficient insertion
+                if constexpr(field_size == 1 || Field::is_soa)
                 {
                     for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                     {
@@ -253,7 +250,6 @@ namespace samurai { namespace petsc
                                     }
                                 }
                             }
-
                             if constexpr(cfg::contiguous_indices_size > 0)
                             {
                                 std::array<double, cfg::contiguous_indices_size> contiguous_coeffs;
@@ -266,7 +262,6 @@ namespace samurai { namespace petsc
                                     MatSetValues(A, 1, &indices[local_data_index(cfg::center_index, field_i)], static_cast<PetscInt>(cfg::contiguous_indices_size), &indices[local_data_index(cfg::contiguous_indices_start, field_j)], contiguous_coeffs.data(), INSERT_VALUES);
                                 }
                             }
-
                             if constexpr(cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
                             {
                                 for (unsigned int c=cfg::contiguous_indices_start + cfg::contiguous_indices_size; c<cfg::scheme_stencil_size; ++c)
@@ -282,7 +277,7 @@ namespace samurai { namespace petsc
                         }
                     }
                 }
-                else
+                else // AOS
                 {
                     static_assert(Field::is_soa, "AOS is not implemented");
                 }
