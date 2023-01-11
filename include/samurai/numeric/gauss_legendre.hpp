@@ -34,14 +34,30 @@ namespace samurai
         }
 
         template<class TCoord_index, std::size_t dim, class Func>
-        auto quadrature(const samurai::Cell<TCoord_index, dim>& cell, Func&& f)
+        double quadrature_scalar(const Cell<TCoord_index, dim>& cell, Func&& f)
+        {
+            auto array_size_1 = quadrature<1>(cell, [&](const auto& point)
+                {
+                    double value = f(point);
+                    xt::xtensor_fixed<double, xt::xshape<1>> result {value};
+                    return result;
+                });
+            return array_size_1(0);
+        }
+
+        template<std::size_t result_size, class TCoord_index, std::size_t dim, class Func>
+        auto quadrature(const Cell<TCoord_index, dim>& cell, Func&& f)
         {
             static_assert(dim>=1 && dim<=3, "The Gauss-Legendre quadrature is not implemented for this dimension.");
+            //using f_result_type = typename decltype(std::function(f))::result_type;
+            //using f_result_type = typename decltype(f)::result_type;
 
-            const double& half_h = cell.length/2;
+            const double half_h = cell.length/2;
             auto center = cell.center();
             xt::xtensor_fixed<double, xt::xshape<dim>> eval_point;
-            double sum = 0;
+            xt::xtensor_fixed<double, xt::xshape<result_size>> sum;
+            //f_result_type sum;
+            sum.fill(0);
             if constexpr(dim == 1)
             {
                 for (unsigned int i = 0; i < n_points; ++i)
@@ -78,7 +94,7 @@ namespace samurai
                     }
                 }
             }
-            return pow(half_h, dim) * sum;
+            return xt::eval(pow(half_h, dim) * sum);
         }
 
     private:

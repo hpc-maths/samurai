@@ -41,7 +41,9 @@ namespace samurai { namespace petsc
         VecGetArrayRead(v, &arr);
 
         for(std::size_t i=0; i<n; ++i)
-            f(i) = arr[i];
+        {
+            f.array().data()[i] = arr[i];
+        }
 
         VecRestoreArrayRead(v, &arr);
     }

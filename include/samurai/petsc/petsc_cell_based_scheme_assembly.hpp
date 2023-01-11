@@ -57,6 +57,22 @@ namespace samurai { namespace petsc
         }
 
     private:
+        // Global data index
+        inline PetscInt data_index(PetscInt cell_index, unsigned int field_i) const
+        {
+            if constexpr (field_size == 1)
+            {
+                return cell_index;
+            }
+            else if constexpr (Field::is_soa)
+            {
+                return static_cast<PetscInt>(field_i * _n_cells) + cell_index;
+            }
+            else
+            {
+                return static_cast<PetscInt>(cell_index * field_size + field_i);
+            }
+        }
         template <class CellT>
         inline auto data_index(const CellT& cell, unsigned int field_i) const
         {
@@ -64,7 +80,7 @@ namespace samurai { namespace petsc
             {
                 return cell.index;
             }
-            if constexpr (Field::is_soa)
+            else if constexpr (Field::is_soa)
             {
                 return field_i * _n_cells + cell.index;
             }
@@ -74,13 +90,14 @@ namespace samurai { namespace petsc
             }
         }
 
+        // Data index in the given stencil
         inline auto local_data_index(unsigned int cell_local_index, unsigned int field_i) const
         {
             if constexpr (field_size == 1)
             {
                 return cell_local_index;
             }
-            if constexpr (Field::is_soa)
+            else if constexpr (Field::is_soa)
             {
                 return field_i * cfg::scheme_stencil_size + cell_local_index;
             }
@@ -221,7 +238,7 @@ namespace samurai { namespace petsc
             for_each_stencil(_mesh, _stencil, _get_coefficients,
             [&] (const auto& cells, const auto& coeffs)
             {
-                // Indices
+                // Global indices
                 std::array<PetscInt, cfg::scheme_stencil_size * field_size> indices;
                 for (unsigned int c = 0; c < cfg::scheme_stencil_size; ++c)
                 {
@@ -230,10 +247,32 @@ namespace samurai { namespace petsc
                         indices[local_data_index(c, field_i)] = static_cast<PetscInt>(data_index(cells[c], field_i));
                     }
                 }
+
+                // The stencil coefficients are stored as an array of matrices.
+                // For instance, vector diffusion in 2D:
+                //
+                //                       L     R     C     B     T        (left, right, center, bottom, top)
+                //     field_i -->    |-1   |-1   | 4   |-1   |-1   |
+                //     field_j -->    |   -1|   -1|    4|   -1|   -1|
                 
                 // Coefficient insertion
                 if constexpr(field_size == 1 || Field::is_soa)
                 {
+                    // In SOA, the indices are ordered in field_i for all cells, then field_j for all cells:
+                    //
+                    //            [         field_i        |         field_j        ]
+                    //            [  L    R    C    B    T |  L    R    C    B    T ]
+                    //  coupling: [ i j| i j| i j| i j| i j| i j| i j| i j| i j| i j]
+                    //            [-1 0|-1 0| 4 0|-1 0|-1 0|0 -1|0 -1|0  4|0 -1|0 -1]
+                    //
+                    // For the cell of global index c:
+                    //
+                    //                field_i       ...       field_j 
+                    //   row c*i: |-1 -1  4 -1 -1|  ...  | 0  0  0  0  0|
+                    //
+                    //   row c*j: | 0  0  0  0  0|  ...  |-1 -1  4 -1 -1|
+                    //                |_______|              |_______|
+                    //               contiguous              contiguous
                     for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                     {
                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
@@ -279,7 +318,29 @@ namespace samurai { namespace petsc
                 }
                 else // AOS
                 {
-                    static_assert(Field::is_soa, "AOS is not implemented");
+                    // In AOS, the indices are ordered as
+                    //
+                    //              L     |     R     |     C     |     B     |     T    
+                    //         ii ij ji jj|ii ij ji jj|ii ij ji jj|ii ij ji jj|ii ij ji jj
+                    //        [-1  0  0 -1|-1  0  0 -1| 4  0  0  4|-1  0  0 -1|-1  0  0 -1]
+                    //
+                    //                     i  j  i  j  i  j  i  j  i  j
+                    // row (c*2)+i   --> [-1  0|-1  0| 4  0|-1  0|-1  0]
+                    // row (c*2)+i+1 --> [ 0 -1| 0 -1| 0  4| 0 -1| 0 -1]
+
+                    for (unsigned int c=0; c<cfg::scheme_stencil_size; ++c)
+                    {
+                        std::array<double, field_size*field_size> contiguous_coeffs; // matrix row major
+                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                        {
+                            for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                            {
+                                contiguous_coeffs[field_i * field_size + field_j] = coeffs[c](field_i, field_j);
+                            }
+                        }
+
+                        MatSetValues(A, static_cast<PetscInt>(field_size), &indices[local_data_index(cfg::center_index, 0)], static_cast<PetscInt>(field_size), &indices[local_data_index(c, 0)], contiguous_coeffs.data(), INSERT_VALUES);
+                    }
                 }
             });
         }
@@ -367,7 +428,7 @@ namespace samurai { namespace petsc
 
                     if (bc.is_dirichlet())
                     {
-                        auto dirichlet_value = bc.get_value(boundary_point);
+                        auto dirichlet_value = bc.get_value(boundary_point)(field_i); // TODO: call get_value() only once instead of once per field_i
                         if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
                         {
                             VecSetValue(b, cell_index, - 2 * coeff * dirichlet_value, ADD_VALUES);
@@ -380,7 +441,7 @@ namespace samurai { namespace petsc
                     else
                     {
                         auto& h = cell.length;
-                        auto neumann_value = bc.get_value(boundary_point);
+                        auto neumann_value = bc.get_value(boundary_point)(field_i);
                         VecSetValue(b, ghost_index, -coeff * h * neumann_value, INSERT_VALUES);
                     }
                 }
@@ -414,10 +475,14 @@ namespace samurai { namespace petsc
             for_each_projection_ghost_and_children_cells<PetscInt>(_mesh, 
             [&] (PetscInt ghost, const std::array<PetscInt, number_of_children>& children)
             {
-                MatSetValue(A, ghost, ghost, 1, INSERT_VALUES);
-                for (unsigned int i=0; i<number_of_children; ++i)
+                for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                 {
-                    MatSetValue(A, ghost, children[i], -1./number_of_children, INSERT_VALUES);
+                    PetscInt ghost_index = data_index(ghost, field_i);
+                    MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
+                    for (unsigned int i=0; i<number_of_children; ++i)
+                    {
+                        MatSetValue(A, ghost_index, data_index(children[i], field_i), -1./number_of_children, INSERT_VALUES);
+                    }
                 }
             });
         }
@@ -430,28 +495,35 @@ namespace samurai { namespace petsc
 
     public:
         template<class Func>
-        static double L2Error(const Field& approximate, Func&& exact, int exact_polynomial_degree = -1)
+        static double L2Error(const Field& approximate, Func&& exact)
         {
-            GaussLegendre gl(exact_polynomial_degree);
+            // In FV, we want only 1 quadrature point.
+            // This is equivalent to 
+            //       error += pow(exact(cell.center()) - approximate(cell.index), 2) * cell.length;
+            GaussLegendre gl(0);
+
             double error_norm = 0;
-            double solution_norm = 0;
+            //double solution_norm = 0;
             for_each_cell(approximate.mesh(), [&](const auto& cell)
             {
-                error_norm += gl.quadrature(cell, [&](const auto& point)
+                error_norm += gl.quadrature_scalar(cell, [&](const auto& point)
                 {
-                    return pow(exact(point) - approximate(cell.index), 2);
+                    auto e = exact(point) - approximate[cell];
+                    double norm_square = xt::sum(e * e)();
+                    return norm_square;
                 });
 
-                solution_norm += gl.quadrature(cell, [&](const auto& point)
+                /*solution_norm += gl.quadrature(cell, [&](const auto& point)
                 {
                     return pow(exact(point), 2);
-                });
+                });*/
             });
 
             error_norm = sqrt(error_norm);
-            solution_norm = sqrt(solution_norm);
-            double relative_error = error_norm/solution_norm;
-            return relative_error;
+            //solution_norm = sqrt(solution_norm);
+            //double relative_error = error_norm/solution_norm;
+            //return relative_error;
+            return error_norm;
         }
     };
 
@@ -469,7 +541,25 @@ namespace samurai { namespace petsc
 template<class Mesh>
 void assemble_prediction_impl(std::integral_constant<std::size_t, 1>, Mat& A, Mesh& mesh)
 {
-    using mesh_id_t = typename Mesh::mesh_id_t;
+    std::array<double, 3> pred{{1./8, 0, -1./8}};
+
+    for_each_prediction_ghost(mesh, [&](auto& ghost)
+    {
+        auto ghost_index = static_cast<PetscInt>(ghost.index);
+        MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
+
+        auto ii = ghost.indices(0);
+        int sign_i = (ii & 1) ? -1 : 1;
+
+        auto parent_index = static_cast<PetscInt>(mesh.get_index(ghost.level - 1, ii/2));
+        auto parent_left  = parent_index - 1;
+        auto parent_right = parent_index + 1;
+        MatSetValue(A, ghost_index, parent_index,                -1, INSERT_VALUES);
+        MatSetValue(A, ghost_index, parent_left,  -sign_i * pred[0], INSERT_VALUES);
+        MatSetValue(A, ghost_index, parent_right, -sign_i * pred[2], INSERT_VALUES);
+    });
+
+    /*using mesh_id_t = typename Mesh::mesh_id_t;
 
     auto min_level = mesh[mesh_id_t::cells].min_level();
     auto max_level = mesh[mesh_id_t::cells].max_level();
@@ -479,7 +569,7 @@ void assemble_prediction_impl(std::integral_constant<std::size_t, 1>, Mat& A, Me
                                         mesh[mesh_id_t::cells][level-1])
                 .on(level);
 
-        std::array<double, 3> pred{{1./8, 0, -1./8}};
+        //std::array<double, 3> pred{{1./8, 0, -1./8}};
         set([&](const auto& i, const auto&)
         {
             for(int ii=i.start; ii<i.end; ++ii)
@@ -500,7 +590,7 @@ void assemble_prediction_impl(std::integral_constant<std::size_t, 1>, Mat& A, Me
                 MatSetValue(A, i_cell, i0, -1., INSERT_VALUES);
             }
         });
-    }
+    }*/
 }
 
 

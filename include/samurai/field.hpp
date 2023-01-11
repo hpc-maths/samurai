@@ -124,7 +124,7 @@ namespace samurai
             static constexpr std::size_t dim = mesh_t::dim;
             using interval_t = typename mesh_t::interval_t;
             using cell_t = Cell<typename interval_t::coord_index_t, dim>;
-            using data_type = xt::xtensor<value_t, 2>;
+            using data_type = xt::xtensor<value_t, size>;
 
             inline auto operator[](std::size_t i) const
             {
@@ -229,7 +229,7 @@ namespace samurai
             static constexpr std::size_t dim = mesh_t::dim;
             using interval_t = typename mesh_t::interval_t;
             using cell_t = Cell<typename interval_t::coord_index_t, dim>;
-            using data_type = xt::xtensor<value_t, 2>;
+            using data_type = xt::xtensor<value_t, size>;
 
             inline auto operator[](std::size_t i) const
             {
@@ -441,7 +441,7 @@ namespace samurai
         using interval_t = typename mesh_t::interval_t;
         using cell_t = Cell<typename interval_t::coord_index_t, dim>;
 
-        using boundary_condition_t = BoundaryCondition<value_t, dim>;
+        using boundary_condition_t = BoundaryCondition<value_t, dim, size>;
         using boundary_point_t = typename boundary_condition_t::boundary_point_t;
         using boundary_part_t = typename boundary_condition_t::boundary_part_t;
         using boundary_cond_t = typename boundary_condition_t::boundary_cond_t;
@@ -616,16 +616,14 @@ namespace samurai
     }
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    typename Field<mesh_t, value_t, size_, SOA>::boundary_condition_t&
-    Field<mesh_t, value_t, size_, SOA>::set_dirichlet(boundary_cond_t dirichlet_value)
+    auto Field<mesh_t, value_t, size_, SOA>::set_dirichlet(boundary_cond_t dirichlet_value) -> boundary_condition_t&
     {
         m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Dirichlet, dirichlet_value);
         return m_boundary_conditions.back();
     }
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    auto
-    Field<mesh_t, value_t, size_, SOA>::set_neumann(boundary_cond_t neumann_value) -> boundary_condition_t&
+    auto Field<mesh_t, value_t, size_, SOA>::set_neumann(boundary_cond_t neumann_value) -> boundary_condition_t&
     {
         m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Neumann, neumann_value);
         return m_boundary_conditions.back();
@@ -654,7 +652,14 @@ namespace samurai
         for_each_cell(mesh, [&](const auto& cell)
         {
             const double& h = cell.length;
-            field[cell] = gl.quadrature(cell, f) / pow(h, mesh_t::dim);
+            if constexpr (size == 1)
+            {
+                field[cell] = gl.quadrature<size>(cell, f)(0) / pow(h, mesh_t::dim);
+            }
+            else
+            {
+                field[cell] = gl.quadrature<size>(cell, f) / pow(h, mesh_t::dim);
+            }
         });
         return field;
     }

@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
     // Get user options
     PetscOptionsGetInt(NULL, NULL, "--level", &level, NULL);
 
-    TestCase<dim>* test_case = nullptr;
+    TestCase<Field>* test_case = nullptr;
     PetscBool test_case_is_set = PETSC_FALSE;
     char test_case_char_array[10];
     PetscOptionsGetString(NULL, NULL, "--tc", test_case_char_array, 10, &test_case_is_set);
@@ -155,11 +155,11 @@ int main(int argc, char* argv[])
         test_case_code = test_case_char_array;
     if (test_case_code == "poly")
     {
-        test_case = new PolynomialTestCase<dim>();
+        test_case = new PolynomialTestCase<Field>();
     }
     else if (test_case_code == "exp")
     {
-        test_case = new ExponentialTestCase<dim>();
+        test_case = new ExponentialTestCase<Field>();
     }
     else
     {
@@ -204,7 +204,7 @@ int main(int argc, char* argv[])
         samurai::save(path, "mesh", mesh);
     }
 
-    std::cout << "Unknowns: " << mesh.nb_cells() << std::endl;
+    std::cout << "Unknowns: " << (mesh.nb_cells() * field_size) << std::endl;
 
     //----------------//
     // Create problem //
@@ -212,23 +212,28 @@ int main(int argc, char* argv[])
 
     auto source   = samurai::make_field<double, field_size, is_soa>("source",   mesh, test_case->source(), test_case->source_poly_degree());
     auto solution = samurai::make_field<double, field_size, is_soa>("solution", mesh);
+
+    // Boundary conditions
+
     solution.set_dirichlet(test_case->dirichlet()).everywhere();
-
     // Other possibilities:
-    /*solution.set_dirichlet(test_case->dirichlet())
-            .where([](const auto& coord)
-            {
-                auto& x = coord[0];
-                return x == 0 || x == 1;
-            });
-    solution.set_neumann(test_case->neumann())
-            .where([](const auto& coord)
-            {
-                auto& y = coord[1];
-                return y == 0 || y == 1;
-            });*/
+    /*if constexpr (dim == 2)
+    {
+        solution.set_dirichlet(test_case->dirichlet())
+                .where([](const auto& coord)
+                {
+                    auto& x = coord[0];
+                    return x == 0 || x == 1;
+                });
+        solution.set_neumann(test_case->neumann())
+                .where([](const auto& coord)
+                {
+                    auto& y = coord[1];
+                    return y == 0 || y == 1;
+                });
+    }
 
-    /*solution.set_dirichlet([](const auto&) { return 0; })
+    solution.set_dirichlet([](const auto&) { return 0; })
             .where([](const auto& coord)
             {
                 auto& x = coord[0];
@@ -287,14 +292,11 @@ int main(int argc, char* argv[])
     //       Error        //
     //--------------------//
 
-    if constexpr (field_size == 1)
+    if (test_case->solution_is_known())
     {
-        if (test_case->solution_is_known())
-        {
-            double error = DiscreteDiffusion::L2Error(solution, test_case->solution(), test_case->solution_poly_degree());
-            std::cout.precision(2);
-            std::cout << "L2-error: " << std::scientific << error << std::endl;
-        }
+        double error = DiscreteDiffusion::L2Error(solution, test_case->solution());
+        std::cout.precision(2);
+        std::cout << "L2-error: " << std::scientific << error << std::endl;
     }
 
     // Save solution

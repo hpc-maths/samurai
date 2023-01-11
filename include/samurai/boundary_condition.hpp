@@ -3,13 +3,14 @@
 
 namespace samurai
 {
-    template<class value_t, std::size_t dim>
+    template<class value_t, std::size_t dim, std::size_t size>
     class BoundaryCondition
     {
     public:
         using boundary_point_t = xt::xtensor_fixed<double, xt::xshape<dim>>;
+        using boundary_value_t = xt::xtensor_fixed<value_t, xt::xshape<size>>;
         using boundary_part_t = std::function<bool(const boundary_point_t&)>;
-        using boundary_cond_t = std::function<value_t(const boundary_point_t&)>;
+        using boundary_cond_t = std::function<boundary_value_t(const boundary_point_t&)>;
         enum BCType : int
         {
             Dirichlet,
@@ -33,7 +34,7 @@ namespace samurai
         { 
             return _boundary_part(boundary_point);
         }
-        value_t get_value(const boundary_point_t& boundary_point) const
+        boundary_value_t get_value(const boundary_point_t& boundary_point) const
         {
             return _boundary_cond(boundary_point);
         }
@@ -58,8 +59,8 @@ namespace samurai
     };
 
 
-    template<class value_t, std::size_t dim>
-    const BoundaryCondition<value_t, dim>& find(const std::vector<BoundaryCondition<value_t, dim>>& boundary_conditions, const typename BoundaryCondition<value_t, dim>::boundary_point_t& boundary_point)
+    template<class value_t, std::size_t dim, std::size_t size>
+    const BoundaryCondition<value_t, dim, size>& find(const std::vector<BoundaryCondition<value_t, dim, size>>& boundary_conditions, const typename BoundaryCondition<value_t, dim, size>::boundary_point_t& boundary_point)
     {
         for (const auto& bc : boundary_conditions)
         {
@@ -72,8 +73,8 @@ namespace samurai
         assert(false && "No boundary condition found for this point");
     }
 
-    template<class value_t, std::size_t dim>
-    bool has_neumann(const std::vector<BoundaryCondition<value_t, dim>>& boundary_conditions)
+    template<class value_t, std::size_t dim, std::size_t size>
+    bool has_neumann(const std::vector<BoundaryCondition<value_t, dim, size>>& boundary_conditions)
     {
         auto it = std::find_if(boundary_conditions.begin(), boundary_conditions.end(), [](const auto& bc) 
         {
