@@ -9,7 +9,7 @@ public:
     static constexpr std::size_t dim = Field::dim;
     using coords = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
-    using field_value_t = xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::size>>;
+    using field_value_t = typename Field::point_value_type; // if Field::size = 1 --> 'double', else --> 'xt::xtensor_fixed<value_t, xt::xshape<size>>'
     using field_function_t = std::function<field_value_t(const coords&)>;
     using boundary_cond_t = typename Field::boundary_cond_t;
 
@@ -32,9 +32,16 @@ public:
         }
         return [](const coords&) 
         { 
-            field_value_t zero; 
-            zero.fill(0); 
-            return zero;  
+            if constexpr (Field::size == 1)
+            {
+                return 0.;
+            }
+            else
+            {
+                field_value_t zero; 
+                zero.fill(0);
+                return zero;
+            }
         };
     }
 
@@ -70,7 +77,7 @@ class PolynomialTestCase : public TestCase<Field>
             return [](const auto& coord) 
             {
                 const auto& x = coord[0];
-                return field_value_t {x * (1 - x)};
+                return x * (1 - x);
             };
         }
         else if constexpr(dim == 2)
@@ -80,9 +87,16 @@ class PolynomialTestCase : public TestCase<Field>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 double value = x * (1 - x) * y*(1 - y);
-                field_value_t values;
-                values.fill(value);
-                return values;
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -93,9 +107,16 @@ class PolynomialTestCase : public TestCase<Field>
                 const auto& y = coord[1];
                 const auto& z = coord[2];
                 double value = x * (1 - x)*y*(1 - y)*z*(1 - z);
-                field_value_t values;
-                values.fill(value);
-                return values;
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
     }
@@ -109,9 +130,17 @@ class PolynomialTestCase : public TestCase<Field>
     {
         return [](const coords&) 
         { 
-            field_value_t zero; 
-            zero.fill(0); 
-            return zero; 
+            if constexpr (Field::size == 1)
+            {
+                return 0.;
+            }
+            else
+            {
+                field_value_t zero; 
+                zero.fill(0);
+                return zero;
+            }
+            
         };
     }
 
@@ -124,12 +153,12 @@ class PolynomialTestCase : public TestCase<Field>
                 const auto& x = coord[0];
                 if (x == 0 || x == 1)
                 {
-                    return field_value_t {-1};
+                    return -1;
                 }
                 else
                 {
                     assert(false);
-                    return field_value_t {0};
+                    return 0;
                 }
             };
         }
@@ -139,18 +168,27 @@ class PolynomialTestCase : public TestCase<Field>
             {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
-                field_value_t values;
+                double value;
                 if (x == 0 || x == 1)
                 {
-                    values.fill(y * (y - 1));
+                    value = y * (y - 1);
                 }
                 else if (y == 0 || y == 1)
                 {
-                    values.fill(x * (x - 1));
+                    value = x * (x - 1);
                 }
                 else
                     assert(false);
-                return values;
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -166,9 +204,7 @@ class PolynomialTestCase : public TestCase<Field>
         {
             return [](const auto&) 
             { 
-                field_value_t values;
-                values.fill(2);
-                return values;
+                return 2.;
             };
         }
         else if constexpr(dim == 2)
@@ -178,9 +214,16 @@ class PolynomialTestCase : public TestCase<Field>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 double value = 2 * (y*(1 - y) + x * (1 - x));
-                field_value_t values;
-                values.fill(value);
-                return values;
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -191,9 +234,16 @@ class PolynomialTestCase : public TestCase<Field>
                 const auto& y = coord[1];
                 const auto& z = coord[2];
                 double value = 2 * ((y*(1 - y)*z*(1 - z) + x * (1 - x)*z*(1 - z) + x * (1 - x)*y*(1 - y)));
-                field_value_t values;
-                values.fill(value);
-                return values;
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
     }
@@ -221,10 +271,7 @@ class ExponentialTestCase : public TestCase<Field>
             return [](const auto& coord) 
             {
                 const auto& x = coord[0];
-                double value = exp(x);
-                field_value_t values;
-                values.fill(value);
-                return values;
+                return exp(x);
             };
         }
         else if constexpr(dim == 2)
@@ -234,9 +281,16 @@ class ExponentialTestCase : public TestCase<Field>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 double value = exp(x*y*y);
-                field_value_t values;
-                values.fill(value);
-                return values;
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -247,9 +301,16 @@ class ExponentialTestCase : public TestCase<Field>
                 const auto& y = coord[1];
                 const auto& z = coord[2];
                 double value = exp(x*y*y*z*z*z);
-                field_value_t values;
-                values.fill(value);
-                return values;
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
     }
@@ -261,8 +322,7 @@ class ExponentialTestCase : public TestCase<Field>
             return [](const auto& coord) 
             {
                 const auto& x = coord[0];
-                double value = -std::exp(x);
-                return field_value_t {value};
+                return -std::exp(x);
             };
         }
         else if constexpr(dim == 2)
@@ -272,9 +332,16 @@ class ExponentialTestCase : public TestCase<Field>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 double value = (-pow(y, 4) - 2 * x*(1 + 2 * x*y*y))*exp(x*y*y);
-                field_value_t values;
-                values.fill(value);
-                return values;
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -285,9 +352,16 @@ class ExponentialTestCase : public TestCase<Field>
                 const auto& y = coord[1];
                 const auto& z = coord[2];
                 double value = -(pow(y, 4)*pow(z, 6) + 2 * x*pow(z, 3) + 4 * x*x*y*y*pow(z, 6) + 6 * x*y*y*z + 9 * x*x*pow(y, 4)*pow(z, 4))*exp(x*y*y*z*z*z);
-                field_value_t values;
-                values.fill(value);
-                return values;
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
     }

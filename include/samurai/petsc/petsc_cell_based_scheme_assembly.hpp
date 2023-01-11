@@ -14,7 +14,7 @@ namespace samurai { namespace petsc
         using Mesh = typename Field::mesh_t;
         using field_value_type = typename Field::value_type;
         static constexpr std::size_t field_size = Field::size;
-        using local_matrix_t = xt::xtensor_fixed<field_value_type, xt::xshape<field_size, field_size>>;
+        using local_matrix_t = xt::xtensor_fixed<field_value_type, xt::xshape<field_size, field_size>>; // TODO: change that to 'double' if field_size = 1
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
 
@@ -428,7 +428,16 @@ namespace samurai { namespace petsc
 
                     if (bc.is_dirichlet())
                     {
-                        auto dirichlet_value = bc.get_value(boundary_point)(field_i); // TODO: call get_value() only once instead of once per field_i
+                        double dirichlet_value;
+                        if constexpr (Field::size == 1)
+                        {
+                            dirichlet_value = bc.get_value(boundary_point);
+                        }
+                        else
+                        {
+                            dirichlet_value = bc.get_value(boundary_point)(field_i); // TODO: call get_value() only once instead of once per field_i
+                        }
+                        
                         if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
                         {
                             VecSetValue(b, cell_index, - 2 * coeff * dirichlet_value, ADD_VALUES);
@@ -441,7 +450,15 @@ namespace samurai { namespace petsc
                     else
                     {
                         auto& h = cell.length;
-                        auto neumann_value = bc.get_value(boundary_point)(field_i);
+                        double neumann_value;
+                        if constexpr (Field::size == 1)
+                        { 
+                            neumann_value = bc.get_value(boundary_point);
+                        }
+                        else
+                        {
+                            neumann_value = bc.get_value(boundary_point)(field_i); // TODO: call get_value() only once instead of once per field_i
+                        }
                         VecSetValue(b, ghost_index, -coeff * h * neumann_value, INSERT_VALUES);
                     }
                 }
@@ -509,7 +526,15 @@ namespace samurai { namespace petsc
                 error_norm += gl.quadrature_scalar(cell, [&](const auto& point)
                 {
                     auto e = exact(point) - approximate[cell];
-                    double norm_square = xt::sum(e * e)();
+                    double norm_square;
+                    if constexpr (Field::size == 1)
+                    {
+                        norm_square = e * e;
+                    }
+                    else
+                    {
+                        norm_square = xt::sum(e * e)();
+                    }
                     return norm_square;
                 });
 

@@ -3,12 +3,12 @@
 
 namespace samurai
 {
-    template<class value_t, std::size_t dim, std::size_t size>
+    template<class point_value_t, std::size_t dim, std::size_t size>
     class BoundaryCondition
     {
     public:
         using boundary_point_t = xt::xtensor_fixed<double, xt::xshape<dim>>;
-        using boundary_value_t = xt::xtensor_fixed<value_t, xt::xshape<size>>;
+        using boundary_value_t = point_value_t; // if size = 1 --> 'double', else --> 'xt::xtensor_fixed<value_t, xt::xshape<size>>'
         using boundary_part_t = std::function<bool(const boundary_point_t&)>;
         using boundary_cond_t = std::function<boundary_value_t(const boundary_point_t&)>;
         enum BCType : int
