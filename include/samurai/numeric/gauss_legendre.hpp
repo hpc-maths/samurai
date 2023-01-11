@@ -33,31 +33,36 @@ namespace samurai
             init();
         }
 
-        template<class TCoord_index, std::size_t dim, class Func>
-        double quadrature_scalar(const Cell<TCoord_index, dim>& cell, Func&& f)
-        {
-            auto array_size_1 = quadrature<1>(cell, [&](const auto& point)
-                {
-                    double value = f(point);
-                    xt::xtensor_fixed<double, xt::xshape<1>> result {value};
-                    return result;
-                });
-            return array_size_1(0);
-        }
-
-        template<std::size_t result_size, class TCoord_index, std::size_t dim, class Func>
+        template<std::size_t func_result_size, class TCoord_index, std::size_t dim, class Func>
         auto quadrature(const Cell<TCoord_index, dim>& cell, Func&& f)
         {
-            static_assert(dim>=1 && dim<=3, "The Gauss-Legendre quadrature is not implemented for this dimension.");
-            //using f_result_type = typename decltype(std::function(f))::result_type;
-            //using f_result_type = typename decltype(f)::result_type;
-
             const double half_h = cell.length/2;
+            if constexpr (func_result_size == 1)
+            {
+                double sum = 0;
+                compute_quadrature_sum(cell, sum, f);
+                return pow(half_h, dim) * sum;
+            }
+            else
+            {
+                xt::xtensor_fixed<double, xt::xshape<func_result_size>> sum;
+                sum.fill(0);
+                compute_quadrature_sum(cell, sum, f);
+                return xt::eval(pow(half_h, dim) * sum);
+            }
+            
+        }
+    
+    private:
+        template<class TCoord_index, std::size_t dim, class FuncResultType, class Func>
+        void compute_quadrature_sum(const Cell<TCoord_index, dim>& cell, FuncResultType& sum, Func&& f)
+        {
+            static_assert(dim>=1 && dim<=3, "The Gauss-Legendre quadrature is not implemented for this dimension.");
+
             auto center = cell.center();
-            xt::xtensor_fixed<double, xt::xshape<dim>> eval_point;
-            xt::xtensor_fixed<double, xt::xshape<result_size>> sum;
-            //f_result_type sum;
-            sum.fill(0);
+            const double half_h = cell.length/2;
+            decltype(center) eval_point;
+
             if constexpr(dim == 1)
             {
                 for (unsigned int i = 0; i < n_points; ++i)
@@ -94,10 +99,9 @@ namespace samurai
                     }
                 }
             }
-            return xt::eval(pow(half_h, dim) * sum);
         }
 
-    private:
+    private:  
         void init()
         {
             if (n_points == 1)

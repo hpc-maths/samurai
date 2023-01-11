@@ -523,7 +523,7 @@ namespace samurai { namespace petsc
             //double solution_norm = 0;
             for_each_cell(approximate.mesh(), [&](const auto& cell)
             {
-                error_norm += gl.quadrature_scalar(cell, [&](const auto& point)
+                error_norm += gl.quadrature<1>(cell, [&](const auto& point)
                 {
                     auto e = exact(point) - approximate[cell];
                     double norm_square;

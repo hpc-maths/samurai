@@ -656,14 +656,7 @@ namespace samurai
         for_each_cell(mesh, [&](const auto& cell)
         {
             const double& h = cell.length;
-            if constexpr (size == 1)
-            {
-                field[cell] = gl.quadrature<size>(cell, f)(0) / pow(h, mesh_t::dim);
-            }
-            else
-            {
-                field[cell] = gl.quadrature<size>(cell, f) / pow(h, mesh_t::dim);
-            }
+            field[cell] = gl.quadrature<size>(cell, f) / pow(h, mesh_t::dim);
         });
         return field;
     }
