@@ -35,8 +35,7 @@ namespace samurai { namespace petsc
         static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double h)
         {
             double one_over_h2 = 1/(h*h);
-            auto Identity = xt::eye(Field::size);
-
+            auto Identity = eye<local_matrix_t>();
             std::array<local_matrix_t, cfg::scheme_stencil_size> coeffs;
             for (unsigned int i = 0; i<cfg::scheme_stencil_size; ++i)
             {

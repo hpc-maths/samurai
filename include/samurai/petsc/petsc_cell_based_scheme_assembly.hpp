@@ -5,6 +5,45 @@
 
 namespace samurai { namespace petsc
 {
+    namespace detail
+    {
+        /**
+         * Local square matrix to store the coefficients of a vectorial field.
+        */
+        template<class value_type, std::size_t size>
+        struct LocalMatrix
+        {
+            using Type = xt::xtensor_fixed<value_type, xt::xshape<size, size>>;
+        };
+
+        /**
+         * Template specialization: if size=1, then just a scalar coefficient
+        */
+        template<class value_type>
+        struct LocalMatrix<value_type, 1>
+        {
+            using Type = value_type;
+        };
+    }
+
+    template<class matrix_type>
+    matrix_type eye()
+    {
+        static constexpr auto s = typename matrix_type::shape_type();
+        return xt::eye(s[0]);
+    }
+
+    template<>
+    double eye<double>()
+    {
+        return 1;
+    }
+
+
+
+
+    
+
     template<class cfg, class Field>
     class PetscCellBasedSchemeAssembly : public PetscAssembly
     {
@@ -14,7 +53,7 @@ namespace samurai { namespace petsc
         using Mesh = typename Field::mesh_t;
         using field_value_type = typename Field::value_type;
         static constexpr std::size_t field_size = Field::size;
-        using local_matrix_t = xt::xtensor_fixed<field_value_type, xt::xshape<field_size, field_size>>; // TODO: change that to 'double' if field_size = 1
+        using local_matrix_t = typename detail::LocalMatrix<field_value_type, field_size>::Type;
         using mesh_id_t = typename Mesh::mesh_id_t;
         static constexpr std::size_t dim = Mesh::dim;
 
@@ -129,7 +168,16 @@ namespace samurai { namespace petsc
                         {
                             for (unsigned int c=0; c<cfg::contiguous_indices_start; ++c)
                             {
-                                if (coeffs[c](field_i, field_j) != 0)
+                                double coeff;
+                                if constexpr (field_size == 1)
+                                {
+                                    coeff = coeffs[c];
+                                }
+                                else
+                                {
+                                    coeff = coeffs[c](field_i, field_j);
+                                }
+                                if (coeff != 0)
                                 {
                                     scheme_nnz_i++;
                                 }
@@ -139,7 +187,16 @@ namespace samurai { namespace petsc
                         {
                             for (unsigned int c=0; c<cfg::contiguous_indices_size; ++c)
                             {
-                                if (coeffs[cfg::contiguous_indices_start + c](field_i, field_j) != 0)
+                                double coeff;
+                                if constexpr (field_size == 1)
+                                {
+                                    coeff = coeffs[cfg::contiguous_indices_start + c];
+                                }
+                                else
+                                {
+                                    coeff = coeffs[cfg::contiguous_indices_start + c](field_i, field_j);
+                                }
+                                if (coeff != 0)
                                 {
                                     scheme_nnz_i += cfg::contiguous_indices_size;
                                     break;
@@ -150,7 +207,16 @@ namespace samurai { namespace petsc
                         {
                             for (unsigned int c=cfg::contiguous_indices_start + cfg::contiguous_indices_size; c<cfg::scheme_stencil_size; ++c)
                             {
-                                if (coeffs[c](field_i, field_j) != 0)
+                                double coeff;
+                                if constexpr (field_size == 1)
+                                {
+                                    coeff = coeffs[c];
+                                }
+                                else
+                                {
+                                    coeff = coeffs[c](field_i, field_j);
+                                }
+                                if (coeff != 0)
                                 {
                                     scheme_nnz_i++;
                                 }
@@ -282,7 +348,15 @@ namespace samurai { namespace petsc
                             {
                                 for (unsigned int c=0; c<cfg::contiguous_indices_start; ++c)
                                 {
-                                    auto coeff = coeffs[c](field_i, field_j);
+                                    double coeff;
+                                    if constexpr (field_size == 1)
+                                    {
+                                        coeff = coeffs[c];
+                                    }
+                                    else
+                                    {
+                                        coeff = coeffs[c](field_i, field_j);
+                                    }
                                     if (coeff != 0)
                                     {
                                         MatSetValue(A, indices[local_data_index(cfg::center_index, field_i)], indices[local_data_index(c, field_j)], coeff, INSERT_VALUES);
@@ -294,7 +368,15 @@ namespace samurai { namespace petsc
                                 std::array<double, cfg::contiguous_indices_size> contiguous_coeffs;
                                 for (unsigned int c=0; c<cfg::contiguous_indices_size; ++c)
                                 {
-                                    contiguous_coeffs[c] = coeffs[cfg::contiguous_indices_start + c](field_i, field_j);
+                                    if constexpr (field_size == 1)
+                                    {
+                                        contiguous_coeffs[c] = coeffs[cfg::contiguous_indices_start + c];
+                                    }
+                                    else
+                                    {
+                                        contiguous_coeffs[c] = coeffs[cfg::contiguous_indices_start + c](field_i, field_j);
+                                    }
+                                    
                                 }
                                 if (std::any_of(contiguous_coeffs.begin(), contiguous_coeffs.end(), [](auto coeff){ return coeff != 0; }))
                                 {
@@ -305,7 +387,15 @@ namespace samurai { namespace petsc
                             {
                                 for (unsigned int c=cfg::contiguous_indices_start + cfg::contiguous_indices_size; c<cfg::scheme_stencil_size; ++c)
                                 {
-                                    auto coeff = coeffs[c](field_i, field_j);
+                                    double coeff;
+                                    if constexpr (field_size == 1)
+                                    {
+                                        coeff = coeffs[c];
+                                    }
+                                    else
+                                    {
+                                        coeff = coeffs[c](field_i, field_j);
+                                    }
                                     if (coeff != 0)
                                     {
                                         MatSetValue(A, indices[local_data_index(cfg::center_index, field_i)], indices[local_data_index(c, field_j)], coeff, INSERT_VALUES);
@@ -366,7 +456,16 @@ namespace samurai { namespace petsc
                 {
                     PetscInt cell_index = static_cast<PetscInt>(data_index(cell, field_i));
                     PetscInt ghost_index = static_cast<PetscInt>(data_index(ghost, field_i));
-                    double coeff = ghost_coeff(field_i, field_i) == 0 ? 1 : ghost_coeff(field_i, field_i);
+                    double coeff;
+                    if constexpr (field_size == 1)
+                    {
+                        coeff = ghost_coeff;
+                    }
+                    else
+                    {
+                        coeff = ghost_coeff(field_i, field_i);
+                    }
+                    coeff = coeff == 0 ? 1 : coeff;
                     if (bc.is_dirichlet())
                     {
                         if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
@@ -424,7 +523,16 @@ namespace samurai { namespace petsc
                 {
                     PetscInt cell_index = static_cast<PetscInt>(data_index(cell, field_i));
                     PetscInt ghost_index = static_cast<PetscInt>(data_index(ghost, field_i));
-                    double coeff = ghost_coeff(field_i, field_i) == 0 ? 1 : ghost_coeff(field_i, field_i);
+                    double coeff;
+                    if constexpr (field_size == 1)
+                    {
+                        coeff = ghost_coeff;
+                    }
+                    else
+                    {
+                        coeff = ghost_coeff(field_i, field_i);
+                    }
+                    coeff = coeff == 0 ? 1 : coeff;
 
                     if (bc.is_dirichlet())
                     {
@@ -528,7 +636,7 @@ namespace samurai { namespace petsc
             {
                 for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                 {
-                    PetscInt ghost_index = data_index(ghost, field_i);
+                    PetscInt ghost_index = static_cast<PetscInt>(data_index(ghost, field_i));
                     MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
 
                     auto ii = ghost.indices(0);
