@@ -125,7 +125,7 @@ namespace samurai
             static constexpr std::size_t dim = mesh_t::dim;
             using interval_t = typename mesh_t::interval_t;
             using cell_t = Cell<typename interval_t::coord_index_t, dim>;
-            using data_type = xt::xtensor<value_t, size>;
+            using data_type = xt::xtensor<value_t, 2>;
             using point_value_type = xt::xtensor_fixed<value_t, xt::xshape<size>>;
 
             inline auto operator[](std::size_t i) const
@@ -231,7 +231,7 @@ namespace samurai
             static constexpr std::size_t dim = mesh_t::dim;
             using interval_t = typename mesh_t::interval_t;
             using cell_t = Cell<typename interval_t::coord_index_t, dim>;
-            using data_type = xt::xtensor<value_t, size>;
+            using data_type = xt::xtensor<value_t, 2>;
             using point_value_type = xt::xtensor_fixed<value_t, xt::xshape<size>>;
 
             inline auto operator[](std::size_t i) const
