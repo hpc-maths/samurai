@@ -2,36 +2,51 @@
 #include <functional>
 #include <samurai/cell_array.hpp>
 
-template <std::size_t dim>
+template <class Field>
 class TestCase
 {
 public:
+    static constexpr std::size_t dim = Field::dim;
     using coords = xt::xtensor_fixed<double, xt::xshape<dim>>;
-    using scalar_function = std::function<double(const coords&)>;
+
+    using field_value_t = typename samurai::point_value<typename Field::value_type, Field::size>::type; // if Field::size = 1 --> 'double', else --> 'xt::xtensor_fixed<value_t, xt::xshape<size>>'
+    using field_function_t = std::function<field_value_t(const coords&)>;
+    using boundary_cond_t = typename Field::boundary_cond_t;
 
     virtual bool solution_is_known() { return false; }
-    virtual scalar_function solution() { return nullptr; }
+    virtual field_function_t solution() { return nullptr; }
     virtual int solution_poly_degree() { return -1; }
 
-    virtual scalar_function source() = 0;
+    virtual field_function_t source() = 0;
     virtual int source_poly_degree()
     {
         int solution_degree = solution_poly_degree();
         return solution_degree < 0 ? -1 : std::max(solution_degree - 2, 0);
     }
 
-    virtual scalar_function dirichlet()
+    virtual boundary_cond_t dirichlet()
     {
         if (solution_is_known())
         {
             return solution();
         }
-        return [](const coords&) { return 0.0; };
+        return [](const coords&) 
+        { 
+            if constexpr (Field::size == 1)
+            {
+                return 0.;
+            }
+            else
+            {
+                field_value_t zero; 
+                zero.fill(0);
+                return zero;
+            }
+        };
     }
 
-    virtual scalar_function neumann()
+    virtual boundary_cond_t neumann()
     {
-        //return [](const coords&) { return 0.0; };
         assert(false && "Neumann not implemented for this test case");
         return nullptr;
     }
@@ -44,15 +59,18 @@ public:
  * The solution is a polynomial function.
  * Homogeneous Dirichlet b.c.
 */
-template <std::size_t dim>
-class PolynomialTestCase : public TestCase<dim>
+template <class Field>
+class PolynomialTestCase : public TestCase<Field>
 {
-    using scalar_function = typename TestCase<dim>::scalar_function;
-    using coords = typename TestCase<dim>::coords;
+    static constexpr std::size_t dim = Field::dim;
+    using field_value_t = typename TestCase<Field>::field_value_t;
+    using field_function_t = typename TestCase<Field>::field_function_t;
+    using boundary_cond_t = typename TestCase<Field>::boundary_cond_t;
+    using coords = typename TestCase<Field>::coords;
 
     bool solution_is_known() override { return true; }
 
-    scalar_function solution() override
+    field_function_t solution() override
     {
         if constexpr(dim == 1)
         {
@@ -68,7 +86,17 @@ class PolynomialTestCase : public TestCase<dim>
             {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
-                return x * (1 - x) * y*(1 - y);
+                double value = x * (1 - x) * y*(1 - y);
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -78,7 +106,17 @@ class PolynomialTestCase : public TestCase<dim>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 const auto& z = coord[2];
-                return x * (1 - x)*y*(1 - y)*z*(1 - z);
+                double value = x * (1 - x)*y*(1 - y)*z*(1 - z);
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
     }
@@ -88,12 +126,25 @@ class PolynomialTestCase : public TestCase<dim>
         return static_cast<int>(pow(2, dim)); 
     }
 
-    scalar_function dirichlet() override
+    boundary_cond_t dirichlet() override
     {
-        return [](const coords&) { return 0.0; };
+        return [](const coords&) 
+        { 
+            if constexpr (Field::size == 1)
+            {
+                return 0.;
+            }
+            else
+            {
+                field_value_t zero; 
+                zero.fill(0);
+                return zero;
+            }
+            
+        };
     }
 
-    scalar_function neumann() override
+    boundary_cond_t neumann() override
     {
         if constexpr(dim == 1)
         {
@@ -102,12 +153,12 @@ class PolynomialTestCase : public TestCase<dim>
                 const auto& x = coord[0];
                 if (x == 0 || x == 1)
                 {
-                    return -1.;
+                    return -1;
                 }
                 else
                 {
                     assert(false);
-                    return 0.;
+                    return 0;
                 }
             };
         }
@@ -117,16 +168,27 @@ class PolynomialTestCase : public TestCase<dim>
             {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
+                double value;
                 if (x == 0 || x == 1)
                 {
-                    return y * (y - 1);
+                    value = y * (y - 1);
                 }
                 else if (y == 0 || y == 1)
                 {
-                    return x * (x - 1);
+                    value = x * (x - 1);
                 }
-                assert(false);
-                return 0.;
+                else
+                    assert(false);
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -136,13 +198,13 @@ class PolynomialTestCase : public TestCase<dim>
         }
     }
 
-    scalar_function source() override
+    field_function_t source() override
     {
         if constexpr(dim == 1)
         {
             return [](const auto&) 
             { 
-                return 2.0; 
+                return 2.;
             };
         }
         else if constexpr(dim == 2)
@@ -151,7 +213,17 @@ class PolynomialTestCase : public TestCase<dim>
             { 
                 const auto& x = coord[0];
                 const auto& y = coord[1];
-                return 2 * (y*(1 - y) + x * (1 - x));
+                double value = 2 * (y*(1 - y) + x * (1 - x));
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -161,7 +233,17 @@ class PolynomialTestCase : public TestCase<dim>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 const auto& z = coord[2];
-                return 2 * ((y*(1 - y)*z*(1 - z) + x * (1 - x)*z*(1 - z) + x * (1 - x)*y*(1 - y)));
+                double value = 2 * ((y*(1 - y)*z*(1 - z) + x * (1 - x)*z*(1 - z) + x * (1 - x)*y*(1 - y)));
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
     }
@@ -172,14 +254,17 @@ class PolynomialTestCase : public TestCase<dim>
  * The solution is an exponential function.
  * Non-homogeneous Dirichlet b.c.
 */
-template <std::size_t dim>
-class ExponentialTestCase : public TestCase<dim>
+template <class Field>
+class ExponentialTestCase : public TestCase<Field>
 {
-    using scalar_function = typename TestCase<dim>::scalar_function;
+    static constexpr std::size_t dim = Field::dim;
+    using field_value_t = typename TestCase<Field>::field_value_t;
+    using field_function_t = typename TestCase<Field>::field_function_t;
+    using boundary_cond_t = typename TestCase<Field>::boundary_cond_t;
 
     bool solution_is_known() override { return true; }
 
-    scalar_function solution() override
+    field_function_t solution() override
     {
         if constexpr(dim == 1)
         {
@@ -195,7 +280,17 @@ class ExponentialTestCase : public TestCase<dim>
             {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
-                return exp(x*y*y);
+                double value = exp(x*y*y);
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -205,12 +300,22 @@ class ExponentialTestCase : public TestCase<dim>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 const auto& z = coord[2];
-                return exp(x*y*y*z*z*z);
+                double value = exp(x*y*y*z*z*z);
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
     }
 
-    scalar_function source() override
+    field_function_t source() override
     {
         if constexpr(dim == 1)
         {
@@ -226,7 +331,17 @@ class ExponentialTestCase : public TestCase<dim>
             { 
                 const auto& x = coord[0];
                 const auto& y = coord[1];
-                return (-pow(y, 4) - 2 * x*(1 + 2 * x*y*y))*exp(x*y*y);
+                double value = (-pow(y, 4) - 2 * x*(1 + 2 * x*y*y))*exp(x*y*y);
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
         else if constexpr(dim == 3)
@@ -236,7 +351,17 @@ class ExponentialTestCase : public TestCase<dim>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 const auto& z = coord[2];
-                return -(pow(y, 4)*pow(z, 6) + 2 * x*pow(z, 3) + 4 * x*x*y*y*pow(z, 6) + 6 * x*y*y*z + 9 * x*x*pow(y, 4)*pow(z, 4))*exp(x*y*y*z*z*z);
+                double value = -(pow(y, 4)*pow(z, 6) + 2 * x*pow(z, 3) + 4 * x*x*y*y*pow(z, 6) + 6 * x*y*y*z + 9 * x*x*pow(y, 4)*pow(z, 4))*exp(x*y*y*z*z*z);
+                if constexpr (Field::size == 1)
+                {
+                    return value;
+                }
+                else
+                {
+                    field_value_t values;
+                    values.fill(value);
+                    return values;
+                }
             };
         }
     }

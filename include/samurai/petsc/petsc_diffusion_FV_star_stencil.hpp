@@ -14,6 +14,7 @@ namespace samurai { namespace petsc
     public:
         using field_t = Field;
         using Mesh = typename Field::mesh_t;
+        using local_matrix_t = typename PetscCellBasedSchemeAssembly<cfg, Field>::local_matrix_t;
         using boundary_condition_t = typename Field::boundary_condition_t;
 
         PetscDiffusionFV_StarStencil(Mesh& m, const std::vector<boundary_condition_t>& boundary_conditions) : 
@@ -31,16 +32,16 @@ namespace samurai { namespace petsc
             return this->mesh().min_level() == this->mesh().max_level();
         }
 
-        static std::array<double, cfg::scheme_stencil_size> coefficients(double h)
+        static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double h)
         {
             double one_over_h2 = 1/(h*h);
-
-            std::array<double, cfg::scheme_stencil_size> coeffs;
+            auto Identity = eye<local_matrix_t>();
+            std::array<local_matrix_t, cfg::scheme_stencil_size> coeffs;
             for (unsigned int i = 0; i<cfg::scheme_stencil_size; ++i)
             {
-                coeffs[i] = -one_over_h2;
+                coeffs[i] = -one_over_h2 * Identity;
             }
-            coeffs[cfg::center_index] = (cfg::scheme_stencil_size-1) * one_over_h2;
+            coeffs[cfg::center_index] = (cfg::scheme_stencil_size-1) * one_over_h2 * Identity;
             return coeffs;
         }
 

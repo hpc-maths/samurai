@@ -18,7 +18,7 @@ namespace samurai { namespace petsc
 
     private:
         const Dsctzr& _discretizer;
-        KSP _ksp;
+        KSP _ksp = nullptr;
         bool _use_samurai_mg = false;
         Mat _A = nullptr;
         bool _is_set_up = false;
@@ -47,8 +47,13 @@ namespace samurai { namespace petsc
             if (_A)
             {
                 MatDestroy(&_A);
+                _A = nullptr;
             }
-            KSPDestroy(&_ksp);
+            /*if (_ksp)
+            {
+                KSPDestroy(&_ksp);
+                _ksp = nullptr;
+            }*/
         }
 
     private:

@@ -7,7 +7,7 @@ namespace samurai { namespace petsc
     Vec create_petsc_vector_from(Field& f)
     {
         Vec v;
-        auto n = static_cast<PetscInt>(f.mesh().nb_cells());
+        auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::size);
         VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, f.array().data(), &v);
         return v;
     }
@@ -15,7 +15,7 @@ namespace samurai { namespace petsc
     template<class Field>
     void copy(Field& f, Vec& v)
     {
-        auto n = static_cast<PetscInt>(f.mesh().nb_cells());
+        auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::size);
 
         PetscInt n_vec;
         VecGetSize(v, &n_vec);
@@ -31,7 +31,7 @@ namespace samurai { namespace petsc
     template<class Field>
     void copy(Vec& v, Field& f)
     {
-        std::size_t n = f.mesh().nb_cells();
+        std::size_t n = f.mesh().nb_cells() * Field::size;
 
         PetscInt n_vec;
         VecGetSize(v, &n_vec);
@@ -41,7 +41,9 @@ namespace samurai { namespace petsc
         VecGetArrayRead(v, &arr);
 
         for(std::size_t i=0; i<n; ++i)
-            f(i) = arr[i];
+        {
+            f.array().data()[i] = arr[i];
+        }
 
         VecRestoreArrayRead(v, &arr);
     }

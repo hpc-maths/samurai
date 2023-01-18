@@ -58,7 +58,7 @@ namespace samurai
         static constexpr std::size_t number_of_children = (1 << dim);
 
 
-        static_assert(dim >= 1 || dim <= 3, "for_each_cell_and_children() not implemented for this dimension");
+        static_assert(dim >= 1 || dim <= 3, "for_each_projection_ghost_and_children_cells() not implemented for this dimension");
 
         auto min_level = mesh[mesh_id_t::cells].min_level();
         auto max_level = mesh[mesh_id_t::cells].max_level();
