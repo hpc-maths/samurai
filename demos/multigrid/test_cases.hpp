@@ -9,7 +9,7 @@ public:
     static constexpr std::size_t dim = Field::dim;
     using coords = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
-    using field_value_t = typename Field::point_value_type; // if Field::size = 1 --> 'double', else --> 'xt::xtensor_fixed<value_t, xt::xshape<size>>'
+    using field_value_t = typename samurai::point_value<typename Field::value_type, Field::size>::type; // if Field::size = 1 --> 'double', else --> 'xt::xtensor_fixed<value_t, xt::xshape<size>>'
     using field_function_t = std::function<field_value_t(const coords&)>;
     using boundary_cond_t = typename Field::boundary_cond_t;
 
