@@ -101,7 +101,7 @@ namespace samurai
             }
         }
 
-    private:  
+    private:
         void init()
         {
             if (n_points == 1)

@@ -57,7 +57,6 @@ namespace samurai
             using interval_t = typename mesh_t::interval_t;
             using cell_t = Cell<typename interval_t::coord_index_t, dim>;
             using data_type = xt::xtensor<value_t, 1>;
-            using point_value_type = value_t;
 
             inline const value_t& operator[](std::size_t i) const
             {
@@ -126,7 +125,6 @@ namespace samurai
             using interval_t = typename mesh_t::interval_t;
             using cell_t = Cell<typename interval_t::coord_index_t, dim>;
             using data_type = xt::xtensor<value_t, 2>;
-            using point_value_type = xt::xtensor_fixed<value_t, xt::xshape<size>>;
 
             inline auto operator[](std::size_t i) const
             {
@@ -232,7 +230,6 @@ namespace samurai
             using interval_t = typename mesh_t::interval_t;
             using cell_t = Cell<typename interval_t::coord_index_t, dim>;
             using data_type = xt::xtensor<value_t, 2>;
-            using point_value_type = xt::xtensor_fixed<value_t, xt::xshape<size>>;
 
             inline auto operator[](std::size_t i) const
             {
@@ -438,14 +435,13 @@ namespace samurai
         using value_type = value_t;
         using inner_types = detail::inner_field_types<Field<mesh_t, value_t, size, SOA>>;
         using data_type = typename inner_types::data_type;
-        using point_value_type = typename inner_types::point_value_type;
         using inner_types::operator();
 
         using inner_types::dim;
         using interval_t = typename mesh_t::interval_t;
         using cell_t = Cell<typename interval_t::coord_index_t, dim>;
 
-        using boundary_condition_t = BoundaryCondition<point_value_type, dim, size>;
+        using boundary_condition_t = BoundaryCondition<value_t, dim, size>;
         using boundary_point_t = typename boundary_condition_t::boundary_point_t;
         using boundary_part_t = typename boundary_condition_t::boundary_part_t;
         using boundary_cond_t = typename boundary_condition_t::boundary_cond_t;
