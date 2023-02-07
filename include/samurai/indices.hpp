@@ -174,4 +174,20 @@ namespace samurai
             for_each_cell(mesh, set, std::forward<Func>(f));
         }
     }
+
+    template <class Mesh, class Func>
+    inline void for_each_outside_ghost(const Mesh& mesh, Func &&f)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto min_level = mesh[mesh_id_t::cells].min_level();
+        auto max_level = mesh[mesh_id_t::cells].max_level();
+
+        for(std::size_t level=min_level; level<=max_level; ++level)
+        {
+            auto set = difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.domain()).on(level);
+
+            for_each_cell(mesh, set, std::forward<Func>(f));
+        }
+    }
 }

@@ -6,9 +6,7 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/hdf5.hpp>
-#include <samurai/petsc/petsc_diffusion_FV_star_stencil.hpp>
-#include <samurai/petsc/petsc_backward_euler.hpp>
-#include <samurai/petsc/petsc_solver.hpp>
+#include <samurai/petsc.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -103,6 +101,7 @@ int main(int argc, char *argv[])
     double t = 1e-2;
 
     auto u = samurai::make_field<double, 1>("u", mesh);
+    u.fill(0);
     samurai::for_each_cell(mesh, [&](auto &cell) {
         u[cell] = exact_solution(cell.center(0), t);
     });
@@ -170,8 +169,9 @@ int main(int argc, char *argv[])
 
         samurai::update_ghost_mr(u, update_bc);
         unp1.resize();
-        DiscreteDiffusion diff(unp1.mesh(), unp1.boundary_conditions());
-        samurai::petsc::solve(BackwardEuler(diff, dt), u, unp1);
+        DiscreteDiffusion diff(unp1);
+        auto back_euler_diff = BackwardEuler(diff, dt);
+        samurai::petsc::solve(back_euler_diff, u);//, unp1);
 
         std::swap(u.array(), unp1.array());
 
@@ -194,7 +194,8 @@ int main(int argc, char *argv[])
         }
     }
 
-
+    std::cout << "Run the following command to view the results:" << std::endl;
+    std::cout << "<<path to samurai>>/python/read_mesh.py FV_heat_1d_ite_ --field u level --start 1 --end " << nsave << std::endl;
     PetscFinalize();
 
     return 0;

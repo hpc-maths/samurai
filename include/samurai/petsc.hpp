@@ -1,0 +1,5 @@
+#include "petsc/petsc_diffusion_FV_star_stencil.hpp"
+#include "petsc/zero_operator.hpp"
+#include "petsc/petsc_backward_euler.hpp"
+#include "petsc/petsc_block_assembly.hpp"
+#include "petsc/petsc_solver.hpp"

@@ -8,7 +8,7 @@ namespace samurai { namespace petsc
      * Assemble the matrix for the problem -Lap(u)=f.
      * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
     */
-    template<class Field, std::size_t dim=Field::dim, class cfg=starStencilFV<dim, DirichletEnforcement::Elimination>>
+    template<class Field, std::size_t dim=Field::dim, class cfg=starStencilFV<dim, Field::size, DirichletEnforcement::Equation>> // Seems to work better with DirichletEnforcement::Equation than with Elimination for some reason...
     class PetscDiffusionFV_StarStencil : public PetscCellBasedSchemeAssembly<cfg, Field>
     {
     public:
@@ -17,9 +17,11 @@ namespace samurai { namespace petsc
         using local_matrix_t = typename PetscCellBasedSchemeAssembly<cfg, Field>::local_matrix_t;
         using boundary_condition_t = typename Field::boundary_condition_t;
 
-        PetscDiffusionFV_StarStencil(Mesh& m, const std::vector<boundary_condition_t>& boundary_conditions) : 
-            PetscCellBasedSchemeAssembly<cfg, Field>(m, stencil(), coefficients, boundary_conditions)
-        {}
+        PetscDiffusionFV_StarStencil(Field& unknown) : 
+            PetscCellBasedSchemeAssembly<cfg, Field>(unknown, stencil(), coefficients)
+        {
+            //this->_add_1_on_diag_for_useless_ghosts = true;
+        }
 
         static constexpr auto stencil()
         {
@@ -28,8 +30,15 @@ namespace samurai { namespace petsc
 
         bool matrix_is_spd() const override
         {
-            // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
-            return this->mesh().min_level() == this->mesh().max_level();
+            if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+            {
+                // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
+                return this->mesh().min_level() == this->mesh().max_level();
+            }
+            else
+            {
+                return false;
+            }
         }
 
         static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double h)
@@ -54,5 +63,12 @@ namespace samurai { namespace petsc
             return PetscDiffusionFV_StarStencil(coarse_mesh, fine._boundary_conditions);
         }
     };
+
+
+    template<class Field>
+    auto make_diffusion_FV(Field& f)
+    {
+        return PetscDiffusionFV_StarStencil<Field>(f);
+    }
 
 }} // end namespace

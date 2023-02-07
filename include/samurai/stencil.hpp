@@ -196,6 +196,14 @@ namespace samurai
         return Stencil<1+2*dim, dim>();
     }
 
+    template<std::size_t dim>
+    constexpr Stencil<1, dim> center_only_stencil()
+    {
+        Stencil<1, dim> s;
+        s.fill(0);
+        return s;
+    }
+
     template<std::size_t dim, class Vector>
     Stencil<2, dim> in_out_stencil(const Vector& towards_out_from_in)
     {

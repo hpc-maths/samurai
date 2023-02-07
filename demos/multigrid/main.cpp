@@ -8,8 +8,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/amr/mesh.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc/petsc_diffusion_FV_star_stencil.hpp>
-#include <samurai/petsc/petsc_solver.hpp>
+#include <samurai/petsc.hpp>
 
 #include "test_cases.hpp"
 #include "Timer.hpp"
@@ -252,8 +251,8 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    DiscreteDiffusion diff(mesh, solution.boundary_conditions());
-    samurai::petsc::PetscSolver<DiscreteDiffusion> solver(diff);
+    DiscreteDiffusion diff(solution);
+    auto solver = samurai::petsc::make_solver(diff);
 
     Timer setup_timer, solve_timer, total_timer;
 
@@ -266,7 +265,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Solving..." << std::endl;
     solve_timer.Start();
-    solver.solve(source, solution);
+    solver.solve(source);
     solve_timer.Stop();
 
     total_timer.Stop();

@@ -5,6 +5,9 @@ if (PETSC_FOUND)
 
     add_executable(finite-volume-heat-1d heat_1d.cpp)
     target_link_libraries(finite-volume-heat-1d samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+
+    add_executable(finite-volume-stokes-2d stokes_2d.cpp)
+    target_link_libraries(finite-volume-stokes-2d samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
 endif()
 
 add_executable(finite-volume-amr-burgers-hat AMR_Burgers_Hat.cpp)
