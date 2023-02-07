@@ -438,10 +438,6 @@ namespace samurai { namespace petsc
                     //   row c*j: | 0  0  0  0  0|  ...  |-1 -1  4 -1 -1|
                     //                |_______|              |_______|
                     //               contiguous              contiguous
-                    //
-                    //
-                    // - Gradient example
-                    //           L  R  C  B  T
                     //         
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                     {
@@ -514,11 +510,7 @@ namespace samurai { namespace petsc
                 }
                 else // AOS
                 {
-                    // In AOS, the indices are ordered as
-                    //
-                    //              L     |     R     |     C     |     B     |     T    
-                    //         ii ij ji jj|ii ij ji jj|ii ij ji jj|ii ij ji jj|ii ij ji jj
-                    //        [-1  0  0 -1|-1  0  0 -1| 4  0  0  4|-1  0  0 -1|-1  0  0 -1]
+                    // In AOS, the blocks of coefficients are inserted as given by the user:
                     //
                     //                     i  j  i  j  i  j  i  j  i  j
                     // row (c*2)+i   --> [-1  0|-1  0| 4  0|-1  0|-1  0]
@@ -526,21 +518,17 @@ namespace samurai { namespace petsc
 
                     for (unsigned int c=0; c<cfg::scheme_stencil_size; ++c)
                     {
-                        std::array<double, output_field_size*field_size> contiguous_coeffs; // matrix row major
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                            {
-                                contiguous_coeffs[field_i * field_size + field_j] = coeffs[c](field_i, field_j);
-                            }
-                        }
-
-                        MatSetValues(A, static_cast<PetscInt>(field_size), &rows[local_row_index(cfg::center_index, 0)], static_cast<PetscInt>(field_size), &cols[local_col_index(c, 0)], contiguous_coeffs.data(), INSERT_VALUES);
+                        // Insert a coefficient block of size in <output_field_size x field_size>:
+                        // - in 'rows', for each cell, <output_field_size> rows are contiguous.
+                        // - in 'cols', for each cell,        <field_size> cols are contiguous.
+                        // - coeffs[c] is a row-major matrix (xtensor), as requested by PETSc.
+                        MatSetValues(A, static_cast<PetscInt>(output_field_size), &rows[local_row_index(cfg::center_index, 0)], static_cast<PetscInt>(field_size), &cols[local_col_index(c, 0)], coeffs[c].data(), INSERT_VALUES);
                     }
 
-                    for (auto row : rows)
+                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        _is_row_empty[static_cast<std::size_t>(row)] = false;
+                        auto row = static_cast<std::size_t>(rows[local_row_index(cfg::center_index, field_i)]);
+                        _is_row_empty[row] = false;
                     }
                 }
             });
