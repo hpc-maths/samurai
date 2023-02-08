@@ -75,5 +75,13 @@ namespace samurai { namespace petsc
         void assemble_projection(Mat&) const override {}
         void assemble_prediction(Mat&) const override {}
     };
+
+    
+
+    template<class Operator>
+    auto make_backward_euler(Operator& op, double dt)
+    {
+        return PetscBackwardEuler<Operator>(op, dt);
+    }
     
 }} // end namespace
