@@ -19,9 +19,7 @@ namespace samurai { namespace petsc
 
         PetscDiffusionFV_StarStencil(Field& unknown) : 
             PetscCellBasedSchemeAssembly<cfg, Field>(unknown, stencil(), coefficients)
-        {
-            //this->_add_1_on_diag_for_useless_ghosts = true;
-        }
+        {}
 
         static constexpr auto stencil()
         {
@@ -32,7 +30,7 @@ namespace samurai { namespace petsc
         {
             if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
             {
-                // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is not refined.
+                // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
                 return this->mesh().min_level() == this->mesh().max_level();
             }
             else

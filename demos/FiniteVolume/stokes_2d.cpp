@@ -80,29 +80,6 @@ Mesh create_uniform_mesh(std::size_t level)
     //return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
-template<class Mesh>
-Mesh create_refined_mesh(std::size_t level)
-{
-    using cl_type = typename Mesh::cl_type;
-
-    std::size_t min_level, max_level;
-    min_level = level-1;
-    max_level = level;
-
-    int i = static_cast<int>(1<<min_level);
-
-    cl_type cl;
-    if constexpr(Mesh::dim == 1)
-    {
-        cl[min_level][{}].add_interval({0, i/2});
-        cl[max_level][{}].add_interval({i, 2*i});
-    }
-    static_assert(Mesh::dim == 1, "create_refined_mesh() not implemented for this dimension");
-
-    return Mesh(cl, min_level, max_level); // amr::Mesh
-    //return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
-}
-
 template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::starStencilFV<dim, Field::size*dim>>
 class GradientFV : public samurai::petsc::PetscCellBasedSchemeAssembly<cfg, Field>
 {
@@ -278,21 +255,16 @@ int main(int argc, char* argv[])
         filename = filename_str.substr(0, filename_str.find('\0'));
     }
 
-
-    //---------------//
-    // Mesh creation //
-    //---------------//
-
-    Mesh mesh = create_uniform_mesh<Mesh>(static_cast<std::size_t>(level));
-
     //----------------//
     // Create problem //
     //----------------//
 
     // 2 equations: -Lap(v) + Grad(p) = f
-    //               Div(v)           = 0
+    //              -Div(v)           = 0
     // where v = velocity
     //       p = pressure
+
+    Mesh mesh = create_uniform_mesh<Mesh>(static_cast<std::size_t>(level));
 
     // Unknowns
     auto velocity = samurai::make_field<double, dim, is_soa>("velocity", mesh);
@@ -319,13 +291,13 @@ int main(int argc, char* argv[])
             .everywhere();
     
     // Block operator
-    auto diffusion = samurai::petsc::make_diffusion_FV(velocity);
-    auto gradient  =                 make_gradient_FV(pressure);
-    auto minus_div =                 make_minus_divergence_FV(velocity);
-    auto zero      = samurai::petsc::make_zero_operator<1>(pressure);
+    auto diff_v      = samurai::petsc::make_diffusion_FV(velocity);
+    auto grad_p      =                 make_gradient_FV(pressure);
+    auto minus_div_v =                 make_minus_divergence_FV(velocity);
+    auto zero_p      = samurai::petsc::make_zero_operator_FV<1>(pressure);
 
-    auto stokes = samurai::petsc::make_block_operator<2, 2>(diffusion, gradient,
-                                                            minus_div,     zero);
+    auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p,
+                                                            minus_div_v, zero_p);
 
     // Right-hand side
     auto f = samurai::make_field<double, dim, is_soa>("f", mesh, 
@@ -337,36 +309,52 @@ int main(int argc, char* argv[])
                 double f_y = -2 * sin(pi*(x+y)) + (1/pi) * cos(pi*(x+y));
                 return xt::xtensor_fixed<double, xt::xshape<dim>> {f_x, f_y};
             }, 0);
-    auto zero_field = samurai::make_field<double, 1, is_soa>("zero", mesh);
-    zero_field.fill(0);
+    auto zero = samurai::make_field<double, 1, is_soa>("zero", mesh);
+    zero.fill(0);
 
-    auto rhs = stokes.tie(f, zero_field);
+    auto rhs = stokes.tie(f, zero);
 
-    //---------------//
-    // Linear solver //
-    //---------------//
+    //-------------------//
+    //   Linear solver   //
+    //-------------------//
 
-    // Solver creation
+    std::cout << "Solving Stokes system..." << std::endl;
     auto block_solver = samurai::petsc::make_solver(stokes);
 
+    //
     // Configuration of the PETSc solver for the Stokes problem
+    //
+
+    // 1. Set the use of a Schur complement preconditioner eliminating the velocity
     KSP ksp = block_solver.Ksp();
     PC pc;
     KSPGetPC(ksp, &pc);
-    PCSetType(pc, PCFIELDSPLIT);
-    PCFieldSplitSetType(pc, PC_COMPOSITE_SCHUR); // Schur complement
+    PCSetType(pc, PCFIELDSPLIT); // (equiv. '-pc_type fieldsplit')
+    PCFieldSplitSetType(pc, PC_COMPOSITE_SCHUR); // Schur complement preconditioner (equiv. '-pc_fieldsplit_type schur')
+    PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP, PETSC_NULL); // (equiv. '-pc_fieldsplit_schur_precondition selfp')
+    PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL); // (equiv. '-pc_fieldsplit_schur_fact_type full')
 
-    // Solve
+    // 2. Configure the sub-solvers
+    block_solver.setup(); // must be called before using PCFieldSplitSchurGetSubKSP(), because the matrices are needed.
+    KSP *sub_ksp;
+    PCFieldSplitSchurGetSubKSP(pc, nullptr, &sub_ksp);
+    KSP velocity_ksp = sub_ksp[0];
+    KSP schur_ksp    = sub_ksp[1];
+    // Set LU by default for the diffusion block. Consider using 'hypre' for large problems, using the option '-fieldsplit_velocity_pc_type hypre'.
+    PC velocity_pc;
+    KSPGetPC(velocity_ksp, &velocity_pc);
+    PCSetType(velocity_pc, PCLU); // (equiv. '-fieldsplit_velocity_pc_type lu' or 'hypre')
+    KSPSetFromOptions(velocity_ksp); // overwrite by user value if needed
+    // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that tolerance to all the sub-solvers
+    PetscReal ksp_rtol;
+    KSPGetTolerances(ksp, &ksp_rtol, PETSC_NULL, PETSC_NULL, PETSC_NULL);
+    KSPSetTolerances(velocity_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
+    KSPSetTolerances(   schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
+
+    //
+    // Solve the system
+    //
     block_solver.solve(rhs);
-
-
-
-
-
-
-
-
-
     std::cout << block_solver.iterations() << " iterations" << std::endl << std::endl;
 
     //--------------------//
@@ -375,7 +363,7 @@ int main(int argc, char* argv[])
 
     std::cout.precision(2);
 
-    double error = diffusion.L2Error(velocity, [](auto& coord)
+    double error = diff_v.L2Error(velocity, [](auto& coord)
     {
         const auto& x = coord[0];
         const auto& y = coord[1];
@@ -386,12 +374,15 @@ int main(int argc, char* argv[])
     
     std::cout << "L2-error on the velocity: " << std::scientific << error << std::endl;
 
-    // Save solution
+    //--------------------//
+    //   Save solution    //
+    //--------------------//
+
     if (save_solution)
     {
         std::cout << "Saving solution..." << std::endl;
 
-        samurai::save(path, filename, mesh, velocity);
+        samurai::save(path,   filename, mesh, velocity);
         samurai::save(path, "pressure", mesh, pressure);
 
         auto exact_velocity = samurai::make_field<double, dim, is_soa>("exact_velocity", mesh, 
@@ -405,12 +396,12 @@ int main(int argc, char* argv[])
             }, 0);
         samurai::save(path, "exact_velocity", mesh, exact_velocity);
 
-        auto err = samurai::make_field<double, dim, is_soa>("error", mesh);
+        /*auto err = samurai::make_field<double, dim, is_soa>("error", mesh);
         for_each_cell(err.mesh(), [&](const auto& cell)
             {
                 err[cell] = exact_velocity[cell] - velocity[cell];
             });
-        samurai::save(path, "error_velocity", mesh, err);
+        samurai::save(path, "error_velocity", mesh, err);*/
 
         auto exact_pressure = samurai::make_field<double, 1, is_soa>("exact_pressure", mesh, 
             [](const auto& coord) 

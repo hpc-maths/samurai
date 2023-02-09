@@ -56,6 +56,11 @@ namespace samurai { namespace petsc
                 _ksp = nullptr;
             }*/
         }
+    
+        KSP& Ksp()
+        {
+            return _ksp;
+        }
 
     private:
         void create_solver(Mesh&
@@ -229,18 +234,15 @@ namespace samurai { namespace petsc
             {
                 return;
             }
-            KSPSetFromOptions(_ksp);
 
             _discretizer.create_matrix(_A);
             _discretizer.assemble_matrix(_A);
             PetscObjectSetName(reinterpret_cast<PetscObject>(_A), "A"); //MatView(_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
             KSPSetOperators(_ksp, _A, _A);
 
-
-
             // Set names to the petsc fields
             PC pc;
-            KSPGetPC(_ksp,&pc);
+            KSPGetPC(_ksp, &pc);
             IS is_fields[cols];
             MatNestGetISs(_A, is_fields, NULL);
             auto field_names = _discretizer.field_names();
@@ -249,7 +251,10 @@ namespace samurai { namespace petsc
                 PCFieldSplitSetIS(pc, field_names[i].c_str(), is_fields[i]);
             }
 
-            //KSPSetUp(_ksp); // TO UNCOMMENT!!!!!!!!
+            KSPSetFromOptions(_ksp);
+            PCSetUp(pc);
+            //KSPSetUp(_ksp); // Here, PETSc fails for some reason.
+
             _is_set_up = true;
         }
 

@@ -53,9 +53,9 @@ namespace samurai { namespace petsc
             std::size_t i = 0;
             for_each(_operators, [&](auto& op)
             {
-                auto row = i / cols;
+                /*auto row = i / cols;
                 auto col = i % cols;
-                std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;
+                std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;*/
                 op.create_matrix(_blocks[i]);
                 i++;
             });
@@ -68,9 +68,9 @@ namespace samurai { namespace petsc
             std::size_t i = 0;
             for_each(_operators, [&](auto& op)
             {
-                auto row = i / cols;
+                /*auto row = i / cols;
                 auto col = i % cols;
-                std::cout << "assemble_matrix (" << row << ", " << col << ")" << std::endl;
+                std::cout << "assemble_matrix (" << row << ", " << col << ")" << std::endl;*/
                 op.assemble_matrix(_blocks[i]);
                 i++;
             });
@@ -84,10 +84,10 @@ namespace samurai { namespace petsc
             for_each(_operators, [&](const auto& op) 
             {
                 auto row = i / cols;
-                auto col = i % cols;
+                //auto col = i % cols;
                 if (op.include_bc())
                 {
-                    std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
+                    //std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
                     op.enforce_bc(b[row]);
                 }
                 i++;
