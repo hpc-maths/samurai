@@ -1,24 +1,24 @@
 #pragma once
-#include "petsc_cell_based_scheme_assembly.hpp"
+#include "cell_based_scheme.hpp"
 
 namespace samurai { namespace petsc
 {
     /**
-     * @class PetscDiffusionFV_StarStencil
+     * @class DiffusionFV
      * Assemble the matrix for the problem -Lap(u)=f.
      * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
     */
     template<class Field, DirichletEnforcement dirichlet_enfcmt=Equation, std::size_t dim=Field::dim, class cfg=starStencilFV<dim, Field::size, dirichlet_enfcmt>>
-    class PetscDiffusionFV_StarStencil : public PetscCellBasedSchemeAssembly<cfg, Field>
+    class DiffusionFV : public CellBasedScheme<cfg, Field>
     {
     public:
         using field_t = Field;
         using Mesh = typename Field::mesh_t;
-        using local_matrix_t = typename PetscCellBasedSchemeAssembly<cfg, Field>::local_matrix_t;
+        using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
         using boundary_condition_t = typename Field::boundary_condition_t;
 
-        PetscDiffusionFV_StarStencil(Field& unknown) : 
-            PetscCellBasedSchemeAssembly<cfg, Field>(unknown, stencil(), coefficients)
+        DiffusionFV(Field& unknown) : 
+            CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
         {}
 
         static constexpr auto stencil()
@@ -56,9 +56,9 @@ namespace samurai { namespace petsc
          * @brief Creates a coarse object from a coarse mesh and a fine object.
          * @note  This method is used by the multigrid.
         */
-        static PetscDiffusionFV_StarStencil create_coarse(const PetscDiffusionFV_StarStencil& fine, Mesh& coarse_mesh)
+        static DiffusionFV create_coarse(const DiffusionFV& fine, Mesh& coarse_mesh)
         {
-            return PetscDiffusionFV_StarStencil(coarse_mesh, fine._boundary_conditions);
+            return DiffusionFV(coarse_mesh, fine._boundary_conditions);
         }
     };
 
@@ -66,7 +66,7 @@ namespace samurai { namespace petsc
     template<DirichletEnforcement dirichlet_enfcmt=Equation, class Field>
     auto make_diffusion_FV(Field& f)
     {
-        return PetscDiffusionFV_StarStencil<Field, dirichlet_enfcmt>(f);
+        return DiffusionFV<Field, dirichlet_enfcmt>(f);
     }
 
 }} // end namespace

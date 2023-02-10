@@ -1,16 +1,16 @@
 #pragma once
-#include "petsc_cell_based_scheme_assembly.hpp"
+#include "cell_based_scheme.hpp"
 
 namespace samurai { namespace petsc
 {
     template<class Field, std::size_t output_field_size, std::size_t dim=Field::dim, class cfg=starStencilFV<dim, output_field_size>>
-    class ZeroOperatorFV : public PetscCellBasedSchemeAssembly<cfg, Field>
+    class ZeroOperatorFV : public CellBasedScheme<cfg, Field>
     {
     public:
-        using local_matrix_t = typename PetscCellBasedSchemeAssembly<cfg, Field>::local_matrix_t;
+        using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
 
         ZeroOperatorFV(Field& unknown) : 
-            PetscCellBasedSchemeAssembly<cfg, Field>(unknown, star_stencil<dim>(), coefficients) 
+            CellBasedScheme<cfg, Field>(unknown, star_stencil<dim>(), coefficients) 
         {}
 
         static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double)

@@ -1,17 +1,17 @@
 #pragma once
-#include "petsc_assembly.hpp"
+#include "matrix_assembly.hpp"
 #include "utils.hpp"
 
 namespace samurai { namespace petsc
 {
     template <int rows, int cols, class... Operators>
-    class PetscBlockAssembly
+    class BlockAssembly
     {
     private:
         std::tuple<Operators&...> _operators;
         std::array<Mat, rows * cols> _blocks;
     public:
-        PetscBlockAssembly(Operators&... operators) :
+        BlockAssembly(Operators&... operators) :
             _operators(operators...)
         {
             static constexpr std::size_t n_operators = sizeof...(operators);
@@ -126,7 +126,7 @@ namespace samurai { namespace petsc
     template <int rows, int cols, class... Operators>
     auto make_block_operator(Operators&... operators)
     {
-        return PetscBlockAssembly<rows, cols, Operators...>(operators...);
+        return BlockAssembly<rows, cols, Operators...>(operators...);
     }
      
 }} // end namespace

@@ -1,5 +1,5 @@
 #pragma once
-#include "petsc_assembly.hpp"
+#include "matrix_assembly.hpp"
 #include "../numeric/gauss_legendre.hpp"
 #include "../boundary.hpp"
 
@@ -58,7 +58,7 @@ namespace samurai { namespace petsc
     
 
     template<class cfg, class Field>
-    class PetscCellBasedSchemeAssembly : public PetscAssembly
+    class CellBasedScheme : public MatrixAssembly
     {
     public:
         using cfg_t = cfg;
@@ -76,7 +76,7 @@ namespace samurai { namespace petsc
         using GetCoefficientsFunc = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
         using boundary_condition_t = typename Field::boundary_condition_t;
     
-        using PetscAssembly::assemble_matrix;
+        using MatrixAssembly::assemble_matrix;
     protected:
         Field& _unknown;
         Mesh& _mesh;
@@ -87,7 +87,7 @@ namespace samurai { namespace petsc
         bool _add_1_on_diag_for_useless_ghosts = true;
         std::vector<bool> _is_row_empty;
     public:
-        PetscCellBasedSchemeAssembly(Field& unknown, stencil_t s, GetCoefficientsFunc get_coeffs) :
+        CellBasedScheme(Field& unknown, stencil_t s, GetCoefficientsFunc get_coeffs) :
             _unknown(unknown), 
             _mesh(unknown.mesh()), 
             _stencil(s), 

@@ -3,7 +3,7 @@
 
 namespace samurai { namespace petsc
 {
-    class PetscAssembly
+    class MatrixAssembly
     {
     private:
         bool _include_bc = true;
@@ -64,7 +64,7 @@ namespace samurai { namespace petsc
             MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
         }
 
-        virtual ~PetscAssembly() {}
+        virtual ~MatrixAssembly() {}
 
     protected:
         /**

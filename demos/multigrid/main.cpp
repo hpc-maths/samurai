@@ -119,7 +119,6 @@ int main(int argc, char* argv[])
     constexpr unsigned int field_size = 2;
     constexpr bool is_soa = true;
     using Field = samurai::Field<Mesh, double, field_size, is_soa>;
-    using DiscreteDiffusion = samurai::petsc::PetscDiffusionFV_StarStencil<Field, samurai::petsc::DirichletEnforcement::Elimination>;
 
     //------------------//
     // Petsc initialize //
@@ -251,7 +250,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    DiscreteDiffusion diff(solution);
+    auto diff = samurai::petsc::make_diffusion_FV<samurai::petsc::DirichletEnforcement::Elimination>(solution);
     auto solver = samurai::petsc::make_solver(diff);
 
     Timer setup_timer, solve_timer, total_timer;
@@ -293,7 +292,7 @@ int main(int argc, char* argv[])
 
     if (test_case->solution_is_known())
     {
-        double error = DiscreteDiffusion::L2Error(solution, test_case->solution());
+        double error = diff.L2Error(solution, test_case->solution());
         std::cout.precision(2);
         std::cout << "L2-error: " << std::scientific << error << std::endl;
     }

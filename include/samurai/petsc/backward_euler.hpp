@@ -1,13 +1,13 @@
 #pragma once
-#include "petsc_cell_based_scheme_assembly.hpp"
+#include "matrix_assembly.hpp"
 
 namespace samurai { namespace petsc
 {
     /**
-     * @class PetscBackwardEuler
+     * @class BackwardEuler
     */
     template<class Operator>
-    class PetscBackwardEuler : public PetscAssembly
+    class BackwardEuler : public MatrixAssembly
     {
     public:
         using field_t = typename Operator::field_t;
@@ -17,7 +17,7 @@ namespace samurai { namespace petsc
         double _dt;
 
     public:
-        PetscBackwardEuler(Operator& op, double dt) : 
+        BackwardEuler(Operator& op, double dt) : 
             _operator(op),
             _dt(dt)
         {}
@@ -81,7 +81,7 @@ namespace samurai { namespace petsc
     template<class Operator>
     auto make_backward_euler(Operator& op, double dt)
     {
-        return PetscBackwardEuler<Operator>(op, dt);
+        return BackwardEuler<Operator>(op, dt);
     }
     
 }} // end namespace

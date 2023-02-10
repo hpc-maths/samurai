@@ -81,13 +81,13 @@ Mesh create_uniform_mesh(std::size_t level)
 }
 
 template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::starStencilFV<dim, Field::size*dim>>
-class GradientFV : public samurai::petsc::PetscCellBasedSchemeAssembly<cfg, Field>
+class GradientFV : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
 public:
-    using local_matrix_t = typename samurai::petsc::PetscCellBasedSchemeAssembly<cfg, Field>::local_matrix_t;
+    using local_matrix_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::local_matrix_t;
 
     GradientFV(Field& u) : 
-        samurai::petsc::PetscCellBasedSchemeAssembly<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
+        samurai::petsc::CellBasedScheme<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
     {}
 
     static std::array<local_matrix_t, 5> coefficients(double h)
@@ -138,13 +138,13 @@ auto make_gradient_FV(Field& f)
 }
 
 template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::starStencilFV<dim, 1>>
-class MinusDivergenceFV : public samurai::petsc::PetscCellBasedSchemeAssembly<cfg, Field>
+class MinusDivergenceFV : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
 public:
-    using local_matrix_t = typename samurai::petsc::PetscCellBasedSchemeAssembly<cfg, Field>::local_matrix_t;
+    using local_matrix_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::local_matrix_t;
 
     MinusDivergenceFV(Field& u) : 
-        samurai::petsc::PetscCellBasedSchemeAssembly<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
+        samurai::petsc::CellBasedScheme<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
     {}
 
     static std::array<local_matrix_t, 5> coefficients(double h)

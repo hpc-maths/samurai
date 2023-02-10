@@ -2,7 +2,7 @@
 
 //#define ENABLE_MG
 
-#include "petsc_block_assembly.hpp"
+#include "block_assembly.hpp"
 #ifdef ENABLE_MG
 #include "multigrid/petsc/GeometricMultigrid.hpp"
 #else
@@ -12,7 +12,7 @@
 namespace samurai { namespace petsc
 {
     template<class Dsctzr>
-    class PetscSolver
+    class Solver
     {
         using Mesh = typename Dsctzr::Mesh;
         using Field = typename Dsctzr::field_t;
@@ -29,13 +29,13 @@ namespace samurai { namespace petsc
 
 
     public:
-        PetscSolver(Dsctzr& discretizer)
+        Solver(Dsctzr& discretizer)
         : _discretizer(discretizer)
         {
             create_solver(_discretizer.mesh());
         }
 
-        ~PetscSolver()
+        ~Solver()
         {
             destroy_petsc_objects();
         }
@@ -162,16 +162,16 @@ namespace samurai { namespace petsc
     };
 
     template<class Dsctzr>
-    PetscSolver<Dsctzr> make_solver(Dsctzr& discretizer)
+    Solver<Dsctzr> make_solver(Dsctzr& discretizer)
     {
-        return PetscSolver<Dsctzr>(discretizer);
+        return Solver<Dsctzr>(discretizer);
     }
 
 
     template<class Dsctzr>
     void solve(Dsctzr& discretizer, const typename Dsctzr::field_t& rhs)
     {
-        PetscSolver<Dsctzr> solver(discretizer);
+        Solver<Dsctzr> solver(discretizer);
         solver.solve(rhs);
     }
 
@@ -181,22 +181,22 @@ namespace samurai { namespace petsc
      * PETSc block solver
     */
     template <int rows, int cols, class... Operators>
-    class PetscSolver<PetscBlockAssembly<rows, cols, Operators...>>
+    class Solver<BlockAssembly<rows, cols, Operators...>>
     {
-        using Dsctzr = PetscBlockAssembly<rows, cols, Operators...>;
+        using Dsctzr = BlockAssembly<rows, cols, Operators...>;
     private:
         Dsctzr& _discretizer;
         KSP _ksp = nullptr;
         Mat _A = nullptr;
         bool _is_set_up = false;
     public:
-        PetscSolver(Dsctzr& discretizer)
+        Solver(Dsctzr& discretizer)
         : _discretizer(discretizer)
         {
             create_solver();
         }
 
-        ~PetscSolver()
+        ~Solver()
         {
             destroy_petsc_objects();
         }
@@ -319,9 +319,9 @@ namespace samurai { namespace petsc
     };
 
     template <int rows, int cols>
-    PetscSolver<PetscBlockAssembly<rows, cols>> make_solver(PetscBlockAssembly<rows, cols>& discretizer)
+    Solver<BlockAssembly<rows, cols>> make_solver(BlockAssembly<rows, cols>& discretizer)
     {
-        return PetscSolver<PetscBlockAssembly<rows, cols>>(discretizer);
+        return Solver<BlockAssembly<rows, cols>>(discretizer);
     }
 
 }} // end namespace
