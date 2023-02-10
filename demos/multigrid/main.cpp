@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
     constexpr unsigned int field_size = 2;
     constexpr bool is_soa = true;
     using Field = samurai::Field<Mesh, double, field_size, is_soa>;
-    using DiscreteDiffusion = samurai::petsc::PetscDiffusionFV_StarStencil<Field>;
+    using DiscreteDiffusion = samurai::petsc::PetscDiffusionFV_StarStencil<Field, samurai::petsc::DirichletEnforcement::Elimination>;
 
     //------------------//
     // Petsc initialize //

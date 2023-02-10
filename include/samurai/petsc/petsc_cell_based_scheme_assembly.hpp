@@ -564,17 +564,26 @@ namespace samurai { namespace petsc
                     {
                         coeff = ghost_coeff(field_i, field_i);
                     }
-                    coeff = coeff == 0 ? 1 : coeff;
                     if (bc.is_dirichlet())
                     {
                         if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
                         {
-                            MatSetValue(A, cell_index, cell_index,  -coeff, ADD_VALUES); // the coeff is added to the center of the stencil
+                            // We have (u_ghost + u_cell)/2 = dirichlet_value ==> u_ghost = 2*dirichlet_value - u_cell
+                            // The equation on the cell row is
+                            //                     coeff*u_ghost + coeff_cell*u_cell + ... = f
+                            // Eliminating u_ghost, it gives
+                            //                           (coeff_cell - coeff)*u_cell + ... = f - 2*coeff*dirichlet_value
+                            // which means that:
+                            // - on the cell row, we have to 1) remove the coeff in the column of the ghost, 
+                            //                               2) substract coeff in the column of the cell.
+                            // - on the cell row of the right-hand side, we have to add -2*coeff*dirichlet_value.
                             MatSetValue(A, cell_index, ghost_index, -coeff, ADD_VALUES); // the coeff of the ghost is removed from the stencil (we want 0 so we substract the coeff we set before)
+                            MatSetValue(A, cell_index, cell_index,  -coeff, ADD_VALUES); // the coeff is substracted from the center of the stencil
                             MatSetValue(A, ghost_index, ghost_index,     1, ADD_VALUES); // 1 is added to the diagonal of the ghost
                         }
                         else
                         {
+                            coeff = coeff == 0 ? 1 : coeff;
                             // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [  1/2    1/2 ] = dirichlet_value
                             // which is equivalent to                                                         [-coeff -coeff] = -2 * coeff * dirichlet_value
                             MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
@@ -583,6 +592,7 @@ namespace samurai { namespace petsc
                     }
                     else
                     {
+                        coeff = coeff == 0 ? 1 : coeff;
                         // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is [  1/h  -1/h ] = neumann_value             
                         // However, to have symmetry, we want to have coeff as the off-diagonal coefficient, so     [-coeff coeff] = -coeff * h * neumann_value
                         if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
@@ -610,47 +620,37 @@ namespace samurai { namespace petsc
 
 
             // Add 1 on the diagonal for the unused outside ghosts
-            /*for (PetscInt i = 0; i < matrix_size(); ++i)
+            if (_add_1_on_diag_for_useless_ghosts)
             {
-                MatSetValue(A, i, i, 1, INSERT_VALUES);
-            }*/
-            //if constexpr (output_field_size == field_size)
-            //{
-                if (_add_1_on_diag_for_useless_ghosts)
+                for_each_outside_ghost(_mesh, [&](const auto& ghost)
                 {
-                    for_each_outside_ghost(_mesh, [&](const auto& ghost)
+                    for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                     {
-                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                        auto ghost_row = static_cast<PetscInt>(row_index(ghost, field_i));
+                        if (_is_row_empty[static_cast<std::size_t>(ghost_row)])
                         {
-                            auto ghost_row = static_cast<PetscInt>(row_index(ghost, field_i));
-                            if (_is_row_empty[static_cast<std::size_t>(ghost_row)])
-                            {
-                            //for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                            //{
-                            // auto ghost_col = static_cast<PetscInt>(row_index(ghost, field_j));
-                                MatSetValue(A, ghost_row, ghost_row, 1, INSERT_VALUES);
-                                _is_row_empty[static_cast<std::size_t>(ghost_row)] = false;
-                            //}
-                            }
+                        //for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                        //{
+                        // auto ghost_col = static_cast<PetscInt>(row_index(ghost, field_j));
+                            MatSetValue(A, ghost_row, ghost_row, 1, INSERT_VALUES);
+                            _is_row_empty[static_cast<std::size_t>(ghost_row)] = false;
+                        //}
                         }
-                    });
-                }
-            //}
+                    }
+                });
+            }
         }
 
 
     public:
-        virtual void enforce_bc(Vec& b/*, const Field& solution*/) const
+        virtual void enforce_bc(Vec& b) const
         {
-            //static_assert(OutputField::size == output_field_size, "");
-
             for_each_stencil_center_and_outside_ghost(_mesh, _stencil, _get_coefficients,
             [&] (const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
             {
                 auto& cell  = cells[0];
                 auto& ghost = cells[1];
                 auto boundary_point = cell.face_center(towards_ghost);
-                //auto bc = find(solution.boundary_conditions(), boundary_point);
                 auto bc = find(_boundary_conditions, boundary_point);
 
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -666,12 +666,10 @@ namespace samurai { namespace petsc
                     {
                         coeff = ghost_coeff(field_i, field_i);
                     }
-                    coeff = coeff == 0 ? 1 : coeff;
-
                     if (bc.is_dirichlet())
                     {
                         double dirichlet_value;
-                        if constexpr (Field::size == 1)
+                        if constexpr (field_size == 1)
                         {
                             dirichlet_value = bc.get_value(boundary_point);
                         }
@@ -687,14 +685,16 @@ namespace samurai { namespace petsc
                         }
                         else
                         {
+                            coeff = coeff == 0 ? 1 : coeff;
                             VecSetValue(b, ghost_index, - 2 * coeff * dirichlet_value, ADD_VALUES); // ADD_VALUES ?
                         }
                     }
                     else
                     {
+                        coeff = coeff == 0 ? 1 : coeff;
                         auto& h = cell.length;
                         double neumann_value;
-                        if constexpr (Field::size == 1)
+                        if constexpr (field_size == 1)
                         { 
                             neumann_value = bc.get_value(boundary_point);
                         }
