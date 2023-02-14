@@ -312,8 +312,6 @@ int main(int argc, char* argv[])
     auto zero = samurai::make_field<double, 1, is_soa>("zero", mesh);
     zero.fill(0);
 
-    auto rhs = stokes.tie(f, zero);
-
     //-------------------//
     //   Linear solver   //
     //-------------------//
@@ -354,7 +352,7 @@ int main(int argc, char* argv[])
     //
     // Solve the system
     //
-    block_solver.solve(rhs);
+    block_solver.solve(f, zero);
     std::cout << block_solver.iterations() << " iterations" << std::endl << std::endl;
 
     //--------------------//

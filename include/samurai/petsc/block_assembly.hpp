@@ -118,7 +118,7 @@ namespace samurai
             auto tie(Fields&... fields) const
             {
                 static constexpr std::size_t n_fields = sizeof...(fields);
-                static_assert(n_fields == cols, "The number of fields must correspond to the number of columns of the block operator.");
+                static_assert(n_fields == rows, "The number of fields must correspond to the number of rows of the block operator.");
 
                 return std::tuple<Fields&...>(fields...);
             }

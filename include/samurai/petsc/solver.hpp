@@ -260,6 +260,14 @@ namespace samurai
                 m_is_set_up = true;
             }
 
+
+            template<class... Fields>
+            void solve(const Fields&... sources)
+            {
+                auto s = std::tuple<const Fields&...>(sources...);
+                solve(s);
+            }
+
             template<class... Fields>
             void solve(const std::tuple<Fields&...>& sources)
             {
