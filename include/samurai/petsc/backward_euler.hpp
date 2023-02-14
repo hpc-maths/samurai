@@ -13,51 +13,51 @@ namespace samurai { namespace petsc
         using field_t = typename Operator::field_t;
         using Mesh = typename field_t::mesh_t;
     private:
-        Operator& _operator;
-        double _dt;
+        Operator& m_operator;
+        double m_dt;
 
     public:
         BackwardEuler(Operator& op, double dt) : 
-            _operator(op),
-            _dt(dt)
+            m_operator(op),
+            m_dt(dt)
         {}
 
         auto& unknown() const
         {
-            return _operator.unknown();
+            return m_operator.unknown();
         }
 
         auto& mesh() const
         {
-            return _operator.mesh();
+            return m_operator.mesh();
         }
 
         PetscInt matrix_rows() const override
         {
-            return _operator.matrix_rows();
+            return m_operator.matrix_rows();
         }
 
         PetscInt matrix_cols() const override
         {
-            return _operator.matrix_cols();
+            return m_operator.matrix_cols();
         }
 
         std::vector<PetscInt> sparsity_pattern() const override
         {
-            return _operator.sparsity_pattern();
+            return m_operator.sparsity_pattern();
         }
 
         bool matrix_is_spd() const override
         {
-            return _operator.matrix_is_spd();
+            return m_operator.matrix_is_spd();
         }
 
         void assemble_matrix(Mat& A) override
         {
-            _operator.assemble_matrix(A);
+            m_operator.assemble_matrix(A);
 
-            // A = I + _dt*A
-            MatScale(A, _dt); // A = _dt*A;
+            // A = I + m_dt*A
+            MatScale(A, m_dt); // A = m_dt*A;
             MatShift(A, 1);   // A = A + 1*I
 
             PetscBool is_spd = matrix_is_spd() ? PETSC_TRUE : PETSC_FALSE;
@@ -66,7 +66,7 @@ namespace samurai { namespace petsc
 
         void enforce_bc(Vec& b) const
         {
-            _operator.enforce_bc(b);
+            m_operator.enforce_bc(b);
         }
         
     private:

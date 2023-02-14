@@ -58,7 +58,7 @@ namespace samurai { namespace petsc
         */
         static DiffusionFV create_coarse(const DiffusionFV& fine, Mesh& coarse_mesh)
         {
-            return DiffusionFV(coarse_mesh, fine._boundary_conditions);
+            return DiffusionFV(coarse_mesh, fine.m_boundary_conditions);
         }
     };
 

@@ -78,59 +78,59 @@ namespace samurai { namespace petsc
     
         using MatrixAssembly::assemble_matrix;
     protected:
-        Field& _unknown;
-        Mesh& _mesh;
-        std::size_t _n_cells;
-        stencil_t _stencil;
-        GetCoefficientsFunc _get_coefficients;
-        const std::vector<boundary_condition_t>& _boundary_conditions;
-        bool _add_1_on_diag_for_useless_ghosts = true;
-        std::vector<bool> _is_row_empty;
+        Field& m_unknown;
+        Mesh& m_mesh;
+        std::size_t m_n_cells;
+        stencil_t m_stencil;
+        GetCoefficientsFunc m_get_coefficients;
+        const std::vector<boundary_condition_t>& m_boundary_conditions;
+        bool m_add_1_on_diag_for_useless_ghosts = true;
+        std::vector<bool> m_is_row_empty;
     public:
         CellBasedScheme(Field& unknown, stencil_t s, GetCoefficientsFunc get_coeffs) :
-            _unknown(unknown), 
-            _mesh(unknown.mesh()), 
-            _stencil(s), 
-            _get_coefficients(get_coeffs), 
-            _boundary_conditions(unknown.boundary_conditions())
+            m_unknown(unknown), 
+            m_mesh(unknown.mesh()), 
+            m_stencil(s), 
+            m_get_coefficients(get_coeffs), 
+            m_boundary_conditions(unknown.boundary_conditions())
         {
-            _n_cells = _mesh.nb_cells();
-            _is_row_empty = std::vector(static_cast<std::size_t>(matrix_rows()), true);
+            m_n_cells = m_mesh.nb_cells();
+            m_is_row_empty = std::vector(static_cast<std::size_t>(matrix_rows()), true);
         }
 
         auto& unknown() const
         {
-            return _unknown;
+            return m_unknown;
         }
 
         auto& mesh() const
         {
-            return _mesh;
+            return m_mesh;
         }
 
         auto& stencil() const
         {
-            return _stencil;
+            return m_stencil;
         }
 
         const auto& boundary_conditions() const
         {
-            return _boundary_conditions;
+            return m_boundary_conditions;
         }
 
         PetscInt matrix_rows() const override
         {
-            return static_cast<PetscInt>(_n_cells * output_field_size);
+            return static_cast<PetscInt>(m_n_cells * output_field_size);
         }
 
         PetscInt matrix_cols() const override
         {
-            return static_cast<PetscInt>(_n_cells * field_size);
+            return static_cast<PetscInt>(m_n_cells * field_size);
         }
 
         void add_1_on_diag_for_useless_ghosts_if(bool value)
         {
-            _add_1_on_diag_for_useless_ghosts = value;
+            m_add_1_on_diag_for_useless_ghosts = value;
         }
 
     private:
@@ -143,7 +143,7 @@ namespace samurai { namespace petsc
             }
             else if constexpr (Field::is_soa)
             {
-                return static_cast<PetscInt>(field_j * _n_cells) + cell_index;
+                return static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
             }
             else
             {
@@ -158,7 +158,7 @@ namespace samurai { namespace petsc
             }
             else if constexpr (Field::is_soa)
             {
-                return static_cast<PetscInt>(field_i * _n_cells) + cell_index;
+                return static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
             }
             else
             {
@@ -174,7 +174,7 @@ namespace samurai { namespace petsc
             }
             else if constexpr (Field::is_soa)
             {
-                return field_j * _n_cells + cell.index;
+                return field_j * m_n_cells + cell.index;
             }
             else
             {
@@ -190,7 +190,7 @@ namespace samurai { namespace petsc
             }
             else if constexpr (Field::is_soa)
             {
-                return field_i * _n_cells + cell.index;
+                return field_i * m_n_cells + cell.index;
             }
             else
             {
@@ -239,7 +239,7 @@ namespace samurai { namespace petsc
 
 
             // Cells
-            auto coeffs = _get_coefficients(cell_length(0));
+            auto coeffs = m_get_coefficients(cell_length(0));
             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
             {
                 PetscInt scheme_nnz_i = cfg::scheme_stencil_size * field_size;
@@ -309,7 +309,7 @@ namespace samurai { namespace petsc
 
                     }
                 }
-                for_each_cell(_mesh, [&](auto& cell)
+                for_each_cell(m_mesh, [&](auto& cell)
                 {
                     nnz[row_index(cell, field_i)] = scheme_nnz_i;
                 });
@@ -320,12 +320,12 @@ namespace samurai { namespace petsc
                 // Boundary ghosts on the Dirichlet boundary (if Elimination, nnz=1, the default value)
                 if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Equation)
                 {
-                    for_each_stencil_center_and_outside_ghost(_mesh, _stencil, [&](const auto& cells, const auto& towards_ghost)
+                    for_each_stencil_center_and_outside_ghost(m_mesh, m_stencil, [&](const auto& cells, const auto& towards_ghost)
                     {
                         auto& cell  = cells[0];
                         auto& ghost = cells[1];
                         auto boundary_point = cell.face_center(towards_ghost);
-                        auto bc = find(_boundary_conditions, boundary_point);
+                        auto bc = find(m_boundary_conditions, boundary_point);
                         if (bc.is_dirichlet())
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -337,14 +337,14 @@ namespace samurai { namespace petsc
                 }
 
                 // Boundary ghosts on the Neumann boundary
-                if (has_neumann(_boundary_conditions))
+                if (has_neumann(m_boundary_conditions))
                 {
-                    for_each_stencil_center_and_outside_ghost(_mesh, _stencil, [&](const auto& cells, const auto& towards_ghost)
+                    for_each_stencil_center_and_outside_ghost(m_mesh, m_stencil, [&](const auto& cells, const auto& towards_ghost)
                     {
                         auto& cell  = cells[0];
                         auto& ghost = cells[1];
                         auto boundary_point = cell.face_center(towards_ghost);
-                        auto bc = find(_boundary_conditions, boundary_point);
+                        auto bc = find(m_boundary_conditions, boundary_point);
                         if (bc.is_neumann())
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -357,7 +357,7 @@ namespace samurai { namespace petsc
             }
 
             // Projection
-            for_each_projection_ghost(_mesh, [&](auto& ghost)
+            for_each_projection_ghost(m_mesh, [&](auto& ghost)
             {
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
@@ -366,7 +366,7 @@ namespace samurai { namespace petsc
             });
 
             // Prediction
-            for_each_prediction_ghost(_mesh, [&](auto& ghost)
+            for_each_prediction_ghost(m_mesh, [&](auto& ghost)
             {
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
@@ -381,7 +381,7 @@ namespace samurai { namespace petsc
         void assemble_scheme_on_uniform_grid(Mat& A) override
         {
             // Apply the given coefficents to the given stencil
-            for_each_stencil(_mesh, _stencil, _get_coefficients,
+            for_each_stencil(m_mesh, m_stencil, m_get_coefficients,
             [&] (const auto& cells, const auto& coeffs)
             {
                 // std::cout << "coeffs: " << std::endl;
@@ -504,7 +504,7 @@ namespace samurai { namespace petsc
                                 }
                             }
                             
-                            _is_row_empty[static_cast<std::size_t>(stencil_center_row)] = false;
+                            m_is_row_empty[static_cast<std::size_t>(stencil_center_row)] = false;
                         }
                     }
                 }
@@ -528,7 +528,7 @@ namespace samurai { namespace petsc
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                     {
                         auto row = static_cast<std::size_t>(rows[local_row_index(cfg::center_index, field_i)]);
-                        _is_row_empty[row] = false;
+                        m_is_row_empty[row] = false;
                     }
                 }
             });
@@ -543,13 +543,13 @@ namespace samurai { namespace petsc
                 MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
             }
 
-            for_each_stencil_center_and_outside_ghost(_mesh, _stencil, _get_coefficients, 
+            for_each_stencil_center_and_outside_ghost(m_mesh, m_stencil, m_get_coefficients, 
             [&] (const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
             {
                 const auto& cell  = cells[0];
                 const auto& ghost = cells[1];
                 auto boundary_point = cell.face_center(towards_ghost);
-                auto bc = find(_boundary_conditions, boundary_point);
+                auto bc = find(m_boundary_conditions, boundary_point);
 
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
@@ -607,7 +607,7 @@ namespace samurai { namespace petsc
                         }
                     }
 
-                    _is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                    m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
                 }
             });
 
@@ -620,20 +620,20 @@ namespace samurai { namespace petsc
 
 
             // Add 1 on the diagonal for the unused outside ghosts
-            if (_add_1_on_diag_for_useless_ghosts)
+            if (m_add_1_on_diag_for_useless_ghosts)
             {
-                for_each_outside_ghost(_mesh, [&](const auto& ghost)
+                for_each_outside_ghost(m_mesh, [&](const auto& ghost)
                 {
                     for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                     {
                         auto ghost_row = static_cast<PetscInt>(row_index(ghost, field_i));
-                        if (_is_row_empty[static_cast<std::size_t>(ghost_row)])
+                        if (m_is_row_empty[static_cast<std::size_t>(ghost_row)])
                         {
                         //for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                         //{
                         // auto ghost_col = static_cast<PetscInt>(row_index(ghost, field_j));
                             MatSetValue(A, ghost_row, ghost_row, 1, INSERT_VALUES);
-                            _is_row_empty[static_cast<std::size_t>(ghost_row)] = false;
+                            m_is_row_empty[static_cast<std::size_t>(ghost_row)] = false;
                         //}
                         }
                     }
@@ -645,13 +645,13 @@ namespace samurai { namespace petsc
     public:
         virtual void enforce_bc(Vec& b) const
         {
-            for_each_stencil_center_and_outside_ghost(_mesh, _stencil, _get_coefficients,
+            for_each_stencil_center_and_outside_ghost(m_mesh, m_stencil, m_get_coefficients,
             [&] (const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
             {
                 auto& cell  = cells[0];
                 auto& ghost = cells[1];
                 auto boundary_point = cell.face_center(towards_ghost);
-                auto bc = find(_boundary_conditions, boundary_point);
+                auto bc = find(m_boundary_conditions, boundary_point);
 
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
@@ -709,7 +709,7 @@ namespace samurai { namespace petsc
             });
 
             // Projection
-            for_each_projection_ghost(_mesh, [&](auto& ghost)
+            for_each_projection_ghost(m_mesh, [&](auto& ghost)
             {
                 for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                 {
@@ -718,7 +718,7 @@ namespace samurai { namespace petsc
             });
 
             // Prediction
-            for_each_prediction_ghost(_mesh, [&](auto& ghost)
+            for_each_prediction_ghost(m_mesh, [&](auto& ghost)
             {
                 for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                 {
@@ -733,7 +733,7 @@ namespace samurai { namespace petsc
         {
             static constexpr PetscInt number_of_children = (1 << dim);
 
-            for_each_projection_ghost_and_children_cells<PetscInt>(_mesh, 
+            for_each_projection_ghost_and_children_cells<PetscInt>(m_mesh, 
             [&] (PetscInt ghost, const std::array<PetscInt, number_of_children>& children)
             {
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -768,7 +768,7 @@ namespace samurai { namespace petsc
         void assemble_prediction_1D(Mat& A) const
         {
             std::array<double, 3> pred{{1./8, 0, -1./8}};
-            for_each_prediction_ghost(_mesh, [&](auto& ghost)
+            for_each_prediction_ghost(m_mesh, [&](auto& ghost)
             {
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
@@ -778,7 +778,7 @@ namespace samurai { namespace petsc
                     auto ii = ghost.indices(0);
                     int sign_i = (ii & 1) ? -1 : 1;
 
-                    auto parent_index = col_index(static_cast<PetscInt>(_mesh.get_index(ghost.level - 1, ii/2)), field_i);
+                    auto parent_index = col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2)), field_i);
                     auto parent_left  = col_index(parent_index - 1, field_i);
                     auto parent_right = col_index(parent_index + 1, field_i);
                     MatSetValue(A, ghost_index, parent_index,                -1, INSERT_VALUES);
@@ -824,7 +824,7 @@ namespace samurai { namespace petsc
         void assemble_prediction_2D(Mat& A) const
         {
             std::array<double, 3> pred{{1./8, 0, -1./8}};
-            for_each_prediction_ghost(_mesh, [&](auto& ghost)
+            for_each_prediction_ghost(m_mesh, [&](auto& ghost)
             {
                 for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                 {
@@ -836,9 +836,9 @@ namespace samurai { namespace petsc
                     int sign_i = (ii & 1) ? -1 : 1;
                     int sign_j =  (j & 1) ? -1 : 1;
 
-                    auto parent              = col_index(static_cast<PetscInt>(_mesh.get_index(ghost.level - 1, ii/2, j/2    )), field_i);
-                    auto parent_bottom       = col_index(static_cast<PetscInt>(_mesh.get_index(ghost.level - 1, ii/2, j/2 - 1)), field_i);
-                    auto parent_top          = col_index(static_cast<PetscInt>(_mesh.get_index(ghost.level - 1, ii/2, j/2 + 1)), field_i);
+                    auto parent              = col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2, j/2    )), field_i);
+                    auto parent_bottom       = col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2, j/2 - 1)), field_i);
+                    auto parent_top          = col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2, j/2 + 1)), field_i);
                     auto parent_left         = col_index(parent - 1       , field_i);
                     auto parent_right        = col_index(parent + 1       , field_i);
                     auto parent_bottom_left  = col_index(parent_bottom - 1, field_i);
@@ -860,12 +860,12 @@ namespace samurai { namespace petsc
 
             /*using mesh_id_t = typename Mesh::mesh_id_t;
 
-            auto min_level = _mesh[mesh_id_t::cells].min_level();
-            auto max_level = _mesh[mesh_id_t::cells].max_level();
+            auto min_level = m_mesh[mesh_id_t::cells].min_level();
+            auto max_level = m_mesh[mesh_id_t::cells].max_level();
             for(std::size_t level=min_level+1; level<=max_level; ++level)
             {
-                auto set = intersection(_mesh[mesh_id_t::cells_and_ghosts][level],
-                                        _mesh[mesh_id_t::cells][level-1])
+                auto set = intersection(m_mesh[mesh_id_t::cells_and_ghosts][level],
+                                        m_mesh[mesh_id_t::cells][level-1])
                         .on(level);
 
                 std::array<double, 3> pred{{1./8, 0, -1./8}};
@@ -876,7 +876,7 @@ namespace samurai { namespace petsc
 
                     for(int ii=i.start; ii<i.end; ++ii)
                     {
-                        auto i_cell = static_cast<PetscInt>(_mesh.get_index(level, ii, j));
+                        auto i_cell = static_cast<PetscInt>(m_mesh.get_index(level, ii, j));
                         MatSetValue(A, i_cell, i_cell, 1, INSERT_VALUES);
 
                         int sign_i = (ii & 1)? -1: 1;
@@ -886,27 +886,27 @@ namespace samurai { namespace petsc
                             // is = -1 --> parent_bottom --> -sign_j*pred[0]
                             // is =  0 --> parent        --> -sign_j*pred[1]
                             // is =  1 --> parent_top    --> -sign_j*pred[2]
-                            auto i1 = static_cast<PetscInt>(_mesh.get_index(level - 1, (ii>>1), (j>>1) + is));
+                            auto i1 = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1), (j>>1) + is));
                             MatSetValue(A, i_cell, i1, -sign_j*pred[static_cast<unsigned int>(is + 1)], INSERT_VALUES);
 
                             // is = -1 --> parent_left  --> -sign_i*pred[0]
                             // is =  0 --> parent       --> -sign_i*pred[1]
                             // is =  1 --> parent_right --> -sign_i*pred[2]
-                            i1 = static_cast<PetscInt>(_mesh.get_index(level - 1, (ii>>1) + is, (j>>1)));
+                            i1 = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) + is, (j>>1)));
                             MatSetValue(A, i_cell, i1, -sign_i*pred[static_cast<unsigned int>(is + 1)], INSERT_VALUES);
                         }
 
-                        auto parent_bottom_left  = static_cast<PetscInt>(_mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) - 1));
-                        auto parent_bottom_right = static_cast<PetscInt>(_mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) - 1));
-                        auto parent_top_left     = static_cast<PetscInt>(_mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) + 1));
-                        auto parent_top_right    = static_cast<PetscInt>(_mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) + 1));
+                        auto parent_bottom_left  = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) - 1));
+                        auto parent_bottom_right = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) - 1));
+                        auto parent_top_left     = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) + 1));
+                        auto parent_top_right    = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) + 1));
 
                         MatSetValue(A, i_cell, parent_bottom_left , sign_i*sign_j*pred[0]*pred[0], INSERT_VALUES);
                         MatSetValue(A, i_cell, parent_bottom_right, sign_i*sign_j*pred[2]*pred[0], INSERT_VALUES);
                         MatSetValue(A, i_cell, parent_top_left    , sign_i*sign_j*pred[0]*pred[2], INSERT_VALUES);
                         MatSetValue(A, i_cell, parent_top_right   , sign_i*sign_j*pred[2]*pred[2], INSERT_VALUES);
 
-                        auto i0 = static_cast<PetscInt>(_mesh.get_index(level - 1, (ii>>1), (j>>1)));
+                        auto i0 = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1), (j>>1)));
                         MatSetValue(A, i_cell, i0, -1, INSERT_VALUES);
                     }
                 });
@@ -915,7 +915,7 @@ namespace samurai { namespace petsc
 
         void assemble_prediction_3D(Mat&) const
         {
-            for_each_prediction_ghost(_mesh, [&](auto&)
+            for_each_prediction_ghost(m_mesh, [&](auto&)
             {
                 assert(false && "assemble_prediction_3D() not implemented.");
             });

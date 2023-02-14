@@ -6,23 +6,23 @@ namespace samurai { namespace petsc
     class MatrixAssembly
     {
     private:
-        bool _include_bc = true;
-        bool _assemble_proj_pred = true;
+        bool m_include_bc = true;
+        bool m_assemble_proj_pred = true;
 
     public:
         bool include_bc() const
         {
-            return _include_bc;
+            return m_include_bc;
         }
 
         void include_bc_if(bool include)
         {
-            _include_bc = include;
+            m_include_bc = include;
         }
 
         void assemble_proj_pred_if(bool assemble)
         {
-            _assemble_proj_pred = assemble;
+            m_assemble_proj_pred = assemble;
         }
 
         /**
@@ -47,11 +47,11 @@ namespace samurai { namespace petsc
         virtual void assemble_matrix(Mat& A)
         {
             assemble_scheme_on_uniform_grid(A);
-            if (_include_bc)
+            if (m_include_bc)
             {
                 assemble_boundary_conditions(A);
             }
-            if (_assemble_proj_pred)
+            if (m_assemble_proj_pred)
             {
                 assemble_projection(A);
                 assemble_prediction(A);

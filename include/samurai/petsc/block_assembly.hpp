@@ -8,21 +8,21 @@ namespace samurai { namespace petsc
     class BlockAssembly
     {
     private:
-        std::tuple<Operators&...> _operators;
-        std::array<Mat, rows * cols> _blocks;
+        std::tuple<Operators&...> m_operators;
+        std::array<Mat, rows * cols> m_blocks;
     public:
         BlockAssembly(Operators&... operators) :
-            _operators(operators...)
+            m_operators(operators...)
         {
             static constexpr std::size_t n_operators = sizeof...(operators);
             static_assert(n_operators == rows * cols, "The number of operators must correspond to rows*cols.");
 
             std::size_t i = 0;
-            for_each(_operators, [&](auto& op)
+            for_each(m_operators, [&](auto& op)
             {
                 auto row = i / cols;
                 auto col = i % cols;
-                _blocks[i] = nullptr;
+                m_blocks[i] = nullptr;
                 bool diagonal_block = (row == col);
                 op.add_1_on_diag_for_useless_ghosts_if(diagonal_block);
                 op.include_bc_if(diagonal_block);
@@ -35,7 +35,7 @@ namespace samurai { namespace petsc
         {
             std::array<std::string, cols> names;
             std::size_t i = 0;
-            for_each(_operators, [&](auto& op)
+            for_each(m_operators, [&](auto& op)
             {
                 auto row = i / cols;
                 auto col = i % cols;
@@ -51,27 +51,27 @@ namespace samurai { namespace petsc
         void create_matrix(Mat& A)
         {
             std::size_t i = 0;
-            for_each(_operators, [&](auto& op)
+            for_each(m_operators, [&](auto& op)
             {
                 /*auto row = i / cols;
                 auto col = i % cols;
                 std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;*/
-                op.create_matrix(_blocks[i]);
+                op.create_matrix(m_blocks[i]);
                 i++;
             });
 
-            MatCreateNest(PETSC_COMM_SELF, rows, PETSC_NULL, cols, PETSC_NULL, _blocks.data(), &A);
+            MatCreateNest(PETSC_COMM_SELF, rows, PETSC_NULL, cols, PETSC_NULL, m_blocks.data(), &A);
         }
 
         void assemble_matrix(Mat& A)
         {
             std::size_t i = 0;
-            for_each(_operators, [&](auto& op)
+            for_each(m_operators, [&](auto& op)
             {
                 /*auto row = i / cols;
                 auto col = i % cols;
                 std::cout << "assemble_matrix (" << row << ", " << col << ")" << std::endl;*/
-                op.assemble_matrix(_blocks[i]);
+                op.assemble_matrix(m_blocks[i]);
                 i++;
             });
             MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
@@ -81,7 +81,7 @@ namespace samurai { namespace petsc
         void enforce_bc(std::array<Vec, rows>& b) const
         {
             std::size_t i = 0;
-            for_each(_operators, [&](const auto& op) 
+            for_each(m_operators, [&](const auto& op) 
             {
                 auto row = i / cols;
                 //auto col = i % cols;
@@ -98,7 +98,7 @@ namespace samurai { namespace petsc
         {
             std::array<Vec, cols> x_blocks;
             std::size_t i = 0;
-            for_each(_operators, [&](const auto& op) 
+            for_each(m_operators, [&](const auto& op) 
             {
                 auto row = i / cols;
                 auto col = i % cols;
