@@ -175,10 +175,10 @@ int main(int argc, char *argv[])
 
         // Compute the error at instant t with respect to the exact solution
         double error = decltype(diff_unp1)::L2Error(u, [&](auto& coord) 
-                        {
-                            double x = coord[0];
-                            return exact_solution(x, t);
-                        });
+        {
+            double x = coord[0];
+            return exact_solution(x, t);
+        });
         std::cout.precision(2);
         std::cout << "L2-error: " << std::scientific << error << std::endl;
     }
