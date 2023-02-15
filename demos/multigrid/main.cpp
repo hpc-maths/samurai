@@ -8,8 +8,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/amr/mesh.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc/petsc_diffusion_FV_star_stencil.hpp>
-#include <samurai/petsc/petsc_solver.hpp>
+#include <samurai/petsc.hpp>
 
 #include "test_cases.hpp"
 #include "Timer.hpp"
@@ -120,7 +119,6 @@ int main(int argc, char* argv[])
     constexpr unsigned int field_size = 2;
     constexpr bool is_soa = true;
     using Field = samurai::Field<Mesh, double, field_size, is_soa>;
-    using DiscreteDiffusion = samurai::petsc::PetscDiffusionFV_StarStencil<Field>;
 
     //------------------//
     // Petsc initialize //
@@ -252,8 +250,8 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    DiscreteDiffusion diff(mesh, solution.boundary_conditions());
-    samurai::petsc::PetscSolver<DiscreteDiffusion> solver(diff);
+    auto diff = samurai::petsc::make_diffusion_FV<samurai::petsc::DirichletEnforcement::Elimination>(solution);
+    auto solver = samurai::petsc::make_solver(diff);
 
     Timer setup_timer, solve_timer, total_timer;
 
@@ -266,7 +264,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Solving..." << std::endl;
     solve_timer.Start();
-    solver.solve(source, solution);
+    solver.solve(source);
     solve_timer.Stop();
 
     total_timer.Stop();
@@ -294,7 +292,7 @@ int main(int argc, char* argv[])
 
     if (test_case->solution_is_known())
     {
-        double error = DiscreteDiffusion::L2Error(solution, test_case->solution());
+        double error = diff.L2Error(solution, test_case->solution());
         std::cout.precision(2);
         std::cout << "L2-error: " << std::scientific << error << std::endl;
     }

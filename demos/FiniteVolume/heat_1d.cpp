@@ -6,9 +6,7 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/hdf5.hpp>
-#include <samurai/petsc/petsc_diffusion_FV_star_stencil.hpp>
-#include <samurai/petsc/petsc_backward_euler.hpp>
-#include <samurai/petsc/petsc_solver.hpp>
+#include <samurai/petsc.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -16,7 +14,7 @@ namespace fs = std::filesystem;
 auto exact_solution(double x, double t)
 {
     assert(t > 0 && "t must be > 0");
-     return 1/(2*sqrt(M_PI*t)) * exp(-x*x/(4*t));
+    return 1/(2*sqrt(M_PI*t)) * exp(-x*x/(4*t));
 }
 
 template <class Field>
@@ -42,23 +40,19 @@ int main(int argc, char *argv[])
 {
     constexpr size_t dim = 1;
     using Config = samurai::MRConfig<dim>;
-    using Mesh = samurai::MRMesh<Config>;
-    using Field = samurai::Field<Mesh, double, 1>;
-    using DiscreteDiffusion = samurai::petsc::PetscDiffusionFV_StarStencil<Field>;
-    using BackwardEuler = samurai::petsc::PetscBackwardEuler<DiscreteDiffusion>;
 
     //--------------------//
     // Program parameters //
     //--------------------//
 
     // Simulation parameters
-    double left_box = -2, right_box = 2;
+    double left_box = -20, right_box = 20;
     double Tf = 1.;
-    double dt = Tf / 10;
+    double dt = Tf / 100;
 
     // Multiresolution parameters
-    std::size_t min_level = 4, max_level = 7;
-    double mr_epsilon = 2.e-4; // Threshold used by multiresolution
+    std::size_t min_level = 0, max_level = 5;
+    double mr_epsilon = 1e-7; // Threshold used by multiresolution
     double mr_regularity = 1.; // Regularity guess for multiresolution
 
     // Output parameters
@@ -99,31 +93,21 @@ int main(int argc, char *argv[])
     samurai::Box<double, dim> box({left_box}, {right_box});
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    double dt_save = Tf/static_cast<double>(nfiles);
-    double t = 1e-2;
-
     auto u = samurai::make_field<double, 1>("u", mesh);
+
+    double t0 = 1e-2; // in this particular case, the exact solution is not defined for t=0
     samurai::for_each_cell(mesh, [&](auto &cell) {
-        u[cell] = exact_solution(cell.center(0), t);
+        u[cell] = exact_solution(cell.center(0), t0);
     });
     
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
-    bool is_dirichlet = false;
-    if (is_dirichlet)
-    {
-           u.set_dirichlet([](auto&){ return 0.; }).everywhere();
-        unp1.set_dirichlet([](auto&){ return 0.; }).everywhere();
-    }
-    else
-    {
-           u.set_neumann([](auto&){ return 0.; }).everywhere();
-        unp1.set_neumann([](auto&){ return 0.; }).everywhere();
-    }
+       u.set_neumann([](auto&){ return 0.; }).everywhere();
+    unp1.set_neumann([](auto&){ return 0.; }).everywhere();
 
     auto update_bc = [&](auto& field, std::size_t)
     {
-        samurai::for_each_stencil_center_and_outside_ghost(field.mesh(), DiscreteDiffusion::stencil(),
+        samurai::for_each_stencil_center_and_outside_ghost(field.mesh(), samurai::star_stencil<dim>(),
         [&] (const auto& cells, const auto& towards_ghost)
         {
             const auto& cell  = cells[0];
@@ -151,50 +135,57 @@ int main(int argc, char *argv[])
 
     auto MRadaptation = samurai::make_MRAdapt(u, update_bc);
     MRadaptation(mr_epsilon, mr_regularity);
-    save(path, filename, u, "_init");
 
+    save(path, filename, u, "_init");
+    double dt_save = Tf/static_cast<double>(nfiles);
     std::size_t nsave = 1, nt = 0;
 
+    double t = t0;
     while (t != Tf)
     {
-        MRadaptation(mr_epsilon, mr_regularity);
-
+        // Move to next timestep
         t += dt;
         if (t > Tf)
         {
             dt += Tf - t;
             t = Tf;
         }
-
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
+        // Mesh adaptation
+        MRadaptation(mr_epsilon, mr_regularity);
         samurai::update_ghost_mr(u, update_bc);
         unp1.resize();
-        DiscreteDiffusion diff(unp1.mesh(), unp1.boundary_conditions());
-        samurai::petsc::solve(BackwardEuler(diff, dt), u, unp1);
 
+        // Solve the linear equation:
+        //            unp1 - dt*Lap(unp1) = u
+        auto diff_unp1  = samurai::petsc::make_diffusion_FV(unp1);            // diff_unp1  = -Lap(unp1)
+        auto back_euler = samurai::petsc::make_backward_euler(diff_unp1, dt); // back_euler = [Id - dt*Lap](unp1)
+        samurai::petsc::solve(back_euler, u); // solves the linear equation   [Id - dt*Lap](unp1) = u
+
+        // u <-- unp1
         std::swap(u.array(), unp1.array());
 
-        if ( t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
+        // Save the result
+        if (t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
         {
             std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
             save(path, filename, u, suffix);
         }
 
-        if (!is_dirichlet)
+        // Compute the error at instant t with respect to the exact solution
+        double error = decltype(diff_unp1)::L2Error(u, [&](auto& coord) 
         {
-            double error = DiscreteDiffusion::L2Error(u, 
-                            [&](auto& coord) 
-                            {
-                                double x = coord[0];
-                                return exact_solution(x, t);
-                            });
-            std::cout.precision(2);
-            std::cout << "L2-error: " << std::scientific << error << std::endl;
-        }
+            double x = coord[0];
+            return exact_solution(x, t);
+        });
+        std::cout.precision(2);
+        std::cout << "L2-error: " << std::scientific << error << std::endl;
     }
 
-
+    std::cout << std::endl;
+    std::cout << "Run the following command to view the results:" << std::endl;
+    std::cout << "<<path to samurai>>/python/read_mesh.py FV_heat_1d_ite_ --field u level --start 1 --end " << nsave << std::endl;
     PetscFinalize();
 
     return 0;

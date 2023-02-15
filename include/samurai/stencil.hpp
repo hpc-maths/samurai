@@ -38,30 +38,30 @@ namespace samurai
         using coord_index_t = typename Mesh::config::interval_t::coord_index_t;
         using Cell = typename samurai::Cell<coord_index_t, dim>;
     private:
-        const Stencil<stencil_size, dim> _stencil;
-        std::array<Cell, stencil_size> _cells;
-        unsigned int _origin_cell;
+        const Stencil<stencil_size, dim> m_stencil;
+        std::array<Cell, stencil_size> m_cells;
+        unsigned int m_origin_cell;
 
     public:
         IteratorStencil(const Stencil<stencil_size, dim>& stencil)
-        : _stencil(stencil)
+        : m_stencil(stencil)
         {
             int origin_index = find_stencil_origin(stencil);
             assert(origin_index >= 0 && "the zero vector is required in the stencil definition.");
-            _origin_cell = static_cast<unsigned int>(origin_index);
+            m_origin_cell = static_cast<unsigned int>(origin_index);
         }
 
         void init(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval)
         {
             double length = cell_length(mesh_interval.level);
-            for (Cell& cell : _cells)
+            for (Cell& cell : m_cells)
             {
                 cell.level = mesh_interval.level;
                 cell.length = length;
             }
 
             // origin of the stencil
-            Cell& origin_cell = _cells[_origin_cell];
+            Cell& origin_cell = m_cells[m_origin_cell];
             origin_cell.indices[0] = mesh_interval.i.start; 
             for(unsigned int d = 0; d < dim - 1; ++d)
             {
@@ -71,13 +71,13 @@ namespace samurai
 
             for (unsigned int id = 0; id<stencil_size; ++id)
             {
-                if (id == _origin_cell)
+                if (id == m_origin_cell)
                     continue;
 
-                auto d = xt::view(_stencil, id);
+                auto d = xt::view(m_stencil, id);
 
                 // Translate the coordinates according the direction d
-                Cell& cell = _cells[id];
+                Cell& cell = m_cells[id];
                 for (unsigned int k = 0; k < dim; ++k)
                 {
                     cell.indices[k] = origin_cell.indices[k] + d[k];
@@ -106,7 +106,7 @@ namespace samurai
 
         void move_next()
         {
-            for (Cell& cell : _cells)
+            for (Cell& cell : m_cells)
             {
                 cell.index++;      // increment cell index
                 cell.indices[0]++; // increment x-coordinate
@@ -115,7 +115,7 @@ namespace samurai
 
         std::array<Cell, stencil_size>& cells()
         {
-            return _cells;
+            return m_cells;
         }
     };
 
@@ -194,6 +194,14 @@ namespace samurai
             return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
         }
         return Stencil<1+2*dim, dim>();
+    }
+
+    template<std::size_t dim>
+    constexpr Stencil<1, dim> center_only_stencil()
+    {
+        Stencil<1, dim> s;
+        s.fill(0);
+        return s;
     }
 
     template<std::size_t dim, class Vector>
