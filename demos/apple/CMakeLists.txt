@@ -1,6 +1,0 @@
-find_package(CGAL)
-# find_package(Qt5 REQUIRED COMPONENTS Core Widgets)
-find_package(Eigen3 3.1.0 REQUIRED) #(3.1.0 or greater)
-include(CGAL_Eigen3_support)
-add_executable(apple-from_obj main.cpp)
-target_link_libraries(apple-from_obj samurai CGAL::CGAL CGAL::Eigen3_support)# Qt5::Core Qt5::Widgets)
