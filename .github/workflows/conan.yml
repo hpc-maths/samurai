@@ -13,6 +13,7 @@ jobs:
           - ubuntu-22.04
           - macos-12
         compiler:
+          # - llvm # error during the compilation of hdf5 ...
           - gcc
         CMAKE_GENERATOR:
           - "Ninja Multi-Config"
@@ -20,10 +21,6 @@ jobs:
           - os: windows-2022
             compiler: msvc
             CMAKE_GENERATOR: "Visual Studio 17 2022"
-          - os: macos-12
-            compiler: llvm
-            CMAKE_GENERATOR: "Ninja Multi-Config"
-
 
     steps:
       - uses: actions/checkout@v3
