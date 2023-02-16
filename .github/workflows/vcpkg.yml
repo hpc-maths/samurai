@@ -25,6 +25,7 @@ jobs:
         exclude:
           - os: windows-2022
             compiler: llvm
+            CMAKE_GENERATOR: "Ninja Multi-Config"
 
     steps:
       - uses: actions/checkout@v3
