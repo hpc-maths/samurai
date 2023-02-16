@@ -9,9 +9,9 @@ jobs:
       fail-fast: true
       matrix:
         os:
-          # - windows-2022
+          - windows-2022
           - ubuntu-22.04
-          # - macos-12
+          - macos-12
         compiler:
           # - llvm
           - gcc
