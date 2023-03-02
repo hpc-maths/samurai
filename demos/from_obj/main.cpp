@@ -62,8 +62,11 @@ auto init_mesh(std::size_t start_level, const Surface_mesh& sm)
             scale = tmp;
         }
     }
-    min_corner /= scale;
-    max_corner /= scale;
+    if (scale > 1)
+    {
+        min_corner /= scale;
+        max_corner /= scale;
+    }
 
     min_corner -= 2*dx;
     max_corner += 2*dx;
@@ -133,6 +136,9 @@ int main(int argc, char** argv)
         std::cerr << "Invalid input file." << std::endl;
         return EXIT_FAILURE;
     }
+    // SMS::Count_ratio_stop_predicate<Surface_mesh> stop(0.1);
+    // int r = SMS::edge_collapse(sm, stop);
+    // std::cout << "r " << r << std::endl;
 
     samurai::CellArray<dim> ca;
     using interval_t = typename samurai::CellArray<dim>::interval_t;
@@ -188,7 +194,7 @@ int main(int argc, char** argv)
         ca = {cl, true};
         std::cout << "Number of cells " <<  ca.nb_cells() << std::endl;
 
-        save_mesh(path, fmt::format("mesh_{}_{}", output_file, ite++), ca);
+        // save_mesh(path, fmt::format("mesh_{}_{}", output_file, ite++), ca);
         current_level++;
     }
 
