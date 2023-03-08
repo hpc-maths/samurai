@@ -133,6 +133,7 @@ namespace samurai
     inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
     : m_domain{start_level, b}, m_min_level{min_level}, m_max_level{max_level}
     {
+        assert(min_level <= max_level);
         // using box_t = samurai::Box<coord_index_t, dim>;
         // using point_t = typename box_t::point_t;
 
@@ -154,6 +155,7 @@ namespace samurai
     inline Mesh_base<D, Config>::Mesh_base(const cl_type &cl, std::size_t min_level, std::size_t max_level)
     : m_min_level{min_level}, m_max_level{max_level}
     {
+        assert(min_level <= max_level);
         m_cells[mesh_id_t::cells] = {cl, false};
 
         construct_domain();

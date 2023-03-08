@@ -11,6 +11,8 @@ namespace fs = std::filesystem;
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/memory.hpp>
+#include <samurai/mr/mesh.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 /// Timer used in tic & toc
@@ -87,6 +89,7 @@ template<class mesh_t>
 void refine_2(mesh_t& mesh, std::size_t max_level)
 {
     constexpr std::size_t dim = mesh_t::dim;
+    using mesh_id_t = typename mesh_t::mesh_id_t;
     using cl_type = typename mesh_t::cl_type;
     using coord_index_t = typename mesh_t::interval_t::coord_index_t;
 
@@ -119,8 +122,8 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
             for(std::size_t is = 0; is < stencil.shape()[0]; ++is)
             {
                 auto s = xt::view(stencil, is);
-                auto subset = samurai::intersection(samurai::translate(mesh[level], s),
-                                                 mesh[level - 1])
+                auto subset = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level], s),
+                                                 mesh[mesh_id_t::cells][level - 1])
                              .on(level);
 
                 subset([&](const auto& interval, const auto& index)
@@ -149,7 +152,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
         }
 
         cl_type cl;
-        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& interval, const auto& index_yz)
+        samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
         {
             std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
             for (coord_index_t i = interval.start; i < interval.end; ++i)
@@ -170,7 +173,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
             }
         });
 
-        mesh = {cl};
+        mesh = {cl, mesh.min_level(), mesh.max_level()};
     }
 }
 
@@ -215,13 +218,20 @@ int main(int argc, char *argv[])
     std::cout << "Version 1: " << duration << "s" << std::endl;toc();
     std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
 
-    samurai::CellArray<dim> mesh_2(cl);
+    // samurai::CellArray<dim> mesh_2(cl);
+    using Config = samurai::MRConfig<dim>;
+    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
+    samurai::MRMesh<Config> mesh_2(cl, 1, max_level);
 
     tic();
     refine_2(mesh_2, max_level);
     duration = toc();
-    std::cout << "Version 2: " << duration << "s" << std::endl;toc();
-    std::cout << "nb_cells: " << mesh_2.nb_cells() << "\n";
+    std::cout << "Version 2: " << duration << "s" << std::endl;
+    std::cout << "nb_cells: " << mesh_2.nb_cells(mesh_id_t::cells) << "\n";
+
+    std::cout << "Memory used " << std::endl;
+    auto mem = samurai::memory_usage(mesh_2, /*verbose*/ true);
+    std::cout << "Total: " << mem << std::endl;
 
     auto level = samurai::make_field<std::size_t, 1>("level", mesh_2);
     samurai::for_each_cell(mesh_2, [&](auto cell)
