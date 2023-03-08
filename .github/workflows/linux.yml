@@ -55,6 +55,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install ${{ matrix.package }}
+          sudo apt install clang-tidy iwyu
       - name: install mamba
         uses: mamba-org/provision-with-micromamba@main
         with:
@@ -64,11 +65,6 @@ jobs:
         shell: bash -l {0}
         run: |
           conda install -y petsc pkg-config
-      - name: IWYU installation
-        shell: bash -l {0}
-        if: matrix.compiler == 'clang'
-        run: |
-          conda install -y include-what-you-use
       - name: Conda informations
         shell: bash -l {0}
         run: |
