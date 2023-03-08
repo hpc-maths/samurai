@@ -1,6 +1,8 @@
-*build
+*build*
 *xml
 *.vscode
 *.h5
 *.xdmf
 .VSCodeCounter
+vcpkg*
+__pycache__
