@@ -317,45 +317,10 @@ namespace samurai
                     });
                 }
 
+                // Boundary conditions
                 if (this->include_bc())
                 {
-                    // Boundary ghosts on the Dirichlet boundary (if Elimination, nnz=1, the default value)
-                    if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Equation)
-                    {
-                        for_each_stencil_center_and_outside_ghost(m_mesh, m_stencil, [&](const auto& cells, const auto& towards_ghost)
-                        {
-                            auto& cell  = cells[0];
-                            auto& ghost = cells[1];
-                            auto boundary_point = cell.face_center(towards_ghost);
-                            auto bc = find(m_boundary_conditions, boundary_point);
-                            if (bc.is_dirichlet())
-                            {
-                                for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                {
-                                    nnz[row_index(ghost, field_i)] = 2;
-                                }
-                            }
-                        });
-                    }
-
-                    // Boundary ghosts on the Neumann boundary
-                    if (has_neumann(m_boundary_conditions))
-                    {
-                        for_each_stencil_center_and_outside_ghost(m_mesh, m_stencil, [&](const auto& cells, const auto& towards_ghost)
-                        {
-                            auto& cell  = cells[0];
-                            auto& ghost = cells[1];
-                            auto boundary_point = cell.face_center(towards_ghost);
-                            auto bc = find(m_boundary_conditions, boundary_point);
-                            if (bc.is_neumann())
-                            {
-                                for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                {
-                                    nnz[row_index(ghost, field_i)] = 2;
-                                }
-                            }
-                        });
-                    }
+                    sparsity_pattern_boundary(nnz);
                 }
 
                 // Projection
@@ -377,6 +342,48 @@ namespace samurai
                 });
 
                 return nnz;
+            }
+
+        protected:
+            virtual void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const
+            {
+                // Boundary ghosts on the Dirichlet boundary (if Elimination, nnz=1, the default value)
+                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Equation)
+                {
+                    for_each_stencil_center_and_outside_ghost(m_mesh, m_stencil, [&](const auto& cells, const auto& towards_ghost)
+                    {
+                        auto& cell  = cells[0];
+                        auto& ghost = cells[1];
+                        auto boundary_point = cell.face_center(towards_ghost);
+                        auto bc = find(m_boundary_conditions, boundary_point);
+                        if (bc.is_dirichlet())
+                        {
+                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                            {
+                                nnz[row_index(ghost, field_i)] = 2;
+                            }
+                        }
+                    });
+                }
+
+                // Boundary ghosts on the Neumann boundary
+                if (has_neumann(m_boundary_conditions))
+                {
+                    for_each_stencil_center_and_outside_ghost(m_mesh, m_stencil, [&](const auto& cells, const auto& towards_ghost)
+                    {
+                        auto& cell  = cells[0];
+                        auto& ghost = cells[1];
+                        auto boundary_point = cell.face_center(towards_ghost);
+                        auto bc = find(m_boundary_conditions, boundary_point);
+                        if (bc.is_neumann())
+                        {
+                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                            {
+                                nnz[row_index(ghost, field_i)] = 2;
+                            }
+                        }
+                    });
+                }
             }
 
         private:

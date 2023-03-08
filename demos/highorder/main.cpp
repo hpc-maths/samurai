@@ -63,12 +63,28 @@ public:
     {
         std::array<double, 5> coeffs;
         double one_over_h2 = 1/(h*h);
-        coeffs[1] =  4/3  * one_over_h2;
-        coeffs[2] = -5    * one_over_h2;
+        coeffs[0] =  4/3  * one_over_h2;
+        coeffs[1] = -5    * one_over_h2;
+        coeffs[2] =  4/3  * one_over_h2;
         coeffs[3] =  4/3  * one_over_h2;
         coeffs[4] =  4/3  * one_over_h2;
-        coeffs[5] =  4/3  * one_over_h2;
         return coeffs;
+    }
+
+    void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
+    {
+        auto reduced_stencil = samurai::star_stencil<2>();
+        samurai::for_each_stencil_center_and_outside_ghost(this->m_mesh, reduced_stencil, [&](const auto& cells, const auto& towards_ghost)
+        {
+            auto& cell  = cells[0];
+            auto& ghost = cells[1];
+            auto boundary_point = cell.face_center(towards_ghost);
+            auto bc = find(this->m_boundary_conditions, boundary_point);
+            if (bc.is_dirichlet())
+            {
+                nnz[ghost.index] = 2;
+            }
+        });
     }
 
     void assemble_boundary_conditions(Mat& A) override
