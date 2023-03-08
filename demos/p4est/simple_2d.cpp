@@ -233,14 +233,12 @@ int main(int argc, char *argv[])
     auto mem = samurai::memory_usage(mesh_2, /*verbose*/ true);
     std::cout << "Total: " << mem << std::endl;
 
-    samurai::save("simple_2d", mesh_2[mesh_id_t::cells]);
-
-    // auto level = samurai::make_field<std::size_t, 1>("level", mesh_2);
-    // samurai::for_each_cell(mesh_2, [&](auto cell)
-    // {
-    //     level[cell] = cell.level;
-    // });
-    // samurai::save("simple_2d", mesh_2, level);
+    auto level = samurai::make_field<std::size_t, 1>("level", mesh_2);
+    samurai::for_each_cell(mesh_2, [&](auto cell)
+    {
+        level[cell] = cell.level;
+    });
+    samurai::save(path, filename, mesh_2, level);
 
     return 0;
 }
