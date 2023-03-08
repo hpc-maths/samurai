@@ -197,6 +197,29 @@ namespace samurai
     }
 
     template<std::size_t dim>
+    constexpr Stencil<2*dim, dim> cartesian_directions()
+    {
+        static_assert(dim >= 1 || dim <= 3, "cartesian_directions() not implemented for this dimension");
+
+        if constexpr (dim == 1)
+        {
+            //     left, right
+            return {{-1}, {1}};
+        }
+        else if constexpr (dim == 2)
+        {
+            //       left,   right,   bottom,  top 
+            return {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+        }
+        else if constexpr (dim == 3)
+        {
+            //       left,    right,   front,    back,    bottom,    top
+            return {{-1,0,0}, {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
+        }
+        return Stencil<2*dim, dim>();
+    }
+
+    template<std::size_t dim>
     constexpr Stencil<1, dim> center_only_stencil()
     {
         Stencil<1, dim> s;

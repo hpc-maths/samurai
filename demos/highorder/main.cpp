@@ -47,15 +47,15 @@ public:
     {
         std::array<double, 9> coeffs;
         double one_over_h2 = 1/(h*h);
-        coeffs[0] = -1/12 * one_over_h2;
-        coeffs[1] =  4/3  * one_over_h2;
-        coeffs[2] = -5    * one_over_h2;
-        coeffs[3] =  4/3  * one_over_h2;
-        coeffs[4] = -1/12 * one_over_h2;
-        coeffs[5] = -1/12 * one_over_h2;
-        coeffs[6] =  4/3  * one_over_h2;
-        coeffs[7] =  4/3  * one_over_h2;
-        coeffs[8] = -1/12 * one_over_h2;
+        coeffs[0] =  1./12 * one_over_h2;
+        coeffs[1] = -4./3  * one_over_h2;
+        coeffs[2] =  5.    * one_over_h2;
+        coeffs[3] = -4./3  * one_over_h2;
+        coeffs[4] =  1./12 * one_over_h2;
+        coeffs[5] =  1./12 * one_over_h2;
+        coeffs[6] = -4./3  * one_over_h2;
+        coeffs[7] = -4./3  * one_over_h2;
+        coeffs[8] =  1./12 * one_over_h2;
         return coeffs;
     }
 
@@ -63,11 +63,11 @@ public:
     {
         std::array<double, 5> coeffs;
         double one_over_h2 = 1/(h*h);
-        coeffs[0] =  4/3  * one_over_h2;
-        coeffs[1] = -5    * one_over_h2;
-        coeffs[2] =  4/3  * one_over_h2;
-        coeffs[3] =  4/3  * one_over_h2;
-        coeffs[4] =  4/3  * one_over_h2;
+        coeffs[0] = -4./3  * one_over_h2;
+        coeffs[1] =  5.    * one_over_h2;
+        coeffs[2] = -4./3  * one_over_h2;
+        coeffs[3] = -4./3  * one_over_h2;
+        coeffs[4] = -4./3  * one_over_h2;
         return coeffs;
     }
 
@@ -136,7 +136,52 @@ public:
                     this->m_is_row_empty[static_cast<std::size_t>(ghost_row)] = false;
                 }
             });
+
+            // For some reason, there might be unused inside ghosts
+            for (std::size_t i = 0; i<this->m_is_row_empty.size(); i++)
+            {
+                if (this->m_is_row_empty[i])
+                {
+                    MatSetValue(A, i, i, 1, INSERT_VALUES);
+                    this->m_is_row_empty[i] = false;
+                }
+            }
         }
+    }
+
+    void enforce_bc(Vec& b) const override
+    {
+        auto reduced_stencil = samurai::star_stencil<2>();
+        samurai::for_each_stencil_center_and_outside_ghost(this->m_mesh, reduced_stencil, this->reduced_stencil_coefficients,
+        [&] (const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
+        {
+            auto& cell  = cells[0];
+            auto& ghost = cells[1];
+            auto boundary_point = cell.face_center(towards_ghost);
+            auto bc = find(this->m_boundary_conditions, boundary_point);
+
+            //PetscInt cell_index = static_cast<PetscInt>(cell.index);
+            PetscInt ghost_index = static_cast<PetscInt>(ghost.index);
+            double coeff = ghost_coeff;
+            if (bc.is_dirichlet())
+            {
+                double dirichlet_value = bc.get_value(boundary_point);
+                coeff = coeff == 0 ? 1 : coeff;
+                VecSetValue(b, ghost_index, - 2 * coeff * dirichlet_value, ADD_VALUES);
+            }
+        });
+
+        // Projection
+        samurai::for_each_projection_ghost(this->m_mesh, [&](auto& ghost)
+        {
+            VecSetValue(b, static_cast<PetscInt>(ghost.index), 0, INSERT_VALUES);
+        });
+
+        // Prediction
+        for_each_prediction_ghost(this->m_mesh, [&](auto& ghost)
+        {
+            VecSetValue(b, static_cast<PetscInt>(ghost.index), 0, INSERT_VALUES);
+        });
     }
 };
 
@@ -178,22 +223,18 @@ int main(int argc, char *argv[])
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
     app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
+    app.allow_extras();
     CLI11_PARSE(app, argc, argv);
     
     samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-
-    // Petsc initialize //
     PetscInitialize(&argc, &argv, 0, nullptr);
-
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
+    PetscOptionsSetValue(NULL, "-options_left", "off");
 
     
-    // Equation: -Lap u = f
-    // f(x,y) = 2 * (y*(1 - y) + x * (1 - x)) with (x, y) in [0, 1]^2
+    // Equation: -Lap u = f   in [0, 1]^2
+    //            f(x,y) = 2(y(1-y) + x(1-x))
     auto f = samurai::make_field<double, 1>("f", mesh, [](const auto& coord) 
             { 
                 const auto& x = coord[0];
@@ -201,6 +242,7 @@ int main(int argc, char *argv[])
                 return 2 * (y*(1 - y) + x * (1 - x));
             }, 0);
     auto u = samurai::make_field<double, 1>("u", mesh);
+    u.fill(0);
 
     u.set_dirichlet([](const auto&) { return 0.; }).everywhere();
 
@@ -208,6 +250,15 @@ int main(int argc, char *argv[])
 
     auto solver = samurai::petsc::make_solver(diff);
     solver.solve(f);
+
+    double error = diff.L2Error(u, [](const auto& coord) 
+            {
+                const auto& x = coord[0];
+                const auto& y = coord[1];
+                return x * (1 - x) * y*(1 - y);
+            });
+    std::cout.precision(2);
+    std::cout << "L2-error: " << std::scientific << error << std::endl;
 
 
     // Destroy Petsc objects
