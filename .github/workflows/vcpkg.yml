@@ -25,7 +25,6 @@ jobs:
         exclude:
           - os: windows-2022
             compiler: llvm
-            CMAKE_GENERATOR: "Ninja Multi-Config"
 
     steps:
       - uses: actions/checkout@v3
@@ -50,7 +49,7 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
       - name: Setup Cpp
-        uses: aminya/setup-cpp@v0.26.2
+        uses: aminya/setup-cpp@v0.22.0
         with:
           compiler: ${{ matrix.compiler }}
           vcvarsall: ${{ contains(matrix.os, 'windows' )}}
