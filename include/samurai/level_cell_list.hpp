@@ -9,7 +9,9 @@
 #include <type_traits>
 
 #include <xtensor/xfixed.hpp>
+#include <xtensor/xview.hpp>
 
+#include "cell.hpp"
 #include "list_of_intervals.hpp"
 #include "samurai_config.hpp"
 
