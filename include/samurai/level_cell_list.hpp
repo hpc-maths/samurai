@@ -85,6 +85,8 @@ namespace samurai
 
         void to_stream(std::ostream &os) const;
 
+        void add_cell(const Cell<coord_index_t, dim>& cell);
+
     private:
         grid_t m_grid_yz; ///< Sparse dim-1 array that points to the interval
                           ///< lists along the x axis.
@@ -146,9 +148,19 @@ namespace samurai
     }
 
     template<std::size_t Dim, class TInterval>
+    inline void LevelCellList<Dim, TInterval>::add_cell(const Cell<coord_index_t, dim>& cell)
+    {
+        using namespace xt::placeholders;
+
+        (*this)[xt::view(cell.indices, xt::range(1, _))].add_point(cell.indices[0]);
+    }
+
+
+    template<std::size_t Dim, class TInterval>
     inline std::ostream& operator<<(std::ostream& out, const LevelCellList<Dim, TInterval>& level_cell_list)
     {
         level_cell_list.to_stream(out);
         return out;
     }
+
 } // namespace samurai
