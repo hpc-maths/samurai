@@ -16,12 +16,15 @@ namespace samurai
             {
                 return m_include_bc;
             }
-
             void include_bc_if(bool include)
             {
                 m_include_bc = include;
             }
 
+            bool assemble_proj_pred() const
+            {
+                return m_assemble_proj_pred;
+            }
             void assemble_proj_pred_if(bool assemble)
             {
                 m_assemble_proj_pred = assemble;

@@ -70,6 +70,11 @@ namespace samurai
             {
                 m_operator.enforce_bc(b);
             }
+
+            void enforce_projection_prediction(Vec& b) const
+            {
+                m_operator.enforce_projection_prediction(b);
+            }
             
         private:
             void assemble_scheme_on_uniform_grid(Mat&) override {}

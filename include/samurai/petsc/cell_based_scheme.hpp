@@ -716,7 +716,10 @@ namespace samurai
                         }
                     }
                 });
+            }
 
+            virtual void enforce_projection_prediction(Vec& b) const
+            {
                 // Projection
                 for_each_projection_ghost(m_mesh, [&](auto& ghost)
                 {

@@ -211,18 +211,6 @@ public:
             coeff2 = coeff2 == 0 ? 1 : coeff2;
             VecSetValue(b, ghost2_index, - 2 * coeff2 * dirichlet_value, ADD_VALUES);
         });
-
-        // Projection
-        samurai::for_each_projection_ghost(this->m_mesh, [&](auto& ghost)
-        {
-            VecSetValue(b, static_cast<PetscInt>(ghost.index), 0, INSERT_VALUES);
-        });
-
-        // Prediction
-        for_each_prediction_ghost(this->m_mesh, [&](auto& ghost)
-        {
-            VecSetValue(b, static_cast<PetscInt>(ghost.index), 0, INSERT_VALUES);
-        });
     }
 };
 

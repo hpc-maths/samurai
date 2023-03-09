@@ -96,6 +96,22 @@ namespace samurai
                 });
             }
 
+            void enforce_projection_prediction(std::array<Vec, rows>& b) const
+            {
+                std::size_t i = 0;
+                for_each(m_operators, [&](const auto& op) 
+                {
+                    auto row = i / cols;
+                    //auto col = i % cols;
+                    if (op.assemble_proj_pred())
+                    {
+                        //std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
+                        op.enforce_projection_prediction(b[row]);
+                    }
+                    i++;
+                });
+            }
+
             std::array<Vec, cols> create_solution_vectors() const
             {
                 std::array<Vec, cols> x_blocks;
