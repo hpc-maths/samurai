@@ -6,6 +6,9 @@ namespace samurai
     template<std::size_t stencil_size, std::size_t dim>
     using Stencil = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
 
+    template<std::size_t dim>
+    using StencilVector = xt::xtensor_fixed<int, xt::xshape<dim>>;
+
 
     template<std::size_t stencil_size, std::size_t dim>
     int find_stencil_origin(const Stencil<stencil_size, dim>& stencil)
@@ -135,6 +138,18 @@ namespace samurai
     {
         IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
         for_each_stencil(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+    }
+
+    template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&f)
+    {
+        IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
+        auto coeffs = get_coefficients(cell_length(mesh_interval.level));
+        for_each_stencil(mesh, mesh_interval, stencil_it,
+        [&] (auto& cells)
+        {
+            f(cells, coeffs);
+        });
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>

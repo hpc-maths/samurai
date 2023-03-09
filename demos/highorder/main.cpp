@@ -29,6 +29,7 @@ template<class Field, class cfg=highOrderStencilFV>
 class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
 public:
+    static constexpr std::size_t dim = Field::dim;
     using field_t = Field;
     using Mesh = typename Field::mesh_t;
     static constexpr std::size_t ghost_width = Mesh::config::ghost_width;
@@ -40,7 +41,7 @@ public:
 
     static constexpr auto stencil()
     {
-        return samurai::Stencil<2, 9> {{-2, 0}, {-1, 0}, {0, 0}, {1, 0}, {2, 0}, {0, -2}, {0, -1}, {0, 1}, {0, 2}};
+        return samurai::Stencil<dim, 9> {{-2, 0}, {-1, 0}, {0, 0}, {1, 0}, {2, 0}, {0, -2}, {0, -1}, {0, 1}, {0, 2}};
     }
 
     static std::array<double, 9> coefficients(double h)
@@ -59,68 +60,88 @@ public:
         return coeffs;
     }
 
-    static std::array<double, 5> reduced_stencil_coefficients(double h)
+    static std::array<double, 4> boundary_stencil_coefficients(double h)
     {
-        std::array<double, 5> coeffs;
+        std::array<double, 4> coeffs;
         double one_over_h2 = 1/(h*h);
-        coeffs[0] = -4./3  * one_over_h2;
-        coeffs[1] =  5.    * one_over_h2;
+        coeffs[0] =  5.    * one_over_h2;
+        coeffs[1] = -4./3  * one_over_h2;
         coeffs[2] = -4./3  * one_over_h2;
-        coeffs[3] = -4./3  * one_over_h2;
-        coeffs[4] = -4./3  * one_over_h2;
+        coeffs[3] =  1./12 * one_over_h2;
         return coeffs;
     }
 
     void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
     {
-        auto reduced_stencil = samurai::star_stencil<2>();
-        samurai::for_each_stencil_center_and_outside_ghost(this->m_mesh, reduced_stencil, [&](const auto& cells, const auto& towards_ghost)
+        std::array<samurai::StencilVector<dim>, 4> bdry_directions;
+        std::array<samurai::Stencil<3, dim>   , 4> bdry_stencils;
+
+        // Left boundary
+        bdry_directions[0] = {-1, 0};
+        bdry_stencils[0] = {{0, 0}, {-1, 0}, {-2, 0}};
+        // Top boundary
+        bdry_directions[1] = {0, 1};
+        bdry_stencils[1] = {{0, 0}, {0, 1}, {0, 2}};
+        // Right boundary
+        bdry_directions[2] = {1, 0};
+        bdry_stencils[2] = {{0, 0}, {1, 0}, {2, 0}};
+        // Bottom boundary
+        bdry_directions[3] = {0, -1};
+        bdry_stencils[3] = {{0, 0}, {0, -1}, {0, -2}};
+
+        samurai::for_each_stencil_on_boundary(this->m_mesh, bdry_directions, bdry_stencils, [&](const auto& cells, const auto&)
         {
-            auto& cell  = cells[0];
-            auto& ghost = cells[1];
-            auto boundary_point = cell.face_center(towards_ghost);
-            auto bc = find(this->m_boundary_conditions, boundary_point);
-            if (bc.is_dirichlet())
-            {
-                nnz[ghost.index] = 2;
-            }
+            auto& ghost1 = cells[1];
+            auto& ghost2 = cells[2];
+            nnz[ghost1.index] = 2;
+            nnz[ghost2.index] = 2;
         });
     }
 
     void assemble_boundary_conditions(Mat& A) override
     {
-        auto reduced_stencil = samurai::star_stencil<2>();
-        samurai::for_each_stencil_center_and_outside_ghost(this->m_mesh, reduced_stencil, this->reduced_stencil_coefficients, 
-        [&] (const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
+        std::array<samurai::StencilVector<dim>, 4> bdry_directions;
+        std::array<samurai::Stencil<4, dim>   , 4> bdry_stencils;
+
+        // Left boundary
+        bdry_directions[0] = {-1, 0};
+        bdry_stencils[0] = {{0, 0}, {1, 0}, {-1, 0}, {-2, 0}};
+        // Top boundary
+        bdry_directions[1] = {0, 1};
+        bdry_stencils[1] = {{0, 0}, {0, -1}, {0, 1}, {0, 2}};
+        // Right boundary
+        bdry_directions[2] = {1, 0};
+        bdry_stencils[2] = {{0, 0}, {-1, 0}, {1, 0}, {2, 0}};
+        // Bottom boundary
+        bdry_directions[3] = {0, -1};
+        bdry_stencils[3] = {{0, 0}, {0, 1}, {0, -1}, {0, -2}};
+
+        samurai::for_each_stencil_on_boundary(this->m_mesh, bdry_directions, bdry_stencils, boundary_stencil_coefficients, 
+        [&](const auto& cells, const auto& coeffs, const auto&)
         {
-            const auto& cell_init  = cells[0];
-            const auto& ghost_init = cells[1];
-            auto boundary_point = cell_init.face_center(towards_ghost);
-            auto bc = find(this->m_boundary_conditions, boundary_point);
+            auto& cell1  = cells[0];
+            auto& cell2  = cells[1];
+            auto& ghost1 = cells[2];
+            auto& ghost2 = cells[3];
 
-            double coeff = ghost_coeff;
-            for (std::size_t ig = 0; ig < ghost_width; ++ig)
-            {
-                auto cell = cell_init;
-                cell.indices += ig*towards_ghost;
+            PetscInt cell1_index = static_cast<PetscInt>(cell1.index);
+            PetscInt cell2_index = static_cast<PetscInt>(cell2.index);
+            PetscInt ghost1_index = static_cast<PetscInt>(ghost1.index);
+            PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
 
-                auto ghost = ghost_init;
-                ghost.indices -= ig*towards_ghost;
+            // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [  1/2    1/2 ] = dirichlet_value
+            // which is equivalent to                                                         [-coeff -coeff] = -2 * coeff * dirichlet_value
+            double coeff1 = coeffs[0];
+            coeff1 = coeff1 == 0 ? 1 : coeff1;
+            MatSetValue(A, ghost1_index, ghost1_index, -coeff1, INSERT_VALUES);
+            MatSetValue(A, ghost1_index, cell1_index , -coeff1, INSERT_VALUES);
+            this->m_is_row_empty[ghost1.index] = false;
 
-                PetscInt cell_index = static_cast<PetscInt>(this->m_mesh.get_index(cell.level, cell.indices));
-                PetscInt ghost_index = static_cast<PetscInt>(this->m_mesh.get_index(ghost.level, ghost.indices));
-
-                if (bc.is_dirichlet())
-                {
-                    coeff = coeff == 0 ? 1 : coeff;
-                    // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [  1/2    1/2 ] = dirichlet_value
-                    // which is equivalent to                                                         [-coeff -coeff] = -2 * coeff * dirichlet_value
-                    MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
-                    MatSetValue(A, ghost_index, cell_index , -coeff, INSERT_VALUES);
-                }
-
-                this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
-            }
+            double coeff2 = coeffs[1];
+            coeff2 = coeff2 == 0 ? 1 : coeff2;
+            MatSetValue(A, ghost2_index, ghost2_index, -coeff2, INSERT_VALUES);
+            MatSetValue(A, ghost2_index, cell2_index , -coeff2, INSERT_VALUES);
+            this->m_is_row_empty[ghost2.index] = false;
         });
 
 
@@ -151,24 +172,44 @@ public:
 
     void enforce_bc(Vec& b) const override
     {
-        auto reduced_stencil = samurai::star_stencil<2>();
-        samurai::for_each_stencil_center_and_outside_ghost(this->m_mesh, reduced_stencil, this->reduced_stencil_coefficients,
-        [&] (const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
-        {
-            auto& cell  = cells[0];
-            auto& ghost = cells[1];
-            auto boundary_point = cell.face_center(towards_ghost);
-            auto bc = find(this->m_boundary_conditions, boundary_point);
+        std::array<samurai::StencilVector<dim>, 4> bdry_directions;
+        std::array<samurai::Stencil<4, dim>   , 4> bdry_stencils;
 
-            //PetscInt cell_index = static_cast<PetscInt>(cell.index);
-            PetscInt ghost_index = static_cast<PetscInt>(ghost.index);
-            double coeff = ghost_coeff;
-            if (bc.is_dirichlet())
-            {
-                double dirichlet_value = bc.get_value(boundary_point);
-                coeff = coeff == 0 ? 1 : coeff;
-                VecSetValue(b, ghost_index, - 2 * coeff * dirichlet_value, ADD_VALUES);
-            }
+        // Left boundary
+        bdry_directions[0] = {-1, 0};
+        bdry_stencils[0] = {{0, 0}, {1, 0}, {-1, 0}, {-2, 0}};
+        // Top boundary
+        bdry_directions[1] = {0, 1};
+        bdry_stencils[1] = {{0, 0}, {0, -1}, {0, 1}, {0, 2}};
+        // Right boundary
+        bdry_directions[2] = {1, 0};
+        bdry_stencils[2] = {{0, 0}, {-1, 0}, {1, 0}, {2, 0}};
+        // Bottom boundary
+        bdry_directions[3] = {0, -1};
+        bdry_stencils[3] = {{0, 0}, {0, 1}, {0, -1}, {0, -2}};
+
+        samurai::for_each_stencil_on_boundary(this->m_mesh, bdry_directions, bdry_stencils, boundary_stencil_coefficients, 
+        [&](const auto& cells, const auto& coeffs, const auto& towards_ghost)
+        {
+            auto& cell1  = cells[0];
+            //auto& cell2  = cells[1];
+            auto& ghost1 = cells[2];
+            auto& ghost2 = cells[3];
+
+            PetscInt ghost1_index = static_cast<PetscInt>(ghost1.index);
+            PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
+
+            auto boundary_point = cell1.face_center(towards_ghost);
+            auto bc = find(this->m_boundary_conditions, boundary_point);
+            double dirichlet_value = bc.get_value(boundary_point);
+            
+            double coeff1 = coeffs[0];
+            coeff1 = coeff1 == 0 ? 1 : coeff1;
+            VecSetValue(b, ghost1_index, - 2 * coeff1 * dirichlet_value, ADD_VALUES);
+
+            double coeff2 = coeffs[1];
+            coeff2 = coeff2 == 0 ? 1 : coeff2;
+            VecSetValue(b, ghost2_index, - 2 * coeff2 * dirichlet_value, ADD_VALUES);
         });
 
         // Projection
