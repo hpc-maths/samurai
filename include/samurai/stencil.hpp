@@ -123,7 +123,7 @@ namespace samurai
     };
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, IteratorStencil<Mesh, stencil_size>& stencil_it, Func &&f)
+    inline void for_each_stencil_sliding_in_interval(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, IteratorStencil<Mesh, stencil_size>& stencil_it, Func &&f)
     {
         stencil_it.init(mesh, mesh_interval);
         for(std::size_t ii=0; ii<mesh_interval.i.size(); ++ii)
@@ -134,22 +134,10 @@ namespace samurai
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&f)
+    inline void for_each_stencil_sliding_in_interval(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&f)
     {
         IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
-        for_each_stencil(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
-    }
-
-    template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&f)
-    {
-        IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
-        auto coeffs = get_coefficients(cell_length(mesh_interval.level));
-        for_each_stencil(mesh, mesh_interval, stencil_it,
-        [&] (auto& cells)
-        {
-            f(cells, coeffs);
-        });
+        for_each_stencil_sliding_in_interval(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
@@ -158,7 +146,17 @@ namespace samurai
         using mesh_id_t = typename Mesh::mesh_id_t;
         for_each_meshinterval(mesh[mesh_id_t::cells][level], [&](auto mesh_interval)
         {
-            for_each_stencil(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+            for_each_stencil_sliding_in_interval(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+        });
+    }
+
+    template <class Mesh, class Set, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, Set& set, IteratorStencil<Mesh, stencil_size>& stencil_it, Func &&f)
+    {
+        using mesh_interval_t = typename Mesh::mesh_interval_t;
+        for_each_meshinterval<mesh_interval_t>(set, [&](auto mesh_interval)
+        {
+            for_each_stencil_sliding_in_interval(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
         });
     }
 
@@ -176,6 +174,17 @@ namespace samurai
             {
                 f(cells, coeffs);
             });
+        });
+    }
+
+    template <class Mesh, class Set, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, Set& set, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&f)
+    {
+        IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
+        for_each_stencil(mesh, set, stencil_it,
+        [&] (auto& cells)
+        {
+            f(cells);
         });
     }
 
