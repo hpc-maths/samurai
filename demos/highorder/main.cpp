@@ -60,17 +60,6 @@ public:
         return coeffs;
     }
 
-    static std::array<double, 4> boundary_stencil_coefficients(double h)
-    {
-        std::array<double, 4> coeffs;
-        double one_over_h2 = 1/(h*h);
-        coeffs[0] =  5.    * one_over_h2;
-        coeffs[1] = -4./3  * one_over_h2;
-        coeffs[2] = -4./3  * one_over_h2;
-        coeffs[3] =  1./12 * one_over_h2;
-        return coeffs;
-    }
-
     void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
     {
         std::array<samurai::StencilVector<dim>, 4> bdry_directions;
@@ -116,8 +105,8 @@ public:
         bdry_directions[3] = {0, -1};
         bdry_stencils[3] = {{0, 0}, {0, 1}, {0, -1}, {0, -2}};
 
-        samurai::for_each_stencil_on_boundary(this->m_mesh, bdry_directions, bdry_stencils, boundary_stencil_coefficients, 
-        [&](const auto& cells, const auto& coeffs, const auto&)
+        samurai::for_each_stencil_on_boundary(this->m_mesh, bdry_directions, bdry_stencils,
+        [&](const auto& cells, const auto&)
         {
             auto& cell1  = cells[0];
             auto& cell2  = cells[1];
@@ -129,18 +118,13 @@ public:
             PetscInt ghost1_index = static_cast<PetscInt>(ghost1.index);
             PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
 
-            // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [  1/2    1/2 ] = dirichlet_value
-            // which is equivalent to                                                         [-coeff -coeff] = -2 * coeff * dirichlet_value
-            double coeff1 = coeffs[0];
-            coeff1 = coeff1 == 0 ? 1 : coeff1;
-            MatSetValue(A, ghost1_index, ghost1_index, -coeff1, INSERT_VALUES);
-            MatSetValue(A, ghost1_index, cell1_index , -coeff1, INSERT_VALUES);
+            // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [1/2 1/2] = dirichlet_value
+            MatSetValue(A, ghost1_index, ghost1_index, 0.5, INSERT_VALUES);
+            MatSetValue(A, ghost1_index, cell1_index , 0.5, INSERT_VALUES);
             this->m_is_row_empty[ghost1.index] = false;
 
-            double coeff2 = coeffs[1];
-            coeff2 = coeff2 == 0 ? 1 : coeff2;
-            MatSetValue(A, ghost2_index, ghost2_index, -coeff2, INSERT_VALUES);
-            MatSetValue(A, ghost2_index, cell2_index , -coeff2, INSERT_VALUES);
+            MatSetValue(A, ghost2_index, ghost2_index, 0.5, INSERT_VALUES);
+            MatSetValue(A, ghost2_index, cell2_index , 0.5, INSERT_VALUES);
             this->m_is_row_empty[ghost2.index] = false;
         });
 
@@ -188,8 +172,8 @@ public:
         bdry_directions[3] = {0, -1};
         bdry_stencils[3] = {{0, 0}, {0, 1}, {0, -1}, {0, -2}};
 
-        samurai::for_each_stencil_on_boundary(this->m_mesh, bdry_directions, bdry_stencils, boundary_stencil_coefficients, 
-        [&](const auto& cells, const auto& coeffs, const auto& towards_ghost)
+        samurai::for_each_stencil_on_boundary(this->m_mesh, bdry_directions, bdry_stencils,
+        [&](const auto& cells, const auto& towards_ghost)
         {
             auto& cell1  = cells[0];
             //auto& cell2  = cells[1];
@@ -200,16 +184,11 @@ public:
             PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
 
             auto boundary_point = cell1.face_center(towards_ghost);
-            auto bc = find(this->m_boundary_conditions, boundary_point);
+            auto bc = samurai::find(this->m_boundary_conditions, boundary_point);
             double dirichlet_value = bc.get_value(boundary_point);
             
-            double coeff1 = coeffs[0];
-            coeff1 = coeff1 == 0 ? 1 : coeff1;
-            VecSetValue(b, ghost1_index, - 2 * coeff1 * dirichlet_value, ADD_VALUES);
-
-            double coeff2 = coeffs[1];
-            coeff2 = coeff2 == 0 ? 1 : coeff2;
-            VecSetValue(b, ghost2_index, - 2 * coeff2 * dirichlet_value, ADD_VALUES);
+            VecSetValue(b, ghost1_index, dirichlet_value, ADD_VALUES);
+            VecSetValue(b, ghost2_index, dirichlet_value, ADD_VALUES);
         });
     }
 };
