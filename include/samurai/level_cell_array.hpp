@@ -18,6 +18,7 @@
 #include "level_cell_list.hpp"
 #include "utils.hpp"
 #include "samurai_config.hpp"
+#include "subset/subset_op_base.hpp"
 
 namespace samurai
 {
@@ -72,6 +73,10 @@ namespace samurai
         LevelCellArray& operator=(LevelCellArray&&) = default;
 
         LevelCellArray(const LevelCellList<Dim, TInterval> &lcl);
+
+        template<class F, class... CT>
+        LevelCellArray(subset_operator<F, CT...> set);
+
         LevelCellArray(std::size_t level, const Box<coord_index_t, dim>& box);
         LevelCellArray(std::size_t level, const Box<double, dim>& box);
         LevelCellArray(std::size_t level);
@@ -247,6 +252,20 @@ namespace samurai
                 m_offsets[d].emplace_back(m_cells[d].size());
             }
         }
+    }
+
+    template<std::size_t Dim, class TInterval>
+    template<class F, class... CT>
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(subset_operator<F, CT...> set)
+    {
+        std::size_t level = set.level();
+        LevelCellList<Dim, TInterval> lcl{level};
+
+        set([&lcl](const auto& i, const auto& index)
+        {
+            lcl[index].add_interval(i);
+        });
+        *this = {lcl};
     }
 
     template<std::size_t Dim, class TInterval>
