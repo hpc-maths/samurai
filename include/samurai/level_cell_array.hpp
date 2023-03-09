@@ -417,7 +417,7 @@ namespace samurai
     template<typename... T>
     inline std::size_t LevelCellArray<Dim, TInterval>::get_index(const coord_index_t& i, T... index) const
     {
-        return get_interval(i, index...).index + i;
+        return static_cast<std::size_t>(get_interval({i, i+1}, index...).index + i);
     }
 
     template<std::size_t Dim, class TInterval>
