@@ -116,7 +116,7 @@ namespace samurai
             {
                 // auto maxd = xt::view(max_detail, level);
 
-                if (size == 1)
+                if constexpr (size == 1)
                 {
                     // auto mask = (xt::abs(detail(level, 2*i  ,   2*j))/maxd <
                     // eps) and
@@ -370,7 +370,7 @@ namespace samurai
             if (fine_level < max_level)
             {
                 // auto maxd = xt::view(max_detail, fine_level);
-                if (size == 1)
+                if constexpr (size == 1)
                 {
                     // auto mask = ((xt::abs(detail(fine_level, 2*i  , 2*j
                     // ))/maxd) > eps) or
