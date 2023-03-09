@@ -98,6 +98,10 @@ namespace samurai
 
         const interval_t& get_interval(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
 
+        template<typename... T>
+        std::size_t get_index(const coord_index_t& i, T... index) const;
+        std::size_t get_index(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
+
         void update_index();
 
         //// checks whether the container is empty
@@ -407,6 +411,19 @@ namespace samurai
     {
         auto row = find(*this, coord);
         return m_cells[0][static_cast<std::size_t>(row)];
+    }
+
+    template<std::size_t Dim, class TInterval>
+    template<typename... T>
+    inline std::size_t LevelCellArray<Dim, TInterval>::get_index(const coord_index_t& i, T... index) const
+    {
+        return get_interval(i, index...).index + i;
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline std::size_t LevelCellArray<Dim, TInterval>::get_index(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const
+    {
+        return static_cast<std::size_t>(get_interval(coord).index + coord[0]);
     }
 
     /**
