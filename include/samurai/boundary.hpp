@@ -5,7 +5,7 @@
 namespace samurai
 {
     template <class Mesh, class Vector>
-    auto in_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    auto boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -25,8 +25,8 @@ namespace samurai
 
         for_each_level(mesh, [&](std::size_t level)
         {
-            auto boundary = in_boundary(mesh, level, direction);
-            for_each_meshinterval<mesh_interval_t>(boundary, std::forward<Func>(func));
+            auto bdry = boundary(mesh, level, direction);
+            for_each_meshinterval<mesh_interval_t>(bdry, std::forward<Func>(func));
         });
     }
 
@@ -40,8 +40,8 @@ namespace samurai
             auto direction = xt::view(boundary_directions, is);
             if (xt::any(direction)) // if (direction != 0)
             {
-                auto boundary = in_boundary(mesh, level, direction);
-                for_each_meshinterval<mesh_interval_t>(boundary, [&](auto& mesh_interval)
+                auto bdry = boundary(mesh, level, direction);
+                for_each_meshinterval<mesh_interval_t>(bdry, [&](auto& mesh_interval)
                 {
                     func(mesh_interval, direction);
                 });
@@ -60,8 +60,8 @@ namespace samurai
             if (xt::any(direction)) // if (direction != 0)
             {
                 auto coeff = coefficients[is];
-                auto boundary = in_boundary(mesh, level, direction);
-                for_each_meshinterval<mesh_interval_t>(boundary, [&](auto& mesh_interval)
+                auto bdry = boundary(mesh, level, direction);
+                for_each_meshinterval<mesh_interval_t>(bdry, [&](auto& mesh_interval)
                 {
                     func(mesh_interval, direction, coeff);
                 });
@@ -168,8 +168,8 @@ namespace samurai
     {
         for_each_level(mesh, [&](std::size_t level)
         {
-            auto boundary = in_boundary(mesh, level, boundary_direction);
-            for_each_stencil(mesh, boundary, stencil, std::forward<Func>(func));
+            auto bdry = boundary(mesh, level, boundary_direction);
+            for_each_stencil(mesh, bdry, stencil, std::forward<Func>(func));
         });
     }
 
@@ -178,9 +178,9 @@ namespace samurai
     {
         for_each_level(mesh, [&](std::size_t level)
         {
-            auto boundary = in_boundary(mesh, level, boundary_direction);
+            auto bdry = boundary(mesh, level, boundary_direction);
             auto coeffs = get_coefficients(cell_length(level));
-            for_each_stencil(mesh, boundary, stencil, [&](auto& cells)
+            for_each_stencil(mesh, bdry, stencil, [&](auto& cells)
             {
                 func(cells, coeffs);
             });
