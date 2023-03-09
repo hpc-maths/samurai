@@ -480,118 +480,6 @@ namespace samurai
         friend class node_op<contraction_op<T>>;
     };
 
-    /*********************************
-     * contraction_op implementation *
-     *********************************/
-
-    template<class T>
-    inline contraction_op<T>::contraction_op(const T& v, std::size_t size)
-    : m_data(v)
-    {
-        m_contraction.fill(size);
-    }
-
-    template<class T>
-    inline contraction_op<T>::contraction_op(const T& v, const std::array<std::size_t, dim>& contraction)
-    : m_data(v)
-    , m_contraction(contraction)
-    {}
-
-    template<class T>
-    inline auto contraction_op<T>::start(std::size_t d,
-                                         std::size_t index) const noexcept
-    {
-        return m_data.start(d, index) + static_cast<coord_index_t>(m_contraction[d]);
-    }
-
-    template<class T>
-    inline auto contraction_op<T>::end(std::size_t d, std::size_t index) const
-        noexcept
-    {
-        return m_data.end(d, index) - + static_cast<coord_index_t>(m_contraction[d]);
-    }
-
-    template<class T>
-    inline auto contraction_op<T>::create_interval(coord_index_t start,
-                                                   coord_index_t end) const
-        noexcept
-    {
-        return interval_t{start, end};
-    }
-
-    template<class T>
-    inline auto contraction_op<T>::create_index_yz() const noexcept
-    {
-        return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
-    }
-
-    /*****************************
-     * expand_op definition *
-     *****************************/
-
-    template<class T>
-    struct expand_op : public node_op<expand_op<T>>
-    {
-        using mesh_type = typename T::mesh_type;
-        static constexpr std::size_t dim = mesh_type::dim;
-        using interval_t = typename mesh_type::interval_t;
-        using coord_index_t = typename mesh_type::coord_index_t;
-
-        expand_op(T &&v);
-        expand_op(const T &v);
-
-        auto start(std::size_t d, std::size_t index) const noexcept;
-        auto end(std::size_t d, std::size_t index) const noexcept;
-
-        auto create_interval(coord_index_t start, coord_index_t end) const
-            noexcept;
-        auto create_index_yz() const noexcept;
-
-      private:
-        T m_data;
-
-        friend class node_op<expand_op<T>>;
-    };
-
-    /****************************
-     * expand_op implementation *
-     ****************************/
-
-    template<class T>
-    inline expand_op<T>::expand_op(T &&v) : m_data{std::forward<T>(v)}
-    {}
-
-    template<class T>
-    inline expand_op<T>::expand_op(const T &v) : m_data{v}
-    {}
-
-    template<class T>
-    inline auto expand_op<T>::start(std::size_t d, std::size_t index) const
-        noexcept
-    {
-        return m_data.start(d, index) - 1;
-    }
-
-    template<class T>
-    inline auto expand_op<T>::end(std::size_t d, std::size_t index) const
-        noexcept
-    {
-        return m_data.end(d, index) + 1;
-    }
-
-    template<class T>
-    inline auto expand_op<T>::create_interval(coord_index_t start,
-                                              coord_index_t end) const noexcept
-    {
-        return interval_t{start, end};
-    }
-
-    template<class T>
-    inline auto expand_op<T>::create_index_yz() const noexcept
-    {
-        return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
-    }
-
     namespace detail
     {
         template<class T>
@@ -637,22 +525,27 @@ namespace samurai
     {
         auto arg = get_arg_node(std::forward<T>(t));
         using arg_t = decltype(arg);
-        return contraction_op<arg_t>{std::forward<arg_t>(arg), size};
+        constexpr std::size_t dim = arg_t::dim;
+        xt::xtensor_fixed<int, xt::xshape<dim>> c;
+        c.fill(size);
+        return intersection(translate(std::forward<arg_t>(arg), c),
+                            translate(std::forward<arg_t>(arg), -c));
     }
 
     template<class T, std::size_t dim>
-    inline auto contraction(T &&t, const std::array<std::size_t, dim>& c)
+    inline auto contraction(T &&t, const xt::xtensor_fixed<int, xt::xshape<dim>>& c)
     {
         auto arg = get_arg_node(std::forward<T>(t));
         using arg_t = decltype(arg);
-        return contraction_op<arg_t>{std::forward<arg_t>(arg), c};
+        return intersection(translate(std::forward<arg_t>(arg), c),
+                            translate(std::forward<arg_t>(arg), -c));
     }
 
-    template<class T>
-    inline auto expand(T &&t)
-    {
-        auto arg = get_arg_node(std::forward<T>(t));
-        using arg_t = decltype(arg);
-        return expand_op<arg_t>{std::forward<arg_t>(arg)};
-    }
+    // template<class T>
+    // inline auto expand(T &&t)
+    // {
+    //     auto arg = get_arg_node(std::forward<T>(t));
+    //     using arg_t = decltype(arg);
+    //     return expand_op<arg_t>{std::forward<arg_t>(arg)};
+    // }
 } // namespace samurai
