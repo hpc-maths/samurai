@@ -94,9 +94,6 @@ struct Everywhere: public BcRegion<dim>
     const samurai::LevelCellArray<dim> apply(const samurai::LevelCellArray<dim>& mesh) const override
     {
         return samurai::difference(mesh, samurai::contraction(mesh));
-        // return samurai::difference(mesh, samurai::intersection(samurai::translate(mesh, xt::xtensor_fixed<int, xt::xshape<2>>{1, 1}),
-        //                                                        samurai::translate(mesh, xt::xtensor_fixed<int, xt::xshape<2>>{-1, -1}))
-        //);
     }
 
     Everywhere* clone() const override
@@ -121,16 +118,20 @@ struct CoordsRegion: public BcRegion<dim>
     const samurai::LevelCellArray<dim> apply(const samurai::LevelCellArray<dim>& mesh) const override
     {
         samurai::LevelCellList<dim> lcl{mesh.level()};
-        samurai::for_each_cell(mesh, [&](auto& cell)
+        auto set = samurai::difference(mesh, samurai::contraction(mesh));
+        samurai::for_each_cell(mesh, set, [&](auto& cell)
         {
             if (m_func(cell.center()))
             {
-                lcl[{cell.indices[1]}].add_point(cell.indices[0]);
+                lcl.add_cell(cell);
             }
-            if (m_func(cell.corner()))
-            {
-                lcl[{cell.indices[1]}].add_point(cell.indices[0]);
-            }
+            // samurai::static_nested_loop<dim, 0, 2>([&](auto stencil)
+            // {
+            //     if (m_func(cell.corner() + cell.length*stencil))
+            //     {
+            //         lcl.add_cell(cell);
+            //     }
+            // });
         });
         return lcl;
     }
@@ -262,10 +263,10 @@ int main()
 
     Field<2, double, 3> f;
     Dirichlet<2, double, 3> dirichlet(ConstantBc<2, double, 3>{4});
-    // dirichlet.on([](auto& coords)
-    // {
-    //     return coords[0] == 0;
-    // });
+    dirichlet.on([](auto& coords)
+    {
+        return (coords[0] >= .25 && coords[0] <= .75);
+    });
 
     f.attach(dirichlet);
 
@@ -277,8 +278,11 @@ int main()
     neumann.on(samurai::difference(lca, samurai::translate(lca, xt::xtensor_fixed<int, xt::xshape<1>>{1})));
     f.attach(neumann);
 
+    std::cout << "lca" << std::endl;
     std::cout << lca << std::endl;
+    std::cout << "dirichlet" << std::endl;
     std::cout << dirichlet.get_lca(lca) << std::endl;
+    std::cout << "neumann" << std::endl;
     std::cout << neumann.get_lca(lca) << std::endl;
 
     Robin<2, double, 3> robin(ConstantBc<2, double, 3>{4});
@@ -299,5 +303,6 @@ int main()
             std::cout << "not known" << std::endl;
         }
     }
+
     return 0;
 }
