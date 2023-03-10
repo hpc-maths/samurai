@@ -82,8 +82,8 @@ public:
         {
             auto& ghost1 = cells[1];
             auto& ghost2 = cells[2];
-            nnz[ghost1.index] = 2;
-            nnz[ghost2.index] = 2;
+            nnz[ghost1.index] = 4;
+            nnz[ghost2.index] = 4;
         });
     }
 
@@ -119,12 +119,61 @@ public:
             PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
 
             // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [1/2 1/2] = dirichlet_value
+            // u_G = u_I - d * u'_I + d^2/2 * u''_I
+             
+
+            // where d = distance to the wall of the domain (h/2)
+
+            // if Dirichlet: u_I  = boundary condition(evaluated @ I)
+            
+            // if Neumann  : u'_I = boundary condition(evaluated @ I)
+
+            // order 3
+            // MatSetValue(A, ghost1_index, ghost1_index,  3./2., INSERT_VALUES);
+            // MatSetValue(A, ghost1_index, cell1_index , -1./2., INSERT_VALUES);
+
             MatSetValue(A, ghost1_index, ghost1_index, 0.5, INSERT_VALUES);
             MatSetValue(A, ghost1_index, cell1_index , 0.5, INSERT_VALUES);
+
+
+            //MatSetValue(A, ghost1_index, ghost1_index,  3./8., INSERT_VALUES);
+            //MatSetValue(A, ghost1_index, cell1_index,   3./4, INSERT_VALUES);
+            //MatSetValue(A, ghost1_index, cell2_index , -1./8., INSERT_VALUES);
+
+            // MatSetValue(A, ghost1_index, ghost2_index,  -1./48., INSERT_VALUES);
+            // MatSetValue(A, ghost1_index, ghost1_index,  -7./16., INSERT_VALUES);
+            // MatSetValue(A, ghost1_index, cell1_index,   11./16, INSERT_VALUES);
+            // MatSetValue(A, ghost1_index, cell2_index , -5./48., INSERT_VALUES);
+
             this->m_is_row_empty[ghost1.index] = false;
+
+// u_G2 = u_I - d * u'_I + d^2/2 * u''_I 
+// d = 3/2h 
+// u'_I  = (u1-ug2)/(2h) + O(h^2)
+// u''_I = (u1-2u0+ug1)/(2h) + O(h^2)
+// this one sums to one
+            // MatSetValue(A, ghost2_index, ghost2_index,  7./4., INSERT_VALUES);
+            // MatSetValue(A, ghost2_index, ghost1_index,  -9./8, INSERT_VALUES);
+            // MatSetValue(A, ghost2_index, cell1_index ,   9./4, INSERT_VALUES);
+            // MatSetValue(A, ghost2_index, cell2_index ,   -15./8, INSERT_VALUES);
+            //MatSetValue(A, ghost2_index, ghost2_index,  1, INSERT_VALUES);
+            //MatSetValue(A, ghost2_index, cell2_index ,  -1, INSERT_VALUES);
+            
+            // MatSetValue(A, ghost2_index, ghost2_index,  1., INSERT_VALUES);
+            // MatSetValue(A, ghost2_index, ghost1_index,  -3./2, INSERT_VALUES);
+            // MatSetValue(A, ghost2_index, cell1_index ,  3./2, INSERT_VALUES);
+
+
+            // MatSetValue(A, ghost2_index, ghost2_index,  21./48., INSERT_VALUES);
+            // MatSetValue(A, ghost2_index, ghost1_index,  -15./16., INSERT_VALUES);
+            // MatSetValue(A, ghost2_index, cell1_index,   33./16, INSERT_VALUES);
+            // MatSetValue(A, ghost2_index, cell2_index , -27./48., INSERT_VALUES);
+
+
 
             MatSetValue(A, ghost2_index, ghost2_index, 0.5, INSERT_VALUES);
             MatSetValue(A, ghost2_index, cell2_index , 0.5, INSERT_VALUES);
+
             this->m_is_row_empty[ghost2.index] = false;
         });
 
@@ -267,6 +316,17 @@ int main(int argc, char *argv[])
             });
     std::cout.precision(2);
     std::cout << "L2-error: " << std::scientific << error << std::endl;
+
+    auto error_field = samurai::make_field<double, 1>("error", mesh);
+    samurai::for_each_cell(mesh, [&](const auto& cell) 
+    { 
+        double x = cell.center(0);
+        double y = cell.center(1);
+        double sol = x * (1 - x) * y*(1 - y);
+        error_field[cell] = abs(u[cell]-sol); 
+    });
+
+    samurai::save("error", mesh, error_field);
 
 
     // Destroy Petsc objects
