@@ -203,11 +203,19 @@ namespace samurai
             {
                 if ( tag[itag] & static_cast<int>(CellFlag::refine))
                 {
-                    static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
+                    if (level < mesh.max_level())
+                    {                    
+                        static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
+                        {
+                            auto new_index = 2*index + stencil;
+                            cl[level + 1][new_index].add_interval({2*i, 2*i + 2});
+                        });
+                    }
+                    else
                     {
-                        auto new_index = 2*index + stencil;
-                        cl[level + 1][new_index].add_interval({2*i, 2*i + 2});
-                    });
+                        cl[level][index].add_point(i);    
+                    }
+
                 }
                 else if ( tag[itag] & static_cast<int>(CellFlag::keep))
                 {
@@ -215,7 +223,14 @@ namespace samurai
                 }
                 else
                 {
-                    cl[level - 1][index >> 1].add_point(i >> 1);
+                    if (level > mesh.min_level())
+                    {
+                        cl[level - 1][index >> 1].add_point(i >> 1);
+                    }
+                    else
+                    {
+                        cl[level][index].add_point(i);    
+                    }
                 }
                 itag++;
             }
@@ -238,14 +253,14 @@ namespace samurai
     {
         static constexpr std::size_t dim = Field::dim;
         using mesh_t = typename Field::mesh_t;
-        constexpr std::size_t pred_order = mesh_t::config::prediction_order;
+        constexpr std::size_t 
+        pred_order = mesh_t::config::prediction_order;
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         using interval_t = typename mesh_t::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
         using cl_type = typename Field::mesh_t::cl_type;
 
         auto mesh = field.mesh();
-
         cl_type cl;
 
         for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index)
@@ -253,13 +268,20 @@ namespace samurai
             std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
             for (coord_index_t i=interval.start; i<interval.end; ++i)
             {
-                if ( tag[itag] & static_cast<int>(CellFlag::refine))
+                if ( tag[itag] & static_cast<int>(CellFlag::refine) )
                 {
-                    static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
+                    if (level < mesh.max_level())
                     {
-                        auto new_index = 2*index + stencil;
-                        cl[level + 1][new_index].add_interval({2*i, 2*i + 2});
-                    });
+                        static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
+                        {
+                            auto new_index = 2*index + stencil;
+                            cl[level + 1][new_index].add_interval({2*i, 2*i + 2});
+                        });
+                    }
+                    else
+                    {
+                        cl[level][index].add_point(i);    
+                    }
                 }
                 else if ( tag[itag] & static_cast<int>(CellFlag::keep))
                 {
@@ -267,7 +289,14 @@ namespace samurai
                 }
                 else
                 {
-                    cl[level - 1][index >> 1].add_point(i >> 1);
+                    if (level > mesh.min_level())
+                    {
+                        cl[level - 1][index >> 1].add_point(i >> 1);
+                    }
+                    else
+                    {
+                        cl[level][index].add_point(i);
+                    }
                 }
                 itag++;
             }
