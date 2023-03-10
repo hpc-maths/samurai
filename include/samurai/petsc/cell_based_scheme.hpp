@@ -129,7 +129,7 @@ namespace samurai
                 return static_cast<PetscInt>(m_n_cells * field_size);
             }
 
-        private:
+        protected:
             // Global data index
             inline PetscInt col_index(PetscInt cell_index, unsigned int field_j) const
             {

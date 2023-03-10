@@ -50,6 +50,7 @@ namespace samurai
                 MatSetFromOptions(A);
 
                 MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, sparsity_pattern().data());
+                MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE); ///////////// TO FIX
             }
 
             /**
