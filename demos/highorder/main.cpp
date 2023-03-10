@@ -90,90 +90,62 @@ public:
     void assemble_boundary_conditions(Mat& A) override
     {
         std::array<samurai::StencilVector<dim>, 4> bdry_directions;
-        std::array<samurai::Stencil<4, dim>   , 4> bdry_stencils;
+        std::array<samurai::Stencil<5, dim>   , 4> bdry_stencils;
 
         // Left boundary
         bdry_directions[0] = {-1, 0};
-        bdry_stencils[0] = {{0, 0}, {1, 0}, {-1, 0}, {-2, 0}};
+        bdry_stencils[0] = {{0, 0}, {1, 0}, {2, 0}, {-1, 0}, {-2, 0}};
         // Top boundary
         bdry_directions[1] = {0, 1};
-        bdry_stencils[1] = {{0, 0}, {0, -1}, {0, 1}, {0, 2}};
+        bdry_stencils[1] = {{0, 0}, {0, -1}, {0, -2}, {0, 1}, {0, 2}};
         // Right boundary
         bdry_directions[2] = {1, 0};
-        bdry_stencils[2] = {{0, 0}, {-1, 0}, {1, 0}, {2, 0}};
+        bdry_stencils[2] = {{0, 0}, {-1, 0}, {-2, 0}, {1, 0}, {2, 0}};
         // Bottom boundary
         bdry_directions[3] = {0, -1};
-        bdry_stencils[3] = {{0, 0}, {0, 1}, {0, -1}, {0, -2}};
+        bdry_stencils[3] = {{0, 0}, {0, 1}, {0, 2}, {0, -1}, {0, -2}};
 
         samurai::for_each_stencil_on_boundary(this->m_mesh, bdry_directions, bdry_stencils,
         [&](const auto& cells, const auto&)
         {
             auto& cell1  = cells[0];
             auto& cell2  = cells[1];
-            auto& ghost1 = cells[2];
-            auto& ghost2 = cells[3];
+            auto& cell3  = cells[2];
+            auto& ghost1 = cells[3];
+            auto& ghost2 = cells[4];
 
             PetscInt cell1_index = static_cast<PetscInt>(cell1.index);
             PetscInt cell2_index = static_cast<PetscInt>(cell2.index);
+            PetscInt cell3_index = static_cast<PetscInt>(cell3.index);
             PetscInt ghost1_index = static_cast<PetscInt>(ghost1.index);
             PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
 
-            // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [1/2 1/2] = dirichlet_value
-            // u_G = u_I - d * u'_I + d^2/2 * u''_I
-             
-
-            // where d = distance to the wall of the domain (h/2)
-
-            // if Dirichlet: u_I  = boundary condition(evaluated @ I)
+            // We need to define a polynomial of degree 3 that passes by the 4 points c3, c2, c1 and the boundary point.
+            // This polynomial writes 
+            //                       p(x) = a*x^2 + b*x^2 + c*x + d.
+            // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 point into the polynomial.
+            // If we set the abscissa 0 at the center of c1, this system reads
+            //                       p(  0) = u1
+            //                       p( -h) = u2
+            //                       p(-2h) = u3
+            //                       p(h/2) = dirichlet_value.
+            // Then, we want that the ghost values be also located on this polynomial, i.e.
+            //                       u_g1 = p( -h)
+            //                       u_g2 = p(-2h).
+            // This gives
+            //                       u_g1 =  -3 * u1 +      u2 -1/5 * u3 + 16/5 * dirichlet_value
+            //                       u_g2 = -18 * u1 + 8  * u2 -9/5 * u3 + 64/5 * dirichlet_value 
             
-            // if Neumann  : u'_I = boundary condition(evaluated @ I)
-
-            // order 3
-            // MatSetValue(A, ghost1_index, ghost1_index,  3./2., INSERT_VALUES);
-            // MatSetValue(A, ghost1_index, cell1_index , -1./2., INSERT_VALUES);
-
-            MatSetValue(A, ghost1_index, ghost1_index, 0.5, INSERT_VALUES);
-            MatSetValue(A, ghost1_index, cell1_index , 0.5, INSERT_VALUES);
-
-
-            //MatSetValue(A, ghost1_index, ghost1_index,  3./8., INSERT_VALUES);
-            //MatSetValue(A, ghost1_index, cell1_index,   3./4, INSERT_VALUES);
-            //MatSetValue(A, ghost1_index, cell2_index , -1./8., INSERT_VALUES);
-
-            // MatSetValue(A, ghost1_index, ghost2_index,  -1./48., INSERT_VALUES);
-            // MatSetValue(A, ghost1_index, ghost1_index,  -7./16., INSERT_VALUES);
-            // MatSetValue(A, ghost1_index, cell1_index,   11./16, INSERT_VALUES);
-            // MatSetValue(A, ghost1_index, cell2_index , -5./48., INSERT_VALUES);
-
+            MatSetValue(A, ghost1_index, ghost1_index, -1.,   INSERT_VALUES);
+            MatSetValue(A, ghost1_index, cell1_index,  -3.,   INSERT_VALUES);
+            MatSetValue(A, ghost1_index, cell2_index ,  1.,   INSERT_VALUES);
+            MatSetValue(A, ghost1_index, cell3_index , -1./5, INSERT_VALUES);
             this->m_is_row_empty[ghost1.index] = false;
 
-// u_G2 = u_I - d * u'_I + d^2/2 * u''_I 
-// d = 3/2h 
-// u'_I  = (u1-ug2)/(2h) + O(h^2)
-// u''_I = (u1-2u0+ug1)/(2h) + O(h^2)
-// this one sums to one
-            // MatSetValue(A, ghost2_index, ghost2_index,  7./4., INSERT_VALUES);
-            // MatSetValue(A, ghost2_index, ghost1_index,  -9./8, INSERT_VALUES);
-            // MatSetValue(A, ghost2_index, cell1_index ,   9./4, INSERT_VALUES);
-            // MatSetValue(A, ghost2_index, cell2_index ,   -15./8, INSERT_VALUES);
-            //MatSetValue(A, ghost2_index, ghost2_index,  1, INSERT_VALUES);
-            //MatSetValue(A, ghost2_index, cell2_index ,  -1, INSERT_VALUES);
-            
-            // MatSetValue(A, ghost2_index, ghost2_index,  1., INSERT_VALUES);
-            // MatSetValue(A, ghost2_index, ghost1_index,  -3./2, INSERT_VALUES);
-            // MatSetValue(A, ghost2_index, cell1_index ,  3./2, INSERT_VALUES);
-
-
-            // MatSetValue(A, ghost2_index, ghost2_index,  21./48., INSERT_VALUES);
-            // MatSetValue(A, ghost2_index, ghost1_index,  -15./16., INSERT_VALUES);
-            // MatSetValue(A, ghost2_index, cell1_index,   33./16, INSERT_VALUES);
-            // MatSetValue(A, ghost2_index, cell2_index , -27./48., INSERT_VALUES);
-
-
-
-            MatSetValue(A, ghost2_index, ghost2_index, 0.5, INSERT_VALUES);
-            MatSetValue(A, ghost2_index, cell2_index , 0.5, INSERT_VALUES);
-
+            MatSetValue(A, ghost2_index, ghost2_index,  -1.,   INSERT_VALUES);
+            MatSetValue(A, ghost2_index, cell1_index,  -18.,   INSERT_VALUES);
+            MatSetValue(A, ghost2_index, cell2_index ,   8.,   INSERT_VALUES);
+            MatSetValue(A, ghost2_index, cell3_index ,  -9./5, INSERT_VALUES);
             this->m_is_row_empty[ghost2.index] = false;
         });
     }
@@ -271,7 +243,8 @@ int main(int argc, char *argv[])
             { 
                 const auto& x = coord[0];
                 const auto& y = coord[1];
-                return 2 * (y*(1 - y) + x * (1 - x));
+                //return 2 * (y*(1 - y) + x * (1 - x));
+                return 2 * pow(4 * M_PI, 2) * sin(4 * M_PI * x)*sin(4 * M_PI * y);
             }, 0);
     auto u = samurai::make_field<double, 1>("u", mesh);
     u.fill(0);
@@ -287,7 +260,8 @@ int main(int argc, char *argv[])
             {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
-                return x * (1 - x) * y*(1 - y);
+                //return x * (1 - x) * y*(1 - y);
+                return sin(4 * M_PI * x)*sin(4 * M_PI * y);
             });
     std::cout.precision(2);
     std::cout << "L2-error: " << std::scientific << error << std::endl;
