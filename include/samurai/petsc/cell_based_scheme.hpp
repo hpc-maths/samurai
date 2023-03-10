@@ -86,7 +86,6 @@ namespace samurai
             stencil_t m_stencil;
             GetCoefficientsFunc m_get_coefficients;
             const std::vector<boundary_condition_t>& m_boundary_conditions;
-            bool m_add_1_on_diag_for_useless_ghosts = true;
             std::vector<bool> m_is_row_empty;
         public:
             CellBasedScheme(Field& unknown, stencil_t s, GetCoefficientsFunc get_coeffs) :
@@ -128,11 +127,6 @@ namespace samurai
             PetscInt matrix_cols() const override
             {
                 return static_cast<PetscInt>(m_n_cells * field_size);
-            }
-
-            void add_1_on_diag_for_useless_ghosts_if(bool value)
-            {
-                m_add_1_on_diag_for_useless_ghosts = value;
             }
 
         private:
@@ -626,27 +620,34 @@ namespace samurai
                     MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                 }
+            }
 
-
-                // Add 1 on the diagonal for the unused outside ghosts
-                if (m_add_1_on_diag_for_useless_ghosts)
+            void add_1_on_diag_for_useless_ghosts(Mat& A) override
+            {
+                /*for_each_outside_ghost(m_mesh, [&](const auto& ghost)
                 {
-                    for_each_outside_ghost(m_mesh, [&](const auto& ghost)
+                    for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                     {
-                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                        auto ghost_row = static_cast<PetscInt>(row_index(ghost, field_i));
+                        if (m_is_row_empty[static_cast<std::size_t>(ghost_row)])
                         {
-                            auto ghost_row = static_cast<PetscInt>(row_index(ghost, field_i));
-                            if (m_is_row_empty[static_cast<std::size_t>(ghost_row)])
-                            {
-                            //for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                            //{
-                            // auto ghost_col = static_cast<PetscInt>(row_index(ghost, field_j));
-                                MatSetValue(A, ghost_row, ghost_row, 1, INSERT_VALUES);
-                                m_is_row_empty[static_cast<std::size_t>(ghost_row)] = false;
-                            //}
-                            }
+                        //for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                        //{
+                        // auto ghost_col = static_cast<PetscInt>(row_index(ghost, field_j));
+                            MatSetValue(A, ghost_row, ghost_row, 1, INSERT_VALUES);
+                            m_is_row_empty[static_cast<std::size_t>(ghost_row)] = false;
+                        //}
                         }
-                    });
+                    }
+                });*/
+
+                for (std::size_t i = 0; i<m_is_row_empty.size(); i++)
+                {
+                    if (m_is_row_empty[i])
+                    {
+                        MatSetValue(A, i, i, 1, INSERT_VALUES);
+                        m_is_row_empty[i] = false;
+                    }
                 }
             }
 
@@ -741,7 +742,7 @@ namespace samurai
 
 
         private:
-            void assemble_projection(Mat& A) const override
+            void assemble_projection(Mat& A) override
             {
                 static constexpr PetscInt number_of_children = (1 << dim);
 
@@ -756,11 +757,12 @@ namespace samurai
                         {
                             MatSetValue(A, ghost_index, col_index(children[i], field_i), -1./number_of_children, INSERT_VALUES);
                         }
+                        m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
                     }
                 });
             }
 
-            void assemble_prediction(Mat& A) const override
+            void assemble_prediction(Mat& A) override
             {
                 static_assert(dim >= 1 && dim <= 3, "assemble_prediction() is not implemented for this dimension.");
                 if constexpr (dim == 1)
@@ -777,7 +779,7 @@ namespace samurai
                 }
             }
 
-            void assemble_prediction_1D(Mat& A) const
+            void assemble_prediction_1D(Mat& A)
             {
                 std::array<double, 3> pred{{1./8, 0, -1./8}};
                 for_each_prediction_ghost(m_mesh, [&](auto& ghost)
@@ -796,6 +798,7 @@ namespace samurai
                         MatSetValue(A, ghost_index, parent_index,                -1, INSERT_VALUES);
                         MatSetValue(A, ghost_index, parent_left,  -sign_i * pred[0], INSERT_VALUES);
                         MatSetValue(A, ghost_index, parent_right, -sign_i * pred[2], INSERT_VALUES);
+                        m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
                     }
                 });
 
@@ -833,7 +836,7 @@ namespace samurai
                 }*/
             }
 
-            void assemble_prediction_2D(Mat& A) const
+            void assemble_prediction_2D(Mat& A)
             {
                 std::array<double, 3> pred{{1./8, 0, -1./8}};
                 for_each_prediction_ghost(m_mesh, [&](auto& ghost)
@@ -867,6 +870,7 @@ namespace samurai
                         MatSetValue(A, ghost_index, parent_bottom_right, sign_i * sign_j * pred[2] * pred[0], INSERT_VALUES); // sign_i*sign_j * -1/64
                         MatSetValue(A, ghost_index, parent_top_left    , sign_i * sign_j * pred[0] * pred[2], INSERT_VALUES); // sign_i*sign_j * -1/64
                         MatSetValue(A, ghost_index, parent_top_right   , sign_i * sign_j * pred[2] * pred[2], INSERT_VALUES); // sign_i*sign_j *  1/64
+                        m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
                     }
                 });
 
@@ -925,7 +929,7 @@ namespace samurai
                 }*/
             }
 
-            void assemble_prediction_3D(Mat&) const
+            void assemble_prediction_3D(Mat&)
             {
                 for_each_prediction_ghost(m_mesh, [&](auto&)
                 {

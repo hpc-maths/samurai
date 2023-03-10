@@ -75,12 +75,13 @@ namespace samurai
             {
                 m_operator.enforce_projection_prediction(b);
             }
-            
+
         private:
             void assemble_scheme_on_uniform_grid(Mat&) override {}
             void assemble_boundary_conditions(Mat&) override {}
-            void assemble_projection(Mat&) const override {}
-            void assemble_prediction(Mat&) const override {}
+            void assemble_projection(Mat&) override {}
+            void assemble_prediction(Mat&) override {}
+            void add_1_on_diag_for_useless_ghosts(Mat&) override {}
         };
 
         

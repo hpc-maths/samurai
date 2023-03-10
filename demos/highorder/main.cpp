@@ -176,31 +176,6 @@ public:
 
             this->m_is_row_empty[ghost2.index] = false;
         });
-
-
-        // Add 1 on the diagonal for the unused outside ghosts
-        if (this->m_add_1_on_diag_for_useless_ghosts)
-        {
-            samurai::for_each_outside_ghost(this->m_mesh, [&](const auto& ghost)
-            {
-                auto ghost_row = static_cast<PetscInt>(ghost.index);
-                if (this->m_is_row_empty[static_cast<std::size_t>(ghost_row)])
-                {
-                    MatSetValue(A, ghost_row, ghost_row, 1, INSERT_VALUES);
-                    this->m_is_row_empty[static_cast<std::size_t>(ghost_row)] = false;
-                }
-            });
-
-            // For some reason, there might be unused inside ghosts
-            for (std::size_t i = 0; i<this->m_is_row_empty.size(); i++)
-            {
-                if (this->m_is_row_empty[i])
-                {
-                    MatSetValue(A, i, i, 1, INSERT_VALUES);
-                    this->m_is_row_empty[i] = false;
-                }
-            }
-        }
     }
 
     void enforce_bc(Vec& b) const override

@@ -10,6 +10,7 @@ namespace samurai
         private:
             bool m_include_bc = true;
             bool m_assemble_proj_pred = true;
+            bool m_add_1_on_diag_for_useless_ghosts = true;
 
         public:
             bool include_bc() const
@@ -28,6 +29,11 @@ namespace samurai
             void assemble_proj_pred_if(bool assemble)
             {
                 m_assemble_proj_pred = assemble;
+            }
+
+            void add_1_on_diag_for_useless_ghosts_if(bool value)
+            {
+                m_add_1_on_diag_for_useless_ghosts = value;
             }
 
             /**
@@ -60,6 +66,10 @@ namespace samurai
                 {
                     assemble_projection(A);
                     assemble_prediction(A);
+                }
+                if (m_add_1_on_diag_for_useless_ghosts)
+                {
+                    add_1_on_diag_for_useless_ghosts(A);
                 }
 
                 PetscBool is_spd = matrix_is_spd() ? PETSC_TRUE : PETSC_FALSE;
@@ -107,12 +117,14 @@ namespace samurai
             /**
              * @brief Inserts the coefficients corresponding to the projection operator into the matrix.
             */
-            virtual void assemble_projection(Mat& A) const = 0;
+            virtual void assemble_projection(Mat& A) = 0;
 
             /**
              * @brief Inserts the coefficients corresponding the prediction operator into the matrix.
             */
-            virtual void assemble_prediction(Mat& A) const = 0;
+            virtual void assemble_prediction(Mat& A) = 0;
+
+            virtual void add_1_on_diag_for_useless_ghosts(Mat& A) = 0;
         };
 
 
