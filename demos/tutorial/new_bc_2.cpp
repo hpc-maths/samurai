@@ -22,7 +22,7 @@ struct BcValue
     BcValue(){}
     virtual ~BcValue() = default;
 
-    virtual value_t& apply(const coords_t&) = 0;
+    virtual value_t& get_value(const coords_t&) = 0;
     virtual BcValue* clone() const = 0;
 };
 
@@ -44,7 +44,7 @@ struct ConstantBc: public BcValue<dim, T, size>
 
     virtual ~ConstantBc() = default;
 
-    inline value_t& apply(const coords_t&) override
+    inline value_t& get_value(const coords_t&) override
     {
         std::cout << "constant" << std::endl;
         return m_v;
@@ -72,7 +72,7 @@ struct FunctionBc: public BcValue<dim, T, size>
 
     virtual ~FunctionBc() = default;
 
-    inline value_t& apply(const coords_t& coords) override
+    inline value_t& get_value(const coords_t& coords) override
     {
         std::cout << "function" << std::endl;
 
@@ -97,7 +97,7 @@ struct BcRegion
     BcRegion(){}
     virtual ~BcRegion() = default;
 
-    virtual const samurai::LevelCellArray<dim> apply(const samurai::LevelCellArray<dim>&) const = 0;
+    virtual const samurai::LevelCellArray<dim> get_region(const samurai::LevelCellArray<dim>&) const = 0;
     virtual BcRegion* clone() const = 0;
 };
 
@@ -106,7 +106,7 @@ struct Everywhere: public BcRegion<dim>
 {
     Everywhere(){}
 
-    const samurai::LevelCellArray<dim> apply(const samurai::LevelCellArray<dim>& mesh) const override
+    const samurai::LevelCellArray<dim> get_region(const samurai::LevelCellArray<dim>& mesh) const override
     {
         return samurai::difference(mesh, samurai::contraction(mesh));
     }
@@ -130,7 +130,7 @@ struct CoordsRegion: public BcRegion<dim>
         return new CoordsRegion(m_func);
     }
 
-    const samurai::LevelCellArray<dim> apply(const samurai::LevelCellArray<dim>& mesh) const override
+    const samurai::LevelCellArray<dim> get_region(const samurai::LevelCellArray<dim>& mesh) const override
     {
         samurai::LevelCellList<dim> lcl{mesh.level()};
         auto set = samurai::difference(mesh, samurai::contraction(mesh));
@@ -166,7 +166,7 @@ struct SetRegion: public BcRegion<dim>
         return new SetRegion(m_set);
     }
 
-    const samurai::LevelCellArray<dim> apply(const samurai::LevelCellArray<dim>& mesh) const override
+    const samurai::LevelCellArray<dim> get_region(const samurai::LevelCellArray<dim>& mesh) const override
     {
         return samurai::intersection(mesh, m_set);
     }
@@ -222,7 +222,7 @@ struct Bc
 
     auto get_lca(const samurai::LevelCellArray<dim>& mesh)
     {
-        return p_bcregion->apply(mesh);
+        return p_bcregion->get_region(mesh);
     }
 
     std::unique_ptr<BcValue<dim, T, size>> p_bcvalue;
@@ -288,21 +288,8 @@ void apply(const Neumann<dim, T, size>& neumann, Field& field)
     std::cout << neumann.p_bcvalue->apply({1, 2})[0] << std::endl;
 }
 
-template<template<std::size_t, class, std::size_t> class bc_type, class Field, class... T>
-auto make_bc(Field& field, T... v)
-{
-    using value_t = typename Field::value_type;
-    constexpr std::size_t dim = Field::dim;
-    constexpr std::size_t size = Field::size;
-
-    static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<T...>>, "The constant value type must be the same as the field value_type");
-    static_assert(Field::size == sizeof...(T), "The number of constant values should be equal to the number of element in the field");
-
-    return field.attach(bc_type<dim, value_t, size>(ConstantBc<dim, value_t, size>(v...)));
-}
-
-template<template<std::size_t, class, std::size_t> class bc_type, class Field, class Func>
-auto make_bc_func(Field& field, Func&& func)
+template<template<std::size_t, class, std::size_t> class bc_type, class Field>
+auto make_bc(Field& field, const std::function<xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::size>>(const xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::dim>>&)>& func)
 {
     using value_t = typename Field::value_type;
     constexpr std::size_t dim = Field::dim;
@@ -311,7 +298,20 @@ auto make_bc_func(Field& field, Func&& func)
     // static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<T...>>, "The constant value type must be the same as the field value_type");
     // static_assert(Field::size == sizeof...(T), "The number of constant values should be equal to the number of element in the field");
 
-    return field.attach(bc_type<dim, value_t, size>(FunctionBc<dim, value_t, size>(std::forward<Func>(func))));
+    return field.attach(bc_type<dim, value_t, size>(FunctionBc<dim, value_t, size>(func)));
+}
+
+template<template<std::size_t, class, std::size_t> class bc_type, class Field, class... T>
+auto make_bc(Field& field, typename Field::value_type v1, T... v)
+{
+    using value_t = typename Field::value_type;
+    constexpr std::size_t dim = Field::dim;
+    constexpr std::size_t size = Field::size;
+
+    static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<typename Field::value_type, T...>>, "The constant value type must be the same as the field value_type");
+    static_assert(Field::size == sizeof...(T) + 1, "The number of constant values should be equal to the number of element in the field");
+
+    return field.attach(bc_type<dim, value_t, size>(ConstantBc<dim, value_t, size>(v1, v...)));
 }
 
 int main()
@@ -335,10 +335,10 @@ int main()
 
     std::cout << u.p_bc.back().get()->get_lca(u.mesh()) << std::endl;
 
-    make_bc_func<Dirichlet>(u, [](auto& coords)
+    make_bc<Dirichlet>(u, [](auto& coords)
     {
-        return 1;
-        // return xt::xtensor_fixed<double, xt::xshape<1>>(1);
+        // return 1;
+        return xt::xtensor_fixed<double, xt::xshape<1>>(1);
     });
 
     // Field<2, double, 3> f;
