@@ -9,7 +9,10 @@
 
 #include <samurai/level_cell_array.hpp>
 #include <samurai/subset/subset_op.hpp>
+#include <samurai/uniform_mesh.hpp>
+#include <samurai/mr/mesh.hpp>
 #include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
 
 namespace detail
 {
@@ -305,6 +308,28 @@ void apply(const Neumann<dim, T, size>& neumann, Field& field)
     std::cout << neumann.p_bcvalue->apply({1, 2})[0] << std::endl;
 }
 
+namespace detail
+{
+    template<std::size_t dim, class TInterval>
+    decltype(auto) get_mesh(const samurai::LevelCellArray<dim, TInterval>& mesh)
+    {
+        return mesh;
+    }
+
+    template<class D, class Config>
+    decltype(auto) get_mesh(const samurai::Mesh_base<D, Config>& mesh)
+    {
+        return mesh.domain();
+    }
+
+    template<class Config>
+    decltype(auto) get_mesh(const samurai::UniformMesh<Config>& mesh)
+    {
+        using mesh_id_t = typename Config::mesh_id_t;
+        return mesh[mesh_id_t::cells];
+    }
+}
+
 template<template<std::size_t, class, std::size_t> class bc_type, class Field>
 auto make_bc(Field& field, const std::function<detail::return_type_t<typename Field::value_type, Field::size>(const xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::dim>>&)>& func)
 {
@@ -312,7 +337,8 @@ auto make_bc(Field& field, const std::function<detail::return_type_t<typename Fi
     constexpr std::size_t dim = Field::dim;
     constexpr std::size_t size = Field::size;
 
-    return field.attach(bc_type<dim, value_t, size>(field.mesh(), FunctionBc<dim, value_t, size>(func)));
+    auto& mesh = detail::get_mesh(field.mesh());
+    return field.attach(bc_type<dim, value_t, size>(mesh, FunctionBc<dim, value_t, size>(func)));
 }
 
 template<template<std::size_t, class, std::size_t> class bc_type, class Field, class... T>
@@ -325,16 +351,25 @@ auto make_bc(Field& field, typename Field::value_type v1, T... v)
     static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<typename Field::value_type, T...>>, "The constant value type must be the same as the field value_type");
     static_assert(Field::size == sizeof...(T) + 1, "The number of constant values should be equal to the number of element in the field");
 
-    return field.attach(bc_type<dim, value_t, size>(field.mesh(), ConstantBc<dim, value_t, size>(v1, v...)));
+    auto& mesh = detail::get_mesh(field.mesh());
+    return field.attach(bc_type<dim, value_t, size>(mesh, ConstantBc<dim, value_t, size>(v1, v...)));
 }
 
 int main()
 {
     constexpr std::size_t dim = 2;
-    samurai::Box<double, dim> box = {{0, 0}, {1, 1}};
-    samurai::LevelCellArray<dim> lca = {2, box};
+    std::size_t start_level = 4;
+    samurai::Box<double, dim> box = {{0, 0, 0}, {1, 1, 1}};
 
-    auto u = ::make_field<double, 1>("u", lca);
+    // samurai::LevelCellArray<dim> mesh = {start_level, box};
+
+    // using Config = samurai::UniformConfig<dim>;
+    // samurai::UniformMesh<Config> mesh = {box, start_level};
+
+    using Config = samurai::MRConfig<dim>;
+    samurai::MRMesh<Config> mesh(box, start_level, start_level);
+
+    auto u = ::make_field<double, 1>("u", mesh);
 
     auto bc = make_bc<Dirichlet>(u, 1.);
     bc.on([](auto& coords)
@@ -346,6 +381,8 @@ int main()
 
     bc.on(Everywhere<dim>());
     std::cout << bc.get_lca() << std::endl;
+    samurai::save("domain",  u.mesh().domain());
+    samurai::save("boundary",  bc.get_lca());
 
     std::cout << u.p_bc.back().get()->get_lca() << std::endl;
 
@@ -356,36 +393,15 @@ int main()
     });
 
 
-    auto uvec = ::make_field<double, 4>("u", lca);
+    auto uvec = ::make_field<double, 4>("u", mesh);
 
     make_bc<Dirichlet>(uvec, 1., 2., 3., 0.);
     auto bcn = make_bc<Neumann>(uvec, [](auto& coords)
     {
         return xt::ones<double>({4});
-    }).on(samurai::difference(lca, samurai::translate(lca, xt::xtensor_fixed<int, xt::xshape<1>>{1})));
+    });
+    // .on(samurai::difference(mesh, samurai::translate(mesh, xt::xtensor_fixed<int, xt::xshape<1>>{1})));
     std::cout << bcn.get_lca() << std::endl;
-
-    // Field<2, double, 3> f;
-    // Dirichlet<2, double, 3> dirichlet(ConstantBc<2, double, 3>{4});
-    // dirichlet.on([](auto& coords)
-    // {
-    //     return (coords[0] >= .25 && coords[0] <= .75);
-    // });
-
-    // // Neumann<2, double, 3> neumann(ConstantBc<2, double, 3>{4});
-    // Neumann<2, double, 3> neumann(FunctionBc<2, double, 3>([](auto& coords) -> std::array<double, 3>
-    // {
-    //     return {coords[0], 2*coords[1], 3*coords[0]*coords[1]};
-    // }));
-    // neumann.on(samurai::difference(lca, samurai::translate(lca, xt::xtensor_fixed<int, xt::xshape<1>>{1})));
-    // f.attach(neumann);
-
-    // std::cout << "lca" << std::endl;
-    // std::cout << lca << std::endl;
-    // std::cout << "dirichlet" << std::endl;
-    // std::cout << dirichlet.get_lca(lca) << std::endl;
-    // std::cout << "neumann" << std::endl;
-    // std::cout << neumann.get_lca(lca) << std::endl;
 
     // Robin<2, double, 3> robin(ConstantBc<2, double, 3>{4});
     // f.attach(robin);
