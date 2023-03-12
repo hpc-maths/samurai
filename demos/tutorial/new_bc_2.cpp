@@ -11,12 +11,30 @@
 #include <samurai/subset/subset_op.hpp>
 #include <samurai/field.hpp>
 
+namespace detail
+{
+    template<class T, std::size_t size>
+    struct return_type
+    {
+        using type = xt::xtensor_fixed<T, xt::xshape<size>>;
+    };
+
+    template<class T>
+    struct return_type<T, 1>
+    {
+        using type = T;
+    };
+
+    template<class T, std::size_t size>
+    using return_type_t = typename return_type<T, size>::type;
+}
+
 // BcValue
 /////////////////////////////////////////////////////////////////////////////////////////
 template<std::size_t dim, class T, std::size_t size>
 struct BcValue
 {
-    using value_t = xt::xtensor_fixed<T, xt::xshape<size>>;
+    using value_t = detail::return_type_t<T, size>;
     using coords_t = xt::xtensor_fixed<T, xt::xshape<dim>>;
 
     BcValue(){}
@@ -33,14 +51,11 @@ struct ConstantBc: public BcValue<dim, T, size>
     using value_t = typename base_t::value_t;
     using coords_t = typename base_t::coords_t;
 
-    ConstantBc(T v)
+    template<class... CT>
+    ConstantBc(const CT... v)
     {
-        m_v.fill(v);
+        m_v = {v...};
     }
-
-    ConstantBc(const value_t& v)
-    : m_v(v)
-    {}
 
     virtual ~ConstantBc() = default;
 
@@ -200,8 +215,8 @@ struct Bc
     virtual ~Bc() = default;
 
     template<class Bcvalue>
-    Bc(const Bcvalue& bcv)
-
+    Bc(const samurai::LevelCellArray<dim>& mesh, const Bcvalue& bcv)
+    : m_mesh(mesh)
     {
         p_bcvalue = std::make_unique<Bcvalue>(bcv);
         p_bcregion = std::make_unique<Everywhere<dim>>();
@@ -210,6 +225,7 @@ struct Bc
     Bc(const Bc& bc)
     : p_bcvalue(bc.p_bcvalue->clone())
     , p_bcregion(bc.p_bcregion->clone())
+    , m_mesh(bc.m_mesh)
     {
     }
 
@@ -220,13 +236,14 @@ struct Bc
         return *this;
     }
 
-    auto get_lca(const samurai::LevelCellArray<dim>& mesh)
+    auto get_lca()
     {
-        return p_bcregion->get_region(mesh);
+        return p_bcregion->get_region(m_mesh);
     }
 
     std::unique_ptr<BcValue<dim, T, size>> p_bcvalue;
     std::unique_ptr<BcRegion<dim>> p_bcregion;
+    const samurai::LevelCellArray<dim>& m_mesh;
 };
 
 
@@ -289,16 +306,13 @@ void apply(const Neumann<dim, T, size>& neumann, Field& field)
 }
 
 template<template<std::size_t, class, std::size_t> class bc_type, class Field>
-auto make_bc(Field& field, const std::function<xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::size>>(const xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::dim>>&)>& func)
+auto make_bc(Field& field, const std::function<detail::return_type_t<typename Field::value_type, Field::size>(const xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::dim>>&)>& func)
 {
     using value_t = typename Field::value_type;
     constexpr std::size_t dim = Field::dim;
     constexpr std::size_t size = Field::size;
 
-    // static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<T...>>, "The constant value type must be the same as the field value_type");
-    // static_assert(Field::size == sizeof...(T), "The number of constant values should be equal to the number of element in the field");
-
-    return field.attach(bc_type<dim, value_t, size>(FunctionBc<dim, value_t, size>(func)));
+    return field.attach(bc_type<dim, value_t, size>(field.mesh(), FunctionBc<dim, value_t, size>(func)));
 }
 
 template<template<std::size_t, class, std::size_t> class bc_type, class Field, class... T>
@@ -311,7 +325,7 @@ auto make_bc(Field& field, typename Field::value_type v1, T... v)
     static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<typename Field::value_type, T...>>, "The constant value type must be the same as the field value_type");
     static_assert(Field::size == sizeof...(T) + 1, "The number of constant values should be equal to the number of element in the field");
 
-    return field.attach(bc_type<dim, value_t, size>(ConstantBc<dim, value_t, size>(v1, v...)));
+    return field.attach(bc_type<dim, value_t, size>(field.mesh(), ConstantBc<dim, value_t, size>(v1, v...)));
 }
 
 int main()
@@ -328,18 +342,28 @@ int main()
         return (coords[0] >= .25 && coords[0] <= .75);
     });
 
-    std::cout << bc.get_lca(u.mesh()) << std::endl;
+    std::cout << bc.get_lca() << std::endl;
 
     bc.on(Everywhere<dim>());
-    std::cout << bc.get_lca(u.mesh()) << std::endl;
+    std::cout << bc.get_lca() << std::endl;
 
-    std::cout << u.p_bc.back().get()->get_lca(u.mesh()) << std::endl;
+    std::cout << u.p_bc.back().get()->get_lca() << std::endl;
 
     make_bc<Dirichlet>(u, [](auto& coords)
     {
-        // return 1;
-        return xt::xtensor_fixed<double, xt::xshape<1>>(1);
+        return 1;
+        // return xt::xtensor_fixed<double, xt::xshape<1>>(1);
     });
+
+
+    auto uvec = ::make_field<double, 4>("u", lca);
+
+    make_bc<Dirichlet>(uvec, 1., 2., 3., 0.);
+    auto bcn = make_bc<Neumann>(uvec, [](auto& coords)
+    {
+        return xt::ones<double>({4});
+    }).on(samurai::difference(lca, samurai::translate(lca, xt::xtensor_fixed<int, xt::xshape<1>>{1})));
+    std::cout << bcn.get_lca() << std::endl;
 
     // Field<2, double, 3> f;
     // Dirichlet<2, double, 3> dirichlet(ConstantBc<2, double, 3>{4});
