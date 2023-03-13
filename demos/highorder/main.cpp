@@ -159,48 +159,49 @@ public:
             //                       u_g1 = p( -h)
             //                       u_g2 = p(-2h).
             // This gives
-            //                       u_g1 =  -3 * u1 +      u2 -1/5 * u3 + 16/5 * dirichlet_value
-            //                       u_g2 = -18 * u1 + 8  * u2 -9/5 * u3 + 64/5 * dirichlet_value 
+            //             5/16 * u_g1  +  15/16 * u1  -5/16 * u2  +  1/16 * u3 = dirichlet_value
+            //             5/64 * u_g2  +  45/32 * u1  -5/8  * u2  +  9/64 * u3 = dirichlet_value 
             
-            MatSetValue(A, ghost1_index, ghost1_index, -1.,   INSERT_VALUES);
-            MatSetValue(A, ghost1_index, cell1_index,  -3.,   INSERT_VALUES);
-            MatSetValue(A, ghost1_index, cell2_index ,  1.,   INSERT_VALUES);
-            MatSetValue(A, ghost1_index, cell3_index , -1./5, INSERT_VALUES);
-            this->m_is_row_empty[ghost1.index] = false;
+            MatSetValue(A, ghost1_index, ghost1_index,  5./16, INSERT_VALUES);
+            MatSetValue(A, ghost1_index, cell1_index,  15./16, INSERT_VALUES);
+            MatSetValue(A, ghost1_index, cell2_index , -5./16, INSERT_VALUES);
+            MatSetValue(A, ghost1_index, cell3_index ,  1./16, INSERT_VALUES);
 
-            MatSetValue(A, ghost2_index, ghost2_index,  -1.,   INSERT_VALUES);
-            MatSetValue(A, ghost2_index, cell1_index,  -18.,   INSERT_VALUES);
-            MatSetValue(A, ghost2_index, cell2_index ,   8.,   INSERT_VALUES);
-            MatSetValue(A, ghost2_index, cell3_index ,  -9./5, INSERT_VALUES);
+            MatSetValue(A, ghost2_index, ghost2_index,  5./64, INSERT_VALUES);
+            MatSetValue(A, ghost2_index, cell1_index,  45./32, INSERT_VALUES);
+            MatSetValue(A, ghost2_index, cell2_index , -5./8 , INSERT_VALUES);
+            MatSetValue(A, ghost2_index, cell3_index ,  9./64, INSERT_VALUES);
+
+            this->m_is_row_empty[ghost1.index] = false;
             this->m_is_row_empty[ghost2.index] = false;
+
         });
     }
 
     void enforce_bc(Vec& b) const override
     {
         std::array<samurai::StencilVector<dim>, 4> bdry_directions;
-        std::array<samurai::Stencil<4, dim>   , 4> bdry_stencils;
+        std::array<samurai::Stencil<3, dim>   , 4> bdry_stencils;
 
         // Left boundary
         bdry_directions[0] = {-1, 0};
-        bdry_stencils[0] = {{0, 0}, {1, 0}, {-1, 0}, {-2, 0}};
+        bdry_stencils[0] = {{0, 0}, {-1, 0}, {-2, 0}};
         // Top boundary
         bdry_directions[1] = {0, 1};
-        bdry_stencils[1] = {{0, 0}, {0, -1}, {0, 1}, {0, 2}};
+        bdry_stencils[1] = {{0, 0}, {0, 1}, {0, 2}};
         // Right boundary
         bdry_directions[2] = {1, 0};
-        bdry_stencils[2] = {{0, 0}, {-1, 0}, {1, 0}, {2, 0}};
+        bdry_stencils[2] = {{0, 0}, {1, 0}, {2, 0}};
         // Bottom boundary
         bdry_directions[3] = {0, -1};
-        bdry_stencils[3] = {{0, 0}, {0, 1}, {0, -1}, {0, -2}};
+        bdry_stencils[3] = {{0, 0}, {0, -1}, {0, -2}};
 
         samurai::for_each_stencil_on_boundary(this->m_mesh, bdry_directions, bdry_stencils,
         [&](const auto& cells, const auto& towards_ghost)
         {
             auto& cell1  = cells[0];
-            //auto& cell2  = cells[1];
-            auto& ghost1 = cells[2];
-            auto& ghost2 = cells[3];
+            auto& ghost1 = cells[1];
+            auto& ghost2 = cells[2];
 
             PetscInt ghost1_index = static_cast<PetscInt>(ghost1.index);
             PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
@@ -208,7 +209,7 @@ public:
             auto boundary_point = cell1.face_center(towards_ghost);
             auto bc = samurai::find(this->m_boundary_conditions, boundary_point);
             double dirichlet_value = bc.get_value(boundary_point);
-            
+
             VecSetValue(b, ghost1_index, dirichlet_value, ADD_VALUES);
             VecSetValue(b, ghost2_index, dirichlet_value, ADD_VALUES);
         });
@@ -321,37 +322,37 @@ int main(int argc, char *argv[])
     PetscInitialize(&argc, &argv, 0, nullptr);
     PetscOptionsSetValue(NULL, "-options_left", "off");
 
-    auto adapt_field = samurai::make_field<double, 1>("adapt_field", mesh, [](const auto& coord) 
-            { 
-                const auto& x = coord[0];
-                const auto& y = coord[1];
-                double radius = 0.1;
-                if ((x -0.5)*(x-0.5) + (y -0.5)*(y-0.5) < radius*radius)
-                {
-                    return 1;
-                }
-                else
-                {
-                    return 0;
-                }
-            }, 0);
+    // auto adapt_field = samurai::make_field<double, 1>("adapt_field", mesh, [](const auto& coord) 
+    //         { 
+    //             const auto& x = coord[0];
+    //             const auto& y = coord[1];
+    //             double radius = 0.1;
+    //             if ((x -0.5)*(x-0.5) + (y -0.5)*(y-0.5) < radius*radius)
+    //             {
+    //                 return 1;
+    //             }
+    //             else
+    //             {
+    //                 return 0;
+    //             }
+    //         }, 0);
 
     
-    std::array<samurai::StencilVector<dim>, 4> bdry_directions;
-    std::array<samurai::Stencil<5, dim>   , 4> bdry_stencils;
+    // std::array<samurai::StencilVector<dim>, 4> bdry_directions;
+    // std::array<samurai::Stencil<5, dim>   , 4> bdry_stencils;
 
-    // Left boundary
-    bdry_directions[0] = {-1, 0};
-    bdry_stencils[0] = {{0, 0}, {1, 0}, {2, 0}, {-1, 0}, {-2, 0}};
-    // Top boundary
-    bdry_directions[1] = {0, 1};
-    bdry_stencils[1] = {{0, 0}, {0, -1}, {0, -2}, {0, 1}, {0, 2}};
-    // Right boundary
-    bdry_directions[2] = {1, 0};
-    bdry_stencils[2] = {{0, 0}, {-1, 0}, {-2, 0}, {1, 0}, {2, 0}};
-    // Bottom boundary
-    bdry_directions[3] = {0, -1};
-    bdry_stencils[3] = {{0, 0}, {0, 1}, {0, 2}, {0, -1}, {0, -2}};
+    // // Left boundary
+    // bdry_directions[0] = {-1, 0};
+    // bdry_stencils[0] = {{0, 0}, {1, 0}, {2, 0}, {-1, 0}, {-2, 0}};
+    // // Top boundary
+    // bdry_directions[1] = {0, 1};
+    // bdry_stencils[1] = {{0, 0}, {0, -1}, {0, -2}, {0, 1}, {0, 2}};
+    // // Right boundary
+    // bdry_directions[2] = {1, 0};
+    // bdry_stencils[2] = {{0, 0}, {-1, 0}, {-2, 0}, {1, 0}, {2, 0}};
+    // // Bottom boundary
+    // bdry_directions[3] = {0, -1};
+    // bdry_stencils[3] = {{0, 0}, {0, 1}, {0, 2}, {0, -1}, {0, -2}};
 
     auto update_bc = [&](auto& , std::size_t)
     {
@@ -376,22 +377,22 @@ int main(int argc, char *argv[])
     // auto MRadaptation = samurai::make_MRAdapt(adapt_field, update_bc);
     // MRadaptation(mr_epsilon, mr_regularity);
 
-    samurai::save("initial_mesh", mesh);
+    // samurai::save("initial_mesh", mesh);
 
-    for(std::size_t ite = 0; ite < refinement; ++ite)
-    {
-        cl_type cl;
-        samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
-        {
-            samurai::static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
-            {
-                auto new_index = 2*index + stencil;
-                cl[level+1][new_index].add_interval(i<<1);
-            });
-        });
-        mesh = {cl, mesh.min_level(), mesh.max_level()+1};
-    }
-    samurai::save("refine_mesh", mesh);
+    // for(std::size_t ite = 0; ite < refinement; ++ite)
+    // {
+    //     cl_type cl;
+    //     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
+    //     {
+    //         samurai::static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
+    //         {
+    //             auto new_index = 2*index + stencil;
+    //             cl[level+1][new_index].add_interval(i<<1);
+    //         });
+    //     });
+    //     mesh = {cl, mesh.min_level(), mesh.max_level()+1};
+    // }
+    // samurai::save("refine_mesh", mesh);
     
     // Equation: -Lap u = f   in [0, 1]^2
     //            f(x,y) = 2(y(1-y) + x(1-x))
@@ -399,33 +400,40 @@ int main(int argc, char *argv[])
             { 
                 const auto& x = coord[0];
                 const auto& y = coord[1];
-                return 2 * (y*(1 - y) + x * (1 - x));
-                // return 2 * pow(4 * M_PI, 2) * sin(4 * M_PI * x)*sin(4 * M_PI * y);
+                //return 2 * (y*(1 - y) + x * (1 - x));
+                //return 2 * pow(4 * M_PI, 2) * sin(4 * M_PI * x)*sin(4 * M_PI * y);
+                return (-pow(y, 4) - 2 * x*(1 + 2 * x*y*y))*exp(x*y*y);
             }, 0);
 
-    samurai::for_each_cell(mesh[mesh_id_t::reference], [&](auto& cell)
-    {
-        double x = cell.center(0);
-        double y = cell.center(1);
-        f[cell] =  2 * (y*(1 - y) + x * (1 - x));
-    });
+    // samurai::for_each_cell(mesh[mesh_id_t::reference], [&](auto& cell)
+    // {
+    //     double x = cell.center(0);
+    //     double y = cell.center(1);
+    //     f[cell] =  2 * (y*(1 - y) + x * (1 - x));
+    // });
 
-    std::size_t level = mesh.max_level();
-    auto set = samurai::intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::reference][level-1]).on(level-1);
-    set.apply_op(samurai::projection(f));
-    auto f_recons = samurai::make_field<double, 1>("f_recons", mesh);
-    auto error_f = samurai::make_field<double, 1>("error", mesh);
-    set.apply_op(samurai::prediction<prediction_order, true>(f_recons, f));
-    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
-    {
-        auto j = index[0];
-        error_f(level, i, j) = xt::abs(f(level, i, j) - f_recons(level, i, j));
-    });
-    samurai::save("test_pred", mesh, f, f_recons, error_f);
-    return 0;
+    // std::size_t level = mesh.max_level();
+    // auto set = samurai::intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::reference][level-1]).on(level-1);
+    // set.apply_op(samurai::projection(f));
+    // auto f_recons = samurai::make_field<double, 1>("f_recons", mesh);
+    // auto error_f = samurai::make_field<double, 1>("error", mesh);
+    // set.apply_op(samurai::prediction<prediction_order, true>(f_recons, f));
+    // samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, const auto& index)
+    // {
+    //     auto j = index[0];
+    //     error_f(level, i, j) = xt::abs(f(level, i, j) - f_recons(level, i, j));
+    // });
+    // samurai::save("test_pred", mesh, f, f_recons, error_f);
+    // return 0;
 
     auto u = samurai::make_field<double, 1>("u", mesh);
-    u.set_dirichlet([](const auto&) { return 0.; }).everywhere();
+    u.set_dirichlet([](const auto& coord) 
+        { 
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            //return 0.;
+            return exp(x*y*y);
+        }).everywhere();
     u.fill(0);
 
     auto diff = make_high_order_diffusion(u);
@@ -438,7 +446,8 @@ int main(int argc, char *argv[])
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 //return x * (1 - x) * y*(1 - y);
-                return sin(4 * M_PI * x)*sin(4 * M_PI * y);
+                //return sin(4 * M_PI * x)*sin(4 * M_PI * y);
+                return exp(x*y*y);
             });
     std::cout.precision(2);
     std::cout << "L2-error: " << std::scientific << error << std::endl;
@@ -448,7 +457,9 @@ int main(int argc, char *argv[])
     { 
         double x = cell.center(0);
         double y = cell.center(1);
-        double sol = sin(4 * M_PI * x)*sin(4 * M_PI * y);
+        //double sol = sin(4 * M_PI * x)*sin(4 * M_PI * y);
+        //double sol = x * (1 - x) * y*(1 - y);
+        double sol = exp(x*y*y);
         error_field[cell] = abs(u[cell]-sol); 
     });
 
