@@ -684,7 +684,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, class... T>
-    void save(const fs::path& path, const std::string& filename, const Hdf5Options<LevelCellArray<dim, TInterval>>& options, const CellArray<dim, TInterval>& mesh, const T&... fields)
+    void save(const fs::path& path, const std::string& filename, const Hdf5Options<LevelCellArray<dim, TInterval>>& options, const LevelCellArray<dim, TInterval>& mesh, const T&... fields)
     {
         using hdf5_t = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
         auto h5 = hdf5_t(path, filename, options, mesh, fields...);
