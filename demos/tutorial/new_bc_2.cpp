@@ -11,15 +11,15 @@
 #include <samurai/bc.hpp>
 
 
-template<class Field, std::size_t dim=Field::dim, class T = typename Field::type, std::size_t size=Field::size>
-void apply(const samurai::Dirichlet<dim, T, size>& dirichlet, Field&)
+template<class Field, std::size_t dim=Field::dim, class interval_t = typename Field::interval_t, class T = typename Field::type, std::size_t size=Field::size>
+void apply(const samurai::Dirichlet<dim, interval_t, T, size>& dirichlet, Field&)
 {
     std::cout << "Dirichlet" << std::endl;
     std::cout << dirichlet.p_bcvalue->apply({1, 2})[0] << std::endl;
 }
 
-template<class Field, std::size_t dim=Field::dim, class T = typename Field::type, std::size_t size=Field::size>
-void apply(const samurai::Neumann<dim, T, size>& neumann, Field&)
+template<class Field, std::size_t dim=Field::dim, class interval_t = typename Field::interval_t, class T = typename Field::type, std::size_t size=Field::size>
+void apply(const samurai::Neumann<dim, interval_t, T, size>& neumann, Field&)
 {
     std::cout << "Neumann" << std::endl;
     std::cout << neumann.p_bcvalue->apply({1, 2})[0] << std::endl;
@@ -42,36 +42,45 @@ int main()
     auto u = samurai::make_field<double, 1>("u", mesh);
 
     auto bc = samurai::make_bc<samurai::Dirichlet>(u, 1.);
-    bc.on([](auto& coords)
+    bc->on([](auto& coords)
     {
         return (coords[0] >= .25 && coords[0] <= .75);
     });
 
-    std::cout << bc.get_lca() << std::endl;
+    std::cout << bc->get_lca() << std::endl;
 
-    bc.on(samurai::Everywhere<dim>());
-    std::cout << bc.get_lca() << std::endl;
-    samurai::save("domain",  u.mesh().domain());
-    samurai::save("boundary",  bc.get_lca());
+    bc->on(samurai::Everywhere<dim, typename Config::interval_t>());
+    std::cout << bc->get_lca() << std::endl;
+    // samurai::save("domain",  u.mesh().domain());
+    // samurai::save("boundary",  bc.get_lca());
 
     std::cout << u.get_bc().back().get()->get_lca() << std::endl;
 
-    samurai::make_bc<samurai::Dirichlet>(u, [](auto&)
-    {
-        return 1;
-        // return xt::xtensor_fixed<double, xt::xshape<1>>(1);
-    });
+    // samurai::make_bc<samurai::Dirichlet>(u, [](auto&)
+    // {
+    //     return 1;
+    //     // return xt::xtensor_fixed<double, xt::xshape<1>>(1);
+    // });
 
 
-    auto uvec = samurai::make_field<double, 4>("u", mesh);
+    // auto uvec = samurai::make_field<double, 4>("u", mesh);
 
-    samurai::make_bc<samurai::Dirichlet>(uvec, 1., 2., 3., 0.);
-    auto bcn = samurai::make_bc<samurai::Neumann>(uvec, [](auto&)
-    {
-        return xt::ones<double>({4});
-    });
-    // .on(samurai::difference(mesh, samurai::translate(mesh, xt::xtensor_fixed<int, xt::xshape<1>>{1})));
-    std::cout << bcn.get_lca() << std::endl;
+    // samurai::make_bc<samurai::Dirichlet>(uvec, 1., 2., 3., 0.);
+    // auto bcn = samurai::make_bc<samurai::Neumann>(uvec, [](auto&)
+    // {
+    //     return xt::ones<double>({4});
+    // });
+    // // .on(samurai::difference(mesh, samurai::translate(mesh, xt::xtensor_fixed<int, xt::xshape<1>>{1})));
+    // std::cout << bcn.get_lca() << std::endl;
+
+
+    // samurai::LevelCellArray<dim> lca = {1, box};
+    // // auto set = samurai::difference(lca, samurai::contraction(lca)).on(2);
+    // auto set = samurai::intersection(samurai::projection(lca, 4), samurai::projection(lca, 4));
+    // set([](const auto& i, const auto& index)
+    // {
+    //     std::cout << i << " " << index[0] << std::endl;
+    // });
 
     // Robin<2, double, 3> robin(ConstantBc<2, double, 3>{4});
     // f.attach(robin);

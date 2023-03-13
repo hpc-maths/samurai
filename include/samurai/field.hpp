@@ -453,9 +453,7 @@ namespace samurai
       public:
         Field(const std::string& name, mesh_t& mesh);
 
-        Field() = default;
-
-        Field(const Field&) = default;
+        Field(const Field&);
         Field& operator=(const Field&) = default;
 
         Field(Field&&) = default;
@@ -480,7 +478,7 @@ namespace samurai
         void to_stream(std::ostream& os) const;
 
         template<class Bc_derived>
-        auto& attach(const Bc_derived& bc);
+        auto attach(const Bc_derived& bc);
         auto& get_bc();
 
         const std::vector<boundary_condition_t>& boundary_conditions() const;
@@ -494,7 +492,7 @@ namespace samurai
         std::string m_name;
         data_type m_data;
 
-        std::vector<std::unique_ptr<Bc<dim, value_t, size_>>> p_bc;
+        std::vector<std::unique_ptr<Bc<dim, interval_t, value_t, size_>>> p_bc;
 
         friend struct detail::inner_field_types<Field<mesh_t, value_t, size_, SOA>>;
     };
@@ -510,6 +508,18 @@ namespace samurai
         : inner_mesh_t(mesh), m_name(name)
     {
         this->resize();
+    }
+
+    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline Field<mesh_t, value_t, size_, SOA>::Field(const Field& field)
+    : inner_mesh_t(field.mesh())
+    , m_name(field.name)
+    , m_data(field.m_data)
+    {
+        for(auto& v: field.p_bc)
+        {
+            p_bc.emplace_back(v->clone());
+        }
     }
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
@@ -616,11 +626,10 @@ namespace samurai
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
     template<class Bc_derived>
-    inline auto& Field<mesh_t, value_t, size_, SOA>::attach(const Bc_derived& bc)
+    inline auto Field<mesh_t, value_t, size_, SOA>::attach(const Bc_derived& bc)
     {
-        //p_bc.push_back(std::unique_ptr<Bc_derived>(bc.clone()));
-        p_bc.push_back(std::make_unique<Bc_derived>(bc));
-        return *p_bc.back().get();
+        p_bc.push_back(bc.clone());
+        return p_bc.back().get();
     }
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>

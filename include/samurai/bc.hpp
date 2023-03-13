@@ -28,6 +28,18 @@ namespace samurai
     };
 
 
+    template<std::size_t dim, class TInterval>
+    class LevelCellArray;
+
+    template<std::size_t dim, class TInterval>
+    class LevelCellList;
+
+    template<class D, class Config>
+    class Mesh_base;
+
+    template<class Config>
+    class UniformMesh;
+
     namespace detail
     {
         template<class T, std::size_t size>
@@ -55,11 +67,16 @@ namespace samurai
         using value_t = detail::return_type_t<T, size>;
         using coords_t = xt::xtensor_fixed<T, xt::xshape<dim>>;
 
-        BcValue(){}
         virtual ~BcValue() = default;
+        BcValue(const BcValue&) = delete;
+        BcValue& operator=(const BcValue&) = delete;
+        BcValue(BcValue&&) = delete;
+        BcValue& operator=(BcValue&&) = delete;
 
         virtual value_t& get_value(const coords_t&) = 0;
-        virtual BcValue* clone() const = 0;
+        virtual std::unique_ptr<BcValue> clone() const = 0;
+    protected:
+        BcValue(){}
     };
 
     template<std::size_t dim, class T, std::size_t size>
@@ -72,18 +89,17 @@ namespace samurai
 
         template<class... CT>
         ConstantBc(const CT... v);
-        virtual ~ConstantBc() = default;
+
+        ConstantBc(const ConstantBc& bc);
+        ConstantBc& operator=(const ConstantBc& bc);
 
         value_t& get_value(const coords_t&) override;
-        ConstantBc* clone() const override;
+        std::unique_ptr<base_t> clone() const override;
 
     private:
         value_t m_v;
     };
 
-    ////////////////////////////
-    // BcValue implementation //
-    ////////////////////////////
     template<std::size_t dim, class T, std::size_t size>
     class FunctionBc: public BcValue<dim, T, size>
     {
@@ -94,15 +110,21 @@ namespace samurai
 
         template <class Func>
         FunctionBc(Func &&f);
-        virtual ~FunctionBc() = default;
+
+        FunctionBc(const FunctionBc& bc);
+        FunctionBc& operator=(const FunctionBc& bc);
 
         value_t& get_value(const coords_t& coords) override;
-        FunctionBc* clone() const override;
+        std::unique_ptr<base_t> clone() const override;
 
     private:
         std::function<value_t (const coords_t&)> m_func;
         value_t m_v;
     };
+
+    ////////////////////////////
+    // BcValue implementation //
+    ////////////////////////////
 
     template<std::size_t dim, class T, std::size_t size>
     template<class... CT>
@@ -112,15 +134,27 @@ namespace samurai
     }
 
     template<std::size_t dim, class T, std::size_t size>
+    ConstantBc<dim, T, size>::ConstantBc(const ConstantBc& bc)
+    : m_v(bc.m_v)
+    {}
+
+    template<std::size_t dim, class T, std::size_t size>
+    ConstantBc<dim, T, size>& ConstantBc<dim, T, size>::operator=(const ConstantBc& bc)
+    {
+        return {bc.m_v};
+    }
+
+    template<std::size_t dim, class T, std::size_t size>
     inline auto ConstantBc<dim, T, size>::get_value(const coords_t&) -> value_t&
     {
+        std::cout << "constant" << std::endl;
         return m_v;
     }
 
     template<std::size_t dim, class T, std::size_t size>
-    ConstantBc<dim, T, size>* ConstantBc<dim, T, size>::clone() const
+    auto ConstantBc<dim, T, size>::clone() const -> std::unique_ptr<base_t>
     {
-        return new ConstantBc(m_v);
+        return std::make_unique<ConstantBc>(*this);
     }
 
     template<std::size_t dim, class T, std::size_t size>
@@ -130,62 +164,91 @@ namespace samurai
     {}
 
     template<std::size_t dim, class T, std::size_t size>
+    FunctionBc<dim, T, size>::FunctionBc(const FunctionBc& bc)
+    : m_func(bc.m_func)
+    {}
+
+    template<std::size_t dim, class T, std::size_t size>
+    FunctionBc<dim, T, size>& FunctionBc<dim, T, size>::operator=(const FunctionBc& bc)
+    {
+        return {bc.m_func};
+    }
+
+    template<std::size_t dim, class T, std::size_t size>
     inline auto FunctionBc<dim, T, size>::get_value(const coords_t& coords) -> value_t&
     {
+        std::cout << "function" << std::endl;
         m_v = m_func(coords);
         return m_v;
     }
 
     template<std::size_t dim, class T, std::size_t size>
-    FunctionBc<dim, T, size>* FunctionBc<dim, T, size>::clone() const
+    auto FunctionBc<dim, T, size>::clone() const -> std::unique_ptr<base_t>
     {
-        return new FunctionBc(m_func);
+        return std::make_unique<FunctionBc>(*this);
     }
 
     /////////////////////////
     // BcRegion definition //
     /////////////////////////
-    template<std::size_t dim>
+    template<std::size_t dim, class TInterval>
     struct BcRegion
     {
-        BcRegion(){}
         virtual ~BcRegion() = default;
+        BcRegion(const BcRegion&) = delete;
+        BcRegion& operator=(const BcRegion&) = delete;
+        BcRegion(BcRegion&&) = delete;
+        BcRegion& operator=(BcRegion&&) = delete;
 
-        virtual const LevelCellArray<dim> get_region(const LevelCellArray<dim>&) const = 0;
-        virtual BcRegion* clone() const = 0;
+        virtual const LevelCellArray<dim, TInterval> get_region(const LevelCellArray<dim, TInterval>&) const = 0;
+        virtual std::unique_ptr<BcRegion> clone() const = 0;
+
+    protected:
+        BcRegion(){}
     };
 
-    template<std::size_t dim>
-    struct Everywhere: public BcRegion<dim>
+    template<std::size_t dim, class TInterval>
+    struct Everywhere: public BcRegion<dim, TInterval>
     {
-        Everywhere() = default;
+        using base_t = BcRegion<dim, TInterval>;
+        Everywhere(){}
+        Everywhere(const Everywhere&){}
+        Everywhere& operator=(const Everywhere&){}
 
-        const LevelCellArray<dim> get_region(const LevelCellArray<dim>& mesh) const override;
-        Everywhere* clone() const override;
+        const LevelCellArray<dim, TInterval> get_region(const LevelCellArray<dim, TInterval>& mesh) const override;
+        std::unique_ptr<base_t> clone() const override;
     };
 
-    template<std::size_t dim>
-    class CoordsRegion: public BcRegion<dim>
+    template<std::size_t dim, class TInterval>
+    class CoordsRegion: public BcRegion<dim, TInterval>
     {
     public:
+        using base_t = BcRegion<dim, TInterval>;
         template <class Func>
         CoordsRegion(Func &&f);
 
-        CoordsRegion* clone() const override;
-        const LevelCellArray<dim> get_region(const LevelCellArray<dim>& mesh) const override;
+        CoordsRegion(const CoordsRegion& r);
+        CoordsRegion& operator=(const CoordsRegion& r);
+
+        std::unique_ptr<base_t> clone() const override;
+        const LevelCellArray<dim, TInterval> get_region(const LevelCellArray<dim, TInterval>& mesh) const override;
 
     private:
         std::function<bool(const xt::xtensor_fixed<double, xt::xshape<dim>>&)> m_func;
     };
 
-    template<std::size_t dim, class Set>
-    class SetRegion: public BcRegion<dim>
+    template<std::size_t dim, class TInterval, class Set>
+    class SetRegion: public BcRegion<dim, TInterval>
     {
     public:
+        using base_t = BcRegion<dim, TInterval>;
         SetRegion(const Set& set);
 
-        SetRegion* clone() const override;
-        const LevelCellArray<dim> get_region(const LevelCellArray<dim>& mesh) const override;
+        SetRegion(const SetRegion& r);
+        SetRegion& operator=(const SetRegion& r);
+
+        std::unique_ptr<base_t> clone() const override;
+        const LevelCellArray<dim, TInterval> get_region(const LevelCellArray<dim, TInterval>& mesh) const override;
 
     private:
         Set m_set;
@@ -196,35 +259,46 @@ namespace samurai
     /////////////////////////////
 
     // Everywhere
-    template<std::size_t dim>
-    inline const LevelCellArray<dim> Everywhere<dim>::get_region(const LevelCellArray<dim>& mesh) const
+    template<std::size_t dim, class TInterval>
+    inline const LevelCellArray<dim, TInterval> Everywhere<dim, TInterval>::get_region(const LevelCellArray<dim, TInterval>& mesh) const
     {
         return difference(mesh, contraction(mesh));
     }
 
-    template<std::size_t dim>
-    Everywhere<dim>* Everywhere<dim>::clone() const
+    template<std::size_t dim, class TInterval>
+    auto Everywhere<dim, TInterval>::clone() const -> std::unique_ptr<base_t>
     {
-        return new Everywhere();
+        return std::make_unique<Everywhere>(*this);
     }
 
     // CoordsRegion
-    template<std::size_t dim>
+    template<std::size_t dim, class TInterval>
     template <class Func>
-    CoordsRegion<dim>::CoordsRegion(Func &&f)
+    CoordsRegion<dim, TInterval>::CoordsRegion(Func &&f)
     :m_func(std::forward<Func>(f))
     {}
 
-    template<std::size_t dim>
-    CoordsRegion<dim>* CoordsRegion<dim>::clone() const
+    template<std::size_t dim, class TInterval>
+    CoordsRegion<dim, TInterval>::CoordsRegion(const CoordsRegion& r)
+    : m_func{r.m_func}
+    {}
+
+    template<std::size_t dim, class TInterval>
+    CoordsRegion<dim, TInterval>& CoordsRegion<dim, TInterval>::operator=(const CoordsRegion& r)
     {
-        return new CoordsRegion(m_func);
+        return {r.m_func};
     }
 
-    template<std::size_t dim>
-    inline const LevelCellArray<dim> CoordsRegion<dim>::get_region(const LevelCellArray<dim>& mesh) const
+    template<std::size_t dim, class TInterval>
+    auto CoordsRegion<dim, TInterval>::clone() const -> std::unique_ptr<base_t>
     {
-        LevelCellList<dim> lcl{mesh.level()};
+        return std::make_unique<CoordsRegion>(*this);
+    }
+
+    template<std::size_t dim, class TInterval>
+    inline const LevelCellArray<dim, TInterval> CoordsRegion<dim, TInterval>::get_region(const LevelCellArray<dim, TInterval>& mesh) const
+    {
+        LevelCellList<dim, TInterval> lcl{mesh.level()};
         auto set = difference(mesh, contraction(mesh));
         for_each_cell(mesh, set, [&](auto& cell)
         {
@@ -244,19 +318,29 @@ namespace samurai
     }
 
     // SetRegion
-    template<std::size_t dim, class Set>
-    SetRegion<dim, Set>::SetRegion(const Set& set)
+    template<std::size_t dim, class TInterval, class Set>
+    SetRegion<dim, TInterval, Set>::SetRegion(const Set& set)
     : m_set(set)
     {}
 
-    template<std::size_t dim, class Set>
-    SetRegion<dim, Set>* SetRegion<dim, Set>::clone() const
+    template<std::size_t dim, class TInterval, class Set>
+    SetRegion<dim, TInterval, Set>::SetRegion(const SetRegion& r)
+    : m_set{r.m_set}
+    {}
+
+    template<std::size_t dim, class TInterval, class Set>
+    SetRegion<dim, TInterval, Set>& SetRegion<dim, TInterval, Set>::operator=(const SetRegion& r)
     {
-        return new SetRegion(m_set);
+        return {r.m_set};
+    }
+    template<std::size_t dim, class TInterval, class Set>
+    auto SetRegion<dim, TInterval, Set>::clone() const -> std::unique_ptr<base_t>
+    {
+        return std::make_unique<SetRegion>(*this);
     }
 
-    template<std::size_t dim, class Set>
-    const LevelCellArray<dim> SetRegion<dim, Set>::get_region(const LevelCellArray<dim>& mesh) const
+    template<std::size_t dim, class TInterval, class Set>
+    const LevelCellArray<dim, TInterval> SetRegion<dim, TInterval, Set>::get_region(const LevelCellArray<dim, TInterval>& mesh) const
     {
         return intersection(mesh, m_set);
     }
@@ -264,78 +348,122 @@ namespace samurai
     ///////////////////////////////
     // BcRegion helper functions //
     ///////////////////////////////
-    template<std::size_t dim, class F, class... CT>
+    template<std::size_t dim, class TInterval, class F, class... CT>
     auto make_region(subset_operator<F, CT...> region)
     {
-        return std::make_unique<SetRegion<dim, subset_operator<F, CT...>>>(region);
+        return std::make_unique<SetRegion<dim, TInterval, subset_operator<F, CT...>>>(region);
     }
 
-    template<std::size_t dim, class Func>
+    template<std::size_t dim, class TInterval, class Func>
     auto make_region(Func&& func)
     {
-        return std::make_unique<CoordsRegion<dim>>(std::forward<Func>(func));
+        return std::make_unique<CoordsRegion<dim, TInterval>>(std::forward<Func>(func));
     }
 
-    template<std::size_t dim>
-    auto make_region(Everywhere<dim>)
+    template<std::size_t dim, class TInterval>
+    auto make_region(Everywhere<dim, TInterval>)
     {
-        return std::make_unique<Everywhere<dim>>();
+        return std::make_unique<Everywhere<dim, TInterval>>();
     }
 
     ///////////////////
     // Bc definition //
     ///////////////////
-    template<std::size_t dim, class T, std::size_t size>
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
     class Bc
     {
     public:
-        // virtual ~Bc() = default;
+        using bcvalue_t = BcValue<dim, T, size>;
+        using bcvalue_impl = std::unique_ptr<bcvalue_t>;
+        using bcregion_t = BcRegion<dim, TInterval>;
+        using bcregion_impl = std::unique_ptr<bcregion_t>;
 
-        template<class Bcvalue>
-        Bc(const LevelCellArray<dim>& mesh, const Bcvalue& bcv);
+        virtual ~Bc() = default;
+
+        Bc(const LevelCellArray<dim, TInterval>& mesh, const bcvalue_t& bcv);
+        Bc(const LevelCellArray<dim, TInterval>& mesh, const bcvalue_t& bcv, const bcregion_t& bcr);
 
         Bc(const Bc& bc);
+        Bc& operator=(const Bc& bc);
+
+        Bc(Bc&& bc) = default;
+        Bc& operator=(Bc&& bc) = default;
+
+        virtual std::unique_ptr<Bc> clone() const = 0;
 
         template<class Region>
         auto on(const Region& region);
         auto get_lca();
 
+        auto mesh() const
+        {
+            return m_mesh;
+        }
+
+        auto bcvalue() const
+        {
+            return p_bcvalue.get();
+        }
+
+        auto bcregion() const
+        {
+            return p_bcregion.get();
+        }
+
     private:
-        std::unique_ptr<BcValue<dim, T, size>> p_bcvalue;
-        std::unique_ptr<BcRegion<dim>> p_bcregion;
-        const LevelCellArray<dim>& m_mesh;
+        bcvalue_impl p_bcvalue;
+        bcregion_impl p_bcregion;
+        const LevelCellArray<dim, TInterval>& m_mesh;
     };
 
     ///////////////////
     // Bc definition //
     ///////////////////
-    template<std::size_t dim, class T, std::size_t size>
-    template<class Bcvalue>
-    Bc<dim, T, size>::Bc(const LevelCellArray<dim>& mesh, const Bcvalue& bcv)
-    : m_mesh(mesh)
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    Bc<dim, TInterval, T, size>::Bc(const LevelCellArray<dim, TInterval>& mesh, const bcvalue_t& bcv, const bcregion_t& bcr)
+    : p_bcvalue(bcv.clone())
+    , p_bcregion(bcr.clone())
+    , m_mesh(mesh)
     {
-        p_bcvalue = std::make_unique<Bcvalue>(bcv);
-        p_bcregion = std::make_unique<Everywhere<dim>>();
     }
 
-    template<std::size_t dim, class T, std::size_t size>
-    Bc<dim, T, size>::Bc(const Bc& bc)
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    Bc<dim, TInterval, T, size>::Bc(const LevelCellArray<dim, TInterval>& mesh, const bcvalue_t& bcv)
+    : p_bcvalue(bcv.clone())
+    , p_bcregion(make_region(Everywhere<dim, TInterval>()))
+    , m_mesh(mesh)
+    {
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    Bc<dim, TInterval, T, size>::Bc(const Bc& bc)
     : p_bcvalue(bc.p_bcvalue->clone())
     , p_bcregion(bc.p_bcregion->clone())
     , m_mesh(bc.m_mesh)
     {
     }
 
-    template<std::size_t dim, class T, std::size_t size>
-    template<class Region>
-    inline auto Bc<dim, T, size>::on(const Region& region)
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    Bc<dim, TInterval, T, size>& Bc<dim, TInterval, T, size>::operator=(const Bc& bc)
     {
-        p_bcregion = make_region<dim>(region);
+        bcvalue_impl bcvalue = bc.p_bcvalue->clone();
+        bcregion_impl bcregion = bc.p_bcregion->clone();
+        std::swap(p_bcvalue, bcvalue);
+        std::swap(p_bcregion, bcregion);
+        m_mesh = bc.m_mesh;
         return *this;
     }
 
-    template<std::size_t dim, class T, std::size_t size>
-    inline auto Bc<dim, T, size>::get_lca()
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    template<class Region>
+    inline auto Bc<dim, TInterval, T, size>::on(const Region& region)
+    {
+        p_bcregion = make_region<dim, TInterval>(region);
+        return this;
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    inline auto Bc<dim, TInterval, T, size>::get_lca()
     {
         return p_bcregion->get_region(m_mesh);
     }
@@ -343,15 +471,6 @@ namespace samurai
     /////////////////////////
     // Bc helper functions //
     /////////////////////////
-    template<std::size_t dim, class TInterval>
-    class LevelCellArray;
-
-    template<class D, class Config>
-    class Mesh_base;
-
-    template<class Config>
-    class UniformMesh;
-
     namespace detail
     {
         template<std::size_t dim, class TInterval>
@@ -374,21 +493,23 @@ namespace samurai
         }
     }
 
-    template<template<std::size_t, class, std::size_t> class bc_type, class Field>
+    template<template<std::size_t, class, class, std::size_t> class bc_type, class Field>
     auto make_bc(Field& field, const std::function<detail::return_type_t<typename Field::value_type, Field::size>(const xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::dim>>&)>& func)
     {
         using value_t = typename Field::value_type;
+        using interval_t = typename Field::interval_t;
         constexpr std::size_t dim = Field::dim;
         constexpr std::size_t size = Field::size;
 
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach(bc_type<dim, value_t, size>(mesh, FunctionBc<dim, value_t, size>(func)));
+        return field.attach(bc_type<dim, interval_t, value_t, size>(mesh, FunctionBc<dim, value_t, size>(func)));
     }
 
-    template<template<std::size_t, class, std::size_t> class bc_type, class Field, class... T>
+    template<template<std::size_t, class, class, std::size_t> class bc_type, class Field, class... T>
     auto make_bc(Field& field, typename Field::value_type v1, T... v)
     {
         using value_t = typename Field::value_type;
+        using interval_t = typename Field::interval_t;
         constexpr std::size_t dim = Field::dim;
         constexpr std::size_t size = Field::size;
 
@@ -396,28 +517,41 @@ namespace samurai
         static_assert(Field::size == sizeof...(T) + 1, "The number of constant values should be equal to the number of element in the field");
 
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach(bc_type<dim, value_t, size>(mesh, ConstantBc<dim, value_t, size>(v1, v...)));
+        return field.attach(bc_type<dim, interval_t, value_t, size>(mesh, ConstantBc<dim, value_t, size>(v1, v...)));
     }
 
     //////////////
     // BC Types //
     //////////////
-    template<std::size_t dim, class T, std::size_t size>
-    struct Dirichlet: public Bc<dim, T, size>
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    struct Dirichlet: public Bc<dim, TInterval, T, size>
     {
-        using Bc<dim, T, size>::Bc;
+        using base_t = Bc<dim, TInterval, T, size>;
+        using Bc<dim, TInterval, T, size>::Bc;
+
+        virtual std::unique_ptr<base_t> clone() const override
+        {
+            return std::make_unique<Dirichlet>(*this);
+        }
     };
 
-    template<std::size_t dim, class T, std::size_t size>
-    struct Neumann: public Bc<dim, T, size>
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    struct Neumann: public Bc<dim, TInterval, T, size>
     {
-        using Bc<dim, T, size>::Bc;
+        using base_t = Bc<dim, TInterval, T, size>;
+        using Bc<dim, TInterval, T, size>::Bc;
+
+        virtual std::unique_ptr<base_t> clone() const override
+        {
+            return std::make_unique<Neumann>(*this);
+        }
     };
 
-    template<std::size_t dim, class T, std::size_t size>
-    struct Robin: public Bc<dim, T, size>
-    {
-        using Bc<dim, T, size>::Bc;
-    };
+    // template<std::size_t dim, class TInterval, class T, std::size_t size>
+    // struct Robin: public Bc<dim, TInterval, T, size>
+    // {
+    //     using Bc<dim, TInterval, T, size>::Bc;
+    // };
 
 } // namespace samurai
