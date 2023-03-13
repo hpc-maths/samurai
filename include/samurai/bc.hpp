@@ -194,13 +194,17 @@ namespace samurai
     template<std::size_t dim, class TInterval>
     struct BcRegion
     {
+        using direction_t = xt::xtensor_fixed<int, xt::xshape<dim>>;
+        using lca_t = LevelCellArray<dim, TInterval>;
+        using region_t = std::pair<std::vector<direction_t>, std::vector<lca_t>>;
+
         virtual ~BcRegion() = default;
         BcRegion(const BcRegion&) = delete;
         BcRegion& operator=(const BcRegion&) = delete;
         BcRegion(BcRegion&&) = delete;
         BcRegion& operator=(BcRegion&&) = delete;
 
-        virtual const LevelCellArray<dim, TInterval> get_region(const LevelCellArray<dim, TInterval>&) const = 0;
+        virtual const region_t get_region(const lca_t&) const = 0;
         virtual std::unique_ptr<BcRegion> clone() const = 0;
 
     protected:
@@ -211,11 +215,15 @@ namespace samurai
     struct Everywhere: public BcRegion<dim, TInterval>
     {
         using base_t = BcRegion<dim, TInterval>;
+        using direction_t = typename base_t::direction_t;
+        using lca_t = typename base_t::lca_t;
+        using region_t = typename base_t::region_t;
+
         Everywhere(){}
         Everywhere(const Everywhere&){}
         Everywhere& operator=(const Everywhere&){}
 
-        const LevelCellArray<dim, TInterval> get_region(const LevelCellArray<dim, TInterval>& mesh) const override;
+        const region_t get_region(const lca_t& mesh) const override;
         std::unique_ptr<base_t> clone() const override;
     };
 
@@ -224,6 +232,10 @@ namespace samurai
     {
     public:
         using base_t = BcRegion<dim, TInterval>;
+        using direction_t = typename base_t::direction_t;
+        using lca_t = typename base_t::lca_t;
+        using region_t = typename base_t::region_t;
+
         template <class Func>
         CoordsRegion(Func &&f);
 
@@ -231,7 +243,7 @@ namespace samurai
         CoordsRegion& operator=(const CoordsRegion& r);
 
         std::unique_ptr<base_t> clone() const override;
-        const LevelCellArray<dim, TInterval> get_region(const LevelCellArray<dim, TInterval>& mesh) const override;
+        const region_t get_region(const lca_t& mesh) const override;
 
     private:
         std::function<bool(const xt::xtensor_fixed<double, xt::xshape<dim>>&)> m_func;
@@ -242,13 +254,17 @@ namespace samurai
     {
     public:
         using base_t = BcRegion<dim, TInterval>;
+        using direction_t = typename base_t::direction_t;
+        using lca_t = typename base_t::lca_t;
+        using region_t = typename base_t::region_t;
+
         SetRegion(const Set& set);
 
         SetRegion(const SetRegion& r);
         SetRegion& operator=(const SetRegion& r);
 
         std::unique_ptr<base_t> clone() const override;
-        const LevelCellArray<dim, TInterval> get_region(const LevelCellArray<dim, TInterval>& mesh) const override;
+        const region_t get_region(const lca_t& mesh) const override;
 
     private:
         Set m_set;
@@ -258,11 +274,49 @@ namespace samurai
     // BcRegion implementation //
     /////////////////////////////
 
+    namespace detail
+    {
+        template<std::size_t dim>
+        auto get_direction();
+
+        template<>
+        auto get_direction<1>()
+        {
+            return std::vector<xt::xtensor_fixed<int, xt::xshape<1>>> {{-1}, {1}};
+        }
+
+        template<>
+        auto get_direction<2>()
+        {
+            return std::vector<xt::xtensor_fixed<int, xt::xshape<2>>> {{ 1,  0},
+                                                                       {-1,  0},
+                                                                       { 0,  1},
+                                                                       { 0, -1}};
+        }
+
+        template<>
+        auto get_direction<3>()
+        {
+            return std::vector<xt::xtensor_fixed<int, xt::xshape<3>>> {{ 1,  0,  0},
+                                                                       {-1,  0,  0},
+                                                                       { 0,  1,  0},
+                                                                       { 0, -1,  0},
+                                                                       { 0,  0,  1},
+                                                                       { 0,  0, -1}};
+        }
+    }
     // Everywhere
     template<std::size_t dim, class TInterval>
-    inline const LevelCellArray<dim, TInterval> Everywhere<dim, TInterval>::get_region(const LevelCellArray<dim, TInterval>& mesh) const
+    inline auto Everywhere<dim, TInterval>::get_region(const lca_t& domain) const -> const region_t
     {
-        return difference(mesh, contraction(mesh));
+        std::vector<direction_t> dir;
+        std::vector<lca_t> lca;
+        for (auto& d: detail::get_direction<dim>())
+        {
+            dir.emplace_back(-d);
+            lca.emplace_back(difference(translate(domain, d), domain));
+        }
+        return std::make_pair(dir, lca);
     }
 
     template<std::size_t dim, class TInterval>
@@ -295,26 +349,11 @@ namespace samurai
         return std::make_unique<CoordsRegion>(*this);
     }
 
+    // TODO: must be implemented
     template<std::size_t dim, class TInterval>
-    inline const LevelCellArray<dim, TInterval> CoordsRegion<dim, TInterval>::get_region(const LevelCellArray<dim, TInterval>& mesh) const
+    inline auto CoordsRegion<dim, TInterval>::get_region(const lca_t&) const -> const region_t
     {
-        LevelCellList<dim, TInterval> lcl{mesh.level()};
-        auto set = difference(mesh, contraction(mesh));
-        for_each_cell(mesh, set, [&](auto& cell)
-        {
-            if (m_func(cell.center()))
-            {
-                lcl.add_cell(cell);
-            }
-            // static_nested_loop<dim, 0, 2>([&](auto stencil)
-            // {
-            //     if (m_func(cell.corner() + cell.length*stencil))
-            //     {
-            //         lcl.add_cell(cell);
-            //     }
-            // });
-        });
-        return lcl;
+        return std::make_pair(std::vector<direction_t>(), std::vector<lca_t>());
     }
 
     // SetRegion
@@ -340,9 +379,20 @@ namespace samurai
     }
 
     template<std::size_t dim, class TInterval, class Set>
-    const LevelCellArray<dim, TInterval> SetRegion<dim, TInterval, Set>::get_region(const LevelCellArray<dim, TInterval>& mesh) const
+    inline auto SetRegion<dim, TInterval, Set>::get_region(const lca_t& domain) const -> const region_t
     {
-        return intersection(mesh, m_set);
+        std::vector<direction_t> dir;
+        std::vector<lca_t> lca;
+        for (auto& d: detail::get_direction<dim>())
+        {
+            lca_t lca_temp = intersection(m_set, difference(translate(domain, d), domain));
+            if (!lca_temp.empty())
+            {
+                dir.emplace_back(-d);
+                lca.emplace_back(std::move(lca_temp));
+            }
+        }
+        return std::make_pair(dir, lca);
     }
 
     ///////////////////////////////
@@ -377,11 +427,12 @@ namespace samurai
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
         using bcregion_t = BcRegion<dim, TInterval>;
         using bcregion_impl = std::unique_ptr<bcregion_t>;
+        using lca_t = typename bcregion_t::lca_t;
 
         virtual ~Bc() = default;
 
-        Bc(const LevelCellArray<dim, TInterval>& mesh, const bcvalue_t& bcv);
-        Bc(const LevelCellArray<dim, TInterval>& mesh, const bcvalue_t& bcv, const bcregion_t& bcr);
+        Bc(const lca_t& domain, const bcvalue_t& bcv);
+        Bc(const lca_t& domain, const bcvalue_t& bcv, const bcregion_t& bcr);
 
         Bc(const Bc& bc);
         Bc& operator=(const Bc& bc);
@@ -395,43 +446,28 @@ namespace samurai
         auto on(const Region& region);
         auto get_lca();
 
-        auto mesh() const
-        {
-            return m_mesh;
-        }
-
-        auto bcvalue() const
-        {
-            return p_bcvalue.get();
-        }
-
-        auto bcregion() const
-        {
-            return p_bcregion.get();
-        }
-
     private:
         bcvalue_impl p_bcvalue;
         bcregion_impl p_bcregion;
-        const LevelCellArray<dim, TInterval>& m_mesh;
+        const lca_t& m_domain;
     };
 
     ///////////////////
     // Bc definition //
     ///////////////////
     template<std::size_t dim, class TInterval, class T, std::size_t size>
-    Bc<dim, TInterval, T, size>::Bc(const LevelCellArray<dim, TInterval>& mesh, const bcvalue_t& bcv, const bcregion_t& bcr)
+    Bc<dim, TInterval, T, size>::Bc(const lca_t& domain, const bcvalue_t& bcv, const bcregion_t& bcr)
     : p_bcvalue(bcv.clone())
     , p_bcregion(bcr.clone())
-    , m_mesh(mesh)
+    , m_domain(domain)
     {
     }
 
     template<std::size_t dim, class TInterval, class T, std::size_t size>
-    Bc<dim, TInterval, T, size>::Bc(const LevelCellArray<dim, TInterval>& mesh, const bcvalue_t& bcv)
+    Bc<dim, TInterval, T, size>::Bc(const lca_t& domain, const bcvalue_t& bcv)
     : p_bcvalue(bcv.clone())
     , p_bcregion(make_region(Everywhere<dim, TInterval>()))
-    , m_mesh(mesh)
+    , m_domain(domain)
     {
     }
 
@@ -439,7 +475,7 @@ namespace samurai
     Bc<dim, TInterval, T, size>::Bc(const Bc& bc)
     : p_bcvalue(bc.p_bcvalue->clone())
     , p_bcregion(bc.p_bcregion->clone())
-    , m_mesh(bc.m_mesh)
+    , m_domain(bc.m_domain)
     {
     }
 
@@ -450,7 +486,7 @@ namespace samurai
         bcregion_impl bcregion = bc.p_bcregion->clone();
         std::swap(p_bcvalue, bcvalue);
         std::swap(p_bcregion, bcregion);
-        m_mesh = bc.m_mesh;
+        m_domain = bc.m_domain;
         return *this;
     }
 
@@ -465,7 +501,7 @@ namespace samurai
     template<std::size_t dim, class TInterval, class T, std::size_t size>
     inline auto Bc<dim, TInterval, T, size>::get_lca()
     {
-        return p_bcregion->get_region(m_mesh);
+        return p_bcregion->get_region(m_domain);
     }
 
     /////////////////////////

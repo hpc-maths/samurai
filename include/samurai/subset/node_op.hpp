@@ -459,7 +459,7 @@ namespace samurai
 
     template<class T>
     inline auto
-    projection_op<T>::transform(std::size_t d, coord_index_t coord) const noexcept
+    projection_op<T>::transform(std::size_t, coord_index_t coord) const noexcept
     {
         return (m_shift_level >= 0 )? coord>>m_shift_level: coord<<-m_shift_level;
     }
