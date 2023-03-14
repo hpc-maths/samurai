@@ -12,9 +12,7 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-// coefficients: https://en.wikipedia.org/wiki/Finite_difference_coefficient
-
-template<class Field, class cfg=StarStencilFV<Field::dim, Field::size, 2>> // neighbouhood_width = 2
+template<class Field, class cfg=samurai::petsc::StarStencilFV<Field::dim, Field::size, 2>> // neighbouhood_width = 2
 class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
 public:
@@ -36,6 +34,7 @@ public:
 
     static std::array<double, 9> coefficients(double h)
     {
+        // https://en.wikipedia.org/wiki/Finite_difference_coefficient
         std::array<double, 9> coeffs = { 1./12, -4./3, 5., -4./3, 1./12, 1./12, -4./3, -4./3, 1./12 };
         double one_over_h2 = 1/(h*h);
         for (double& coeff : coeffs)
