@@ -14,16 +14,7 @@ namespace fs = std::filesystem;
 
 // coefficients: https://en.wikipedia.org/wiki/Finite_difference_coefficient
 
-
-using highOrderStencilFV = samurai::petsc::PetscAssemblyConfig
-        <
-            1,   // Output field size
-            9,   // Stencil size
-            2,   // Index of the stencil center
-            0, 5 // Start index and size of contiguous cell indices
-        >;
-
-template<class Field, class cfg=highOrderStencilFV>
+template<class Field, class cfg=StarStencilFV<Field::dim, Field::size, 2>> // neighbouhood_width = 2
 class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
 public:

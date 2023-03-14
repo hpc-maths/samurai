@@ -80,7 +80,7 @@ Mesh create_uniform_mesh(std::size_t level)
     //return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
-template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::starStencilFV<dim, Field::size*dim>>
+template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::StarStencilFV<dim, Field::size*dim, 1>>
 class GradientFV : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
 public:
@@ -137,7 +137,7 @@ auto make_gradient_FV(Field& f)
     return GradientFV<Field>(f);
 }
 
-template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::starStencilFV<dim, 1>>
+template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::StarStencilFV<dim, 1, 1>>
 class MinusDivergenceFV : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
 public:

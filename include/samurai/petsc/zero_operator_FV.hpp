@@ -5,7 +5,7 @@ namespace samurai
 { 
     namespace petsc
     {
-        template<class Field, std::size_t output_field_size, std::size_t dim=Field::dim, class cfg=starStencilFV<dim, output_field_size>>
+        template<class Field, std::size_t output_field_size, std::size_t dim=Field::dim, class cfg=StarStencilFV<dim, output_field_size, 1>>
         class ZeroOperatorFV : public CellBasedScheme<cfg, Field>
         {
         public:

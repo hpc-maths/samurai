@@ -154,28 +154,27 @@ namespace samurai
             static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
         };
         
-        template<std::size_t dim, std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-        using starStencilFV = PetscAssemblyConfig
+        template<std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width=1, DirichletEnforcement dirichlet_enfcmt = Equation>
+        using StarStencilFV = PetscAssemblyConfig
         <
             output_field_size,
             // ----  Stencil size 
             // Cell-centered Finite Volume scheme:
-            // center + 1 neighbour in each Cartesian direction (2*dim directions) --> 1+2=3 in 1D
-            //                                                                         1+4=5 in 2D
-            1 + 2*dim,
+            // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim directions) --> 1+2=3 in 1D
+            //                                                                                              1+4=5 in 2D
+            1 + 2*dim*neighbourhood_width,
             // ---- Index of the stencil center
             // (as defined in star_stencil())
-            1, 
+            neighbourhood_width, 
             // ---- Start index and size of contiguous cell indices
             // (as defined in star_stencil())
-            // Here, [left, center, right].
-            0, 3,
+            0, 1+2*neighbourhood_width,
             // ---- Method of Dirichlet condition enforcement
             dirichlet_enfcmt
         >;
 
         template<std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-        using oneCellStencilFV = PetscAssemblyConfig
+        using OneCellStencilFV = PetscAssemblyConfig
         <
             output_field_size,
             // ----  Stencil size 
