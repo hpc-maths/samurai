@@ -194,30 +194,55 @@ namespace samurai
     //-----------------------//
 
 
-    template<std::size_t dim>
-    constexpr Stencil<1+2*dim, dim> star_stencil()
+    template<std::size_t dim, std::size_t neighbourhood_width=1>
+    constexpr Stencil<1+2*dim*neighbourhood_width, dim> star_stencil()
     {
         static_assert(dim >= 1 || dim <= 3, "Star stencil not implemented for this dimension");
+        static_assert(neighbourhood_width >= 0 || neighbourhood_width <= 2, "Star stencil not implemented for this neighbourhood width");
 
-        if constexpr (dim == 1)
+        if constexpr (neighbourhood_width == 0)
         {
-            // 3-point stencil:
-            //    left, center, right
-            return {{-1}, {0}, {1}};
+            Stencil<1, dim> s;
+            s.fill(0);
+            return s;
         }
-        else if constexpr (dim == 2)
+        else if constexpr (neighbourhood_width == 1)
         {
-            // 5-point stencil:
-            //       left,   center,  right,   bottom,  top 
-            return {{-1, 0}, {0, 0},  {1, 0}, {0, -1}, {0, 1}};
+            if constexpr (dim == 1)
+            {
+                //    left, center, right
+                return {{-1}, {0}, {1}};
+            }
+            else if constexpr (dim == 2)
+            {
+                //       left,   center,  right,   bottom,  top 
+                return {{-1, 0}, {0, 0},  {1, 0}, {0, -1}, {0, 1}};
+            }
+            else if constexpr (dim == 3)
+            {
+                //       left,   center,    right,   front,    back,    bottom,    top
+                return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
+            }
         }
-        else if constexpr (dim == 3)
+        else if constexpr (neighbourhood_width == 2)
         {
-            // 7-point stencil:
-            //       left,   center,    right,   front,    back,    bottom,    top
-            return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
+            if constexpr (dim == 1)
+            {
+                //   left2, left, center, right, right2
+                return {{-2}, {-1}, {0}, {1}, {2}};
+            }
+            else if constexpr (dim == 2)
+            {
+                //       left2,   left,   center,  right, right2  bottom2, bottom,   top,    top2 
+                return {{-2, 0}, {-1, 0}, {0, 0}, {1, 0}, {2, 0}, {0, -2}, {0, -1}, {0, 1}, {0, 2}};
+            }
+            else if constexpr (dim == 3)
+            {
+                //        left2,    left,    center,  right,   right2,  front2,    front,   back,    back2,   bottom2,  bottom,    top,     top2
+                return {{-2,0,0}, {-1,0,0}, {0,0,0}, {1,0,0}, {2,0,0}, {0,-2,0}, {0,-1,0}, {0,1,0}, {0,2,0}, {0,0,-2}, {0,0,-1}, {0,0,1}, {0,0,2}};
+            }
         }
-        return Stencil<1+2*dim, dim>();
+        return Stencil<1+2*dim*neighbourhood_width, dim>();
     }
 
     template<std::size_t dim>
@@ -246,9 +271,7 @@ namespace samurai
     template<std::size_t dim>
     constexpr Stencil<1, dim> center_only_stencil()
     {
-        Stencil<1, dim> s;
-        s.fill(0);
-        return s;
+        return star_stencil<dim, 0>();
     }
 
     template<std::size_t dim, class Vector>

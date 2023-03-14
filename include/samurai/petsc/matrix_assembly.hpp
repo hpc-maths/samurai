@@ -50,7 +50,7 @@ namespace samurai
                 MatSetFromOptions(A);
 
                 MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, sparsity_pattern().data());
-                MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE); ///////////// TO FIX
+                //MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
             }
 
             /**
@@ -141,10 +141,8 @@ namespace samurai
         template <PetscInt output_field_size_,
                 PetscInt scheme_stencil_size_,
                 PetscInt center_index_,
-                PetscInt contiguous_indices_start_,
-                PetscInt contiguous_indices_size_,
-                PetscInt proj_stencil_size_,
-                PetscInt pred_stencil_size_,
+                PetscInt contiguous_indices_start_ = 0,
+                PetscInt contiguous_indices_size_ = 0,
                 DirichletEnforcement dirichlet_enfcmt_ = Equation>
         struct PetscAssemblyConfig
         {
@@ -153,98 +151,44 @@ namespace samurai
             static constexpr PetscInt center_index = center_index_;
             static constexpr PetscInt contiguous_indices_start = contiguous_indices_start_;
             static constexpr PetscInt contiguous_indices_size = contiguous_indices_size_;
-            static constexpr PetscInt proj_stencil_size = proj_stencil_size_;
-            static constexpr PetscInt pred_stencil_size = pred_stencil_size_;
             static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
         };
-
-
-        template<std::size_t dim, 
-                std::size_t output_field_size,
-                std::size_t scheme_stencil_size, 
-                std::size_t center_index,
-                std::size_t contiguous_indices_start = 0,
-                std::size_t contiguous_indices_size = 0,
-                DirichletEnforcement dirichlet_enfcmt = Equation>
-        using cellBasedConfig = PetscAssemblyConfig
-        <
-            output_field_size,
-            scheme_stencil_size,
-            center_index,
-            contiguous_indices_start,
-            contiguous_indices_size,
-
-            // ----  Projection stencil size
-            // cell + 2^dim children --> 1+2=3 in 1D 
-            //                           1+4=5 in 2D
-            1 + (1 << dim), 
-
-            // ----  Prediction stencil size
-            // Here, order 1:
-            // cell + hypercube of 3 cells --> 1+3= 4 in 1D
-            //                                 1+9=10 in 2D
-            1 + ce_pow(3, dim), 
-
-            // ---- Method of Dirichlet condition enforcement
-            dirichlet_enfcmt
-        >;
-
-
-
         
         template<std::size_t dim, std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-        using starStencilFV = cellBasedConfig
+        using starStencilFV = PetscAssemblyConfig
         <
-            dim,
             output_field_size,
-
             // ----  Stencil size 
             // Cell-centered Finite Volume scheme:
             // center + 1 neighbour in each Cartesian direction (2*dim directions) --> 1+2=3 in 1D
             //                                                                         1+4=5 in 2D
             1 + 2*dim,
-
             // ---- Index of the stencil center
             // (as defined in star_stencil())
             1, 
-
             // ---- Start index and size of contiguous cell indices
             // (as defined in star_stencil())
             // Here, [left, center, right].
             0, 3,
-
             // ---- Method of Dirichlet condition enforcement
             dirichlet_enfcmt
         >;
 
-        template<std::size_t dim, std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-        using oneCellStencilFV = cellBasedConfig
+        template<std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
+        using oneCellStencilFV = PetscAssemblyConfig
         <
-            dim,
             output_field_size,
-
             // ----  Stencil size 
             // Only one cell:
             1,
-
             // ---- Index of the stencil center
             // (as defined in center_only_stencil())
             0, 
-
             // ---- Start index and size of contiguous cell indices
             0, 0,
-
             // ---- Method of Dirichlet condition enforcement
             dirichlet_enfcmt
         >;
-
-        /*template<class PetscOperator>
-        auto make_operator(typename PetscOperator::field_t& f)
-        {
-            //PetscOperator<Field> op(f); 
-            //return op;
-            return PetscOperator(f);
-        }*/
 
     } // end namespace petsc
 } // end namespace samurai

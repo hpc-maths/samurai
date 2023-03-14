@@ -14,41 +14,14 @@ namespace fs = std::filesystem;
 
 // coefficients: https://en.wikipedia.org/wiki/Finite_difference_coefficient
 
- using highOrderStencilFV = samurai::petsc::cellBasedConfig
+
+using highOrderStencilFV = samurai::petsc::PetscAssemblyConfig
         <
-            2, //dim
-            1, //output_field_size,
-            // ----  Stencil size 
-            // Only one cell:
-            9,
-            // ---- Index of the stencil center
-            2, 
-            // ---- Start index and size of contiguous cell indices
-            0, 5
+            1,   // Output field size
+            9,   // Stencil size
+            2,   // Index of the stencil center
+            0, 5 // Start index and size of contiguous cell indices
         >;
-
-/*using highOrderStencilFV = samurai::PetscAssemblyConfig
-        <
-            output_field_size,
-            scheme_stencil_size,
-            center_index,
-            contiguous_indices_start,
-            contiguous_indices_size,
-
-            // ----  Projection stencil size
-            // cell + 2^dim children --> 1+2=3 in 1D 
-            //                           1+4=5 in 2D
-            1 + (1 << dim), 
-
-            // ----  Prediction stencil size
-            // Here, order 1:
-            // cell + hypercube of 3 cells --> 1+3= 4 in 1D
-            //                                 1+9=10 in 2D
-            1 + ce_pow(3, dim), 
-
-            // ---- Method of Dirichlet condition enforcement
-            dirichlet_enfcmt
-        >;*/
 
 template<class Field, class cfg=highOrderStencilFV>
 class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
@@ -58,8 +31,8 @@ public:
     using field_t = Field;
     using Mesh = typename Field::mesh_t;
     static constexpr std::size_t ghost_width = Mesh::config::ghost_width;
-    static constexpr std::size_t prediction_order = Mesh::config::prediction_order;
     using boundary_condition_t = typename Field::boundary_condition_t;
+    static constexpr std::size_t prediction_order = samurai::petsc::CellBasedScheme<cfg, Field>::prediction_order;
 
     HighOrderDiffusion(Field& unknown) : 
         samurai::petsc::CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
@@ -67,22 +40,17 @@ public:
 
     static constexpr auto stencil()
     {
-        return samurai::Stencil<dim, 9> {{-2, 0}, {-1, 0}, {0, 0}, {1, 0}, {2, 0}, {0, -2}, {0, -1}, {0, 1}, {0, 2}};
+        return samurai::star_stencil<dim, 2>();
     }
 
     static std::array<double, 9> coefficients(double h)
     {
-        std::array<double, 9> coeffs;
+        std::array<double, 9> coeffs = { 1./12, -4./3, 5., -4./3, 1./12, 1./12, -4./3, -4./3, 1./12 };
         double one_over_h2 = 1/(h*h);
-        coeffs[0] =  1./12 * one_over_h2;
-        coeffs[1] = -4./3  * one_over_h2;
-        coeffs[2] =  5.    * one_over_h2;
-        coeffs[3] = -4./3  * one_over_h2;
-        coeffs[4] =  1./12 * one_over_h2;
-        coeffs[5] =  1./12 * one_over_h2;
-        coeffs[6] = -4./3  * one_over_h2;
-        coeffs[7] = -4./3  * one_over_h2;
-        coeffs[8] =  1./12 * one_over_h2;
+        for (double& coeff : coeffs)
+        {
+            coeff *= one_over_h2;
+        }
         return coeffs;
     }
 
@@ -322,20 +290,20 @@ int main(int argc, char *argv[])
     PetscInitialize(&argc, &argv, 0, nullptr);
     PetscOptionsSetValue(NULL, "-options_left", "off");
 
-    // auto adapt_field = samurai::make_field<double, 1>("adapt_field", mesh, [](const auto& coord) 
-    //         { 
-    //             const auto& x = coord[0];
-    //             const auto& y = coord[1];
-    //             double radius = 0.1;
-    //             if ((x -0.5)*(x-0.5) + (y -0.5)*(y-0.5) < radius*radius)
-    //             {
-    //                 return 1;
-    //             }
-    //             else
-    //             {
-    //                 return 0;
-    //             }
-    //         }, 0);
+    auto adapt_field = samurai::make_field<double, 1>("adapt_field", mesh, [](const auto& coord) 
+            { 
+                const auto& x = coord[0];
+                const auto& y = coord[1];
+                double radius = 0.1;
+                if ((x -0.5)*(x-0.5) + (y -0.5)*(y-0.5) < radius*radius)
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }, 0);
 
     
     // std::array<samurai::StencilVector<dim>, 4> bdry_directions;
@@ -374,8 +342,8 @@ int main(int argc, char *argv[])
         // });
     };
     
-    // auto MRadaptation = samurai::make_MRAdapt(adapt_field, update_bc);
-    // MRadaptation(mr_epsilon, mr_regularity);
+    auto MRadaptation = samurai::make_MRAdapt(adapt_field, update_bc);
+    MRadaptation(mr_epsilon, mr_regularity);
 
     // samurai::save("initial_mesh", mesh);
 

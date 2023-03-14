@@ -77,6 +77,18 @@ namespace samurai
             using stencil_t = Stencil<cfg::scheme_stencil_size, dim>;
             using GetCoefficientsFunc = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
             using boundary_condition_t = typename Field::boundary_condition_t;
+
+            static constexpr std::size_t prediction_order = Mesh::config::prediction_order;
+            // ----  Projection stencil size (order 1)
+            // cell + 2^dim children --> 1+2=3 in 1D 
+            //                           1+4=5 in 2D
+            static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
+            // ----  Prediction stencil size
+            // Order 1: cell + hypercube of 3 coarser cells --> 1 + 3= 4 in 1D
+            //                                                  1 + 9=10 in 2D
+            // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
+            //                                                  1 +25=21 in 2D
+            static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_order + 1, dim);
         
             using MatrixAssembly::assemble_matrix;
         protected:
@@ -322,7 +334,7 @@ namespace samurai
                 {
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        nnz[row_index(ghost, field_i)] = cfg::proj_stencil_size;
+                        nnz[row_index(ghost, field_i)] = proj_stencil_size;
                     }
                 });
 
@@ -331,7 +343,7 @@ namespace samurai
                 {
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        nnz[row_index(ghost, field_i)] = cfg::pred_stencil_size;
+                        nnz[row_index(ghost, field_i)] = pred_stencil_size;
                     }
                 });
 
@@ -645,7 +657,7 @@ namespace samurai
                 {
                     if (m_is_row_empty[i])
                     {
-                        MatSetValue(A, i, i, 1, INSERT_VALUES);
+                        MatSetValue(A, static_cast<PetscInt>(i), static_cast<PetscInt>(i), 1, INSERT_VALUES);
                         m_is_row_empty[i] = false;
                     }
                 }
