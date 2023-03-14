@@ -116,16 +116,16 @@ public:
 
             // We need to define a polynomial of degree 3 that passes by the 4 points c3, c2, c1 and the boundary point.
             // This polynomial writes 
-            //                       p(x) = a*x^2 + b*x^2 + c*x + d.
-            // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 point into the polynomial.
+            //                       p(x) = a*x^3 + b*x^2 + c*x + d.
+            // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 points into the polynomial.
             // If we set the abscissa 0 at the center of c1, this system reads
             //                       p(  0) = u1
             //                       p( -h) = u2
             //                       p(-2h) = u3
             //                       p(h/2) = dirichlet_value.
             // Then, we want that the ghost values be also located on this polynomial, i.e.
-            //                       u_g1 = p( -h)
-            //                       u_g2 = p(-2h).
+            //                       u_g1 = p( h)
+            //                       u_g2 = p(2h).
             // This gives
             //             5/16 * u_g1  +  15/16 * u1  -5/16 * u2  +  1/16 * u3 = dirichlet_value
             //             5/64 * u_g2  +  45/32 * u1  -5/8  * u2  +  9/64 * u3 = dirichlet_value 
@@ -182,52 +182,6 @@ public:
             VecSetValue(b, ghost2_index, dirichlet_value, ADD_VALUES);
         });
     }
-
-    void assemble_prediction(Mat& A) override
-    {
-        using index_t = int;
-        constexpr std::size_t field_size = 1;
-
-        samurai::for_each_prediction_ghost(this->m_mesh, [&](auto& ghost)
-        {
-            for (unsigned int field_i = 0; field_i < field_size; ++field_i)
-            {
-                PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
-                MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
-
-                auto ii = ghost.indices(0);
-                auto ig = ii>>1;
-                auto  j = ghost.indices(1);
-                auto jg = j>>1;
-                double isign = (ii & 1)? -1.: 1.;
-                double jsign = (j & 1)? -1.: 1.;
-
-                auto interpx = samurai::interp_coeffs<2*prediction_order+1>(isign);
-                auto interpy = samurai::interp_coeffs<2*prediction_order+1>(jsign);
-
-                auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig, jg)), field_i);
-                MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
-
-                // std::cout << fmt::format("level: {}, i: {}, j: {} pred_cell: ", ghost.level, ii, j);
-                for(std::size_t ci = 0; ci < interpx.size(); ++ci)
-                {
-                    for(std::size_t cj = 0; cj < interpy.size(); ++cj)
-                    {
-                        if (ci != prediction_order || cj != prediction_order)
-                        {
-                            double value = -interpx[ci]*interpy[cj];
-                            // std::cout << fmt::format("({}, {}, {}) ", ghost.level-1, ig + static_cast<index_t>(ci - order), jg + static_cast<index_t>(cj - order));
-                            parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order), jg + static_cast<index_t>(cj - prediction_order))), field_i);
-                            MatSetValue(A, ghost_index, parent_index, value, INSERT_VALUES);
-                        }
-                    }
-                }
-                // std::cout << std::endl;
-                this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
-            }
-            // std::cout << std::endl;
-        });
-    }
 };
 
 
@@ -263,7 +217,7 @@ int main(int argc, char *argv[])
 
     // Output parameters
     fs::path path = fs::current_path();
-    std::string filename = "FV_advection_2d";
+    std::string filename = "poisson_highorder_2d";
     std::size_t nfiles = 1;
 
     CLI::App app{"Finite volume example for the advection equation in 2d using multiresolution"};
@@ -432,7 +386,6 @@ int main(int argc, char *argv[])
     });
 
     samurai::save("error", mesh, error_field);
-
     samurai::save("solution", mesh, u);
 
 

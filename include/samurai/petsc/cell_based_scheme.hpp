@@ -793,7 +793,7 @@ namespace samurai
 
             void assemble_prediction_1D(Mat& A)
             {
-                std::array<double, 3> pred{{1./8, 0, -1./8}};
+                /*std::array<double, 3> pred{{1./8, 0, -1./8}};
                 for_each_prediction_ghost(m_mesh, [&](auto& ghost)
                 {
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -812,45 +812,41 @@ namespace samurai
                         MatSetValue(A, ghost_index, parent_right, -sign_i * pred[2], INSERT_VALUES);
                         m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
                     }
-                });
-
-                /*using mesh_id_t = typename Mesh::mesh_id_t;
-
-                auto min_level = mesh[mesh_id_t::cells].min_level();
-                auto max_level = mesh[mesh_id_t::cells].max_level();
-                for(std::size_t level=min_level+1; level<=max_level; ++level)
+                });*/
+                using index_t = int;
+                samurai::for_each_prediction_ghost(m_mesh, [&](auto& ghost)
                 {
-                    auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level],
-                                                    mesh[mesh_id_t::cells][level-1])
-                            .on(level);
-
-                    //std::array<double, 3> pred{{1./8, 0, -1./8}};
-                    set([&](const auto& i, const auto&)
+                    for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                     {
-                        for(int ii=i.start; ii<i.end; ++ii)
+                        PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
+                        MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
+
+                        auto ii = ghost.indices(0);
+                        auto ig = ii/2;
+                        double isign = (ii & 1) ? -1 : 1;
+
+                        auto interpx = samurai::interp_coeffs<2*prediction_order+1>(isign);
+
+                        auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig)), field_i);
+                        MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
+
+                        for(std::size_t ci = 0; ci < interpx.size(); ++ci)
                         {
-                            auto i_cell = static_cast<int>(mesh.get_index(level, ii));
-                            MatSetValue(A, i_cell, i_cell, 1., INSERT_VALUES);
-
-                            int sign_i = (ii & 1)? -1: 1;
-
-                            for(int is = -1; is<2; ++is)
+                            if (ci != prediction_order)
                             {
-                                auto i1 = static_cast<int>(mesh.get_index(level - 1, (ii>>1) + is));
-                                double v = -sign_i*pred[static_cast<unsigned int>(is + 1)];
-                                MatSetValue(A, i_cell, i1, v, INSERT_VALUES);
+                                double value = -interpx[ci];
+                                auto coarse_cell_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order))), field_i);
+                                MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
                             }
-
-                            auto i0 = static_cast<int>(mesh.get_index(level - 1, (ii>>1)));
-                            MatSetValue(A, i_cell, i0, -1., INSERT_VALUES);
                         }
-                    });
-                }*/
+                        this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                    }
+                });
             }
 
             void assemble_prediction_2D(Mat& A)
             {
-                std::array<double, 3> pred{{1./8, 0, -1./8}};
+                /*std::array<double, 3> pred{{1./8, 0, -1./8}};
                 for_each_prediction_ghost(m_mesh, [&](auto& ghost)
                 {
                     for (unsigned int field_i = 0; field_i < field_size; ++field_i)
@@ -884,68 +880,92 @@ namespace samurai
                         MatSetValue(A, ghost_index, parent_top_right   , sign_i * sign_j * pred[2] * pred[2], INSERT_VALUES); // sign_i*sign_j *  1/64
                         m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
                     }
-                });
+                });*/
 
-                /*using mesh_id_t = typename Mesh::mesh_id_t;
-
-                auto min_level = m_mesh[mesh_id_t::cells].min_level();
-                auto max_level = m_mesh[mesh_id_t::cells].max_level();
-                for(std::size_t level=min_level+1; level<=max_level; ++level)
+                using index_t = int;
+                samurai::for_each_prediction_ghost(m_mesh, [&](auto& ghost)
                 {
-                    auto set = intersection(m_mesh[mesh_id_t::cells_and_ghosts][level],
-                                            m_mesh[mesh_id_t::cells][level-1])
-                            .on(level);
-
-                    std::array<double, 3> pred{{1./8, 0, -1./8}};
-                    set([&](const auto& i, const auto& index)
+                    for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                     {
-                        auto j = index[0];
-                        int sign_j = (j & 1)? -1: 1;
+                        PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
+                        MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
 
-                        for(int ii=i.start; ii<i.end; ++ii)
+                        auto ii = ghost.indices(0);
+                        auto ig = ii/2;
+                        auto  j = ghost.indices(1);
+                        auto jg = j/2;
+                        double isign = (ii & 1) ? -1 : 1;
+                        double jsign = ( j & 1) ? -1 : 1;
+
+                        auto interpx = samurai::interp_coeffs<2*prediction_order+1>(isign);
+                        auto interpy = samurai::interp_coeffs<2*prediction_order+1>(jsign);
+
+                        auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig, jg)), field_i);
+                        MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
+
+                        for(std::size_t ci = 0; ci < interpx.size(); ++ci)
                         {
-                            auto i_cell = static_cast<PetscInt>(m_mesh.get_index(level, ii, j));
-                            MatSetValue(A, i_cell, i_cell, 1, INSERT_VALUES);
-
-                            int sign_i = (ii & 1)? -1: 1;
-
-                            for(int is = -1; is<2; ++is)
+                            for(std::size_t cj = 0; cj < interpy.size(); ++cj)
                             {
-                                // is = -1 --> parent_bottom --> -sign_j*pred[0]
-                                // is =  0 --> parent        --> -sign_j*pred[1]
-                                // is =  1 --> parent_top    --> -sign_j*pred[2]
-                                auto i1 = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1), (j>>1) + is));
-                                MatSetValue(A, i_cell, i1, -sign_j*pred[static_cast<unsigned int>(is + 1)], INSERT_VALUES);
-
-                                // is = -1 --> parent_left  --> -sign_i*pred[0]
-                                // is =  0 --> parent       --> -sign_i*pred[1]
-                                // is =  1 --> parent_right --> -sign_i*pred[2]
-                                i1 = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) + is, (j>>1)));
-                                MatSetValue(A, i_cell, i1, -sign_i*pred[static_cast<unsigned int>(is + 1)], INSERT_VALUES);
+                                if (ci != prediction_order || cj != prediction_order)
+                                {
+                                    double value = -interpx[ci]*interpy[cj];
+                                    auto coarse_cell_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order), jg + static_cast<index_t>(cj - prediction_order))), field_i);
+                                    MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
+                                }
                             }
-
-                            auto parent_bottom_left  = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) - 1));
-                            auto parent_bottom_right = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) - 1));
-                            auto parent_top_left     = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) - 1, (j>>1) + 1));
-                            auto parent_top_right    = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1) + 1, (j>>1) + 1));
-
-                            MatSetValue(A, i_cell, parent_bottom_left , sign_i*sign_j*pred[0]*pred[0], INSERT_VALUES);
-                            MatSetValue(A, i_cell, parent_bottom_right, sign_i*sign_j*pred[2]*pred[0], INSERT_VALUES);
-                            MatSetValue(A, i_cell, parent_top_left    , sign_i*sign_j*pred[0]*pred[2], INSERT_VALUES);
-                            MatSetValue(A, i_cell, parent_top_right   , sign_i*sign_j*pred[2]*pred[2], INSERT_VALUES);
-
-                            auto i0 = static_cast<PetscInt>(m_mesh.get_index(level - 1, (ii>>1), (j>>1)));
-                            MatSetValue(A, i_cell, i0, -1, INSERT_VALUES);
                         }
-                    });
-                }*/
+                        this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                    }
+                });
             }
 
-            void assemble_prediction_3D(Mat&)
+            void assemble_prediction_3D(Mat& A)
             {
-                for_each_prediction_ghost(m_mesh, [&](auto&)
+                using index_t = int;
+                samurai::for_each_prediction_ghost(m_mesh, [&](auto& ghost)
                 {
-                    assert(false && "assemble_prediction_3D() not implemented.");
+                    for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                    {
+                        PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
+                        MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
+
+                        auto ii = ghost.indices(0);
+                        auto ig = ii/2;
+                        auto  j = ghost.indices(1);
+                        auto jg = j/2;
+                        auto  k = ghost.indices(2);
+                        auto kg = k/2;
+                        double isign = (ii & 1) ? -1 : 1;
+                        double jsign = ( j & 1) ? -1 : 1;
+                        double ksign = ( k & 1) ? -1 : 1;
+
+                        auto interpx = samurai::interp_coeffs<2*prediction_order+1>(isign);
+                        auto interpy = samurai::interp_coeffs<2*prediction_order+1>(jsign);
+                        auto interpz = samurai::interp_coeffs<2*prediction_order+1>(ksign);
+
+                        auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig, jg, kg)), field_i);
+                        MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
+
+                        for(std::size_t ci = 0; ci < interpx.size(); ++ci)
+                        {
+                            for(std::size_t cj = 0; cj < interpy.size(); ++cj)
+                            {
+                                for(std::size_t ck = 0; ck < interpz.size(); ++ck)
+                                {
+                                    if (ci != prediction_order || cj != prediction_order || ck != prediction_order)
+                                    {
+                                        double value = -interpx[ci]*interpy[cj]*interpz[ck];
+                                        auto coarse_cell_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order), 
+                                                                                                                                               jg + static_cast<index_t>(cj - prediction_order), 
+                                                                                                                                               kg + static_cast<index_t>(ck - prediction_order))), field_i);
+                                        MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
+                                    }
+                                }
+                            }
+                        }
+                        this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                    }
                 });
             }
 
