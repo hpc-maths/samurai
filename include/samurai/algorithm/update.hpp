@@ -7,6 +7,7 @@
 #include "../subset/subset_op.hpp"
 #include "../mr/operators.hpp"
 #include "utils.hpp"
+#include "../bc.hpp"
 #include "../numeric/projection.hpp"
 #include "../numeric/prediction.hpp"
 
@@ -83,8 +84,8 @@ namespace samurai
         }
     }
 
-    template<class Field, class Func>
-    void update_ghost_mr(Field& field, Func&& update_bc_for_level)
+    template<class Field>
+    void update_ghost_mr(Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -100,6 +101,7 @@ namespace samurai
             set_at_levelm1.apply_op(projection(field));
         }
 
+        update_bc(min_level, field);
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
             auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
@@ -108,9 +110,8 @@ namespace samurai
                                      mesh.domain())
                         .on(level);
 
-            update_bc_for_level(field, level-1);
             expr.apply_op(prediction<1, false>(field));
-            update_bc_for_level(field, level);
+            update_bc(level, field);
         }
     }
 
