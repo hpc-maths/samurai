@@ -29,7 +29,7 @@ namespace samurai
         };
 
         template <std::size_t dim_,
-                  std::size_t ghost_width_ = default_config::ghost_width,
+                  std::size_t max_stencil_width_ = default_config::ghost_width,
                   std::size_t graduation_width_ = default_config::graduation_width,
                   std::size_t max_refinement_level_ = default_config::max_level,
                   std::size_t prediction_order_ = default_config::prediction_order,
@@ -38,9 +38,11 @@ namespace samurai
         {
             static constexpr std::size_t dim = dim_;
             static constexpr std::size_t max_refinement_level = max_refinement_level_;
-            static constexpr int ghost_width = ghost_width_;
-            static constexpr int graduation_width = graduation_width_;
+            static constexpr int max_stencil_width = max_stencil_width_;
             static constexpr int prediction_order = prediction_order_;
+            static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
+                                                        static_cast<int>(prediction_order));
+            static constexpr int graduation_width = graduation_width_;
 
             using interval_t = TInterval;
             using mesh_id_t = AMR_Id;

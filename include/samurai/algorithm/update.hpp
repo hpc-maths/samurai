@@ -13,8 +13,8 @@
 
 namespace samurai
 {
-    template<class Field, class... Fields, class Func>
-    void update_ghost(Func&& update_bc_for_level, Field& field, Fields&... fields)
+    template<class Field, class... Fields>
+    void update_ghost(Field& field, Fields&... fields)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
@@ -31,14 +31,14 @@ namespace samurai
             set_at_levelm1.apply_op(variadic_projection(field, fields...));
         }
 
+        update_bc(min_level, field, fields...);
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level],
                                              mesh[mesh_id_t::reference][level-1])
                                .on(level);
-            update_bc_for_level(level-1, field, fields...);
             set_at_level.apply_op(variadic_prediction<pred_order, false>(field, fields...));
-            update_bc_for_level(level, field, fields...);
+            update_bc(level, field, fields...);
         }
     }
 
