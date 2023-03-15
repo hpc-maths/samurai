@@ -39,28 +39,35 @@ int main()
     using Config = samurai::MRConfig<dim>;
     samurai::MRMesh<Config> mesh(box, start_level, start_level);
 
-    auto u = samurai::make_field<double, 1>("u", mesh);
 
-    auto bc = samurai::make_bc<samurai::Dirichlet>(u, 1.);
+    auto u = samurai::make_field<double, 1>("u", mesh);
+    u.fill(0);
+    // std::cout << "ite -> " << ite << std::endl;
+    // auto bc = samurai::make_bc<samurai::Dirichlet>(u, 1., 2.);
+    auto bc = samurai::make_bc<samurai::Dirichlet>(u, [](auto& coords)
+    {
+        // return xt::xtensor_fixed<double, xt::xshape<2>>{coords[0], coords[1]};
+        return coords[0];
+    });
     bc->on([](auto& coords)
     {
         return (coords[0] >= .25 && coords[0] <= .75);
     });
 
-    std::cout << bc->get_lca() << std::endl;
+    // std::cout << bc->get_lca() << std::endl;
 
     bc->on(samurai::Everywhere<dim, typename Config::interval_t>());
-    std::cout << bc->get_lca() << std::endl;
-    // samurai::save("domain",  u.mesh().domain());
-    // samurai::save("boundary",  bc.get_lca());
+    // std::cout << bc->get_lca() << std::endl;
+    // // samurai::save("domain",  u.mesh().domain());
+    // // samurai::save("boundary",  bc.get_lca());
 
-    std::cout << u.get_bc().back().get()->get_lca() << std::endl;
+    // std::cout << u.get_bc().back().get()->get_lca() << std::endl;
 
-    // samurai::make_bc<samurai::Dirichlet>(u, [](auto&)
-    // {
-    //     return 1;
-    //     // return xt::xtensor_fixed<double, xt::xshape<1>>(1);
-    // });
+    samurai::make_bc<samurai::Neumann>(u, [](auto&)
+    {
+        return 1;
+        // return xt::xtensor_fixed<double, xt::xshape<1>>(1);
+    });
 
 
     // auto uvec = samurai::make_field<double, 4>("u", mesh);
@@ -74,13 +81,8 @@ int main()
     // std::cout << bcn.get_lca() << std::endl;
 
 
-    // samurai::LevelCellArray<dim> lca = {1, box};
-    // // auto set = samurai::difference(lca, samurai::contraction(lca)).on(2);
-    // auto set = samurai::intersection(samurai::projection(lca, 4), samurai::projection(lca, 4));
-    // set([](const auto& i, const auto& index)
-    // {
-    //     std::cout << i << " " << index[0] << std::endl;
-    // });
+    samurai::update_bc(u);
+    samurai::save(fs::current_path(), "boundary", {true, true}, mesh, u);
 
     // Robin<2, double, 3> robin(ConstantBc<2, double, 3>{4});
     // f.attach(robin);

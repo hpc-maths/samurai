@@ -11,6 +11,9 @@
 #include <type_traits>
 
 #include <xtensor/xfixed.hpp>
+#include <xtensor/xnoalias.hpp>
+#include <xtensor/xio.hpp>
+
 namespace samurai
 {
     enum class BCType
@@ -19,6 +22,12 @@ namespace samurai
         neumann = 1,
         periodic = 2,
         interpolation = 3 // Reconstruct the function by linear approximation
+    };
+
+    enum class BCVType
+    {
+        constant = 0,
+        function = 1,
     };
 
     template<std::size_t Dim>
@@ -46,12 +55,14 @@ namespace samurai
         struct return_type
         {
             using type = xt::xtensor_fixed<T, xt::xshape<size>>;
+            static constexpr std::size_t dim = 2;
         };
 
         template<class T>
         struct return_type<T, 1>
         {
             using type = T;
+            static constexpr std::size_t dim = 1;
         };
 
         template<class T, std::size_t size>
@@ -73,8 +84,9 @@ namespace samurai
         BcValue(BcValue&&) = delete;
         BcValue& operator=(BcValue&&) = delete;
 
-        virtual value_t& get_value(const coords_t&) = 0;
+        virtual value_t get_value(const coords_t&) const = 0;
         virtual std::unique_ptr<BcValue> clone() const = 0;
+        virtual BCVType type() const = 0;
     protected:
         BcValue(){}
     };
@@ -93,9 +105,9 @@ namespace samurai
         ConstantBc(const ConstantBc& bc);
         ConstantBc& operator=(const ConstantBc& bc);
 
-        value_t& get_value(const coords_t&) override;
+        value_t get_value(const coords_t&) const override;
         std::unique_ptr<base_t> clone() const override;
-
+        BCVType type() const override;
     private:
         value_t m_v;
     };
@@ -114,9 +126,9 @@ namespace samurai
         FunctionBc(const FunctionBc& bc);
         FunctionBc& operator=(const FunctionBc& bc);
 
-        value_t& get_value(const coords_t& coords) override;
+        value_t get_value(const coords_t& coords) const override;
         std::unique_ptr<base_t> clone() const override;
-
+        BCVType type() const override;
     private:
         std::function<value_t (const coords_t&)> m_func;
         value_t m_v;
@@ -145,9 +157,8 @@ namespace samurai
     }
 
     template<std::size_t dim, class T, std::size_t size>
-    inline auto ConstantBc<dim, T, size>::get_value(const coords_t&) -> value_t&
+    inline auto ConstantBc<dim, T, size>::get_value(const coords_t&) const -> value_t
     {
-        std::cout << "constant" << std::endl;
         return m_v;
     }
 
@@ -155,6 +166,12 @@ namespace samurai
     auto ConstantBc<dim, T, size>::clone() const -> std::unique_ptr<base_t>
     {
         return std::make_unique<ConstantBc>(*this);
+    }
+
+    template<std::size_t dim, class T, std::size_t size>
+    inline BCVType ConstantBc<dim, T, size>::type() const
+    {
+        return BCVType::constant;
     }
 
     template<std::size_t dim, class T, std::size_t size>
@@ -175,17 +192,21 @@ namespace samurai
     }
 
     template<std::size_t dim, class T, std::size_t size>
-    inline auto FunctionBc<dim, T, size>::get_value(const coords_t& coords) -> value_t&
+    inline auto FunctionBc<dim, T, size>::get_value(const coords_t& coords) const -> value_t
     {
-        std::cout << "function" << std::endl;
-        m_v = m_func(coords);
-        return m_v;
+        return m_func(coords);
     }
 
     template<std::size_t dim, class T, std::size_t size>
     auto FunctionBc<dim, T, size>::clone() const -> std::unique_ptr<base_t>
     {
         return std::make_unique<FunctionBc>(*this);
+    }
+
+    template<std::size_t dim, class T, std::size_t size>
+    inline BCVType FunctionBc<dim, T, size>::type() const
+    {
+        return BCVType::function;
     }
 
     /////////////////////////
@@ -401,19 +422,19 @@ namespace samurai
     template<std::size_t dim, class TInterval, class F, class... CT>
     auto make_region(subset_operator<F, CT...> region)
     {
-        return std::make_unique<SetRegion<dim, TInterval, subset_operator<F, CT...>>>(region);
+        return SetRegion<dim, TInterval, subset_operator<F, CT...>>(region);
     }
 
     template<std::size_t dim, class TInterval, class Func>
     auto make_region(Func&& func)
     {
-        return std::make_unique<CoordsRegion<dim, TInterval>>(std::forward<Func>(func));
+        return CoordsRegion<dim, TInterval>(std::forward<Func>(func));
     }
 
     template<std::size_t dim, class TInterval>
     auto make_region(Everywhere<dim, TInterval>)
     {
-        return std::make_unique<Everywhere<dim, TInterval>>();
+        return Everywhere<dim, TInterval>();
     }
 
     ///////////////////
@@ -425,9 +446,13 @@ namespace samurai
     public:
         using bcvalue_t = BcValue<dim, T, size>;
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
+        using value_t = typename bcvalue_t::value_t;
+        using coords_t = typename bcvalue_t::coords_t;
+
+
         using bcregion_t = BcRegion<dim, TInterval>;
-        using bcregion_impl = std::unique_ptr<bcregion_t>;
         using lca_t = typename bcregion_t::lca_t;
+        using region_t = typename bcregion_t::region_t;
 
         virtual ~Bc() = default;
 
@@ -444,12 +469,20 @@ namespace samurai
 
         template<class Region>
         auto on(const Region& region);
-        auto get_lca();
+        auto get_region() const;
+
+        template<class Direction>
+        void update_values(const Direction& d, std::size_t level, const TInterval& i, const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim-1>> index);
+
+        value_t constant_value();
+        const auto& value() const;
+        BCVType get_value_type() const;
 
     private:
         bcvalue_impl p_bcvalue;
-        bcregion_impl p_bcregion;
         const lca_t& m_domain;
+        region_t m_region;
+        xt::xtensor<T, detail::return_type<T, size>::dim> m_value;
     };
 
     ///////////////////
@@ -458,24 +491,24 @@ namespace samurai
     template<std::size_t dim, class TInterval, class T, std::size_t size>
     Bc<dim, TInterval, T, size>::Bc(const lca_t& domain, const bcvalue_t& bcv, const bcregion_t& bcr)
     : p_bcvalue(bcv.clone())
-    , p_bcregion(bcr.clone())
     , m_domain(domain)
+    , m_region(bcr.get_region(domain))
     {
     }
 
     template<std::size_t dim, class TInterval, class T, std::size_t size>
     Bc<dim, TInterval, T, size>::Bc(const lca_t& domain, const bcvalue_t& bcv)
     : p_bcvalue(bcv.clone())
-    , p_bcregion(make_region(Everywhere<dim, TInterval>()))
     , m_domain(domain)
+    , m_region(Everywhere<dim, TInterval>().get_region(domain))
     {
     }
 
     template<std::size_t dim, class TInterval, class T, std::size_t size>
     Bc<dim, TInterval, T, size>::Bc(const Bc& bc)
     : p_bcvalue(bc.p_bcvalue->clone())
-    , p_bcregion(bc.p_bcregion->clone())
     , m_domain(bc.m_domain)
+    , m_region(bc.m_region)
     {
     }
 
@@ -483,10 +516,9 @@ namespace samurai
     Bc<dim, TInterval, T, size>& Bc<dim, TInterval, T, size>::operator=(const Bc& bc)
     {
         bcvalue_impl bcvalue = bc.p_bcvalue->clone();
-        bcregion_impl bcregion = bc.p_bcregion->clone();
         std::swap(p_bcvalue, bcvalue);
-        std::swap(p_bcregion, bcregion);
         m_domain = bc.m_domain;
+        m_region = bc.m_region;
         return *this;
     }
 
@@ -494,14 +526,65 @@ namespace samurai
     template<class Region>
     inline auto Bc<dim, TInterval, T, size>::on(const Region& region)
     {
-        p_bcregion = make_region<dim, TInterval>(region);
+        m_region = make_region<dim, TInterval>(region).get_region(m_domain);
         return this;
     }
 
     template<std::size_t dim, class TInterval, class T, std::size_t size>
-    inline auto Bc<dim, TInterval, T, size>::get_lca()
+    inline auto Bc<dim, TInterval, T, size>::get_region() const
     {
-        return p_bcregion->get_region(m_domain);
+        return m_region;
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    template<class Direction>
+    void Bc<dim, TInterval, T, size>::update_values(const Direction& dir, std::size_t level, const TInterval& i, const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim-1>> index)
+    {
+        if (p_bcvalue.get()->type() == BCVType::function)
+        {
+            coords_t coords;
+            double dx = 1./(1<<level);
+
+            coords[0] = dx*i.start + 0.5*(1 + dir[0])*dx;
+            for(std::size_t d = 1; d < dim; ++d)
+            {
+                coords[d] = dx*index[d-1] + 0.5*( 1 + dir[d])*dx;
+            }
+
+            if constexpr (size == 1)
+            {
+                m_value.resize({i.size()});
+            }
+            else
+            {
+                m_value.resize({i.size(), size});
+            }
+
+            for(std::size_t ii = 0; ii < i.size(); ++ii)
+            {
+                coords[0] += dx;
+                xt::view(m_value, ii) = p_bcvalue->get_value(coords);
+            }
+        }
+
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    inline auto Bc<dim, TInterval, T, size>::constant_value() -> value_t
+    {
+        return p_bcvalue.get()->get_value({});
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    inline const auto& Bc<dim, TInterval, T, size>::value() const
+    {
+        return m_value;
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size>
+    inline BCVType Bc<dim, TInterval, T, size>::get_value_type() const
+    {
+        return p_bcvalue.get()->type();
     }
 
     /////////////////////////
@@ -584,6 +667,213 @@ namespace samurai
         }
     };
 
+    template<class Direction, class TValue, class TIndex>
+    auto coordinates(const Direction& d, std::size_t level, const Interval<TValue, TIndex>& i, TValue j)
+    {
+        double dx = 1./(1<<level);
+        std::array<std::size_t, 2> shape{i.size(), 2};
+        std::vector<xt::xtensor_fixed<double, xt::xshape<2>>> coords(i.size());
+        for(std::size_t ii=0; ii < i.size(); ++ii)
+        {
+            coords[ii] = {dx*(i.start + static_cast<TValue>(ii)) + 0.5*(1 + d[0])*dx,  dx*j + 0.5*( 1 + d[1])*dx};
+        }
+        return coords;
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size, class Field>
+    void apply_bc_impl(Dirichlet<dim, TInterval, T, size>& bc, std::size_t level, Field& field)
+    {
+        constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
+                                             static_cast<int>(Field::mesh_t::config::prediction_order));
+
+        using value_t = typename Field::value_type;
+        using bcvalue_t = typename Dirichlet<dim, TInterval, T, size>::value_t;
+        constexpr std::size_t field_size = Field::size;
+
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh = field.mesh()[mesh_id_t::reference];
+
+        auto region = bc.get_region();
+        auto& direction = region.first;
+        auto& lca = region.second;
+        for (std::size_t d=0; d < direction.size(); ++d)
+        {
+            auto set = intersection(mesh[level], lca[d]).on(level);
+            set([&](const auto& i, const auto& index)
+            {
+                if (bc.get_value_type() == BCVType::constant)
+                {
+                    for (int ig=0; ig < ghost_width; ++ig)
+                    {
+                        if constexpr (dim == 1)
+                        {
+                            field(level, i - ig*direction[d][0]) = 2*bc.constant_value() - field(level, i + (ig + 1)*direction[d][0]);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            field(level, i - ig*direction[d][0], j - ig*direction[d][1]) = 2*bc.constant_value() - field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1]);
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j = index[0];
+                            auto k = index[1];
+                            field(level, i - ig*direction[d][0], j - ig*direction[d][1], k - ig*direction[d][2]) = 2*bc.constant_value() - field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1], k + (ig + 1)*direction[d][2]);
+                        }
+                    }
+                }
+                else if (bc.get_value_type() == BCVType::function)
+                {
+                    bc.update_values(direction[d], level, i, index);
+
+                    for (int ig=0; ig < ghost_width; ++ig)
+                    {
+                        if constexpr (dim == 1)
+                        {
+                            field(level, i - ig*direction[d][0]) = 2*bc.value() - field(level, i + (ig + 1)*direction[d][0]);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            field(level, i - ig*direction[d][0], j - ig*direction[d][1]) = 2*bc.value() - field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1]);
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j = index[0];
+                            auto k = index[1];
+                            field(level, i - ig*direction[d][0], j - ig*direction[d][1], k - ig*direction[d][2]) = 2*bc.value() - field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1], k + (ig + 1)*direction[d][2]);
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size, class Field>
+    void apply_bc_impl(Neumann<dim, TInterval, T, size>& bc, std::size_t level, Field& field)
+    {
+        constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
+                                             static_cast<int>(Field::mesh_t::config::prediction_order));
+
+        using value_t = typename Field::value_type;
+        using bcvalue_t = typename Neumann<dim, TInterval, T, size>::value_t;
+        constexpr std::size_t field_size = Field::size;
+
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh = field.mesh()[mesh_id_t::reference];
+
+        auto region = bc.get_region();
+        auto& direction = region.first;
+        auto& lca = region.second;
+        for (std::size_t d=0; d < direction.size(); ++d)
+        {
+            auto set = intersection(mesh[level], lca[d]).on(level);
+            set([&](const auto& i, const auto& index)
+            {
+                double dx = 1./(1<<level);
+                if (bc.get_value_type() == BCVType::constant)
+                {
+                    for (int ig=0; ig < ghost_width; ++ig)
+                    {
+                        if constexpr (dim == 1)
+                        {
+                            field(level, i - ig*direction[d][0]) = dx*bc.constant_value() + field(level, i + (ig + 1)*direction[d][0]);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            field(level, i - ig*direction[d][0], j - ig*direction[d][1]) = dx*bc.constant_value() + field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1]);
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j = index[0];
+                            auto k = index[1];
+                            field(level, i - ig*direction[d][0], j - ig*direction[d][1], k - ig*direction[d][2]) = dx*bc.constant_value() + field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1], k + (ig + 1)*direction[d][2]);
+                        }
+                    }
+                }
+                else if (bc.get_value_type() == BCVType::function)
+                {
+                    bc.update_values(direction[d], level, i, index);
+
+                    for (int ig=0; ig < ghost_width; ++ig)
+                    {
+                        if constexpr (dim == 1)
+                        {
+                            field(level, i - ig*direction[d][0]) = dx*bc.value() + field(level, i + (ig + 1)*direction[d][0]);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            field(level, i - ig*direction[d][0], j - ig*direction[d][1]) = dx*bc.value() + field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1]);
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j = index[0];
+                            auto k = index[1];
+                            field(level, i - ig*direction[d][0], j - ig*direction[d][1], k - ig*direction[d][2]) = dx*bc.value() + field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1], k + (ig + 1)*direction[d][2]);
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    template<class BCType, class Field>
+    void apply_bc_impl(BCType& bc, Field& field)
+    {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh = field.mesh()[mesh_id_t::reference];
+
+        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+        {
+            apply_bc_impl(bc, level, field);
+        }
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size, class Field>
+    void apply_bc(std::unique_ptr<Bc<dim, TInterval, T, size>>& bc, std::size_t level, Field& field)
+    {
+        if (dynamic_cast<Dirichlet<dim, TInterval, T, size>*>(bc.get()))
+        {
+            apply_bc_impl(*dynamic_cast<Dirichlet<dim, TInterval, T, size>*>(bc.get()), level, field);
+        }
+        else if (dynamic_cast<Neumann<dim, TInterval, T, size>*>(bc.get()))
+        {
+            apply_bc_impl(*dynamic_cast<Neumann<dim, TInterval, T, size>*>(bc.get()), level, field);
+        }
+    }
+
+    template<class Field>
+    void update_bc(std::size_t level, Field& field)
+    {
+        for(auto& bc: field.get_bc())
+        {
+            apply_bc(bc, level, field);
+        }
+    }
+
+    template<std::size_t dim, class TInterval, class T, std::size_t size, class Field>
+    void apply_bc(std::unique_ptr<Bc<dim, TInterval, T, size>>& bc, Field& field)
+    {
+        if (dynamic_cast<Dirichlet<dim, TInterval, T, size>*>(bc.get()))
+        {
+            apply_bc_impl(*dynamic_cast<Dirichlet<dim, TInterval, T, size>*>(bc.get()), field);
+        }
+        else if (dynamic_cast<Neumann<dim, TInterval, T, size>*>(bc.get()))
+        {
+            apply_bc_impl(*dynamic_cast<Neumann<dim, TInterval, T, size>*>(bc.get()), field);
+        }
+    }
+
+    template<class Field>
+    void update_bc(Field& field)
+    {
+        for(auto& bc: field.get_bc())
+        {
+            apply_bc(bc, field);
+        }
+    }
     // template<std::size_t dim, class TInterval, class T, std::size_t size>
     // struct Robin: public Bc<dim, TInterval, T, size>
     // {
