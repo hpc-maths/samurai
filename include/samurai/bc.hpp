@@ -667,28 +667,11 @@ namespace samurai
         }
     };
 
-    template<class Direction, class TValue, class TIndex>
-    auto coordinates(const Direction& d, std::size_t level, const Interval<TValue, TIndex>& i, TValue j)
-    {
-        double dx = 1./(1<<level);
-        std::array<std::size_t, 2> shape{i.size(), 2};
-        std::vector<xt::xtensor_fixed<double, xt::xshape<2>>> coords(i.size());
-        for(std::size_t ii=0; ii < i.size(); ++ii)
-        {
-            coords[ii] = {dx*(i.start + static_cast<TValue>(ii)) + 0.5*(1 + d[0])*dx,  dx*j + 0.5*( 1 + d[1])*dx};
-        }
-        return coords;
-    }
-
     template<std::size_t dim, class TInterval, class T, std::size_t size, class Field>
     void apply_bc_impl(Dirichlet<dim, TInterval, T, size>& bc, std::size_t level, Field& field)
     {
         constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
                                              static_cast<int>(Field::mesh_t::config::prediction_order));
-
-        using value_t = typename Field::value_type;
-        using bcvalue_t = typename Dirichlet<dim, TInterval, T, size>::value_t;
-        constexpr std::size_t field_size = Field::size;
 
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto& mesh = field.mesh()[mesh_id_t::reference];
@@ -754,10 +737,6 @@ namespace samurai
     {
         constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
                                              static_cast<int>(Field::mesh_t::config::prediction_order));
-
-        using value_t = typename Field::value_type;
-        using bcvalue_t = typename Neumann<dim, TInterval, T, size>::value_t;
-        constexpr std::size_t field_size = Field::size;
 
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto& mesh = field.mesh()[mesh_id_t::reference];
