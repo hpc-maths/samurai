@@ -21,10 +21,6 @@ class SamuraiConan(ConanFile):
         "rapidcheck:enable_gtest": True,
     }
 
-    def configure(self):
-        if self.settings.os == "Windows" and self.settings.compiler == "gcc":
-            self.default_options["hdf5:shared"] = False
-
     def build(self):
         cmake = CMake(self)
         cmake.configure()
