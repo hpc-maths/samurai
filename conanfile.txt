@@ -8,6 +8,7 @@ fmt/9.1.0
 rapidcheck/cci.20220514
 
 [options]
+hdf5:shared=True
 highfive:with_boost=False
 highfive:with_opencv=False
 highfive:with_eigen=False
