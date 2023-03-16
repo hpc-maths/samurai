@@ -45,9 +45,9 @@ jobs:
             ${{ env.LOCALAPPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\Roaming\ccache
-          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
+          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.txt')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
+            conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.txt') }}-
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.26.2
         # uses: aminya/setup-cpp@v1
