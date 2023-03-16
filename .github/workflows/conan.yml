@@ -45,9 +45,9 @@ jobs:
             ${{ env.LOCALAPPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\Roaming\ccache
-          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.txt')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
+          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.txt') }}-
+            conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py') }}-
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.26.2
         # uses: aminya/setup-cpp@v1
@@ -71,13 +71,6 @@ jobs:
       - name: Information about ccache
         run: |
           ccache -s -v
-      - name: Update conan profile for clang
-        if: |
-          runner.os == 'Macos' &&
-          matrix.compiler == 'llvm'
-        run: |
-          conan profile new default --detect
-          conan profile update settings.compiler.libcxx=libc++ default
       - name: Configure CMake
         run: |
           cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
