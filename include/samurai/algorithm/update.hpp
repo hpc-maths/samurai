@@ -20,7 +20,6 @@ namespace samurai
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
         auto mesh = field.mesh();
-        std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
         for (std::size_t level = max_level; level >= 1; --level)
@@ -31,8 +30,8 @@ namespace samurai
             set_at_levelm1.apply_op(variadic_projection(field, fields...));
         }
 
-        update_bc(min_level, field, fields...);
-        for (std::size_t level = min_level; level <= max_level; ++level)
+        update_bc(0, field, fields...);
+        for (std::size_t level = 1; level <= max_level; ++level)
         {
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level],
                                              mesh[mesh_id_t::reference][level-1])
@@ -42,14 +41,13 @@ namespace samurai
         }
     }
 
-    template<class Field, class Func>
-    void update_ghost_mro(Field& field, Func&& update_bc_for_level)
+    template<class Field>
+    void update_ghost_mro(Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
         auto mesh = field.mesh();
 
-        std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
         for (std::size_t level = max_level; level >= 1; --level)
@@ -60,7 +58,8 @@ namespace samurai
             set_at_levelm1.apply_op(projection(field));
         }
 
-        for (std::size_t level = min_level; level <= max_level; ++level)
+        update_bc(0, field);
+        for (std::size_t level = 1; level <= max_level; ++level)
         {
             // We eliminate the overleaves from the computation since they
             // are done separately
@@ -78,9 +77,8 @@ namespace samurai
                                                                   mesh[mesh_id_t::proj_cells][level])),
                                                 mesh.domain())
                         .on(level);
-            update_bc_for_level(field, level-1);
             expr.apply_op(prediction<pred_order, false>(field));
-            update_bc_for_level(field, level);
+            update_bc(level, field);
         }
     }
 
@@ -90,7 +88,6 @@ namespace samurai
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
         auto mesh = field.mesh();
-        std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
         for (std::size_t level = max_level; level >= 1; --level)
@@ -101,8 +98,8 @@ namespace samurai
             set_at_levelm1.apply_op(projection(field));
         }
 
-        update_bc(min_level, field);
-        for (std::size_t level = min_level; level <= max_level; ++level)
+        update_bc(0, field);
+        for (std::size_t level = 1; level <= max_level; ++level)
         {
             auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
                                                 union_(mesh[mesh_id_t::cells][level],
@@ -115,8 +112,8 @@ namespace samurai
         }
     }
 
-    template<class Field, class Func>
-    void update_overleaves_mr(Field& field, Func&& update_bc_for_level)
+    template<class Field>
+    void update_overleaves_mr(Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -124,6 +121,7 @@ namespace samurai
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
+        update_bc(min_level, field);
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
             // These are the overleaves which are nothing else
@@ -134,7 +132,7 @@ namespace samurai
                                                     mesh[mesh_id_t::proj_cells][level]);
 
             overleaves_to_predict.apply_op(prediction<1, false>(field));
-            update_bc_for_level(field, level);
+            update_bc(level, field);
         }
     }
 
