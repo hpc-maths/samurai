@@ -34,7 +34,7 @@ jobs:
         with:
           path: |
             ~/vcpkg
-            ~/.conan/data
+            ~/.conan/
             ~/.cache/ccache
             ~/.cache/pip
             ~/Library/Caches/ccache
