@@ -5,6 +5,7 @@ class SamuraiConan(ConanFile):
     requires = [
         "xtensor/0.24.2",
         "highfive/2.6.2",
+        "hdf5/1.14.0",
         "pugixml/1.13",
         "cli11/2.3.2",
         "cxxopts/3.0.0",
@@ -13,7 +14,7 @@ class SamuraiConan(ConanFile):
     ]
     generators = ["CMakeDeps", "CMakeToolchain"]
     default_options = {
-        "hdf5:shared": False,
+        "hdf5:shared": True,
         "highfive:with_boost": False,
         "highfive:with_opencv": False,
         "highfive:with_eigen": False,
@@ -21,8 +22,8 @@ class SamuraiConan(ConanFile):
     }
 
     def configure(self):
-        if self.settings.os == "Windows" and self.settings.compiler == "msvc":
-            self.options["hdf5:shared"] = False
+        if self.settings.os == "Windows" and self.settings.compiler == "gcc":
+            self.default_options["hdf5:shared"] = False
 
     def build(self):
         cmake = CMake(self)
