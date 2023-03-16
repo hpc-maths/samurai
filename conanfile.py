@@ -22,7 +22,7 @@ class SamuraiConan(ConanFile):
 
     def configure(self):
         if self.settings.os == "Windows" and self.settings.compiler == "msvc":
-            self.options["hdf5:shared"] = True
+            self.options["hdf5:shared"] = False
 
     def build(self):
         cmake = CMake(self)
