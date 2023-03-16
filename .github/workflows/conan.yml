@@ -74,9 +74,9 @@ jobs:
       - name: Configure CMake
         run: |
           cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-      # - name: Build
-      #   run: |
-      #     cmake --build ./build --config Release
+      - name: Build
+        run: |
+          cmake --build ./build --config Release
       # - name: Install hdf5 with brew
       #   if: runner.os == 'Macos'
       #   env:
