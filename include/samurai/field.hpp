@@ -453,7 +453,7 @@ namespace samurai
       public:
         Field(const std::string& name, mesh_t& mesh);
 
-        Field(const Field&);
+        Field(Field&);
         Field& operator=(const Field&) = default;
 
         Field(Field&&) = default;
@@ -478,7 +478,7 @@ namespace samurai
         void to_stream(std::ostream& os) const;
 
         template<class Bc_derived>
-        auto attach(const Bc_derived& bc);
+        auto attach_bc(const Bc_derived& bc);
         auto& get_bc();
 
         const std::vector<boundary_condition_t>& boundary_conditions() const;
@@ -511,9 +511,9 @@ namespace samurai
     }
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline Field<mesh_t, value_t, size_, SOA>::Field(const Field& field)
+    inline Field<mesh_t, value_t, size_, SOA>::Field(Field& field)
     : inner_mesh_t(field.mesh())
-    , m_name(field.name)
+    , m_name(field.m_name)
     , m_data(field.m_data)
     {
         for(auto& v: field.p_bc)
@@ -626,7 +626,7 @@ namespace samurai
 
     template<class mesh_t, class value_t, std::size_t size_, bool SOA>
     template<class Bc_derived>
-    inline auto Field<mesh_t, value_t, size_, SOA>::attach(const Bc_derived& bc)
+    inline auto Field<mesh_t, value_t, size_, SOA>::attach_bc(const Bc_derived& bc)
     {
         p_bc.push_back(bc.clone());
         return p_bc.back().get();
