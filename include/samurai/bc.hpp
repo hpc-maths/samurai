@@ -342,6 +342,34 @@ namespace samurai
             dir.emplace_back(-d);
             lca.emplace_back(difference(translate(domain, d), domain));
         }
+        xt::xtensor_fixed<int, xt::xshape<2>> d{1, 1};
+        dir.emplace_back(-d);
+        lca.emplace_back(difference(translate(domain, d),
+                                    union_(domain,
+                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{1, 0}),
+                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{0, 1}))));
+
+        d = {-1, -1};
+        dir.emplace_back(-d);
+        lca.emplace_back(difference(translate(domain, d),
+                                    union_(domain,
+                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{-1, 0}),
+                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{0, -1}))));
+
+        d = {-1, 1};
+        dir.emplace_back(-d);
+        lca.emplace_back(difference(translate(domain, d),
+                                    union_(domain,
+                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{-1, 0}),
+                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{0, 1}))));
+
+        d = {1, -1};
+        dir.emplace_back(-d);
+        lca.emplace_back(difference(translate(domain, d),
+                                    union_(domain,
+                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{1, 0}),
+                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{0, -1}))));
+
         return std::make_pair(dir, lca);
     }
 
@@ -766,7 +794,18 @@ namespace samurai
                         else if constexpr (dim == 2)
                         {
                             auto j = index[0];
-                            field(level, i - ig*direction[d][0], j - ig*direction[d][1]) = dx*bc.constant_value() + field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1]);
+                            if (!xt::all(direction[d]))
+                            {
+                                field(level, i - ig*direction[d][0], j - ig*direction[d][1]) = dx*bc.constant_value() + field(level, i + (ig + 1)*direction[d][0], j + (ig + 1)*direction[d][1]);
+                            }
+                            else
+                            {
+                                // Diagonal direction
+                                for (int jg=0; jg < ghost_width; ++jg)
+                                {
+                                    field(level, i - ig*direction[d][0], j - jg*direction[d][1]) = dx*bc.constant_value() + field(level, i + (ig + 1)*direction[d][0], j + (jg + 1)*direction[d][1]);
+                                }
+                            }
                         }
                         else if constexpr (dim == 3)
                         {

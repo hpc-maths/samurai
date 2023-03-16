@@ -9,6 +9,7 @@ namespace fs = std::filesystem;
 #include <chrono>
 
 #include <samurai/mr/mesh.hpp>
+#include <samurai/bc.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/algorithm.hpp>
@@ -45,6 +46,29 @@ auto init(Mesh& mesh, Case& c)
                 break;
         }
     });
+
+    // switch(c)
+    // {
+    //     case Case::abs:
+    //         samurai::make_bc<samurai::Dirichlet>(u, [](const auto& coords)
+    //         {
+    //             return std::abs(coords[0]) + std::abs(coords[1]);
+    //         });
+    //         break;
+    //     case Case::exp:
+    //         samurai::make_bc<samurai::Dirichlet>(u, [](const auto& coords)
+    //         {
+    //             return std::exp(-100*(coords[0]*coords[0] + coords[1]*coords[1]));
+    //         });
+    //         break;
+    //     case Case::tanh:
+    //         samurai::make_bc<samurai::Dirichlet>(u, [](const auto& coords)
+    //         {
+    //             return std::tanh(50*(std::abs(coords[0]) + std::abs(coords[1]))) - 1;
+    //         });
+    //         break;
+    // }
+
     return u;
 }
 
