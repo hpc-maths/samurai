@@ -375,7 +375,7 @@ inline void amr_prediction(Field &field)
 
     std::size_t min_level = mesh[mesh_id_t::cells].min_level(), max_level = mesh[mesh_id_t::cells].max_level();
 
-    samurai::update_bc(0, phi, u);
+    samurai::update_bc(0, field);
 
     for (std::size_t level = 1; level <= max_level; ++level)
     {
