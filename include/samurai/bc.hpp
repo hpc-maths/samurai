@@ -12,7 +12,7 @@
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xnoalias.hpp>
-#include <xtensor/xio.hpp>
+#include <xtensor/xview.hpp>
 
 namespace samurai
 {
@@ -37,6 +37,9 @@ namespace samurai
     };
 
 
+    template <class F, class... CT>
+    class subset_operator;
+
     template<std::size_t dim, class TInterval>
     class LevelCellArray;
 
@@ -48,6 +51,9 @@ namespace samurai
 
     template<class Config>
     class UniformMesh;
+
+    template<class mesh_t, class value_t, std::size_t size, bool SOA>
+    class Field;
 
     namespace detail
     {
@@ -131,7 +137,6 @@ namespace samurai
         BCVType type() const override;
     private:
         std::function<value_t (const coords_t&)> m_func;
-        value_t m_v;
     };
 
     ////////////////////////////
@@ -562,8 +567,8 @@ namespace samurai
 
             for(std::size_t ii = 0; ii < i.size(); ++ii)
             {
-                coords[0] += dx;
                 xt::view(m_value, ii) = p_bcvalue->get_value(coords);
+                coords[0] += dx;
             }
         }
 
@@ -621,7 +626,7 @@ namespace samurai
         constexpr std::size_t size = Field::size;
 
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach(bc_type<dim, interval_t, value_t, size>(mesh, FunctionBc<dim, value_t, size>(func)));
+        return field.attach_bc(bc_type<dim, interval_t, value_t, size>(mesh, FunctionBc<dim, value_t, size>(func)));
     }
 
     template<template<std::size_t, class, class, std::size_t> class bc_type, class Field, class... T>
@@ -636,7 +641,7 @@ namespace samurai
         static_assert(Field::size == sizeof...(T) + 1, "The number of constant values should be equal to the number of element in the field");
 
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach(bc_type<dim, interval_t, value_t, size>(mesh, ConstantBc<dim, value_t, size>(v1, v...)));
+        return field.attach_bc(bc_type<dim, interval_t, value_t, size>(mesh, ConstantBc<dim, value_t, size>(v1, v...)));
     }
 
     //////////////
@@ -823,13 +828,20 @@ namespace samurai
         }
     }
 
-    template<class Field>
-    void update_bc(std::size_t level, Field& field)
+    template<class mesh_t, class value_t, std::size_t size, bool SOA>
+    void update_bc(std::size_t level, Field<mesh_t, value_t, size, SOA>& field)
     {
         for(auto& bc: field.get_bc())
         {
             apply_bc(bc, level, field);
         }
+    }
+
+    template<class Field, class... Fields>
+    void update_bc(std::size_t level, Field& field, Fields&... fields)
+    {
+        update_bc(level, field);
+        update_bc(level, fields...);
     }
 
     template<std::size_t dim, class TInterval, class T, std::size_t size, class Field>
@@ -853,6 +865,14 @@ namespace samurai
             apply_bc(bc, field);
         }
     }
+
+    template<class Field, class... Fields>
+    void update_bc(Field& field, Fields&... fields)
+    {
+        update_bc(field);
+        update_bc(fields...);
+    }
+
     // template<std::size_t dim, class TInterval, class T, std::size_t size>
     // struct Robin: public Bc<dim, TInterval, T, size>
     // {
