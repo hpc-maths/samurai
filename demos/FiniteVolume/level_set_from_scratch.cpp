@@ -355,7 +355,7 @@ inline void amr_projection(Field &field)
     auto& mesh = field.mesh();
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
+    std::size_t max_level = mesh.max_level();
 
     for (std::size_t level = max_level; level >= 1; --level)
     {
@@ -373,7 +373,7 @@ inline void amr_prediction(Field &field)
     auto& mesh = field.mesh();
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    std::size_t min_level = mesh[mesh_id_t::cells].min_level(), max_level = mesh[mesh_id_t::cells].max_level();
+    std::size_t max_level = mesh[mesh_id_t::cells].max_level();
 
     samurai::update_bc(0, field);
 
