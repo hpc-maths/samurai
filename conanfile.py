@@ -13,7 +13,7 @@ class SamuraiConan(ConanFile):
     ]
     generators = ["CMakeDeps", "CMakeToolchain"]
     default_options = {
-        "hdf5:shared": True,
+        "hdf5:shared": False,
         "highfive:with_boost": False,
         "highfive:with_opencv": False,
         "highfive:with_eigen": False,
