@@ -609,6 +609,7 @@ int main(int argc, char *argv[])
             // TVD-RK2
             update_ghosts(phi, u);
             auto phihat = samurai::make_field<double, 1>("phi", mesh);
+            samurai::make_bc<samurai::Neumann>(phihat, 0.);
             phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
             update_ghosts(phihat, u);
             phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, max_level));

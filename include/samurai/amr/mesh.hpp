@@ -93,40 +93,14 @@ namespace samurai
             for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
             {
                 lcl_type& lcl = cl[level];
-                // add ghosts for the scheme in space using stencil star
-                // in x direction
-                lcl[index_yz].add_interval({interval.start - config::ghost_width,
-                                            interval.end + config::ghost_width});
-                // in y and z directions
-                // FIXME: make it recursive and add the possibility to have stencil box or stencil star
-                if constexpr (dim == 2)
-                {
-                    for(int j = -config::ghost_width; j < config::ghost_width + 1; ++j)
-                    {
-                        xt::xtensor_fixed<int, xt::xshape<2>> stencil{j};
-                        lcl[index_yz + stencil].add_interval(interval);
-                    }
-                }
-                if constexpr (dim == 3)
-                {
-                    for(int j = -config::ghost_width; j < config::ghost_width + 1; ++j)
-                    {
-                        xt::xtensor_fixed<int, xt::xshape<2>> stencil{j, 0};
-                        lcl[index_yz + stencil].add_interval(interval);
-                        stencil = {0, j};
-                        lcl[index_yz + stencil].add_interval(interval);
-                    }
-                }
-                static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>([&](auto stencil)
+                static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
                 {
                     auto index = xt::eval(index_yz + stencil);
-                    lcl[index].add_interval({interval.start - config::prediction_order,
-                                             interval.end + config::prediction_order});
+                    lcl[index].add_interval({interval.start - config::ghost_width,
+                                            interval.end + config::ghost_width});
                 });
-
             });
             this->m_cells[mesh_id_t::cells_and_ghosts] = {cl, false};
-
 
             auto max_level = this->m_cells[mesh_id_t::cells].max_level();
             auto min_level = this->m_cells[mesh_id_t::cells].min_level();
