@@ -49,7 +49,7 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
       - name: Setup Cpp
-        uses: aminya/setup-cpp@v0.22.0
+        uses: aminya/setup-cpp@v0.26.2
         with:
           compiler: ${{ matrix.compiler }}
           vcvarsall: ${{ contains(matrix.os, 'windows' )}}
