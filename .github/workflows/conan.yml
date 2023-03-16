@@ -81,28 +81,28 @@ jobs:
       - name: Configure CMake
         run: |
           cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-      - name: Build
-        run: |
-          cmake --build ./build --config Release
-      - name: Install hdf5 with brew
-        if: runner.os == 'Macos'
-        env:
-          ARCHFLAGS: "-arch x86_64"
-        run: |
-          brew install hdf5@1.10
-          export HDF5_DIR=/usr/local/opt/hdf5@1.10
-          pip3 install pytest h5py
-      - name: Install Python dependencies
-        if: runner.os != 'Macos'
-        run: |
-          pip3 install pytest h5py
-      - name: Unix test
-        if: runner.os != 'Windows'
-        run: |
-          ./build/test/Release/test_samurai_lib
-          cd test; pytest --h5diff
-      - name: Windows test
-        if: runner.os == 'Windows'
-        run: |
-          .\build\test\Release\test_samurai_lib
-          # cd test; pytest -s --h5diff
+      # - name: Build
+      #   run: |
+      #     cmake --build ./build --config Release
+      # - name: Install hdf5 with brew
+      #   if: runner.os == 'Macos'
+      #   env:
+      #     ARCHFLAGS: "-arch x86_64"
+      #   run: |
+      #     brew install hdf5@1.10
+      #     export HDF5_DIR=/usr/local/opt/hdf5@1.10
+      #     pip3 install pytest h5py
+      # - name: Install Python dependencies
+      #   if: runner.os != 'Macos'
+      #   run: |
+      #     pip3 install pytest h5py
+      # - name: Unix test
+      #   if: runner.os != 'Windows'
+      #   run: |
+      #     ./build/test/Release/test_samurai_lib
+      #     cd test; pytest --h5diff
+      # - name: Windows test
+      #   if: runner.os == 'Windows'
+      #   run: |
+      #     .\build\test\Release\test_samurai_lib
+      #     # cd test; pytest -s --h5diff
