@@ -21,6 +21,7 @@ target_link_libraries(finite-volume-level-set-from-scratch samurai CLI11::CLI11)
 
 if (MSVC)
     target_compile_options(finite-volume-level-set-from-scratch PUBLIC /bigobj)
+    target_compile_options(finite-volume-level-set PUBLIC /bigobj)
 endif()
 
 add_executable(finite-volume-advection-1d advection_1d.cpp)
