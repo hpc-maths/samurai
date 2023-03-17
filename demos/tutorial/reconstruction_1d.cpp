@@ -98,11 +98,7 @@ int main(int argc, char *argv[])
     auto u = init(mrmesh, test_case);
     auto u_exact = init(umesh, test_case);
 
-    auto update_bc_for_level = [](auto&, std::size_t)
-    {
-    };
-
-    auto MRadaptation = samurai::make_MRAdapt(u, update_bc_for_level);
+    auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
 
     auto level_ = samurai::make_field<std::size_t, 1>("level", mrmesh);

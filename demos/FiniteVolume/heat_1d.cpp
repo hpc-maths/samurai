@@ -78,11 +78,11 @@ int main(int argc, char *argv[])
     //------------------//
     // Petsc initialize //
     //------------------//
-    
+
     PetscInitialize(&argc, &argv, 0, nullptr);
 
     PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size)); 
+    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
     PetscOptionsSetValue(NULL, "-options_left", "off"); // If on, Petsc will issue warnings saying that the options managed by CLI are unused
 
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
     samurai::for_each_cell(mesh, [&](auto &cell) {
         u[cell] = exact_solution(cell.center(0), t0);
     });
-    
+
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
        u.set_neumann([](auto&){ return 0.; }).everywhere();
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
     //   Time iteration   //
     //--------------------//
 
-    auto MRadaptation = samurai::make_MRAdapt(u, update_bc);
+    auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
 
     save(path, filename, u, "_init");
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 
         // Mesh adaptation
         MRadaptation(mr_epsilon, mr_regularity);
-        samurai::update_ghost_mr(u, update_bc);
+        samurai::update_ghost_mr(u);
         unp1.resize();
 
         // Solve the linear equation:
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
         }
 
         // Compute the error at instant t with respect to the exact solution
-        double error = decltype(diff_unp1)::L2Error(u, [&](auto& coord) 
+        double error = decltype(diff_unp1)::L2Error(u, [&](auto& coord)
         {
             double x = coord[0];
             return exact_solution(x, t);

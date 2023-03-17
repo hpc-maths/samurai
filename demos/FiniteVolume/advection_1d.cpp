@@ -11,6 +11,7 @@
 #include <samurai/algorithm.hpp>
 #include <samurai/stencil_field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/bc.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 #include <filesystem>
@@ -164,14 +165,10 @@ int main(int argc, char *argv[])
     double t = 0.;
 
     auto u = init(mesh);
+    samurai::make_bc<samurai::Dirichlet>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
-    auto update_bc = [](auto& field, std::size_t level)
-    {
-        dirichlet(level, field);
-    };
-
-    auto MRadaptation = samurai::make_MRAdapt(u, update_bc);
+    auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
     save(path, filename, u, "_init");
 
@@ -190,7 +187,7 @@ int main(int argc, char *argv[])
 
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
-        samurai::update_ghost_mr(u, update_bc);
+        samurai::update_ghost_mr(u);
         unp1.resize();
         unp1 = u - dt * samurai::upwind(a, u);
         if (correction)

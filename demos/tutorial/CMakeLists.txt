@@ -33,3 +33,6 @@ target_link_libraries(tutorial-reconstruction-3d PRIVATE samurai CLI11::CLI11)
 if (MSVC)
     target_compile_options(tutorial-reconstruction-3d PUBLIC /bigobj)
 endif()
+
+add_executable(tutorial-new-bc new_bc_2.cpp)
+target_link_libraries(tutorial-new-bc PRIVATE samurai CLI11::CLI11)

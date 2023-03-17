@@ -20,6 +20,9 @@ namespace samurai
     template<class D, class Config>
     class Mesh_base;
 
+    template<class F, class... CT>
+    class subset_operator;
+
     ///////////////////////////////////
     // for_each_level implementation //
     ///////////////////////////////////
@@ -168,6 +171,28 @@ namespace samurai
                 f(cell);
             }
         }
+    }
+
+    template <std::size_t dim, class TInterval, class Func, class F, class... CT>
+    inline void for_each_cell(const LevelCellArray<dim, TInterval>& lca, subset_operator<F, CT...> set, Func&& f)
+    {
+        using set_t = subset_operator<F, CT...>;
+        using coord_index_t = typename set_t::coord_index_t;
+
+        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index;
+
+        set([&](const auto& interval, const auto& index_yz)
+        {
+            index[0] = interval.start;
+            auto cell_index = lca.get_index(index);
+            xt::view(index, xt::range(1, _)) = index_yz;
+            for(coord_index_t i = interval.start; i < interval.end; ++i)
+            {
+                index[0] = i;
+                Cell<coord_index_t, dim> cell{set.level(), index, cell_index++};
+                f(cell);
+            }
+        });
     }
 
     template <std::size_t dim, class TInterval, std::size_t max_size, class Func>

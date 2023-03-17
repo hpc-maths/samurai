@@ -29,7 +29,7 @@ namespace samurai
         };
 
         template <std::size_t dim_,
-                  std::size_t ghost_width_ = default_config::ghost_width,
+                  std::size_t max_stencil_width_ = default_config::ghost_width,
                   std::size_t graduation_width_ = default_config::graduation_width,
                   std::size_t max_refinement_level_ = default_config::max_level,
                   std::size_t prediction_order_ = default_config::prediction_order,
@@ -38,9 +38,11 @@ namespace samurai
         {
             static constexpr std::size_t dim = dim_;
             static constexpr std::size_t max_refinement_level = max_refinement_level_;
-            static constexpr int ghost_width = ghost_width_;
-            static constexpr int graduation_width = graduation_width_;
+            static constexpr int max_stencil_width = max_stencil_width_;
             static constexpr int prediction_order = prediction_order_;
+            static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
+                                                        static_cast<int>(prediction_order));
+            static constexpr int graduation_width = graduation_width_;
 
             using interval_t = TInterval;
             using mesh_id_t = AMR_Id;
@@ -91,40 +93,14 @@ namespace samurai
             for_each_interval(this->m_cells[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index_yz)
             {
                 lcl_type& lcl = cl[level];
-                // add ghosts for the scheme in space using stencil star
-                // in x direction
-                lcl[index_yz].add_interval({interval.start - config::ghost_width,
-                                            interval.end + config::ghost_width});
-                // in y and z directions
-                // FIXME: make it recursive and add the possibility to have stencil box or stencil star
-                if constexpr (dim == 2)
-                {
-                    for(int j = -config::ghost_width; j < config::ghost_width + 1; ++j)
-                    {
-                        xt::xtensor_fixed<int, xt::xshape<2>> stencil{j};
-                        lcl[index_yz + stencil].add_interval(interval);
-                    }
-                }
-                if constexpr (dim == 3)
-                {
-                    for(int j = -config::ghost_width; j < config::ghost_width + 1; ++j)
-                    {
-                        xt::xtensor_fixed<int, xt::xshape<2>> stencil{j, 0};
-                        lcl[index_yz + stencil].add_interval(interval);
-                        stencil = {0, j};
-                        lcl[index_yz + stencil].add_interval(interval);
-                    }
-                }
-                static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>([&](auto stencil)
+                static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>([&](auto stencil)
                 {
                     auto index = xt::eval(index_yz + stencil);
-                    lcl[index].add_interval({interval.start - config::prediction_order,
-                                             interval.end + config::prediction_order});
+                    lcl[index].add_interval({interval.start - config::ghost_width,
+                                            interval.end + config::ghost_width});
                 });
-
             });
             this->m_cells[mesh_id_t::cells_and_ghosts] = {cl, false};
-
 
             auto max_level = this->m_cells[mesh_id_t::cells].max_level();
             auto min_level = this->m_cells[mesh_id_t::cells].min_level();
