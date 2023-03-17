@@ -89,13 +89,13 @@ jobs:
       #   if: runner.os != 'Macos'
       #   run: |
       #     pip3 install pytest h5py
-      # - name: Unix test
-      #   if: runner.os != 'Windows'
-      #   run: |
-      #     ./build/test/Release/test_samurai_lib
-      #     cd test; pytest --h5diff
-      # - name: Windows test
-      #   if: runner.os == 'Windows'
-      #   run: |
-      #     .\build\test\Release\test_samurai_lib
-      #     # cd test; pytest -s --h5diff
+      - name: Unix test
+        if: runner.os != 'Windows'
+        run: |
+          ./build/test/Release/test_samurai_lib
+          cd test; pytest --h5diff
+      - name: Windows test
+        if: runner.os == 'Windows'
+        run: |
+          .\build\test\Release\test_samurai_lib
+          # cd test; pytest -s --h5diff
