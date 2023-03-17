@@ -101,8 +101,8 @@ namespace samurai
             set_at_levelm1.apply_op(projection(field));
         }
 
-        update_bc(0, field);
         update_ghost_periodic(field);
+        update_bc(0, field);
         for (std::size_t level = 1; level <= max_level; ++level)
         {
             auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
