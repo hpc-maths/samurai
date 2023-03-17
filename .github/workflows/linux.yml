@@ -52,16 +52,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Get current time
-        run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
-
       - name: Cache
         uses: actions/cache@v3
         with:
           path: |
             ~/.cache/ccache
             ~/micromamba-root/envs/samurai-env
-          key: linux-${{ matrix.cpp-version }}-${{ env.TIMESTAMP }}
+          key: linux-${{ matrix.cpp-version }}-${{ env.GITHUB_SHA }}
           restore-keys: |
             linux-${{ matrix.cpp-version }}-
 
