@@ -51,11 +51,19 @@ jobs:
             cxx: "clang++-14"
     steps:
       - uses: actions/checkout@v3
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/ccache
+          key: linux-${{ runner.os }}-${{ matrix.cc }}-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            linux-${{ runner.os }}-${{ matrix.cc }}-
       - name: install compiler
         run: |
           sudo apt update
           sudo apt install ${{ matrix.package }}
-          sudo apt install clang-tidy iwyu
+          sudo apt install clang-tidy iwyu ccache
       - name: install mamba
         uses: mamba-org/provision-with-micromamba@main
         with:
@@ -81,6 +89,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
               -DBUILD_TESTS=ON \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
               -DIWYU=ON
       - name: Build
         shell: bash -l {0}

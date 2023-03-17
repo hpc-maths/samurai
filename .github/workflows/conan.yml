@@ -33,24 +33,22 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            ~/vcpkg
             ~/.conan/
             ~/.cache/ccache
             ~/.cache/pip
             ~/Library/Caches/ccache
-            ./build/vcpkg_installed
-            ${{ env.CONAN_USER_HOME }}
-            ${{ env.HOME }}/.cache
-            ${{ env.XDG_CACHE_HOME }}/vcpkg/archives
-            ${{ env.LOCALAPPDATA }}\vcpkg\archives
-            ${{ env.APPDATA }}\vcpkg\archives
-            ${{ env.APPDATA }}\Roaming\ccache
+            ${{ env.USERPROFILE }}\cmake
+            ${{ env.LOCALAPPDATA }}\ccache
           key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py') }}-
+      - name: Windows environnement variables
+        if: runner.os != 'Windows'
+        run: |
+          echo ${{ env.USERPROFILE }}\cmake
+          echo ${{ env.LOCALAPPDATA }}\ccache
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.26.2
-        # uses: aminya/setup-cpp@v1
         with:
           compiler: ${{ matrix.compiler }}
           vcvarsall: ${{ contains(matrix.os, 'windows' )}}
