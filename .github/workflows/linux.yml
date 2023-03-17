@@ -51,6 +51,7 @@ jobs:
             cxx: "clang++-14"
     steps:
       - uses: actions/checkout@v3
+
       - name: Cache
         uses: actions/cache@v3
         with:
@@ -59,25 +60,30 @@ jobs:
           key: linux-${{ runner.os }}-${{ matrix.cc }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
             linux-${{ runner.os }}-${{ matrix.cc }}-
+
       - name: install compiler
         run: |
           sudo apt update
           sudo apt install ${{ matrix.package }}
           sudo apt install clang-tidy iwyu ccache
+
       - name: install mamba
         uses: mamba-org/provision-with-micromamba@main
         with:
           environment-file: conda/environment.yml
           environment-name: samurai-env
+
       - name: Petsc installation
         shell: bash -l {0}
         run: |
           conda install -y petsc=3.18 pkg-config
+
       - name: Conda informations
         shell: bash -l {0}
         run: |
           conda info
           conda list
+
       - name: Configure
         shell: bash -l {0}
         run: |
@@ -91,16 +97,19 @@ jobs:
               -DBUILD_TESTS=ON \
               -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
               -DIWYU=ON
+
       - name: Build
         shell: bash -l {0}
         run: |
           cmake --build build --target all
+
       - name: Test with googletest
         shell: bash -l {0}
         run: |
           export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
           cd build
           ./test/test_samurai_lib
+
       - name: Test with pytest
         shell: bash -l {0}
         run: |
