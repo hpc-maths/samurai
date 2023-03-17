@@ -52,22 +52,30 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Get current time
+        run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+
       - name: Cache
         uses: actions/cache@v3
         with:
           path: |
             ~/.cache/ccache
-          key: linux-${{ runner.os }}-${{ matrix.cc }}-${{ hashFiles('**/CMakeLists.txt') }}
+            ~/micromamba-root/envs/samurai-env
+          key: linux-${{ runner.os }}-${{ matrix.cpp-version }}-${{ env.TIMESTAMP }}
           restore-keys: |
-            linux-${{ runner.os }}-${{ matrix.cc }}-
+            linux-${{ runner.os }}-${{ matrix..cpp-version }}-
 
-      - name: install compiler
+      - name: Compiler and dev tools installation
         run: |
           sudo apt update
           sudo apt install ${{ matrix.package }}
           sudo apt install clang-tidy iwyu ccache
 
-      - name: install mamba
+      - name: Information about ccache
+        run: |
+          ccache -s -v
+
+      - name: Mamba and samurai env installation
         uses: mamba-org/provision-with-micromamba@main
         with:
           environment-file: conda/environment.yml
