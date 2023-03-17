@@ -14,6 +14,8 @@
 #include <xtensor/xnoalias.hpp>
 #include <xtensor/xview.hpp>
 
+#include "static_algorithm.hpp"
+
 namespace samurai
 {
     enum class BCType
@@ -337,38 +339,39 @@ namespace samurai
     {
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
-        for (auto& d: detail::get_direction<dim>())
+
+
+        static_nested_loop<dim, -1, 2>([&](auto& stencil)
         {
-            dir.emplace_back(-d);
-            lca.emplace_back(difference(translate(domain, d), domain));
-        }
-        xt::xtensor_fixed<int, xt::xshape<2>> d{1, 1};
-        dir.emplace_back(-d);
-        lca.emplace_back(difference(translate(domain, d),
-                                    union_(domain,
-                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{1, 0}),
-                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{0, 1}))));
+            int number_of_one = xt::sum(xt::abs(stencil))[0];
+            if (number_of_one > 0)
+            {
+                dir.emplace_back(-stencil);
+            }
 
-        d = {-1, -1};
-        dir.emplace_back(-d);
-        lca.emplace_back(difference(translate(domain, d),
-                                    union_(domain,
-                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{-1, 0}),
-                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{0, -1}))));
-
-        d = {-1, 1};
-        dir.emplace_back(-d);
-        lca.emplace_back(difference(translate(domain, d),
-                                    union_(domain,
-                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{-1, 0}),
-                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{0, 1}))));
-
-        d = {1, -1};
-        dir.emplace_back(-d);
-        lca.emplace_back(difference(translate(domain, d),
-                                    union_(domain,
-                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{1, 0}),
-                                           translate(domain, xt::xtensor_fixed<int, xt::xshape<2>>{0, -1}))));
+            if (number_of_one == 1)
+            {
+                lca.emplace_back(difference(translate(domain, stencil), domain));
+            }
+            else if (number_of_one > 1)
+            {
+                if constexpr (dim == 2)
+                {
+                    lca.emplace_back(difference(translate(domain, stencil),
+                                                union_(domain,
+                                                       translate(domain, direction_t{stencil[0],          0}),
+                                                       translate(domain, direction_t{         0, stencil[1]}))));
+                }
+                else if constexpr (dim == 3)
+                {
+                    lca.emplace_back(difference(translate(domain, stencil),
+                                                union_(domain,
+                                                       translate(domain, direction_t{stencil[0],          0,          0}),
+                                                       translate(domain, direction_t{         0, stencil[1],          0}),
+                                                       translate(domain, direction_t{         0,          0, stencil[2]}))));
+                }
+            }
+        });
 
         return std::make_pair(dir, lca);
     }
