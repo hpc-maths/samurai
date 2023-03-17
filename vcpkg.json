@@ -15,6 +15,7 @@
     "cli11",
     "rapidcheck"
   ],
+  "builtin-baseline": "b51f391cd8f1f5a406b3baf9b014acff61702dc3",
   "overrides": [
     {
       "name": "hdf5", "version": "1.12.2"
