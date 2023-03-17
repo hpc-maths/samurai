@@ -75,7 +75,7 @@ jobs:
           ccache -s -v
       - name: Configure CMake
         run: |
-          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DVCPKG_BUILD_TYPE=release
+          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DVCPKG_OVERLAY_TRIPLETS=.github/workflows/vcpkg/custom-triplets
       - name: Build
         run: |
           cmake --build ./build --config Release
