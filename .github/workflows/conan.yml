@@ -29,6 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Get current time
+        run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+
       - name: Cache
         uses: actions/cache@v3
         with:
@@ -39,9 +42,10 @@ jobs:
             ~/Library/Caches/ccache
             C:\Users\runneradmin\cmake
             C:\Users\runneradmin\AppData\Local\ccache
-          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
+          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py')}}-${{ env.TIMESTAMP }}
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py') }}-
+            conan-${{ runner.os }}-${{ matrix.compiler }}-
 
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.26.2
