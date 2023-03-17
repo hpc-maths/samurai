@@ -3,6 +3,12 @@
   "version-string": "0.0.1",
   "dependencies": [
     "xtensor",
+    {
+      "name": "hdf5",
+      "version": "1.12.2",
+      "default-features": false,
+      "features": [ "cpp" ]
+    },
     "highfive",
     "pugixml",
     "cxxopts",
