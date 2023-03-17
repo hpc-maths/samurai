@@ -37,16 +37,12 @@ jobs:
             ~/.cache/ccache
             ~/.cache/pip
             ~/Library/Caches/ccache
-            ${{ env.USERPROFILE }}\cmake
-            ${{ env.LOCALAPPDATA }}\ccache
+            C:\Users\runneradmin\cmake
+            C:\Users\runneradmin\AppData\Local\ccache
           key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py') }}-
-      - name: Windows environnement variables
-        if: runner.os == 'Windows'
-        run: |
-          echo ${{ env.USERPROFILE }}\cmake
-          echo ${{ env.LOCALAPPDATA }}\ccache
+
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.26.2
         with:
