@@ -29,12 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Get current time
+        run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+
       - name: Cache
         uses: actions/cache@v3
         with:
           path: |
             ~/vcpkg
-            ~/.conan
             ~/.cache/ccache
             ~/.cache/pip
             ~/Library/Caches/ccache
@@ -44,10 +46,12 @@ jobs:
             ${{ env.XDG_CACHE_HOME }}/vcpkg/archives
             ${{ env.LOCALAPPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\vcpkg\archives
-            ${{ env.APPDATA }}\Roaming\ccache
-          key: vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ matrix.CMAKE_GENERATOR }}-${{ hashFiles('**/CMakeLists.txt') }}
+            C:\Users\runneradmin\cmake
+            C:\Users\runneradmin\AppData\Local\ccache
+          key: vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ env.TIMESTAMP }}
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
+            vcpkg-${{ runner.os }}-${{ matrix.compiler }}-
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.26.2
         with:
