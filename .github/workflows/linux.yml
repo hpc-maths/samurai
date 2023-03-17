@@ -63,7 +63,7 @@ jobs:
             ~/micromamba-root/envs/samurai-env
           key: linux-${{ runner.os }}-${{ matrix.cpp-version }}-${{ env.TIMESTAMP }}
           restore-keys: |
-            linux-${{ runner.os }}-${{ matrix..cpp-version }}-
+            linux-${{ runner.os }}-${{ matrix.cpp-version }}-
 
       - name: Compiler and dev tools installation
         run: |
