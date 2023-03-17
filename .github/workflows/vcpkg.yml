@@ -26,9 +26,6 @@ jobs:
           - os: windows-2022
             compiler: llvm
 
-    env:
-      VCPKG_BUILD_TYPE: release
-
     steps:
       - uses: actions/checkout@v3
 
@@ -78,7 +75,7 @@ jobs:
           ccache -s -v
       - name: Configure CMake
         run: |
-          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_BUILD_TYPE=Release
+          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DVCPKG_BUILD_TYPE=release
       - name: Build
         run: |
           cmake --build ./build --config Release
