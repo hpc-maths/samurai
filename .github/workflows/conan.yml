@@ -43,7 +43,7 @@ jobs:
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py') }}-
       - name: Windows environnement variables
-        if: runner.os != 'Windows'
+        if: runner.os == 'Windows'
         run: |
           echo ${{ env.USERPROFILE }}\cmake
           echo ${{ env.LOCALAPPDATA }}\ccache
