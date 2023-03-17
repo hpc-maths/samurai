@@ -392,8 +392,6 @@ inline void amr_prediction(Field &field)
 template <class Field, class Field_u>
 void update_ghosts(Field& phi, Field_u& u)
 {
-    auto& mesh = phi.mesh();
-
     amr_projection(phi);
     amr_projection(u);
 
