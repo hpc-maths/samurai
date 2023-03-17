@@ -26,6 +26,9 @@ jobs:
           - os: windows-2022
             compiler: llvm
 
+    env:
+      VCPKG_BUILD_TYPE: release
+
     steps:
       - uses: actions/checkout@v3
 
