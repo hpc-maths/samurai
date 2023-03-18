@@ -126,6 +126,7 @@ namespace samurai
         constexpr std::size_t dim = Field::dim;
 
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil_dir;
         auto mesh = field.mesh();
         std::size_t min_level = mesh[mesh_id_t::reference].min_level();
         std::size_t max_level = mesh[mesh_id_t::reference].max_level();
@@ -148,9 +149,13 @@ namespace samurai
                 if (mesh.is_periodic(d))
                 {
                     stencil.fill(0);
-                    stencil(d) = max_indices[d] - min_indices[d];// - (config::ghost_width<<delta_l);
+                    stencil[d] = max_indices[d] - min_indices[d];
+
+                    stencil_dir.fill(0);
+                    stencil_dir[d] = stencil[d] - (config::ghost_width<<delta_l);
+
                     auto set1 = intersection(mesh[mesh_id_t::reference][level],
-                                             translate(domain, stencil- (config::ghost_width<<delta_l)),
+                                             translate(domain, stencil_dir),
                                              domain)
                                 .on(level);
                     set1([&](auto& i, auto& index)
@@ -167,7 +172,7 @@ namespace samurai
                     });
 
                     auto set2 = intersection(mesh[mesh_id_t::reference][level],
-                                             translate(domain, -stencil+ (config::ghost_width<<delta_l)),
+                                             translate(domain, -stencil_dir),
                                              domain)
                                 .on(level);
 
@@ -198,6 +203,8 @@ namespace samurai
         constexpr std::size_t dim = Tag::dim;
 
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil_dir;
+
         auto& mesh = tag.mesh();
 
         auto& domain = mesh.domain();
@@ -210,9 +217,13 @@ namespace samurai
             if (mesh.is_periodic(d))
             {
                 stencil.fill(0);
-                stencil(d) = max_indices[d] - min_indices[d];// - (config::ghost_width<<delta_l);
+                stencil[d] = max_indices[d] - min_indices[d];
+
+                stencil_dir.fill(0);
+                stencil_dir[d] = stencil[d] - (config::ghost_width<<delta_l);
+
                 auto set1 = intersection(mesh[mesh_id_t::reference][level],
-                                         translate(domain, stencil- (config::ghost_width<<delta_l)),
+                                         translate(domain, stencil_dir),
                                          domain)
                             .on(level);
                 set1([&](auto& i, auto& index)
@@ -231,7 +242,7 @@ namespace samurai
                 });
 
                 auto set2 = intersection(mesh[mesh_id_t::reference][level],
-                                         translate(domain, -stencil+ (config::ghost_width<<delta_l)),
+                                         translate(domain, -stencil_dir),
                                          domain)
                             .on(level);
 
@@ -242,7 +253,7 @@ namespace samurai
                         tag(level, i) |= tag(level, i + (stencil[0]>>delta_l));
                         tag(level, i + (stencil[0]>>delta_l)) |= tag(level, i);
                     }
-                    else if constexpr (dim == 1)
+                    else if constexpr (dim == 2)
                     {
                         auto j = index[0];
                         tag(level, i, j) |= tag(level, i + (stencil[0]>>delta_l), j);
