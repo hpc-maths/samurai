@@ -229,7 +229,7 @@ namespace samurai
 
         // add ghosts for periodicity
         xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
-        auto domain = this->m_domain;
+        auto& domain = this->m_domain;
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
 
@@ -244,9 +244,10 @@ namespace samurai
                 if (this->is_periodic(d))
                 {
                     stencil.fill(0);
-                    stencil(d) = max_indices[d] - min_indices[d];
+                    stencil(d) = max_indices[d] - min_indices[d];// - (config::ghost_width<<delta_l);
                     auto set1 = intersection(this->m_cells[mesh_id_t::reference][level],
-                                                        translate(domain, stencil - (config::ghost_width<<delta_l)))
+                                             translate(domain, stencil- (config::ghost_width<<delta_l)))//,
+                                            //  domain)
                                 .on(level);
                     set1([&](auto& i, auto& index_yz)
                     {
@@ -254,7 +255,8 @@ namespace samurai
                     });
 
                     auto set2 = intersection(this->m_cells[mesh_id_t::reference][level],
-                                           translate(domain, -stencil + (config::ghost_width<<delta_l)))
+                                             translate(domain, -stencil + (config::ghost_width<<delta_l)))//,
+                                        //    domain)
                                 .on(level);
                     set2([&](auto& i, auto& index_yz)
                     {

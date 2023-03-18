@@ -391,6 +391,12 @@ namespace samurai
     }
 
     template<class D, class Config>
+    inline bool operator!=(const Mesh_base<D, Config> &mesh1, const Mesh_base<D, Config> &mesh2)
+    {
+        return !(mesh1 == mesh2);
+    }
+
+    template<class D, class Config>
     inline std::ostream &operator<<(std::ostream &out, const Mesh_base<D, Config>& mesh)
     {
         mesh.to_stream(out);

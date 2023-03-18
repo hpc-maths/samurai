@@ -27,6 +27,9 @@ endif()
 add_executable(finite-volume-advection-1d advection_1d.cpp)
 target_link_libraries(finite-volume-advection-1d samurai CLI11::CLI11)
 
+add_executable(finite-volume-advection-1d-periodic advection_1d_periodic.cpp)
+target_link_libraries(finite-volume-advection-1d-periodic samurai CLI11::CLI11)
+
 add_executable(finite-volume-advection-2d advection_2d.cpp)
 target_link_libraries(finite-volume-advection-2d samurai CLI11::CLI11)
 

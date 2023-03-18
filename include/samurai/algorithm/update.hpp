@@ -148,24 +148,40 @@ namespace samurai
                 if (mesh.is_periodic(d))
                 {
                     stencil.fill(0);
-                    stencil(d) = max_indices[d] - min_indices[d];
-                    auto set1 = intersection(intersection(mesh[mesh_id_t::reference][level],
-                                                        translate(domain, stencil - (config::ghost_width<<delta_l))),
-                                            domain)
+                    stencil(d) = max_indices[d] - min_indices[d];// - (config::ghost_width<<delta_l);
+                    auto set1 = intersection(mesh[mesh_id_t::reference][level],
+                                             translate(domain, stencil- (config::ghost_width<<delta_l)),
+                                             domain)
                                 .on(level);
-                    set1([&](auto& i, auto)
+                    set1([&](auto& i, auto& index)
                     {
-                        field(level, i - (stencil[0]>>delta_l)) = field(level, i);
+                        if constexpr (dim == 1)
+                        {
+                            field(level, i - (stencil[0]>>delta_l)) = field(level, i);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            field(level, i - (stencil[0]>>delta_l), j) = field(level, i, j);
+                        }
                     });
 
-                    auto set2 = intersection(intersection(mesh[mesh_id_t::reference][level],
-                                           translate(domain, -stencil + (config::ghost_width<<delta_l))),
-                                           domain)
+                    auto set2 = intersection(mesh[mesh_id_t::reference][level],
+                                             translate(domain, -stencil+ (config::ghost_width<<delta_l)),
+                                             domain)
                                 .on(level);
 
-                    set2([&](auto& i, auto)
+                    set2([&](auto& i, auto& index)
                     {
-                        field(level, i + (stencil[0]>>delta_l)) = field(level, i);
+                        if constexpr (dim == 1)
+                        {
+                            field(level, i + (stencil[0]>>delta_l)) = field(level, i);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            field(level, i + (stencil[0]>>delta_l), j) = field(level, i, j);
+                        }
                     });
                 }
             }
@@ -194,26 +210,44 @@ namespace samurai
             if (mesh.is_periodic(d))
             {
                 stencil.fill(0);
-                stencil(d) = max_indices[d] - min_indices[d];
-                auto set1 = intersection(intersection(mesh[mesh_id_t::reference][level],
-                                                    translate(domain, stencil - (config::ghost_width<<delta_l))),
-                                        domain)
+                stencil(d) = max_indices[d] - min_indices[d];// - (config::ghost_width<<delta_l);
+                auto set1 = intersection(mesh[mesh_id_t::reference][level],
+                                         translate(domain, stencil- (config::ghost_width<<delta_l)),
+                                         domain)
                             .on(level);
-                set1([&](auto& i, auto)
+                set1([&](auto& i, auto& index)
                 {
-                     tag(level, i) |= tag(level, i - (stencil[0]>>delta_l));
-                     tag(level, i - (stencil[0]>>delta_l)) |= tag(level, i);
+                    if constexpr (dim == 1)
+                    {
+                        tag(level, i) |= tag(level, i - (stencil[0]>>delta_l));
+                        tag(level, i - (stencil[0]>>delta_l)) |= tag(level, i);
+                    }
+                    else if constexpr (dim == 2)
+                    {
+                        auto j = index[0];
+                        tag(level, i, j) |= tag(level, i - (stencil[0]>>delta_l), j);
+                        tag(level, i - (stencil[0]>>delta_l), j) |= tag(level, i, j);
+                    }
                 });
 
-                auto set2 = intersection(intersection(mesh[mesh_id_t::reference][level],
-                                        translate(domain, -stencil + (config::ghost_width<<delta_l))),
-                                        domain)
+                auto set2 = intersection(mesh[mesh_id_t::reference][level],
+                                         translate(domain, -stencil+ (config::ghost_width<<delta_l)),
+                                         domain)
                             .on(level);
 
-                set2([&](auto& i, auto)
+                set2([&](auto& i, auto& index)
                 {
-                    tag(level, i) |= tag(level, i + (stencil[0]>>delta_l));
-                    tag(level, i + (stencil[0]>>delta_l)) |= tag(level, i);
+                    if constexpr (dim == 1)
+                    {
+                        tag(level, i) |= tag(level, i + (stencil[0]>>delta_l));
+                        tag(level, i + (stencil[0]>>delta_l)) |= tag(level, i);
+                    }
+                    else if constexpr (dim == 1)
+                    {
+                        auto j = index[0];
+                        tag(level, i, j) |= tag(level, i + (stencil[0]>>delta_l), j);
+                        tag(level, i + (stencil[0]>>delta_l), j) |= tag(level, i, j);
+                    }
                 });
             }
         }
@@ -417,12 +451,12 @@ namespace samurai
             return true;
         }
 
-        if (new_mesh == old_mesh)
-        {
-            field.mesh_ptr()->swap(old_mesh);
-            std::swap(field.array(), old_field.array());
-            return true;
-        }
+        // if (new_mesh == old_mesh)
+        // {
+        //     field.mesh_ptr()->swap(old_mesh);
+        //     std::swap(field.array(), old_field.array());
+        //     return true;
+        // }
 
         Field new_field("new_f", new_mesh);
         new_field.fill(0);
