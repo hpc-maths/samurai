@@ -207,10 +207,10 @@ namespace samurai
         }
     }
 
-    template <class D, class Config, class Func>
-    inline void for_each_cell(const Mesh_base<D, Config>& mesh, Func&& f)
+    template <class Mesh, class Func>
+    inline void for_each_cell(const Mesh& mesh, Func&& f)
     {
-        using mesh_id_t = typename Config::mesh_id_t;
+        using mesh_id_t = typename Mesh::config::mesh_id_t;
         for_each_cell(mesh[mesh_id_t::cells], std::forward<Func>(f));
     }
 
