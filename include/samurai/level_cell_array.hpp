@@ -18,6 +18,7 @@
 #include "level_cell_list.hpp"
 #include "utils.hpp"
 #include "samurai_config.hpp"
+#include "subset/subset_op_base.hpp"
 
 namespace samurai
 {
@@ -72,6 +73,10 @@ namespace samurai
         LevelCellArray& operator=(LevelCellArray&&) = default;
 
         LevelCellArray(const LevelCellList<Dim, TInterval> &lcl);
+
+        template<class F, class... CT>
+        LevelCellArray(subset_operator<F, CT...> set);
+
         LevelCellArray(std::size_t level, const Box<coord_index_t, dim>& box);
         LevelCellArray(std::size_t level, const Box<double, dim>& box);
         LevelCellArray(std::size_t level);
@@ -92,6 +97,10 @@ namespace samurai
         const interval_t& get_interval(const interval_t& interval, T... index) const;
 
         const interval_t& get_interval(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
+
+        template<typename... T>
+        std::size_t get_index(const coord_index_t& i, T... index) const;
+        std::size_t get_index(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
 
         void update_index();
 
@@ -250,6 +259,20 @@ namespace samurai
     }
 
     template<std::size_t Dim, class TInterval>
+    template<class F, class... CT>
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(subset_operator<F, CT...> set)
+    {
+        std::size_t level = set.level();
+        LevelCellList<Dim, TInterval> lcl{level};
+
+        set([&lcl](const auto& i, const auto& index)
+        {
+            lcl[index].add_interval(i);
+        });
+        *this = {lcl};
+    }
+
+    template<std::size_t Dim, class TInterval>
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<coord_index_t, dim>& box)
     : m_level{level}
     {
@@ -388,6 +411,19 @@ namespace samurai
     {
         auto row = find(*this, coord);
         return m_cells[0][static_cast<std::size_t>(row)];
+    }
+
+    template<std::size_t Dim, class TInterval>
+    template<typename... T>
+    inline std::size_t LevelCellArray<Dim, TInterval>::get_index(const coord_index_t& i, T... index) const
+    {
+        return static_cast<std::size_t>(get_interval({i, i+1}, index...).index + i);
+    }
+
+    template<std::size_t Dim, class TInterval>
+    inline std::size_t LevelCellArray<Dim, TInterval>::get_index(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const
+    {
+        return static_cast<std::size_t>(get_interval(coord).index + coord[0]);
     }
 
     /**

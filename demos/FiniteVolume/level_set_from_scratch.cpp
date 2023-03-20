@@ -8,6 +8,7 @@
 #include <samurai/mr/operators.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/bc.hpp>
 #include <samurai/algorithm/utils.hpp>
 #include <samurai/algorithm/update.hpp>
 
@@ -47,6 +48,7 @@ struct AMRConfig
 {
     static constexpr std::size_t dim = dim_;
     static constexpr std::size_t max_refinement_level = 20;
+    static constexpr int max_stencil_width = 2;
     static constexpr int ghost_width = 2;
     static constexpr std::size_t prediction_order = 1;
     using interval_t = samurai::Interval<int>;
@@ -136,6 +138,8 @@ auto init_level_set(Mesh & mesh)
                               std::pow(y - y_center, 2.)) - radius;
     });
 
+    samurai::make_bc<samurai::Neumann>(phi, 0.);
+
     return phi;
 }
 
@@ -158,13 +162,22 @@ auto init_velocity(Mesh &mesh)
         u[cell][1] =     std::pow(std::sin(PI*y), 2.) * std::sin(2.*PI*x);
     });
 
+    samurai::make_bc<samurai::Neumann>(u, 0., 0.);
+    // samurai::make_bc<samurai::Dirichlet>(u, [PI](auto& coords)
+    // {
+    //     return xt::xtensor_fixed<double, xt::xshape<2>>{
+    //         -std::pow(std::sin(PI*coords[0]), 2.) * std::sin(2.*PI*coords[1]),
+    //          std::pow(std::sin(PI*coords[1]), 2.) * std::sin(2.*PI*coords[0])
+    //     };
+    // });
+
     return u;
 }
 
 template<class Field>
 void make_graduation(Field & tag)
 {
-    auto mesh = tag.mesh();
+    auto& mesh = tag.mesh();
     for (std::size_t level = mesh.max_level(); level >= 1; --level)
     {
         auto ghost_subset = samurai::intersection(mesh[SimpleID::cells][level],
@@ -254,7 +267,7 @@ void make_graduation(Field & tag)
 template<class Field, class Tag>
 void AMR_criteria(const Field& f, Tag& tag)
 {
-    auto mesh = f.mesh();
+    auto& mesh = f.mesh();
     std::size_t min_level = mesh.min_level();
     std::size_t max_level = mesh.max_level();
 
@@ -294,7 +307,7 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
     using mesh_t = typename Field::mesh_t;
     using cl_type = typename mesh_t::cl_type;
 
-    auto mesh = f.mesh();
+    auto& mesh = f.mesh();
 
     cl_type cell_list;
 
@@ -339,12 +352,12 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
 template<class Field>
 inline void amr_projection(Field &field)
 {
-    auto mesh = field.mesh();
-    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+    auto& mesh = field.mesh();
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
+    std::size_t max_level = mesh.max_level();
 
-    for (std::size_t level = max_level; level >= min_level; --level)
+    for (std::size_t level = max_level; level >= 1; --level)
     {
         auto expr = samurai::intersection(mesh[mesh_id_t::cells][level],
                                        mesh[mesh_id_t::cells_and_ghosts][level - 1])
@@ -354,15 +367,17 @@ inline void amr_projection(Field &field)
     }
 }
 
-template<class Field, class Func>
-inline void amr_prediction(Field &field, Func&& update_bc_for_level)
+template<class Field>
+inline void amr_prediction(Field &field)
 {
-    auto mesh = field.mesh();
-    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+    auto& mesh = field.mesh();
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    std::size_t min_level = mesh[mesh_id_t::cells].min_level(), max_level = mesh[mesh_id_t::cells].max_level();
+    std::size_t max_level = mesh[mesh_id_t::cells].max_level();
 
-    for (std::size_t level = min_level + 1; level <= max_level; ++level)
+    samurai::update_bc(0, field);
+
+    for (std::size_t level = 1; level <= max_level; ++level)
     {
         auto expr = samurai::intersection(mesh.domain(),
                                          samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level],
@@ -370,27 +385,18 @@ inline void amr_prediction(Field &field, Func&& update_bc_for_level)
                    .on(level);
 
         expr.apply_op(samurai::prediction<1, false>(field));
-        update_bc_for_level(field, level);
+        samurai::update_bc(level, field);
     }
 }
 
-template <class Field, class Field_u, class Func>
-void update_ghosts(Field& phi, Field_u& u, Func&& update_bc_for_level)
+template <class Field, class Field_u>
+void update_ghosts(Field& phi, Field_u& u)
 {
-    auto mesh = phi.mesh();
-    std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
-
     amr_projection(phi);
     amr_projection(u);
 
-    for (std::size_t level = min_level; level <= max_level; ++level)
-    {
-        update_bc_for_level(phi, level);
-        update_bc_for_level(u, level);
-    }
-
-    amr_prediction(phi, std::forward<Func>(update_bc_for_level));
-    amr_prediction(u, std::forward<Func>(update_bc_for_level));
+    amr_prediction(phi);
+    amr_prediction(u);
 }
 
 template <class Field, class Field_u>
@@ -401,7 +407,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using interval_t = typename mesh_t::interval_t;
 
-    auto mesh = phi_np1.mesh();
+    auto& mesh = phi_np1.mesh();
     std::size_t min_level = mesh[mesh_id_t::cells].min_level();
     std::size_t max_level = mesh[mesh_id_t::cells].max_level();
     for (std::size_t level = min_level; level < max_level; ++level)
@@ -477,7 +483,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
 template <class Field, class Phi>
 void save(const fs::path& path, const std::string& filename, const Field& u, const Phi& phi, const std::string& suffix="")
 {
-    auto mesh = u.mesh();
+    auto& mesh = u.mesh();
     auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
 
     if (!fs::exists(path))
@@ -540,13 +546,9 @@ int main(int argc, char *argv[])
     // We initialize the velocity field
 
     auto phi = init_level_set(mesh);
+    auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
+
     auto u   = init_velocity(mesh);
-
-    auto update_bc_for_level = [](auto& field, std::size_t level)
-    {
-        update_bc_D2Q4_3_Euler_constant_extension(field, level);
-    };
-
 
     std::size_t nsave = 1;
     std::size_t nt = 0;
@@ -561,7 +563,7 @@ int main(int argc, char *argv[])
             auto tag = samurai::make_field<int, 1>("tag", mesh);
             AMR_criteria(phi, tag);
             make_graduation(tag);
-            update_ghosts(phi, u, update_bc_for_level);
+            update_ghosts(phi, u);
 
             if(update_mesh(phi, u, tag))
             {
@@ -579,9 +581,8 @@ int main(int argc, char *argv[])
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
         // Numerical scheme
-        update_ghosts(phi, u, update_bc_for_level);
-        auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
-
+        update_ghosts(phi, u);
+        phinp1.resize();
         phinp1 = phi - dt * samurai::upwind_variable(u, phi, dt);
         if (correction)
         {
@@ -598,16 +599,17 @@ int main(int argc, char *argv[])
         for (std::size_t k = 0; k < fict_iteration; ++k)
         {
             // //Forward Euler - OK
-            // update_ghosts(phi, u, update_bc_for_level);
+            // update_ghosts(phi, u);
             // phinp1 = phi - dt_fict * H_wrap(phi, phi_0, max_level);
             // std::swap(phi.array(), phinp1.array());
 
 
             // TVD-RK2
-            update_ghosts(phi, u, update_bc_for_level);
+            update_ghosts(phi, u);
             auto phihat = samurai::make_field<double, 1>("phi", mesh);
+            samurai::make_bc<samurai::Neumann>(phihat, 0.);
             phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
-            update_ghosts(phihat, u, update_bc_for_level); // Crucial !!!
+            update_ghosts(phihat, u);
             phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, max_level));
             std::swap(phi.array(), phinp1.array());
         }

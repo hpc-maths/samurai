@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - cpp-version: gcc-9
@@ -51,25 +51,44 @@ jobs:
             cxx: "clang++-14"
     steps:
       - uses: actions/checkout@v3
-      - name: install compiler
+
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: linux-${{ matrix.cpp-version }}-${{ env.GITHUB_SHA }}
+          restore-keys: |
+            linux-${{ matrix.cpp-version }}-
+
+      - name: Compiler and dev tools installation
         run: |
           sudo apt update
           sudo apt install ${{ matrix.package }}
-          sudo apt install clang-tidy iwyu
-      - name: install mamba
+          sudo apt install clang-tidy iwyu ccache
+
+      - name: Information about ccache
+        run: |
+          ccache -s -v
+
+      - name: Mamba and samurai env installation
         uses: mamba-org/provision-with-micromamba@main
         with:
           environment-file: conda/environment.yml
           environment-name: samurai-env
+
       - name: Petsc installation
         shell: bash -l {0}
         run: |
           conda install -y petsc=3.18 pkg-config
+
       - name: Conda informations
         shell: bash -l {0}
         run: |
           conda info
           conda list
+
       - name: Configure
         shell: bash -l {0}
         run: |
@@ -81,17 +100,21 @@ jobs:
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
               -DBUILD_TESTS=ON \
-              -DIWYU=ON
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+              # -DIWYU=ON
+
       - name: Build
         shell: bash -l {0}
         run: |
           cmake --build build --target all
+
       - name: Test with googletest
         shell: bash -l {0}
         run: |
           export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
           cd build
           ./test/test_samurai_lib
+
       - name: Test with pytest
         shell: bash -l {0}
         run: |

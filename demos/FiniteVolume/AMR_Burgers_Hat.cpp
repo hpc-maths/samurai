@@ -5,6 +5,7 @@
 #include <fmt/format.h>
 #include "CLI/CLI.hpp"
 
+#include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
@@ -196,13 +197,11 @@ int main(int argc, char *argv[])
     samurai::Box<double, dim> box({left_box}, {right_box});
     samurai::amr::Mesh<Config> mesh(box, start_level, min_level, max_level);
 
-    auto update_bc = [](std::size_t level, auto& field)
-    {
-        update_bc_D2Q4_3_Euler_constant_extension(field, level);
-    };
-
     auto phi = init_solution(mesh);
+    samurai::make_bc<samurai::Neumann>(phi, 0.);
+
     auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
+
     auto tag = samurai::make_field<int, 1>("tag", mesh);
     xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil_grad{{ 1 }, { -1 }};
 
@@ -221,7 +220,7 @@ int main(int argc, char *argv[])
         while(1)
         {
             std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
-            samurai::update_ghost(update_bc, phi);
+            samurai::update_ghost(phi);
             tag.resize();
             AMR_criteria(phi, tag);
             samurai::graduation(tag, stencil_grad);
@@ -241,7 +240,7 @@ int main(int argc, char *argv[])
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
         // Numerical scheme
-         samurai::update_ghost(update_bc, phi);
+        samurai::update_ghost(phi);
         phinp1.resize();
         phinp1 = phi - dt * samurai::upwind_Burgers(phi, dx/dt);
         if (correction)

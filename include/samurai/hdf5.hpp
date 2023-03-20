@@ -556,8 +556,8 @@ namespace samurai
         {
             return 1;
         }
-
     };
+
     template <class Mesh, class... T>
     class Hdf5_mesh_base_level: public SaveLevelCellArray<Hdf5_mesh_base_level<Mesh, T...>, Mesh, T...>
     {
@@ -591,6 +591,41 @@ namespace samurai
         std::size_t nb_submesh() const
         {
             return static_cast<std::size_t>(mesh_id_t::count);
+        }
+
+    };
+
+    template <class Mesh, class... T>
+    class Hdf5_LevelCellArray: public SaveLevelCellArray<Hdf5_LevelCellArray<Mesh, T...>, Mesh, T...>
+    {
+    public:
+        using base_type = SaveLevelCellArray<Hdf5_LevelCellArray<Mesh, T...>, Mesh, T...>;
+        using options_t = typename base_type::options_t;
+        using ca_type = Mesh;
+        static constexpr std::size_t dim = ca_type::dim;
+
+        Hdf5_LevelCellArray(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
+        : base_type(path, filename, options, mesh, fields...)
+        {}
+
+        const ca_type& get_mesh() const
+        {
+            return this->m_mesh;
+        }
+
+        const ca_type& get_submesh(std::size_t) const
+        {
+            return this->m_mesh;
+        }
+
+        std::string get_submesh_name(std::size_t) const
+        {
+            return fmt::format("LevelCellArray");
+        }
+
+        std::size_t nb_submesh() const
+        {
+            return 1;
         }
 
     };
@@ -631,6 +666,38 @@ namespace samurai
         }
 
     };
+
+    template <std::size_t dim, class TInterval, class... T>
+    void save(const fs::path& path, const std::string& filename, const LevelCellArray<dim, TInterval>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
+        auto h5 = hdf5_t(path, filename, {}, mesh, fields...);
+        h5.save();
+    }
+
+    template <std::size_t dim, class TInterval, class... T>
+    void save(const std::string& filename, const LevelCellArray<dim, TInterval>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
+        auto h5 = hdf5_t(fs::current_path(), filename, {}, mesh, fields...);
+        h5.save();
+    }
+
+    template <std::size_t dim, class TInterval, class... T>
+    void save(const fs::path& path, const std::string& filename, const Hdf5Options<LevelCellArray<dim, TInterval>>& options, const LevelCellArray<dim, TInterval>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
+        auto h5 = hdf5_t(path, filename, options, mesh, fields...);
+        h5.save();
+    }
+
+    template <std::size_t dim, class TInterval, class... T>
+    void save(const std::string& filename, const Hdf5Options<LevelCellArray<dim, TInterval>>& options, const LevelCellArray<dim, TInterval>& mesh, const T&... fields)
+    {
+        using hdf5_t = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
+        auto h5 = hdf5_t(fs::current_path(), filename, options, mesh, fields...);
+        h5.save();
+    }
 
     template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
     void save(const fs::path& path, const std::string& filename, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)

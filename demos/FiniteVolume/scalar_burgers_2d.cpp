@@ -4,6 +4,7 @@
 #include "CLI/CLI.hpp"
 #include <xtensor/xfixed.hpp>
 
+#include <samurai/bc.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -47,6 +48,8 @@ auto init(Mesh& mesh)
             u[cell] = -1;
         }
     });
+
+    samurai::make_bc<samurai::Dirichlet>(u, 0.);
 
     return u;
 }
@@ -219,12 +222,7 @@ int main(int argc, char *argv[])
     auto u = init(mesh);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
-    auto update_bc = [](auto& field, std::size_t level)
-    {
-        dirichlet(level, field);
-    };
-
-    auto MRadaptation = samurai::make_MRAdapt(u, update_bc);
+    auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
     save(path, filename, u, "_init");
 
@@ -244,7 +242,7 @@ int main(int argc, char *argv[])
 
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
-        samurai::update_ghost_mr(u, update_bc);
+        samurai::update_ghost_mr(u);
         unp1.resize();
         unp1 = u - dt * samurai::upwind_scalar_burgers(k, u);
         flux_correction(dt, k, u, unp1);

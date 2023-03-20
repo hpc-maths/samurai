@@ -78,10 +78,10 @@ namespace samurai
 
         template<typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
+        const interval_t& get_interval(std::size_t level, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
 
         template<typename... T>
         std::size_t get_index(std::size_t level, coord_index_t i, T... index) const;
-
         std::size_t get_index(std::size_t level, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
 
         void to_stream(std::ostream &os) const;
@@ -214,18 +214,22 @@ namespace samurai
     }
 
     template<class D, class Config>
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const -> const interval_t&
+    {
+        return m_cells[mesh_id_t::reference].get_interval(level, coord);
+    }
+
+    template<class D, class Config>
     template<typename... T>
     inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, coord_index_t i, T... index) const
     {
-        auto interval = m_cells[mesh_id_t::reference].get_interval(level, interval_t{i, i +1}, index...);
-        return interval.index + i;
+        return m_cells[mesh_id_t::reference].get_index(level, i, index...);
     }
 
     template<class D, class Config>
     inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const
     {
-        auto interval = m_cells[mesh_id_t::reference].get_interval(level, coord);
-        return static_cast<std::size_t>(interval.index + coord[0]);
+        return m_cells[mesh_id_t::reference].get_index(level, coord);
     }
 
     template<class D, class Config>

@@ -100,9 +100,9 @@ namespace samurai
         template<class C0, class... CT>
         struct interval_type
         {
-            using check = std::is_same<
+            using check = std::disjunction<std::is_same<
                 typename std::remove_reference<C0>::type::interval_t,
-                typename std::remove_reference<CT>::type::interval_t...>;
+                typename std::remove_reference<CT>::type::interval_t>...>;
             static_assert(check::value, "interval type must be the same");
             using type = typename std::remove_reference<C0>::type::interval_t;
         };
@@ -154,7 +154,7 @@ namespace samurai
         typename TTuple,  // the tuple type
         std::size_t Size = std::tuple_size_v<std::remove_reference_t<TTuple>>, // tuple size
         typename TCallable, // the callable to be invoked for each tuple item
-        typename... TArgs   // other arguments to be passed to the callable 
+        typename... TArgs   // other arguments to be passed to the callable
     >
     void for_each(TTuple&& tuple, TCallable&& callable, TArgs&&... args)
     {

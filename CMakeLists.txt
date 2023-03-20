@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Add project_options v0.26.1
 # https://github.com/aminya/project_options
 include(FetchContent)
-FetchContent_Declare(_project_options URL https://github.com/aminya/project_options/archive/refs/tags/v0.26.1.zip)
+FetchContent_Declare(_project_options URL https://github.com/aminya/project_options/archive/refs/tags/v0.26.3.zip)
 FetchContent_MakeAvailable(_project_options)
 include(${_project_options_SOURCE_DIR}/Index.cmake)
 
@@ -14,6 +14,7 @@ option(ENABLE_VCPKG "Use vcpkg to install dependencies" OFF)
 option(ENABLE_CONAN_OPTION "Use Conan to install dependencies" OFF)
 if (${ENABLE_VCPKG})
   run_vcpkg()
+  set(VCPKG_BUILD_TYPE release)
 endif()
 
 if (${ENABLE_CONAN_OPTION})

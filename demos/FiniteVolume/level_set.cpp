@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 #include "CLI/CLI.hpp"
 
+#include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
@@ -38,6 +39,8 @@ auto init_level_set(Mesh& mesh)
                               std::pow(y - y_center, 2.)) - radius;
     });
 
+    samurai::make_bc<samurai::Neumann>(phi, 0.);
+
     return phi;
 }
 
@@ -59,6 +62,16 @@ auto init_velocity(Mesh &mesh)
         u[cell][0] = -std::pow(std::sin(PI*x), 2.) * std::sin(2.*PI*y);
         u[cell][1] =  std::pow(std::sin(PI*y), 2.) * std::sin(2.*PI*x);
     });
+
+    samurai::make_bc<samurai::Neumann>(u, 0., 0.);
+
+    // samurai::make_bc<samurai::Dirichlet>(u, [PI](auto& coords)
+    // {
+    //     return xt::xtensor_fixed<double, xt::xshape<2>>{
+    //         -std::pow(std::sin(PI*coords[0]), 2.) * std::sin(2.*PI*coords[1]),
+    //          std::pow(std::sin(PI*coords[1]), 2.) * std::sin(2.*PI*coords[0])
+    //     };
+    // });
 
     return u;
 }
@@ -248,18 +261,8 @@ int main(int argc, char *argv[])
 
     auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
     auto phihat = samurai::make_field<double, 1>("phi", mesh);
+    samurai::make_bc<samurai::Neumann>(phihat, 0.);
     auto tag = samurai::make_field<int, 1>("tag", mesh);
-
-    auto update_bc = [](std::size_t level, auto& phi_, auto& u_)
-    {
-        update_bc_D2Q4_3_Euler_constant_extension(phi_, level);
-        update_bc_D2Q4_3_Euler_constant_extension(u_, level);
-    };
-
-    auto update_bc_phi = [](std::size_t level, auto& phi_)
-    {
-        update_bc_D2Q4_3_Euler_constant_extension(phi_, level);
-    };
 
     xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil_grad{{ 1, 0 }, { -1,  0 },
                                                           { 0, 1 }, {  0, -1 }};
@@ -277,7 +280,7 @@ int main(int argc, char *argv[])
             tag.resize();
             AMR_criteria(phi, tag);
             samurai::graduation(tag, stencil_grad);
-            samurai::update_ghost(update_bc, phi, u);
+            samurai::update_ghost(phi, u);
             if( (samurai::update_field(tag, phi, u)))
             {
                 break;
@@ -294,7 +297,7 @@ int main(int argc, char *argv[])
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
         // Numerical scheme
-        samurai::update_ghost(update_bc, phi, u);
+        samurai::update_ghost(phi, u);
         phinp1.resize();
         phinp1 = phi - dt * samurai::upwind_variable(u, phi, dt);
         flux_correction(phinp1, phi, u, dt);
@@ -313,10 +316,10 @@ int main(int argc, char *argv[])
             // phinp1 = phi - dt_fict * H_wrap(phi, phi_0, max_level);
 
             // TVD-RK2
-            samurai::update_ghost(update_bc_phi, phi);
+            samurai::update_ghost(phi);
             phihat.resize();
             phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
-            samurai::update_ghost(update_bc_phi, phihat);
+            samurai::update_ghost(phihat);
             phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, max_level));
 
             std::swap(phi.array(), phinp1.array());

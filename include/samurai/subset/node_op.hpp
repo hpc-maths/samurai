@@ -59,10 +59,6 @@ namespace samurai
         template<class Mesh>
         void data(Mesh &mesh) noexcept;
 
-        template<class T>
-        auto create_interval(T start, T end) const noexcept;
-        auto create_index_yz() const noexcept;
-
         std::size_t level() const noexcept;
         bool is_empty() const noexcept;
 
@@ -181,19 +177,6 @@ namespace samurai
         return this->derived_cast().m_data.is_empty();
     }
 
-    template<class D>
-    template<class T>
-    inline auto node_op<D>::create_interval(T start, T end) const noexcept
-    {
-        return this->derived_cast().m_data.create_interval(start, end);
-    }
-
-    template<class D>
-    inline auto node_op<D>::create_index_yz() const noexcept
-    {
-        return this->derived_cast().create_index_yz();
-    }
-
     template<class E>
     using is_node_op = xt::is_crtp_base_of<node_op, E>;
 
@@ -244,8 +227,6 @@ namespace samurai
         auto create_index_yz() const noexcept;
 
       private:
-        // std::shared_ptr<Mesh> m_data;
-        // const Mesh* m_data;
         const Mesh& m_data;
 
         friend class node_op<mesh_node<Mesh>>;
@@ -257,8 +238,6 @@ namespace samurai
 
     template<class Mesh>
     inline mesh_node<Mesh>::mesh_node(const Mesh &v)
-        // : m_data{std::make_shared<Mesh>(v)}
-        // : m_data{&v}
         : m_data(v)
     {}
 
@@ -271,7 +250,6 @@ namespace samurai
     template<class Mesh>
     inline auto mesh_node<Mesh>::size(std::size_t d) const noexcept
     {
-        // return (*m_data)[dim].size();
         return m_data[d].size();
     }
 
@@ -334,7 +312,6 @@ namespace samurai
     template<class Mesh>
     inline const Mesh &mesh_node<Mesh>::data() const noexcept
     {
-        // return *(m_data.get());
         return m_data;
     }
 
@@ -354,20 +331,6 @@ namespace samurai
     inline bool mesh_node<Mesh>::is_empty() const noexcept
     {
         return m_data.empty();
-    }
-
-    template<class Mesh>
-    inline auto mesh_node<Mesh>::create_interval(coord_index_t start,
-                                                 coord_index_t end) const
-        noexcept
-    {
-        return interval_t{start, end};
-    }
-
-    template<class Mesh>
-    inline auto mesh_node<Mesh>::create_index_yz() const noexcept
-    {
-        return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
     }
 
     /***********************************
@@ -391,10 +354,6 @@ namespace samurai
         auto end(std::size_t d, std::size_t index) const noexcept;
 
         auto transform(std::size_t d, coord_index_t coord) const noexcept;
-
-        auto create_interval(coord_index_t start, coord_index_t end) const
-            noexcept;
-        auto create_index_yz() const noexcept;
 
       private:
         T m_data;
@@ -438,158 +397,77 @@ namespace samurai
         return coord - m_stencil[d];
     }
 
-    template<class T>
-    inline auto
-    translate_op<T>::create_interval(coord_index_t start,
-                                             coord_index_t end) const noexcept
-    {
-        return interval_t{start, end};
-    }
-
-    template<class T>
-    inline auto translate_op<T>::create_index_yz() const noexcept
-    {
-        return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
-    }
-
-    /*****************************
-     * contraction_op definition *
-     *****************************/
-
-    template<class T>
-    struct contraction_op : public node_op<contraction_op<T>>
-    {
-        using mesh_type = typename T::mesh_type;
-        static constexpr std::size_t dim = mesh_type::dim;
-        using interval_t = typename mesh_type::interval_t;
-        using coord_index_t = typename mesh_type::coord_index_t;
-
-        contraction_op(const T& v, std::size_t size = 1);
-        contraction_op(const T& v, const std::array<std::size_t, dim>& contraction);
-
-        auto start(std::size_t d, std::size_t index) const noexcept;
-        auto end(std::size_t d, std::size_t index) const noexcept;
-
-        auto create_interval(coord_index_t start, coord_index_t end) const noexcept;
-        auto create_index_yz() const noexcept;
-
-      private:
-        T m_data;
-        std::array<std::size_t, dim> m_contraction;
-
-        friend class node_op<contraction_op<T>>;
-    };
-
-    /*********************************
-     * contraction_op implementation *
-     *********************************/
-
-    template<class T>
-    inline contraction_op<T>::contraction_op(const T& v, std::size_t size)
-    : m_data(v)
-    {
-        m_contraction.fill(size);
-    }
-
-    template<class T>
-    inline contraction_op<T>::contraction_op(const T& v, const std::array<std::size_t, dim>& contraction)
-    : m_data(v)
-    , m_contraction(contraction)
-    {}
-
-    template<class T>
-    inline auto contraction_op<T>::start(std::size_t d,
-                                         std::size_t index) const noexcept
-    {
-        return m_data.start(d, index) + static_cast<coord_index_t>(m_contraction[d]);
-    }
-
-    template<class T>
-    inline auto contraction_op<T>::end(std::size_t d, std::size_t index) const
-        noexcept
-    {
-        return m_data.end(d, index) - + static_cast<coord_index_t>(m_contraction[d]);
-    }
-
-    template<class T>
-    inline auto contraction_op<T>::create_interval(coord_index_t start,
-                                                   coord_index_t end) const
-        noexcept
-    {
-        return interval_t{start, end};
-    }
-
-    template<class T>
-    inline auto contraction_op<T>::create_index_yz() const noexcept
-    {
-        return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
-    }
-
-    /*****************************
-     * expand_op definition *
-     *****************************/
-
-    template<class T>
-    struct expand_op : public node_op<expand_op<T>>
-    {
-        using mesh_type = typename T::mesh_type;
-        static constexpr std::size_t dim = mesh_type::dim;
-        using interval_t = typename mesh_type::interval_t;
-        using coord_index_t = typename mesh_type::coord_index_t;
-
-        expand_op(T &&v);
-        expand_op(const T &v);
-
-        auto start(std::size_t d, std::size_t index) const noexcept;
-        auto end(std::size_t d, std::size_t index) const noexcept;
-
-        auto create_interval(coord_index_t start, coord_index_t end) const
-            noexcept;
-        auto create_index_yz() const noexcept;
-
-      private:
-        T m_data;
-
-        friend class node_op<expand_op<T>>;
-    };
-
     /****************************
-     * expand_op implementation *
+     * projection_op definition *
      ****************************/
 
     template<class T>
-    inline expand_op<T>::expand_op(T &&v) : m_data{std::forward<T>(v)}
+    struct projection_op : public node_op<projection_op<T>>
+    {
+        using mesh_type = typename T::mesh_type;
+        static constexpr std::size_t dim = mesh_type::dim;
+        using interval_t = typename mesh_type::interval_t;
+        using coord_index_t = typename mesh_type::coord_index_t;
+
+        projection_op(T &&v, std::size_t level);
+        projection_op(const T &v, std::size_t level);
+
+        auto start(std::size_t d, std::size_t index) const noexcept;
+        auto end(std::size_t d, std::size_t index) const noexcept;
+
+        auto transform(std::size_t d, coord_index_t coord) const noexcept;
+        std::size_t level() const noexcept;
+
+      private:
+        T m_data;
+        int m_shift_level;
+        std::size_t m_level;
+
+        friend class node_op<projection_op<T>>;
+    };
+
+    /*******************************
+     * projection_op implementation *
+     *******************************/
+
+    template<class T>
+    inline projection_op<T>::projection_op(T &&v, std::size_t level)
+    : m_data{std::forward<T>(v)}
+    , m_shift_level{static_cast<int>(level - std::forward<T>(v).level())}
+    , m_level{level}
+    {
+    }
+
+    template<class T>
+    inline projection_op<T>::projection_op(const T &v, std::size_t level)
+    : m_data{std::forward<T>(v)}
+    , m_shift_level{static_cast<int>(level - v.level())}
     {}
 
     template<class T>
-    inline expand_op<T>::expand_op(const T &v) : m_data{v}
-    {}
-
-    template<class T>
-    inline auto expand_op<T>::start(std::size_t d, std::size_t index) const
-        noexcept
+    inline auto projection_op<T>::start(std::size_t d, std::size_t index) const noexcept
     {
-        return m_data.start(d, index) - 1;
+        return (m_shift_level >= 0 )? m_data.start(d, index)<<m_shift_level: m_data.start(d, index)>>-m_shift_level;
     }
 
     template<class T>
-    inline auto expand_op<T>::end(std::size_t d, std::size_t index) const
-        noexcept
+    inline auto projection_op<T>::end(std::size_t d,
+                                     std::size_t index) const noexcept
     {
-        return m_data.end(d, index) + 1;
+        return (m_shift_level >= 0 )? m_data.end(d, index)<<m_shift_level: m_data.end(d, index)>>-m_shift_level;
     }
 
     template<class T>
-    inline auto expand_op<T>::create_interval(coord_index_t start,
-                                              coord_index_t end) const noexcept
+    inline auto
+    projection_op<T>::transform(std::size_t, coord_index_t coord) const noexcept
     {
-        return interval_t{start, end};
+        return (m_shift_level >= 0 )? coord>>m_shift_level: coord<<-m_shift_level;
     }
 
     template<class T>
-    inline auto expand_op<T>::create_index_yz() const noexcept
+    std::size_t projection_op<T>::level() const noexcept
     {
-        return xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>{};
+        return m_level;
     }
 
     namespace detail
@@ -633,26 +511,40 @@ namespace samurai
     }
 
     template<class T>
+    inline auto projection(T &&t, std::size_t level)
+    {
+        auto arg = get_arg_node(std::forward<T>(t));
+        using arg_t = decltype(arg);
+        return projection_op<arg_t>{std::forward<arg_t>(arg),
+                                    level};
+    }
+
+    template<class T>
     inline auto contraction(T &&t, std::size_t size = 1)
     {
         auto arg = get_arg_node(std::forward<T>(t));
         using arg_t = decltype(arg);
-        return contraction_op<arg_t>{std::forward<arg_t>(arg), size};
+        constexpr std::size_t dim = arg_t::dim;
+        xt::xtensor_fixed<int, xt::xshape<dim>> c;
+        c.fill(size);
+        return intersection(translate(std::forward<arg_t>(arg), c),
+                            translate(std::forward<arg_t>(arg), -c));
     }
 
     template<class T, std::size_t dim>
-    inline auto contraction(T &&t, const std::array<std::size_t, dim>& c)
+    inline auto contraction(T &&t, const xt::xtensor_fixed<int, xt::xshape<dim>>& c)
     {
         auto arg = get_arg_node(std::forward<T>(t));
         using arg_t = decltype(arg);
-        return contraction_op<arg_t>{std::forward<arg_t>(arg), c};
+        return intersection(translate(std::forward<arg_t>(arg), c),
+                            translate(std::forward<arg_t>(arg), -c));
     }
 
-    template<class T>
-    inline auto expand(T &&t)
-    {
-        auto arg = get_arg_node(std::forward<T>(t));
-        using arg_t = decltype(arg);
-        return expand_op<arg_t>{std::forward<arg_t>(arg)};
-    }
+    // template<class T>
+    // inline auto expand(T &&t)
+    // {
+    //     auto arg = get_arg_node(std::forward<T>(t));
+    //     using arg_t = decltype(arg);
+    //     return expand_op<arg_t>{std::forward<arg_t>(arg)};
+    // }
 } // namespace samurai

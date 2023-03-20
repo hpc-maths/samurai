@@ -33,7 +33,7 @@ namespace samurai
         return -1;
     }
 
-    
+
     template<class Mesh, std::size_t stencil_size>
     class IteratorStencil
     {
@@ -65,7 +65,7 @@ namespace samurai
 
             // origin of the stencil
             Cell& origin_cell = m_cells[m_origin_cell];
-            origin_cell.indices[0] = mesh_interval.i.start; 
+            origin_cell.indices[0] = mesh_interval.i.start;
             for(unsigned int d = 0; d < dim - 1; ++d)
             {
                 origin_cell.indices[d + 1] = mesh_interval.index[d];

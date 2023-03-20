@@ -52,11 +52,11 @@ namespace samurai
         }
     };
 
-    template <class TField, class Func>
+    template <class TField>
     class Adapt
     {
     public:
-        Adapt(TField& field, Func&& update_bc_by_level);
+        Adapt(TField& field);
 
         void operator()(double eps, double regularity);
 
@@ -77,19 +77,17 @@ namespace samurai
         field_type& m_field;
         field_type m_detail;
         tag_type m_tag;
-        Func m_update_bc_for_level;
     };
 
-    template <class TField, class Func>
-    inline Adapt<TField, Func>::Adapt(TField& field, Func&& update_bc_for_level)
+    template <class TField>
+    inline Adapt<TField>::Adapt(TField& field)
     : m_field(field)
     , m_detail("detail", field.mesh())
     , m_tag("tag", field.mesh())
-    , m_update_bc_for_level(std::forward<Func>(update_bc_for_level))
     {}
 
-    template <class TField, class Func>
-    void Adapt<TField, Func>::operator()(double eps, double regularity)
+    template <class TField>
+    void Adapt<TField>::operator()(double eps, double regularity)
     {
         auto& mesh = m_field.mesh();
         std::size_t min_level = mesh.min_level();
@@ -116,8 +114,8 @@ namespace samurai
         }
     }
 
-    template <class TField, class Func>
-    bool Adapt<TField, Func>::harten(std::size_t ite, double eps, double regularity, field_type& field_old)
+    template <class TField>
+    bool Adapt<TField>::harten(std::size_t ite, double eps, double regularity, field_type& field_old)
     {
         auto& mesh = m_field.mesh();
 
@@ -128,7 +126,7 @@ namespace samurai
             m_tag[cell] = static_cast<int>(CellFlag::keep);
         });
 
-        update_ghost_mr(m_field, m_update_bc_for_level);
+        update_ghost_mr(m_field);
 
         for (std::size_t level =  ((min_level > 0)? min_level - 1: 0); level < max_level - ite; ++level)
         {
@@ -233,9 +231,9 @@ namespace samurai
     }
 
 
-    template<class TField, class Func>
-    auto make_MRAdapt(TField& field, Func&& update_bc_for_level)
+    template<class TField>
+    auto make_MRAdapt(TField& field)
     {
-        return Adapt<TField, Func>(field, std::forward<Func>(update_bc_for_level));
+        return Adapt<TField>(field);
     }
 } // namespace samurai

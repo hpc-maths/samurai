@@ -5,7 +5,7 @@ dependencies:
   - cmake
   - ninja
   - xtensor
-  - highfive
+  - highfive=2.5.1
   - fmt
   - pugixml
   - cxxopts
