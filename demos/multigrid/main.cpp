@@ -293,6 +293,18 @@ int main(int argc, char* argv[])
     std::cout << "Elapsed time: " << total_timer.Elapsed() << std::endl;
     std::cout << std::endl;
 
+
+    /*auto right_fluxes = samurai::make_field<double, field_size, is_soa>("fluxes", mesh);
+    samurai::StencilVector<dim> right = {1, 0};
+    samurai::Stencil<2, dim> comput_stencil = {{0, 0}, {1, 0}};
+    samurai::for_each_interface(mesh, right, comput_stencil, 
+    [&](auto& interface_cells, auto& comput_cells)
+    {
+        const double& h = comput_cells[0].length;
+        auto flux = (solution[comput_cells[1]] - solution[comput_cells[0]]) / h;
+        right_fluxes[interface_cells[0]] = flux;
+    });*/
+
     //--------------------//
     //       Error        //
     //--------------------//

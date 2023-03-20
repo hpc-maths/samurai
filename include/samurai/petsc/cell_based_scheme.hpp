@@ -7,54 +7,59 @@ namespace samurai
 {
     namespace petsc
     {
-        namespace detail
+        /**
+         * Useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
+        */
+        template <PetscInt output_field_size_,
+                PetscInt scheme_stencil_size_,
+                PetscInt center_index_,
+                PetscInt contiguous_indices_start_ = 0,
+                PetscInt contiguous_indices_size_ = 0,
+                DirichletEnforcement dirichlet_enfcmt_ = Equation>
+        struct CellBasedAssemblyConfig
         {
-            /**
-             * Local square matrix to store the coefficients of a vectorial
-             * field.
-             */
-            template <class value_type, std::size_t rows, std::size_t cols = rows>
-            struct LocalMatrix
-            {
-                using Type = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;
-            };
+            static constexpr PetscInt output_field_size = output_field_size_;
+            static constexpr PetscInt scheme_stencil_size = scheme_stencil_size_;
+            static constexpr PetscInt center_index = center_index_;
+            static constexpr PetscInt contiguous_indices_start = contiguous_indices_start_;
+            static constexpr PetscInt contiguous_indices_size = contiguous_indices_size_;
+            static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
+        };
+        
+        template<std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width=1, DirichletEnforcement dirichlet_enfcmt = Equation>
+        using StarStencilFV = CellBasedAssemblyConfig
+        <
+            output_field_size,
+            // ----  Stencil size 
+            // Cell-centered Finite Volume scheme:
+            // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim directions) --> 1+2=3 in 1D
+            //                                                                                              1+4=5 in 2D
+            1 + 2*dim*neighbourhood_width,
+            // ---- Index of the stencil center
+            // (as defined in star_stencil())
+            neighbourhood_width, 
+            // ---- Start index and size of contiguous cell indices
+            // (as defined in star_stencil())
+            0, 1+2*neighbourhood_width,
+            // ---- Method of Dirichlet condition enforcement
+            dirichlet_enfcmt
+        >;
 
-            /**
-             * Template specialization: if size=1, then just a scalar
-             * coefficient
-             */
-            template <class value_type>
-            struct LocalMatrix<value_type, 1, 1>
-            {
-                using Type = value_type;
-            };
-        }
-
-        template <class matrix_type>
-        matrix_type eye()
-        {
-            static constexpr auto s = typename matrix_type::shape_type();
-            return xt::eye(s[0]);
-        }
-
-        template <>
-        double eye<double>()
-        {
-            return 1;
-        }
-
-        template <class matrix_type>
-        matrix_type zeros()
-        {
-            static constexpr auto s = typename matrix_type::shape_type();
-            return xt::zeros(s[0], s[1]);
-        }
-
-        template <>
-        double zeros<double>()
-        {
-            return 0;
-        }
+        template<std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
+        using OneCellStencilFV = CellBasedAssemblyConfig
+        <
+            output_field_size,
+            // ----  Stencil size 
+            // Only one cell:
+            1,
+            // ---- Index of the stencil center
+            // (as defined in center_only_stencil())
+            0, 
+            // ---- Start index and size of contiguous cell indices
+            0, 0,
+            // ---- Method of Dirichlet condition enforcement
+            dirichlet_enfcmt
+        >;
 
         template <class cfg, class Field>
         class CellBasedScheme : public MatrixAssembly
@@ -76,23 +81,12 @@ namespace samurai
                                                                                                              // otherwise
             using mesh_id_t                  = typename Mesh::mesh_id_t;
             static constexpr std::size_t dim = Mesh::dim;
+            static constexpr std::size_t prediction_order = Mesh::config::prediction_order;
 
             using stencil_t            = Stencil<cfg::scheme_stencil_size, dim>;
             using GetCoefficientsFunc  = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
             using boundary_condition_t = typename Field::boundary_condition_t;
-
-            static constexpr std::size_t prediction_order = Mesh::config::prediction_order;
-            // ----  Projection stencil size (order 1)
-            // cell + 2^dim children --> 1+2=3 in 1D
-            //                           1+4=5 in 2D
-            static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
-            // ----  Prediction stencil size
-            // Order 1: cell + hypercube of 3 coarser cells --> 1 + 3= 4 in 1D
-            //                                                  1 + 9=10 in 2D
-            // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
-            //                                                  1 +25=21 in 2D
-            static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_order + 1, dim);
-
+        
             using MatrixAssembly::assemble_matrix;
 
           protected:
@@ -366,6 +360,11 @@ namespace samurai
 
             void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
             {
+                // ----  Projection stencil size
+                // cell + 2^dim children --> 1+2=3 in 1D 
+                //                           1+4=5 in 2D
+                static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
+
                 for_each_projection_ghost(m_mesh, [&](auto& ghost)
                 {
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -377,6 +376,13 @@ namespace samurai
 
             void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
             {
+                // ----  Prediction stencil size
+                // Order 1: cell + hypercube of 3 coarser cells --> 1 + 3= 4 in 1D
+                //                                                  1 + 9=10 in 2D
+                // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
+                //                                                  1 +25=21 in 2D
+                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_order + 1, dim);
+
                 for_each_prediction_ghost(m_mesh, [&](auto& ghost)
                 {
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)

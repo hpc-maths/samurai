@@ -224,19 +224,15 @@ namespace samurai
                                       GetCoeffsFunc&& get_coefficients,
                                       Func&& func)
     {
-        for_each_level(mesh,
-                       [&](std::size_t level)
-                       {
-                           auto bdry   = boundary(mesh, level, boundary_direction);
-                           auto coeffs = get_coefficients(cell_length(level));
-                           for_each_stencil(mesh,
-                                            bdry,
-                                            stencil,
-                                            [&](auto& cells)
-                                            {
-                                                func(cells, coeffs);
-                                            });
-                       });
+        for_each_level(mesh, [&](std::size_t level)
+        {
+            auto bdry = boundary(mesh, level, boundary_direction);
+            auto coeffs = get_coefficients(cell_length(level), cell_length(level));
+            for_each_stencil(mesh, bdry, stencil, [&](auto& cells)
+            {
+                func(cells, coeffs);
+            });
+        });
     }
 
     template <class Mesh, std::size_t n_directions, std::size_t stencil_size, class Func>
@@ -266,14 +262,11 @@ namespace samurai
     {
         for (std::size_t i = 0; i < n_directions; ++i)
         {
-            for_each_stencil_on_boundary(mesh,
-                                         boundary_directions[i],
-                                         stencils[i],
-                                         get_coefficients,
-                                         [&](auto& cells, auto& coeffs)
-                                         {
-                                             func(cells, coeffs, boundary_directions[i]);
-                                         });
+            for_each_stencil_on_boundary(mesh, boundary_directions[i], stencils[i], get_coefficients,
+            [&] (auto& cells, auto& coeffs)
+            {
+                func(cells, boundary_directions[i], coeffs);
+            });
         }
     }
 

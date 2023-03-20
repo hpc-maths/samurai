@@ -8,14 +8,10 @@ namespace samurai
         /**
          * @class DiffusionFV
          * Assemble the matrix for the problem -Lap(u)=f.
-         * The matrix corresponds to the discretization of the operator -Lap by
-         * the Finite-Volume method.
-         */
-        template <class Field,
-                  DirichletEnforcement dirichlet_enfcmt = Equation,
-                  std::size_t dim                       = Field::dim,
-                  class cfg                             = StarStencilFV<dim, Field::size, 1, dirichlet_enfcmt>>
-        class DiffusionFV : public CellBasedScheme<cfg, Field>
+         * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
+        */
+        template<class Field, DirichletEnforcement dirichlet_enfcmt=Equation, std::size_t dim=Field::dim, class cfg=StarStencilFV<dim, Field::size, 1, dirichlet_enfcmt>>
+        class DiffusionFV_old : public CellBasedScheme<cfg, Field>
         {
           public:
 
@@ -24,10 +20,9 @@ namespace samurai
             using local_matrix_t       = typename CellBasedScheme<cfg, Field>::local_matrix_t;
             using boundary_condition_t = typename Field::boundary_condition_t;
 
-            DiffusionFV(Field& unknown)
-                : CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
-            {
-            }
+            DiffusionFV_old(Field& unknown) : 
+                CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
+            {}
 
             static constexpr auto stencil()
             {
@@ -65,17 +60,18 @@ namespace samurai
              * @brief Creates a coarse object from a coarse mesh and a fine
              * object.
              * @note  This method is used by the multigrid.
-             */
-            static DiffusionFV create_coarse(const DiffusionFV& fine, Mesh& coarse_mesh)
+            */
+            static DiffusionFV_old create_coarse(const DiffusionFV_old& fine, Mesh& coarse_mesh)
             {
-                return DiffusionFV(coarse_mesh, fine.m_boundary_conditions);
+                return DiffusionFV_old(coarse_mesh, fine.m_boundary_conditions);
             }
         };
 
-        template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
-        auto make_diffusion_FV(Field& f)
+
+        template<DirichletEnforcement dirichlet_enfcmt=Equation, class Field>
+        auto make_diffusion_FV_old(Field& f)
         {
-            return DiffusionFV<Field, dirichlet_enfcmt>(f);
+            return DiffusionFV_old<Field, dirichlet_enfcmt>(f);
         }
 
     } // end namespace petsc

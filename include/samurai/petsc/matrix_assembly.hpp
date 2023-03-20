@@ -71,6 +71,10 @@ namespace samurai
                     sparsity_pattern_useless_ghosts(nnz);
                 }
 
+                // for (std::size_t row = 0; row < nnz.size(); ++row)
+                // {
+                //     std::cout << "nnz[" << row << "] = " << nnz[row] << std::endl;
+                // }
 
                 MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, nnz.data());
                 //MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
@@ -195,59 +199,54 @@ namespace samurai
             Elimination
         };
 
-        /**
-         * Useful sizes to define the sparsity pattern of the matrix and perform
-         * the preallocation.
-         */
-        template <PetscInt output_field_size_,
-                  PetscInt scheme_stencil_size_,
-                  PetscInt center_index_,
-                  PetscInt contiguous_indices_start_     = 0,
-                  PetscInt contiguous_indices_size_      = 0,
-                  DirichletEnforcement dirichlet_enfcmt_ = Equation>
-        struct PetscAssemblyConfig
+
+        
+        namespace detail
         {
-            static constexpr PetscInt output_field_size            = output_field_size_;
-            static constexpr PetscInt scheme_stencil_size          = scheme_stencil_size_;
-            static constexpr PetscInt center_index                 = center_index_;
-            static constexpr PetscInt contiguous_indices_start     = contiguous_indices_start_;
-            static constexpr PetscInt contiguous_indices_size      = contiguous_indices_size_;
-            static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
-        };
+            /**
+             * Local square matrix to store the coefficients of a vectorial field.
+            */
+            template<class value_type, std::size_t rows, std::size_t cols=rows>
+            struct LocalMatrix
+            {
+                using Type = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;
+            };
 
-        template <std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width = 1, DirichletEnforcement dirichlet_enfcmt = Equation>
-        using StarStencilFV = PetscAssemblyConfig<output_field_size,
-                                                  // ----  Stencil size
-                                                  // Cell-centered Finite Volume scheme:
-                                                  // center + 'neighbourhood_width' neighbours in each Cartesian
-                                                  // direction (2*dim directions) --> 1+2=3 in 1D
-                                                  //                                                                                              1+4=5
-                                                  //                                                                                              in
-                                                  //                                                                                              2D
-                                                  1 + 2 * dim * neighbourhood_width,
-                                                  // ---- Index of the stencil center
-                                                  // (as defined in star_stencil())
-                                                  neighbourhood_width,
-                                                  // ---- Start index and size of contiguous cell indices
-                                                  // (as defined in star_stencil())
-                                                  0,
-                                                  1 + 2 * neighbourhood_width,
-                                                  // ---- Method of Dirichlet condition enforcement
-                                                  dirichlet_enfcmt>;
+            /**
+             * Template specialization: if size=1, then just a scalar coefficient
+            */
+            template<class value_type>
+            struct LocalMatrix<value_type, 1, 1>
+            {
+                using Type = value_type;
+            };
+        }
 
-        template <std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-        using OneCellStencilFV = PetscAssemblyConfig<output_field_size,
-                                                     // ----  Stencil size
-                                                     // Only one cell:
-                                                     1,
-                                                     // ---- Index of the stencil center
-                                                     // (as defined in center_only_stencil())
-                                                     0,
-                                                     // ---- Start index and size of contiguous cell indices
-                                                     0,
-                                                     0,
-                                                     // ---- Method of Dirichlet condition enforcement
-                                                     dirichlet_enfcmt>;
+        template<class matrix_type>
+        matrix_type eye()
+        {
+            static constexpr auto s = typename matrix_type::shape_type();
+            return xt::eye(s[0]);
+        }
+
+        template<>
+        double eye<double>()
+        {
+            return 1;
+        }
+
+        template<class matrix_type>
+        matrix_type zeros()
+        {
+            static constexpr auto s = typename matrix_type::shape_type();
+            return xt::zeros(s[0], s[1]);
+        }
+
+        template<>
+        double zeros<double>()
+        {
+            return 0;
+        }
 
     } // end namespace petsc
 } // end namespace samurai
