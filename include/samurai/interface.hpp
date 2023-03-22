@@ -64,7 +64,7 @@ namespace samurai
                     mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i / 2, fine_mesh_interval.index / 2);
                     comput_stencil_it.init(fine_mesh_interval);
                     coarse_it.init(coarse_mesh_interval);
-                    for (std::size_t ii=0; ii<fine_mesh_interval.i.size(); ++ii)
+                    for (std::size_t ii=0; ii<coarse_mesh_interval.i.size(); ++ii)
                     {
                         std::array<Cell, 2> interface_cells;
                         interface_cells[0] = coarse_it.cells()[0];
@@ -76,6 +76,8 @@ namespace samurai
                         interface_cells[1] = comput_stencil_it.cells()[direction_index];
                         f(interface_cells, comput_stencil_it.cells());
                         comput_stencil_it.move_next();
+
+                        coarse_it.move_next();
                     }
                 });
             }
@@ -84,8 +86,8 @@ namespace samurai
 
 
 
-    template <class Mesh, class Vector, std::size_t comput_stencil_size, class GetCoeffsFunc, class Func>
-    inline void for_each_interior_interface(const Mesh& mesh, Vector direction, const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil, GetCoeffsFunc get_coeffs, Func&& f)
+    template <class Mesh, class Vector, std::size_t comput_stencil_size, class GetCoeffsFunc, class GetNeighbourCoeffsFunc, class Func>
+    inline void for_each_interior_interface(const Mesh& mesh, Vector direction, const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil, GetCoeffsFunc get_coeffs, GetNeighbourCoeffsFunc get_neighbour_coeffs, Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t = typename Mesh::mesh_id_t;
@@ -108,6 +110,7 @@ namespace samurai
             auto intersect = intersection(cells, shifted_cells);
 
             auto coeffs = get_coeffs(cell_length(level), cell_length(level));
+            auto neighbour_coeffs = get_neighbour_coeffs(coeffs);
 
             for_each_meshinterval<mesh_interval_t>(intersect, [&](auto mesh_interval)
             {
@@ -115,7 +118,7 @@ namespace samurai
                 comput_stencil_it.init(mesh_interval);
                 for (std::size_t ii=0; ii<mesh_interval.i.size(); ++ii)
                 {
-                    f(interface_it.cells(), comput_stencil_it.cells(), coeffs);
+                    f(interface_it.cells(), comput_stencil_it.cells(), coeffs, neighbour_coeffs);
                     interface_it.move_next();
                     comput_stencil_it.move_next();
                 }
@@ -135,24 +138,27 @@ namespace samurai
                 auto fine_intersect = intersection(coarse_cells, shifted_fine_cells).on(level+1);
 
                 auto coeffs = get_coeffs(cell_length(level), cell_length(level+1));
+                auto neighbour_coeffs = get_neighbour_coeffs(coeffs);
 
                 for_each_meshinterval<mesh_interval_t>(fine_intersect, [&](auto fine_mesh_interval)
                 {
                     mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i / 2, fine_mesh_interval.index / 2);
                     comput_stencil_it.init(fine_mesh_interval);
                     coarse_it.init(coarse_mesh_interval);
-                    for (std::size_t ii=0; ii<fine_mesh_interval.i.size(); ++ii)
+                    for (std::size_t ii=0; ii<coarse_mesh_interval.i.size(); ++ii)
                     {
                         std::array<Cell, 2> interface_cells;
                         interface_cells[0] = coarse_it.cells()[0];
 
                         interface_cells[1] = comput_stencil_it.cells()[direction_index];
-                        f(interface_cells, comput_stencil_it.cells(), coeffs);
+                        f(interface_cells, comput_stencil_it.cells(), coeffs, neighbour_coeffs);
                         comput_stencil_it.move_next();
 
                         interface_cells[1] = comput_stencil_it.cells()[direction_index];
-                        f(interface_cells, comput_stencil_it.cells(), coeffs);
+                        f(interface_cells, comput_stencil_it.cells(), coeffs, neighbour_coeffs);
                         comput_stencil_it.move_next();
+
+                        coarse_it.move_next();
                     }
                 });
             }

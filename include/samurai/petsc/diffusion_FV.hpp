@@ -51,6 +51,13 @@ namespace samurai
                         }
                         return coeffs;
                     };
+                    flux.get_neighbour_coeffs = [](auto& coeffs)
+                    {
+                        std::array<coeff_matrix_t, 2> neighbour_coeffs;
+                        neighbour_coeffs[0] = -coeffs[0];
+                        neighbour_coeffs[1] = -coeffs[1];
+                        return neighbour_coeffs;
+                    };
                 }
                 return fluxes;
             }

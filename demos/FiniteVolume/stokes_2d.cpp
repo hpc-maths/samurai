@@ -283,6 +283,10 @@ public:
                     flux.get_coeffs = half_grad_in_direction<2>; // 1/2*Grad_z
                 }
             }
+            flux.get_neighbour_coeffs = [](auto& coeffs)
+            {
+                return coeffs;
+            };
         }
         return fluxes;
     }
@@ -360,6 +364,10 @@ public:
                     flux.get_coeffs = minus_half_flux_in_direction<2>;
                 }
             }
+            flux.get_neighbour_coeffs = [](auto& coeffs)
+            {
+                return coeffs;
+            };
         }
         return fluxes;
     }

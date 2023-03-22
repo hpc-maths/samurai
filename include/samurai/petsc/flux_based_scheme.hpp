@@ -45,10 +45,12 @@ namespace samurai
         struct InterfaceComputation
         {
             using coeff_matrix_t = CoeffMatrix;
+            using Coeffs = std::array<CoeffMatrix, comput_stencil_size>;
 
             StencilVector<dim> direction;
             Stencil<comput_stencil_size, dim> computational_stencil;
-            std::function<std::array<CoeffMatrix, comput_stencil_size>(double, double)> get_coeffs;
+            std::function<Coeffs(double, double)> get_coeffs;
+            std::function<Coeffs(Coeffs&)> get_neighbour_coeffs;
         };
 
 
@@ -315,8 +317,8 @@ namespace samurai
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     auto flux_computation = m_flux_computations[d];
-                    for_each_interior_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil, flux_computation.get_coeffs,
-                    [&](auto& interface_cells, auto& comput_cells, auto& flux_coeffs)
+                    for_each_interior_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil, flux_computation.get_coeffs, flux_computation.get_neighbour_coeffs,
+                    [&](auto& interface_cells, auto& comput_cells, auto& coeffs, auto& neighbour_coeffs)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                         {
@@ -326,12 +328,14 @@ namespace samurai
                             {
                                 for (std::size_t c = 0; c < comput_stencil_size; ++c)
                                 {
-                                    double coeff = cell_coeff(flux_coeffs, c, field_i, field_j);
+                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         auto comput_cell_col = static_cast<PetscInt>(col_index(comput_cells[c], field_j));
-                                        MatSetValue(A, interface_cell0_row, comput_cell_col,  coeff, ADD_VALUES);
-                                        MatSetValue(A, interface_cell1_row, comput_cell_col, -coeff, ADD_VALUES);
+                                        MatSetValue(A, interface_cell0_row, comput_cell_col,           coeff, ADD_VALUES);
+
+                                        double neighbour_coeff = cell_coeff(neighbour_coeffs, c, field_i, field_j);
+                                        MatSetValue(A, interface_cell1_row, comput_cell_col, neighbour_coeff, ADD_VALUES);
                                     }
                                 }
                             }
@@ -341,7 +345,7 @@ namespace samurai
                     });
 
                     for_each_boundary_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil, flux_computation.get_coeffs,
-                    [&](auto& interface_cells, auto& comput_cells, auto& flux_coeffs)
+                    [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                         {
@@ -350,7 +354,7 @@ namespace samurai
                             {
                                 for (std::size_t c = 0; c < comput_stencil_size; ++c)
                                 {
-                                    double coeff = cell_coeff(flux_coeffs, c, field_i, field_j);
+                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         auto comput_cell_col = static_cast<PetscInt>(col_index(comput_cells[c], field_j));
@@ -364,8 +368,18 @@ namespace samurai
 
                     auto opposite_direction = xt::eval(-flux_computation.direction);
                     auto opposite_stencil = xt::eval(-flux_computation.computational_stencil);
-                    for_each_boundary_interface(m_mesh, opposite_direction, opposite_stencil, flux_computation.get_coeffs,
-                    [&](auto& interface_cells, auto& comput_cells, auto& flux_coeffs)
+                    auto get_coeffs_opposite_direction = [&](double h_I, double h_F)
+                    {
+                        auto coeffs = flux_computation.get_coeffs(h_I, h_F);
+                        for (auto& c : coeffs)
+                        {
+                            c *= -1;
+                        }
+                        auto neighbour_coeffs = flux_computation.get_neighbour_coeffs(coeffs);
+                        return neighbour_coeffs;
+                    };
+                    for_each_boundary_interface(m_mesh, opposite_direction, opposite_stencil, get_coeffs_opposite_direction,
+                    [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                         {
@@ -374,11 +388,11 @@ namespace samurai
                             {
                                 for (std::size_t c = 0; c < comput_stencil_size; ++c)
                                 {
-                                    double coeff = cell_coeff(flux_coeffs, c, field_i, field_j);
+                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         auto comput_cell_col = static_cast<PetscInt>(col_index(comput_cells[c], field_j));
-                                        MatSetValue(A, interface_cell0_row, comput_cell_col,  coeff, ADD_VALUES);
+                                        MatSetValue(A, interface_cell0_row, comput_cell_col, coeff, ADD_VALUES);
                                     }
                                 }
                             }
