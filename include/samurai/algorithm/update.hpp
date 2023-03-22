@@ -484,12 +484,12 @@ namespace samurai
             return true;
         }
 
-        if (new_mesh == old_mesh)
-        {
-            field.mesh_ptr()->swap(old_mesh);
-            std::swap(field.array(), old_field.array());
-            return true;
-        }
+        // if (new_mesh == old_mesh)
+        // {
+        //     field.mesh_ptr()->swap(old_mesh);
+        //     std::swap(field.array(), old_field.array());
+        //     return true;
+        // }
 
         Field new_field("new_f", new_mesh);
         new_field.fill(0);
