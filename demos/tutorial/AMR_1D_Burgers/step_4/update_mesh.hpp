@@ -35,7 +35,7 @@ bool update_mesh(Field& f, const Tag& tag)
      */
 
 
-    auto mesh = f.mesh();
+    auto& mesh = f.mesh();
 
     cl_type cell_list;
 

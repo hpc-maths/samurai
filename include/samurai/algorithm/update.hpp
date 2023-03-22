@@ -48,7 +48,7 @@ namespace samurai
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
-        auto mesh = field.mesh();
+        auto& mesh = field.mesh();
 
         std::size_t max_level = mesh.max_level();
 
@@ -89,7 +89,7 @@ namespace samurai
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-        auto mesh = field.mesh();
+        auto& mesh = field.mesh();
         std::size_t max_level = mesh.max_level();
 
         update_ghost_periodic(field);
@@ -269,7 +269,7 @@ namespace samurai
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-        auto mesh = field.mesh();
+        auto& mesh = field.mesh();
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
@@ -299,7 +299,7 @@ namespace samurai
             Field new_field("new_f", new_mesh);
             new_field.fill(0);
 
-            auto mesh = field.mesh();
+            auto& mesh = field.mesh();
 
             auto min_level = mesh.min_level();
             auto max_level = mesh.max_level();
@@ -343,7 +343,7 @@ namespace samurai
         using mesh_id_t = typename Tag::mesh_t::mesh_id_t;
         using cl_type = typename Tag::mesh_t::cl_type;
 
-        auto mesh = tag.mesh();
+        auto& mesh = tag.mesh();
 
         cl_type cl;
 
@@ -411,7 +411,7 @@ namespace samurai
         using value_t = typename interval_t::value_t;
         using cl_type = typename Field::mesh_t::cl_type;
 
-        auto mesh = field.mesh();
+        auto& mesh = field.mesh();
         auto old_mesh = old_field.mesh();
 
         cl_type cl;
