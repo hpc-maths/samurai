@@ -9,8 +9,8 @@
 template<class Field>
 void update_sol(double dt, Field& phi, Field& phi_np1)
 {
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
     auto& mesh = phi.mesh();
-    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, auto)
     {
