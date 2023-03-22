@@ -21,7 +21,7 @@ namespace samurai
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
-        auto mesh = field.mesh();
+        auto& mesh = field.mesh();
         std::size_t max_level = mesh.max_level();
 
         for (std::size_t level = max_level; level >= 1; --level)
@@ -88,6 +88,7 @@ namespace samurai
     void update_ghost_mr(Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
         auto& mesh = field.mesh();
         std::size_t max_level = mesh.max_level();
@@ -111,7 +112,7 @@ namespace samurai
                                      mesh.domain())
                         .on(level);
 
-            expr.apply_op(prediction<1, false>(field));
+            expr.apply_op(prediction<pred_order, false>(field));
             update_bc(level, field);
         }
         update_ghost_periodic(field);
@@ -127,7 +128,7 @@ namespace samurai
 
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil_dir;
-        auto mesh = field.mesh();
+        auto& mesh = field.mesh();
         std::size_t min_level = mesh[mesh_id_t::reference].min_level();
         std::size_t max_level = mesh[mesh_id_t::reference].max_level();
         auto domain = mesh.domain();
@@ -136,13 +137,6 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            // auto set = difference(mesh[mesh_id_t::reference][level], domain)
-            //                      .on(level);
-            // set([&](auto& i, auto)
-            // {
-            //     field(level, i) = 0.;
-            // });
-
             std::size_t delta_l = domain.level() - level;
             for (std::size_t d = 0; d < dim; ++d)
             {
@@ -152,40 +146,50 @@ namespace samurai
                     stencil[d] = max_indices[d] - min_indices[d];
 
                     stencil_dir.fill(0);
-                    stencil_dir[d] = stencil[d] - (config::ghost_width<<delta_l);
+                    stencil_dir[d] = stencil[d] + (config::ghost_width<<delta_l);
 
                     auto set1 = intersection(mesh[mesh_id_t::reference][level],
-                                             translate(domain, stencil_dir),
-                                             domain)
+                                             expand(translate(domain, stencil_dir), (config::ghost_width<<delta_l)))
                                 .on(level);
                     set1([&](auto& i, auto& index)
                     {
                         if constexpr (dim == 1)
                         {
-                            field(level, i - (stencil[0]>>delta_l)) = field(level, i);
+                            field(level, i) = field(level, i - (stencil[0]>>delta_l));
                         }
                         else if constexpr (dim == 2)
                         {
                             auto j = index[0];
-                            field(level, i - (stencil[0]>>delta_l), j) = field(level, i, j);
+                            field(level, i, j) = field(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l));
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j = index[0];
+                            auto k = index[1];
+                            field(level, i, j, k) = field(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l), k - (stencil[2]>>delta_l));
                         }
                     });
 
                     auto set2 = intersection(mesh[mesh_id_t::reference][level],
-                                             translate(domain, -stencil_dir),
-                                             domain)
+                                             expand(translate(domain, -stencil_dir), (config::ghost_width<<delta_l)))
                                 .on(level);
 
                     set2([&](auto& i, auto& index)
                     {
                         if constexpr (dim == 1)
                         {
-                            field(level, i + (stencil[0]>>delta_l)) = field(level, i);
+                            field(level, i) = field(level, i + (stencil[0]>>delta_l));
                         }
                         else if constexpr (dim == 2)
                         {
                             auto j = index[0];
-                            field(level, i + (stencil[0]>>delta_l), j) = field(level, i, j);
+                            field(level, i, j) = field(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l));
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j = index[0];
+                            auto k = index[1];
+                            field(level, i, j, k) = field(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l), k + (stencil[2]>>delta_l));
                         }
                     });
                 }
@@ -220,11 +224,10 @@ namespace samurai
                 stencil[d] = max_indices[d] - min_indices[d];
 
                 stencil_dir.fill(0);
-                stencil_dir[d] = stencil[d] - (config::ghost_width<<delta_l);
+                stencil_dir[d] = stencil[d] + (config::ghost_width<<delta_l);
 
                 auto set1 = intersection(mesh[mesh_id_t::reference][level],
-                                         translate(domain, stencil_dir),
-                                         domain)
+                                         expand(translate(domain, stencil_dir), (config::ghost_width<<delta_l)))
                             .on(level);
                 set1([&](auto& i, auto& index)
                 {
@@ -236,16 +239,21 @@ namespace samurai
                     else if constexpr (dim == 2)
                     {
                         auto j = index[0];
-                        tag(level, i, j) |= tag(level, i - (stencil[0]>>delta_l), j);
-                        tag(level, i - (stencil[0]>>delta_l), j) |= tag(level, i, j);
+                        tag(level, i, j) |= tag(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l));
+                        tag(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l)) |= tag(level, i, j);
+                    }
+                    else if constexpr (dim == 3)
+                    {
+                        auto j = index[0];
+                        auto k = index[1];
+                        tag(level, i, j, k) |= tag(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l), k - (stencil[2]>>delta_l));
+                        tag(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l), k - (stencil[2]>>delta_l)) |= tag(level, i, j, k);
                     }
                 });
 
                 auto set2 = intersection(mesh[mesh_id_t::reference][level],
-                                         translate(domain, -stencil_dir),
-                                         domain)
+                                            expand(translate(domain, -stencil_dir), (config::ghost_width<<delta_l)))
                             .on(level);
-
                 set2([&](auto& i, auto& index)
                 {
                     if constexpr (dim == 1)
@@ -256,8 +264,15 @@ namespace samurai
                     else if constexpr (dim == 2)
                     {
                         auto j = index[0];
-                        tag(level, i, j) |= tag(level, i + (stencil[0]>>delta_l), j);
-                        tag(level, i + (stencil[0]>>delta_l), j) |= tag(level, i, j);
+                        tag(level, i, j) |= tag(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l));
+                        tag(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l)) |= tag(level, i, j);
+                    }
+                    else if constexpr (dim == 3)
+                    {
+                        auto j = index[0];
+                        auto k = index[1];
+                        tag(level, i, j, k) |= tag(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l), k + (stencil[2]>>delta_l));
+                        tag(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l), k + (stencil[2]>>delta_l)) |= tag(level, i, j, k);
                     }
                 });
             }
@@ -462,12 +477,12 @@ namespace samurai
             return true;
         }
 
-        // if (new_mesh == old_mesh)
-        // {
-        //     field.mesh_ptr()->swap(old_mesh);
-        //     std::swap(field.array(), old_field.array());
-        //     return true;
-        // }
+        if (new_mesh == old_mesh)
+        {
+            field.mesh_ptr()->swap(old_mesh);
+            std::swap(field.array(), old_field.array());
+            return true;
+        }
 
         Field new_field("new_f", new_mesh);
         new_field.fill(0);
@@ -495,7 +510,7 @@ namespace samurai
             set_refine.apply_op(prediction<pred_order, true>(new_field, field));
         }
 
-        for (std::size_t level = min_level; level <= max_level; ++level)
+        for (std::size_t level = 1; level <= max_level; ++level)
         {
             auto subset = intersection(intersection(old_mesh[mesh_id_t::cells][level],
                                             difference(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level])),

@@ -7,12 +7,15 @@
 #include <fmt/format.h>
 
 #include <xtensor/xtensor.hpp>
+#include <xtensor/xview.hpp>
 
 #include "../box.hpp"
 #include "../mesh.hpp"
 #include "../subset/node_op.hpp"
 #include "../subset/subset_op.hpp"
 #include "../samurai_config.hpp"
+
+using namespace xt::placeholders;
 
 namespace samurai
 {
@@ -229,6 +232,7 @@ namespace samurai
 
         // add ghosts for periodicity
         xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
+        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil_dir;
         auto& domain = this->m_domain;
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
@@ -244,23 +248,22 @@ namespace samurai
                 if (this->is_periodic(d))
                 {
                     stencil.fill(0);
-                    stencil(d) = max_indices[d] - min_indices[d];// - (config::ghost_width<<delta_l);
+                    stencil[d] = max_indices[d] - min_indices[d];
+
                     auto set1 = intersection(this->m_cells[mesh_id_t::reference][level],
-                                             translate(domain, stencil- (config::ghost_width<<delta_l)))//,
-                                            //  domain)
+                                             expand(translate(domain, stencil), config::ghost_width<<delta_l))
                                 .on(level);
                     set1([&](auto& i, auto& index_yz)
                     {
-                        lcl[index_yz].add_interval(i - (stencil[0]>>delta_l));
+                        lcl[index_yz - (xt::view(stencil, xt::range(1, _))>>delta_l)].add_interval(i - (stencil[0]>>delta_l));
                     });
 
                     auto set2 = intersection(this->m_cells[mesh_id_t::reference][level],
-                                             translate(domain, -stencil + (config::ghost_width<<delta_l)))//,
-                                        //    domain)
+                                             expand(translate(domain, -stencil), config::ghost_width<<delta_l))
                                 .on(level);
                     set2([&](auto& i, auto& index_yz)
                     {
-                        lcl[index_yz].add_interval(i + (stencil[0]>>delta_l));
+                        lcl[index_yz + (xt::view(stencil, xt::range(1, _))>>delta_l)].add_interval(i + (stencil[0]>>delta_l));
                     });
                 }
                 this->m_cells[mesh_id_t::all_cells][level] = {lcl};
@@ -307,21 +310,22 @@ namespace samurai
                 if (this->is_periodic(d))
                 {
                     stencil.fill(0);
-                    stencil(d) = max_indices[d] - min_indices[d];
+                    stencil[d] = max_indices[d] - min_indices[d];
+
                     auto set1 = intersection(this->m_cells[mesh_id_t::reference][level],
-                                                        translate(domain, stencil - (config::ghost_width<<delta_l)))
+                                             expand(translate(domain, stencil), config::ghost_width<<delta_l))
                                 .on(level);
                     set1([&](auto& i, auto& index_yz)
                     {
-                        lcl[index_yz].add_interval(i - (stencil[0]>>delta_l));
+                        lcl[index_yz - (xt::view(stencil, xt::range(1, _))>>delta_l)].add_interval(i - (stencil[0]>>delta_l));
                     });
 
                     auto set2 = intersection(this->m_cells[mesh_id_t::reference][level],
-                                           translate(domain, -stencil + (config::ghost_width<<delta_l)))
+                                             expand(translate(domain, -stencil), config::ghost_width<<delta_l))
                                 .on(level);
                     set2([&](auto& i, auto& index_yz)
                     {
-                        lcl[index_yz].add_interval(i + (stencil[0]>>delta_l));
+                        lcl[index_yz + (xt::view(stencil, xt::range(1, _))>>delta_l)].add_interval(i + (stencil[0]>>delta_l));
                     });
                 }
                 this->m_cells[mesh_id_t::all_cells][level] = {lcl};
