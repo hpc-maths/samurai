@@ -35,7 +35,7 @@ namespace samurai
             Solver(Dsctzr& discretizer)
                 : m_discretizer(discretizer)
             {
-                create_solver(m_discretizer.mesh());
+                create_solver();
             }
 
             ~Solver()
@@ -65,13 +65,8 @@ namespace samurai
                 return m_ksp;
             }
 
-          private:
-
-            void create_solver(Mesh&
-#ifdef ENABLE_MG
-                                   mesh
-#endif
-            )
+        private:
+            void create_solver()
             {
                 KSP user_ksp;
                 KSPCreate(PETSC_COMM_SELF, &user_ksp);
@@ -98,10 +93,11 @@ namespace samurai
                         assert(false);
                         exit(EXIT_FAILURE);
                     }
-                    _samurai_mg = GeometricMultigrid(m_discretizer, mesh);
+                    _samurai_mg = GeometricMultigrid(m_discretizer, m_discretizer.mesh());
                     _samurai_mg.apply_as_pc(m_ksp);
                 }
-#endif
+    #endif
+                m_is_set_up = false;
             }
 
           public:
@@ -173,6 +169,12 @@ namespace samurai
                 PetscInt n_iterations;
                 KSPGetIterationNumber(m_ksp, &n_iterations);
                 return n_iterations;
+            }
+
+            void reset()
+            {
+                destroy_petsc_objects();
+                create_solver();
             }
         };
 
