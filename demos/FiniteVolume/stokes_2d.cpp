@@ -91,17 +91,16 @@ Mesh create_uniform_mesh(std::size_t level)
     // return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
-template <class Field, std::size_t dim = Field::dim, class cfg = samurai::petsc::StarStencilFV<dim, Field::size * dim, 1>>
-class GradientFV : public samurai::petsc::CellBasedScheme<cfg, Field>
+template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::StarStencilFV<dim, Field::size*dim, 1>>
+class GradientFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
   public:
 
     using local_matrix_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::local_matrix_t;
 
-    GradientFV(Field& u)
-        : samurai::petsc::CellBasedScheme<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
-    {
-    }
+    GradientFV_old(Field& u) : 
+        samurai::petsc::CellBasedScheme<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
+    {}
 
     static std::array<local_matrix_t, 5> coefficients(double h)
     {
@@ -144,23 +143,22 @@ class GradientFV : public samurai::petsc::CellBasedScheme<cfg, Field>
     }
 };
 
-template <class Field>
-auto make_gradient_FV(Field& f)
+template<class Field>
+auto make_gradient_FV_old(Field& f)
 {
-    return GradientFV<Field>(f);
+    return GradientFV_old<Field>(f);
 }
 
-template <class Field, std::size_t dim = Field::dim, class cfg = samurai::petsc::StarStencilFV<dim, 1, 1>>
-class MinusDivergenceFV : public samurai::petsc::CellBasedScheme<cfg, Field>
+template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::StarStencilFV<dim, 1, 1>>
+class MinusDivergenceFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
   public:
 
     using local_matrix_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::local_matrix_t;
 
-    MinusDivergenceFV(Field& u)
-        : samurai::petsc::CellBasedScheme<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
-    {
-    }
+    MinusDivergenceFV_old(Field& u) : 
+        samurai::petsc::CellBasedScheme<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
+    {}
 
     static std::array<local_matrix_t, 5> coefficients(double h)
     {
@@ -175,9 +173,9 @@ class MinusDivergenceFV : public samurai::petsc::CellBasedScheme<cfg, Field>
 
         // Let F be a vector field (Fx, Fy), such as a gradient for instance.
         // We have:
-        // Div(F) =   1/h * [ (Fx_{R} + Fx_{C})/2 - (Fx_{C} + Fx_{L})/2 ]
-        //          + 1/h * [ (Fy_{T} + Fy_{C})/2 - (Fy_{C} + Fy_{B})/2 ]
-        //        = 1/(2h) * (Fx_{R} - Fx_{L} + Fy_{T} - Fy_{B})
+        // Div(F) =              (Fx_{L} + Fx_{R})/2             +        (Fy_{B} + Fy_{T})/2
+        //        = 1/(2h) * [(u_{C} - u_{L}) + (u_{R} - u_{C}) + (u_{C} - u_{B}) + (u_{T} - u_{C})]
+        //        = 1/(2h) * [u_{R} - u_{L} + u_{T} - u_{B}]
         //
         // The coefficient array is:
         //                             L     C     R     B     T
@@ -206,11 +204,176 @@ class MinusDivergenceFV : public samurai::petsc::CellBasedScheme<cfg, Field>
     }
 };
 
-template <class Field>
+template<class Field>
+auto make_minus_divergence_FV_old(Field& f)
+{
+    return MinusDivergenceFV_old<Field>(f);
+}
+
+
+/*****************************************************************/
+
+template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::FluxBasedAssemblyConfig<dim, 2>>
+class GradientFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
+{
+public:
+    using flux_computation_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::flux_computation_t;
+    using coeff_matrix_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::coeff_matrix_t;
+
+    GradientFV(Field& u) : 
+        samurai::petsc::FluxBasedScheme<cfg, Field>(u, scheme_coefficients())
+    {}
+
+    static auto flux_coefficients(double h)
+    {
+        std::array<double, 2> coeffs;
+        coeffs[0] = -1/h;
+        coeffs[1] =  1/h;
+        return coeffs;
+    }
+
+    template<std::size_t d>
+    static auto half_grad_in_direction(double h_I, double h_F)
+    {
+        std::array<coeff_matrix_t, 2> coeffs;
+        auto flux_coeffs = flux_coefficients(h_F);
+        xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0];
+        xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1];
+        for (std::size_t d_ = 0; d_ < dim; ++d_)
+        {
+            if (d_ != d)
+            {
+                xt::view(coeffs[0], d_) = 0;
+                xt::view(coeffs[1], d_) = 0;
+            }
+        }
+        return coeffs;
+    }
+
+    // Grad_x(u) = 1/2 * [ Fx(L) + Fx(R) ]
+    // Grad_y(u) = 1/2 * [ Fx(B) + Fx(T) ]
+    static auto scheme_coefficients()
+    {
+        static_assert(dim <= 3, "GradientFV.scheme_coefficients() not implemented for dim > 3.");
+        std::array<flux_computation_t, dim> fluxes;
+        auto directions = samurai::positive_cartesian_directions<dim>();
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            auto& flux = fluxes[d];
+            flux.direction = xt::view(directions, d);
+            flux.computational_stencil = samurai::in_out_stencil<dim>(flux.direction);
+            // Set coeffs only in the direction d.
+            // If d=0 (direction x), then set Grad_x only.
+            // If d=1 (direction y), then set Grad_y only.
+            if (d == 0)
+            {
+                flux.get_coeffs = half_grad_in_direction<0>; // 1/2*Grad_x
+            }
+            if constexpr (dim >= 2)
+            {
+                if (d == 1)
+                {
+                    flux.get_coeffs = half_grad_in_direction<1>; // 1/2*Grad_y
+                }
+            }
+            if constexpr (dim >= 3)
+            {
+                if (d == 2)
+                {
+                    flux.get_coeffs = half_grad_in_direction<2>; // 1/2*Grad_z
+                }
+            }
+        }
+        return fluxes;
+    }
+};
+
+template<class Field>
+auto make_gradient_FV(Field& f)
+{
+    return GradientFV<Field>(f);
+}
+
+template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::FluxBasedAssemblyConfig<1, 2>>
+class MinusDivergenceFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
+{
+public:
+    using flux_computation_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::flux_computation_t;
+    using coeff_matrix_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::coeff_matrix_t;
+
+    MinusDivergenceFV(Field& u) : 
+        samurai::petsc::FluxBasedScheme<cfg, Field>(u, scheme_coefficients())
+    {}
+
+    static auto flux_coefficients(double h)
+    {
+        std::array<double, 2> coeffs;
+        coeffs[0] = -1/h;
+        coeffs[1] =  1/h;
+        return coeffs;
+    }
+
+    template<std::size_t d>
+    static auto minus_half_flux_in_direction(double h_I, double h_F)
+    {
+        std::array<coeff_matrix_t, 2> coeffs;
+        auto flux_coeffs = flux_coefficients(h_F);
+        coeffs[0][d] = -0.5 * flux_coeffs[0];
+        coeffs[1][d] = -0.5 * flux_coeffs[1];
+        for (std::size_t d_ = 0; d_ < dim; ++d_)
+        {
+            if (d_ != d)
+            {
+                coeffs[0][d_] = 0;
+                coeffs[1][d_] = 0;
+            }
+        }
+        return coeffs;
+    }
+
+    // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
+    static auto scheme_coefficients()
+    {
+        static_assert(dim <= 3, "MinusDivergenceFV.scheme_coefficients() not implemented for dim > 3.");
+        std::array<flux_computation_t, dim> fluxes;
+        auto directions = samurai::positive_cartesian_directions<dim>();
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            auto& flux = fluxes[d];
+            flux.direction = xt::view(directions, d);
+            flux.computational_stencil = samurai::in_out_stencil<dim>(flux.direction);
+            if (d == 0)
+            {
+                flux.get_coeffs = minus_half_flux_in_direction<0>;
+            }
+            if constexpr (dim >= 2)
+            {
+                if (d == 1)
+                {
+                    flux.get_coeffs = minus_half_flux_in_direction<1>;
+                }
+            }
+            if constexpr (dim >= 3)
+            {
+                if (d == 2)
+                {
+                    flux.get_coeffs = minus_half_flux_in_direction<2>;
+                }
+            }
+        }
+        return fluxes;
+    }
+};
+
+template<class Field>
 auto make_minus_divergence_FV(Field& f)
 {
     return MinusDivergenceFV<Field>(f);
 }
+
+/***********************************************************************/
+
+
 
 int main(int argc, char* argv[])
 {

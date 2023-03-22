@@ -2,7 +2,7 @@
 #include "flux_based_scheme.hpp"
 
 namespace samurai 
-{ 
+{
     namespace petsc
     {
         /**
@@ -20,10 +20,20 @@ namespace samurai
             using coeff_matrix_t = typename flux_computation_t::coeff_matrix_t;
 
             DiffusionFV(Field& unknown) : 
-                FluxBasedScheme<cfg, Field>(unknown, fluxes())
+                FluxBasedScheme<cfg, Field>(unknown, scheme_coefficients())
             {}
 
-            static auto fluxes()
+            static auto flux_coefficients(double h)
+            {
+                auto Identity = eye<coeff_matrix_t>();
+                std::array<coeff_matrix_t, 2> coeffs;
+                coeffs[0] = -Identity/h;
+                coeffs[1] =  Identity/h;
+                return coeffs;
+            }
+
+
+            static auto scheme_coefficients()
             {
                 std::array<flux_computation_t, dim> fluxes;
                 auto directions = positive_cartesian_directions<dim>();
@@ -33,14 +43,14 @@ namespace samurai
                     flux.direction = xt::view(directions, d);
                     flux.computational_stencil = in_out_stencil<dim>(flux.direction);
                     flux.get_coeffs = [](double h_I, double h_F)
+                    {
+                        auto coeffs = flux_coefficients(h_F);
+                        for (auto& coeff : coeffs)
                         {
-                            double one_over_h2 = 1/(h_I*h_F);
-                            auto Identity = eye<coeff_matrix_t>();
-                            std::array<coeff_matrix_t, 2> coeffs;
-                            coeffs[0] =  one_over_h2 * Identity;
-                            coeffs[1] = -one_over_h2 * Identity;
-                            return coeffs;
-                        };
+                            coeff /= -h_I;
+                        }
+                        return coeffs;
+                    };
                 }
                 return fluxes;
             }

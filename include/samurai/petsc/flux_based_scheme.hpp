@@ -5,7 +5,24 @@
 #include "../interface.hpp"
 
 namespace samurai 
-{ 
+{
+    /*template <std::size_t stencil_size, class Field>
+    struct Flux
+    {
+        static constexpr std::size_t dim = Field::dim;
+        using coeff_matrix_t = typename petsc::detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a matrix otherwise
+
+        auto flux_coefficents(double h)
+        {
+            auto Identity = eye<coeff_matrix_t>();
+            std::array<coeff_matrix_t, 2> coeffs;
+            coeffs[0] =  Identity / h;
+            coeffs[1] = -Identity / h;
+            return coeffs;
+        };
+    };*/
+
+
     namespace petsc
     {
         /**
@@ -172,13 +189,26 @@ namespace samurai
                 }
             }
 
+            template<class Coeffs>
+            inline double cell_coeff(const Coeffs& coeffs, std::size_t cell_number_in_stencil, unsigned int field_i, unsigned int field_j) const
+            {
+                if constexpr (field_size == 1 && output_field_size == 1)
+                {
+                    return coeffs[cell_number_in_stencil];
+                }
+                else
+                {
+                    return coeffs[cell_number_in_stencil](field_i, field_j);
+                }
+            }
+
         public:
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     auto flux_computation = m_flux_computations[d];
-                    for_each_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil,
+                    for_each_interior_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil,
                     [&](auto& interface_cells, auto& /*comput_cells*/)
                     {
                         //auto flux_coeffs = flux_computation.get_coeffs(comput_cells[0].length);
@@ -285,44 +315,75 @@ namespace samurai
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     auto flux_computation = m_flux_computations[d];
-                    for_each_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil,
-                    [&](auto& interface_cells, auto& comput_cells)
+                    for_each_interior_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil, flux_computation.get_coeffs,
+                    [&](auto& interface_cells, auto& comput_cells, auto& flux_coeffs)
                     {
-                        auto flux_coeffs = flux_computation.get_coeffs(interface_cells[0].length, comput_cells[0].length);
-                        //if constexpr(field_size == 1 || Field::is_soa)
-                        //{
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                        {
+                            auto interface_cell0_row = static_cast<PetscInt>(row_index(interface_cells[0], field_i));
+                            auto interface_cell1_row = static_cast<PetscInt>(row_index(interface_cells[1], field_i));
+                            for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                             {
-                                auto interface_cell0_row = static_cast<PetscInt>(row_index(interface_cells[0], field_i));
-                                auto interface_cell1_row = static_cast<PetscInt>(row_index(interface_cells[1], field_i));
-                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                                for (std::size_t c = 0; c < comput_stencil_size; ++c)
                                 {
-                                    for (std::size_t c = 0; c < comput_stencil_size; ++c)
+                                    double coeff = cell_coeff(flux_coeffs, c, field_i, field_j);
+                                    if (coeff != 0)
                                     {
                                         auto comput_cell_col = static_cast<PetscInt>(col_index(comput_cells[c], field_j));
-                                        double coeff;
-                                        if constexpr (field_size == 1 && output_field_size == 1)
-                                        {
-                                            coeff = flux_coeffs[c];
-                                        }
-                                        else
-                                        {
-                                            coeff = flux_coeffs[c](field_i, field_j);
-                                        }
-                                        if (coeff != 0)
-                                        {
-                                            MatSetValue(A, interface_cell0_row, comput_cell_col,  coeff, ADD_VALUES);
-                                            MatSetValue(A, interface_cell1_row, comput_cell_col, -coeff, ADD_VALUES);
-                                        }
+                                        MatSetValue(A, interface_cell0_row, comput_cell_col,  coeff, ADD_VALUES);
+                                        MatSetValue(A, interface_cell1_row, comput_cell_col, -coeff, ADD_VALUES);
                                     }
                                 }
-                                m_is_row_empty[static_cast<std::size_t>(interface_cell0_row)] = false;
-                                m_is_row_empty[static_cast<std::size_t>(interface_cell1_row)] = false;
                             }
-                        // }
-                        // else // AOS
-                        // {
-                        // }
+                            m_is_row_empty[static_cast<std::size_t>(interface_cell0_row)] = false;
+                            m_is_row_empty[static_cast<std::size_t>(interface_cell1_row)] = false;
+                        }
+                    });
+
+                    for_each_boundary_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil, flux_computation.get_coeffs,
+                    [&](auto& interface_cells, auto& comput_cells, auto& flux_coeffs)
+                    {
+                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                        {
+                            auto interface_cell0_row = static_cast<PetscInt>(row_index(interface_cells[0], field_i));
+                            for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                            {
+                                for (std::size_t c = 0; c < comput_stencil_size; ++c)
+                                {
+                                    double coeff = cell_coeff(flux_coeffs, c, field_i, field_j);
+                                    if (coeff != 0)
+                                    {
+                                        auto comput_cell_col = static_cast<PetscInt>(col_index(comput_cells[c], field_j));
+                                        MatSetValue(A, interface_cell0_row, comput_cell_col,  coeff, ADD_VALUES);
+                                    }
+                                }
+                            }
+                            m_is_row_empty[static_cast<std::size_t>(interface_cell0_row)] = false;
+                        }
+                    });
+
+                    auto opposite_direction = xt::eval(-flux_computation.direction);
+                    auto opposite_stencil = xt::eval(-flux_computation.computational_stencil);
+                    for_each_boundary_interface(m_mesh, opposite_direction, opposite_stencil, flux_computation.get_coeffs,
+                    [&](auto& interface_cells, auto& comput_cells, auto& flux_coeffs)
+                    {
+                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                        {
+                            auto interface_cell0_row = static_cast<PetscInt>(row_index(interface_cells[0], field_i));
+                            for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                            {
+                                for (std::size_t c = 0; c < comput_stencil_size; ++c)
+                                {
+                                    double coeff = cell_coeff(flux_coeffs, c, field_i, field_j);
+                                    if (coeff != 0)
+                                    {
+                                        auto comput_cell_col = static_cast<PetscInt>(col_index(comput_cells[c], field_j));
+                                        MatSetValue(A, interface_cell0_row, comput_cell_col,  coeff, ADD_VALUES);
+                                    }
+                                }
+                            }
+                            m_is_row_empty[static_cast<std::size_t>(interface_cell0_row)] = false;
+                        }
                     });
                 }
             }
@@ -344,41 +405,21 @@ namespace samurai
                 [&] (const auto& cells, const auto& towards_ghost, auto& coeffs)
                 {
                     const auto& cell  = cells[0];
-                    auto cell_coeffs = coeffs[0];
                     auto boundary_point = cell.face_center(towards_ghost);
                     auto bc = find(m_boundary_conditions, boundary_point);
 
                     for (std::size_t g = 1; g < comput_stencil_size; ++g)
                     {
                         const auto& ghost = cells[g];
-                        auto ghost_coeffs = coeffs[g];
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                         {
                             PetscInt cell_index = static_cast<PetscInt>(col_index(cell, field_i));
                             PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
 
-                            double cell_coeff;
-                            if constexpr (field_size == 1 && output_field_size == 1)
-                            {
-                                cell_coeff = cell_coeffs;
-                            }
-                            else
-                            {
-                                cell_coeff = cell_coeffs(field_i, field_i);
-                            }
-
-                            double ghost_coeff;
-                            if constexpr (field_size == 1 && output_field_size == 1)
-                            {
-                                ghost_coeff = ghost_coeffs;
-                            }
-                            else
-                            {
-                                ghost_coeff = ghost_coeffs(field_i, field_i);
-                            }
+                            double coeff = cell_coeff(coeffs, g, field_i, field_i);
                             // Add missing flux to the cell
-                            MatSetValue(A, cell_index, cell_index , cell_coeff , ADD_VALUES);
-                            MatSetValue(A, cell_index, ghost_index, ghost_coeff, ADD_VALUES);
+                            //MatSetValue(A, cell_index, cell_index , cell_coeff , ADD_VALUES);
+                            //MatSetValue(A, cell_index, ghost_index, coeff, ADD_VALUES);
 
                             if (bc.is_dirichlet())
                             {
@@ -393,33 +434,33 @@ namespace samurai
                                     // - on the cell row, we have to 1) remove the coeff in the column of the ghost, 
                                     //                               2) substract coeff in the column of the cell.
                                     // - on the cell row of the right-hand side, we have to add -2*coeff*dirichlet_value.
-                                    MatSetValue(A, cell_index, ghost_index, -ghost_coeff, ADD_VALUES); // the coeff of the ghost is removed from the stencil (we want 0 so we substract the coeff we set before)
-                                    MatSetValue(A, cell_index, cell_index,  -ghost_coeff, ADD_VALUES); // the coeff is substracted from the center of the stencil
+                                    MatSetValue(A, cell_index, ghost_index, -coeff, ADD_VALUES); // the coeff of the ghost is removed from the stencil (we want 0 so we substract the coeff we set before)
+                                    MatSetValue(A, cell_index, cell_index,  -coeff, ADD_VALUES); // the coeff is substracted from the center of the stencil
                                     MatSetValue(A, ghost_index, ghost_index,     1, ADD_VALUES); // 1 is added to the diagonal of the ghost
                                 }
                                 else
                                 {
-                                    ghost_coeff = ghost_coeff == 0 ? 1 : ghost_coeff;
+                                    coeff = coeff == 0 ? 1 : coeff;
                                     // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is [  1/2    1/2 ] = dirichlet_value
                                     // which is equivalent to                                                         [-coeff -coeff] = -2 * coeff * dirichlet_value
-                                    MatSetValue(A, ghost_index, ghost_index, -ghost_coeff, ADD_VALUES);
-                                    MatSetValue(A, ghost_index, cell_index , -ghost_coeff, ADD_VALUES);
+                                    MatSetValue(A, ghost_index, ghost_index, -coeff, ADD_VALUES);
+                                    MatSetValue(A, ghost_index, cell_index , -coeff, ADD_VALUES);
                                 }
                             }
                             else
                             {
-                                ghost_coeff = ghost_coeff == 0 ? 1 : ghost_coeff;
+                                coeff = coeff == 0 ? 1 : coeff;
                                 // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is [  1/h  -1/h ] = neumann_value             
                                 // However, to have symmetry, we want to have coeff as the off-diagonal coefficient, so     [-coeff coeff] = -coeff * h * neumann_value
                                 if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
                                 {
-                                    MatSetValue(A, ghost_index, ghost_index, -ghost_coeff, ADD_VALUES); ////////// REMOVE THIS COMMENT// We want -coeff in the matrix, but we added 1 before, so we remove it
-                                    MatSetValue(A, ghost_index, cell_index,   ghost_coeff, ADD_VALUES);
+                                    MatSetValue(A, ghost_index, ghost_index, -coeff, ADD_VALUES);
+                                    MatSetValue(A, ghost_index, cell_index,   coeff, ADD_VALUES);
                                 }
                                 else
                                 {
-                                    MatSetValue(A, ghost_index, ghost_index, -ghost_coeff, ADD_VALUES);
-                                    MatSetValue(A, ghost_index, cell_index,   ghost_coeff, ADD_VALUES);
+                                    MatSetValue(A, ghost_index, ghost_index, -coeff, ADD_VALUES);
+                                    MatSetValue(A, ghost_index, cell_index,   coeff, ADD_VALUES);
                                 }
                             }
 
@@ -482,20 +523,12 @@ namespace samurai
                     for (std::size_t g = 1; g < comput_stencil_size; ++g)
                     {
                         const auto& ghost = cells[g];
-                        auto ghost_coeff = coeffs[g];
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                         {
                             PetscInt cell_index = static_cast<PetscInt>(col_index(cell, field_i));
                             PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
-                            double coeff;
-                            if constexpr (field_size == 1 && output_field_size == 1)
-                            {
-                                coeff = ghost_coeff;
-                            }
-                            else
-                            {
-                                coeff = ghost_coeff(field_i, field_i);
-                            }
+
+                            double coeff = cell_coeff(coeffs, g, field_i, field_i);
                             if (bc.is_dirichlet())
                             {
                                 double dirichlet_value;
