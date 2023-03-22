@@ -266,8 +266,8 @@ int main(int argc, char *argv[])
     // bdry_directions[3] = {0, -1};
     // bdry_stencils[3] = {{0, 0}, {0, 1}, {0, 2}, {0, -1}, {0, -2}};
 
-    auto update_bc = [&](auto& , std::size_t)
-    {
+    // auto update_bc = [&](auto& , std::size_t)
+    // {
         // samurai::for_each_stencil_on_boundary(field.mesh(), bdry_directions, bdry_stencils,
         // [&](const auto& cells, const auto& towards_ghost)
         // {
@@ -284,9 +284,9 @@ int main(int argc, char *argv[])
         //     field[ghost1] =  -3 * field[cell1] +      field[cell2] - 1./5 * field[cell3] + 16./5 * dirichlet_value;
         //     field[ghost2] = -18 * field[cell1] + 8  * field[cell2] - 9./5 * field[cell3] + 64./5 * dirichlet_value;
         // });
-    };
+    // };
     
-    auto MRadaptation = samurai::make_MRAdapt(adapt_field, update_bc);
+    auto MRadaptation = samurai::make_MRAdapt(adapt_field);
     MRadaptation(mr_epsilon, mr_regularity);
 
     // samurai::save("initial_mesh", mesh);
