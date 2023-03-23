@@ -43,6 +43,14 @@ jobs:
           restore-keys: |
             conan-${{ runner.os }}-${{ matrix.compiler }}-
 
+      - name: configure Pagefile
+        if: runner.os == 'Windows'
+        uses: al-cheb/configure-pagefile-action@v1.2
+        with:
+            minimum-size: 16GB
+            maximum-size: 16GB
+            disk-root: "C:"
+
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.26.2
         with:

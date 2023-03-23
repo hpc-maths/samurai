@@ -42,6 +42,11 @@ endforeach()
 
 add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${SAMURAI_HEADERS})
 target_include_directories(test_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
+
+if (MSVC)
+    target_compile_options(test_samurai_lib PUBLIC /bigobj)
+endif()
+
 if (rapidcheck_FOUND)
     target_link_libraries(test_samurai_lib samurai gtest_main gtest rapidcheck rapidcheck_gtest)
 else()
