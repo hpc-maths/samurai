@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <samurai/algorithm.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 template<class Field>

@@ -27,7 +27,7 @@ auto init(Mesh& mesh)
         auto center = cell.center();
         double radius = .2;
 
-        double x_center = 1.5;
+        double x_center = 0;
         if (std::abs(center[0] - x_center) <= radius)
         {
             u[cell] = 1;

@@ -126,22 +126,22 @@ namespace samurai
         template <>
         auto box_dir<1>()
         {
-            return xt::xtensor_fixed<int, xt::xshape<1, 2>>{{-1}, {1}};
+            return xt::xtensor_fixed<int, xt::xshape<2, 1>>{{-1}, {1}};
         }
 
         template <>
         auto box_dir<2>()
         {
-            return xt::xtensor_fixed<int, xt::xshape<2, 4>>{{-1, -1},
-                    {1, -1},
-                    {-1, 1},
-                    {1, 1}};
+            return xt::xtensor_fixed<int, xt::xshape<4, 2>>{{-1, 1},
+                    {1, 1},
+                    {-1, -1},
+                    {1, -1}};
         }
 
         template <>
         auto  box_dir<3>()
         {
-            return xt::xtensor_fixed<int, xt::xshape<3, 8>>
+            return xt::xtensor_fixed<int, xt::xshape<8, 3>>
                    {{-1, -1, -1},
                     {1, -1, -1},
                     {-1, 1, -1},
