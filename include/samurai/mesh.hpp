@@ -46,7 +46,7 @@ namespace samurai
 
         using mesh_id_t = typename config::mesh_id_t;
         using interval_t = typename config::interval_t;
-        using coord_index_t = typename interval_t::coord_index_t;
+        using value_t = typename interval_t::value_t;
 
         using cl_type = CellList<dim, interval_t, max_refinement_level>;
         using lcl_type = typename cl_type::lcl_type;
@@ -73,16 +73,18 @@ namespace samurai
         std::size_t min_level() const;
         const lca_type& domain() const;
         const ca_type& get_union() const;
+        bool is_periodic(std::size_t d) const;
+        const std::array<bool, dim>& periodicity() const;
 
         void swap(Mesh_base& mesh) noexcept;
 
         template<typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
-        const interval_t& get_interval(std::size_t level, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
+        const interval_t& get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
         template<typename... T>
-        std::size_t get_index(std::size_t level, coord_index_t i, T... index) const;
-        std::size_t get_index(std::size_t level, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
+        std::size_t get_index(std::size_t level, value_t i, T... index) const;
+        std::size_t get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
         void to_stream(std::ostream &os) const;
 
@@ -90,12 +92,13 @@ namespace samurai
         using derived_type = D;
 
         Mesh_base(const cl_type &cl, std::size_t min_level, std::size_t max_level);
+        Mesh_base(const cl_type &cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
         Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
+        Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
 
         derived_type& derived_cast() & noexcept;
         const derived_type& derived_cast() const & noexcept;
         derived_type derived_cast() && noexcept;
-
 
         mesh_t m_cells;
         lca_type m_domain;
@@ -109,6 +112,7 @@ namespace samurai
 
         std::size_t m_min_level;
         std::size_t m_max_level;
+        std::array<bool, dim> m_periodic;
     };
 
     template<class D, class Config>
@@ -134,15 +138,20 @@ namespace samurai
     : m_domain{start_level, b}, m_min_level{min_level}, m_max_level{max_level}
     {
         assert(min_level <= max_level);
-        // using box_t = samurai::Box<coord_index_t, dim>;
-        // using point_t = typename box_t::point_t;
+        m_periodic.fill(false);
+        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
 
-        // point_t start = b.min_corner() * std::pow(2, start_level);
-        // point_t end = b.max_corner() * std::pow(2, start_level);
+        construct_domain();
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+    }
 
-        // this->m_cells[mesh_id_t::cells][start_level] = {start_level, box_t{start, end}};
-        // m_domain = {start_level, box_t{start, end}};
-
+    template<class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
+    : m_domain{start_level, b}, m_min_level{min_level}, m_max_level{max_level}, m_periodic{periodic}
+    {
+        assert(min_level <= max_level);
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
 
         construct_domain();
@@ -154,6 +163,21 @@ namespace samurai
     template<class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const cl_type &cl, std::size_t min_level, std::size_t max_level)
     : m_min_level{min_level}, m_max_level{max_level}
+    {
+        assert(min_level <= max_level);
+        m_periodic.fill(false);
+
+        m_cells[mesh_id_t::cells] = {cl, false};
+
+        construct_domain();
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+    }
+
+    template<class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type &cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
+    : m_min_level{min_level}, m_max_level{max_level}, m_periodic{periodic}
     {
         assert(min_level <= max_level);
         m_cells[mesh_id_t::cells] = {cl, false};
@@ -214,22 +238,34 @@ namespace samurai
     }
 
     template<class D, class Config>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const -> const interval_t&
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, coord);
     }
 
     template<class D, class Config>
     template<typename... T>
-    inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, coord_index_t i, T... index) const
+    inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, value_t i, T... index) const
     {
         return m_cells[mesh_id_t::reference].get_index(level, i, index...);
     }
 
     template<class D, class Config>
-    inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const
+    inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const
     {
         return m_cells[mesh_id_t::reference].get_index(level, coord);
+    }
+
+    template<class D, class Config>
+    inline bool Mesh_base<D, Config>::is_periodic(std::size_t d) const
+    {
+        return m_periodic[d];
+    }
+
+    template<class D, class Config>
+    inline auto Mesh_base<D, Config>::periodicity() const -> const std::array<bool, dim>&
+    {
+        return m_periodic;
     }
 
     template<class D, class Config>
@@ -304,6 +340,7 @@ namespace samurai
 
         m_union[max_level] = m_cells[mesh_id_t::cells][max_level];
         for (std::size_t level = max_level - 1; level >= ((min_level == 0) ? 1 : min_level); --level)
+        // for (std::size_t level = max_level - 1; level--> 0; )
         {
             lcl_type lcl{level};
             auto expr = union_(this->m_cells[mesh_id_t::cells][level],
@@ -352,6 +389,12 @@ namespace samurai
             }
         }
         return true;
+    }
+
+    template<class D, class Config>
+    inline bool operator!=(const Mesh_base<D, Config> &mesh1, const Mesh_base<D, Config> &mesh2)
+    {
+        return !(mesh1 == mesh2);
     }
 
     template<class D, class Config>

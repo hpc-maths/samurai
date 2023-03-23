@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - cpp-version: gcc-9
@@ -58,19 +58,19 @@ jobs:
           path: |
             ~/.cache/ccache
             ~/micromamba-root/envs/samurai-env
-          key: linux-${{ matrix.cpp-version }}-${{ env.GITHUB_SHA }}
+          key: linux-${{ matrix.cpp-version }}
           restore-keys: |
-            linux-${{ matrix.cpp-version }}-
+            linux-${{ matrix.cpp-version }}
 
       - name: Compiler and dev tools installation
         run: |
           sudo apt update
           sudo apt install ${{ matrix.package }}
-          sudo apt install clang-tidy iwyu ccache
+          sudo apt install clang-tidy iwyu
 
-      - name: Information about ccache
-        run: |
-          ccache -s -v
+      # - name: Information about ccache
+      #   run: |
+      #     ccache -s -v
 
       - name: Mamba and samurai env installation
         uses: mamba-org/provision-with-micromamba@main
@@ -100,7 +100,6 @@ jobs:
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
               -DBUILD_TESTS=ON \
-              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
               # -DIWYU=ON
 
       - name: Build

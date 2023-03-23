@@ -55,8 +55,8 @@ int main(int argc, char *argv[])
     constexpr std::size_t prediction_order_ = 1;
     using MRConfig = samurai::MRConfig<dim, max_stencil_width_,
         graduation_width_,
-        max_refinement_level_,
-        prediction_order_
+        prediction_order_,
+        max_refinement_level_
     >;
 
     Case test_case{Case::abs};

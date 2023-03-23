@@ -379,7 +379,7 @@ namespace samurai
         using mesh_id_t = typename mesh_t::mesh_id_t;
         using ca_type = typename mesh_t::ca_type;
 
-        auto mesh = field.mesh();
+        auto& mesh = field.mesh();
         ca_type reconstruct_mesh;
         std::size_t reconstruct_level = mesh.domain().level();
         reconstruct_mesh[reconstruct_level] = mesh.domain();

@@ -97,6 +97,7 @@ namespace samurai
         {
             return;
         }
+        update_ghost_mr(m_field);
 
         mesh_t mesh_old = mesh;
         field_type field_old(m_field.name(), mesh_old);
@@ -111,6 +112,44 @@ namespace samurai
             {
                 break;
             }
+        }
+    }
+
+
+    // TODO: to remove since it is used at several place
+    namespace detail
+    {
+
+        template <std::size_t dim>
+        auto box_dir();
+
+        template <>
+        auto box_dir<1>()
+        {
+            return xt::xtensor_fixed<int, xt::xshape<2, 1>>{{-1}, {1}};
+        }
+
+        template <>
+        auto box_dir<2>()
+        {
+            return xt::xtensor_fixed<int, xt::xshape<4, 2>>{{-1, 1},
+                    {1, 1},
+                    {-1, -1},
+                    {1, -1}};
+        }
+
+        template <>
+        auto  box_dir<3>()
+        {
+            return xt::xtensor_fixed<int, xt::xshape<8, 3>>
+                   {{-1, -1, -1},
+                    {1, -1, -1},
+                    {-1, 1, -1},
+                    {1, 1, -1},
+                    {-1, -1, 1},
+                    {1, -1, 1},
+                    {-1, 1, 1},
+                    {1, 1, 1}};
         }
     }
 
@@ -161,6 +200,7 @@ namespace samurai
             subset_2.apply_op(enlarge(m_tag));
             subset_2.apply_op(keep_around_refine(m_tag));
             subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
+            update_tag_periodic(level, m_tag);
         }
 
         // FIXME: this graduation doesn't make the same that the lines below: why?
@@ -175,23 +215,19 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
 
-            xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
-            for (std::size_t d = 0; d < dim; ++d)
+            int grad_width = static_cast<int>(mesh_t::config::graduation_width);
+            auto stencil = grad_width*detail::box_dir<dim>();
+
+            for(std::size_t is = 0; is < stencil.shape(0); ++is)
             {
-                stencil.fill(0);
-                int grad_width = static_cast<int>(mesh_t::config::graduation_width);
-                for (int s = -grad_width; s <= grad_width; ++s)
-                {
-                    if (s != 0)
-                    {
-                        stencil[d] = s;
-                        auto subset = intersection(mesh[mesh_id_t::cells][level],
-                                                   translate(mesh[mesh_id_t::cells][level - 1], stencil))
-                                    .on(level - 1);
-                        subset.apply_op(balance_2to1(m_tag, stencil));
-                    }
-                }
+                auto s = xt::view(stencil, is);
+                auto subset = intersection(mesh[mesh_id_t::cells][level],
+                                            translate(mesh[mesh_id_t::all_cells][level - 1], s))
+                            .on(level - 1);
+                subset.apply_op(balance_2to1(m_tag, s));
             }
+
+            update_tag_periodic(level, m_tag);
         }
 
         // REFINEMENT GRADUATION
@@ -201,16 +237,21 @@ namespace samurai
                                         mesh[mesh_id_t::cells][level]);
 
             subset_1.apply_op(extend(m_tag));
+            update_tag_periodic(level, m_tag);
 
-            static_nested_loop<dim, -1, 2>(
-                [&](auto stencil) {
+            int grad_width = static_cast<int>(mesh_t::config::graduation_width);
+            auto stencil = grad_width*detail::box_dir<dim>();
 
-                auto subset = intersection(translate(mesh[mesh_id_t::cells][level], stencil),
-                                        mesh[mesh_id_t::cells][level-1]).on(level);
+            for(std::size_t is = 0; is < stencil.shape(0); ++is)
+            {
+                auto s = xt::view(stencil, is);
+                auto subset = intersection(translate(mesh[mesh_id_t::cells][level], s),
+                                        mesh[mesh_id_t::all_cells][level-1]).on(level);
 
                 subset.apply_op(make_graduation(m_tag));
+            }
 
-            });
+            update_tag_periodic(level, m_tag);
         }
 
         for (std::size_t level = max_level; level > 0; --level)
@@ -220,7 +261,10 @@ namespace samurai
                             .on(level - 1);
 
             keep_subset.apply_op(maximum(m_tag));
+            update_tag_periodic(level, m_tag);
         }
+
+        update_ghost_mr(field_old);
 
         if (update_field_mr(m_field, field_old, m_tag))
         {

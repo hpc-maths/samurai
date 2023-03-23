@@ -7,12 +7,15 @@
 #include <fmt/format.h>
 
 #include <xtensor/xtensor.hpp>
+#include <xtensor/xview.hpp>
 
 #include "../box.hpp"
 #include "../mesh.hpp"
 #include "../subset/node_op.hpp"
 #include "../subset/subset_op.hpp"
 #include "../samurai_config.hpp"
+
+using namespace xt::placeholders;
 
 namespace samurai
 {
@@ -30,8 +33,8 @@ namespace samurai
     template <std::size_t dim_,
               std::size_t max_stencil_width_ = default_config::ghost_width,
               std::size_t graduation_width_ = default_config::graduation_width,
-              std::size_t max_refinement_level_ = default_config::max_level,
               std::size_t prediction_order_ = default_config::prediction_order,
+              std::size_t max_refinement_level_ = default_config::max_level,
               class TInterval = default_config::interval_t>
     struct MRConfig
     {
@@ -74,7 +77,9 @@ namespace samurai
         MRMesh& operator=(MRMesh&&) = default;
 
         MRMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level);
+        MRMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
+        MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
 
         void update_sub_mesh_impl();
 
@@ -89,8 +94,18 @@ namespace samurai
     {}
 
     template <class Config>
+    inline MRMesh<Config>::MRMesh(const cl_type &cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
+    : base_type(cl, min_level, max_level, periodic)
+    {}
+
+    template <class Config>
     inline MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level)
     : base_type(b, max_level, min_level, max_level)
+    {}
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
+    : base_type(b, max_level, min_level, max_level, periodic)
     {}
 
     template <class Config>
@@ -195,9 +210,10 @@ namespace samurai
         {
             if (!this->m_cells[mesh_id_t::cells][level].empty())
             {
-                auto expr = difference(this->m_cells[mesh_id_t::all_cells][level],
-                                         union_(this->m_cells[mesh_id_t::cells][level],
-                                                this->m_cells[mesh_id_t::union_cells][level]))
+                auto expr = intersection(difference(this->m_cells[mesh_id_t::all_cells][level],
+                                                    union_(this->m_cells[mesh_id_t::cells][level],
+                                                    this->m_cells[mesh_id_t::union_cells][level])),
+                                         this->domain())
                            .on(level - 1);
 
                 expr([&](const auto& interval, const auto& index_yz)
@@ -213,6 +229,46 @@ namespace samurai
             }
         }
         this->m_cells[mesh_id_t::all_cells] = {cell_list, false};
+
+        // add ghosts for periodicity
+        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
+        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil_dir;
+        auto& domain = this->m_domain;
+        auto min_indices = domain.min_indices();
+        auto max_indices = domain.max_indices();
+
+        for (std::size_t level = this->m_cells[mesh_id_t::reference].min_level(); level <= this->m_cells[mesh_id_t::reference].max_level(); ++level)
+        {
+            lcl_type& lcl = cell_list[level];
+
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                std::size_t delta_l = domain.level() - level;
+
+                if (this->is_periodic(d))
+                {
+                    stencil.fill(0);
+                    stencil[d] = max_indices[d] - min_indices[d];
+
+                    auto set1 = intersection(this->m_cells[mesh_id_t::reference][level],
+                                             expand(translate(domain, stencil), config::ghost_width<<delta_l))
+                                .on(level);
+                    set1([&](auto& i, auto& index_yz)
+                    {
+                        lcl[index_yz - (xt::view(stencil, xt::range(1, _))>>delta_l)].add_interval(i - (stencil[0]>>delta_l));
+                    });
+
+                    auto set2 = intersection(this->m_cells[mesh_id_t::reference][level],
+                                             expand(translate(domain, -stencil), config::ghost_width<<delta_l))
+                                .on(level);
+                    set2([&](auto& i, auto& index_yz)
+                    {
+                        lcl[index_yz + (xt::view(stencil, xt::range(1, _))>>delta_l)].add_interval(i + (stencil[0]>>delta_l));
+                    });
+                }
+                this->m_cells[mesh_id_t::all_cells][level] = {lcl};
+            }
+        }
 
         // Add ghost cells for the projection operator
         //
@@ -241,6 +297,41 @@ namespace samurai
             });
             this->m_cells[mesh_id_t::all_cells][level] = {lcl};
         }
+
+        // add ghosts for periodicity
+        for (std::size_t level = this->m_cells[mesh_id_t::reference].min_level(); level <= this->m_cells[mesh_id_t::reference].max_level(); ++level)
+        {
+            lcl_type& lcl = cell_list[level];
+
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                std::size_t delta_l = domain.level() - level;
+
+                if (this->is_periodic(d))
+                {
+                    stencil.fill(0);
+                    stencil[d] = max_indices[d] - min_indices[d];
+
+                    auto set1 = intersection(this->m_cells[mesh_id_t::reference][level],
+                                             expand(translate(domain, stencil), config::ghost_width<<delta_l))
+                                .on(level);
+                    set1([&](auto& i, auto& index_yz)
+                    {
+                        lcl[index_yz - (xt::view(stencil, xt::range(1, _))>>delta_l)].add_interval(i - (stencil[0]>>delta_l));
+                    });
+
+                    auto set2 = intersection(this->m_cells[mesh_id_t::reference][level],
+                                             expand(translate(domain, -stencil), config::ghost_width<<delta_l))
+                                .on(level);
+                    set2([&](auto& i, auto& index_yz)
+                    {
+                        lcl[index_yz + (xt::view(stencil, xt::range(1, _))>>delta_l)].add_interval(i + (stencil[0]>>delta_l));
+                    });
+                }
+                this->m_cells[mesh_id_t::all_cells][level] = {lcl};
+            }
+        }
+
         this->m_cells[mesh_id_t::all_cells].update_index();
 
         // Extract the projection cells from the all_cells
@@ -260,7 +351,6 @@ namespace samurai
 
             this->m_cells[mesh_id_t::proj_cells][level - 1] = {lcl};
         }
-
     }
 
     template <class Config>

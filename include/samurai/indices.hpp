@@ -7,9 +7,9 @@ namespace samurai
     inline auto get_index_start(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval)
     {
         static constexpr std::size_t dim = Mesh::dim;
-        using coord_index_t = typename Mesh::coord_index_t;
+        using value_t = typename Mesh::value_t;
 
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord;
+        xt::xtensor_fixed<value_t, xt::xshape<dim>> coord;
         std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin()+1);
         coord[0] = mesh_interval.i.start;
         return mesh.get_index(mesh_interval.level, coord);
@@ -19,9 +19,9 @@ namespace samurai
     inline auto get_index_start_translated(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Vector& translation_vect)
     {
         static constexpr std::size_t dim = Mesh::dim;
-        using coord_index_t = typename Mesh::coord_index_t;
+        using value_t = typename Mesh::value_t;
 
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord;
+        xt::xtensor_fixed<value_t, xt::xshape<dim>> coord;
         std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin()+1);
         coord[0] = mesh_interval.i.start;
         for (std::size_t d=0; d<dim; ++d)
@@ -35,9 +35,9 @@ namespace samurai
     inline auto get_index_start_children(const Mesh& mesh, typename Mesh::mesh_interval_t& mesh_interval, const Vector& translation_vect)
     {
         static constexpr std::size_t dim = Mesh::dim;
-        using coord_index_t = typename Mesh::coord_index_t;
+        using value_t = typename Mesh::value_t;
 
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord;
+        xt::xtensor_fixed<value_t, xt::xshape<dim>> coord;
         std::copy(mesh_interval.index.cbegin(), mesh_interval.index.cend(), coord.begin()+1);
         coord[0] = mesh_interval.i.start;
         for (std::size_t d=0; d<dim; ++d)

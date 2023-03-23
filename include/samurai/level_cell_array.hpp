@@ -6,6 +6,7 @@
 
 #include <array>
 #include <iterator>
+#include <limits>
 #include <vector>
 
 #include <fmt/format.h>
@@ -54,7 +55,7 @@ namespace samurai
         constexpr static auto dim = Dim;
         using interval_t = TInterval;
         using index_t = typename interval_t::index_t;
-        using coord_index_t = typename interval_t::value_t;
+        using value_t = typename interval_t::value_t;
         using mesh_interval_t = MeshInterval<Dim, TInterval>;
 
         using iterator = LevelCellArray_iterator<LevelCellArray<Dim, TInterval>, false>;
@@ -62,7 +63,7 @@ namespace samurai
         using const_iterator = LevelCellArray_iterator<const LevelCellArray<Dim, TInterval>, true>;
         using const_reverse_iterator = LevelCellArray_reverse_iterator<const_iterator>;
 
-        using index_type = std::array<coord_index_t, dim>;
+        using index_type = std::array<value_t, dim>;
 
         LevelCellArray() = default;
 
@@ -77,7 +78,7 @@ namespace samurai
         template<class F, class... CT>
         LevelCellArray(subset_operator<F, CT...> set);
 
-        LevelCellArray(std::size_t level, const Box<coord_index_t, dim>& box);
+        LevelCellArray(std::size_t level, const Box<value_t, dim>& box);
         LevelCellArray(std::size_t level, const Box<double, dim>& box);
         LevelCellArray(std::size_t level);
 
@@ -96,11 +97,11 @@ namespace samurai
         template<typename... T>
         const interval_t& get_interval(const interval_t& interval, T... index) const;
 
-        const interval_t& get_interval(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
+        const interval_t& get_interval(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
         template<typename... T>
-        std::size_t get_index(const coord_index_t& i, T... index) const;
-        std::size_t get_index(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const;
+        std::size_t get_index(const value_t& i, T... index) const;
+        std::size_t get_index(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
         void update_index();
 
@@ -121,20 +122,24 @@ namespace samurai
 
         std::size_t level() const;
 
+        auto min_indices() const;
+        auto max_indices() const;
+        auto minmax_indices() const;
+
     private:
         /// Recursive construction from a level cell list along dimension > 0
         template<typename TGrid, std::size_t N>
         void init_from_level_cell_list(TGrid const &grid,
-                                       std::array<coord_index_t, dim - 1> index,
+                                       std::array<value_t, dim - 1> index,
                                        std::integral_constant<std::size_t, N>);
 
         /// Recursive construction from a level cell list for the dimension 0
         template<typename TIntervalList>
         void init_from_level_cell_list(TIntervalList const &interval_list,
-                                       const std::array<coord_index_t, dim - 1>& index,
+                                       const std::array<value_t, dim - 1>& index,
                                        std::integral_constant<std::size_t, 0>);
 
-        void init_from_box(const Box<coord_index_t, dim>& box);
+        void init_from_box(const Box<value_t, dim>& box);
 
         std::array<std::vector<interval_t>, dim> m_cells; ///< All intervals in every direction
         std::array<std::vector<std::size_t>, dim - 1> m_offsets; ///< Offsets in interval list for each dim > 1
@@ -186,7 +191,7 @@ namespace samurai
         using value_type = typename iterator_types::value_type;
         using reference = typename iterator_types::reference;
         using pointer = typename iterator_types::pointer;
-        using coord_index_t = typename value_type::coord_index_t;
+        using value_t = typename value_type::value_t;
 
         using index_type = typename iterator_types::index_type;
         using index_type_iterator = std::array<typename iterator_types::index_type_iterator, dim>;
@@ -195,7 +200,7 @@ namespace samurai
         using offset_type = std::vector<std::size_t>;
         using offset_type_iterator = std::array<typename offset_type::const_iterator, dim - 1>;
 
-        using coord_type = xt::xtensor_fixed<coord_index_t, xt::xshape<dim-1>>;
+        using coord_type = xt::xtensor_fixed<value_t, xt::xshape<dim-1>>;
 
         using difference_type = typename iterator_types::difference_type;
         using iterator_category = std::random_access_iterator_tag;
@@ -273,7 +278,7 @@ namespace samurai
     }
 
     template<std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<coord_index_t, dim>& box)
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<value_t, dim>& box)
     : m_level{level}
     {
         init_from_box(box);
@@ -283,7 +288,7 @@ namespace samurai
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<double, dim>& box)
     : m_level(level)
     {
-        using box_t = Box<coord_index_t, dim>;
+        using box_t = Box<value_t, dim>;
         using point_t = typename box_t::point_t;
 
         point_t start = box.min_corner() * static_cast<double>(1<<level);
@@ -407,7 +412,7 @@ namespace samurai
     }
 
     template<std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::get_interval(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const -> const interval_t&
+    inline auto LevelCellArray<Dim, TInterval>::get_interval(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const -> const interval_t&
     {
         auto row = find(*this, coord);
         return m_cells[0][static_cast<std::size_t>(row)];
@@ -415,13 +420,13 @@ namespace samurai
 
     template<std::size_t Dim, class TInterval>
     template<typename... T>
-    inline std::size_t LevelCellArray<Dim, TInterval>::get_index(const coord_index_t& i, T... index) const
+    inline std::size_t LevelCellArray<Dim, TInterval>::get_index(const value_t& i, T... index) const
     {
         return static_cast<std::size_t>(get_interval({i, i+1}, index...).index + i);
     }
 
     template<std::size_t Dim, class TInterval>
-    inline std::size_t LevelCellArray<Dim, TInterval>::get_index(const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) const
+    inline std::size_t LevelCellArray<Dim, TInterval>::get_index(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const
     {
         return static_cast<std::size_t>(get_interval(coord).index + coord[0]);
     }
@@ -475,6 +480,53 @@ namespace samurai
         return m_level;
     }
 
+    /**
+     * Return the maximum value that can take the end of an interval for each direction.
+     */
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::max_indices() const
+    {
+        std::array<value_t, dim> max;
+        for (std::size_t d=0; d<dim; ++d)
+        {
+            max[d] = std::max_element(m_cells[d].begin(), m_cells[d].end(), [](auto&a, auto& b){return (a.end < b.end);})->end;
+        }
+        return max;
+    }
+
+    /**
+     * Return the minimum value that can take the start of an interval for each direction.
+     */
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::min_indices() const
+    {
+        std::array<value_t, dim> min;
+        for (std::size_t d=0; d<dim; ++d)
+        {
+            min[d] = std::min_element(m_cells[d].begin(), m_cells[d].end(), [](auto&a, auto& b){return (a.start < b.start);})->start;
+        }
+        return min;
+    }
+
+    /**
+     * Return the minimum value that can take the start and
+     * the maximum value that can take the end of an interval
+     * for each direction.
+     */
+    template<std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::minmax_indices() const
+    {
+        std::array<std::pair<value_t, value_t>, dim> minmax;
+        auto min = min_indices();
+        auto max = max_indices();
+        for (std::size_t d=0; d<dim; ++d)
+        {
+            minmax[d].first = min[d];
+            minmax[d].second = max[d];
+        }
+        return minmax;
+    }
+
     template<std::size_t Dim, class TInterval>
     inline auto LevelCellArray<Dim, TInterval>::operator[](std::size_t d) const -> const std::vector<interval_t>&
     {
@@ -504,7 +556,7 @@ namespace samurai
     template<std::size_t Dim, class TInterval>
     template<typename TGrid, std::size_t N>
     inline void LevelCellArray<Dim, TInterval>::init_from_level_cell_list(TGrid const &grid,
-                                                                          std::array<coord_index_t, dim - 1> index,
+                                                                          std::array<value_t, dim - 1> index,
                                                                           std::integral_constant<std::size_t, N>)
     {
         // Working interval
@@ -569,7 +621,7 @@ namespace samurai
     template<std::size_t Dim, class TInterval>
     template<typename TIntervalList>
     inline void LevelCellArray<Dim, TInterval>::init_from_level_cell_list(TIntervalList const &interval_list,
-                                                                          const std::array<coord_index_t, dim - 1>& /* index */,
+                                                                          const std::array<value_t, dim - 1>& /* index */,
                                                                           std::integral_constant<std::size_t, 0>)
     {
         // Along the X axis, simply copy the intervals in cells[0]
@@ -577,7 +629,7 @@ namespace samurai
     }
 
     template<std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::init_from_box(const Box<coord_index_t, dim>& box)
+    inline void LevelCellArray<Dim, TInterval>::init_from_box(const Box<value_t, dim>& box)
     {
         auto dimensions = xt::cast<std::size_t>(box.length());
         auto start = box.min_corner();

@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os:
           - windows-2022
@@ -45,9 +45,9 @@ jobs:
             ${{ env.APPDATA }}\vcpkg\archives
             C:\Users\runneradmin\cmake
             C:\Users\runneradmin\AppData\Local\ccache
-          key: vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}-${{ env.GITHUB_SHA }}
+          key: vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}
           restore-keys: |
-            vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}-
+            vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}
             vcpkg-${{ runner.os }}-${{ matrix.compiler }}-
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.26.2
@@ -58,7 +58,7 @@ jobs:
           cmake: true
           ninja: true
           vcpkg: true
-          ccache: true
+          ccache: false
           clangtidy: false
           task: false
 
@@ -67,12 +67,12 @@ jobs:
           gcovr: false
           opencppcoverage: false
 
-      - name: Information about ccache
-        run: |
-          ccache -s -v
+      # - name: Information about ccache
+      #   run: |
+      #     ccache -s -v
       - name: Configure CMake
         run: |
-          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DVCPKG_OVERLAY_TRIPLETS=.github/workflows/vcpkg/custom-triplets
+          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
       - name: Build
         run: |
           cmake --build ./build --config Release

@@ -17,7 +17,7 @@ void make_graduation(Field& tag)
 {
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    auto mesh = tag.mesh();
+    auto& mesh = tag.mesh();
     for (std::size_t level = mesh.max_level(); level >= 1; --level)
     {
 

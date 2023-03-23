@@ -14,7 +14,7 @@ void update_field(Field& f, const Tag& tag, Mesh& new_mesh)
     using interval_t = typename mesh_t::interval_t;
     using coord_index_t = typename interval_t::coord_index_t;
 
-    auto mesh = f.mesh();
+    auto& mesh = f.mesh();
 
     Field new_f{f.name(), new_mesh};
     new_f.fill(0.);

@@ -687,4 +687,33 @@ namespace samurai
         return field;
     }
 
+    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline bool operator==(const Field<mesh_t, value_t, size_, SOA> &field1, const Field<mesh_t, value_t, size_, SOA> &field2)
+    {
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+
+        if (field1.mesh() != field2.mesh())
+        {
+            std::cout << "mesh different" << std::endl;
+            return false;
+        }
+
+        auto& mesh = field1.mesh();
+        bool is_same = true;
+        for_each_cell(mesh[mesh_id_t::cells], [&](const auto& cell)
+        {
+            if (std::abs(field1[cell] - field2[cell]) > 1e-15)
+            {
+                is_same = false;
+            }
+        });
+
+        return is_same;
+    }
+
+    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline bool operator!=(const Field<mesh_t, value_t, size_, SOA> &field1, const Field<mesh_t, value_t, size_, SOA> &field2)
+    {
+        return !(field1 == field2);
+    }
 } // namespace samurai

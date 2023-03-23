@@ -61,7 +61,7 @@ template <class Field>
 inline void update_bc_1D_constant_extension(Field& field, std::size_t level)
 {
     const xt::xtensor_fixed<int, xt::xshape<1>> xp{1};
-    auto mesh = field.mesh();
+    auto& mesh = field.mesh();
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
     size_t max_level = mesh.max_level();
 
@@ -106,7 +106,7 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
     const xt::xtensor_fixed<int, xt::xshape<2>> pp{1, 1};
     const xt::xtensor_fixed<int, xt::xshape<2>> pm{1, -1};
 
-    auto mesh = field.mesh();
+    auto& mesh = field.mesh();
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
     size_t max_level = mesh.max_level();
 
@@ -226,7 +226,7 @@ inline void update_bc_D2Q4_3_Euler_constant_extension_uniform(Field& field)
     const xt::xtensor_fixed<int, xt::xshape<2>> pp{1, 1};
     const xt::xtensor_fixed<int, xt::xshape<2>> pm{1, -1};
 
-    auto mesh = field.mesh();
+    auto& mesh = field.mesh();
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
     // E first rank (not projected on the level for future use)
@@ -330,7 +330,7 @@ inline void update_bc_D2Q4_3_Euler_linear_extension(Field& field, std::size_t le
     const xt::xtensor_fixed<int, xt::xshape<2>> pp{1, 1};
     const xt::xtensor_fixed<int, xt::xshape<2>> pm{1, -1};
 
-    auto mesh = field.mesh();
+    auto& mesh = field.mesh();
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
     size_t max_level = mesh.max_level();
 

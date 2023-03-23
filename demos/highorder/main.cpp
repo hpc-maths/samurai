@@ -23,9 +23,9 @@ public:
     using boundary_condition_t = typename Field::boundary_condition_t;
     static constexpr std::size_t prediction_order = samurai::petsc::CellBasedScheme<cfg, Field>::prediction_order;
 
-    HighOrderDiffusion(Field& unknown) : 
+    HighOrderDiffusion(Field& unknown) :
         samurai::petsc::CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
-    {}  
+    {}
 
     static constexpr auto stencil()
     {
@@ -105,7 +105,7 @@ public:
             PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
 
             // We need to define a polynomial of degree 3 that passes by the 4 points c3, c2, c1 and the boundary point.
-            // This polynomial writes 
+            // This polynomial writes
             //                       p(x) = a*x^3 + b*x^2 + c*x + d.
             // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 points into the polynomial.
             // If we set the abscissa 0 at the center of c1, this system reads
@@ -118,8 +118,8 @@ public:
             //                       u_g2 = p(2h).
             // This gives
             //             5/16 * u_g1  +  15/16 * u1  -5/16 * u2  +  1/16 * u3 = dirichlet_value
-            //             5/64 * u_g2  +  45/32 * u1  -5/8  * u2  +  9/64 * u3 = dirichlet_value 
-            
+            //             5/64 * u_g2  +  45/32 * u1  -5/8  * u2  +  9/64 * u3 = dirichlet_value
+
             MatSetValue(A, ghost1_index, ghost1_index,  5./16, INSERT_VALUES);
             MatSetValue(A, ghost1_index, cell1_index,  15./16, INSERT_VALUES);
             MatSetValue(A, ghost1_index, cell2_index , -5./16, INSERT_VALUES);
@@ -186,12 +186,10 @@ int main(int argc, char *argv[])
     constexpr std::size_t dim = 2;
     constexpr std::size_t stencil_width = 2;
     constexpr std::size_t graduation_width = 4;
-    constexpr std::size_t max_refinement_level = 20;
     constexpr std::size_t prediction_order = 3;
     using Config = samurai::MRConfig<dim,
                                      stencil_width,
                                      graduation_width,
-                                     max_refinement_level,
                                      prediction_order
     >;
 
@@ -224,7 +222,7 @@ int main(int argc, char *argv[])
     app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
-    
+
     samurai::Box<double, dim> box(min_corner, max_corner);
     using mesh_t = samurai::MRMesh<Config>;
     using mesh_id_t = typename mesh_t::mesh_id_t;
@@ -234,8 +232,8 @@ int main(int argc, char *argv[])
     PetscInitialize(&argc, &argv, 0, nullptr);
     PetscOptionsSetValue(NULL, "-options_left", "off");
 
-    auto adapt_field = samurai::make_field<double, 1>("adapt_field", mesh, [](const auto& coord) 
-            { 
+    auto adapt_field = samurai::make_field<double, 1>("adapt_field", mesh, [](const auto& coord)
+            {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 double radius = 0.1;
@@ -249,7 +247,7 @@ int main(int argc, char *argv[])
                 }
             }, 0);
 
-    
+
     // std::array<samurai::StencilVector<dim>, 4> bdry_directions;
     // std::array<samurai::Stencil<5, dim>   , 4> bdry_stencils;
 
@@ -285,7 +283,7 @@ int main(int argc, char *argv[])
         //     field[ghost2] = -18 * field[cell1] + 8  * field[cell2] - 9./5 * field[cell3] + 64./5 * dirichlet_value;
         // });
     // };
-    
+
     auto MRadaptation = samurai::make_MRAdapt(adapt_field);
     MRadaptation(mr_epsilon, mr_regularity);
 
@@ -305,11 +303,11 @@ int main(int argc, char *argv[])
     //     mesh = {cl, mesh.min_level(), mesh.max_level()+1};
     // }
     // samurai::save("refine_mesh", mesh);
-    
+
     // Equation: -Lap u = f   in [0, 1]^2
     //            f(x,y) = 2(y(1-y) + x(1-x))
-    auto f = samurai::make_field<double, 1>("f", mesh, [](const auto& coord) 
-            { 
+    auto f = samurai::make_field<double, 1>("f", mesh, [](const auto& coord)
+            {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 //return 2 * (y*(1 - y) + x * (1 - x));
@@ -339,8 +337,8 @@ int main(int argc, char *argv[])
     // return 0;
 
     auto u = samurai::make_field<double, 1>("u", mesh);
-    u.set_dirichlet([](const auto& coord) 
-        { 
+    u.set_dirichlet([](const auto& coord)
+        {
             const auto& x = coord[0];
             const auto& y = coord[1];
             //return 0.;
@@ -353,7 +351,7 @@ int main(int argc, char *argv[])
     auto solver = samurai::petsc::make_solver(diff);
     solver.solve(f);
 
-    double error = diff.L2Error(u, [](const auto& coord) 
+    double error = diff.L2Error(u, [](const auto& coord)
             {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
@@ -365,14 +363,14 @@ int main(int argc, char *argv[])
     std::cout << "L2-error: " << std::scientific << error << std::endl;
 
     auto error_field = samurai::make_field<double, 1>("error", mesh);
-    samurai::for_each_cell(mesh, [&](const auto& cell) 
-    { 
+    samurai::for_each_cell(mesh, [&](const auto& cell)
+    {
         double x = cell.center(0);
         double y = cell.center(1);
         //double sol = sin(4 * M_PI * x)*sin(4 * M_PI * y);
         //double sol = x * (1 - x) * y*(1 - y);
         double sol = exp(x*y*y);
-        error_field[cell] = abs(u[cell]-sol); 
+        error_field[cell] = abs(u[cell]-sol);
     });
 
     samurai::save("error", mesh, error_field);
@@ -383,5 +381,5 @@ int main(int argc, char *argv[])
     solver.destroy_petsc_objects();
     PetscFinalize();
 
-    return 0; 
+    return 0;
 }

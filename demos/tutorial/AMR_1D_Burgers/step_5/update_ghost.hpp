@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <samurai/algorithm.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 template<class Field>
@@ -12,7 +11,7 @@ void update_ghost(Field& phi)
 {
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    auto mesh = phi.mesh();
+    auto& mesh = phi.mesh();
 
     std::size_t min_level = mesh.min_level();
     std::size_t max_level = mesh.max_level();

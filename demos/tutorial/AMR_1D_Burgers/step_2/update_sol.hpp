@@ -9,7 +9,7 @@
 template<class Field>
 void update_sol(double dt, Field& phi, Field& phi_np1)
 {
-    auto mesh = phi.mesh();
+    auto& mesh = phi.mesh();
 
     samurai::for_each_interval(mesh, [&](std::size_t level, const auto& interval, auto)
     {

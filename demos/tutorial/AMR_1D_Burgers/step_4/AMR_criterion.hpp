@@ -28,7 +28,7 @@ void AMR_criterion(const Field& f, Tag& tag)
 {
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    auto mesh = f.mesh();
+    auto& mesh = f.mesh();
 
     std::size_t min_level = mesh.min_level();
     std::size_t max_level = mesh.max_level();

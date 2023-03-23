@@ -483,7 +483,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
 template <class Field, class Phi>
 void save(const fs::path& path, const std::string& filename, const Field& u, const Phi& phi, const std::string& suffix="")
 {
-    auto& mesh = u.mesh();
+    auto mesh = u.mesh();
     auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
 
     if (!fs::exists(path))

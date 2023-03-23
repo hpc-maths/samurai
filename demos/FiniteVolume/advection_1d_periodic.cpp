@@ -12,23 +12,29 @@
 #include <samurai/stencil_field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/bc.hpp>
+#include <samurai/reconstruction.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
 
 template <class Mesh>
-auto init(Mesh& mesh)
+auto init(Mesh& mesh, double t = 0)
 {
+    double dx = 1./(1<<mesh.max_level());
     auto u = samurai::make_field<double, 1>("u", mesh);
     u.fill(0.);
 
-    samurai::for_each_cell(mesh, [&](auto &cell) {
+    samurai::for_each_cell(mesh, [&](auto &cell)
+    {
         auto center = cell.center();
-        double radius = .2;
+        double radius = std::floor(.2/dx)*dx;
 
-        double x_center = 0;
-        if (std::abs(center[0] - x_center) <= radius)
+        // if (xt::sum(center*center)[0] <= radius*radius)
+        // {
+        //     u[cell] = 1;
+        // }
+        if (xt::all(xt::abs(center - t*dx) <= radius))
         {
             u[cell] = 1;
         }
@@ -37,66 +43,6 @@ auto init(Mesh& mesh)
     return u;
 }
 
-template<class Field>
-void flux_correction(double dt, double a, const Field& u, Field& unp1)
-{
-    using mesh_t = typename Field::mesh_t;
-    using mesh_id_t = typename mesh_t::mesh_id_t;
-    using interval_t = typename mesh_t::interval_t;
-    constexpr std::size_t dim = Field::dim;
-
-    auto mesh = u.mesh();
-
-    for (std::size_t level = mesh.min_level(); level < mesh.max_level(); ++level)
-    {
-        xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
-
-        stencil = {{-1}};
-
-        auto subset_right = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level+1], stencil),
-                                                  mesh[mesh_id_t::cells][level])
-                           .on(level);
-
-        subset_right([&](const auto& i, auto)
-        {
-            double dx = samurai::cell_length(level);
-
-            unp1(level, i) = unp1(level, i) - dt/dx * (-samurai::upwind_op<interval_t>(level, i).right_flux(a, u)
-                                                       +samurai::upwind_op<interval_t>(level+1, 2*i+1).right_flux(a, u));
-        });
-
-        stencil = {{1}};
-
-        auto subset_left = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level+1], stencil),
-                                                 mesh[mesh_id_t::cells][level])
-                          .on(level);
-
-        subset_left([&](const auto& i, auto)
-        {
-            double dx = samurai::cell_length(level);
-
-            unp1(level, i) = unp1(level, i) - dt/dx * (samurai::upwind_op<interval_t>(level, i).left_flux(a, u)
-                                                      -samurai::upwind_op<interval_t>(level+1, 2*i).left_flux(a, u));
-        });
-    }
-}
-
-template <class Field>
-void dirichlet(std::size_t level, Field& u)
-{
-    using mesh_t = typename Field::mesh_t;
-    using mesh_id_t = typename mesh_t::mesh_id_t;
-
-    auto mesh = u.mesh();
-
-    auto boundary = samurai::difference(mesh[mesh_id_t::reference][level],
-                                        mesh.domain())
-                   .on(level);
-    boundary([&](const auto& i, auto)
-    {
-        u(level, i) = 0.;
-    });
-}
 
 template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix="")
@@ -114,16 +60,20 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
         level_[cell] = cell.level;
     });
 
+    // samurai::save(path, fmt::format("{}{}", filename, suffix), {true, true}, mesh, u, level_);
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
 }
 
 int main(int argc, char *argv[])
 {
     constexpr size_t dim = 1;
-    using Config = samurai::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim, 2>;
 
     // Simulation parameters
-    double left_box = -2, right_box = 2;
+    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner, max_corner;
+    min_corner.fill(-1);
+    max_corner.fill(1);
+
     bool is_periodic = false;
     double a = 1.;
     double Tf = 1.;
@@ -141,8 +91,8 @@ int main(int argc, char *argv[])
     std::size_t nfiles = 1;
 
     CLI::App app{"Finite volume example for the advection equation in 1d using multiresolution"};
-    app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_flag("--periodic", is_periodic, "Set the domain periodic")->capture_default_str()->group("Simulation parameters");
     app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
@@ -157,20 +107,19 @@ int main(int argc, char *argv[])
     app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
     CLI11_PARSE(app, argc, argv);
 
-    samurai::Box<double, dim> box({left_box}, {right_box});
-    samurai::MRMesh<Config> mesh{box, min_level, max_level, {is_periodic}};
+    samurai::Box<double, dim> box(min_corner, max_corner);
+    // samurai::MRMesh<Config> mesh{box, min_level, max_level, {true, false}};
+    samurai::MRMesh<Config> mesh{box, min_level, max_level, {true}};
+    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
 
-    double dt = cfl/(1<<max_level);
+    double dt = 1;
+    Tf = 4*(1<<max_level);
     double dt_save = Tf/static_cast<double>(nfiles);
     double t = 0.;
 
     auto u = init(mesh);
-    if (!is_periodic)
-    {
-        samurai::make_bc<samurai::Dirichlet>(u, 0.);
-    }
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
-
+    unp1.fill(0);
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
     save(path, filename, u, "_init");
@@ -191,13 +140,30 @@ int main(int argc, char *argv[])
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
         samurai::update_ghost_mr(u);
+        std::string suffix = fmt::format("_before_ite_{}", t);
+        save(path, filename, u, suffix);
         unp1.resize();
-        unp1.fill(0);
-        unp1 = u - dt * samurai::upwind(a, u);
-        if (correction)
+        samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, auto& i, auto& index)
         {
-            flux_correction(dt, a, u, unp1);
-        }
+            std::size_t shift = max_level - level;
+            if constexpr (dim == 1)
+            {
+                unp1(level, i) = u(level, i) + samurai::portion(u, level, i-1, shift, (1<<shift)-1) - samurai::portion(u, level, i, shift, (1<<shift)-1);
+            }
+            else if constexpr (dim == 2)
+            {
+                auto j = index[0];
+                xt::xtensor<double, 1> to_add = xt::zeros<double>(std::array<std::size_t, 1>{i.size()});
+                xt::xtensor<double, 1> to_remove = xt::zeros<double>(std::array<std::size_t, 1>{i.size()});
+                for (int jj=0; jj < (1<<shift); ++jj)
+                {
+                    to_add += samurai::portion(u, level, i-1, j, shift, (1<<shift)-1, jj);
+                    to_remove += samurai::portion(u, level, i, j, shift, (1<<shift)-1, jj);
+                }
+                unp1(level, i, j) = u(level, i, j) + to_add - to_remove;
+
+            }
+        });
 
         std::swap(u.array(), unp1.array());
 
@@ -207,5 +173,25 @@ int main(int argc, char *argv[])
             save(path, filename, u, suffix);
         }
     }
+    MRadaptation(mr_epsilon, mr_regularity);
+
+    samurai::MRMesh<Config> mesh_init{box, min_level, max_level, {true}};
+
+    auto u_init = init(mesh_init);
+    auto MRadaptation_init = samurai::make_MRAdapt(u_init);
+    MRadaptation_init(mr_epsilon, mr_regularity);
+
+    save(path, filename, u_init, "_init_adapt");
+
+    auto error = samurai::make_field<double, 1>("error", mesh);
+    if (u != u_init)
+    {
+        samurai::for_each_cell(mesh, [&](auto& cell)
+        {
+            error[cell] = std::abs(u[cell] - u_init[cell]);
+        });
+        std::cout << error << std::endl;
+    }
+
     return 0;
 }

@@ -22,7 +22,7 @@ xt::xtensor<double, 2> prediction_all(const Field & f, std::size_t level_g, std:
         return it->second;
     else
     {
-        auto mesh = f.mesh();
+        auto& mesh = f.mesh();
         using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
         std::vector<std::size_t> shape_x = {k.size(), nvel};

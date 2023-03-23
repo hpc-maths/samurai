@@ -182,9 +182,9 @@ namespace samurai
         return make_field_operator_function<maximum_op>(std::forward<T>(field));
     }
 
-    /*****************
-     * copy operator *
-     *****************/
+    /**************$$$$$$$$***
+     * balance_2to1 operator *
+     ****************$$$$$$$$*/
 
     template<class TInterval>
     class balance_2to1_op : public field_operator_base<TInterval> {

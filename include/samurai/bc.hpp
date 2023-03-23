@@ -305,32 +305,28 @@ namespace samurai
     namespace detail
     {
         template<std::size_t dim>
-        auto get_direction();
-
-        template<>
-        auto get_direction<1>()
+        auto get_direction()
         {
-            return std::vector<xt::xtensor_fixed<int, xt::xshape<1>>> {{-1}, {1}};
-        }
-
-        template<>
-        auto get_direction<2>()
-        {
-            return std::vector<xt::xtensor_fixed<int, xt::xshape<2>>> {{ 1,  0},
-                                                                       {-1,  0},
-                                                                       { 0,  1},
-                                                                       { 0, -1}};
-        }
-
-        template<>
-        auto get_direction<3>()
-        {
-            return std::vector<xt::xtensor_fixed<int, xt::xshape<3>>> {{ 1,  0,  0},
-                                                                       {-1,  0,  0},
-                                                                       { 0,  1,  0},
-                                                                       { 0, -1,  0},
-                                                                       { 0,  0,  1},
-                                                                       { 0,  0, -1}};
+            if constexpr (dim == 1)
+            {
+                return std::vector<xt::xtensor_fixed<int, xt::xshape<1>>> {{-1}, {1}};
+            }
+            else if constexpr (dim == 2)
+            {
+                return std::vector<xt::xtensor_fixed<int, xt::xshape<2>>> {{ 1,  0},
+                                                                           {-1,  0},
+                                                                           { 0,  1},
+                                                                           { 0, -1}};
+            }
+            else if constexpr (dim == 3)
+            {
+                return std::vector<xt::xtensor_fixed<int, xt::xshape<3>>> {{ 1,  0,  0},
+                                                                           {-1,  0,  0},
+                                                                           { 0,  1,  0},
+                                                                           { 0, -1,  0},
+                                                                           { 0,  0,  1},
+                                                                           { 0,  0, -1}};
+            }
         }
     }
     // Everywhere
