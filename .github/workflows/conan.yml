@@ -39,9 +39,8 @@ jobs:
             ~/Library/Caches/ccache
             C:\Users\runneradmin\cmake
             C:\Users\runneradmin\AppData\Local\ccache
-          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py')}}-${{ env.GITHUB_SHA }}
+          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py')}}
           restore-keys: |
-            conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py') }}-
             conan-${{ runner.os }}-${{ matrix.compiler }}-
 
       - name: Setup Cpp
@@ -54,7 +53,7 @@ jobs:
           ninja: true
           conan: true
           vcpkg: false
-          ccache: true
+          ccache: false
           clangtidy: false
           task: false
 
@@ -63,12 +62,12 @@ jobs:
           gcovr: false
           opencppcoverage: false
 
-      - name: Information about ccache
-        run: |
-          ccache -s -v
+      # - name: Information about ccache
+      #   run: |
+      #     ccache -s -v
       - name: Configure CMake
         run: |
-          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
       - name: Build
         run: |
           cmake --build ./build --config Release
