@@ -10,7 +10,7 @@ namespace samurai
          * Assemble the matrix for the problem -Lap(u)=f.
          * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
         */
-        template<class Field, DirichletEnforcement dirichlet_enfcmt=Equation, std::size_t dim=Field::dim, class cfg=starStencilFV<dim, Field::size, dirichlet_enfcmt>>
+        template<class Field, DirichletEnforcement dirichlet_enfcmt=Equation, std::size_t dim=Field::dim, class cfg=StarStencilFV<dim, Field::size, 1, dirichlet_enfcmt>>
         class DiffusionFV : public CellBasedScheme<cfg, Field>
         {
         public:

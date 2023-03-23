@@ -6,6 +6,9 @@ namespace samurai
     template<std::size_t stencil_size, std::size_t dim>
     using Stencil = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
 
+    template<std::size_t dim>
+    using StencilVector = xt::xtensor_fixed<int, xt::xshape<dim>>;
+
 
     template<std::size_t stencil_size, std::size_t dim>
     int find_stencil_origin(const Stencil<stencil_size, dim>& stencil)
@@ -120,7 +123,7 @@ namespace samurai
     };
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, IteratorStencil<Mesh, stencil_size>& stencil_it, Func &&f)
+    inline void for_each_stencil_sliding_in_interval(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, IteratorStencil<Mesh, stencil_size>& stencil_it, Func &&f)
     {
         stencil_it.init(mesh, mesh_interval);
         for(std::size_t ii=0; ii<mesh_interval.i.size(); ++ii)
@@ -131,10 +134,10 @@ namespace samurai
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&f)
+    inline void for_each_stencil_sliding_in_interval(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&f)
     {
         IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
-        for_each_stencil(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+        for_each_stencil_sliding_in_interval(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
@@ -143,7 +146,17 @@ namespace samurai
         using mesh_id_t = typename Mesh::mesh_id_t;
         for_each_meshinterval(mesh[mesh_id_t::cells][level], [&](auto mesh_interval)
         {
-            for_each_stencil(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+            for_each_stencil_sliding_in_interval(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+        });
+    }
+
+    template <class Mesh, class Set, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, Set& set, IteratorStencil<Mesh, stencil_size>& stencil_it, Func &&f)
+    {
+        using mesh_interval_t = typename Mesh::mesh_interval_t;
+        for_each_meshinterval<mesh_interval_t>(set, [&](auto mesh_interval)
+        {
+            for_each_stencil_sliding_in_interval(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
         });
     }
 
@@ -164,44 +177,101 @@ namespace samurai
         });
     }
 
+    template <class Mesh, class Set, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, Set& set, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&f)
+    {
+        IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
+        for_each_stencil(mesh, set, stencil_it,
+        [&] (auto& cells)
+        {
+            f(cells);
+        });
+    }
+
 
     //-----------------------//
     //    Useful stencils    //
     //-----------------------//
 
 
-    template<std::size_t dim>
-    constexpr Stencil<1+2*dim, dim> star_stencil()
+    template<std::size_t dim, std::size_t neighbourhood_width=1>
+    constexpr Stencil<1+2*dim*neighbourhood_width, dim> star_stencil()
     {
         static_assert(dim >= 1 || dim <= 3, "Star stencil not implemented for this dimension");
+        static_assert(neighbourhood_width >= 0 || neighbourhood_width <= 2, "Star stencil not implemented for this neighbourhood width");
+
+        if constexpr (neighbourhood_width == 0)
+        {
+            Stencil<1, dim> s;
+            s.fill(0);
+            return s;
+        }
+        else if constexpr (neighbourhood_width == 1)
+        {
+            if constexpr (dim == 1)
+            {
+                //    left, center, right
+                return {{-1}, {0}, {1}};
+            }
+            else if constexpr (dim == 2)
+            {
+                //       left,   center,  right,   bottom,  top 
+                return {{-1, 0}, {0, 0},  {1, 0}, {0, -1}, {0, 1}};
+            }
+            else if constexpr (dim == 3)
+            {
+                //       left,   center,    right,   front,    back,    bottom,    top
+                return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
+            }
+        }
+        else if constexpr (neighbourhood_width == 2)
+        {
+            if constexpr (dim == 1)
+            {
+                //   left2, left, center, right, right2
+                return {{-2}, {-1}, {0}, {1}, {2}};
+            }
+            else if constexpr (dim == 2)
+            {
+                //       left2,   left,   center,  right, right2  bottom2, bottom,   top,    top2 
+                return {{-2, 0}, {-1, 0}, {0, 0}, {1, 0}, {2, 0}, {0, -2}, {0, -1}, {0, 1}, {0, 2}};
+            }
+            else if constexpr (dim == 3)
+            {
+                //        left2,    left,    center,  right,   right2,  front2,    front,   back,    back2,   bottom2,  bottom,    top,     top2
+                return {{-2,0,0}, {-1,0,0}, {0,0,0}, {1,0,0}, {2,0,0}, {0,-2,0}, {0,-1,0}, {0,1,0}, {0,2,0}, {0,0,-2}, {0,0,-1}, {0,0,1}, {0,0,2}};
+            }
+        }
+        return Stencil<1+2*dim*neighbourhood_width, dim>();
+    }
+
+    template<std::size_t dim>
+    constexpr Stencil<2*dim, dim> cartesian_directions()
+    {
+        static_assert(dim >= 1 || dim <= 3, "cartesian_directions() not implemented for this dimension");
 
         if constexpr (dim == 1)
         {
-            // 3-point stencil:
-            //    left, center, right
-            return {{-1}, {0}, {1}};
+            //     left, right
+            return {{-1}, {1}};
         }
         else if constexpr (dim == 2)
         {
-            // 5-point stencil:
-            //       left,   center,  right,   bottom,  top
-            return {{-1, 0}, {0, 0},  {1, 0}, {0, -1}, {0, 1}};
+            //       left,   right,   bottom,  top 
+            return {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
         }
         else if constexpr (dim == 3)
         {
-            // 7-point stencil:
-            //       left,   center,    right,   front,    back,    bottom,    top
-            return {{-1,0,0}, {0,0,0},  {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
+            //       left,    right,   front,    back,    bottom,    top
+            return {{-1,0,0}, {1,0,0}, {0,-1,0}, {0,1,0}, {0,0,-1}, {0,0,1}};
         }
-        return Stencil<1+2*dim, dim>();
+        return Stencil<2*dim, dim>();
     }
 
     template<std::size_t dim>
     constexpr Stencil<1, dim> center_only_stencil()
     {
-        Stencil<1, dim> s;
-        s.fill(0);
-        return s;
+        return star_stencil<dim, 0>();
     }
 
     template<std::size_t dim, class Vector>
