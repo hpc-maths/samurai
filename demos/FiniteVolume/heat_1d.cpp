@@ -188,9 +188,7 @@ int main(int argc, char* argv[])
 
     std::cout << std::endl;
     std::cout << "Run the following command to view the results:" << std::endl;
-    std::cout << "<<path to samurai>>/python/read_mesh.py FV_heat_1d_ite_ "
-                 "--field u level --start 1 --end "
-              << nsave << std::endl;
+    std::cout << "python <<path to samurai>>/python/read_mesh.py FV_heat_1d_ite_ --field u level --start 1 --end " << nsave << std::endl;
     PetscFinalize();
 
     return 0;

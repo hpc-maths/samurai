@@ -17,19 +17,32 @@ namespace samurai
             using field_t = Field;
             using Mesh = typename Field::mesh_t;
             using flux_computation_t = typename FluxBasedScheme<cfg, Field>::flux_computation_t;
+            using flux_matrix_t = typename flux_computation_t::flux_matrix_t;
             using coeff_matrix_t = typename flux_computation_t::coeff_matrix_t;
+            static constexpr std::size_t field_size = Field::size;
 
             DiffusionFV(Field& unknown) : 
                 FluxBasedScheme<cfg, Field>(unknown, scheme_coefficients())
             {}
 
+
             static auto flux_coefficients(double h)
             {
-                auto Identity = eye<coeff_matrix_t>();
-                std::array<coeff_matrix_t, 2> coeffs;
-                coeffs[0] = -Identity/h;
-                coeffs[1] =  Identity/h;
-                return coeffs;
+                std::array<flux_matrix_t, 2> flux_coeffs;
+                if constexpr (field_size == 1)
+                {
+                    flux_coeffs[0] = -1/h;
+                    flux_coeffs[1] =  1/h;
+                }
+                else
+                {
+                    for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                    {
+                        flux_coeffs[0](field_j) = -1/h;
+                        flux_coeffs[1](field_j) =  1/h;
+                    }
+                }
+                return flux_coeffs;
             }
 
 
@@ -42,21 +55,48 @@ namespace samurai
                     auto& flux = fluxes[d];
                     flux.direction = xt::view(directions, d);
                     flux.computational_stencil = in_out_stencil<dim>(flux.direction);
-                    flux.get_coeffs = [](double h_I, double h_F)
+                    flux.get_flux_coeffs = flux_coefficients;
+                    flux.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                     {
-                        auto coeffs = flux_coefficients(h_F);
-                        for (auto& coeff : coeffs)
+                        double h_factor = pow(h_face, dim-1) / pow(h_cell, dim);
+                        std::array<coeff_matrix_t, 2> coeffs;
+                        if constexpr (field_size == 1)
                         {
-                            coeff /= -h_I;
+                            coeffs[0] = -flux_coeffs[0] * h_factor;
+                            coeffs[1] = -flux_coeffs[1] * h_factor;
+                        }
+                        else
+                        {
+                            coeffs[0].fill(0);
+                            coeffs[1].fill(0);
+                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                            {
+                                coeffs[0](field_j, field_j) = -flux_coeffs[0](field_j) * h_factor;
+                                coeffs[1](field_j, field_j) = -flux_coeffs[1](field_j) * h_factor;
+                            }
                         }
                         return coeffs;
                     };
-                    flux.get_neighbour_coeffs = [](auto& coeffs)
+                    flux.get_cell2_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                     {
-                        std::array<coeff_matrix_t, 2> neighbour_coeffs;
-                        neighbour_coeffs[0] = -coeffs[0];
-                        neighbour_coeffs[1] = -coeffs[1];
-                        return neighbour_coeffs;
+                        double h_factor = pow(h_face, dim-1) / pow(h_cell, dim);
+                        std::array<coeff_matrix_t, 2> coeffs;
+                        if constexpr (field_size == 1)
+                        {
+                            coeffs[0] = flux_coeffs[0] * h_factor;
+                            coeffs[1] = flux_coeffs[1] * h_factor;
+                        }
+                        else
+                        {
+                            coeffs[0].fill(0);
+                            coeffs[1].fill(0);
+                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                            {
+                                coeffs[0](field_j, field_j) = flux_coeffs[0](field_j) * h_factor;
+                                coeffs[1](field_j, field_j) = flux_coeffs[1](field_j) * h_factor;
+                            }
+                        }
+                        return coeffs;
                     };
                 }
                 return fluxes;

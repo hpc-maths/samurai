@@ -257,7 +257,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    auto diff   = samurai::petsc::make_diffusion_FV<samurai::petsc::DirichletEnforcement::Elimination>(solution);
+    auto diff = samurai::petsc::make_diffusion_FV<samurai::petsc::DirichletEnforcement::Equation>(solution);
     auto solver = samurai::petsc::make_solver(diff);
 
     Timer setup_timer, solve_timer, total_timer;

@@ -213,16 +213,54 @@ auto make_minus_divergence_FV_old(Field& f)
 
 /*****************************************************************/
 
+/**
+ * If u is a scalar field in dimension 2, then
+ *      Grad(u) = [d(u)/dx]
+ *                [d(u)/dy].
+ * On each cell, we adopt a cell-centered approximation:
+ *         d(u)/dx = 1/2 [(u^R - u)/h + (u - u^L)/h]   where (L, R) = (Left, Right)
+ *         d(u)/dy = 1/2 [(u^T - u)/h + (u - u^B)/h]   where (B, T) = (Bottom, Top).
+ * We denote by Fx^f = d(u)/dx * n_f the outer normal flux through the face f, i.e.
+ *         Fx^R = (u^R - u)/h,      Fx^L = (u^L - u)/h,
+ *         Fy^T = (u^T - u)/h,      Fy^B = (u^B - u)/h.
+ * The approximations become
+ *         d(u)/dx = 1/2 (Fx^R - Fx^L)        (S)
+ *         d(u)/dy = 1/2 (Fy^T - Fy^B).
+ * 
+ * Implementation:
+ * 
+ * 1. The computation of the normal fluxes between cell 1 and cell 2 (in the direction dir=x or y) is given by
+ *         Fx = (u^2 - u^1)/h = -1/h * u^1 + 1/h * u^2    if dir=x
+ *         Fy = (u^2 - u^1)/h = -1/h * u^1 + 1/h * u^2    if dir=y
+ * 
+ *    So   F = [ -1/h |  1/h ] whatever the direction
+ *             |______|______|
+ *              cell 1 cell 2
+ * 
+ * 2. On each couple (cell 1, cell 2), we compute Fx^R(1) or Fx^T(1) (according to the direction) and consider that
+ *         Fx^L(1) = -Fx^R(2) 
+ *         Fy^B(1) = -Fy^T(2).
+ *    The gradient scheme (S) becomes
+ *         Grad(u)(cell 1) = [1/2 (Fx^R(1) + Fx^L(2))]
+ *                           [1/2 (Fy^T(1) + Fy^B(2))], where 2 denotes the neighbour in the appropriate direction.
+ *    So the contribution of a flux F (R or T) computed on cell 1 is 
+ *         for cell 1: [1/2 F] if dir=x,  [    0] if dir=y
+ *                     [    0]            [1/2 F]
+ *         for cell 2: [1/2 F] if dir=x,  [    0] if dir=y
+ *                     [    0]            [1/2 F]
+*/
 template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::FluxBasedAssemblyConfig<dim, 2>>
 class GradientFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
 {
 public:
     using flux_computation_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::flux_computation_t;
-    using coeff_matrix_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::coeff_matrix_t;
+    using coeff_matrix_t = typename flux_computation_t::coeff_matrix_t;
 
     GradientFV(Field& u) : 
         samurai::petsc::FluxBasedScheme<cfg, Field>(u, scheme_coefficients())
-    {}
+    {
+        static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
+    }
 
     static auto flux_coefficients(double h)
     {
@@ -233,10 +271,9 @@ public:
     }
 
     template<std::size_t d>
-    static auto half_grad_in_direction(double h_I, double h_F)
+    static auto half_flux_in_direction(std::array<double, 2>& flux_coeffs, double, double)
     {
         std::array<coeff_matrix_t, 2> coeffs;
-        auto flux_coeffs = flux_coefficients(h_F);
         xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0];
         xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1];
         for (std::size_t d_ = 0; d_ < dim; ++d_)
@@ -262,31 +299,31 @@ public:
             auto& flux = fluxes[d];
             flux.direction = xt::view(directions, d);
             flux.computational_stencil = samurai::in_out_stencil<dim>(flux.direction);
+            flux.get_flux_coeffs = flux_coefficients;
             // Set coeffs only in the direction d.
             // If d=0 (direction x), then set Grad_x only.
             // If d=1 (direction y), then set Grad_y only.
             if (d == 0)
             {
-                flux.get_coeffs = half_grad_in_direction<0>; // 1/2*Grad_x
+                flux.get_cell1_coeffs = half_flux_in_direction<0>;
+                flux.get_cell2_coeffs = half_flux_in_direction<0>;
             }
             if constexpr (dim >= 2)
             {
                 if (d == 1)
                 {
-                    flux.get_coeffs = half_grad_in_direction<1>; // 1/2*Grad_y
+                    flux.get_cell1_coeffs = half_flux_in_direction<1>;
+                    flux.get_cell2_coeffs = half_flux_in_direction<1>;
                 }
             }
             if constexpr (dim >= 3)
             {
                 if (d == 2)
                 {
-                    flux.get_coeffs = half_grad_in_direction<2>; // 1/2*Grad_z
+                    flux.get_cell1_coeffs = half_flux_in_direction<2>;
+                    flux.get_cell2_coeffs = half_flux_in_direction<2>;
                 }
             }
-            flux.get_neighbour_coeffs = [](auto& coeffs)
-            {
-                return coeffs;
-            };
         }
         return fluxes;
     }
@@ -298,42 +335,97 @@ auto make_gradient_FV(Field& f)
     return GradientFV<Field>(f);
 }
 
+/**
+ * If u is a field of size 2, e.g. the velocity --> u = (u_x, u_y), then
+ *         Div(u) = d(u_x)/dx + d(u_y)/dy.
+ * On each cell, we adopt a cell-centered approximation:
+ *         d(u_x)/dx = 1/2 [(u_x^R - u_x)/h + (u_x - u_x^L)/h]   where (L, R) = (Left, Right)
+ *         d(u_y)/dy = 1/2 [(u_y^T - u_y)/h + (u_y - u_x^B)/h]   where (B, T) = (Bottom, Top).
+ * We denote by Fx^f = d(u_x)/dx * n_f the outer normal flux through the face f, i.e.
+ *         Fx^R = (u_x^R - u_x)/h,      Fx^L = (u_x^L - u_x)/h,
+ *         Fy^T = (u_y^T - u_y)/h,      Fy^B = (u_y^B - u_y)/h.
+ * The approximations become
+ *         d(u_x)/dx = 1/2 (Fx^R - Fx^L)
+ *         d(u_y)/dy = 1/2 (Fy^T - Fy^B).
+ * and finally,
+ *         Div(u) = 1/2 (Fx^R - Fx^L) + 1/2 (Fy^T - Fy^B)      (S)
+ * 
+ * Implementation:
+ * 
+ * 1. The computation of the normal fluxes between cell 1 and cell 2 (in the direction d=x or y) is given by
+ *         Fx = (u_x^2 - u_x^1)/h = -1/h * u_x^1 + 1/h * u_x^2 +  0 * u_y^1 +   0 * u_y^2    if d=x
+ *         Fy = (u_y^2 - u_y^1)/h =    0 * u_x^1 +   0 * u_x^2 -1/h * u_y^1 + 1/h * u_x^2    if d=y
+ * 
+ *    So   F = [-1/h   0 | 1/h   0  ] if d=x
+ *         F = [  0  -1/h|  0   1/h ] if d=y
+ *             |_________|__________|
+ *               cell 1     cell 2
+ * 
+ * 2. On each couple (cell 1, cell 2), we compute Fx^R(1) or Fx^T(1) (according to the direction) and consider that
+ *         Fx^L(1) = -Fx^R(2) 
+ *         Fy^B(1) = -Fy^T(2).
+ *    The divergence scheme (S) becomes
+ *         Div(u)(cell 1) = 1/2 (Fx^R(1) + Fx^L(2)) + 1/2 (Fy^T(1) + Fy^B(2)), where 2 denotes the neighbour in the appropriate direction.
+ *    So the contribution of a flux F (R or T) computed on cell 1 is 
+ *         for cell 1: 1/2 F
+ *         for cell 2: 1/2 F
+*/
 template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::FluxBasedAssemblyConfig<1, 2>>
 class MinusDivergenceFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
 {
 public:
     using flux_computation_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::flux_computation_t;
-    using coeff_matrix_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::coeff_matrix_t;
+    using flux_matrix_t  = typename flux_computation_t::flux_matrix_t;
+    using coeff_matrix_t = typename flux_computation_t::coeff_matrix_t;
+    static constexpr std::size_t field_size = Field::size;
 
     MinusDivergenceFV(Field& u) : 
         samurai::petsc::FluxBasedScheme<cfg, Field>(u, scheme_coefficients())
-    {}
-
-    static auto flux_coefficients(double h)
     {
-        std::array<double, 2> coeffs;
-        coeffs[0] = -1/h;
-        coeffs[1] =  1/h;
-        return coeffs;
+        static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");
     }
+
+    /**
+     * If u is a field of size 2, e.g. the velocity --> u = (u_x, u_y)
+     * then we define the following normal flux from cell 1 to cell 2 (which can be direction x or direction y):
+     *          Fx := (u_x^2 - u_x^1)/h
+     *          Fy := (u_y^2 - u_y^1)/h
+     * So we return the array of coefficients
+     * 
+     *          [-1/h -1/h][ 1/h  1/h]
+     *             |    |     |    |
+     *            Fx   Fy    Fx   Fy
+     *          |_________||_________|
+     *            cell 1      cell 2
+    */
 
     template<std::size_t d>
-    static auto minus_half_flux_in_direction(double h_I, double h_F)
+    static auto flux_coefficients(double h)
+    {
+        std::array<flux_matrix_t, 2> flux_coeffs;
+        if constexpr (field_size == 1)
+        {
+            flux_coeffs[0] = -1/h;
+            flux_coeffs[1] =  1/h;
+        }
+        else
+        {
+            flux_coeffs[0].fill(0);
+            flux_coeffs[1].fill(0);
+            flux_coeffs[0](d) = -1/h;
+            flux_coeffs[1](d) =  1/h;
+        }
+        return flux_coeffs;
+    }
+
+    static auto minus_half_flux_in_direction(std::array<flux_matrix_t, 2>& flux_coeffs, double, double)
     {
         std::array<coeff_matrix_t, 2> coeffs;
-        auto flux_coeffs = flux_coefficients(h_F);
-        coeffs[0][d] = -0.5 * flux_coeffs[0];
-        coeffs[1][d] = -0.5 * flux_coeffs[1];
-        for (std::size_t d_ = 0; d_ < dim; ++d_)
-        {
-            if (d_ != d)
-            {
-                coeffs[0][d_] = 0;
-                coeffs[1][d_] = 0;
-            }
-        }
+        coeffs[0] = -0.5 * flux_coeffs[0];
+        coeffs[1] = -0.5 * flux_coeffs[1];
         return coeffs;
     }
+
 
     // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
     static auto scheme_coefficients()
@@ -348,26 +440,24 @@ public:
             flux.computational_stencil = samurai::in_out_stencil<dim>(flux.direction);
             if (d == 0)
             {
-                flux.get_coeffs = minus_half_flux_in_direction<0>;
+                flux.get_flux_coeffs = flux_coefficients<0>;
             }
             if constexpr (dim >= 2)
             {
                 if (d == 1)
                 {
-                    flux.get_coeffs = minus_half_flux_in_direction<1>;
+                    flux.get_flux_coeffs = flux_coefficients<1>;
                 }
             }
             if constexpr (dim >= 3)
             {
                 if (d == 2)
                 {
-                    flux.get_coeffs = minus_half_flux_in_direction<2>;
+                    flux.get_flux_coeffs = flux_coefficients<2>;
                 }
             }
-            flux.get_neighbour_coeffs = [](auto& coeffs)
-            {
-                return coeffs;
-            };
+            flux.get_cell1_coeffs = minus_half_flux_in_direction;
+            flux.get_cell2_coeffs = minus_half_flux_in_direction;
         }
         return fluxes;
     }

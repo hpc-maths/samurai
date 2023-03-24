@@ -227,7 +227,7 @@ namespace samurai
         for_each_level(mesh, [&](std::size_t level)
         {
             auto bdry = boundary(mesh, level, boundary_direction);
-            auto coeffs = get_coefficients(cell_length(level), cell_length(level));
+            auto coeffs = get_coefficients(cell_length(level));
             for_each_stencil(mesh, bdry, stencil, [&](auto& cells)
             {
                 func(cells, coeffs);
