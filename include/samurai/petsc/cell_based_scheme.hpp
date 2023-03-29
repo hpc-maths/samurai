@@ -748,7 +748,7 @@ namespace samurai
                     if (m_is_row_empty[i])
                     {
                         MatSetValue(A, static_cast<PetscInt>(i), static_cast<PetscInt>(i), 1, INSERT_VALUES);
-                        m_is_row_empty[i] = false;
+                        //m_is_row_empty[i] = false;
                     }
                 }
             }
@@ -841,6 +841,17 @@ namespace samurai
                             }
                         }
                     });
+            }
+
+            void add_0_for_useless_ghosts(Vec& b) const
+            {
+                for (std::size_t i = 0; i<m_is_row_empty.size(); i++)
+                {
+                    if (m_is_row_empty[i])
+                    {
+                        VecSetValue(b, static_cast<PetscInt>(i), 0, INSERT_VALUES);
+                    }
+                }
             }
 
             virtual void enforce_projection_prediction(Vec& b) const

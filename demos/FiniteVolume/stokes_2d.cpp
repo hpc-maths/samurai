@@ -8,7 +8,9 @@
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/mr/adapt.hpp>
 #include <samurai/petsc.hpp>
+#include <samurai/bc.hpp>
 
 static char help[] = "Solution of the Poisson problem in the domain [0,1]^d.\n"
                      "Geometric multigrid using the samurai meshes.\n"
@@ -64,7 +66,25 @@ static char help[] = "Solution of the Poisson problem in the domain [0,1]^d.\n"
 
 static constexpr double pi = M_PI;
 
-template <class Mesh>
+template<class Field>
+bool check_nan_or_inf(const Field& f)
+{
+    std::size_t n = f.mesh().nb_cells();
+    bool is_nan_or_inf = false;
+    for (std::size_t i = 0; i<n*Field::size; ++i)
+    {
+        double value = f.array().data()[i];
+        if (std::isnan(value) || std::isinf(value) || (abs(value) < 1e-300 && abs(value) != 0))
+        {
+            is_nan_or_inf = true;
+            std::cout << f << std::endl;
+            break;
+        }
+    }
+    return !is_nan_or_inf;
+}
+
+/*template<class Mesh>
 Mesh create_uniform_mesh(std::size_t level)
 {
     using Box = samurai::Box<double, Mesh::dim>;
@@ -88,8 +108,8 @@ Mesh create_uniform_mesh(std::size_t level)
     max_level   = level;
 
     return Mesh(box, start_level, min_level, max_level); // amr::Mesh
-    // return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
-}
+    //return Mesh(box, min_level, max_level); // MRMesh
+}*/
 
 template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::StarStencilFV<dim, Field::size*dim, 1>>
 class GradientFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
@@ -271,10 +291,16 @@ public:
     }
 
     template<std::size_t d>
-    static auto half_flux_in_direction(std::array<double, 2>& flux_coeffs, double, double)
+    static auto half_flux_in_direction(std::array<double, 2>& flux_coeffs, double h_face, double h_cell)
     {
         std::array<coeff_matrix_t, 2> coeffs;
-        xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0];
+        coeffs[0].fill(0);
+        coeffs[1].fill(0);
+        double h_factor = pow(h_face, 2) / pow(h_cell, dim);
+        xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0] * h_factor;
+        xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1] * h_factor;
+
+        /*xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0];
         xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1];
         for (std::size_t d_ = 0; d_ < dim; ++d_)
         {
@@ -283,7 +309,8 @@ public:
                 xt::view(coeffs[0], d_) = 0;
                 xt::view(coeffs[1], d_) = 0;
             }
-        }
+        }*/
+
         return coeffs;
     }
 
@@ -300,9 +327,6 @@ public:
             flux.direction = xt::view(directions, d);
             flux.computational_stencil = samurai::in_out_stencil<dim>(flux.direction);
             flux.get_flux_coeffs = flux_coefficients;
-            // Set coeffs only in the direction d.
-            // If d=0 (direction x), then set Grad_x only.
-            // If d=1 (direction y), then set Grad_y only.
             if (d == 0)
             {
                 flux.get_cell1_coeffs = half_flux_in_direction<0>;
@@ -385,20 +409,6 @@ public:
         static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");
     }
 
-    /**
-     * If u is a field of size 2, e.g. the velocity --> u = (u_x, u_y)
-     * then we define the following normal flux from cell 1 to cell 2 (which can be direction x or direction y):
-     *          Fx := (u_x^2 - u_x^1)/h
-     *          Fy := (u_y^2 - u_y^1)/h
-     * So we return the array of coefficients
-     * 
-     *          [-1/h -1/h][ 1/h  1/h]
-     *             |    |     |    |
-     *            Fx   Fy    Fx   Fy
-     *          |_________||_________|
-     *            cell 1      cell 2
-    */
-
     template<std::size_t d>
     static auto flux_coefficients(double h)
     {
@@ -418,11 +428,51 @@ public:
         return flux_coeffs;
     }
 
-    static auto minus_half_flux_in_direction(std::array<flux_matrix_t, 2>& flux_coeffs, double, double)
+    template<std::size_t d>
+    static auto minus_average(std::array<flux_matrix_t, 2>& /*flux_coeffs*/, double h_face, double h_cell)
     {
+        // std::array<coeff_matrix_t, 2> coeffs;
+        // coeffs[0] = -0.5 * flux_coeffs[0];
+        // coeffs[1] = -0.5 * flux_coeffs[1];
+
         std::array<coeff_matrix_t, 2> coeffs;
-        coeffs[0] = -0.5 * flux_coeffs[0];
-        coeffs[1] = -0.5 * flux_coeffs[1];
+        double h_factor = pow(h_face, dim-1) / pow(h_cell, dim);
+        if constexpr (field_size == 1)
+        {
+            coeffs[0] = -0.5 * h_factor;
+            coeffs[1] = -0.5 * h_factor;
+        }
+        else
+        {
+            coeffs[0].fill(0);
+            coeffs[1].fill(0);
+            coeffs[0](d) = -0.5 * h_factor;
+            coeffs[1](d) = -0.5 * h_factor;
+        }
+        return coeffs;
+    }
+
+    template<std::size_t d>
+    static auto average(std::array<flux_matrix_t, 2>& /*flux_coeffs*/, double h_face, double h_cell)
+    {
+        // std::array<coeff_matrix_t, 2> coeffs;
+        // coeffs[0] = -0.5 * flux_coeffs[0];
+        // coeffs[1] = -0.5 * flux_coeffs[1];
+
+        std::array<coeff_matrix_t, 2> coeffs;
+        double h_factor = pow(h_face, dim-1) / pow(h_cell, dim);
+        if constexpr (field_size == 1)
+        {
+            coeffs[0] = 0.5 * h_factor;
+            coeffs[1] = 0.5 * h_factor;
+        }
+        else
+        {
+            coeffs[0].fill(0);
+            coeffs[1].fill(0);
+            coeffs[0](d) = 0.5 * h_factor;
+            coeffs[1](d) = 0.5 * h_factor;
+        }
         return coeffs;
     }
 
@@ -441,12 +491,16 @@ public:
             if (d == 0)
             {
                 flux.get_flux_coeffs = flux_coefficients<0>;
+                flux.get_cell1_coeffs = minus_average<0>;
+                flux.get_cell2_coeffs = average<0>;
             }
             if constexpr (dim >= 2)
             {
                 if (d == 1)
                 {
                     flux.get_flux_coeffs = flux_coefficients<1>;
+                    flux.get_cell1_coeffs = minus_average<1>;
+                    flux.get_cell2_coeffs = average<1>;
                 }
             }
             if constexpr (dim >= 3)
@@ -454,10 +508,10 @@ public:
                 if (d == 2)
                 {
                     flux.get_flux_coeffs = flux_coefficients<2>;
+                    flux.get_cell1_coeffs = minus_average<2>;
+                    flux.get_cell2_coeffs = average<2>;
                 }
             }
-            flux.get_cell1_coeffs = minus_half_flux_in_direction;
-            flux.get_cell2_coeffs = minus_half_flux_in_direction;
         }
         return fluxes;
     }
@@ -473,138 +527,19 @@ auto make_minus_divergence_FV(Field& f)
 
 
 
-int main(int argc, char* argv[])
+
+
+
+
+/***********************************************************************/
+
+//
+// Configuration of the PETSc solver for the Stokes problem
+//
+template<class Solver>
+void configure_petsc_solver(Solver& block_solver)
 {
-    constexpr std::size_t dim = 2;
-    using Config              = samurai::amr::Config<dim>;
-    using Mesh                = samurai::amr::Mesh<Config>;
-    // using Config = samurai::MRConfig<dim>;
-    // using Mesh = samurai::MRMesh<Config>;
-    constexpr bool is_soa = true;
-
-    //------------------//
-    // Petsc initialize //
-    //------------------//
-
-    PetscInitialize(&argc, &argv, 0, help);
-
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
-
-    //----------------//
-    //   Parameters   //
-    //----------------//
-
-    // Default values
-    PetscInt level          = 2;
-    PetscBool save_solution = PETSC_FALSE;
-    PetscBool save_mesh     = PETSC_FALSE;
-    fs::path path           = fs::current_path();
-    std::string filename    = "velocity";
-
-    // Get user options
-    PetscOptionsGetInt(NULL, NULL, "--level", &level, NULL);
-
-    PetscOptionsGetBool(NULL, NULL, "--save_sol", &save_solution, NULL);
-    PetscOptionsGetBool(NULL, NULL, "--save_mesh", &save_mesh, NULL);
-
-    PetscBool path_is_set = PETSC_FALSE;
-    std::string path_str(100, '\0');
-    PetscOptionsGetString(NULL, NULL, "--path", path_str.data(), path_str.size(), &path_is_set);
-    if (path_is_set)
-    {
-        path = path_str.substr(0, path_str.find('\0'));
-        if (!fs::exists(path))
-        {
-            fs::create_directory(path);
-        }
-    }
-
-    PetscBool filename_is_set = PETSC_FALSE;
-    std::string filename_str(100, '\0');
-    PetscOptionsGetString(NULL, NULL, "--filename", filename_str.data(), filename_str.size(), &filename_is_set);
-    if (path_is_set)
-    {
-        filename = filename_str.substr(0, filename_str.find('\0'));
-    }
-
-    //----------------//
-    // Create problem //
-    //----------------//
-
-    // 2 equations: -Lap(v) + Grad(p) = f
-    //              -Div(v)           = 0
-    // where v = velocity
-    //       p = pressure
-
-    Mesh mesh = create_uniform_mesh<Mesh>(static_cast<std::size_t>(level));
-
-    // Unknowns
-    auto velocity = samurai::make_field<double, dim, is_soa>("velocity", mesh);
-    auto pressure = samurai::make_field<double, 1, is_soa>("pressure", mesh);
-
-    // Boundary conditions
-    velocity
-        .set_dirichlet(
-            [](const auto& coord)
-            {
-                const auto& x = coord[0];
-                const auto& y = coord[1];
-                double v_x    = 1 / (pi * pi) * sin(pi * (x + y));
-                double v_y    = -v_x;
-                return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-            })
-        .everywhere();
-
-    pressure
-        .set_neumann(
-            [](const auto& coord)
-            {
-                const auto& x = coord[0];
-                const auto& y = coord[1];
-                int normal    = (x == 0 || y == 0) ? -1 : 1;
-                return normal * (1 / pi) * cos(pi * (x + y));
-            })
-        .everywhere();
-
-    // Block operator
-    auto diff_v      = samurai::petsc::make_diffusion_FV(velocity);
-    auto grad_p      = make_gradient_FV(pressure);
-    auto minus_div_v = make_minus_divergence_FV(velocity);
-    auto zero_p      = samurai::petsc::make_zero_operator_FV<1>(pressure);
-
-    auto stokes = samurai::petsc::make_block_operator<2, 2>(diff_v, grad_p, minus_div_v, zero_p);
-
-    // Right-hand side
-    auto f = samurai::make_field<double, dim, is_soa>(
-        "f",
-        mesh,
-        [](const auto& coord)
-        {
-            const auto& x = coord[0];
-            const auto& y = coord[1];
-            double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-            double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-            return xt::xtensor_fixed<double, xt::xshape<dim>>{f_x, f_y};
-        },
-        0);
-    auto zero = samurai::make_field<double, 1, is_soa>("zero", mesh);
-    zero.fill(0);
-
-    //-------------------//
-    //   Linear solver   //
-    //-------------------//
-
-    std::cout << "Solving Stokes system..." << std::endl;
-    auto block_solver = samurai::petsc::make_solver(stokes);
-
-    //
-    // Configuration of the PETSc solver for the Stokes problem
-    //
-
-    // 1. Set the use of a Schur complement preconditioner eliminating the
-    // velocity
+    // 1. Set the use of a Schur complement preconditioner eliminating the velocity
     KSP ksp = block_solver.Ksp();
     PC pc;
     KSPGetPC(ksp, &pc);
@@ -636,86 +571,391 @@ int main(int argc, char* argv[])
     // tolerance to all the sub-solvers
     PetscReal ksp_rtol;
     KSPGetTolerances(ksp, &ksp_rtol, PETSC_NULL, PETSC_NULL, PETSC_NULL);
-    KSPSetTolerances(velocity_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT,
-                     PETSC_DEFAULT); // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
-    KSPSetTolerances(schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT,
-                     PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
+    KSPSetTolerances(velocity_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
+    KSPSetTolerances(   schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
+}
 
-    //
-    // Solve the system
-    //
-    block_solver.solve(f, zero);
-    std::cout << block_solver.iterations() << " iterations" << std::endl << std::endl;
 
-    //--------------------//
-    //       Error        //
-    //--------------------//
 
-    std::cout.precision(2);
 
-    double error = diff_v.L2Error(velocity,
-                                  [](auto& coord)
-                                  {
-                                      const auto& x = coord[0];
-                                      const auto& y = coord[1];
-                                      auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
-                                      auto v_y      = -v_x;
-                                      return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-                                  });
+int main(int argc, char* argv[])
+{
+    constexpr std::size_t dim = 2;
+    //using Config = samurai::amr::Config<dim>;
+    //using Mesh = samurai::amr::Mesh<Config>;
+    using Config = samurai::MRConfig<dim>;
+    using Mesh = samurai::MRMesh<Config>;
+    constexpr bool is_soa = true;
 
-    std::cout << "L2-error on the velocity: " << std::scientific << error << std::endl;
+    //------------------//
+    // Petsc initialize //
+    //------------------//
 
-    //--------------------//
-    //   Save solution    //
-    //--------------------//
+    PetscInitialize(&argc, &argv, 0, help);
 
-    if (save_solution)
+    PetscMPIInt size;
+    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
+    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
+
+    //----------------//
+    //   Parameters   //
+    //----------------//
+
+    // Default values
+    PetscInt min_level = 2;
+    PetscInt max_level = 2;
+    PetscBool save_solution = PETSC_FALSE;
+    PetscBool save_mesh = PETSC_FALSE;
+    fs::path path = fs::current_path();
+    std::string filename = "velocity";
+
+    // Get user options
+    PetscOptionsGetInt(NULL, NULL, "--min-level", &min_level, NULL);
+    PetscOptionsGetInt(NULL, NULL, "--max-level", &max_level, NULL);
+
+    PetscOptionsGetBool(NULL, NULL, "--save_sol", &save_solution, NULL);
+    PetscOptionsGetBool(NULL, NULL, "--save_mesh", &save_mesh, NULL);
+
+    PetscBool path_is_set = PETSC_FALSE;
+    std::string path_str(100, '\0');
+    PetscOptionsGetString(NULL, NULL, "--path", path_str.data(), path_str.size(), &path_is_set);
+    if (path_is_set)
     {
-        std::cout << "Saving solution..." << std::endl;
+        path = path_str.substr(0, path_str.find('\0'));
+        if (!fs::exists(path))
+        {
+            fs::create_directory(path);
+        }
+    }
 
-        samurai::save(path, filename, mesh, velocity);
-        samurai::save(path, "pressure", mesh, pressure);
+    PetscBool filename_is_set = PETSC_FALSE;
+    std::string filename_str(100, '\0');
+    PetscOptionsGetString(NULL, NULL, "--filename", filename_str.data(), filename_str.size(), &filename_is_set);
+    if (path_is_set)
+    {
+        filename = filename_str.substr(0, filename_str.find('\0'));
+    }
 
-        auto exact_velocity = samurai::make_field<double, dim, is_soa>(
-            "exact_velocity",
-            mesh,
-            [](const auto& coord)
+    //Mesh mesh = create_uniform_mesh<Mesh>(static_cast<std::size_t>(level));
+    auto box = samurai::Box<double, dim>({0,0}, {1,1});
+    //auto mesh = Mesh(box, start_level, min_level, max_level); // amr::Mesh
+    auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level)); // MRMesh
+
+
+    bool stationary = false;
+    if (stationary)
+    {
+        //----------------//
+        // Create problem //
+        //----------------//
+
+        // 2 equations: -Lap(v) + Grad(p) = f
+        //              -Div(v)           = 0
+        // where v = velocity
+        //       p = pressure
+
+        // Unknowns
+        auto velocity = samurai::make_field<double, dim, is_soa>("velocity", mesh);
+        auto pressure = samurai::make_field<double,   1, is_soa>("pressure", mesh);
+
+        // Boundary conditions
+        velocity.set_dirichlet([](const auto& coord) 
+                    { 
+                        const auto& x = coord[0];
+                        const auto& y = coord[1];
+                        double v_x = 1/(pi*pi)*sin(pi*(x+y));
+                        double v_y = -v_x;
+                        return xt::xtensor_fixed<double, xt::xshape<dim>> {v_x, v_y};
+                    })
+                .everywhere();
+
+        pressure.set_neumann([](const auto& coord) 
+                    { 
+                        const auto& x = coord[0];
+                        const auto& y = coord[1];
+                        int normal = (x == 0 || y == 0) ? -1 : 1;
+                        return normal * (1/pi) * cos(pi*(x+y));
+                    })
+                .everywhere();
+
+        // Block operator
+        auto diff_v      = samurai::petsc::make_diffusion_FV(velocity);
+        auto grad_p      =                 make_gradient_FV(pressure);
+        auto minus_div_v =                 make_minus_divergence_FV(velocity);
+        auto zero_p      = samurai::petsc::make_zero_operator_FV<1>(pressure);
+
+        auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p,
+                                                                minus_div_v, zero_p);
+
+        // Right-hand side
+        auto f = samurai::make_field<double, dim, is_soa>("f", mesh, 
+                [](const auto& coord) 
+                {
+                    const auto& x = coord[0];
+                    const auto& y = coord[1];
+                    double f_x =  2 * sin(pi*(x+y)) + (1/pi) * cos(pi*(x+y));
+                    double f_y = -2 * sin(pi*(x+y)) + (1/pi) * cos(pi*(x+y));
+                    return xt::xtensor_fixed<double, xt::xshape<dim>> {f_x, f_y};
+                }, 0);
+        auto zero = samurai::make_field<double, 1, is_soa>("zero", mesh);
+        zero.fill(0);
+
+        //-------------------//
+        //   Linear solver   //
+        //-------------------//
+
+        std::cout << "Solving Stokes system..." << std::endl;
+        auto block_solver = samurai::petsc::make_block_solver(stokes);
+        configure_petsc_solver(block_solver);
+        block_solver.solve(f, zero);
+        std::cout << block_solver.iterations() << " iterations" << std::endl << std::endl;
+
+        //--------------------//
+        //       Error        //
+        //--------------------//
+
+        std::cout.precision(2);
+
+        double error = diff_v.L2Error(velocity, [](auto& coord)
+        {
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            auto v_x = 1/(pi*pi) * sin(pi*(x+y));
+            auto v_y = -v_x;
+            return xt::xtensor_fixed<double, xt::xshape<dim>> {v_x, v_y};
+        });
+        
+        std::cout << "L2-error on the velocity: " << std::scientific << error << std::endl;
+
+        //--------------------//
+        //   Save solution    //
+        //--------------------//
+
+        if (save_solution)
+        {
+            std::cout << "Saving solution..." << std::endl;
+
+            samurai::save(path,   filename, mesh, velocity);
+            samurai::save(path, "pressure", mesh, pressure);
+
+            auto exact_velocity = samurai::make_field<double, dim, is_soa>("exact_velocity", mesh, 
+                [](const auto& coord) 
+                {
+                    const auto& x = coord[0];
+                    const auto& y = coord[1];
+                    auto v_x = 1/(pi*pi) * sin(pi*(x+y));
+                    auto v_y = -v_x;
+                    return xt::xtensor_fixed<double, xt::xshape<dim>> {v_x, v_y};
+                }, 0);
+            samurai::save(path, "exact_velocity", mesh, exact_velocity);
+
+            /*auto err = samurai::make_field<double, dim, is_soa>("error", mesh);
+            for_each_cell(err.mesh(), [&](const auto& cell)
+                {
+                    err[cell] = exact_velocity[cell] - velocity[cell];
+                });
+            samurai::save(path, "error_velocity", mesh, err);*/
+
+            auto exact_pressure = samurai::make_field<double, 1, is_soa>("exact_pressure", mesh, 
+                [](const auto& coord) 
+                {
+                    const auto& x = coord[0];
+                    const auto& y = coord[1];
+                    return 1/(pi*pi) * sin(pi*(x+y));
+                }, 0);
+            samurai::save(path, "exact_pressure", mesh, exact_pressure);
+        }
+        block_solver.destroy_petsc_objects();
+    }
+    else // non stationary
+    {
+        //----------------//
+        // Create problem //
+        //----------------//
+
+        // 2 equations: v_np1 + dt * (-Lap(v_np1) + Grad(p_np1)) = dt*f_n + v_n
+        //                             Div(v_np1)                = 0
+        // where v = velocity
+        //       p = pressure
+
+        // Unknowns
+        auto velocity     = samurai::make_field<double, dim, is_soa>("velocity", mesh);
+        //auto pressure     = samurai::make_field<double,   1, is_soa>("pressure", mesh);
+        auto velocity_np1 = samurai::make_field<double, dim, is_soa>("velocity_np1", mesh);
+        auto pressure_np1 = samurai::make_field<double,   1, is_soa>("pressure_np1", mesh);
+        auto zero         = samurai::make_field<double,   1, is_soa>("zero", mesh);
+        zero.fill(0);
+
+        // Boundary conditions
+        velocity.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {1, 0}; })
+                .where([](const auto& coord) 
+                {
+                    const auto& y = coord[1];
+                    return y == 1;
+                });
+        velocity.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {0, 0}; })
+                .where([](const auto& coord) 
+                {
+                    const auto& y = coord[1];
+                    return y != 1;
+                });
+
+        samurai::StencilVector<dim> left   = {-1,  0};
+        samurai::StencilVector<dim> right  = { 1,  0};
+        samurai::StencilVector<dim> bottom = { 0, -1};
+        samurai::StencilVector<dim> top    = { 0,  1};
+        samurai::make_bc<samurai::Dirichlet>(velocity, 1., 0.)->on(top);
+        samurai::make_bc<samurai::Dirichlet>(velocity, 0., 0.)->on(left, bottom, right);
+
+        //pressure.set_neumann([](const auto&) { return 0.0; }).everywhere();
+
+        // Boundary conditions (n+1)
+        velocity_np1.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {1, 0}; })
+                .where([](const auto& coord) 
+                {
+                    const auto& y = coord[1];
+                    return y == 1;
+                });
+        velocity_np1.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {0, 0}; })
+                .where([](const auto& coord) 
+                {
+                    const auto& y = coord[1];
+                    return y != 1;
+                });
+
+        pressure_np1.set_neumann([](const auto&) { return 0.0; }).everywhere();
+
+        // Initial condition
+        velocity.fill(0);
+        //pressure.fill(0);
+
+
+        velocity_np1.fill(0);
+        pressure_np1.fill(0);
+
+        //--------------------//
+        //   Time iteration   //
+        //--------------------//
+
+        double Tf = 1.;
+        double dt = Tf / 100;
+
+        double mr_epsilon = 1e-1; // Threshold used by multiresolution
+        double mr_regularity = 3; // Regularity guess for multiresolution
+
+        //std::cout << velocity << std::endl;
+
+
+        /*std::cout << mesh << std::endl;
+        std::cout << std::endl;
+        std::cout << std::endl;
+        std::cout << std::endl;
+        std::cout << std::endl;
+        std::cout << std::endl;
+        std::cout << std::endl;*/
+        auto MRadaptation = samurai::make_MRAdapt(velocity);
+        //MRadaptation(mr_epsilon, mr_regularity);
+        //std::cout << mesh << std::endl;
+
+        std::size_t nfiles = 50;
+
+        samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
+        double dt_save = Tf/static_cast<double>(nfiles);
+        std::size_t nsave = 1, nt = 0;
+
+
+            // using mesh_id_t = typename Mesh::mesh_id_t;
+            // samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts]/*[level]*/, [&](auto cell)
+            // {
+            //     std::cout << "Level: " << cell.level << ",  index: " << cell.index << " [" << cell.center(0) << ", " << cell.center(1) << "]" << " value = " << velocity[cell] << std::endl;
+            // });
+        
+        //update_velocity_bc(velocity, max_level);
+        //std::cout << velocity << std::endl;
+
+        double t = 0;
+        while (t != Tf)
+        {
+            // Move to next timestep
+            t += dt;
+            if (t > Tf)
             {
-                const auto& x = coord[0];
-                const auto& y = coord[1];
-                auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
-                auto v_y      = -v_x;
-                return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-            },
-            0);
-        samurai::save(path, "exact_velocity", mesh, exact_velocity);
+                dt += Tf - t;
+                t = Tf;
+            }
+            std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
-        /*auto err = samurai::make_field<double, dim, is_soa>("error", mesh);
-        for_each_cell(err.mesh(), [&](const auto& cell)
+            if (min_level != max_level)
             {
-                err[cell] = exact_velocity[cell] - velocity[cell];
-            });
-        samurai::save(path, "error_velocity", mesh, err);*/
+                // Mesh adaptation
+                MRadaptation(mr_epsilon, mr_regularity);
+                //samurai::update_ghost_mr(velocity, update_velocity_bc);
+                //velocity.resize();
+                velocity_np1.resize();
+                //pressure.resize();
+                pressure_np1.resize();
+                zero.resize(); zero.fill(0);
 
-        auto exact_pressure = samurai::make_field<double, 1, is_soa>(
-            "exact_pressure",
-            mesh,
-            [](const auto& coord)
+                std::size_t actual_min_level = 999;
+                std::size_t actual_max_level = 0;
+                samurai::for_each_level(velocity.mesh(), [&](auto level)
+                {
+                    actual_min_level = std::min(actual_min_level, level);
+                    actual_max_level = std::max(actual_max_level, level);
+                });
+
+                std::cout << " min_level = " << actual_min_level << ", max_level = " << actual_max_level << std::endl;
+            }
+
+            // Stokes operator
+            //             |   Diff  Grad |
+            //             | - Div     0  |
+            auto diff_v      = samurai::petsc::make_diffusion_FV(velocity_np1);
+            auto grad_p      =                 make_gradient_FV(pressure_np1);
+            auto minus_div_v =                 make_minus_divergence_FV(velocity_np1);
+            auto zero_p      = samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
+
+            auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p,
+                                                                    minus_div_v, zero_p);
+            // Stokes with backward Euler
+            //             | I + dt*Diff    dt*Grad |
+            //             |   - Div           0    |
+            auto back_euler = samurai::petsc::make_backward_euler(stokes, dt);
+
+            // Linear solver
+            auto block_solver = samurai::petsc::make_block_solver(back_euler);
+            configure_petsc_solver(block_solver);
+
+            assert(check_nan_or_inf(velocity));
+            assert(check_nan_or_inf(zero));
+
+            // Solve the linear equation   
+            //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n
+            //                         -Div v_np1            = 0
+            block_solver.solve(velocity, zero);
+
+            // Prepare next step
+            std::swap(velocity.array(), velocity_np1.array());
+            //std::swap(pressure.array(), pressure_np1.array());
+
+            // Save the result
+            if (t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
             {
-                const auto& x = coord[0];
-                const auto& y = coord[1];
-                return 1 / (pi * pi) * sin(pi * (x + y));
-            },
-            0);
-        samurai::save(path, "exact_pressure", mesh, exact_pressure);
+                std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
+                samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+                std::cout << "export" << std::endl;
+            }
+        }
+
+        std::cout << std::endl;
+        std::cout << "Run the following command to view the results:" << std::endl;
+        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 1 --end " << nsave << std::endl;
     }
 
     //--------------------//
     //     Finalize       //
     //--------------------//
 
-    // Destroy Petsc objects
-    block_solver.destroy_petsc_objects();
     PetscFinalize();
 
     return 0;

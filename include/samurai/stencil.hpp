@@ -41,7 +41,7 @@ namespace samurai
             bool found = true;
             for (unsigned int i=0; i<dim; ++i)
             {
-                if (d[i] != vector[d])
+                if (d[i] != vector[i])
                 {
                     found = false;
                     break;

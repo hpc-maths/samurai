@@ -12,10 +12,26 @@ namespace samurai
         auto& cells  = mesh[mesh_id_t::cells][level];
         auto& domain = mesh.domain();
 
-        auto max_level    = mesh[mesh_id_t::cells].max_level();
-        auto one_interval = 1 << (max_level - level);
+        auto max_level = domain.level();//domain.level();//mesh[mesh_id_t::cells].max_level();
+        auto one_interval = 1<<(max_level-level);
 
         return difference(cells, translate(domain, -one_interval * direction)).on(level);
+    }
+
+    template <class Mesh, class Vector>
+    auto boundary_mr(const Mesh& mesh, std::size_t level, const Vector& direction)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        auto& domain = mesh.domain();
+
+        auto max_level = domain.level();
+        auto one_interval = 1<<(max_level-level);
+
+        auto boundary_cells = difference(domain, translate(domain, -one_interval * direction));
+
+        auto& all = mesh[mesh_id_t::reference][level];
+
+        return intersection(boundary_cells, all).on(level);
     }
 
     template <class Mesh, class Vector, class Func>
@@ -50,6 +66,25 @@ namespace samurai
                                                        {
                                                            func(mesh_interval, direction);
                                                        });
+            }
+        }
+    }
+
+    template <class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_meshinterval_on_boundary_mr(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& boundary_directions, Func &&func)
+    {
+        using mesh_interval_t = typename Mesh::mesh_interval_t;
+
+        for (unsigned int is = 0; is<stencil_size; ++is)
+        {
+            auto direction = xt::view(boundary_directions, is);
+            if (xt::any(direction)) // if (direction != 0)
+            {
+                auto bdry = boundary_mr(mesh, level, direction);
+                for_each_meshinterval<mesh_interval_t>(bdry, [&](auto& mesh_interval)
+                {
+                    func(mesh_interval, direction);
+                });
             }
         }
     }

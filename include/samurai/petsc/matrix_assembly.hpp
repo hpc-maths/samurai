@@ -35,6 +35,10 @@ namespace samurai
                 m_assemble_proj_pred = assemble;
             }
 
+            bool must_add_1_on_diag_for_useless_ghosts() const
+            {
+                return m_add_1_on_diag_for_useless_ghosts;
+            }
             void add_1_on_diag_for_useless_ghosts_if(bool value)
             {
                 m_add_1_on_diag_for_useless_ghosts = value;

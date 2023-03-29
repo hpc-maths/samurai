@@ -590,7 +590,7 @@ namespace samurai
                                 else
                                 {
                                     coeff = coeff == 0 ? 1 : coeff;
-                                    VecSetValue(b, ghost_index, - 2 * coeff * dirichlet_value, ADD_VALUES);
+                                    VecSetValue(b, ghost_index, - 2 * coeff * dirichlet_value, INSERT_VALUES);
                                 }
                             }
                             else
@@ -607,11 +607,22 @@ namespace samurai
                                     neumann_value = bc.get_value(boundary_point)(field_i); // TODO: call get_value() only once instead of once per field_i
                                 }
                                 //std::cout << "ADD " << (- coeff * h * neumann_value) << " to row " << ghost_index << " (field " << field_i << ", cell " << cell.index << ", ghost " << ghost.index << ")" << std::endl;
-                                VecSetValue(b, ghost_index, -coeff * h * neumann_value, ADD_VALUES);
+                                VecSetValue(b, ghost_index, -coeff * h * neumann_value, INSERT_VALUES);
                             }
                         }
                     }
                 });
+            }
+
+            void add_0_for_useless_ghosts(Vec& b) const
+            {
+                for (std::size_t i = 0; i<m_is_row_empty.size(); i++)
+                {
+                    if (m_is_row_empty[i])
+                    {
+                        VecSetValue(b, static_cast<PetscInt>(i), 0, INSERT_VALUES);
+                    }
+                }
             }
 
             virtual void enforce_projection_prediction(Vec& b) const
