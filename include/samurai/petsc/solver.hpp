@@ -355,6 +355,12 @@ namespace samurai
                 KSPGetIterationNumber(m_ksp, &n_iterations);
                 return n_iterations;
             }
+
+            void reset()
+            {
+                destroy_petsc_objects();
+                create_solver();
+            }
         };
 
         template <class Dsctzr>

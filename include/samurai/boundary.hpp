@@ -29,9 +29,9 @@ namespace samurai
 
         auto boundary_cells = difference(domain, translate(domain, -one_interval * direction));
 
-        auto& all = mesh[mesh_id_t::reference][level];
+        auto& all_on_level = mesh[mesh_id_t::reference][level];
 
-        return intersection(boundary_cells, all).on(level);
+        return intersection(boundary_cells, all_on_level).on(level);
     }
 
     template <class Mesh, class Vector, class Func>

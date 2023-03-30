@@ -6,6 +6,8 @@
 #include "petsc/diffusion_FV_old.hpp"
 #include "petsc/diffusion_FV.hpp"
 #include "petsc/zero_operator_FV.hpp"
+#include "petsc/identity_FV.hpp"
+#include "petsc/flux_based_scheme__operators.hpp"
 #include "petsc/backward_euler.hpp"
 #include "petsc/block_backward_euler.hpp"
 #include "petsc/solver.hpp"
