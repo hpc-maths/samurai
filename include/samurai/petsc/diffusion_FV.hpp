@@ -14,6 +14,7 @@ namespace samurai
         class DiffusionFV : public FluxBasedScheme<cfg, Field>
         {
         public:
+            using cfg_t = cfg;
             using field_t = Field;
             using Mesh = typename Field::mesh_t;
             using flux_computation_t = typename FluxBasedScheme<cfg, Field>::flux_computation_t;

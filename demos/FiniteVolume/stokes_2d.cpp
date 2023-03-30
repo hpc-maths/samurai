@@ -526,8 +526,261 @@ auto make_minus_divergence_FV(Field& f)
 /***********************************************************************/
 
 
+template<class Scheme>
+class Scalar_x_FluxBasedScheme : public samurai::petsc::FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::field_t>
+{
+public:
+    using cfg_t = typename Scheme::cfg_t;
+    using field_t = typename Scheme::field_t;
+    using Mesh = typename field_t::mesh_t;
+    using flux_computation_t = typename samurai::petsc::FluxBasedScheme<cfg_t, field_t>::flux_computation_t;
+    static constexpr std::size_t dim = field_t::dim;
+private:
+    const Scheme& m_scheme;
+    const double m_scalar;
+
+public:
+    Scalar_x_FluxBasedScheme(const Scheme& scheme, double scalar) : 
+        samurai::petsc::FluxBasedScheme<cfg_t, field_t>(scheme.unknown(), scheme_coefficients(scheme)),
+        m_scheme(scheme),
+        m_scalar(scalar)
+    {}
+
+private:
+    auto scheme_coefficients(const Scheme& scheme)
+    {
+        const std::array<flux_computation_t, dim>& scheme_fluxes = scheme.flux_computations();
+        std::array<flux_computation_t, dim> scalar_x_fluxes;
+        
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            auto& scheme_flux = scheme_fluxes[d];
+            auto& scalar_x_flux = scalar_x_fluxes[d];
+
+            //auto dir = op_flux.direction;
+            scalar_x_flux.direction             = scheme_flux.direction;
+            scalar_x_flux.computational_stencil = scheme_flux.computational_stencil;
+            scalar_x_flux.get_flux_coeffs       = scheme_flux.get_flux_coeffs;
+            scalar_x_flux.get_cell1_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+            {
+                auto coeffs = scheme_flux.get_cell1_coeffs(flux_coeffs, h_face, h_cell);
+                for (auto& coeff : coeffs)
+                {
+                    coeff *= m_scalar;
+                }
+                return coeffs;
+            };
+            scalar_x_flux.get_cell2_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+            {
+                auto coeffs = scheme_flux.get_cell2_coeffs(flux_coeffs, h_face, h_cell);
+                for (auto& coeff : coeffs)
+                {
+                    coeff *= m_scalar;
+                }
+                return coeffs;
+            };
+        }
+        return scalar_x_fluxes;
+    }
+};
+
+template<class Scheme>
+auto operator*(double scalar, const Scheme& scheme)
+{
+    return Scalar_x_FluxBasedScheme<Scheme>(scheme, scalar);
+}
 
 
+
+
+template<class Scheme1, class Scheme2>
+class Sum_FluxBasedScheme : public samurai::petsc::FluxBasedScheme<typename Scheme1::cfg_t, typename Scheme1::field_t>
+{
+public:
+    using cfg_t = typename Scheme1::cfg_t;
+    using field_t = typename Scheme1::field_t;
+    using Mesh = typename field_t::mesh_t;
+    using flux_computation_t = typename samurai::petsc::FluxBasedScheme<cfg_t, field_t>::flux_computation_t;
+    static constexpr std::size_t dim = field_t::dim;
+private:
+    const Scheme1& m_scheme1;
+    const Scheme2& m_scheme2;
+
+public:
+    Sum_FluxBasedScheme(const Scheme1& scheme1, const Scheme2& scheme2) : 
+        samurai::petsc::FluxBasedScheme<cfg_t, field_t>(scheme1.unknown(), scheme_coefficients(scheme1, scheme2)),
+        m_scheme1(scheme1),
+        m_scheme2(scheme2)
+    {
+        static_assert(std::is_same<typename Scheme1::field_t, typename Scheme2::field_t>::value, "Invalid '+' operation: incompatible field types.");
+
+        if (&scheme1.unknown() != &scheme2.unknown())
+        {
+            std::cerr << "Invalid '+' operation: both schemes must be associated to the same unknown." << std::endl;
+            assert(&scheme1.unknown() == &scheme2.unknown());
+        }
+    }
+
+private:
+    auto scheme_coefficients(const Scheme1& scheme1, const Scheme2& scheme2)
+    {
+        static_assert(Scheme1::cfg_t::comput_stencil_size == Scheme2::cfg_t::comput_stencil_size);
+
+        auto& scheme1_fluxes = scheme1.flux_computations();
+        auto& scheme2_fluxes = scheme2.flux_computations();
+        std::array<flux_computation_t, dim> sum_fluxes = scheme1_fluxes;
+        
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            const auto& scheme1_flux = scheme1_fluxes[d];
+            const auto& scheme2_flux = scheme2_fluxes[d];
+            auto& sum_flux = sum_fluxes[d];
+            sum_flux.direction             = scheme2_flux.direction;
+            sum_flux.computational_stencil = scheme2_flux.computational_stencil;
+            sum_flux.get_flux_coeffs       = scheme2_flux.get_flux_coeffs;
+            sum_flux.get_cell1_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+            {
+                auto coeffs1 = scheme1_flux.get_cell1_coeffs(flux_coeffs, h_face, h_cell);
+                auto coeffs2 = scheme2_flux.get_cell1_coeffs(flux_coeffs, h_face, h_cell);
+                decltype(coeffs1) coeffs;
+                for (std::size_t i=0; i<cfg_t::comput_stencil_size; ++i)
+                {
+                    coeffs[i] = coeffs1[i] + coeffs2[i];
+                }
+                return coeffs;
+            };
+            sum_flux.get_cell2_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+            {
+                auto coeffs1 = scheme1_flux.get_cell2_coeffs(flux_coeffs, h_face, h_cell);
+                auto coeffs2 = scheme2_flux.get_cell2_coeffs(flux_coeffs, h_face, h_cell);
+                decltype(coeffs1) coeffs;
+                for (std::size_t i=0; i<cfg_t::comput_stencil_size; ++i)
+                {
+                    coeffs[i] = coeffs1[i] + coeffs2[i];
+                }
+                return coeffs;
+            };
+        }
+        return sum_fluxes;
+    }
+};
+
+template <typename, typename = void>
+constexpr bool is_FluxBasedScheme{};
+
+template <typename T>
+constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().flux_computations())> > = true;
+
+// just sum size of elements
+template <typename Scheme1, typename Scheme2, std::enable_if_t<is_FluxBasedScheme<Scheme1>, bool> = true, std::enable_if_t<is_FluxBasedScheme<Scheme2>, bool> = true>
+auto operator + (const Scheme1& s1, const Scheme2& s2 )
+{
+    return Sum_FluxBasedScheme<Scheme1, Scheme2>(s1, s2);
+}
+
+
+
+
+template<class Field, class cfg=samurai::petsc::FluxBasedAssemblyConfig<Field::size, 2>>
+class IdentityFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
+{
+public:
+    using cfg_t = cfg;
+    using field_t = Field;
+    using Mesh = typename field_t::mesh_t;
+    using flux_computation_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::flux_computation_t;
+    using flux_matrix_t  = typename flux_computation_t::flux_matrix_t;
+    using coeff_matrix_t  = typename flux_computation_t::coeff_matrix_t;
+    using CellCoeffs = typename flux_computation_t::CellCoeffs;
+    using FluxCoeffs = typename flux_computation_t::FluxCoeffs;
+    static constexpr std::size_t dim = field_t::dim;
+private:
+
+public:
+    IdentityFV(Field& unknown) : 
+        samurai::petsc::FluxBasedScheme<cfg, Field>(unknown, scheme_coefficients())
+    {}
+
+private:
+    template<std::size_t d>
+    static auto flux_coefficients(double h)
+    {
+        FluxCoeffs flux_coeffs;
+        if constexpr (Field::size == 1)
+        {
+            flux_coeffs[0] = -1/h;
+            flux_coeffs[1] =  1/h;
+        }
+        else
+        {
+            flux_coeffs[0].fill(0);
+            flux_coeffs[1].fill(0);
+            flux_coeffs[0](d) = -1/h;
+            flux_coeffs[1](d) =  1/h;
+        }
+        return flux_coeffs;
+    }
+
+    static auto get_zero_coeffs(FluxCoeffs&, double, double)
+    {
+        CellCoeffs coeffs;
+        coeffs[0] = samurai::petsc::zeros<coeff_matrix_t>();
+        coeffs[1] = samurai::petsc::zeros<coeff_matrix_t>();
+        return coeffs;
+    }
+
+
+
+    static auto scheme_coefficients()
+    {
+        static_assert(dim <= 3, "IdentityFV.scheme_coefficients() not implemented for dim > 3.");
+        std::array<flux_computation_t, dim> fluxes;
+        auto directions = samurai::positive_cartesian_directions<dim>();
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            auto& flux = fluxes[d];
+            flux.direction = xt::view(directions, d);
+            flux.computational_stencil = samurai::in_out_stencil<dim>(flux.direction);
+            if (d == 0)
+            {
+                flux.get_flux_coeffs = flux_coefficients<0>;
+                flux.get_cell1_coeffs = [&](auto&, double, double)
+                {
+                    CellCoeffs coeffs;
+                    coeffs[0] = samurai::petsc::eye<coeff_matrix_t>();
+                    coeffs[1] = samurai::petsc::zeros<coeff_matrix_t>();
+                    return coeffs;
+                };
+                flux.get_cell2_coeffs = get_zero_coeffs;
+            }
+            if constexpr (dim >= 2)
+            {
+                if (d == 1)
+                {
+                    flux.get_flux_coeffs = flux_coefficients<1>;
+                    flux.get_cell1_coeffs = get_zero_coeffs;
+                    flux.get_cell2_coeffs = get_zero_coeffs;
+                }
+            }
+            if constexpr (dim >= 3)
+            {
+                if (d == 2)
+                {
+                    flux.get_flux_coeffs = flux_coefficients<2>;
+                    flux.get_cell1_coeffs = get_zero_coeffs;
+                    flux.get_cell2_coeffs = get_zero_coeffs;
+                }
+            }
+        }
+        return fluxes;
+    }
+};
+
+template<class Field>
+auto make_identity_FV(Field& f)
+{
+    return IdentityFV<Field>(f);
+}
 
 
 
@@ -778,6 +1031,8 @@ int main(int argc, char* argv[])
         // where v = velocity
         //       p = pressure
 
+        double diff_coeff = 1./100;
+
         // Unknowns
         auto velocity     = samurai::make_field<double, dim, is_soa>("velocity", mesh);
         //auto pressure     = samurai::make_field<double,   1, is_soa>("pressure", mesh);
@@ -787,18 +1042,18 @@ int main(int argc, char* argv[])
         zero.fill(0);
 
         // Boundary conditions
-        velocity.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {1, 0}; })
-                .where([](const auto& coord) 
-                {
-                    const auto& y = coord[1];
-                    return y == 1;
-                });
-        velocity.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {0, 0}; })
-                .where([](const auto& coord) 
-                {
-                    const auto& y = coord[1];
-                    return y != 1;
-                });
+        // velocity.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {1, 0}; })
+        //         .where([](const auto& coord) 
+        //         {
+        //             const auto& y = coord[1];
+        //             return y == 1;
+        //         });
+        // velocity.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {0, 0}; })
+        //         .where([](const auto& coord) 
+        //         {
+        //             const auto& y = coord[1];
+        //             return y != 1;
+        //         });
 
         samurai::StencilVector<dim> left   = {-1,  0};
         samurai::StencilVector<dim> right  = { 1,  0};
@@ -910,20 +1165,23 @@ int main(int argc, char* argv[])
             // Stokes operator
             //             |   Diff  Grad |
             //             | - Div     0  |
-            auto diff_v      = samurai::petsc::make_diffusion_FV(velocity_np1);
-            auto grad_p      =                 make_gradient_FV(pressure_np1);
-            auto minus_div_v =                 make_minus_divergence_FV(velocity_np1);
-            auto zero_p      = samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
+            auto diff_v      = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
+            auto grad_p      =                              make_gradient_FV(pressure_np1);
+            auto minus_div_v =                              make_minus_divergence_FV(velocity_np1);
+            auto zero_p      =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
 
-            auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p,
-                                                                    minus_div_v, zero_p);
             // Stokes with backward Euler
             //             | I + dt*Diff    dt*Grad |
-            //             |   - Div           0    |
-            auto back_euler = samurai::petsc::make_backward_euler(stokes, dt);
+            //             |       -Div        0    |
+            auto id_v = make_identity_FV(velocity_np1);
+            auto id_plus_dt_diff = id_v + dt * diff_v;
+            auto dt_grad_p       =        dt * grad_p;
+
+            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_plus_dt_diff, dt_grad_p,
+                                                                    minus_div_v    , zero_p);
 
             // Linear solver
-            auto block_solver = samurai::petsc::make_block_solver(back_euler);
+            auto block_solver = samurai::petsc::make_block_solver(stokes);
             configure_petsc_solver(block_solver);
 
             assert(check_nan_or_inf(velocity));

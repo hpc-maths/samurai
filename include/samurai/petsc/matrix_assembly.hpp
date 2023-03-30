@@ -242,8 +242,9 @@ namespace samurai
         template<class matrix_type>
         matrix_type zeros()
         {
-            static constexpr auto s = typename matrix_type::shape_type();
-            return xt::zeros(s[0], s[1]);
+            matrix_type mat;
+            mat.fill(0);
+            return mat;
         }
 
         template<>

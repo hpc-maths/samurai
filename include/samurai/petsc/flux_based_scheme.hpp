@@ -96,7 +96,7 @@ namespace samurai
             Field& m_unknown;
             Mesh& m_mesh;
             std::size_t m_n_cells;
-            std::array<flux_computation_t, dim> m_flux_computations;
+            const std::array<flux_computation_t, dim> m_flux_computations;
             const std::vector<boundary_condition_t>& m_boundary_conditions;
             std::vector<bool> m_is_row_empty;
         public:
@@ -118,6 +118,11 @@ namespace samurai
             auto& mesh() const
             {
                 return m_mesh;
+            }
+
+            auto& flux_computations() const
+            {
+                return m_flux_computations;
             }
 
             const auto& boundary_conditions() const
@@ -362,12 +367,15 @@ namespace samurai
                             {
                                 for (std::size_t c = 0; c < comput_stencil_size; ++c)
                                 {
+                                    auto comput_cell_col = static_cast<PetscInt>(col_index(comput_cells[c], field_j));
                                     double cell1_coeff = cell_coeff(cell1_coeffs, c, field_i, field_j);
                                     double cell2_coeff = cell_coeff(cell2_coeffs, c, field_i, field_j);
                                     if (cell1_coeff != 0)
                                     {
-                                        auto comput_cell_col = static_cast<PetscInt>(col_index(comput_cells[c], field_j));
                                         MatSetValue(A, interface_cell1_row, comput_cell_col, cell1_coeff, ADD_VALUES);
+                                    }
+                                    if (cell2_coeff != 0)
+                                    {
                                         MatSetValue(A, interface_cell2_row, comput_cell_col, cell2_coeff, ADD_VALUES);
                                     }
                                 }
