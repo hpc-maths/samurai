@@ -394,7 +394,7 @@ namespace samurai
     inline auto
     translate_op<T>::transform(std::size_t d, value_t coord) const noexcept
     {
-        return coord - m_stencil[d];
+        return m_data.transform(d, coord - m_stencil[d]);
     }
 
     /****************************
@@ -459,15 +459,93 @@ namespace samurai
 
     template<class T>
     inline auto
-    projection_op<T>::transform(std::size_t, value_t coord) const noexcept
+    projection_op<T>::transform(std::size_t d, value_t coord) const noexcept
     {
-        return (m_shift_level >= 0 )? coord>>m_shift_level: coord<<-m_shift_level;
+        return m_data.transform(d, (m_shift_level >= 0 )? coord>>m_shift_level: coord<<-m_shift_level);
     }
 
     template<class T>
     std::size_t projection_op<T>::level() const noexcept
     {
         return m_level;
+    }
+
+    /************************
+     * expand_op definition *
+     ************************/
+
+    template<class T>
+    struct expand_op : public node_op<expand_op<T>>
+    {
+        using mesh_type = typename T::mesh_type;
+        static constexpr std::size_t dim = mesh_type::dim;
+        using interval_t = typename mesh_type::interval_t;
+        using value_t = typename mesh_type::value_t;
+
+        expand_op(T &&v, value_t size);
+        expand_op(const T &v, value_t size);
+
+        auto start(std::size_t d, std::size_t index) const noexcept;
+        auto end(std::size_t d, std::size_t index) const noexcept;
+
+        auto transform(std::size_t d, value_t coord) const noexcept;
+
+      private:
+        T m_data;
+        int m_size;
+        mutable std::array<std::size_t, dim> m_current_index;
+
+        friend class node_op<expand_op<T>>;
+    };
+
+    /****************************
+     * expand_op implementation *
+     ****************************/
+
+    template<class T>
+    inline expand_op<T>::expand_op(T &&v, value_t size)
+    : m_data{std::forward<T>(v)}
+    , m_size{size}
+    {
+    }
+
+    template<class T>
+    inline expand_op<T>::expand_op(const T &v, value_t size)
+    : m_data{std::forward<T>(v)}
+    , m_size{size}
+    {}
+
+    template<class T>
+    inline auto expand_op<T>::start(std::size_t d, std::size_t index) const noexcept
+    {
+        m_current_index[d] = index;
+        return m_data.start(d, index) - m_size;
+    }
+
+    template<class T>
+    inline auto expand_op<T>::end(std::size_t d, std::size_t index) const noexcept
+    {
+        return m_data.end(d, index) + m_size;
+    }
+
+    template<class T>
+    inline auto
+    expand_op<T>::transform(std::size_t d, value_t coord) const noexcept
+    {
+        // std::cout << d << " " << m_current_index[d] << " " << coord << std::endl;
+        // std::cout << m_data.start(d, m_current_index[d]) << std::endl;
+        // std::cout << m_data.transform(d, m_data.start(d, m_current_index[d])) << std::endl;
+        // std::cout << m_data.end(d, m_current_index[d]) << std::endl;
+        // std::cout << m_data.transform(d, m_data.end(d, m_current_index[d])) << std::endl;
+        if (coord < m_data.transform(d, m_data.start(d, m_current_index[d])))
+        {
+            return m_data.transform(d, m_data.start(d, m_current_index[d]));
+        }
+        else if (coord > m_data.transform(d, m_data.end(d, m_current_index[d])) - 1)
+        {
+            return m_data.transform(d, m_data.end(d, m_current_index[d])) - 1;
+        }
+        return m_data.transform(d, coord);
     }
 
     namespace detail
@@ -520,6 +598,14 @@ namespace samurai
     }
 
     template<class T>
+    inline auto expand(T &&t, int size)
+    {
+        auto arg = get_arg_node(std::forward<T>(t));
+        using arg_t = decltype(arg);
+        return expand_op<arg_t>{std::forward<arg_t>(arg), size};
+    }
+
+    template<class T>
     inline auto contraction(T &&t, std::size_t size = 1)
     {
         auto arg = get_arg_node(std::forward<T>(t));
@@ -540,60 +626,4 @@ namespace samurai
                             translate(std::forward<arg_t>(arg), -c));
     }
 
-
-    namespace detail
-    {
-        template<class arg_t>
-        auto expand_impl(arg_t&& arg, xt::xtensor_fixed<int, xt::xshape<1>> e)
-        {
-            return union_(translate(std::forward<arg_t>(arg), e),
-                          translate(std::forward<arg_t>(arg), -e));
-        }
-
-        template<class arg_t>
-        auto expand_impl(arg_t&& arg, xt::xtensor_fixed<int, xt::xshape<2>> e)
-        {
-            std::array<xt::xtensor_fixed<int, xt::xshape<2>>, 3> s;
-            s[0] = {-1, 1};
-            s[1] = {1, -1};
-            s[2] = {-1, -1};
-
-            return union_(translate(std::forward<arg_t>(arg), e),
-                          translate(std::forward<arg_t>(arg), e*s[0]),
-                          translate(std::forward<arg_t>(arg), e*s[1]),
-                          translate(std::forward<arg_t>(arg), e*s[2]));
-        }
-
-        template<class arg_t>
-        auto expand_impl(arg_t&& arg, xt::xtensor_fixed<int, xt::xshape<3>> e)
-        {
-            std::array<xt::xtensor_fixed<int, xt::xshape<3>>, 7> s;
-            s[0] = {-1, 1, 1};
-            s[1] = {1, -1, 1};
-            s[2] = {-1, -1, 1};
-            s[3] = {1, 1, -1};
-            s[4] = {-1, 1, -1};
-            s[5] = {1, -1, -1};
-            s[6] = {-1, -1, -1};
-
-            return union_(translate(std::forward<arg_t>(arg), e),
-                          translate(std::forward<arg_t>(arg), e*s[0]),
-                          translate(std::forward<arg_t>(arg), e*s[1]),
-                          translate(std::forward<arg_t>(arg), e*s[2]),
-                          translate(std::forward<arg_t>(arg), e*s[3]),
-                          translate(std::forward<arg_t>(arg), e*s[4]),
-                          translate(std::forward<arg_t>(arg), e*s[5]),
-                          translate(std::forward<arg_t>(arg), e*s[6]));
-        }
-    }
-    template<class T>
-    inline auto expand(T &&t, int size = 1)
-    {
-        auto arg = get_arg_node(std::forward<T>(t));
-        using arg_t = decltype(arg);
-        constexpr std::size_t dim = arg_t::dim;
-        xt::xtensor_fixed<int, xt::xshape<dim>> e;
-        e.fill(size);
-        return detail::expand_impl(std::forward<arg_t>(arg), e);
-    }
 } // namespace samurai
