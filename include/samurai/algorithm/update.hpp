@@ -84,8 +84,8 @@ namespace samurai
         }
     }
 
-    template<class Field>
-    void update_ghost_mr(Field& field)
+    template<class Field, class... Fields>
+    void update_ghost_mr(Field& field, Fields&... other_fields)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
@@ -98,11 +98,11 @@ namespace samurai
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level],
                                                mesh[mesh_id_t::proj_cells][level-1])
                                  .on(level - 1);
-            set_at_levelm1.apply_op(projection(field));
+            set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
         }
 
-        update_bc(0, field);
-        update_ghost_periodic(0, field);
+        update_bc(0, field, other_fields...);
+        update_ghost_periodic(0, field, other_fields...);
         for (std::size_t level = 1; level <= max_level; ++level)
         {
             auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
@@ -111,10 +111,14 @@ namespace samurai
                                      mesh.domain())
                         .on(level);
 
-            expr.apply_op(prediction<pred_order, false>(field));
-            update_bc(level, field);
-            update_ghost_periodic(level, field);
+            expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
+            update_bc(level, field, other_fields...);
+            update_ghost_periodic(level, field, other_fields...);
         }
+    }
+
+    void update_ghost_mr()
+    {
     }
 
     template<class Field>
@@ -191,6 +195,13 @@ namespace samurai
         }
     }
 
+    template<class Field, class... Fields>
+    void update_ghost_periodic(std::size_t level, Field& field, Fields&... other_fields)
+    {
+        update_ghost_periodic(level, field);
+        update_ghost_periodic(level, other_fields...);
+    }
+
     template<class Field>
     void update_ghost_periodic(Field& field)
     {
@@ -203,6 +214,13 @@ namespace samurai
         {
             update_ghost_periodic(level, field);
         }
+    }
+
+    template<class Field, class... Fields>
+    void update_ghost_periodic(Field& field, Fields&... other_fields)
+    {
+        update_ghost_periodic(field);
+        update_ghost_periodic(other_fields...);
     }
 
     template<class Tag>
@@ -356,7 +374,12 @@ namespace samurai
             update_fields(new_mesh, fields...);
         }
 
+        template<class Mesh>
+        void update_fields(Mesh&)
+        {
+        }
     }
+
     template<class Tag, class... Fields>
     bool update_field(Tag& tag, Fields&... fields)
     {
@@ -421,8 +444,8 @@ namespace samurai
         return false;
     }
 
-    template<class Field, class Tag>
-    bool update_field_mr(Field& field, Field& old_field, const Tag& tag)
+    template<class Tag, class Field, class... Fields>
+    bool update_field_mr(const Tag& tag, Field& field, Field& old_field, Fields&... other_fields)
     {
         static constexpr std::size_t dim = Field::dim;
         using mesh_t = typename Field::mesh_t;
@@ -490,6 +513,8 @@ namespace samurai
         //     std::swap(field.array(), old_field.array());
         //     return true;
         // }
+
+        detail::update_fields(new_mesh, other_fields...);
 
         Field new_field("new_f", new_mesh);
         new_field.fill(0);

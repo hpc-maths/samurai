@@ -58,7 +58,8 @@ namespace samurai
     public:
         Adapt(TField& field);
 
-        void operator()(double eps, double regularity);
+        template<class... Fields>
+        void operator()(double eps, double regularity, Fields&... other_fields);
 
     private:
         using field_type = TField;
@@ -72,7 +73,8 @@ namespace samurai
         using coord_index_t = typename interval_t::coord_index_t;
         using cl_type = typename mesh_t::cl_type;
 
-        bool harten(std::size_t ite, double eps, double regularity, field_type& field_old);
+        template<class... Fields>
+        bool harten(std::size_t ite, double eps, double regularity, field_type& field_old, Fields&... other_fields);
 
         field_type& m_field;
         field_type m_detail;
@@ -87,7 +89,8 @@ namespace samurai
     {}
 
     template <class TField>
-    void Adapt<TField>::operator()(double eps, double regularity)
+    template<class... Fields>
+    void Adapt<TField>::operator()(double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh = m_field.mesh();
         std::size_t min_level = mesh.min_level();
@@ -108,7 +111,7 @@ namespace samurai
             m_detail.resize();
             m_tag.resize();
             m_tag.fill(0);
-            if (harten(i, eps, regularity, field_old))
+            if (harten(i, eps, regularity, field_old, other_fields...))
             {
                 break;
             }
@@ -154,7 +157,8 @@ namespace samurai
     }
 
     template <class TField>
-    bool Adapt<TField>::harten(std::size_t ite, double eps, double regularity, field_type& field_old)
+    template<class... Fields>
+    bool Adapt<TField>::harten(std::size_t ite, double eps, double regularity, field_type& field_old, Fields&... other_fields)
     {
         auto& mesh = m_field.mesh();
 
@@ -265,8 +269,8 @@ namespace samurai
         }
 
         update_ghost_mr(field_old);
-
-        if (update_field_mr(m_field, field_old, m_tag))
+        update_ghost_mr(other_fields...);
+        if (update_field_mr(m_tag, m_field, field_old, other_fields...))
         {
             return true;
         }
