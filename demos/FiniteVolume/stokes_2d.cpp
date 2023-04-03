@@ -11,6 +11,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/petsc.hpp>
 #include <samurai/bc.hpp>
+#include <samurai/reconstruction.hpp>
 
 static char help[] = "Solution of the Poisson problem in the domain [0,1]^d.\n"
                      "Geometric multigrid using the samurai meshes.\n"
@@ -420,10 +421,12 @@ public:
         }
         else
         {
-            flux_coeffs[0].fill(0);
+            /*flux_coeffs[0].fill(0);
             flux_coeffs[1].fill(0);
             flux_coeffs[0](d) = -1/h;
-            flux_coeffs[1](d) =  1/h;
+            flux_coeffs[1](d) =  1/h;*/
+            flux_coeffs[0].fill(-1/h);
+            flux_coeffs[1].fill( 1/h);
         }
         return flux_coeffs;
     }
@@ -578,9 +581,9 @@ int main(int argc, char* argv[])
     constexpr std::size_t dim = 2;
     //using Config = samurai::amr::Config<dim>;
     //using Mesh = samurai::amr::Mesh<Config>;
-    using Config = samurai::MRConfig<dim>;
+    using Config = samurai::MRConfig<dim, 1>;
     using Mesh = samurai::MRMesh<Config>;
-    constexpr bool is_soa = true;
+    constexpr bool is_soa = false;
 
     //------------------//
     // Petsc initialize //
@@ -934,8 +937,12 @@ int main(int argc, char* argv[])
             // Save the result
             //if (t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
             {
+                samurai::update_ghost_mr(velocity);
+                auto velocity_recons = samurai::reconstruction(velocity);
+
                 std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
                 samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
                 std::cout << "export" << std::endl;
             }
         }

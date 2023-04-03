@@ -1,12 +1,13 @@
 #pragma once
-#include "flux_based_scheme.hpp"
+//#include "flux_based_scheme.hpp"
+#include "cell_based_scheme.hpp"
 
 namespace samurai 
 {
     namespace petsc
     {
         
-        template<class Field, class cfg=FluxBasedAssemblyConfig<Field::size, 2>>
+        /*template<class Field, class cfg=FluxBasedAssemblyConfig<Field::size, 2>>
         class IdentityFV : public FluxBasedScheme<cfg, Field>
         {
         public:
@@ -98,6 +99,35 @@ namespace samurai
                     }
                 }
                 return fluxes;
+            }
+        };*/
+
+        template<class Field, std::size_t dim=Field::dim, std::size_t neighbourhood_width=0, class cfg=StarStencilFV<dim, dim, neighbourhood_width>>
+        class IdentityFV : public CellBasedScheme<cfg, Field>
+        {
+        public:
+            using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
+
+            IdentityFV(Field& unknown) : 
+                CellBasedScheme<cfg, Field>(unknown, star_stencil<dim, neighbourhood_width>(), coefficients) 
+            {}
+
+            static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double)
+            {
+                std::array<local_matrix_t, cfg::scheme_stencil_size> coeffs;
+
+                for (std::size_t i=0; i<cfg::scheme_stencil_size; i++)
+                {
+                    if (i == cfg::center_index)
+                    {
+                        coeffs[i] = eye<local_matrix_t>();
+                    }
+                    else
+                    {
+                        coeffs[i] = zeros<local_matrix_t>();
+                    }
+                }
+                return coeffs;
             }
         };
 

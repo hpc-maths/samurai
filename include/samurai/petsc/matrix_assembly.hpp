@@ -7,10 +7,12 @@ namespace samurai
     {
         class MatrixAssembly
         {
-          private:
+            template<class Scheme1, class Scheme2>
+            friend class FluxBasedScheme_Sum_CellBasedScheme;
 
-            bool m_include_bc                       = true;
-            bool m_assemble_proj_pred               = true;
+        private:
+            bool m_include_bc = true;
+            bool m_assemble_proj_pred = true;
             bool m_add_1_on_diag_for_useless_ghosts = true;
 
           public:
@@ -217,7 +219,7 @@ namespace samurai
             };
 
             /**
-             * Template specialization: if size=1, then just a scalar coefficient
+             * Template specialization: if rows=cols=1, then just a scalar coefficient
             */
             template<class value_type>
             struct LocalMatrix<value_type, 1, 1>

@@ -151,12 +151,168 @@ namespace samurai
         template <typename T>
         constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().flux_computations())> > = true;
 
-        // just sum size of elements
         template <typename Scheme1, typename Scheme2, std::enable_if_t<is_FluxBasedScheme<Scheme1>, bool> = true, std::enable_if_t<is_FluxBasedScheme<Scheme2>, bool> = true>
         auto operator + (const Scheme1& s1, const Scheme2& s2 )
         {
             return Sum_FluxBasedScheme<Scheme1, Scheme2>(s1, s2);
         }
+
+
+
+
+
+
+
+        template<class FluxScheme, class CellScheme>
+        class FluxBasedScheme_Sum_CellBasedScheme : public MatrixAssembly
+        {
+        private:
+            FluxScheme& m_flux_scheme;
+            CellScheme& m_cell_scheme;
+        public:
+            FluxBasedScheme_Sum_CellBasedScheme(FluxScheme& flux_scheme, CellScheme& cell_scheme) :
+                MatrixAssembly(),
+                m_flux_scheme(flux_scheme),
+                m_cell_scheme(cell_scheme)
+            {
+                if (&flux_scheme.unknown() != &cell_scheme.unknown())
+                {
+                    std::cerr << "Invalid '+' operation: both schemes must be associated to the same unknown." << std::endl;
+                    assert(&flux_scheme.unknown() == &cell_scheme.unknown());
+                }
+            }
+
+            auto& unknown() const
+            {
+                return m_flux_scheme.unknown();
+            }
+
+            PetscInt matrix_rows() const override
+            {
+                if (m_flux_scheme.matrix_rows() != m_cell_scheme.matrix_rows())
+                {
+                    std::cerr << "Invalid '+' operation: both schemes must generate the same number of matrix rows." << std::endl;
+                }
+                return m_flux_scheme.matrix_rows();
+            }
+
+            PetscInt matrix_cols() const override
+            {
+                if (m_flux_scheme.matrix_cols() != m_cell_scheme.matrix_cols())
+                {
+                    std::cerr << "Invalid '+' operation: both schemes must generate the same number of matrix columns." << std::endl;
+                }
+                return m_flux_scheme.matrix_cols();
+            }
+
+            void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
+            {
+                // !!!!!!!!!!!!!!!!!!!
+                // We hope that flux_scheme allocates enough non-zeros for both...!
+                m_flux_scheme.sparsity_pattern_scheme(nnz);
+            }
+
+            void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
+            {
+                // !!!!!!!!!!!!!!!!!!!
+                // We hope that flux_scheme allocates enough non-zeros for both...!
+                m_flux_scheme.sparsity_pattern_boundary(nnz);
+            }
+            
+            void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
+            {
+                m_flux_scheme.sparsity_pattern_projection(nnz);
+            }
+
+            void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
+            {
+                m_flux_scheme.sparsity_pattern_prediction(nnz);
+            }
+
+            bool matrix_is_spd() const override
+            { 
+                return m_flux_scheme.matrix_is_spd() && m_cell_scheme.matrix_is_spd();
+            }
+
+            void assemble_scheme(Mat& A) override
+            {
+                // First the cell-based scheme because it uses INSERT_VALUES
+                m_cell_scheme.assemble_scheme(A);
+
+                // Flush to use ADD_VALUES instead of INSERT_VALUES
+                MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
+                MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
+
+                // Then the flux-based scheme
+                m_flux_scheme.assemble_scheme(A);
+            }
+
+            void assemble_boundary_conditions(Mat& A) override
+            {
+                // We hope that flux_scheme and cell_scheme implement the boundary conditions in the same fashion,
+                // and arbitrarily choose flux_scheme.
+                m_flux_scheme.assemble_boundary_conditions(A);
+            }
+
+            void assemble_projection(Mat& A) override
+            {
+                // We hope that flux_scheme and cell_scheme implement the projection operator in the same fashion,
+                // and arbitrarily choose flux_scheme.
+                m_flux_scheme.assemble_projection(A);
+            }
+
+            void assemble_prediction(Mat& A) override
+            {
+                // We hope that flux_scheme and cell_scheme implement the prediction operator in the same fashion,
+                // and arbitrarily choose flux_scheme.
+                m_flux_scheme.assemble_prediction(A);
+            }
+
+            void add_1_on_diag_for_useless_ghosts(Mat& A) override
+            {
+                m_flux_scheme.add_1_on_diag_for_useless_ghosts(A);
+            }
+
+            void enforce_bc(Vec& b) const
+            {
+                m_flux_scheme.enforce_bc(b);
+            }
+
+            void add_0_for_useless_ghosts(Vec& b)
+            {
+                m_flux_scheme.add_0_for_useless_ghosts(b);
+            }
+
+            void enforce_projection_prediction(Vec& b) const
+            {
+                m_flux_scheme.enforce_projection_prediction(b);
+            }
+        };
+
+        template <typename, typename = void>
+        constexpr bool is_CellBasedScheme{};
+
+        template <typename T>
+        constexpr bool is_CellBasedScheme<T, std::void_t<decltype(std::declval<T>().stencil())> > = true;
+
+        template <typename FluxScheme, typename CellScheme, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true>
+        auto operator + (FluxScheme& flux_scheme, CellScheme& cell_scheme)
+        {
+            return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
+        }
+
+        template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>
+        auto operator + (CellScheme& cell_scheme, FluxScheme& flux_scheme)
+        {
+            return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
+        }
+
+        template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>
+        auto operator + (CellScheme& cell_scheme, FluxScheme&& flux_scheme)
+        {
+            return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
+        }
+
 
     } // end namespace petsc
 } // end namespace samurai

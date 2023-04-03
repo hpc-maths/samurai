@@ -67,6 +67,8 @@ namespace samurai
         template<class cfg, class Field>
         class FluxBasedScheme : public MatrixAssembly
         {
+            template<class Scheme1, class Scheme2>
+            friend class FluxBasedScheme_Sum_CellBasedScheme;
         public:
             using cfg_t = cfg;
             using field_t = Field;
@@ -754,32 +756,35 @@ namespace samurai
                     for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                     {
                         PetscInt ghost_index = static_cast<PetscInt>(row_index(ghost, field_i));
-                        MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
+                        MatSetValue(A, ghost_index, ghost_index, 1, ADD_VALUES);
 
                         auto ii = ghost.indices(0);
                         auto  j = ghost.indices(1);
                         int sign_i = (ii & 1) ? -1 : 1;
                         int sign_j =  (j & 1) ? -1 : 1;
 
-                        auto parent              = col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2, j/2    )), field_i);
-                        auto parent_bottom       = col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2, j/2 - 1)), field_i);
-                        auto parent_top          = col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2, j/2 + 1)), field_i);
-                        auto parent_left         = col_index(parent - 1       , field_i);
-                        auto parent_right        = col_index(parent + 1       , field_i);
-                        auto parent_bottom_left  = col_index(parent_bottom - 1, field_i);
-                        auto parent_bottom_right = col_index(parent_bottom + 1, field_i);
-                        auto parent_top_left     = col_index(parent_top - 1   , field_i);
-                        auto parent_top_right    = col_index(parent_top + 1   , field_i);
+                        auto parent_index        = static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2, j/2    ));
+                        auto parent_bottom_index = static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2, j/2 - 1));
+                        auto parent_top_index    = static_cast<PetscInt>(m_mesh.get_index(ghost.level - 1, ii/2, j/2 + 1));
+                        auto parent              = col_index(parent_index           , field_i);
+                        auto parent_bottom       = col_index(parent_bottom_index    , field_i);
+                        auto parent_top          = col_index(parent_top_index       , field_i);
+                        auto parent_left         = col_index(parent_index - 1       , field_i);
+                        auto parent_right        = col_index(parent_index + 1       , field_i);
+                        auto parent_bottom_left  = col_index(parent_bottom_index - 1, field_i);
+                        auto parent_bottom_right = col_index(parent_bottom_index + 1, field_i);
+                        auto parent_top_left     = col_index(parent_top_index - 1   , field_i);
+                        auto parent_top_right    = col_index(parent_top_index + 1   , field_i);
 
-                        MatSetValue(A, ghost_index, parent             ,                                  -1, INSERT_VALUES);
-                        MatSetValue(A, ghost_index, parent_bottom      ,                   -sign_j * pred[0], INSERT_VALUES); //        sign_j * -1/8
-                        MatSetValue(A, ghost_index, parent_top         ,                   -sign_j * pred[2], INSERT_VALUES); //        sign_j *  1/8
-                        MatSetValue(A, ghost_index, parent_left        ,                   -sign_i * pred[0], INSERT_VALUES); // sign_i        * -1/8
-                        MatSetValue(A, ghost_index, parent_right       ,                   -sign_i * pred[2], INSERT_VALUES); // sign_i        *  1/8
-                        MatSetValue(A, ghost_index, parent_bottom_left , sign_i * sign_j * pred[0] * pred[0], INSERT_VALUES); // sign_i*sign_j *  1/64
-                        MatSetValue(A, ghost_index, parent_bottom_right, sign_i * sign_j * pred[2] * pred[0], INSERT_VALUES); // sign_i*sign_j * -1/64
-                        MatSetValue(A, ghost_index, parent_top_left    , sign_i * sign_j * pred[0] * pred[2], INSERT_VALUES); // sign_i*sign_j * -1/64
-                        MatSetValue(A, ghost_index, parent_top_right   , sign_i * sign_j * pred[2] * pred[2], INSERT_VALUES); // sign_i*sign_j *  1/64
+                        MatSetValue(A, ghost_index, parent             ,                                  -1, ADD_VALUES);
+                        MatSetValue(A, ghost_index, parent_bottom      ,                   -sign_j * pred[0], ADD_VALUES); //        sign_j * -1/8
+                        MatSetValue(A, ghost_index, parent_top         ,                   -sign_j * pred[2], ADD_VALUES); //        sign_j *  1/8
+                        MatSetValue(A, ghost_index, parent_left        ,                   -sign_i * pred[0], ADD_VALUES); // sign_i        * -1/8
+                        MatSetValue(A, ghost_index, parent_right       ,                   -sign_i * pred[2], ADD_VALUES); // sign_i        *  1/8
+                        MatSetValue(A, ghost_index, parent_bottom_left , sign_i * sign_j * pred[0] * pred[0], ADD_VALUES); // sign_i*sign_j *  1/64
+                        MatSetValue(A, ghost_index, parent_bottom_right, sign_i * sign_j * pred[2] * pred[0], ADD_VALUES); // sign_i*sign_j * -1/64
+                        MatSetValue(A, ghost_index, parent_top_left    , sign_i * sign_j * pred[0] * pred[2], ADD_VALUES); // sign_i*sign_j * -1/64
+                        MatSetValue(A, ghost_index, parent_top_right   , sign_i * sign_j * pred[2] * pred[2], ADD_VALUES); // sign_i*sign_j *  1/64
                         m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
                     }
                 });*/

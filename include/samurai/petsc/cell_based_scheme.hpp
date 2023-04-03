@@ -64,7 +64,10 @@ namespace samurai
         template <class cfg, class Field>
         class CellBasedScheme : public MatrixAssembly
         {
-          public:
+            template<class Scheme1, class Scheme2>
+            friend class FluxBasedScheme_Sum_CellBasedScheme;
+            
+        public:
 
             using cfg_t   = cfg;
             using field_t = Field;
