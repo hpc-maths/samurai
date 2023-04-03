@@ -256,6 +256,25 @@ namespace samurai
     };
 
     template<std::size_t dim, class TInterval>
+    class OnDirection: public BcRegion<dim, TInterval>
+    {
+    public:
+        using base_t = BcRegion<dim, TInterval>;
+        using direction_t = typename base_t::direction_t;
+        using lca_t = typename base_t::lca_t;
+        using region_t = typename base_t::region_t;
+
+        OnDirection(const std::initializer_list<direction_t>& d);
+        OnDirection(const OnDirection&);
+        OnDirection& operator=(const OnDirection&);
+
+        const region_t get_region(const lca_t& mesh) const override;
+        std::unique_ptr<base_t> clone() const override;
+    private:
+        std::vector<direction_t> m_d;
+    };
+
+    template<std::size_t dim, class TInterval>
     class CoordsRegion: public BcRegion<dim, TInterval>
     {
     public:
@@ -367,6 +386,7 @@ namespace samurai
                                                        translate(domain, direction_t{         0,          0, stencil[2]}))));
                 }
             }
+            std::cout << -stencil << " " << lca.back() << std::endl;
         });
 
         return std::make_pair(dir, lca);
@@ -376,6 +396,71 @@ namespace samurai
     auto Everywhere<dim, TInterval>::clone() const -> std::unique_ptr<base_t>
     {
         return std::make_unique<Everywhere>(*this);
+    }
+
+    // OnDirection
+    template<std::size_t dim, class TInterval>
+    OnDirection<dim, TInterval>::OnDirection(const std::initializer_list<direction_t>& d)
+    : m_d(d)
+    {}
+
+
+    template<std::size_t dim, class TInterval>
+    OnDirection<dim, TInterval>::OnDirection(const OnDirection& r)
+    : m_d{r.m_d}
+    {}
+
+    template<std::size_t dim, class TInterval>
+    OnDirection<dim, TInterval>& OnDirection<dim, TInterval>::operator=(const OnDirection& r)
+    {
+        return {r.m_d};
+    }
+
+    template<std::size_t dim, class TInterval>
+    inline auto OnDirection<dim, TInterval>::get_region(const lca_t& domain) const -> const region_t
+    {
+        std::vector<direction_t> dir;
+        std::vector<lca_t> lca;
+
+        for(auto& stencil: m_d)
+        {
+            int number_of_one = xt::sum(xt::abs(stencil))[0];
+            if (number_of_one > 0)
+            {
+                dir.emplace_back(-stencil);
+            }
+
+            if (number_of_one == 1)
+            {
+                lca.emplace_back(difference(translate(domain, stencil), domain));
+            }
+            else if (number_of_one > 1)
+            {
+                if constexpr (dim == 2)
+                {
+                    lca.emplace_back(difference(translate(domain, stencil),
+                                                union_(domain,
+                                                       translate(domain, direction_t{stencil[0],          0}),
+                                                       translate(domain, direction_t{         0, stencil[1]}))));
+                }
+                else if constexpr (dim == 3)
+                {
+                    lca.emplace_back(difference(translate(domain, stencil),
+                                                union_(domain,
+                                                       translate(domain, direction_t{stencil[0],          0,          0}),
+                                                       translate(domain, direction_t{         0, stencil[1],          0}),
+                                                       translate(domain, direction_t{         0,          0, stencil[2]}))));
+                }
+            }
+        }
+
+        return std::make_pair(dir, lca);
+    }
+
+    template<std::size_t dim, class TInterval>
+    auto OnDirection<dim, TInterval>::clone() const -> std::unique_ptr<base_t>
+    {
+        return std::make_unique<OnDirection>(*this);
     }
 
     // CoordsRegion
@@ -467,6 +552,18 @@ namespace samurai
     auto make_region(Everywhere<dim, TInterval>)
     {
         return Everywhere<dim, TInterval>();
+    }
+
+    template<std::size_t dim, class TInterval>
+    auto make_region(const std::initializer_list<xt::xtensor_fixed<int, xt::xshape<dim>>>& d)
+    {
+        return OnDirection<dim, TInterval>(d);
+    }
+
+    template<std::size_t dim, class TInterval>
+    auto make_region(const xt::xtensor_fixed<int, xt::xshape<dim>>& d)
+    {
+        return OnDirection<dim, TInterval>({d});
     }
 
     ///////////////////
