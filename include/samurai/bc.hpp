@@ -386,7 +386,6 @@ namespace samurai
                                                        translate(domain, direction_t{         0,          0, stencil[2]}))));
                 }
             }
-            std::cout << -stencil << " " << lca.back() << std::endl;
         });
 
         return std::make_pair(dir, lca);
