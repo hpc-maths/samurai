@@ -48,13 +48,12 @@ namespace samurai
             static constexpr std::size_t field_size = Field::size;
             using field_value_type = typename Field::value_type; // double
 
-
             using flux_matrix_t  = typename detail::LocalMatrix<field_value_type,                 1, field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a matrix otherwise
-            using coeff_matrix_t = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a matrix otherwise
+            using coeff_matrix_t = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
             using FluxCoeffs = std::array<flux_matrix_t, comput_stencil_size>;
             using CellCoeffs = std::array<coeff_matrix_t, comput_stencil_size>;
 
-            StencilVector<dim> direction;
+            DirectionVector<dim> direction;
             Stencil<comput_stencil_size, dim> computational_stencil;
             std::function<FluxCoeffs(double)> get_flux_coeffs;
             std::function<CellCoeffs(FluxCoeffs&, double, double)> get_cell1_coeffs;
@@ -74,23 +73,14 @@ namespace samurai
             using field_t = Field;
 
             using Mesh = typename Field::mesh_t;
-            //using field_value_type = typename Field::value_type; // double
             static constexpr std::size_t field_size = Field::size;
             static constexpr std::size_t output_field_size = cfg::output_field_size;
-            //using coeff_matrix_t = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a matrix otherwise
             using mesh_id_t = typename Mesh::mesh_id_t;
             static constexpr std::size_t dim = Mesh::dim;
             static constexpr std::size_t prediction_order = Mesh::config::prediction_order;
             static constexpr std::size_t comput_stencil_size = cfg::comput_stencil_size;
 
-            //using coord_index_t = typename Mesh::config::interval_t::coord_index_t;
-            //using cell_t = typename Cell<coord_index_t, dim>;
-            //using stencil_t = Stencil<comput_stencil_size, dim>;
-            //using flux_computation_t     = InterfaceComputation<  dim, comput_stencil_size, coeff_matrix_t>;
-            using flux_computation_t     = InterfaceComputation<Field, output_field_size, comput_stencil_size>;
-            //using boundary_computation_t = InterfaceComputation<2*dim, comput_stencil_size, coeff_matrix_t>;
-
-
+            using flux_computation_t = InterfaceComputation<Field, output_field_size, comput_stencil_size>;
             using boundary_condition_t = typename Field::boundary_condition_t;
         
             using MatrixAssembly::assemble_matrix;
@@ -98,14 +88,14 @@ namespace samurai
             Field& m_unknown;
             Mesh& m_mesh;
             std::size_t m_n_cells;
-            const std::array<flux_computation_t, dim> m_flux_computations;
+            const std::array<flux_computation_t, dim> m_scheme_coefficients;
             const std::vector<boundary_condition_t>& m_boundary_conditions;
             std::vector<bool> m_is_row_empty;
         public:
-            FluxBasedScheme(Field& unknown, std::array<flux_computation_t, dim> flux_computations) :
+            FluxBasedScheme(Field& unknown, std::array<flux_computation_t, dim> scheme_coefficients) :
                 m_unknown(unknown), 
                 m_mesh(unknown.mesh()), 
-                m_flux_computations(flux_computations),
+                m_scheme_coefficients(scheme_coefficients),
                 m_boundary_conditions(unknown.boundary_conditions())
             {
                 m_n_cells = m_mesh.nb_cells();
@@ -122,9 +112,9 @@ namespace samurai
                 return m_mesh;
             }
 
-            auto& flux_computations() const
+            auto& scheme_coefficients() const
             {
-                return m_flux_computations;
+                return m_scheme_coefficients;
             }
 
             const auto& boundary_conditions() const
@@ -225,9 +215,9 @@ namespace samurai
             {
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    auto flux_computation = m_flux_computations[d];
-                    for_each_interior_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil,
-                    [&](auto& interface_cells, auto& /*comput_cells*/)
+                    auto scheme_coeffs_dir = m_scheme_coefficients[d];
+                    for_each_interior_interface(m_mesh, scheme_coeffs_dir.direction, scheme_coeffs_dir.computational_stencil,
+                    [&](auto& interface_cells, auto&)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                         {
@@ -239,7 +229,7 @@ namespace samurai
                         }
                     });
 
-                    for_each_boundary_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil,
+                    for_each_boundary_interface(m_mesh, scheme_coeffs_dir.direction, scheme_coeffs_dir.computational_stencil,
                     [&](auto& interface_cells, auto&)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -251,8 +241,8 @@ namespace samurai
                         }
                     });
 
-                    auto opposite_direction = xt::eval(-flux_computation.direction);
-                    auto opposite_stencil = xt::eval(-flux_computation.computational_stencil);
+                    auto opposite_direction = xt::eval(-scheme_coeffs_dir.direction);
+                    auto opposite_stencil = xt::eval(-scheme_coeffs_dir.computational_stencil);
                     for_each_boundary_interface(m_mesh, opposite_direction, opposite_stencil,
                     [&](auto& interface_cells, auto&)
                     {
@@ -270,14 +260,14 @@ namespace samurai
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
                 std::array<Stencil<comput_stencil_size, dim>, 2*dim> bdry_stencils;
-                std::array<StencilVector<dim>, 2*dim> bdry_directions;
+                std::array<DirectionVector<dim>, 2*dim> bdry_directions;
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    auto flux_computation = m_flux_computations[d];
-                    bdry_directions[d]     =  flux_computation.direction;
-                    bdry_stencils[d]       =  flux_computation.computational_stencil;
-                    bdry_directions[dim+d] = -flux_computation.direction;
-                    bdry_stencils[dim+d]   = -flux_computation.computational_stencil;
+                    auto scheme_coeffs_dir = m_scheme_coefficients[d];
+                    bdry_directions[d]     =  scheme_coeffs_dir.direction;
+                    bdry_stencils[d]       =  scheme_coeffs_dir.computational_stencil;
+                    bdry_directions[dim+d] = -scheme_coeffs_dir.direction;
+                    bdry_stencils[dim+d]   = -scheme_coeffs_dir.computational_stencil;
                 }
 
                 for_each_stencil_on_boundary(m_mesh, bdry_directions, bdry_stencils, 
@@ -357,8 +347,8 @@ namespace samurai
             {
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    auto flux_computation = m_flux_computations[d];
-                    for_each_interior_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil, flux_computation.get_flux_coeffs, flux_computation.get_cell1_coeffs, flux_computation.get_cell2_coeffs,
+                    auto scheme_coeffs_dir = m_scheme_coefficients[d];
+                    for_each_interior_interface(m_mesh, scheme_coeffs_dir.direction, scheme_coeffs_dir.computational_stencil, scheme_coeffs_dir.get_flux_coeffs, scheme_coeffs_dir.get_cell1_coeffs, scheme_coeffs_dir.get_cell2_coeffs,
                     [&](auto& interface_cells, auto& comput_cells, auto& cell1_coeffs, auto& cell2_coeffs)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -387,7 +377,7 @@ namespace samurai
                         }
                     });
 
-                    for_each_boundary_interface(m_mesh, flux_computation.direction, flux_computation.computational_stencil, flux_computation.get_flux_coeffs, flux_computation.get_cell1_coeffs,
+                    for_each_boundary_interface(m_mesh, scheme_coeffs_dir.direction, scheme_coeffs_dir.computational_stencil, scheme_coeffs_dir.get_flux_coeffs, scheme_coeffs_dir.get_cell1_coeffs,
                     [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -409,20 +399,20 @@ namespace samurai
                         }
                     });
 
-                    auto opposite_direction = xt::eval(-flux_computation.direction);
-                    Stencil<comput_stencil_size, dim> reversed = xt::eval(xt::flip(flux_computation.computational_stencil, 0));
+                    auto opposite_direction = xt::eval(-scheme_coeffs_dir.direction);
+                    Stencil<comput_stencil_size, dim> reversed = xt::eval(xt::flip(scheme_coeffs_dir.computational_stencil, 0));
                     auto opposite_stencil = xt::eval(-reversed);
                     /*auto get_coeffs_opposite_direction = [&](InterfaceComputation::Coeffs flux_coeffs, double h)
                     {
-                        auto coeffs = flux_computation.get_cell1_coeffs(flux_coeffs, h);
+                        auto coeffs = scheme_coeffs_dir.get_cell1_coeffs(flux_coeffs, h);
                         for (auto& c : coeffs)
                         {
                             c *= -1;
                         }
-                        auto neighbour_coeffs = flux_computation.get_neighbour_coeffs(coeffs);
+                        auto neighbour_coeffs = scheme_coeffs_dir.get_neighbour_coeffs(coeffs);
                         return neighbour_coeffs;
                     };*/
-                    for_each_boundary_interface(m_mesh, opposite_direction, opposite_stencil, flux_computation.get_flux_coeffs, flux_computation.get_cell2_coeffs,//get_coeffs_opposite_direction,
+                    for_each_boundary_interface(m_mesh, opposite_direction, opposite_stencil, scheme_coeffs_dir.get_flux_coeffs, scheme_coeffs_dir.get_cell2_coeffs,//get_coeffs_opposite_direction,
                     [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -449,19 +439,19 @@ namespace samurai
             void assemble_boundary_conditions(Mat& A) override
             {
                 std::array<Stencil<comput_stencil_size, dim>, 2*dim> bdry_stencils;
-                std::array<StencilVector<dim>, 2*dim> bdry_directions;
+                std::array<DirectionVector<dim>, 2*dim> bdry_directions;
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    auto flux_computation = m_flux_computations[d];
-                    bdry_directions[d]     =  flux_computation.direction;
-                    bdry_stencils[d]       =  flux_computation.computational_stencil;
-                    bdry_directions[dim+d] = -flux_computation.direction;
-                    bdry_stencils[dim+d]   = -flux_computation.computational_stencil;
+                    auto scheme_coeffs_dir = m_scheme_coefficients[d];
+                    bdry_directions[d]     =  scheme_coeffs_dir.direction;
+                    bdry_stencils[d]       =  scheme_coeffs_dir.computational_stencil;
+                    bdry_directions[dim+d] = -scheme_coeffs_dir.direction;
+                    bdry_stencils[dim+d]   = -scheme_coeffs_dir.computational_stencil;
                 }
                 auto get_coeffs = [&](double h)
                 {
-                    auto flux_coeffs = m_flux_computations[0].get_flux_coeffs(h);
-                    return m_flux_computations[0].get_cell1_coeffs(flux_coeffs, h, h);
+                    auto flux_coeffs = m_scheme_coefficients[0].get_flux_coeffs(h);
+                    return m_scheme_coefficients[0].get_cell1_coeffs(flux_coeffs, h, h);
                 };
 
                 for_each_stencil_on_boundary(m_mesh, bdry_directions, bdry_stencils, get_coeffs,
@@ -550,19 +540,19 @@ namespace samurai
             virtual void enforce_bc(Vec& b) const
             {
                 std::array<Stencil<comput_stencil_size, dim>, 2*dim> bdry_stencils;
-                std::array<StencilVector<dim>, 2*dim> bdry_directions;
+                std::array<DirectionVector<dim>, 2*dim> bdry_directions;
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    auto flux_computation = m_flux_computations[d];
-                    bdry_directions[d]     =  flux_computation.direction;
-                    bdry_stencils[d]       =  flux_computation.computational_stencil;
-                    bdry_directions[dim+d] = -flux_computation.direction;
-                    bdry_stencils[dim+d]   = -flux_computation.computational_stencil;
+                    auto scheme_coeffs_dir = m_scheme_coefficients[d];
+                    bdry_directions[d]     =  scheme_coeffs_dir.direction;
+                    bdry_stencils[d]       =  scheme_coeffs_dir.computational_stencil;
+                    bdry_directions[dim+d] = -scheme_coeffs_dir.direction;
+                    bdry_stencils[dim+d]   = -scheme_coeffs_dir.computational_stencil;
                 }
                 auto get_coeffs = [&](double h)
                 {
-                    auto flux_coeffs = m_flux_computations[0].get_flux_coeffs(h);
-                    return m_flux_computations[0].get_cell1_coeffs(flux_coeffs, h, h);
+                    auto flux_coeffs = m_scheme_coefficients[0].get_flux_coeffs(h);
+                    return m_scheme_coefficients[0].get_cell1_coeffs(flux_coeffs, h, h);
                 };
 
                 for_each_stencil_on_boundary(m_mesh, bdry_directions, bdry_stencils, get_coeffs,
@@ -928,6 +918,14 @@ namespace samurai
                 return error_norm;
             }
         };
+
+
+
+        template <typename, typename = void>
+        constexpr bool is_FluxBasedScheme{};
+
+        template <typename T>
+        constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().scheme_coefficients())> > = true;
 
     } // end namespace petsc
 } // end namespace samurai

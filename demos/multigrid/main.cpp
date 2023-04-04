@@ -295,7 +295,7 @@ int main(int argc, char* argv[])
 
 
     /*auto right_fluxes = samurai::make_field<double, field_size, is_soa>("fluxes", mesh);
-    samurai::StencilVector<dim> right = {1, 0};
+    samurai::DirectionVector<dim> right = {1, 0};
     samurai::Stencil<2, dim> comput_stencil = {{0, 0}, {1, 0}};
     samurai::for_each_interface(mesh, right, comput_stencil, 
     [&](auto& interface_cells, auto& comput_cells)

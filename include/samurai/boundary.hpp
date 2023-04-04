@@ -239,10 +239,7 @@ namespace samurai
     }*/
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    void for_each_stencil_on_boundary(const Mesh& mesh,
-                                      const StencilVector<Mesh::dim>& boundary_direction,
-                                      const Stencil<stencil_size, Mesh::dim>& stencil,
-                                      Func&& func)
+    void for_each_stencil_on_boundary(const Mesh& mesh, const DirectionVector<Mesh::dim>& boundary_direction, const Stencil<stencil_size, Mesh::dim>& stencil, Func &&func)
     {
         for_each_level(mesh,
                        [&](std::size_t level)
@@ -253,11 +250,7 @@ namespace samurai
     }
 
     template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    void for_each_stencil_on_boundary(const Mesh& mesh,
-                                      const StencilVector<Mesh::dim>& boundary_direction,
-                                      const Stencil<stencil_size, Mesh::dim>& stencil,
-                                      GetCoeffsFunc&& get_coefficients,
-                                      Func&& func)
+    void for_each_stencil_on_boundary(const Mesh& mesh, const DirectionVector<Mesh::dim>& boundary_direction, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
         for_each_level(mesh, [&](std::size_t level)
         {
@@ -271,10 +264,7 @@ namespace samurai
     }
 
     template <class Mesh, std::size_t n_directions, std::size_t stencil_size, class Func>
-    void for_each_stencil_on_boundary(const Mesh& mesh,
-                                      const std::array<StencilVector<Mesh::dim>, n_directions>& boundary_directions,
-                                      const std::array<Stencil<stencil_size, Mesh::dim>, n_directions>& stencils,
-                                      Func&& func)
+    void for_each_stencil_on_boundary(const Mesh& mesh, const std::array<DirectionVector<Mesh::dim>, n_directions>& boundary_directions, const std::array<Stencil<stencil_size, Mesh::dim>, n_directions>& stencils, Func &&func)
     {
         for (std::size_t i = 0; i < n_directions; ++i)
         {
@@ -289,11 +279,7 @@ namespace samurai
     }
 
     template <class Mesh, std::size_t n_directions, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    void for_each_stencil_on_boundary(const Mesh& mesh,
-                                      const std::array<StencilVector<Mesh::dim>, n_directions>& boundary_directions,
-                                      const std::array<Stencil<stencil_size, Mesh::dim>, n_directions>& stencils,
-                                      GetCoeffsFunc&& get_coefficients,
-                                      Func&& func)
+    void for_each_stencil_on_boundary(const Mesh& mesh, const std::array<DirectionVector<Mesh::dim>, n_directions>& boundary_directions, const std::array<Stencil<stencil_size, Mesh::dim>, n_directions>& stencils, GetCoeffsFunc&& get_coefficients, Func &&func)
     {
         for (std::size_t i = 0; i < n_directions; ++i)
         {

@@ -1,11 +1,14 @@
 #pragma once
 #include "flux_based_scheme.hpp"
+#include "cell_based_scheme.hpp"
 
 namespace samurai 
 {
     namespace petsc
     {
-        
+        /**
+         * Multiplicatiion by a scalar value of the flux-based scheme
+        */
         template<class Scheme>
         class Scalar_x_FluxBasedScheme : public FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::field_t>
         {
@@ -21,15 +24,15 @@ namespace samurai
 
         public:
             Scalar_x_FluxBasedScheme(const Scheme& scheme, double scalar) : 
-                FluxBasedScheme<cfg_t, field_t>(scheme.unknown(), scheme_coefficients(scheme)),
+                FluxBasedScheme<cfg_t, field_t>(scheme.unknown(), scalar_x_coefficients(scheme)),
                 m_scheme(scheme),
                 m_scalar(scalar)
             {}
 
         private:
-            auto scheme_coefficients(const Scheme& scheme)
+            auto scalar_x_coefficients(const Scheme& scheme)
             {
-                const std::array<flux_computation_t, dim>& scheme_fluxes = scheme.flux_computations();
+                const std::array<flux_computation_t, dim>& scheme_fluxes = scheme.scheme_coefficients();
                 std::array<flux_computation_t, dim> scalar_x_fluxes;
                 
                 for (std::size_t d = 0; d < dim; ++d)
@@ -37,7 +40,6 @@ namespace samurai
                     auto& scheme_flux = scheme_fluxes[d];
                     auto& scalar_x_flux = scalar_x_fluxes[d];
 
-                    //auto dir = op_flux.direction;
                     scalar_x_flux.direction             = scheme_flux.direction;
                     scalar_x_flux.computational_stencil = scheme_flux.computational_stencil;
                     scalar_x_flux.get_flux_coeffs       = scheme_flux.get_flux_coeffs;
@@ -72,7 +74,9 @@ namespace samurai
 
 
 
-
+        /**
+         * Addition of two flux-based schemes
+        */
         template<class Scheme1, class Scheme2>
         class Sum_FluxBasedScheme : public FluxBasedScheme<typename Scheme1::cfg_t, typename Scheme1::field_t>
         {
@@ -88,7 +92,7 @@ namespace samurai
 
         public:
             Sum_FluxBasedScheme(const Scheme1& scheme1, const Scheme2& scheme2) : 
-                FluxBasedScheme<cfg_t, field_t>(scheme1.unknown(), scheme_coefficients(scheme1, scheme2)),
+                FluxBasedScheme<cfg_t, field_t>(scheme1.unknown(), sum_coefficients(scheme1, scheme2)),
                 m_scheme1(scheme1),
                 m_scheme2(scheme2)
             {
@@ -102,12 +106,12 @@ namespace samurai
             }
 
         private:
-            auto scheme_coefficients(const Scheme1& scheme1, const Scheme2& scheme2)
+            auto sum_coefficients(const Scheme1& scheme1, const Scheme2& scheme2)
             {
                 static_assert(Scheme1::cfg_t::comput_stencil_size == Scheme2::cfg_t::comput_stencil_size);
 
-                auto& scheme1_fluxes = scheme1.flux_computations();
-                auto& scheme2_fluxes = scheme2.flux_computations();
+                auto& scheme1_fluxes = scheme1.scheme_coefficients();
+                auto& scheme2_fluxes = scheme2.scheme_coefficients();
                 std::array<flux_computation_t, dim> sum_fluxes = scheme1_fluxes;
                 
                 for (std::size_t d = 0; d < dim; ++d)
@@ -145,12 +149,6 @@ namespace samurai
             }
         };
 
-        template <typename, typename = void>
-        constexpr bool is_FluxBasedScheme{};
-
-        template <typename T>
-        constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().flux_computations())> > = true;
-
         template <typename Scheme1, typename Scheme2, std::enable_if_t<is_FluxBasedScheme<Scheme1>, bool> = true, std::enable_if_t<is_FluxBasedScheme<Scheme2>, bool> = true>
         auto operator + (const Scheme1& s1, const Scheme2& s2 )
         {
@@ -162,7 +160,11 @@ namespace samurai
 
 
 
-
+        /**
+         * Addition of a flux-based scheme and a cell-based scheme.
+         * The cell-based scheme is assembled first, then the flux-based scheme.
+         * The boundary conditions are taken from the flux-based scheme.
+        */
         template<class FluxScheme, class CellScheme>
         class FluxBasedScheme_Sum_CellBasedScheme : public MatrixAssembly
         {
@@ -289,29 +291,40 @@ namespace samurai
             }
         };
 
-        template <typename, typename = void>
-        constexpr bool is_CellBasedScheme{};
-
-        template <typename T>
-        constexpr bool is_CellBasedScheme<T, std::void_t<decltype(std::declval<T>().stencil())> > = true;
-
+        // Operator +
         template <typename FluxScheme, typename CellScheme, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true>
         auto operator + (FluxScheme& flux_scheme, CellScheme& cell_scheme)
         {
             return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
         }
 
+        // Operator + with reference rvalue
+        template <typename FluxScheme, typename CellScheme, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true>
+        auto operator + (FluxScheme&& flux_scheme, CellScheme& cell_scheme)
+        {
+            return flux_scheme + cell_scheme;
+        }
+
+        // Operator + in the reverse order
         template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>
         auto operator + (CellScheme& cell_scheme, FluxScheme& flux_scheme)
         {
-            return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
+            return flux_scheme + cell_scheme;
         }
 
+        // Operator + in the reverse order with reference rvalue
         template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>
         auto operator + (CellScheme& cell_scheme, FluxScheme&& flux_scheme)
         {
-            return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
+            return flux_scheme + cell_scheme;
         }
+
+        // Operator + with reference rvalue
+        /*template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>
+        auto operator + (CellScheme&& cell_scheme, FluxScheme&& flux_scheme)
+        {
+            return flux_scheme + cell_scheme;
+        }*/
 
 
     } // end namespace petsc

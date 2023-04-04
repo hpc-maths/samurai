@@ -6,8 +6,8 @@ namespace samurai
     template <std::size_t stencil_size, std::size_t dim>
     using Stencil = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
 
-    template <std::size_t dim>
-    using StencilVector = xt::xtensor_fixed<int, xt::xshape<dim>>;
+    template<std::size_t dim>
+    using DirectionVector = xt::xtensor_fixed<int, xt::xshape<dim>>;
 
     template <std::size_t stencil_size, std::size_t dim>
     int find_stencil_origin(const Stencil<stencil_size, dim>& stencil)
@@ -33,7 +33,7 @@ namespace samurai
     }
 
     template<std::size_t stencil_size, std::size_t dim>
-    int find(const Stencil<stencil_size, dim>& stencil, const StencilVector<dim>& vector)
+    int find(const Stencil<stencil_size, dim>& stencil, const DirectionVector<dim>& vector)
     {
         for (unsigned int id = 0; id<stencil_size; ++id)
         {

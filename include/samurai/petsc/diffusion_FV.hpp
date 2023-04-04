@@ -23,7 +23,7 @@ namespace samurai
             static constexpr std::size_t field_size = Field::size;
 
             DiffusionFV(Field& unknown) : 
-                FluxBasedScheme<cfg, Field>(unknown, scheme_coefficients())
+                FluxBasedScheme<cfg, Field>(unknown, diffusion_coefficients())
             {}
 
 
@@ -102,7 +102,7 @@ namespace samurai
             }
 
 
-            static auto scheme_coefficients()
+            static auto diffusion_coefficients()
             {
                 std::array<flux_computation_t, dim> fluxes;
                 auto directions = positive_cartesian_directions<dim>();

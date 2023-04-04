@@ -15,55 +15,44 @@
 
 static char help[] = "Solution of the Poisson problem in the domain [0,1]^d.\n"
                      "Geometric multigrid using the samurai meshes.\n"
-                     "\n"
-                     "-------- General\n"
-                     "\n"
-                     "--level        <int>           Level used to set the problem size\n"
-                     "--tc           <enum>          Test case:\n"
-                     "                                   poly  - The solution is a polynomial "
-                     "function.\n"
-                     "                                           Homogeneous Dirichlet b.c.\n"
-                     "                                   exp   - The solution is an exponential "
-                     "function.\n"
-                     "                                           Non-homogeneous Dirichlet "
-                     "b.c.\n"
-                     "--save_sol     [0|1]           Save solution (default 0)\n"
-                     "--save_mesh    [0|1]           Save mesh (default 0)\n"
-                     "--path         <string>        Output path\n"
-                     "--filename     <string>        Solution file name\n"
-                     "\n"
-                     "-------- Samurai Multigrid ('-pc_type mg' to activate)\n"
-                     "\n"
-                     "--samg_smooth       <enum>     Smoother used in the samurai multigrid:\n"
-                     "                                   sgs   - symmetric Gauss-Seidel\n"
-                     "                                   gs    - Gauss-Seidel (pre: lexico., "
-                     "post: antilexico.)\n"
-                     "                                   petsc - defined by Petsc options "
-                     "(default: Chebytchev polynomials)\n"
-                     "--samg_transfer_ops [1:4]      Samurai multigrid transfer operators "
-                     "(default: 1):\n"
-                     "                                   1 - P assembled, R assembled\n"
-                     "                                   2 - P assembled, R = P^T\n"
-                     "                                   3 - P mat-free, R mat-free (via "
-                     "double*)\n"
-                     "                                   4 - P mat-free, R mat-free (via "
-                     "Fields)\n"
-                     "--samg_pred_order   [0|1]      Prediction order used in the prolongation "
-                     "operator\n"
-                     "\n"
-                     "-------- Useful Petsc options\n"
-                     "\n"
-                     "-pc_type [mg|gamg|hypre...]    Sets the preconditioner ('mg' for the "
-                     "samurai multigrid)\n"
-                     "-ksp_monitor ascii             Prints the residual at each iteration\n"
-                     "-ksp_view ascii                View the solver's parametrization\n"
-                     "-ksp_rtol          <double>    Sets the solver tolerance\n"
-                     "-ksp_max_it        <int>       Sets the maximum number of iterations\n"
-                     "-pc_mg_levels      <int>       Sets the number of multigrid levels\n"
-                     "-mg_levels_up_pc_sor_its <int> Sets the number of post-smoothing "
-                     "iterations\n"
-                     "-log_view -pc_mg_log           Monitors the multigrid performance\n"
-                     "\n";
+            "\n"
+            "-------- General\n"
+            "\n"
+            "--level        <int>           Level used to set the problem size\n"
+            "--tc           <enum>          Test case:\n"
+            "                                   poly  - The solution is a polynomial function.\n"
+            "                                           Homogeneous Dirichlet b.c.\n"
+            "                                   exp   - The solution is an exponential function.\n"
+            "                                           Non-homogeneous Dirichlet b.c.\n"
+            "--save_sol     [0|1]           Save solution (default 0)\n"
+            "--save_mesh    [0|1]           Save mesh (default 0)\n"
+            "--path         <string>        Output path\n"
+            "--filename     <string>        Solution file name\n"
+            "\n"
+            "-------- Samurai Multigrid ('-pc_type mg' to activate)\n"
+            "\n"
+            "--samg_smooth       <enum>     Smoother used in the samurai multigrid:\n"
+            "                                   sgs   - symmetric Gauss-Seidel\n"
+            "                                   gs    - Gauss-Seidel (pre: lexico., post: antilexico.)\n"
+            "                                   petsc - defined by Petsc options (default: Chebytchev polynomials)\n"
+            "--samg_transfer_ops [1:4]      Samurai multigrid transfer operators (default: 1):\n"
+            "                                   1 - P assembled, R assembled\n"
+            "                                   2 - P assembled, R = P^T\n"
+            "                                   3 - P mat-free, R mat-free (via double*)\n"
+            "                                   4 - P mat-free, R mat-free (via Fields)\n"
+            "--samg_pred_order   [0|1]      Prediction order used in the prolongation operator\n"
+            "\n"
+            "-------- Useful Petsc options\n"
+            "\n"
+            "-pc_type [mg|gamg|hypre...]    Sets the preconditioner ('mg' for the samurai multigrid)\n"
+            "-ksp_monitor ascii             Prints the residual at each iteration\n"
+            "-ksp_view ascii                View the solver's parametrization\n"
+            "-ksp_rtol          <double>    Sets the solver tolerance\n"
+            "-ksp_max_it        <int>       Sets the maximum number of iterations\n"
+            "-pc_mg_levels      <int>       Sets the number of multigrid levels\n"
+            "-mg_levels_up_pc_sor_its <int> Sets the number of post-smoothing iterations\n"
+            "-log_view -pc_mg_log           Monitors the multigrid performance\n"
+            "\n";
 
 static constexpr double pi = M_PI;
 
@@ -91,22 +80,22 @@ Mesh create_uniform_mesh(std::size_t level)
     using Box = samurai::Box<double, Mesh::dim>;
 
     Box box;
-    if constexpr (Mesh::dim == 1)
+    if constexpr(Mesh::dim == 1)
     {
         box = Box({0}, {1});
     }
-    else if constexpr (Mesh::dim == 2)
+    else if constexpr(Mesh::dim == 2)
     {
-        box = Box({0, 0}, {1, 1});
+        box = Box({0,0}, {1,1});
     }
-    else if constexpr (Mesh::dim == 3)
+    else if constexpr(Mesh::dim == 3)
     {
-        box = Box({0, 0, 0}, {1, 1, 1});
+        box = Box({0,0,0}, {1,1,1});
     }
     std::size_t start_level, min_level, max_level;
     start_level = level;
-    min_level   = level;
-    max_level   = level;
+    min_level = level;
+    max_level = level;
 
     return Mesh(box, start_level, min_level, max_level); // amr::Mesh
     //return Mesh(box, min_level, max_level); // MRMesh
@@ -115,8 +104,7 @@ Mesh create_uniform_mesh(std::size_t level)
 template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::StarStencilFV<dim, Field::size*dim, 1>>
 class GradientFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
-  public:
-
+public:
     using local_matrix_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::local_matrix_t;
 
     GradientFV_old(Field& u) : 
@@ -125,11 +113,11 @@ class GradientFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
 
     static std::array<local_matrix_t, 5> coefficients(double h)
     {
-        static constexpr unsigned int L = 0; // left
+        static constexpr unsigned int L = 0; // left  
         static constexpr unsigned int C = 1; // center
-        static constexpr unsigned int R = 2; // right
+        static constexpr unsigned int R = 2; // right 
         static constexpr unsigned int B = 3; // bottom
-        static constexpr unsigned int T = 4; // top
+        static constexpr unsigned int T = 4; // top   
 
         static constexpr unsigned int x = 0;
         static constexpr unsigned int y = 1;
@@ -146,19 +134,19 @@ class GradientFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
         //     Grad_y --> 1/(2h) * |  |  |  |-1| 1|
         //
         std::array<local_matrix_t, 5> coeffs;
-        double one_over_2h = 1 / (2 * h);
+        double one_over_2h = 1/(2*h);
 
         xt::view(coeffs[L], x) = -one_over_2h;
-        xt::view(coeffs[C], x) = 0;
-        xt::view(coeffs[R], x) = one_over_2h;
-        xt::view(coeffs[B], x) = 0;
-        xt::view(coeffs[T], x) = 0;
+        xt::view(coeffs[C], x) =  0;
+        xt::view(coeffs[R], x) =  one_over_2h;
+        xt::view(coeffs[B], x) =  0;
+        xt::view(coeffs[T], x) =  0;
 
-        xt::view(coeffs[L], y) = 0;
-        xt::view(coeffs[C], y) = 0;
-        xt::view(coeffs[R], y) = 0;
+        xt::view(coeffs[L], y) =  0;
+        xt::view(coeffs[C], y) =  0;
+        xt::view(coeffs[R], y) =  0;
         xt::view(coeffs[B], y) = -one_over_2h;
-        xt::view(coeffs[T], y) = one_over_2h;
+        xt::view(coeffs[T], y) =  one_over_2h;
 
         return coeffs;
     }
@@ -173,8 +161,7 @@ auto make_gradient_FV_old(Field& f)
 template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::StarStencilFV<dim, 1, 1>>
 class MinusDivergenceFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
-  public:
-
+public:
     using local_matrix_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::local_matrix_t;
 
     MinusDivergenceFV_old(Field& u) : 
@@ -183,11 +170,11 @@ class MinusDivergenceFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
 
     static std::array<local_matrix_t, 5> coefficients(double h)
     {
-        static constexpr unsigned int L = 0; // left
+        static constexpr unsigned int L = 0; // left  
         static constexpr unsigned int C = 1; // center
-        static constexpr unsigned int R = 2; // right
+        static constexpr unsigned int R = 2; // right 
         static constexpr unsigned int B = 3; // bottom
-        static constexpr unsigned int T = 4; // top
+        static constexpr unsigned int T = 4; // top   
 
         static constexpr unsigned int x = 0;
         static constexpr unsigned int y = 1;
@@ -199,27 +186,27 @@ class MinusDivergenceFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
         //        = 1/(2h) * [u_{R} - u_{L} + u_{T} - u_{B}]
         //
         // The coefficient array is:
-        //                             L     C     R     B     T
+        //                             L     C     R     B     T 
         //                           Fx Fy Fx Fy Fx Fy Fx Fy Fx Fy
         //     Div     --> 1/(2h) * |-1  0| 0  0| 1  0| 0 -1| 0  1|
         //
         std::array<local_matrix_t, 5> coeffs;
-        double one_over_2h = 1 / (2 * h);
+        double one_over_2h = 1/(2*h);
 
         coeffs[L][x] = -one_over_2h * (-1);
-        coeffs[L][y] = 0;
+        coeffs[L][y] =  0;
 
-        coeffs[C][x] = 0;
-        coeffs[C][y] = 0;
+        coeffs[C][x] =  0;
+        coeffs[C][y] =  0;
 
-        coeffs[R][x] = one_over_2h * (-1);
-        coeffs[R][y] = 0;
+        coeffs[R][x] =  one_over_2h * (-1);
+        coeffs[R][y] =  0;
 
-        coeffs[B][x] = 0;
+        coeffs[B][x] =  0;
         coeffs[B][y] = -one_over_2h * (-1);
 
-        coeffs[T][x] = 0;
-        coeffs[T][y] = one_over_2h * (-1);
+        coeffs[T][x] =  0;
+        coeffs[T][y] =  one_over_2h * (-1);
 
         return coeffs;
     }
@@ -278,7 +265,7 @@ public:
     using coeff_matrix_t = typename flux_computation_t::coeff_matrix_t;
 
     GradientFV(Field& u) : 
-        samurai::petsc::FluxBasedScheme<cfg, Field>(u, scheme_coefficients())
+        samurai::petsc::FluxBasedScheme<cfg, Field>(u, grad_coefficients())
     {
         static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
     }
@@ -300,24 +287,12 @@ public:
         double h_factor = pow(h_face, 2) / pow(h_cell, dim);
         xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0] * h_factor;
         xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1] * h_factor;
-
-        /*xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0];
-        xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1];
-        for (std::size_t d_ = 0; d_ < dim; ++d_)
-        {
-            if (d_ != d)
-            {
-                xt::view(coeffs[0], d_) = 0;
-                xt::view(coeffs[1], d_) = 0;
-            }
-        }*/
-
         return coeffs;
     }
 
     // Grad_x(u) = 1/2 * [ Fx(L) + Fx(R) ]
     // Grad_y(u) = 1/2 * [ Fx(B) + Fx(T) ]
-    static auto scheme_coefficients()
+    static auto grad_coefficients()
     {
         static_assert(dim <= 3, "GradientFV.scheme_coefficients() not implemented for dim > 3.");
         std::array<flux_computation_t, dim> fluxes;
@@ -405,7 +380,7 @@ public:
     static constexpr std::size_t field_size = Field::size;
 
     MinusDivergenceFV(Field& u) : 
-        samurai::petsc::FluxBasedScheme<cfg, Field>(u, scheme_coefficients())
+        samurai::petsc::FluxBasedScheme<cfg, Field>(u, minus_div_coefficients())
     {
         static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");
     }
@@ -421,10 +396,6 @@ public:
         }
         else
         {
-            /*flux_coeffs[0].fill(0);
-            flux_coeffs[1].fill(0);
-            flux_coeffs[0](d) = -1/h;
-            flux_coeffs[1](d) =  1/h;*/
             flux_coeffs[0].fill(-1/h);
             flux_coeffs[1].fill( 1/h);
         }
@@ -432,12 +403,8 @@ public:
     }
 
     template<std::size_t d>
-    static auto minus_average(std::array<flux_matrix_t, 2>& /*flux_coeffs*/, double h_face, double h_cell)
+    static auto minus_average(std::array<flux_matrix_t, 2>&, double h_face, double h_cell)
     {
-        // std::array<coeff_matrix_t, 2> coeffs;
-        // coeffs[0] = -0.5 * flux_coeffs[0];
-        // coeffs[1] = -0.5 * flux_coeffs[1];
-
         std::array<coeff_matrix_t, 2> coeffs;
         double h_factor = pow(h_face, dim-1) / pow(h_cell, dim);
         if constexpr (field_size == 1)
@@ -456,12 +423,8 @@ public:
     }
 
     template<std::size_t d>
-    static auto average(std::array<flux_matrix_t, 2>& /*flux_coeffs*/, double h_face, double h_cell)
+    static auto average(std::array<flux_matrix_t, 2>&, double h_face, double h_cell)
     {
-        // std::array<coeff_matrix_t, 2> coeffs;
-        // coeffs[0] = -0.5 * flux_coeffs[0];
-        // coeffs[1] = -0.5 * flux_coeffs[1];
-
         std::array<coeff_matrix_t, 2> coeffs;
         double h_factor = pow(h_face, dim-1) / pow(h_cell, dim);
         if constexpr (field_size == 1)
@@ -481,7 +444,7 @@ public:
 
 
     // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
-    static auto scheme_coefficients()
+    static auto minus_div_coefficients()
     {
         static_assert(dim <= 3, "MinusDivergenceFV.scheme_coefficients() not implemented for dim > 3.");
         std::array<flux_computation_t, dim> fluxes;
@@ -634,13 +597,16 @@ int main(int argc, char* argv[])
         filename = filename_str.substr(0, filename_str.find('\0'));
     }
 
-    //Mesh mesh = create_uniform_mesh<Mesh>(static_cast<std::size_t>(level));
     auto box = samurai::Box<double, dim>({0,0}, {1,1});
     //auto mesh = Mesh(box, start_level, min_level, max_level); // amr::Mesh
     auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level)); // MRMesh
 
 
     bool stationary = false;
+
+    //--------------------//
+    // Stationary problem //
+    //--------------------//
     if (stationary)
     {
         //----------------//
@@ -765,7 +731,10 @@ int main(int argc, char* argv[])
         }
         block_solver.destroy_petsc_objects();
     }
-    else // non stationary
+    //------------------------//
+    // Non stationary problem //
+    //------------------------//
+    else
     {
         //----------------//
         // Create problem //
@@ -799,10 +768,10 @@ int main(int argc, char* argv[])
         //             return y != 1;
         //         });
 
-        samurai::StencilVector<dim> left   = {-1,  0};
-        samurai::StencilVector<dim> right  = { 1,  0};
-        samurai::StencilVector<dim> bottom = { 0, -1};
-        samurai::StencilVector<dim> top    = { 0,  1};
+        samurai::DirectionVector<dim> left   = {-1,  0};
+        samurai::DirectionVector<dim> right  = { 1,  0};
+        samurai::DirectionVector<dim> bottom = { 0, -1};
+        samurai::DirectionVector<dim> top    = { 0,  1};
         samurai::make_bc<samurai::Dirichlet>(velocity, 1., 0.)->on(top);
         samurai::make_bc<samurai::Dirichlet>(velocity, 0., 0.)->on(left, bottom, right);
 
@@ -838,8 +807,6 @@ int main(int argc, char* argv[])
         double mr_epsilon = 1e-1; // Threshold used by multiresolution
         double mr_regularity = 3; // Regularity guess for multiresolution
 
-        //std::cout << velocity << std::endl;
-
 
         /*std::cout << mesh << std::endl;
         std::cout << std::endl;
@@ -855,18 +822,9 @@ int main(int argc, char* argv[])
         std::size_t nfiles = 50;
 
         samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
-        double dt_save = Tf/static_cast<double>(nfiles);
+        double dt_save = dt; // Tf/static_cast<double>(nfiles);
         std::size_t nsave = 1, nt = 0;
 
-
-            // using mesh_id_t = typename Mesh::mesh_id_t;
-            // samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts]/*[level]*/, [&](auto cell)
-            // {
-            //     std::cout << "Level: " << cell.level << ",  index: " << cell.index << " [" << cell.center(0) << ", " << cell.center(1) << "]" << " value = " << velocity[cell] << std::endl;
-            // });
-        
-        //update_velocity_bc(velocity, max_level);
-        //std::cout << velocity << std::endl;
 
         double t = 0;
         while (t != Tf)
@@ -878,14 +836,13 @@ int main(int argc, char* argv[])
                 dt += Tf - t;
                 t = Tf;
             }
-            std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
+            std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
 
             if (min_level != max_level)
             {
                 // Mesh adaptation
                 MRadaptation(mr_epsilon, mr_regularity);
                 //samurai::update_ghost_mr(velocity, update_velocity_bc);
-                //velocity.resize();
                 velocity_np1.resize();
                 pressure_np1.resize();
                 zero.resize(); zero.fill(0);
@@ -898,8 +855,9 @@ int main(int argc, char* argv[])
                     actual_max_level = std::max(actual_max_level, level);
                 });
 
-                std::cout << " min_level = " << actual_min_level << ", max_level = " << actual_max_level << std::endl;
+                std::cout << ", levels " << actual_min_level << "-" << actual_max_level;
             }
+            std::cout << std::endl;
 
             // Stokes operator
             //             |   Diff  Grad |
@@ -935,7 +893,7 @@ int main(int argc, char* argv[])
             std::swap(velocity.array(), velocity_np1.array());
 
             // Save the result
-            //if (t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
+            if (t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
             {
                 samurai::update_ghost_mr(velocity);
                 auto velocity_recons = samurai::reconstruction(velocity);
@@ -943,7 +901,6 @@ int main(int argc, char* argv[])
                 std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
                 samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
                 samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
-                std::cout << "export" << std::endl;
             }
         }
     }

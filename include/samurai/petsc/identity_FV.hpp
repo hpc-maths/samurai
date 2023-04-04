@@ -24,7 +24,7 @@ namespace samurai
 
         public:
             IdentityFV(Field& unknown) : 
-                FluxBasedScheme<cfg, Field>(unknown, scheme_coefficients())
+                FluxBasedScheme<cfg, Field>(unknown, identity_coefficients())
             {}
 
         private:
@@ -57,7 +57,7 @@ namespace samurai
 
 
 
-            static auto scheme_coefficients()
+            static auto identity_coefficients()
             {
                 static_assert(dim <= 3, "IdentityFV.scheme_coefficients() not implemented for dim > 3.");
                 std::array<flux_computation_t, dim> fluxes;

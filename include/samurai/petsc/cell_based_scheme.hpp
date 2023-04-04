@@ -66,7 +66,7 @@ namespace samurai
         {
             template<class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
-            
+
         public:
 
             using cfg_t   = cfg;
@@ -247,6 +247,19 @@ namespace samurai
                 }
             }
 
+            template<class Coeffs>
+            inline double cell_coeff(const Coeffs& coeffs, std::size_t cell_number_in_stencil, unsigned int field_i, unsigned int field_j) const
+            {
+                if constexpr (field_size == 1 && output_field_size == 1)
+                {
+                    return coeffs[cell_number_in_stencil];
+                }
+                else
+                {
+                    return coeffs[cell_number_in_stencil](field_i, field_j);
+                }
+            }
+
         public:
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
@@ -263,15 +276,7 @@ namespace samurai
                             {
                                 for (unsigned int c = 0; c < cfg::contiguous_indices_start; ++c)
                                 {
-                                    double coeff;
-                                    if constexpr (field_size == 1 && output_field_size == 1)
-                                    {
-                                        coeff = coeffs[c];
-                                    }
-                                    else
-                                    {
-                                        coeff = coeffs[c](field_i, field_j);
-                                    }
+                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         scheme_nnz_i++;
@@ -282,15 +287,7 @@ namespace samurai
                             {
                                 for (unsigned int c = 0; c < cfg::contiguous_indices_size; ++c)
                                 {
-                                    double coeff;
-                                    if constexpr (field_size == 1 && output_field_size == 1)
-                                    {
-                                        coeff = coeffs[cfg::contiguous_indices_start + c];
-                                    }
-                                    else
-                                    {
-                                        coeff = coeffs[cfg::contiguous_indices_start + c](field_i, field_j);
-                                    }
+                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         scheme_nnz_i += cfg::contiguous_indices_size;
@@ -304,15 +301,7 @@ namespace samurai
                                      c < cfg::scheme_stencil_size;
                                      ++c)
                                 {
-                                    double coeff;
-                                    if constexpr (field_size == 1 && output_field_size == 1)
-                                    {
-                                        coeff = coeffs[c];
-                                    }
-                                    else
-                                    {
-                                        coeff = coeffs[c](field_i, field_j);
-                                    }
+                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         scheme_nnz_i++;
@@ -1195,6 +1184,13 @@ namespace samurai
                 return error_norm;
             }
         };
+
+
+        template <typename, typename = void>
+        constexpr bool is_CellBasedScheme{};
+
+        template <typename T>
+        constexpr bool is_CellBasedScheme<T, std::void_t<decltype(std::declval<T>().stencil())> > = true;
 
     } // end namespace petsc
 } // end namespace samurai
