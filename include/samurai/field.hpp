@@ -363,6 +363,8 @@ namespace samurai
         public:
             using mesh_t = Mesh;
 
+            inner_mesh_type() = default;
+
             inner_mesh_type(mesh_t& mesh)
             : p_mesh(&mesh)
             {}
@@ -394,6 +396,8 @@ namespace samurai
     {
         public:
             using mesh_t = Mesh;
+
+            inner_mesh_type() = default;
 
             inner_mesh_type(hold<Mesh>& mesh)
             : m_mesh(mesh.get())
@@ -451,6 +455,8 @@ namespace samurai
         std::vector<boundary_condition_t> m_boundary_conditions;
 
       public:
+        Field() = default;
+
         Field(const std::string& name, mesh_t& mesh);
 
         Field(Field&);
