@@ -82,23 +82,6 @@ void flux_correction(double dt, double a, const Field& u, Field& unp1)
 }
 
 template <class Field>
-void dirichlet(std::size_t level, Field& u)
-{
-    using mesh_t = typename Field::mesh_t;
-    using mesh_id_t = typename mesh_t::mesh_id_t;
-
-    auto mesh = u.mesh();
-
-    auto boundary = samurai::difference(mesh[mesh_id_t::reference][level],
-                                        mesh.domain())
-                   .on(level);
-    boundary([&](const auto& i, auto)
-    {
-        u(level, i) = 0.;
-    });
-}
-
-template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix="")
 {
     auto mesh = u.mesh();
@@ -167,7 +150,10 @@ int main(int argc, char *argv[])
     auto u = init(mesh);
     if (!is_periodic)
     {
-        samurai::make_bc<samurai::Dirichlet>(u, 0.);
+        xt::xtensor_fixed<int, xt::xshape<1>> left{-1}, right{1};
+        samurai::make_bc<samurai::Dirichlet>(u, 0.)->on(left, right);
+        // same as (just to test OnDirection instead of Everywhere)
+        // samurai::make_bc<samurai::Dirichlet>(u, 0.);
     }
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
