@@ -1,28 +1,33 @@
 #pragma once
 #include "matrix_assembly.hpp"
 
-namespace samurai 
-{ 
+namespace samurai
+{
     namespace petsc
     {
         /**
          * @class BackwardEuler
-        */
-        template<class Operator>
+         */
+        template <class Operator>
         class BackwardEuler : public MatrixAssembly
         {
-        public:
+          public:
+
             using field_t = typename Operator::field_t;
-            using Mesh = typename field_t::mesh_t;
-        private:
+            using Mesh    = typename field_t::mesh_t;
+
+          private:
+
             Operator& m_operator;
             double m_dt;
 
-        public:
-            BackwardEuler(Operator& op, double dt) : 
-                m_operator(op),
-                m_dt(dt)
-            {}
+          public:
+
+            BackwardEuler(Operator& op, double dt)
+                : m_operator(op)
+                , m_dt(dt)
+            {
+            }
 
             auto& unknown() const
             {
@@ -60,7 +65,7 @@ namespace samurai
 
                 // A = I + m_dt*A
                 MatScale(A, m_dt); // A = m_dt*A;
-                MatShift(A, 1);   // A = A + 1*I
+                MatShift(A, 1);    // A = A + 1*I
 
                 PetscBool is_spd = matrix_is_spd() ? PETSC_TRUE : PETSC_FALSE;
                 MatSetOption(A, MAT_SPD, is_spd);
@@ -76,21 +81,34 @@ namespace samurai
                 m_operator.enforce_projection_prediction(b);
             }
 
-        private:
-            void assemble_scheme_on_uniform_grid(Mat&) override {}
-            void assemble_boundary_conditions(Mat&) override {}
-            void assemble_projection(Mat&) override {}
-            void assemble_prediction(Mat&) override {}
-            void add_1_on_diag_for_useless_ghosts(Mat&) override {}
+          private:
+
+            void assemble_scheme_on_uniform_grid(Mat&) override
+            {
+            }
+
+            void assemble_boundary_conditions(Mat&) override
+            {
+            }
+
+            void assemble_projection(Mat&) override
+            {
+            }
+
+            void assemble_prediction(Mat&) override
+            {
+            }
+
+            void add_1_on_diag_for_useless_ghosts(Mat&) override
+            {
+            }
         };
 
-        
-
-        template<class Operator>
+        template <class Operator>
         auto make_backward_euler(Operator& op, double dt)
         {
             return BackwardEuler<Operator>(op, dt);
         }
-        
+
     } // end namespace petsc
 } // end namespace samurai

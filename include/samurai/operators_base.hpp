@@ -11,58 +11,61 @@
 
 namespace samurai
 {
-    template<template<class T> class OP, class... CT>
-    class field_operator_function: public field_expression<field_operator_function<OP, CT...>>
+    template <template <class T> class OP, class... CT>
+    class field_operator_function : public field_expression<field_operator_function<OP, CT...>>
     {
-    public:
+      public:
+
         static constexpr std::size_t dim = detail::compute_dim<CT...>();
 
-        inline field_operator_function(CT &&... e) : m_e{std::forward<CT>(e)...}
-        {}
+        inline field_operator_function(CT&&... e)
+            : m_e{std::forward<CT>(e)...}
+        {
+        }
 
-        template<class interval_t, class... index_t>
+        template <class interval_t, class... index_t>
         inline auto operator()(std::size_t level, interval_t i, index_t... index) const
         {
             OP<interval_t> op(level, i, index...);
             return apply(op);
         }
 
-        template<class interval_t, class coord_index_t>
-        inline auto operator()(std::size_t level, interval_t i,
-                               xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index) const
+        template <class interval_t, class coord_index_t>
+        inline auto operator()(std::size_t level, interval_t i, xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index) const
         {
             OP<interval_t> op(level, i, index);
             return apply(op);
         }
 
-    private:
-        template<class interval_t>
-        inline auto apply(OP<interval_t> &op) const
+      private:
+
+        template <class interval_t>
+        inline auto apply(OP<interval_t>& op) const
         {
             return apply_impl(std::make_index_sequence<sizeof...(CT)>(), op);
         }
 
-        template<std::size_t... I, class interval_t>
-        inline auto apply_impl(std::index_sequence<I...>, OP<interval_t> &op) const
+        template <std::size_t... I, class interval_t>
+        inline auto apply_impl(std::index_sequence<I...>, OP<interval_t>& op) const
         {
-            return op(std::integral_constant<std::size_t, dim>{},
-                      std::get<I>(m_e)...);
+            return op(std::integral_constant<std::size_t, dim>{}, std::get<I>(m_e)...);
         }
 
         std::tuple<CT...> m_e;
     };
 
-    template<template<class T> class OP, class... CT>
-    inline auto make_field_operator_function(CT &&... e)
+    template <template <class T> class OP, class... CT>
+    inline auto make_field_operator_function(CT&&... e)
     {
         return field_operator_function<OP, CT...>(std::forward<CT>(e)...);
     }
 
-    template<class TInterval>
+    template <class TInterval>
     class field_operator_base
     {
-    public:
-        using interval_t = TInterval;
+      public:
+
+        using interval_t    = TInterval;
         using coord_index_t = typename interval_t::coord_index_t;
 
         std::size_t level;
@@ -74,11 +77,13 @@ namespace samurai
             return m_dx;
         }
 
-    protected:
-        template<std::size_t dim>
-        inline field_operator_base(std::size_t level_, const interval_t& interval,
-                                   xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
-        : level{level_}, i{interval}, m_dx{cell_length(level)}
+      protected:
+
+        template <std::size_t dim>
+        inline field_operator_base(std::size_t level_, const interval_t& interval, xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index)
+            : level{level_}
+            , i{interval}
+            , m_dx{cell_length(level)}
         {
             if constexpr (dim > 0)
             {
@@ -91,40 +96,54 @@ namespace samurai
         }
 
         inline field_operator_base(std::size_t level_, const interval_t& interval)
-        : level{level_}, i{interval}, m_dx{cell_length(level)}
-        {}
+            : level{level_}
+            , i{interval}
+            , m_dx{cell_length(level)}
+        {
+        }
 
         inline field_operator_base(std::size_t level_, const interval_t& interval, coord_index_t j_)
-        : level{level_}, i{interval}, j{j_}, m_dx{cell_length(level)}
-        {}
+            : level{level_}
+            , i{interval}
+            , j{j_}
+            , m_dx{cell_length(level)}
+        {
+        }
 
         inline field_operator_base(std::size_t level_, const interval_t& interval, coord_index_t j_, coord_index_t k_)
-        : level{level_}, i{interval}, j{j_}, k{k_}, m_dx{cell_length(level)}
-        {}
+            : level{level_}
+            , i{interval}
+            , j{j_}
+            , k{k_}
+            , m_dx{cell_length(level)}
+        {
+        }
 
-    private:
+      private:
+
         double m_dx;
     };
 
-#define INIT_OPERATOR(NAME)                                                                  \
-    using interval_t = TInterval;                                                            \
-    using coord_index_t = typename interval_t::coord_index_t;                                \
-                                                                                             \
-    using base = ::samurai::field_operator_base<interval_t>;                                 \
-    using base::i;                                                                           \
-    using base::j;                                                                           \
-    using base::k;                                                                           \
-    using base::level;                                                                       \
-    using base::dx;                                                                          \
-                                                                                             \
-    template<std::size_t dim>                                                                \
-    inline NAME(std::size_t level_, const interval_t& interval,                              \
-                const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index)              \
-    : base(level_, interval, index)                                                          \
-    {}                                                                                       \
-                                                                                             \
-    template<class... index_t>                                                               \
-    inline NAME(std::size_t level_, const interval_t& interval, const index_t&... index)     \
-    : base(level_, interval, index...)                                                       \
-    {}
+#define INIT_OPERATOR(NAME)                                                                                                     \
+    using interval_t    = TInterval;                                                                                            \
+    using coord_index_t = typename interval_t::coord_index_t;                                                                   \
+                                                                                                                                \
+    using base = ::samurai::field_operator_base<interval_t>;                                                                    \
+    using base::i;                                                                                                              \
+    using base::j;                                                                                                              \
+    using base::k;                                                                                                              \
+    using base::level;                                                                                                          \
+    using base::dx;                                                                                                             \
+                                                                                                                                \
+    template <std::size_t dim>                                                                                                  \
+    inline NAME(std::size_t level_, const interval_t& interval, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& index) \
+        : base(level_, interval, index)                                                                                         \
+    {                                                                                                                           \
+    }                                                                                                                           \
+                                                                                                                                \
+    template <class... index_t>                                                                                                 \
+    inline NAME(std::size_t level_, const interval_t& interval, const index_t&... index)                                        \
+        : base(level_, interval, index...)                                                                                      \
+    {                                                                                                                           \
+    }
 } // namespace samurai

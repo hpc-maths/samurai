@@ -12,7 +12,9 @@ namespace samurai
     TEST(list_of_intervals, add_interval)
     {
         ListOfIntervals<int, int> list;
-        xt::xarray<Interval<int, int>> expected{{-3, 3}};
+        xt::xarray<Interval<int, int>> expected{
+            {-3, 3}
+        };
         list.add_interval({-3, 3});
         EXPECT_EQ(list, expected);
     }
@@ -20,7 +22,9 @@ namespace samurai
     TEST(list_of_intervals, add_interval_back)
     {
         ListOfIntervals<int, int> list;
-        xt::xarray<Interval<int, int>> expected{{-10, 3}};
+        xt::xarray<Interval<int, int>> expected{
+            {-10, 3}
+        };
         list.add_interval({-3, 3});
         list.add_interval({-10, -3});
         EXPECT_EQ(list, expected);
@@ -29,7 +33,9 @@ namespace samurai
     TEST(list_of_intervals, add_interval_front)
     {
         ListOfIntervals<int, int> list;
-        xt::xarray<Interval<int, int>> expected{{-3, 10}};
+        xt::xarray<Interval<int, int>> expected{
+            {-3, 10}
+        };
         list.add_interval({-3, 3});
         list.add_interval({3, 10});
         EXPECT_EQ(list, expected);
@@ -38,7 +44,9 @@ namespace samurai
     TEST(list_of_intervals, add_interval_intersection_1)
     {
         ListOfIntervals<int, int> list;
-        xt::xarray<Interval<int, int>> expected{{-10, 3}};
+        xt::xarray<Interval<int, int>> expected{
+            {-10, 3}
+        };
         list.add_interval({-3, 3});
         list.add_interval({-10, 0});
         EXPECT_EQ(list, expected);
@@ -47,7 +55,9 @@ namespace samurai
     TEST(list_of_intervals, add_interval_intersection_2)
     {
         ListOfIntervals<int, int> list;
-        xt::xarray<Interval<int, int>> expected{{-3, 10}};
+        xt::xarray<Interval<int, int>> expected{
+            {-3, 10}
+        };
         list.add_interval({-3, 3});
         list.add_interval({0, 10});
         EXPECT_EQ(list, expected);
@@ -57,14 +67,16 @@ namespace samurai
     {
         ListOfIntervals<int, int> list;
 
-        int size = 1000;
+        int size  = 1000;
         auto perm = -size / 2 + xt::random::permutation<int>(size);
         for (auto p : perm)
         {
             list.add_point(p);
         }
 
-        xt::xarray<Interval<int, int>> expected{{-size / 2, size / 2}};
+        xt::xarray<Interval<int, int>> expected{
+            {-size / 2, size / 2}
+        };
         EXPECT_EQ(list, expected);
     }
 

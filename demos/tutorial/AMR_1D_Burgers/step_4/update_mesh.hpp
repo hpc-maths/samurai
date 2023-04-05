@@ -6,12 +6,12 @@
 
 #include "update_field.hpp"
 
-template<class Field, class Tag>
+template <class Field, class Tag>
 bool update_mesh(Field& f, const Tag& tag)
 {
-    using mesh_t = typename Field::mesh_t;
+    using mesh_t    = typename Field::mesh_t;
     using mesh_id_t = typename mesh_t::mesh_id_t;
-    using cl_type = typename mesh_t::cl_type;
+    using cl_type   = typename mesh_t::cl_type;
 
     /**
      *
@@ -34,31 +34,31 @@ bool update_mesh(Field& f, const Tag& tag)
      *
      */
 
-
     auto& mesh = f.mesh();
 
     cl_type cell_list;
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& )
-    {
-        std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
-        for (int i = interval.start; i < interval.end; ++i)
-        {
-            if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
-            {
-                cell_list[level + 1][{}].add_interval({2 * i, 2 * i + 2});
-            }
-            else if (tag[itag] & static_cast<int>(samurai::CellFlag::keep))
-            {
-                cell_list[level][{}].add_point(i);
-            }
-            else
-            {
-                cell_list[level-1][{}].add_point(i>>1);
-            }
-            itag++;
-        }
-    });
+    samurai::for_each_interval(mesh[mesh_id_t::cells],
+                               [&](std::size_t level, const auto& interval, const auto&)
+                               {
+                                   std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
+                                   for (int i = interval.start; i < interval.end; ++i)
+                                   {
+                                       if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
+                                       {
+                                           cell_list[level + 1][{}].add_interval({2 * i, 2 * i + 2});
+                                       }
+                                       else if (tag[itag] & static_cast<int>(samurai::CellFlag::keep))
+                                       {
+                                           cell_list[level][{}].add_point(i);
+                                       }
+                                       else
+                                       {
+                                           cell_list[level - 1][{}].add_point(i >> 1);
+                                       }
+                                       itag++;
+                                   }
+                               });
 
     mesh_t new_mesh(cell_list, mesh.min_level(), mesh.max_level());
 

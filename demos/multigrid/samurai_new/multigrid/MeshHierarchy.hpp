@@ -2,19 +2,22 @@
 #include "coarsening.hpp"
 #include <list>
 
-template<class Mesh>
+template <class Mesh>
 class MeshHierarchy
 {
-private:
+  private:
+
     Mesh& _initial_mesh;
     std::vector<Mesh> _created_meshes;
 
     // front() --> fine mesh
     // back()  --> coarse mesh
     std::list<Mesh*> _hierarchy;
-public:
-    MeshHierarchy(Mesh& mesh) :
-        _initial_mesh(mesh)
+
+  public:
+
+    MeshHierarchy(Mesh& mesh)
+        : _initial_mesh(mesh)
     {
         _hierarchy.push_front(&mesh);
     }
@@ -39,14 +42,18 @@ public:
 
     void build_from_fine(int times)
     {
-        for (int i=0; i<times; ++i)
+        for (int i = 0; i < times; ++i)
+        {
             add_coarser();
+        }
     }
 
     void build_from_coarse(int times)
     {
-        for (int i=0; i<times; ++i)
+        for (int i = 0; i < times; ++i)
+        {
             add_finer();
+        }
     }
 
     Mesh* get_coarser(const Mesh& m)
@@ -57,9 +64,13 @@ public:
             {
                 ++it;
                 if (it != end())
+                {
                     return *it;
+                }
                 else
+                {
                     return nullptr;
+                }
             }
         }
         assert(false && "the mesh is not in the hierarchy");

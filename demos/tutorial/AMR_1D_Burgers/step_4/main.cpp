@@ -27,15 +27,15 @@ namespace fs = std::filesystem;
  *
  */
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     // AMR parameters
     std::size_t start_level = 8;
-    std::size_t min_level = 2;
-    std::size_t max_level = 8;
+    std::size_t min_level   = 2;
+    std::size_t max_level   = 8;
 
     // Output parameters
-    fs::path path = fs::current_path();
+    fs::path path        = fs::current_path();
     std::string filename = "amr_1d_burgers_step_4";
 
     CLI::App app{"Tutorial AMR Burgers 1D step 4"};
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 
     ////////////////////////////////
     std::size_t i_adapt = 0;
-    while(i_adapt < (max_level - min_level + 1))
+    while (i_adapt < (max_level - min_level + 1))
     {
         auto tag = samurai::make_field<std::size_t, 1>("tag", mesh);
 
@@ -75,13 +75,13 @@ int main(int argc, char *argv[])
     }
 
     auto level = samurai::make_field<std::size_t, 1>("level", mesh);
-    samurai::for_each_interval(mesh[MeshID::cells], [&](std::size_t l, const auto& i, auto)
-    {
-        level(l, i) = l;
-    });
+    samurai::for_each_interval(mesh[MeshID::cells],
+                               [&](std::size_t l, const auto& i, auto)
+                               {
+                                   level(l, i) = l;
+                               });
     samurai::save(path, filename, mesh, phi, level);
     ////////////////////////////////
 
     return 0;
 }
-

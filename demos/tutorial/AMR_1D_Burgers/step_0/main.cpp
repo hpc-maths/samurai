@@ -20,10 +20,10 @@ namespace fs = std::filesystem;
  *
  */
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     // Output parameters
-    fs::path path = fs::current_path();
+    fs::path path        = fs::current_path();
     std::string filename = "amr_1d_burgers_step_0";
 
     CLI::App app{"Tutorial AMR Burgers 1D step 0"};
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     }
 
     constexpr std::size_t dim = 1;
-    std::size_t init_level = 4;
+    std::size_t init_level    = 4;
 
     /**
      *

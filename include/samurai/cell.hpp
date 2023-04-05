@@ -11,12 +11,11 @@
 
 namespace samurai
 {
-    template<typename LevelType, std::enable_if_t<std::is_integral<LevelType>::value, bool> = true>
+    template <typename LevelType, std::enable_if_t<std::is_integral<LevelType>::value, bool> = true>
     inline double cell_length(LevelType level)
     {
-        return 1./(1<<level);
+        return 1. / (1 << level);
     }
-
 
     /** @class Cell
      *  @brief Define a mesh cell in multi dimensions.
@@ -27,11 +26,11 @@ namespace samurai
      *  @tparam TCoord_index The type of the coordinates.
      *  @tparam dim_ The dimension of the cell.
      */
-    template<class TCoord_index, std::size_t dim_>
+    template <class TCoord_index, std::size_t dim_>
     struct Cell
     {
         static constexpr std::size_t dim = dim_;
-        using value_t = TCoord_index;
+        using value_t                    = TCoord_index;
 
         Cell();
 
@@ -46,7 +45,7 @@ namespace samurai
         double center(std::size_t i) const;
 
         /// The center of the face in the requested Cartesian direction.
-        template<class Vector>
+        template <class Vector>
         xt::xtensor_fixed<double, xt::xshape<dim>> face_center(const Vector& direction) const;
 
         /// The level of the cell.
@@ -55,7 +54,7 @@ namespace samurai
         /// The integer coordinates of the cell.
         xt::xtensor_fixed<value_t, xt::xshape<dim>> indices;
 
-            /// The index where the cell is in the data array.
+        /// The index where the cell is in the data array.
         std::size_t index;
 
         /// The length of the cell.
@@ -64,13 +63,17 @@ namespace samurai
         void to_stream(std::ostream& os) const;
     };
 
-    template<class TCoord_index, std::size_t dim_>
-    inline Cell<TCoord_index, dim_>::Cell() {}
+    template <class TCoord_index, std::size_t dim_>
+    inline Cell<TCoord_index, dim_>::Cell()
+    {
+    }
 
-    template<class TCoord_index, std::size_t dim_>
+    template <class TCoord_index, std::size_t dim_>
     template <class T>
     inline Cell<TCoord_index, dim_>::Cell(std::size_t level_, const T& indices_, std::size_t index_)
-    : level(level_), indices(indices_), index(index_)
+        : level(level_)
+        , indices(indices_)
+        , index(index_)
     {
         length = cell_length(level);
         // center = length*(indices + 0.5);
@@ -79,49 +82,49 @@ namespace samurai
     /**
      * The minimum corner of the cell.
      */
-    template<class TCoord_index, std::size_t dim_>
+    template <class TCoord_index, std::size_t dim_>
     inline auto Cell<TCoord_index, dim_>::corner() const -> xt::xtensor_fixed<double, xt::xshape<dim>>
     {
-        return length*indices;
+        return length * indices;
     }
 
-    template<class TCoord_index, std::size_t dim_>
+    template <class TCoord_index, std::size_t dim_>
     inline double Cell<TCoord_index, dim_>::corner(std::size_t i) const
     {
-        return length*indices[i];
+        return length * indices[i];
     }
 
     /**
      * The minimum corner of the cell.
      */
-    template<class TCoord_index, std::size_t dim_>
+    template <class TCoord_index, std::size_t dim_>
     inline auto Cell<TCoord_index, dim_>::center() const -> xt::xtensor_fixed<double, xt::xshape<dim>>
     {
-        return length*(indices + 0.5);
+        return length * (indices + 0.5);
     }
 
-    template<class TCoord_index, std::size_t dim_>
+    template <class TCoord_index, std::size_t dim_>
     inline double Cell<TCoord_index, dim_>::center(std::size_t i) const
     {
-        return length*(indices[i] + 0.5);
+        return length * (indices[i] + 0.5);
     }
 
-    template<class TCoord_index, std::size_t dim_>
-    template<class Vector>
+    template <class TCoord_index, std::size_t dim_>
+    template <class Vector>
     inline auto Cell<TCoord_index, dim_>::face_center(const Vector& direction) const -> xt::xtensor_fixed<double, xt::xshape<dim>>
     {
         assert(abs(xt::sum(direction)(0)) == 1); // We only want a Cartesian unit vector
-        return center() + (length/2) * direction;
+        return center() + (length / 2) * direction;
     }
 
-    template<class TCoord_index, std::size_t dim_>
+    template <class TCoord_index, std::size_t dim_>
     inline void Cell<TCoord_index, dim_>::to_stream(std::ostream& os) const
     {
         os << "Cell -> level: " << level << " indices: " << indices << " center: " << center() << " index: " << index;
     }
 
-    template<class TCoord_index, std::size_t dim>
-    inline std::ostream &operator<<(std::ostream &out, const Cell<TCoord_index, dim>& cell)
+    template <class TCoord_index, std::size_t dim>
+    inline std::ostream& operator<<(std::ostream& out, const Cell<TCoord_index, dim>& cell)
     {
         cell.to_stream(out);
         return out;

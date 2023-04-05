@@ -7,8 +7,8 @@
 #include <xtensor/xeval.hpp>
 #include <xtensor/xmasked_view.hpp>
 
-#include <samurai/mr/cell_flag.hpp>
 #include <samurai/algorithm.hpp>
+#include <samurai/mr/cell_flag.hpp>
 
 /**
  * AMR criterion
@@ -23,7 +23,7 @@
  *
  */
 
-template<class Field, class Tag>
+template <class Field, class Tag>
 void AMR_criterion(const Field& f, Tag& tag)
 {
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -35,20 +35,21 @@ void AMR_criterion(const Field& f, Tag& tag)
 
     tag.fill(static_cast<int>(samurai::CellFlag::keep));
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, auto& i, auto& )
-    {
-        double dx = samurai::cell_length(level);
+    samurai::for_each_interval(mesh[mesh_id_t::cells],
+                               [&](std::size_t level, auto& i, auto&)
+                               {
+                                   double dx = samurai::cell_length(level);
 
-        auto der_approx = xt::eval(xt::abs((f(level, i + 1) - f(level, i - 1)) / (2.*dx)));
-        auto mask = der_approx > 0.01;
+                                   auto der_approx = xt::eval(xt::abs((f(level, i + 1) - f(level, i - 1)) / (2. * dx)));
+                                   auto mask       = der_approx > 0.01;
 
-        if (level < max_level)
-        {
-            xt::masked_view(tag(level, i),   mask) = static_cast<int>(samurai::CellFlag::refine);
-        }
-        if (level > min_level)
-        {
-            xt::masked_view(tag(level, i),  !mask) = static_cast<int>(samurai::CellFlag::coarsen);
-        }
-    });
+                                   if (level < max_level)
+                                   {
+                                       xt::masked_view(tag(level, i), mask) = static_cast<int>(samurai::CellFlag::refine);
+                                   }
+                                   if (level > min_level)
+                                   {
+                                       xt::masked_view(tag(level, i), !mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                                   }
+                               });
 }
