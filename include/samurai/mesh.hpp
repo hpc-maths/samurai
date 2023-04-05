@@ -344,8 +344,6 @@ namespace samurai
         for_each_interval(m_cells[mesh_id_t::cells],
                           [&](std::size_t level, const auto& i, const auto& index)
                           {
-                              // std::size_t shift = m_cells[mesh_id_t::cells].max_level()
-                              // - level;
                               std::size_t shift = m_max_level - level;
                               interval_t to_add = i << shift;
                               auto shift_index  = index << shift;

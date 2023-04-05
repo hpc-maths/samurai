@@ -115,7 +115,7 @@ namespace samurai
             }
             else
             {
-                return (a&& not_fn{}(dim, b...));
+                return (a && not_fn{}(dim, b...));
             }
         }
 
