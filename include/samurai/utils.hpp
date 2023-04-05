@@ -90,7 +90,7 @@ namespace samurai
         }
 
         template <class T>
-        constexpr const T& do_max(const T& v)
+        constexpr T do_max(const T& v)
         {
             return v;
         }
@@ -105,19 +105,19 @@ namespace samurai
         };
 
         template <class T1, class T2, class... Rest>
-        constexpr typename const std::common_type<T1, T2, Rest...>::type& do_max(T1 const& v0, T2 const& v1, const Rest&... rest)
+        constexpr typename std::common_type<T1, T2, Rest...>::type do_max(T1 const& v0, T2 const& v1, const Rest&... rest)
         {
             return do_max(v0 < v1 ? v1 : v0, rest...);
         }
 
         template <class T>
-        constexpr const T& do_min(const T& v)
+        constexpr T do_min(const T& v)
         {
             return v;
         }
 
         template <class T1, class T2, class... Rest>
-        constexpr typename const std::common_type<T1, T2, Rest...>::type& do_min(T1 const& v0, T2 const& v1, const Rest&... rest)
+        constexpr typename std::common_type<T1, T2, Rest...>::type do_min(T1 const& v0, T2 const& v1, const Rest&... rest)
         {
             return do_min(v0 < v1 ? v0 : v1, rest...);
         }

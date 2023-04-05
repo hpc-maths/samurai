@@ -39,8 +39,6 @@ auto init(Mesh& mesh)
     return u;
 }
 
-auto subset_right = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil), mesh[mesh_id_t::cells][level]).on(level);
-
 template <class Field>
 void flux_correction(double dt, double a, const Field& u, Field& unp1)
 {
