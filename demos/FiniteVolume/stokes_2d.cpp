@@ -261,8 +261,8 @@ template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::Flux
 class GradientFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
 {
 public:
-    using flux_computation_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::flux_computation_t;
-    using coeff_matrix_t = typename flux_computation_t::coeff_matrix_t;
+    using coefficients_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::coefficients_t;
+    using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
 
     GradientFV(Field& u) : 
         samurai::petsc::FluxBasedScheme<cfg, Field>(u, grad_coefficients())
@@ -296,37 +296,37 @@ public:
     static auto grad_coefficients()
     {
         static_assert(dim <= 3, "GradientFV.grad_coefficients() not implemented for dim > 3.");
-        std::array<flux_computation_t, dim> fluxes;
+        std::array<coefficients_t, dim> coeffs_by_fluxes;
         auto directions = samurai::positive_cartesian_directions<dim>();
         for (std::size_t d = 0; d < dim; ++d)
         {
-            auto& flux = fluxes[d];
-            flux.direction = xt::view(directions, d);
-            flux.computational_stencil = samurai::in_out_stencil<dim>(flux.direction);
-            flux.get_flux_coeffs = flux_coefficients;
+            auto& coeffs = coeffs_by_fluxes[d];
+            coeffs.flux.direction = xt::view(directions, d);
+            coeffs.flux.stencil = samurai::in_out_stencil<dim>(coeffs.flux.direction);
+            coeffs.flux.get_flux_coeffs = flux_coefficients;
             if (d == 0)
             {
-                flux.get_cell1_coeffs = half_flux_in_direction<0>;
-                flux.get_cell2_coeffs = half_flux_in_direction<0>;
+                coeffs.get_cell1_coeffs = half_flux_in_direction<0>;
+                coeffs.get_cell2_coeffs = half_flux_in_direction<0>;
             }
             if constexpr (dim >= 2)
             {
                 if (d == 1)
                 {
-                    flux.get_cell1_coeffs = half_flux_in_direction<1>;
-                    flux.get_cell2_coeffs = half_flux_in_direction<1>;
+                    coeffs.get_cell1_coeffs = half_flux_in_direction<1>;
+                    coeffs.get_cell2_coeffs = half_flux_in_direction<1>;
                 }
             }
             if constexpr (dim >= 3)
             {
                 if (d == 2)
                 {
-                    flux.get_cell1_coeffs = half_flux_in_direction<2>;
-                    flux.get_cell2_coeffs = half_flux_in_direction<2>;
+                    coeffs.get_cell1_coeffs = half_flux_in_direction<2>;
+                    coeffs.get_cell2_coeffs = half_flux_in_direction<2>;
                 }
             }
         }
-        return fluxes;
+        return coeffs_by_fluxes;
     }
 };
 
@@ -375,9 +375,9 @@ template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::Flux
 class MinusDivergenceFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
 {
 public:
-    using flux_computation_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::flux_computation_t;
-    using flux_matrix_t  = typename flux_computation_t::flux_matrix_t;
-    using coeff_matrix_t = typename flux_computation_t::coeff_matrix_t;
+    using coefficients_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::coefficients_t;
+    using flux_matrix_t  = typename coefficients_t::flux_computation_t::flux_matrix_t;
+    using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
     static constexpr std::size_t field_size = Field::size;
 
     MinusDivergenceFV(Field& u) : 
@@ -449,39 +449,39 @@ public:
     static auto minus_div_coefficients()
     {
         static_assert(dim <= 3, "MinusDivergenceFV.minus_div_coefficients() not implemented for dim > 3.");
-        std::array<flux_computation_t, dim> fluxes;
+        std::array<coefficients_t, dim> coeffs_by_fluxes;
         auto directions = samurai::positive_cartesian_directions<dim>();
         for (std::size_t d = 0; d < dim; ++d)
         {
-            auto& flux = fluxes[d];
-            flux.direction = xt::view(directions, d);
-            flux.computational_stencil = samurai::in_out_stencil<dim>(flux.direction);
+            auto& coeffs = coeffs_by_fluxes[d];
+            coeffs.flux.direction = xt::view(directions, d);
+            coeffs.flux.stencil = samurai::in_out_stencil<dim>(coeffs.flux.direction);
             if (d == 0)
             {
-                flux.get_flux_coeffs = flux_coefficients<0>;
-                flux.get_cell1_coeffs = minus_average<0>;
-                flux.get_cell2_coeffs = average<0>;
+                coeffs.flux.get_flux_coeffs = flux_coefficients<0>;
+                coeffs.get_cell1_coeffs = minus_average<0>;
+                coeffs.get_cell2_coeffs = average<0>;
             }
             if constexpr (dim >= 2)
             {
                 if (d == 1)
                 {
-                    flux.get_flux_coeffs = flux_coefficients<1>;
-                    flux.get_cell1_coeffs = minus_average<1>;
-                    flux.get_cell2_coeffs = average<1>;
+                    coeffs.flux.get_flux_coeffs = flux_coefficients<1>;
+                    coeffs.get_cell1_coeffs = minus_average<1>;
+                    coeffs.get_cell2_coeffs = average<1>;
                 }
             }
             if constexpr (dim >= 3)
             {
                 if (d == 2)
                 {
-                    flux.get_flux_coeffs = flux_coefficients<2>;
-                    flux.get_cell1_coeffs = minus_average<2>;
-                    flux.get_cell2_coeffs = average<2>;
+                    coeffs.flux.get_flux_coeffs = flux_coefficients<2>;
+                    coeffs.get_cell1_coeffs = minus_average<2>;
+                    coeffs.get_cell2_coeffs = average<2>;
                 }
             }
         }
-        return fluxes;
+        return coeffs_by_fluxes;
     }
 };
 

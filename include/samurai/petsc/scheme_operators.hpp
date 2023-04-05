@@ -16,7 +16,7 @@ namespace samurai
             using cfg_t = typename Scheme::cfg_t;
             using field_t = typename Scheme::field_t;
             using Mesh = typename field_t::mesh_t;
-            using flux_computation_t = typename FluxBasedScheme<cfg_t, field_t>::flux_computation_t;
+            using coefficients_t = typename FluxBasedScheme<cfg_t, field_t>::coefficients_t;
             static constexpr std::size_t dim = field_t::dim;
         private:
             const Scheme m_scheme;
@@ -30,8 +30,8 @@ namespace samurai
             {
                 this->set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
 
-                const std::array<flux_computation_t, dim>& scheme_fluxes = m_scheme.scheme_coefficients();
-                std::array<flux_computation_t, dim>& scalar_x_fluxes = this->scheme_coefficients();
+                const std::array<coefficients_t, dim>& scheme_fluxes = m_scheme.scheme_coefficients();
+                std::array<coefficients_t, dim>& scalar_x_fluxes = this->scheme_coefficients();
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     auto& scheme_flux = scheme_fluxes[d];
