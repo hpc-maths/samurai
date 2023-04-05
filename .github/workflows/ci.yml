@@ -1,0 +1,353 @@
+name: samurai CI
+
+on: [pull_request]
+
+jobs:
+  #
+  # Check samurai format
+  #
+  #########################################################
+  formatting-check:
+    name: Formatting Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        path:
+          - "demos"
+          - "include"
+          - "test"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run clang-format style check
+        uses: jidicula/clang-format-action@v4.11.0
+        with:
+          clang-format-version: "15"
+          check-path: ${{ matrix.path }}
+
+  #
+  # Check linux build with mamba environment
+  #
+  #########################################################
+  linux-mamba:
+    needs: formatting-check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - cpp-version: gcc-9
+            compiler: "gcc"
+            package: "gcc-9 g++-9"
+            cc: "gcc-9"
+            cxx: "g++-9"
+          - cpp-version: gcc-10
+            compiler: "gcc"
+            package: "gcc-10 g++-10"
+            cc: "gcc-10"
+            cxx: "g++-10"
+          - cpp-version: gcc-11
+            compiler: "gcc"
+            package: "gcc-11 g++-11"
+            cc: "gcc-11"
+            cxx: "g++-11"
+          - cpp-version: gcc-12
+            compiler: "gcc"
+            package: "gcc-12 g++-12"
+            cc: "gcc-12"
+            cxx: "g++-12"
+          - cpp-version: clang-11
+            compiler: "clang"
+            package: "clang-11"
+            cc: "clang-11"
+            cxx: "clang++-11"
+          - cpp-version: clang-12
+            compiler: "clang"
+            package: "clang-12"
+            cc: "clang-12"
+            cxx: "clang++-12"
+          - cpp-version: clang-13
+            compiler: "clang"
+            package: "clang-13"
+            cc: "clang-13"
+            cxx: "clang++-13"
+          - cpp-version: clang-14
+            compiler: "clang"
+            package: "clang-14"
+            cc: "clang-14"
+            cxx: "clang++-14"
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: linux-${{ matrix.cpp-version }}
+          restore-keys: |
+            linux-${{ matrix.cpp-version }}
+
+      - name: Compiler and dev tools installation
+        run: |
+          sudo apt update
+          sudo apt install ${{ matrix.package }}
+          sudo apt install clang-tidy iwyu
+
+      # - name: Information about ccache
+      #   run: |
+      #     ccache -s -v
+
+      - name: Mamba and samurai env installation
+        uses: mamba-org/provision-with-micromamba@main
+        with:
+          environment-file: conda/environment.yml
+          environment-name: samurai-env
+
+      - name: Petsc installation
+        shell: bash -l {0}
+        run: |
+          conda install -y petsc=3.18 pkg-config
+
+      - name: Conda informations
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+
+      - name: Configure
+        shell: bash -l {0}
+        run: |
+          export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
+          CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+              . \
+              -Bbuild \
+              -GNinja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_DEMOS=ON \
+              -DBUILD_TESTS=ON \
+              # -DIWYU=ON
+
+      - name: Build
+        shell: bash -l {0}
+        run: |
+          cmake --build build --target all
+
+      - name: Test with googletest
+        shell: bash -l {0}
+        run: |
+          export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+          cd build
+          ./test/test_samurai_lib
+
+      - name: Test with pytest
+        shell: bash -l {0}
+        run: |
+          export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+          cd test
+          pytest -s --h5diff
+
+  #
+  # Check conan build
+  #
+  #########################################################
+  conan:
+    needs: formatting-check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - windows-2022
+          - ubuntu-22.04
+          - macos-12
+        compiler:
+          # - llvm
+          - gcc
+        CMAKE_GENERATOR:
+          - "Ninja Multi-Config"
+        include:
+          - os: windows-2022
+            compiler: msvc
+            CMAKE_GENERATOR: "Visual Studio 17 2022"
+
+        # exclude:
+        #   - os: windows-2022
+        #     compiler: llvm
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.conan/
+            ~/.cache/ccache
+            ~/.cache/pip
+            ~/Library/Caches/ccache
+            C:\Users\runneradmin\cmake
+            C:\Users\runneradmin\AppData\Local\ccache
+          key: conan-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./conanfile.py')}}
+          restore-keys: |
+            conan-${{ runner.os }}-${{ matrix.compiler }}-
+
+      - name: configure Pagefile
+        if: runner.os == 'Windows'
+        uses: al-cheb/configure-pagefile-action@v1.2
+        with:
+            minimum-size: 16GB
+            maximum-size: 16GB
+            disk-root: "C:"
+
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v0.26.2
+        with:
+          compiler: ${{ matrix.compiler }}
+          vcvarsall: ${{ contains(matrix.os, 'windows' )}}
+
+          cmake: true
+          ninja: true
+          conan: true
+          vcpkg: false
+          ccache: false
+          clangtidy: false
+          task: false
+
+          cppcheck: false
+
+          gcovr: false
+          opencppcoverage: false
+
+      # - name: Information about ccache
+      #   run: |
+      #     ccache -s -v
+      - name: Configure CMake
+        run: |
+          cmake . -B ./build -G "${{matrix.CMAKE_GENERATOR}}" -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+      - name: Build
+        run: |
+          cmake --build ./build --config Release
+      - name: Install hdf5 with brew
+        if: runner.os == 'Macos'
+        env:
+          ARCHFLAGS: "-arch x86_64"
+        run: |
+          brew install hdf5@1.10
+          export HDF5_DIR=/usr/local/opt/hdf5@1.10
+          pip3 install pytest h5py
+      - name: Install Python dependencies
+        if: runner.os != 'Macos'
+        run: |
+          pip3 install pytest h5py
+      - name: Unix test
+        if: runner.os != 'Windows'
+        run: |
+          ./build/test/Release/test_samurai_lib
+          cd test; pytest --h5diff
+      - name: Windows test
+        if: runner.os == 'Windows'
+        run: |
+          .\build\test\Release\test_samurai_lib
+          # cd test; pytest -s --h5diff
+
+  #
+  # Check conan build
+  #
+  #########################################################
+  vcpkg:
+    needs: formatting-check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - windows-2022
+          - ubuntu-22.04
+          - macos-12
+        compiler:
+          # - llvm
+          - gcc
+        CMAKE_GENERATOR:
+          - "Ninja Multi-Config"
+        include:
+          - os: windows-2022
+            compiler: msvc
+            CMAKE_GENERATOR: "Visual Studio 17 2022"
+
+        # exclude:
+        #   - os: windows-2022
+        #     compiler: llvm
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/vcpkg
+            ~/.cache/ccache
+            ~/.cache/pip
+            ~/Library/Caches/ccache
+            ./build/vcpkg_installed
+            ${{ env.CONAN_USER_HOME }}
+            ${{ env.HOME }}/.cache/vcpkg/archives
+            ${{ env.XDG_CACHE_HOME }}/vcpkg/archives
+            ${{ env.LOCALAPPDATA }}\vcpkg\archives
+            ${{ env.APPDATA }}\vcpkg\archives
+            C:\Users\runneradmin\cmake
+            C:\Users\runneradmin\AppData\Local\ccache
+          key: vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json')}}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}
+            vcpkg-${{ runner.os }}-${{ matrix.compiler }}-
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v0.26.2
+        with:
+          compiler: ${{ matrix.compiler }}
+          vcvarsall: ${{ contains(matrix.os, 'windows' )}}
+
+          cmake: true
+          ninja: true
+          vcpkg: true
+          ccache: false
+          clangtidy: false
+          task: false
+
+          cppcheck: false
+
+          gcovr: false
+          opencppcoverage: false
+
+      # - name: Information about ccache
+      #   run: |
+      #     ccache -s -v
+      - name: Configure CMake
+        run: |
+          cmake -B ./build -S . -G "${{matrix.CMAKE_GENERATOR}}" -DENABLE_VCPKG=ON -DBUILD_TESTS=ON -DBUILD_DEMOS=ON
+      - name: Build
+        run: |
+          cmake --build ./build --config Release
+      - name: Install hdf5 with brew
+        if: runner.os == 'Macos'
+        env:
+          ARCHFLAGS: "-arch x86_64"
+        run: |
+          brew install hdf5@1.10
+          export HDF5_DIR=/usr/local/opt/hdf5@1.10
+          pip3 install pytest h5py
+      - name: Install Python dependencies
+        if: runner.os != 'Macos'
+        run: |
+          pip3 install pytest h5py
+      - name: Unix test
+        if: runner.os != 'Windows'
+        run: |
+          ./build/test/Release/test_samurai_lib
+          cd test; pytest --h5diff
+      - name: Windows test
+        if: runner.os == 'Windows'
+        run: |
+          .\build\test\Release\test_samurai_lib
+          cd test; pytest -s --h5diff
