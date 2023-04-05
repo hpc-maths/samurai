@@ -110,7 +110,9 @@ namespace samurai
 
             IdentityFV(Field& unknown) : 
                 CellBasedScheme<cfg, Field>(unknown, star_stencil<dim, neighbourhood_width>(), coefficients) 
-            {}
+            {
+                this->set_name("Identity");
+            }
 
             static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double)
             {

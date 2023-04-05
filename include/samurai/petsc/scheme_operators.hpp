@@ -19,18 +19,46 @@ namespace samurai
             using flux_computation_t = typename FluxBasedScheme<cfg_t, field_t>::flux_computation_t;
             static constexpr std::size_t dim = field_t::dim;
         private:
-            const Scheme& m_scheme;
+            const Scheme m_scheme;
             const double m_scalar;
 
         public:
             Scalar_x_FluxBasedScheme(const Scheme& scheme, double scalar) : 
-                FluxBasedScheme<cfg_t, field_t>(scheme.unknown(), scalar_x_coefficients(scheme)),
+                FluxBasedScheme<cfg_t, field_t>(scheme.unknown(), scheme.scheme_coefficients()),//scalar_x_coefficients(scheme)),
                 m_scheme(scheme),
                 m_scalar(scalar)
-            {}
+            {
+                this->set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
+
+                const std::array<flux_computation_t, dim>& scheme_fluxes = m_scheme.scheme_coefficients();
+                std::array<flux_computation_t, dim>& scalar_x_fluxes = this->scheme_coefficients();
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    auto& scheme_flux = scheme_fluxes[d];
+                    auto& scalar_x_flux = scalar_x_fluxes[d];
+                    scalar_x_flux.get_cell1_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+                    {
+                        auto coeffs = scheme_flux.get_cell1_coeffs(flux_coeffs, h_face, h_cell);
+                        for (auto& coeff : coeffs)
+                        {
+                            coeff *= m_scalar;
+                        }
+                        return coeffs;
+                    };
+                    scalar_x_flux.get_cell2_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+                    {
+                        auto coeffs = scheme_flux.get_cell2_coeffs(flux_coeffs, h_face, h_cell);
+                        for (auto& coeff : coeffs)
+                        {
+                            coeff *= m_scalar;
+                        }
+                        return coeffs;
+                    };
+                }
+            }
 
         private:
-            auto scalar_x_coefficients(const Scheme& scheme)
+            /*auto scalar_x_coefficients(const Scheme& scheme)
             {
                 const std::array<flux_computation_t, dim>& scheme_fluxes = scheme.scheme_coefficients();
                 std::array<flux_computation_t, dim> scalar_x_fluxes;
@@ -63,7 +91,7 @@ namespace samurai
                     };
                 }
                 return scalar_x_fluxes;
-            }
+            }*/
         };
 
         template<class Scheme>
@@ -87,8 +115,8 @@ namespace samurai
             using flux_computation_t = typename FluxBasedScheme<cfg_t, field_t>::flux_computation_t;
             static constexpr std::size_t dim = field_t::dim;
         private:
-            const Scheme1& m_scheme1;
-            const Scheme2& m_scheme2;
+            const Scheme1 m_scheme1;
+            const Scheme2 m_scheme2;
 
         public:
             Sum_FluxBasedScheme(const Scheme1& scheme1, const Scheme2& scheme2) : 
@@ -98,6 +126,7 @@ namespace samurai
             {
                 static_assert(std::is_same<typename Scheme1::field_t, typename Scheme2::field_t>::value, "Invalid '+' operation: incompatible field types.");
 
+                this->m_name = m_scheme1.name() + " + " + m_scheme2.name();
                 if (&scheme1.unknown() != &scheme2.unknown())
                 {
                     std::cerr << "Invalid '+' operation: both schemes must be associated to the same unknown." << std::endl;
@@ -150,7 +179,7 @@ namespace samurai
         };
 
         template <typename Scheme1, typename Scheme2, std::enable_if_t<is_FluxBasedScheme<Scheme1>, bool> = true, std::enable_if_t<is_FluxBasedScheme<Scheme2>, bool> = true>
-        auto operator + (const Scheme1& s1, const Scheme2& s2 )
+        auto operator + (const Scheme1& s1, const Scheme2& s2)
         {
             return Sum_FluxBasedScheme<Scheme1, Scheme2>(s1, s2);
         }
@@ -169,21 +198,21 @@ namespace samurai
         class FluxBasedScheme_Sum_CellBasedScheme : public MatrixAssembly
         {
         private:
-            FluxScheme& m_flux_scheme;
-            CellScheme& m_cell_scheme;
+            FluxScheme m_flux_scheme;
+            CellScheme m_cell_scheme;
         public:
-            FluxBasedScheme_Sum_CellBasedScheme(FluxScheme& flux_scheme, CellScheme& cell_scheme) :
+            FluxBasedScheme_Sum_CellBasedScheme(const FluxScheme& flux_scheme, const CellScheme& cell_scheme) :
                 MatrixAssembly(),
                 m_flux_scheme(flux_scheme),
                 m_cell_scheme(cell_scheme)
             {
+                this->m_name = m_flux_scheme.name() + " + " + m_cell_scheme.name();
                 if (&flux_scheme.unknown() != &cell_scheme.unknown())
                 {
                     std::cerr << "Invalid '+' operation: both schemes must be associated to the same unknown." << std::endl;
                     assert(&flux_scheme.unknown() == &cell_scheme.unknown());
                 }
             }
-
             auto& unknown() const
             {
                 return m_flux_scheme.unknown();
@@ -293,31 +322,32 @@ namespace samurai
 
         // Operator +
         template <typename FluxScheme, typename CellScheme, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true>
-        auto operator + (FluxScheme& flux_scheme, CellScheme& cell_scheme)
+        auto operator + (const FluxScheme& flux_scheme, const CellScheme& cell_scheme)
         {
             return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
         }
 
         // Operator + with reference rvalue
-        template <typename FluxScheme, typename CellScheme, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true>
-        auto operator + (FluxScheme&& flux_scheme, CellScheme& cell_scheme)
+        /*template <typename FluxScheme, typename CellScheme, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true>
+        auto operator + (FluxScheme&& flux_scheme, const CellScheme& cell_scheme)
         {
-            return flux_scheme + cell_scheme;
-        }
+            //return flux_scheme + cell_scheme;
+            return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
+        }*/
 
         // Operator + in the reverse order
         template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>
-        auto operator + (CellScheme& cell_scheme, FluxScheme& flux_scheme)
+        auto operator + (const CellScheme& cell_scheme, const FluxScheme& flux_scheme)
         {
             return flux_scheme + cell_scheme;
         }
 
         // Operator + in the reverse order with reference rvalue
-        template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>
-        auto operator + (CellScheme& cell_scheme, FluxScheme&& flux_scheme)
+        /*template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>
+        auto operator + (const CellScheme& cell_scheme, FluxScheme&& flux_scheme)
         {
             return flux_scheme + cell_scheme;
-        }
+        }*/
 
         // Operator + with reference rvalue
         /*template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>

@@ -9,13 +9,24 @@ namespace samurai
         {
             template<class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
-
+            
         private:
+            bool m_is_deleted = false;
+            std::string m_name = "(unnamed)";
+            
             bool m_include_bc = true;
             bool m_assemble_proj_pred = true;
             bool m_add_1_on_diag_for_useless_ghosts = true;
 
-          public:
+        public:
+            std::string name() const
+            {
+                return m_name;
+            }
+            void set_name(std::string name)
+            {
+                m_name = name;
+            }
 
             bool include_bc() const
             {
@@ -114,11 +125,11 @@ namespace samurai
                 MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
             }
 
-            virtual ~MatrixAssembly()
+            virtual ~MatrixAssembly() 
             {
+                //std::cout << "Destruction of '" << name() << "'" << std::endl;
+                m_is_deleted = true;
             }
-
-          protected:
 
         protected:
 

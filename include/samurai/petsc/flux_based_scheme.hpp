@@ -88,7 +88,7 @@ namespace samurai
             Field& m_unknown;
             Mesh& m_mesh;
             std::size_t m_n_cells;
-            const std::array<flux_computation_t, dim> m_scheme_coefficients;
+            std::array<flux_computation_t, dim> m_scheme_coefficients;
             const std::vector<boundary_condition_t>& m_boundary_conditions;
             std::vector<bool> m_is_row_empty;
         public:
@@ -113,6 +113,10 @@ namespace samurai
             }
 
             auto& scheme_coefficients() const
+            {
+                return m_scheme_coefficients;
+            }
+            auto& scheme_coefficients()
             {
                 return m_scheme_coefficients;
             }

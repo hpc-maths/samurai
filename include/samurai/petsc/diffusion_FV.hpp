@@ -24,7 +24,9 @@ namespace samurai
 
             DiffusionFV(Field& unknown) : 
                 FluxBasedScheme<cfg, Field>(unknown, diffusion_coefficients())
-            {}
+            {
+                this->set_name("Diffusion");
+            }
 
 
             /*static auto flux_coefficients(double h)

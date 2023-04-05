@@ -267,6 +267,7 @@ public:
     GradientFV(Field& u) : 
         samurai::petsc::FluxBasedScheme<cfg, Field>(u, grad_coefficients())
     {
+        this->set_name("Gradient");
         static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
     }
 
@@ -294,7 +295,7 @@ public:
     // Grad_y(u) = 1/2 * [ Fx(B) + Fx(T) ]
     static auto grad_coefficients()
     {
-        static_assert(dim <= 3, "GradientFV.scheme_coefficients() not implemented for dim > 3.");
+        static_assert(dim <= 3, "GradientFV.grad_coefficients() not implemented for dim > 3.");
         std::array<flux_computation_t, dim> fluxes;
         auto directions = samurai::positive_cartesian_directions<dim>();
         for (std::size_t d = 0; d < dim; ++d)
@@ -382,6 +383,7 @@ public:
     MinusDivergenceFV(Field& u) : 
         samurai::petsc::FluxBasedScheme<cfg, Field>(u, minus_div_coefficients())
     {
+        this->set_name("-Divergence");
         static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");
     }
 
@@ -446,7 +448,7 @@ public:
     // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
     static auto minus_div_coefficients()
     {
-        static_assert(dim <= 3, "MinusDivergenceFV.scheme_coefficients() not implemented for dim > 3.");
+        static_assert(dim <= 3, "MinusDivergenceFV.minus_div_coefficients() not implemented for dim > 3.");
         std::array<flux_computation_t, dim> fluxes;
         auto directions = samurai::positive_cartesian_directions<dim>();
         for (std::size_t d = 0; d < dim; ++d)
