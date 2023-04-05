@@ -1,23 +1,24 @@
 #pragma once
 #include <samurai/algorithm.hpp>
 
-template<class Mesh>
+template <class Mesh>
 void print_mesh(Mesh& mesh)
 {
     std::cout << mesh << std::endl;
-    samurai::for_each_cell(mesh, [](const auto& cell)
-    {
-        std::cout << "level: " << cell.level << ", cell index: " << cell.index << ", center: " << cell.center(0) << std::endl; 
-    });
+    samurai::for_each_cell(mesh,
+                           [](const auto& cell)
+                           {
+                               std::cout << "level: " << cell.level << ", cell index: " << cell.index << ", center: " << cell.center(0)
+                                         << std::endl;
+                           });
 }
 
-
-template<class Field>
+template <class Field>
 bool check_nan_or_inf(const Field& f)
 {
-    std::size_t n = f.mesh().nb_cells();
+    std::size_t n      = f.mesh().nb_cells();
     bool is_nan_or_inf = false;
-    for (std::size_t i = 0; i<n; ++i)
+    for (std::size_t i = 0; i < n; ++i)
     {
         double value = f.array().data()[i];
         if (std::isnan(value) || std::isinf(value))
@@ -28,4 +29,3 @@ bool check_nan_or_inf(const Field& f)
     }
     return !is_nan_or_inf;
 }
-

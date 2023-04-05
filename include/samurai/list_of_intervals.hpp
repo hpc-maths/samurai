@@ -14,9 +14,8 @@ namespace samurai
 {
     namespace detail
     {
-        template<class InputIt, class UnaryPredicate>
-        inline constexpr std::pair<InputIt, InputIt>
-        forward_find_if(InputIt first, InputIt last, UnaryPredicate p)
+        template <class InputIt, class UnaryPredicate>
+        inline constexpr std::pair<InputIt, InputIt> forward_find_if(InputIt first, InputIt last, UnaryPredicate p)
         {
             auto previous = first++;
             for (; first != last; ++first, ++previous)
@@ -40,11 +39,11 @@ namespace samurai
      * @tparam TValue  The coordinate type (must be signed).
      * @tparam TIndex  The index type (must be signed).
      */
-    template<typename TValue, typename TIndex = default_config::index_t>
+    template <typename TValue, typename TIndex = default_config::index_t>
     struct ListOfIntervals : private std::forward_list<Interval<TValue, TIndex>>
     {
-        using value_t = TValue;
-        using index_t = TIndex;
+        using value_t    = TValue;
+        using index_t    = TIndex;
         using interval_t = Interval<value_t, index_t>;
 
         using list_t = std::forward_list<interval_t>;
@@ -52,13 +51,13 @@ namespace samurai
         using list_t::begin;
         using list_t::cbegin;
         using list_t::cend;
-        using list_t::end;
         using list_t::empty;
+        using list_t::end;
 
         using list_t::erase_after;
         using const_iterator = typename list_t::const_iterator;
-        using iterator = typename list_t::iterator;
-        using value_type = typename list_t::value_type;
+        using iterator       = typename list_t::iterator;
+        using value_type     = typename list_t::value_type;
 
         std::size_t size() const;
 
@@ -71,29 +70,30 @@ namespace samurai
     ////////////////////////////////////
 
     /// Number of intervals stored in the list.
-    template<typename TValue, typename TIndex>
+    template <typename TValue, typename TIndex>
     inline std::size_t ListOfIntervals<TValue, TIndex>::size() const
     {
         return static_cast<std::size_t>(std::distance(begin(), end()));
     }
 
     /// Add a point inside the list.
-    template<typename TValue, typename TIndex>
+    template <typename TValue, typename TIndex>
     inline void ListOfIntervals<TValue, TIndex>::add_point(value_t point)
     {
         add_interval({point, point + 1});
     }
 
     /// Add an interval inside the list.
-    template<typename TValue, typename TIndex>
-    inline void ListOfIntervals<TValue, TIndex>::add_interval(const interval_t &interval)
+    template <typename TValue, typename TIndex>
+    inline void ListOfIntervals<TValue, TIndex>::add_interval(const interval_t& interval)
     {
         if (!interval.is_valid())
         {
             return;
         }
 
-        auto predicate = [interval](auto const &value) {
+        auto predicate = [interval](const auto& value)
+        {
             return interval.start <= value.end;
         };
         auto it = detail::forward_find_if(before_begin(), end(), predicate);
@@ -108,20 +108,20 @@ namespace samurai
 
         // else there is an overlap
         it.second->start = std::min(it.second->start, interval.start);
-        it.second->end = std::max(it.second->end, interval.end);
+        it.second->end   = std::max(it.second->end, interval.end);
 
         auto it_end = std::next(it.second);
         while (it_end != end() && interval.end >= it_end->start)
         {
             it.second->end = std::max(it_end->end, interval.end);
-            it_end = erase_after(it.second);
+            it_end         = erase_after(it.second);
         }
     }
 
-    template<typename value_t, typename index_t>
-    inline std::ostream &operator<<(std::ostream& out, const ListOfIntervals<value_t, index_t>& interval_list)
+    template <typename value_t, typename index_t>
+    inline std::ostream& operator<<(std::ostream& out, const ListOfIntervals<value_t, index_t>& interval_list)
     {
-        for (auto& interval: interval_list)
+        for (auto& interval : interval_list)
         {
             out << interval << " ";
         }

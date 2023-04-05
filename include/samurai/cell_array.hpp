@@ -6,8 +6,8 @@
 
 #include <array>
 
-#include <fmt/format.h>
 #include <fmt/color.h>
+#include <fmt/format.h>
 
 #include "algorithm.hpp"
 #include "cell_list.hpp"
@@ -28,22 +28,23 @@ namespace samurai
      *  A box is defined by its minimum and maximum corners.
      *
      *  @tparam dim_ The dimension
-     *  @tparam TInterval The type of the intervals (default type is default_config::interval_t).
-     *  @tparam max_size_ The size of the array and the maximum levels (default size is default_config::max_level).
+     *  @tparam TInterval The type of the intervals (default type is
+     * default_config::interval_t).
+     *  @tparam max_size_ The size of the array and the maximum levels (default
+     * size is default_config::max_level).
      */
-    template<std::size_t dim_,
-             class TInterval = default_config::interval_t,
-             std::size_t max_size_ = default_config::max_level>
+    template <std::size_t dim_, class TInterval = default_config::interval_t, std::size_t max_size_ = default_config::max_level>
     class CellArray
     {
-    public:
-        static constexpr auto dim = dim_;
+      public:
+
+        static constexpr auto dim      = dim_;
         static constexpr auto max_size = max_size_;
 
         using interval_t = TInterval;
-        using value_t = typename interval_t::value_t;
-        using lca_type = LevelCellArray<dim, TInterval>;
-        using cl_type = CellList<dim, TInterval, max_size>;
+        using value_t    = typename interval_t::value_t;
+        using lca_type   = LevelCellArray<dim, TInterval>;
+        using cl_type    = CellList<dim, TInterval, max_size>;
 
         CellArray();
         CellArray(const cl_type& cl, bool with_update_index = true);
@@ -51,12 +52,12 @@ namespace samurai
         const lca_type& operator[](std::size_t i) const;
         lca_type& operator[](std::size_t i);
 
-        template<typename... T>
+        template <typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
 
         const interval_t& get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
-        template<typename... T>
+        template <typename... T>
         std::size_t get_index(std::size_t level, value_t i, T... index) const;
         std::size_t get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
@@ -70,7 +71,8 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
-    private:
+      private:
+
         std::array<lca_type, max_size + 1> m_cells;
     };
 
@@ -81,7 +83,7 @@ namespace samurai
     /**
      * Default contructor which sets the level for each LevelCellArray.
      */
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline CellArray<dim_, TInterval, max_size_>::CellArray()
     {
         for (std::size_t level = 0; level <= max_size; ++level)
@@ -94,9 +96,10 @@ namespace samurai
      * Construction of a CellArray from a CellList
      *
      * @param cl The cell list.
-     * @parma with_update_index A boolean indicating if the index of the x-intervals must be computed.
+     * @parma with_update_index A boolean indicating if the index of the
+     * x-intervals must be computed.
      */
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline CellArray<dim_, TInterval, max_size_>::CellArray(const cl_type& cl, bool with_update_index)
     {
         for (std::size_t level = 0; level <= max_size; ++level)
@@ -110,13 +113,13 @@ namespace samurai
         }
     }
 
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline auto CellArray<dim_, TInterval, max_size_>::operator[](std::size_t i) const -> const lca_type&
     {
         return m_cells[i];
     }
 
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline auto CellArray<dim_, TInterval, max_size_>::operator[](std::size_t i) -> lca_type&
     {
         return m_cells[i];
@@ -129,28 +132,32 @@ namespace samurai
      * @param interval The desired x-interval.
      * @param index The desired indices for the other dimensions.
      */
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
-    template<typename... T>
-    inline auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <typename... T>
+    inline auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, T... index) const
+        -> const interval_t&
     {
         return m_cells[level].get_interval(interval, index...);
     }
 
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const -> const interval_t&
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline auto
+    CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const
+        -> const interval_t&
     {
         return m_cells[level].get_interval(coord);
     }
 
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
-    template<typename... T>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <typename... T>
     inline std::size_t CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level, value_t i, T... index) const
     {
         return m_cells[level].get_index(i, index...);
     }
 
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline std::size_t CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline std::size_t
+    CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const
     {
         return m_cells[level].get_index(coord);
     }
@@ -159,7 +166,7 @@ namespace samurai
      * Return the number of cells which is the sum of each x-interval size
      * over the levels.
      */
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline std::size_t CellArray<dim_, TInterval, max_size_>::nb_cells() const
     {
         std::size_t size = 0;
@@ -176,7 +183,7 @@ namespace samurai
      *
      * @param level The level where to compute the number of cells
      */
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline std::size_t CellArray<dim_, TInterval, max_size_>::nb_cells(std::size_t level) const
     {
         return m_cells[level].nb_cells();
@@ -185,7 +192,7 @@ namespace samurai
     /**
      * Return the maximum level where the array entry is not empty.
      */
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline std::size_t CellArray<dim_, TInterval, max_size_>::max_level() const
     {
         for (std::size_t level = max_size; level != std::size_t(-1); --level)
@@ -201,7 +208,7 @@ namespace samurai
     /**
      * Return the minimum level where the array entry is not empty.
      */
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline std::size_t CellArray<dim_, TInterval, max_size_>::min_level() const
     {
         for (std::size_t level = 0; level <= max_size; ++level)
@@ -218,54 +225,55 @@ namespace samurai
      * Update the index in the x-intervals allowing to navigate in the
      * Field data structure.
      */
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline void CellArray<dim_, TInterval, max_size_>::update_index()
     {
-        using index_t = typename interval_t::index_t;
+        using index_t        = typename interval_t::index_t;
         std::size_t acc_size = 0;
-        for_each_interval(*this, [&](auto, auto& interval, auto)
-        {
-            interval.index = safe_subs<index_t>(acc_size, interval.start);
-            acc_size += interval.size();
-        });
+        for_each_interval(*this,
+                          [&](auto, auto& interval, auto)
+                          {
+                              interval.index = safe_subs<index_t>(acc_size, interval.start);
+                              acc_size += interval.size();
+                          });
     }
 
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline void CellArray<dim_, TInterval, max_size_>::to_stream(std::ostream& os) const
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
             if (!m_cells[level].empty())
             {
-                os <<
-                        fmt::format(fg(fmt::color::steel_blue) | fmt::emphasis::bold,
-                        "┌{0:─^{2}}┐\n"
-                        "│{1: ^{2}}│\n"
-                        "└{0:─^{2}}┘\n", "", fmt::format("Level {}", level), 20);
+                os << fmt::format(fg(fmt::color::steel_blue) | fmt::emphasis::bold,
+                                  "┌{0:─^{2}}┐\n"
+                                  "│{1: ^{2}}│\n"
+                                  "└{0:─^{2}}┘\n",
+                                  "",
+                                  fmt::format("Level {}", level),
+                                  20);
                 m_cells[level].to_stream(os);
                 os << std::endl;
             }
         }
     }
 
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline std::ostream& operator<<(std::ostream& out,
-                                    const CellArray<dim_, TInterval, max_size_>& cell_array)
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline std::ostream& operator<<(std::ostream& out, const CellArray<dim_, TInterval, max_size_>& cell_array)
     {
         cell_array.to_stream(out);
         return out;
     }
 
-    template<std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline bool operator==(const CellArray<dim_, TInterval, max_size_> &ca1, const CellArray<dim_, TInterval, max_size_>& ca2)
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline bool operator==(const CellArray<dim_, TInterval, max_size_>& ca1, const CellArray<dim_, TInterval, max_size_>& ca2)
     {
-        if (ca1.max_level() != ca2.max_level() ||
-            ca1.min_level() != ca2.min_level())
+        if (ca1.max_level() != ca2.max_level() || ca1.min_level() != ca2.min_level())
         {
             return false;
         }
 
-        for(std::size_t level=ca1.min_level(); level <= ca1.max_level(); ++level)
+        for (std::size_t level = ca1.min_level(); level <= ca1.max_level(); ++level)
         {
             if (!(ca1[level] == ca2[level]))
             {

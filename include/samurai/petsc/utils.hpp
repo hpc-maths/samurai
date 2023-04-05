@@ -1,11 +1,11 @@
 #pragma once
 #include <petsc.h>
 
-namespace samurai 
-{ 
+namespace samurai
+{
     namespace petsc
     {
-        template<class Field>
+        template <class Field>
         Vec create_petsc_vector_from(Field& f)
         {
             Vec v;
@@ -14,7 +14,7 @@ namespace samurai
             return v;
         }
 
-        template<class Field>
+        template <class Field>
         void copy(Field& f, Vec& v)
         {
             auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::size);
@@ -23,14 +23,14 @@ namespace samurai
             VecGetSize(v, &n_vec);
             assert(n == n_vec);
 
-            for (PetscInt i = 0; i<n; ++i)
+            for (PetscInt i = 0; i < n; ++i)
             {
                 double value = f.array().data()[i];
                 VecSetValues(v, 1, &i, &value, INSERT_VALUES);
             }
         }
 
-        template<class Field>
+        template <class Field>
         void copy(Vec& v, Field& f)
         {
             std::size_t n = f.mesh().nb_cells() * Field::size;
@@ -39,10 +39,10 @@ namespace samurai
             VecGetSize(v, &n_vec);
             assert(static_cast<PetscInt>(n) == n_vec);
 
-            const double *arr;
+            const double* arr;
             VecGetArrayRead(v, &arr);
 
-            for(std::size_t i=0; i<n; ++i)
+            for (std::size_t i = 0; i < n; ++i)
             {
                 f.array().data()[i] = arr[i];
             }
@@ -54,11 +54,11 @@ namespace samurai
         {
             PetscInt n;
             VecGetSize(v, &n);
-            const double *arr;
+            const double* arr;
             VecGetArrayRead(v, &arr);
 
             bool is_nan_or_inf = false;
-            for(PetscInt i=0; i<n; ++i)
+            for (PetscInt i = 0; i < n; ++i)
             {
                 if (std::isnan(arr[i]) || std::isinf(arr[i]))
                 {
@@ -69,5 +69,5 @@ namespace samurai
             VecRestoreArrayRead(v, &arr);
             return !is_nan_or_inf;
         }
-    } // end namespace petsc 
+    } // end namespace petsc
 } // end namespace samurai

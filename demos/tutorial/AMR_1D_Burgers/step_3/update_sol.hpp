@@ -6,18 +6,21 @@
 
 #include <samurai/algorithm.hpp>
 
-template<class Field>
+template <class Field>
 void update_sol(double dt, Field& phi, Field& phi_np1)
 {
-    using mesh_id_t = typename Field::mesh_t::mesh_id_t;                                                                  // <-----------------
-    auto& mesh = phi.mesh();
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t; // <-----------------
+    auto& mesh      = phi.mesh();
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& i, auto)                        // <-----------------
-    {
-        double dx = samurai::cell_length(level);
+    samurai::for_each_interval(
+        mesh[mesh_id_t::cells],
+        [&](std::size_t level, const auto& i, auto) // <-----------------
+        {
+            double dx = samurai::cell_length(level);
 
-        phi_np1(level, i) = phi(level, i) - .5*dt/dx*(phi(level, i)*phi(level, i) - phi(level, i - 1)*phi(level, i - 1)); // <-----------------
-    });
+            phi_np1(level, i) = phi(level, i)
+                              - .5 * dt / dx * (phi(level, i) * phi(level, i) - phi(level, i - 1) * phi(level, i - 1)); // <-----------------
+        });
 
     std::swap(phi.array(), phi_np1.array());
 }

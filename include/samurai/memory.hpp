@@ -11,27 +11,27 @@
 namespace samurai
 {
     // Compute the memory usage of samurai data structure for the mesh in bytes
-    template<std::size_t Dim, class TInterval>
+    template <std::size_t Dim, class TInterval>
     std::size_t memory_usage(const LevelCellArray<Dim, TInterval>& lca)
     {
         std::size_t mem = 0;
-        for(auto& v: lca.shape())
+        for (auto& v : lca.shape())
         {
-            mem += v*sizeof(TInterval);
+            mem += v * sizeof(TInterval);
         }
-        for(std::size_t d = 1; d < Dim; ++d)
+        for (std::size_t d = 1; d < Dim; ++d)
         {
-            mem += lca.offsets(d).size()*sizeof(std::size_t);
+            mem += lca.offsets(d).size() * sizeof(std::size_t);
         }
         mem += sizeof(std::size_t);
         return mem;
     }
 
-    template<std::size_t Dim, class TInterval, std::size_t max_size>
+    template <std::size_t Dim, class TInterval, std::size_t max_size>
     std::size_t memory_usage(const CellArray<Dim, TInterval, max_size>& ca)
     {
         std::size_t mem = 0;
-        for(std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
+        for (std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
         {
             mem += memory_usage(ca[level]);
         }
@@ -39,13 +39,13 @@ namespace samurai
     }
 
     template <class D, class Config>
-    std::size_t memory_usage(const Mesh_base<D, Config>& mesh, bool verbose=false)
+    std::size_t memory_usage(const Mesh_base<D, Config>& mesh, bool verbose = false)
     {
         using mesh_id_t = typename Mesh_base<D, Config>::mesh_id_t;
         std::size_t mem = 0;
-        for(std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
+        for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
         {
-            mesh_id_t id = static_cast<mesh_id_t>(i);
+            mesh_id_t id       = static_cast<mesh_id_t>(i);
             std::size_t mem_id = memory_usage(mesh[id]);
             if (verbose)
             {

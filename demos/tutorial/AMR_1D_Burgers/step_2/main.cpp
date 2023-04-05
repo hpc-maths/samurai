@@ -23,23 +23,23 @@ namespace fs = std::filesystem;
  *
  */
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     // Simulation parameters
     double cfl = 0.99;
-    double Tf = 1.5;
+    double Tf  = 1.5;
 
     // Output parameters
-    fs::path path = fs::current_path();
+    fs::path path        = fs::current_path();
     std::string filename = "amr_1d_burgers_step_2";
-    std::size_t nfiles = 1;
+    std::size_t nfiles   = 1;
 
     CLI::App app{"Tutorial AMR Burgers 1D step 2"};
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     CLI11_PARSE(app, argc, argv);
 
     if (!fs::exists(path))
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
     }
 
     constexpr std::size_t dim = 1;
-    std::size_t init_level = 6;
+    std::size_t init_level    = 6;
 
     samurai::Box<double, dim> box({-3}, {3});
     samurai::CellArray<dim> mesh;
@@ -58,13 +58,13 @@ int main(int argc, char *argv[])
     auto phi = init_sol(mesh);
 
     /////////////////////////////////
-    double dx = 1./(1 << init_level);
-    double dt = cfl * dx;
-    double dt_save = Tf/static_cast<double>(nfiles);
+    double dx      = 1. / (1 << init_level);
+    double dt      = cfl * dx;
+    double dt_save = Tf / static_cast<double>(nfiles);
 
-    double t = 0.;
+    double t          = 0.;
     std::size_t nsave = 1;
-    std::size_t nt = 0;
+    std::size_t nt    = 0;
 
     auto phi_np1 = samurai::make_field<double, 1>("phi", mesh);
     phi_np1.fill(0.);
@@ -82,10 +82,10 @@ int main(int argc, char *argv[])
 
         update_sol(dt, phi, phi_np1);
 
-        if ( t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
+        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
-            samurai::save(path , fmt::format("{}{}", filename, suffix), mesh, phi);
+            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, phi);
         }
     }
     /////////////////////////////////

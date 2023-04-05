@@ -6,57 +6,51 @@
 
 #include <xtensor/xfixed.hpp>
 
-#include "../subset/subset_op.hpp"
-#include "../mr/operators.hpp"
-#include "utils.hpp"
 #include "../bc.hpp"
-#include "../numeric/projection.hpp"
+#include "../mr/operators.hpp"
 #include "../numeric/prediction.hpp"
+#include "../numeric/projection.hpp"
+#include "../subset/subset_op.hpp"
+#include "utils.hpp"
 
 namespace samurai
 {
-    template<class Field, class... Fields>
+    template <class Field, class... Fields>
     void update_ghost(Field& field, Fields&... fields)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
-        auto& mesh = field.mesh();
+        auto& mesh            = field.mesh();
         std::size_t max_level = mesh.max_level();
 
         for (std::size_t level = max_level; level >= 1; --level)
-            {
-            auto set_at_levelm1 = intersection(mesh[mesh_id_t::proj_cells][level],
-                                               mesh[mesh_id_t::reference][level-1])
-                                 .on(level - 1);
+        {
+            auto set_at_levelm1 = intersection(mesh[mesh_id_t::proj_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, fields...));
         }
 
         update_bc(0, field, fields...);
         for (std::size_t level = 1; level <= max_level; ++level)
         {
-            auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level],
-                                             mesh[mesh_id_t::reference][level-1])
-                               .on(level);
+            auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level);
             set_at_level.apply_op(variadic_prediction<pred_order, false>(field, fields...));
             update_bc(level, field, fields...);
         }
     }
 
-    template<class Field>
+    template <class Field>
     void update_ghost_mro(Field& field)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
-        auto& mesh = field.mesh();
+        auto& mesh                       = field.mesh();
 
         std::size_t max_level = mesh.max_level();
 
         for (std::size_t level = max_level; level >= 1; --level)
-            {
-            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level],
-                                               mesh[mesh_id_t::proj_cells][level-1])
-                                 .on(level - 1);
+        {
+            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(projection(field));
         }
 
@@ -65,7 +59,8 @@ namespace samurai
         {
             // We eliminate the overleaves from the computation since they
             // are done separately
-            // auto expr = difference(intersection(difference(mesh[mesh_id_t::all_cells][level],
+            // auto expr =
+            // difference(intersection(difference(mesh[mesh_id_t::all_cells][level],
             //                                                union_(mesh[mesh_id_t::cells][level],
             //                                                       mesh[mesh_id_t::proj_cells][level])),
             //                                     mesh.domain()),
@@ -75,29 +70,26 @@ namespace samurai
             //             .on(level);
 
             auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
-                                                           union_(mesh[mesh_id_t::cells][level],
-                                                                  mesh[mesh_id_t::proj_cells][level])),
-                                                mesh.domain())
-                        .on(level);
+                                                union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
+                                     mesh.domain())
+                            .on(level);
             expr.apply_op(prediction<pred_order, false>(field));
             update_bc(level, field);
         }
     }
 
-    template<class Field, class... Fields>
+    template <class Field, class... Fields>
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
-        auto& mesh = field.mesh();
+        auto& mesh            = field.mesh();
         std::size_t max_level = mesh.max_level();
 
         for (std::size_t level = max_level; level >= 1; --level)
         {
-            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level],
-                                               mesh[mesh_id_t::proj_cells][level-1])
-                                 .on(level - 1);
+            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
         }
 
@@ -106,10 +98,9 @@ namespace samurai
         for (std::size_t level = 1; level <= max_level; ++level)
         {
             auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
-                                                union_(mesh[mesh_id_t::cells][level],
-                                                       mesh[mesh_id_t::proj_cells][level])),
+                                                union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
                                      mesh.domain())
-                        .on(level);
+                            .on(level);
 
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
             update_bc(level, field, other_fields...);
@@ -121,18 +112,18 @@ namespace samurai
     {
     }
 
-    template<class Field>
+    template <class Field>
     void update_ghost_periodic(std::size_t level, Field& field)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        using config = typename Field::mesh_t::config;
-        using interval_value_t = typename Field::interval_t::value_t;
+        using mesh_id_t           = typename Field::mesh_t::mesh_id_t;
+        using config              = typename Field::mesh_t::config;
+        using interval_value_t    = typename Field::interval_t::value_t;
         constexpr std::size_t dim = Field::dim;
 
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil_dir;
-        auto& mesh = field.mesh();
-        auto domain = mesh.domain();
+        auto& mesh       = field.mesh();
+        auto domain      = mesh.domain();
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
 
@@ -145,68 +136,76 @@ namespace samurai
                 stencil[d] = max_indices[d] - min_indices[d];
 
                 stencil_dir.fill(0);
-                stencil_dir[d] = stencil[d] + (config::ghost_width<<delta_l);
+                stencil_dir[d] = stencil[d] + (config::ghost_width << delta_l);
 
                 auto set1 = intersection(mesh[mesh_id_t::reference][level],
-                                            expand(translate(domain, stencil_dir), (config::ghost_width<<delta_l)))
-                            .on(level);
-                set1([&](auto& i, auto& index)
-                {
-                    if constexpr (dim == 1)
+                                         expand(translate(domain, stencil_dir), (config::ghost_width << delta_l)))
+                                .on(level);
+                set1(
+                    [&](auto& i, auto& index)
                     {
-                        field(level, i) = field(level, i - (stencil[0]>>delta_l));
-                    }
-                    else if constexpr (dim == 2)
-                    {
-                        auto j = index[0];
-                        field(level, i, j) = field(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l));
-                    }
-                    else if constexpr (dim == 3)
-                    {
-                        auto j = index[0];
-                        auto k = index[1];
-                        field(level, i, j, k) = field(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l), k - (stencil[2]>>delta_l));
-                    }
-                });
+                        if constexpr (dim == 1)
+                        {
+                            field(level, i) = field(level, i - (stencil[0] >> delta_l));
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j             = index[0];
+                            field(level, i, j) = field(level, i - (stencil[0] >> delta_l), j - (stencil[1] >> delta_l));
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j                = index[0];
+                            auto k                = index[1];
+                            field(level, i, j, k) = field(level,
+                                                          i - (stencil[0] >> delta_l),
+                                                          j - (stencil[1] >> delta_l),
+                                                          k - (stencil[2] >> delta_l));
+                        }
+                    });
 
                 auto set2 = intersection(mesh[mesh_id_t::reference][level],
-                                            expand(translate(domain, -stencil_dir), (config::ghost_width<<delta_l)))
-                            .on(level);
+                                         expand(translate(domain, -stencil_dir), (config::ghost_width << delta_l)))
+                                .on(level);
 
-                set2([&](auto& i, auto& index)
-                {
-                    if constexpr (dim == 1)
+                set2(
+                    [&](auto& i, auto& index)
                     {
-                        field(level, i) = field(level, i + (stencil[0]>>delta_l));
-                    }
-                    else if constexpr (dim == 2)
-                    {
-                        auto j = index[0];
-                        field(level, i, j) = field(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l));
-                    }
-                    else if constexpr (dim == 3)
-                    {
-                        auto j = index[0];
-                        auto k = index[1];
-                        field(level, i, j, k) = field(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l), k + (stencil[2]>>delta_l));
-                    }
-                });
+                        if constexpr (dim == 1)
+                        {
+                            field(level, i) = field(level, i + (stencil[0] >> delta_l));
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j             = index[0];
+                            field(level, i, j) = field(level, i + (stencil[0] >> delta_l), j + (stencil[1] >> delta_l));
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j                = index[0];
+                            auto k                = index[1];
+                            field(level, i, j, k) = field(level,
+                                                          i + (stencil[0] >> delta_l),
+                                                          j + (stencil[1] >> delta_l),
+                                                          k + (stencil[2] >> delta_l));
+                        }
+                    });
             }
         }
     }
 
-    template<class Field, class... Fields>
+    template <class Field, class... Fields>
     void update_ghost_periodic(std::size_t level, Field& field, Fields&... other_fields)
     {
         update_ghost_periodic(level, field);
         update_ghost_periodic(level, other_fields...);
     }
 
-    template<class Field>
+    template <class Field>
     void update_ghost_periodic(Field& field)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        auto& mesh = field.mesh();
+        using mesh_id_t       = typename Field::mesh_t::mesh_id_t;
+        auto& mesh            = field.mesh();
         std::size_t min_level = mesh[mesh_id_t::reference].min_level();
         std::size_t max_level = mesh[mesh_id_t::reference].max_level();
 
@@ -216,19 +215,19 @@ namespace samurai
         }
     }
 
-    template<class Field, class... Fields>
+    template <class Field, class... Fields>
     void update_ghost_periodic(Field& field, Fields&... other_fields)
     {
         update_ghost_periodic(field);
         update_ghost_periodic(other_fields...);
     }
 
-    template<class Tag>
+    template <class Tag>
     void update_tag_periodic(std::size_t level, Tag& tag)
     {
-        using mesh_id_t = typename Tag::mesh_t::mesh_id_t;
-        using config = typename Tag::mesh_t::config;
-        using interval_value_t = typename Tag::interval_t::value_t;
+        using mesh_id_t           = typename Tag::mesh_t::mesh_id_t;
+        using config              = typename Tag::mesh_t::config;
+        using interval_value_t    = typename Tag::interval_t::value_t;
         constexpr std::size_t dim = Tag::dim;
 
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
@@ -236,7 +235,7 @@ namespace samurai
 
         auto& mesh = tag.mesh();
 
-        auto& domain = mesh.domain();
+        auto& domain     = mesh.domain();
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
 
@@ -249,67 +248,81 @@ namespace samurai
                 stencil[d] = max_indices[d] - min_indices[d];
 
                 stencil_dir.fill(0);
-                stencil_dir[d] = stencil[d] + (config::ghost_width<<delta_l);
+                stencil_dir[d] = stencil[d] + (config::ghost_width << delta_l);
 
                 auto set1 = intersection(mesh[mesh_id_t::reference][level],
-                                         expand(translate(domain, stencil_dir), (config::ghost_width<<delta_l)))
-                            .on(level);
-                set1([&](auto& i, auto& index)
-                {
-                    if constexpr (dim == 1)
+                                         expand(translate(domain, stencil_dir), (config::ghost_width << delta_l)))
+                                .on(level);
+                set1(
+                    [&](auto& i, auto& index)
                     {
-                        tag(level, i) |= tag(level, i - (stencil[0]>>delta_l));
-                        tag(level, i - (stencil[0]>>delta_l)) |= tag(level, i);
-                    }
-                    else if constexpr (dim == 2)
-                    {
-                        auto j = index[0];
-                        tag(level, i, j) |= tag(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l));
-                        tag(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l)) |= tag(level, i, j);
-                    }
-                    else if constexpr (dim == 3)
-                    {
-                        auto j = index[0];
-                        auto k = index[1];
-                        tag(level, i, j, k) |= tag(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l), k - (stencil[2]>>delta_l));
-                        tag(level, i - (stencil[0]>>delta_l), j - (stencil[1]>>delta_l), k - (stencil[2]>>delta_l)) |= tag(level, i, j, k);
-                    }
-                });
+                        if constexpr (dim == 1)
+                        {
+                            tag(level, i) |= tag(level, i - (stencil[0] >> delta_l));
+                            tag(level, i - (stencil[0] >> delta_l)) |= tag(level, i);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            tag(level, i, j) |= tag(level, i - (stencil[0] >> delta_l), j - (stencil[1] >> delta_l));
+                            tag(level, i - (stencil[0] >> delta_l), j - (stencil[1] >> delta_l)) |= tag(level, i, j);
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j = index[0];
+                            auto k = index[1];
+                            tag(level, i, j, k) |= tag(level,
+                                                       i - (stencil[0] >> delta_l),
+                                                       j - (stencil[1] >> delta_l),
+                                                       k - (stencil[2] >> delta_l));
+                            tag(level, i - (stencil[0] >> delta_l), j - (stencil[1] >> delta_l), k - (stencil[2] >> delta_l)) |= tag(level,
+                                                                                                                                     i,
+                                                                                                                                     j,
+                                                                                                                                     k);
+                        }
+                    });
 
                 auto set2 = intersection(mesh[mesh_id_t::reference][level],
-                                            expand(translate(domain, -stencil_dir), (config::ghost_width<<delta_l)))
-                            .on(level);
-                set2([&](auto& i, auto& index)
-                {
-                    if constexpr (dim == 1)
+                                         expand(translate(domain, -stencil_dir), (config::ghost_width << delta_l)))
+                                .on(level);
+                set2(
+                    [&](auto& i, auto& index)
                     {
-                        tag(level, i) |= tag(level, i + (stencil[0]>>delta_l));
-                        tag(level, i + (stencil[0]>>delta_l)) |= tag(level, i);
-                    }
-                    else if constexpr (dim == 2)
-                    {
-                        auto j = index[0];
-                        tag(level, i, j) |= tag(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l));
-                        tag(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l)) |= tag(level, i, j);
-                    }
-                    else if constexpr (dim == 3)
-                    {
-                        auto j = index[0];
-                        auto k = index[1];
-                        tag(level, i, j, k) |= tag(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l), k + (stencil[2]>>delta_l));
-                        tag(level, i + (stencil[0]>>delta_l), j + (stencil[1]>>delta_l), k + (stencil[2]>>delta_l)) |= tag(level, i, j, k);
-                    }
-                });
+                        if constexpr (dim == 1)
+                        {
+                            tag(level, i) |= tag(level, i + (stencil[0] >> delta_l));
+                            tag(level, i + (stencil[0] >> delta_l)) |= tag(level, i);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            tag(level, i, j) |= tag(level, i + (stencil[0] >> delta_l), j + (stencil[1] >> delta_l));
+                            tag(level, i + (stencil[0] >> delta_l), j + (stencil[1] >> delta_l)) |= tag(level, i, j);
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j = index[0];
+                            auto k = index[1];
+                            tag(level, i, j, k) |= tag(level,
+                                                       i + (stencil[0] >> delta_l),
+                                                       j + (stencil[1] >> delta_l),
+                                                       k + (stencil[2] >> delta_l));
+                            tag(level, i + (stencil[0] >> delta_l), j + (stencil[1] >> delta_l), k + (stencil[2] >> delta_l)) |= tag(level,
+                                                                                                                                     i,
+                                                                                                                                     j,
+                                                                                                                                     k);
+                        }
+                    });
             }
         }
     }
 
-    template<class Field>
+    template <class Field>
     void update_overleaves_mr(Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-        auto& mesh = field.mesh();
+        auto& mesh            = field.mesh();
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
@@ -319,8 +332,7 @@ namespace samurai
             // These are the overleaves which are nothing else
             // because when this procedure is called all the rest
             // should be already with the right value.
-            auto overleaves_to_predict = difference(difference(mesh[mesh_id_t::overleaves][level],
-                                                               mesh[mesh_id_t::cells_and_ghosts][level]),
+            auto overleaves_to_predict = difference(difference(mesh[mesh_id_t::overleaves][level], mesh[mesh_id_t::cells_and_ghosts][level]),
                                                     mesh[mesh_id_t::proj_cells][level]);
 
             overleaves_to_predict.apply_op(prediction<1, false>(field));
@@ -330,10 +342,10 @@ namespace samurai
 
     namespace detail
     {
-        template<class Mesh, class Field>
+        template <class Mesh, class Field>
         void update_fields(Mesh& new_mesh, Field& field)
         {
-            using mesh_id_t = typename Mesh::mesh_id_t;
+            using mesh_id_t                  = typename Mesh::mesh_id_t;
             constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
             Field new_field("new_f", new_mesh);
@@ -344,93 +356,89 @@ namespace samurai
             auto min_level = mesh.min_level();
             auto max_level = mesh.max_level();
 
-            for(std::size_t level = min_level; level <= max_level; ++level)
+            for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto set = intersection(mesh[mesh_id_t::cells][level],
-                                        new_mesh[mesh_id_t::cells][level]);
+                auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
                 set.apply_op(copy(new_field, field));
             }
 
-            for(std::size_t level = min_level + 1; level <= max_level; ++level)
+            for (std::size_t level = min_level + 1; level <= max_level; ++level)
             {
-                auto set_coarsen = intersection(mesh[mesh_id_t::cells][level],
-                                                new_mesh[mesh_id_t::cells][level-1])
-                                  .on(level - 1);
+                auto set_coarsen = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level - 1]).on(level - 1);
                 set_coarsen.apply_op(projection(new_field, field));
 
-                auto set_refine = intersection(new_mesh[mesh_id_t::cells][level],
-                                               mesh[mesh_id_t::cells][level-1])
-                                 .on(level - 1);
+                auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
                 set_refine.apply_op(prediction<pred_order, true>(new_field, field));
             }
 
             std::swap(field.array(), new_field.array());
         }
 
-        template<class Mesh, class Field, class... Fields>
+        template <class Mesh, class Field, class... Fields>
         void update_fields(Mesh& new_mesh, Field& field, Fields&... fields)
         {
             update_fields(new_mesh, field);
             update_fields(new_mesh, fields...);
         }
 
-        template<class Mesh>
+        template <class Mesh>
         void update_fields(Mesh&)
         {
         }
     }
 
-    template<class Tag, class... Fields>
+    template <class Tag, class... Fields>
     bool update_field(Tag& tag, Fields&... fields)
     {
         static constexpr std::size_t dim = Tag::dim;
-        using mesh_t = typename Tag::mesh_t;
-        using mesh_id_t = typename Tag::mesh_t::mesh_id_t;
-        using cl_type = typename Tag::mesh_t::cl_type;
+        using mesh_t                     = typename Tag::mesh_t;
+        using mesh_id_t                  = typename Tag::mesh_t::mesh_id_t;
+        using cl_type                    = typename Tag::mesh_t::cl_type;
 
         auto& mesh = tag.mesh();
 
         cl_type cl;
 
-        for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index)
-        {
-            std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
-            for (auto i=interval.start; i<interval.end; ++i)
-            {
-                if ( tag[itag] & static_cast<int>(CellFlag::refine))
-                {
-                    if (level < mesh.max_level())
-                    {
-                        static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
-                        {
-                            auto new_index = 2*index + stencil;
-                            cl[level + 1][new_index].add_interval({2*i, 2*i + 2});
-                        });
-                    }
-                    else
-                    {
-                        cl[level][index].add_point(i);
-                    }
-
-                }
-                else if ( tag[itag] & static_cast<int>(CellFlag::keep))
-                {
-                    cl[level][index].add_point(i);
-                }
-                else
-                {
-                    if (level > mesh.min_level())
-                    {
-                        cl[level - 1][index >> 1].add_point(i >> 1);
-                    }
-                    else
-                    {
-                        cl[level][index].add_point(i);
-                    }
-                }
-                itag++;
-            }
-        });
+        for_each_interval(mesh[mesh_id_t::cells],
+                          [&](std::size_t level, const auto& interval, const auto& index)
+                          {
+                              std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
+                              for (auto i = interval.start; i < interval.end; ++i)
+                              {
+                                  if (tag[itag] & static_cast<int>(CellFlag::refine))
+                                  {
+                                      if (level < mesh.max_level())
+                                      {
+                                          static_nested_loop<dim - 1, 0, 2>(
+                                              [&](auto& stencil)
+                                              {
+                                                  auto new_index = 2 * index + stencil;
+                                                  cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});
+                                              });
+                                      }
+                                      else
+                                      {
+                                          cl[level][index].add_point(i);
+                                      }
+                                  }
+                                  else if (tag[itag] & static_cast<int>(CellFlag::keep))
+                                  {
+                                      cl[level][index].add_point(i);
+                                  }
+                                  else
+                                  {
+                                      if (level > mesh.min_level())
+                                      {
+                                          cl[level - 1][index >> 1].add_point(i >> 1);
+                                      }
+                                      else
+                                      {
+                                          cl[level][index].add_point(i);
+                                      }
+                                  }
+                                  itag++;
+                              }
+                          });
 
         mesh_t new_mesh = {cl, mesh.min_level(), mesh.max_level()};
 
@@ -444,61 +452,62 @@ namespace samurai
         return false;
     }
 
-    template<class Tag, class Field, class... Fields>
+    template <class Tag, class Field, class... Fields>
     bool update_field_mr(const Tag& tag, Field& field, Field& old_field, Fields&... other_fields)
     {
         static constexpr std::size_t dim = Field::dim;
-        using mesh_t = typename Field::mesh_t;
-        constexpr std::size_t
-        pred_order = mesh_t::config::prediction_order;
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        using interval_t = typename mesh_t::interval_t;
-        using value_t = typename interval_t::value_t;
-        using cl_type = typename Field::mesh_t::cl_type;
+        using mesh_t                     = typename Field::mesh_t;
+        constexpr std::size_t pred_order = mesh_t::config::prediction_order;
+        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
+        using interval_t                 = typename mesh_t::interval_t;
+        using value_t                    = typename interval_t::value_t;
+        using cl_type                    = typename Field::mesh_t::cl_type;
 
-        auto& mesh = field.mesh();
+        auto& mesh    = field.mesh();
         auto old_mesh = old_field.mesh();
 
         cl_type cl;
 
-        for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index)
-        {
-            std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
-            for (value_t i=interval.start; i<interval.end; ++i)
-            {
-                if ( tag[itag] & static_cast<int>(CellFlag::refine) )
-                {
-                    if (level < mesh.max_level())
-                    {
-                        static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
-                        {
-                            auto new_index = 2*index + stencil;
-                            cl[level + 1][new_index].add_interval({2*i, 2*i + 2});
-                        });
-                    }
-                    else
-                    {
-                        cl[level][index].add_point(i);
-                    }
-                }
-                else if ( tag[itag] & static_cast<int>(CellFlag::keep))
-                {
-                    cl[level][index].add_point(i);
-                }
-                else
-                {
-                    if (level > mesh.min_level())
-                    {
-                        cl[level - 1][index >> 1].add_point(i >> 1);
-                    }
-                    else
-                    {
-                        cl[level][index].add_point(i);
-                    }
-                }
-                itag++;
-            }
-        });
+        for_each_interval(mesh[mesh_id_t::cells],
+                          [&](std::size_t level, const auto& interval, const auto& index)
+                          {
+                              std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
+                              for (value_t i = interval.start; i < interval.end; ++i)
+                              {
+                                  if (tag[itag] & static_cast<int>(CellFlag::refine))
+                                  {
+                                      if (level < mesh.max_level())
+                                      {
+                                          static_nested_loop<dim - 1, 0, 2>(
+                                              [&](auto& stencil)
+                                              {
+                                                  auto new_index = 2 * index + stencil;
+                                                  cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});
+                                              });
+                                      }
+                                      else
+                                      {
+                                          cl[level][index].add_point(i);
+                                      }
+                                  }
+                                  else if (tag[itag] & static_cast<int>(CellFlag::keep))
+                                  {
+                                      cl[level][index].add_point(i);
+                                  }
+                                  else
+                                  {
+                                      if (level > mesh.min_level())
+                                      {
+                                          cl[level - 1][index >> 1].add_point(i >> 1);
+                                      }
+                                      else
+                                      {
+                                          cl[level][index].add_point(i);
+                                      }
+                                  }
+                                  itag++;
+                              }
+                          });
 
         mesh_t new_mesh = {cl, mesh.min_level(), mesh.max_level(), mesh.periodicity()};
 
@@ -522,33 +531,29 @@ namespace samurai
         auto min_level = mesh.min_level();
         auto max_level = mesh.max_level();
 
-        for(std::size_t level = min_level; level <= max_level; ++level)
+        for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto set = intersection(mesh[mesh_id_t::cells][level],
-                                    new_mesh[mesh_id_t::cells][level]);
+            auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
             set.apply_op(copy(new_field, field));
         }
 
-        for(std::size_t level = min_level + 1; level <= max_level; ++level)
+        for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
-            auto set_coarsen = samurai::intersection(mesh[mesh_id_t::cells][level],
-                                                    new_mesh[mesh_id_t::cells][level-1])
-                              .on(level - 1);
+            auto set_coarsen = samurai::intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level - 1]).on(level - 1);
             set_coarsen.apply_op(projection(new_field, field));
 
-            auto set_refine = intersection(new_mesh[mesh_id_t::cells][level],
-                                           mesh[mesh_id_t::cells][level-1])
-                             .on(level - 1);
+            auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
             set_refine.apply_op(prediction<pred_order, true>(new_field, field));
         }
 
         for (std::size_t level = 1; level <= max_level; ++level)
         {
             auto subset = intersection(intersection(old_mesh[mesh_id_t::cells][level],
-                                            difference(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level])),
-                                            mesh[mesh_id_t::cells][level-1]).on(level);
+                                                    difference(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level])),
+                                       mesh[mesh_id_t::cells][level - 1])
+                              .on(level);
 
-            subset.apply_op(copy(new_field,  old_field));
+            subset.apply_op(copy(new_field, old_field));
         }
 
         field.mesh_ptr()->swap(new_mesh);

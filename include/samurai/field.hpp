@@ -13,21 +13,21 @@
 #include <xtensor/xview.hpp>
 
 #include "algorithm.hpp"
+#include "bc.hpp"
+#include "boundary_condition.hpp"
 #include "cell.hpp"
 #include "field_expression.hpp"
 #include "mr/operators.hpp"
 #include "numeric/gauss_legendre.hpp"
-#include "boundary_condition.hpp"
-#include "bc.hpp"
 
 namespace samurai
 {
-    template<class mesh_t, class value_t, std::size_t size, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size, bool SOA>
     class Field;
 
     namespace detail
     {
-        template<class Field>
+        template <class Field>
         struct inner_field_types;
 
         template <class D>
@@ -35,29 +35,29 @@ namespace samurai
         {
             using derived_type = D;
 
-            derived_type &derived_cast() & noexcept
+            derived_type& derived_cast() & noexcept
             {
-                return *static_cast<derived_type *>(this);
+                return *static_cast<derived_type*>(this);
             }
 
-            const derived_type &derived_cast() const &noexcept
+            const derived_type& derived_cast() const& noexcept
             {
-                return *static_cast<const derived_type *>(this);
+                return *static_cast<const derived_type*>(this);
             }
 
             derived_type derived_cast() && noexcept
             {
-                return *static_cast<derived_type *>(this);
+                return *static_cast<derived_type*>(this);
             }
         };
 
-        template<class mesh_t, class value_t>
-        struct inner_field_types<Field<mesh_t, value_t, 1, false>>: public crtp_field<Field<mesh_t, value_t, 1, false>>
+        template <class mesh_t, class value_t>
+        struct inner_field_types<Field<mesh_t, value_t, 1, false>> : public crtp_field<Field<mesh_t, value_t, 1, false>>
         {
             static constexpr std::size_t dim = mesh_t::dim;
-            using interval_t = typename mesh_t::interval_t;
-            using cell_t = Cell<typename interval_t::coord_index_t, dim>;
-            using data_type = xt::xtensor<value_t, 1>;
+            using interval_t                 = typename mesh_t::interval_t;
+            using cell_t                     = Cell<typename interval_t::coord_index_t, dim>;
+            using data_type                  = xt::xtensor<value_t, 1>;
 
             inline const value_t& operator[](std::size_t i) const
             {
@@ -89,24 +89,20 @@ namespace samurai
                 return this->derived_cast().m_data[i];
             }
 
-            template<class... T>
-            inline auto operator()(const std::size_t level, const interval_t &interval, const T... index)
+            template <class... T>
+            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ OR WRITE", level, interval, index...);
                 return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start,
-                                          interval_tmp.index + interval.end,
-                                          interval.step));
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
-            template<class... T>
-            inline auto operator()(const std::size_t level, const interval_t &interval, const T... index) const
+            template <class... T>
+            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
                 return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start,
-                                          interval_tmp.index + interval.end,
-                                          interval.step));
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
             void resize()
@@ -115,17 +111,18 @@ namespace samurai
             }
         };
 
-        template<class mesh_t, class value_t>
-        struct inner_field_types<Field<mesh_t, value_t, 1, true>>: public inner_field_types<Field<mesh_t, value_t, 1, false>>
-        {};
+        template <class mesh_t, class value_t>
+        struct inner_field_types<Field<mesh_t, value_t, 1, true>> : public inner_field_types<Field<mesh_t, value_t, 1, false>>
+        {
+        };
 
-        template<class mesh_t, class value_t, std::size_t size>
-        struct inner_field_types<Field<mesh_t, value_t, size, false>>: public crtp_field<Field<mesh_t, value_t, size, false>>
+        template <class mesh_t, class value_t, std::size_t size>
+        struct inner_field_types<Field<mesh_t, value_t, size, false>> : public crtp_field<Field<mesh_t, value_t, size, false>>
         {
             static constexpr std::size_t dim = mesh_t::dim;
-            using interval_t = typename mesh_t::interval_t;
-            using cell_t = Cell<typename interval_t::coord_index_t, dim>;
-            using data_type = xt::xtensor<value_t, 2>;
+            using interval_t                 = typename mesh_t::interval_t;
+            using cell_t                     = Cell<typename interval_t::coord_index_t, dim>;
+            using data_type                  = xt::xtensor<value_t, 2>;
 
             inline auto operator[](std::size_t i) const
             {
@@ -157,80 +154,71 @@ namespace samurai
                 return xt::view(this->derived_cast().m_data, i);
             }
 
-            template<class... T>
-            inline auto operator()(const std::size_t level, const interval_t &interval, const T... index)
+            template <class... T>
+            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ OR WRITE", level, interval, index...);
                 return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start,
-                                          interval_tmp.index + interval.end,
-                                          interval.step));
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
-            template<class... T>
-            inline auto operator()(const std::size_t level, const interval_t &interval, const T... index) const
+            template <class... T>
+            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
                 return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start,
-                                          interval_tmp.index + interval.end,
-                                          interval.step));
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
-            template<class... T>
+            template <class... T>
             inline auto operator()(std::size_t item, std::size_t level, const interval_t& interval, T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval("WRITE", level, interval, index...);
                 return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start,
-                                            interval_tmp.index + interval.end,
-                                            interval.step), item);
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step),
+                                item);
             }
 
-            template<class... T>
-            inline auto operator()(std::size_t item, std::size_t level, const interval_t &interval, T... index) const
+            template <class... T>
+            inline auto operator()(std::size_t item, std::size_t level, const interval_t& interval, T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
                 return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start,
-                                            interval_tmp.index + interval.end,
-                                            interval.step), item);
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step),
+                                item);
             }
 
-            template<class... T>
+            template <class... T>
             inline auto operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval("WRITE", level, interval, index...);
                 return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start,
-                                            interval_tmp.index + interval.end,
-                                            interval.step), xt::range(item_s, item_e));
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step),
+                                xt::range(item_s, item_e));
             }
 
-            template<class... T>
+            template <class... T>
             inline auto operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
                 return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start,
-                                            interval_tmp.index + interval.end,
-                                            interval.step), xt::range(item_s, item_e));
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step),
+                                xt::range(item_s, item_e));
             }
 
             void resize()
             {
                 this->derived_cast().m_data.resize({this->derived_cast().mesh().nb_cells(), size});
             }
-
         };
 
-        template<class mesh_t, class value_t, std::size_t size>
-        struct inner_field_types<Field<mesh_t, value_t, size, true>>: public crtp_field<Field<mesh_t, value_t, size, true>>
+        template <class mesh_t, class value_t, std::size_t size>
+        struct inner_field_types<Field<mesh_t, value_t, size, true>> : public crtp_field<Field<mesh_t, value_t, size, true>>
         {
             static constexpr std::size_t dim = mesh_t::dim;
-            using interval_t = typename mesh_t::interval_t;
-            using cell_t = Cell<typename interval_t::coord_index_t, dim>;
-            using data_type = xt::xtensor<value_t, 2>;
+            using interval_t                 = typename mesh_t::interval_t;
+            using cell_t                     = Cell<typename interval_t::coord_index_t, dim>;
+            using data_type                  = xt::xtensor<value_t, 2>;
 
             inline auto operator[](std::size_t i) const
             {
@@ -262,71 +250,64 @@ namespace samurai
                 return xt::view(this->derived_cast().m_data, xt::all(), i);
             }
 
-            template<class... T>
-            inline auto operator()(const std::size_t level, const interval_t &interval, const T... index)
+            template <class... T>
+            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ OR WRITE", level, interval, index...);
-                return xt::view(this->derived_cast().m_data, xt::all(),
-                                xt::range(interval_tmp.index + interval.start,
-                                          interval_tmp.index + interval.end,
-                                          interval.step));
+                return xt::view(this->derived_cast().m_data,
+                                xt::all(),
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
-            template<class... T>
-            inline auto operator()(const std::size_t level, const interval_t &interval, const T... index) const
+            template <class... T>
+            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
-                return xt::view(this->derived_cast().m_data, xt::all(),
-                                xt::range(interval_tmp.index + interval.start,
-                                          interval_tmp.index + interval.end,
-                                          interval.step));
+                return xt::view(this->derived_cast().m_data,
+                                xt::all(),
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
-            template<class... T>
+            template <class... T>
             inline auto operator()(std::size_t item, std::size_t level, const interval_t& interval, T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval("WRITE", level, interval, index...);
-                return xt::view(this->derived_cast().m_data, item,
-                                xt::range(interval_tmp.index + interval.start,
-                                            interval_tmp.index + interval.end,
-                                            interval.step));
+                return xt::view(this->derived_cast().m_data,
+                                item,
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
-            template<class... T>
-            inline auto operator()(std::size_t item, std::size_t level, const interval_t &interval, T... index) const
+            template <class... T>
+            inline auto operator()(std::size_t item, std::size_t level, const interval_t& interval, T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
-                return xt::view(this->derived_cast().m_data, item,
-                                xt::range(interval_tmp.index + interval.start,
-                                            interval_tmp.index + interval.end,
-                                            interval.step));
+                return xt::view(this->derived_cast().m_data,
+                                item,
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
-            template<class... T>
+            template <class... T>
             inline auto operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval("WRITE", level, interval, index...);
-                return xt::view(this->derived_cast().m_data, xt::range(item_s, item_e),
-                                xt::range(interval_tmp.index + interval.start,
-                                            interval_tmp.index + interval.end,
-                                            interval.step));
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(item_s, item_e),
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
-            template<class... T>
+            template <class... T>
             inline auto operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
-                return xt::view(this->derived_cast().m_data, xt::range(item_s, item_e),
-                                xt::range(interval_tmp.index + interval.start,
-                                            interval_tmp.index + interval.end,
-                                            interval.step));
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(item_s, item_e),
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
 
             void resize()
             {
                 this->derived_cast().m_data.resize({size, this->derived_cast().mesh().nb_cells()});
             }
-
         };
 
     } // namespace detail
@@ -334,21 +315,24 @@ namespace samurai
     template <class Mesh>
     class hold
     {
-        public:
-            static constexpr std::size_t dim = Mesh::dim;
-            using interval_t = typename Mesh::interval_t;
+      public:
 
-            hold(Mesh& mesh)
+        static constexpr std::size_t dim = Mesh::dim;
+        using interval_t                 = typename Mesh::interval_t;
+
+        hold(Mesh& mesh)
             : m_mesh(mesh)
-            {}
+        {
+        }
 
-            Mesh& get()
-            {
-                return m_mesh;
-            }
+        Mesh& get()
+        {
+            return m_mesh;
+        }
 
-        private:
-            Mesh& m_mesh;
+      private:
+
+        Mesh& m_mesh;
     };
 
     template <class Mesh>
@@ -357,104 +341,117 @@ namespace samurai
         return hold<Mesh>(mesh);
     }
 
-    template<class Mesh>
+    template <class Mesh>
     class inner_mesh_type
     {
-        public:
-            using mesh_t = Mesh;
+      public:
 
-            inner_mesh_type() = default;
+        using mesh_t = Mesh;
 
-            inner_mesh_type(mesh_t& mesh)
+        inner_mesh_type() = default;
+
+        inner_mesh_type(mesh_t& mesh)
             : p_mesh(&mesh)
-            {}
+        {
+        }
 
-            const mesh_t& mesh() const
-            {
-                return *p_mesh;
-            }
-            mesh_t& mesh()
-            {
-                return *p_mesh;
-            }
+        const mesh_t& mesh() const
+        {
+            return *p_mesh;
+        }
 
-            const mesh_t* mesh_ptr() const
-            {
-                return p_mesh;
-            }
-            mesh_t* mesh_ptr()
-            {
-                return p_mesh;
-            }
+        mesh_t& mesh()
+        {
+            return *p_mesh;
+        }
 
-        private:
-            mesh_t* p_mesh;
+        const mesh_t* mesh_ptr() const
+        {
+            return p_mesh;
+        }
+
+        mesh_t* mesh_ptr()
+        {
+            return p_mesh;
+        }
+
+      private:
+
+        mesh_t* p_mesh;
     };
 
-    template<class Mesh>
+    template <class Mesh>
     class inner_mesh_type<hold<Mesh>>
     {
-        public:
-            using mesh_t = Mesh;
+      public:
 
-            inner_mesh_type() = default;
+        using mesh_t = Mesh;
 
-            inner_mesh_type(hold<Mesh>& mesh)
+        inner_mesh_type() = default;
+
+        inner_mesh_type(hold<Mesh>& mesh)
             : m_mesh(mesh.get())
-            {}
+        {
+        }
 
-            const mesh_t& mesh() const
-            {
-                return m_mesh;
-            }
-            mesh_t& mesh()
-            {
-                return m_mesh;
-            }
+        const mesh_t& mesh() const
+        {
+            return m_mesh;
+        }
 
-            const mesh_t* mesh_ptr() const
-            {
-                return &m_mesh;
-            }
-            mesh_t* mesh_ptr()
-            {
-                return &m_mesh;
-            }
+        mesh_t& mesh()
+        {
+            return m_mesh;
+        }
 
-        private:
-            mesh_t m_mesh;
+        const mesh_t* mesh_ptr() const
+        {
+            return &m_mesh;
+        }
+
+        mesh_t* mesh_ptr()
+        {
+            return &m_mesh;
+        }
+
+      private:
+
+        mesh_t m_mesh;
     };
 
-    template<class mesh_t_, class value_t = double, std::size_t size_ = 1, bool SOA=false>
+    template <class mesh_t_, class value_t = double, std::size_t size_ = 1, bool SOA = false>
     class Field : public field_expression<Field<mesh_t_, value_t, size_, SOA>>,
                   public detail::inner_field_types<Field<mesh_t_, value_t, size_, SOA>>,
                   public inner_mesh_type<mesh_t_>
     {
       public:
+
         static constexpr std::size_t size = size_;
-        static constexpr bool is_soa = SOA;
+        static constexpr bool is_soa      = SOA;
 
         using inner_mesh_t = inner_mesh_type<mesh_t_>;
-        using mesh_t = mesh_t_;
+        using mesh_t       = mesh_t_;
 
-        using value_type = value_t;
+        using value_type  = value_t;
         using inner_types = detail::inner_field_types<Field<mesh_t, value_t, size, SOA>>;
-        using data_type = typename inner_types::data_type;
+        using data_type   = typename inner_types::data_type;
         using inner_types::operator();
 
         using inner_types::dim;
         using interval_t = typename mesh_t::interval_t;
-        using cell_t = Cell<typename interval_t::coord_index_t, dim>;
+        using cell_t     = Cell<typename interval_t::coord_index_t, dim>;
 
         using boundary_condition_t = BoundaryCondition<value_t, dim, size>;
-        using boundary_point_t = typename boundary_condition_t::boundary_point_t;
-        using boundary_part_t = typename boundary_condition_t::boundary_part_t;
-        using boundary_cond_t = typename boundary_condition_t::boundary_cond_t;
+        using boundary_point_t     = typename boundary_condition_t::boundary_point_t;
+        using boundary_part_t      = typename boundary_condition_t::boundary_part_t;
+        using boundary_cond_t      = typename boundary_condition_t::boundary_cond_t;
 
       private:
+
         std::vector<boundary_condition_t> m_boundary_conditions;
 
       public:
+
         Field() = default;
 
         Field(const std::string& name, mesh_t& mesh);
@@ -462,17 +459,19 @@ namespace samurai
         Field(Field&);
         Field& operator=(const Field&) = default;
 
-        Field(Field&&) = default;
+        Field(Field&&)            = default;
         Field& operator=(Field&&) = default;
 
-        template<class E>
-        Field &operator=(const field_expression<E> &e);
+        template <class E>
+        Field& operator=(const field_expression<E>& e);
 
         // template<class... T>
-        // auto operator()(const std::size_t level, const interval_t& interval, const T... index);
+        // auto operator()(const std::size_t level, const interval_t& interval,
+        // const T... index);
 
         // template<class... T>
-        // auto operator()(const std::size_t level, const interval_t& interval, const T... index) const;
+        // auto operator()(const std::size_t level, const interval_t& interval,
+        // const T... index) const;
 
         void fill(value_type v);
 
@@ -483,7 +482,7 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
-        template<class Bc_derived>
+        template <class Bc_derived>
         auto attach_bc(const Bc_derived& bc);
         auto& get_bc();
 
@@ -491,9 +490,10 @@ namespace samurai
         boundary_condition_t& set_dirichlet(boundary_cond_t dirichlet_value);
         boundary_condition_t& set_neumann(boundary_cond_t neumann_value);
 
-    private:
-        template<class... T>
-        const interval_t& get_interval(std::string rw, const std::size_t level, const interval_t &interval, const T... index) const;
+      private:
+
+        template <class... T>
+        const interval_t& get_interval(std::string rw, const std::size_t level, const interval_t& interval, const T... index) const;
 
         std::string m_name;
         data_type m_data;
@@ -503,34 +503,35 @@ namespace samurai
         friend struct detail::inner_field_types<Field<mesh_t, value_t, size_, SOA>>;
     };
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline void Field<mesh_t, value_t, size_, SOA>::fill(value_type v)
     {
         m_data.fill(v);
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline Field<mesh_t, value_t, size_, SOA>::Field(const std::string& name, mesh_t& mesh)
-        : inner_mesh_t(mesh), m_name(name)
+        : inner_mesh_t(mesh)
+        , m_name(name)
     {
         this->resize();
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline Field<mesh_t, value_t, size_, SOA>::Field(Field& field)
-    : inner_mesh_t(field.mesh())
-    , m_name(field.m_name)
-    , m_data(field.m_data)
+        : inner_mesh_t(field.mesh())
+        , m_name(field.m_name)
+        , m_data(field.m_data)
     {
-        for(auto& v: field.p_bc)
+        for (auto& v : field.p_bc)
         {
             p_bc.emplace_back(v->clone());
         }
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    template<class E>
-    inline auto Field<mesh_t, value_t, size_, SOA>::operator=(const field_expression<E> &e) -> Field&
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class E>
+    inline auto Field<mesh_t, value_t, size_, SOA>::operator=(const field_expression<E>& e) -> Field&
     {
         // FIX: this works only when the mesh_t is a derived class of Mesh_base.
         //      CellArray has no type mesh_id_t.
@@ -542,26 +543,24 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto subset = intersection(this->mesh()[mesh_id_t::cells][level],
-                                       this->mesh()[mesh_id_t::cells][level]);
+            auto subset = intersection(this->mesh()[mesh_id_t::cells][level], this->mesh()[mesh_id_t::cells][level]);
 
             subset.apply_op(apply_expr(*this, e));
         }
         return *this;
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    template<class... T>
-    inline auto Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw, const std::size_t level,
-                                                            const interval_t &interval, const T... index) const -> const interval_t&
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class... T>
+    inline auto
+    Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw, const std::size_t level, const interval_t& interval, const T... index) const
+        -> const interval_t&
     {
         const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index...);
 
-        if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) ||
-            (interval_tmp.start > interval.start))
+        if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
         {
-            std::cout << fmt::format("{} FIELD ERROR on level {}: try to find interval {}",
-                                rw, level, interval) << std::endl;
+            std::cout << fmt::format("{} FIELD ERROR on level {}: try to find interval {}", rw, level, interval) << std::endl;
             // std::cout << this->mesh() << std::endl;
             throw;
         }
@@ -569,14 +568,16 @@ namespace samurai
         return interval_tmp;
     }
 
-
     // template<class mesh_t, class value_t, std::size_t size_, bool SOA>
     // template<class... T>
-    // inline auto Field<mesh_t, value_t, size_, SOA>::operator()(const std::size_t level,
-    //                                                       const interval_t &interval, const T... index)
+    // inline auto Field<mesh_t, value_t, size_, SOA>::operator()(const
+    // std::size_t level,
+    //                                                       const interval_t
+    //                                                       &interval, const
+    //                                                       T... index)
     // {
-    //     auto interval_tmp = get_interval("READ OR WRITE", level, interval, index...);
-    //     return xt::view(m_data,
+    //     auto interval_tmp = get_interval("READ OR WRITE", level, interval,
+    //     index...); return xt::view(m_data,
     //                     xt::range(interval_tmp.index + interval.start,
     //                                 interval_tmp.index + interval.end,
     //                                 interval.step));
@@ -584,8 +585,11 @@ namespace samurai
 
     // template<class mesh_t, class value_t, std::size_t size_, bool SOA>
     // template<class... T>
-    // inline auto Field<mesh_t, value_t, size_, SOA>::operator()(const std::size_t level,
-    //                                                       const interval_t &interval, const T... index) const
+    // inline auto Field<mesh_t, value_t, size_, SOA>::operator()(const
+    // std::size_t level,
+    //                                                       const interval_t
+    //                                                       &interval, const
+    //                                                       T... index) const
     // {
     //     auto interval_tmp = get_interval("READ", level, interval, index...);
     //     return xt::view(m_data,
@@ -594,78 +598,78 @@ namespace samurai
     //                                 interval.step));
     // }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::array() const -> const data_type&
     {
         return m_data;
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::array() -> data_type&
     {
         return m_data;
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline std::string Field<mesh_t, value_t, size_, SOA>::name() const
     {
         return m_name;
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline void Field<mesh_t, value_t, size_, SOA>::to_stream(std::ostream& os) const
     {
         os << "Field " << m_name << "\n";
-        for_each_cell(this->mesh(), [&](auto &cell)
-        {
-                os << "\tlevel: " << cell.level << " coords: " << cell.center()
-                    << " value: " << this->operator[](cell) << "\n";
-        });
+        for_each_cell(this->mesh(),
+                      [&](auto& cell)
+                      {
+                          os << "\tlevel: " << cell.level << " coords: " << cell.center() << " value: " << this->operator[](cell) << "\n";
+                      });
     }
 
-    template<class mesh_t, class T, std::size_t N, bool SOA>
+    template <class mesh_t, class T, std::size_t N, bool SOA>
     inline std::ostream& operator<<(std::ostream& out, const Field<mesh_t, T, N, SOA>& field)
     {
         field.to_stream(out);
         return out;
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    template<class Bc_derived>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class Bc_derived>
     inline auto Field<mesh_t, value_t, size_, SOA>::attach_bc(const Bc_derived& bc)
     {
         p_bc.push_back(bc.clone());
         return p_bc.back().get();
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto& Field<mesh_t, value_t, size_, SOA>::get_bc()
     {
         return p_bc;
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     const std::vector<typename Field<mesh_t, value_t, size_, SOA>::boundary_condition_t>&
     Field<mesh_t, value_t, size_, SOA>::boundary_conditions() const
     {
         return m_boundary_conditions;
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     auto Field<mesh_t, value_t, size_, SOA>::set_dirichlet(boundary_cond_t dirichlet_value) -> boundary_condition_t&
     {
         m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Dirichlet, dirichlet_value);
         return m_boundary_conditions.back();
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     auto Field<mesh_t, value_t, size_, SOA>::set_neumann(boundary_cond_t neumann_value) -> boundary_condition_t&
     {
         m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Neumann, neumann_value);
         return m_boundary_conditions.back();
     }
 
-    template <class value_t, std::size_t size, bool SOA=false, class mesh_t>
+    template <class value_t, std::size_t size, bool SOA = false, class mesh_t>
     auto make_field(std::string name, mesh_t& mesh)
     {
         using field_t = Field<mesh_t, value_t, size, SOA>;
@@ -676,25 +680,27 @@ namespace samurai
      * @brief Creates a field.
      * @param name Name of the returned Field.
      * @param f Continuous function.
-     * @param polynomial_degree Polynomial degree of the function (-1 if not polynomial).
-    */
-    template<class value_t, std::size_t size, bool SOA=false, class mesh_t, class Func>
-    auto make_field(std::string name, mesh_t& mesh, Func&& f, int polynomial_degree=-1)
+     * @param polynomial_degree Polynomial degree of the function (-1 if not
+     * polynomial).
+     */
+    template <class value_t, std::size_t size, bool SOA = false, class mesh_t, class Func>
+    auto make_field(std::string name, mesh_t& mesh, Func&& f, int polynomial_degree = -1)
     {
         auto field = make_field<value_t, size, SOA, mesh_t>(name, mesh);
         field.fill(0);
         GaussLegendre gl(polynomial_degree);
 
-        for_each_cell(mesh, [&](const auto& cell)
-        {
-            const double& h = cell.length;
-            field[cell] = gl.quadrature<size>(cell, f) / pow(h, mesh_t::dim);
-        });
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          const double& h = cell.length;
+                          field[cell]     = gl.quadrature<size>(cell, f) / pow(h, mesh_t::dim);
+                      });
         return field;
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline bool operator==(const Field<mesh_t, value_t, size_, SOA> &field1, const Field<mesh_t, value_t, size_, SOA> &field2)
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline bool operator==(const Field<mesh_t, value_t, size_, SOA>& field1, const Field<mesh_t, value_t, size_, SOA>& field2)
     {
         using mesh_id_t = typename mesh_t::mesh_id_t;
 
@@ -704,21 +710,22 @@ namespace samurai
             return false;
         }
 
-        auto& mesh = field1.mesh();
+        auto& mesh   = field1.mesh();
         bool is_same = true;
-        for_each_cell(mesh[mesh_id_t::cells], [&](const auto& cell)
-        {
-            if (std::abs(field1[cell] - field2[cell]) > 1e-15)
-            {
-                is_same = false;
-            }
-        });
+        for_each_cell(mesh[mesh_id_t::cells],
+                      [&](const auto& cell)
+                      {
+                          if (std::abs(field1[cell] - field2[cell]) > 1e-15)
+                          {
+                              is_same = false;
+                          }
+                      });
 
         return is_same;
     }
 
-    template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline bool operator!=(const Field<mesh_t, value_t, size_, SOA> &field1, const Field<mesh_t, value_t, size_, SOA> &field2)
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline bool operator!=(const Field<mesh_t, value_t, size_, SOA>& field1, const Field<mesh_t, value_t, size_, SOA>& field2)
     {
         return !(field1 == field2);
     }

@@ -20,7 +20,7 @@ namespace samurai
             return a;
         }
 
-        template<class... CT>
+        template <class... CT>
         inline bool operator()(std::size_t dim, bool a, CT&&... b) const
         {
             return (a && operator()(dim, std::forward<CT>(b)...));
@@ -31,15 +31,14 @@ namespace samurai
             return a;
         }
 
-        template<class... CT>
+        template <class... CT>
         inline bool is_empty(bool a, CT&&... b) const
         {
             return (a || is_empty(std::forward<CT>(b)...));
         }
-
     };
 
-    template<class... T>
+    template <class... T>
     auto intersection(T&&... t)
     {
         return make_subset_operator<intersect_fn>(get_arg(std::forward<T>(t))...);
@@ -56,7 +55,7 @@ namespace samurai
             return a;
         }
 
-        template<class... CT>
+        template <class... CT>
         inline bool operator()(std::size_t dim, bool a, const CT&... b) const
         {
             return (a || operator()(dim, b...));
@@ -67,15 +66,15 @@ namespace samurai
             return a;
         }
 
-        template<class... CT>
+        template <class... CT>
         inline bool is_empty(bool a, CT&&... b) const
         {
             return (a && is_empty(std::forward<CT>(b)...));
         }
     };
 
-    template<class... T>
-    auto union_(T &&... t)
+    template <class... T>
+    auto union_(T&&... t)
     {
         return make_subset_operator<union_fn>(get_arg(std::forward<T>(t))...);
     }
@@ -91,7 +90,7 @@ namespace samurai
             return !a;
         }
 
-        template<class... CT>
+        template <class... CT>
         inline bool operator()(std::size_t dim, bool a, const CT&... b) const
         {
             return (!a && operator()(dim, b...));
@@ -104,7 +103,7 @@ namespace samurai
 
     struct difference_fn
     {
-        template<class... CT>
+        template <class... CT>
         inline bool operator()(std::size_t dim, bool a, const CT&... b) const
         {
             // Since the algorithm is recursive (d = dim - 1,...,0)
@@ -116,19 +115,19 @@ namespace samurai
             }
             else
             {
-                return (a && not_fn{}(dim, b...));
+                return (a&& not_fn{}(dim, b...));
             }
         }
 
-        template<class... CT>
+        template <class... CT>
         inline bool is_empty(bool a, CT&&...) const
         {
             return a;
         }
     };
 
-    template<class... T>
-    auto difference(T &&... t)
+    template <class... T>
+    auto difference(T&&... t)
     {
         return make_subset_operator<difference_fn>(get_arg(std::forward<T>(t))...);
     }

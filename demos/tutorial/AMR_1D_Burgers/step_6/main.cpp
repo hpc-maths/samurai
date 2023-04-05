@@ -18,8 +18,8 @@ namespace fs = std::filesystem;
 #include "../step_4/AMR_criterion.hpp"
 #include "../step_4/update_mesh.hpp"
 
-#include "../step_5/update_ghost.hpp"
 #include "../step_5/make_graduation.hpp"
+#include "../step_5/update_ghost.hpp"
 
 #include "update_sol.hpp" // with flux correction
 
@@ -33,20 +33,20 @@ namespace fs = std::filesystem;
  *
  */
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     // Simulation parameters
-    double cfl = 0.99;
-    double Tf = 1.5;
+    double cfl         = 0.99;
+    double Tf          = 1.5;
     std::size_t nfiles = 1;
 
     // AMR parameters
     std::size_t start_level = 8;
-    std::size_t min_level = 2;
-    std::size_t max_level = 8;
+    std::size_t min_level   = 2;
+    std::size_t max_level   = 8;
 
     // Output parameters
-    fs::path path = fs::current_path();
+    fs::path path        = fs::current_path();
     std::string filename = "amr_1d_burgers_step_6";
 
     CLI::App app{"Tutorial AMR Burgers 1D step 6"};
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     app.add_option("--max-level", max_level, "Maximum level of the AMR")->capture_default_str()->group("AMR parameter");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles,  "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     CLI11_PARSE(app, argc, argv);
 
     if (!fs::exists(path))
@@ -72,13 +72,13 @@ int main(int argc, char *argv[])
 
     auto phi = init_sol(mesh);
 
-    double dx = 1./(1 << max_level);
-    double dt = cfl * dx;
-    double dt_save = Tf/static_cast<double>(nfiles);
+    double dx      = 1. / (1 << max_level);
+    double dt      = cfl * dx;
+    double dt_save = Tf / static_cast<double>(nfiles);
 
-    double t = 0.;
+    double t          = 0.;
     std::size_t nsave = 1;
-    std::size_t nt = 0;
+    std::size_t nt    = 0;
 
     while (t != Tf)
     {
@@ -92,8 +92,8 @@ int main(int argc, char *argv[])
         fmt::print("Iteration = {:4d} Time = {:5.4}\n", nt++, t);
 
         std::size_t i_adapt = 0;
-        while(i_adapt < (max_level - min_level + 1))
-            {
+        while (i_adapt < (max_level - min_level + 1))
+        {
             auto tag = samurai::make_field<std::size_t, 1>("tag", mesh);
 
             fmt::print("adaptation iteration : {:4d}\n", i_adapt++);
@@ -112,19 +112,19 @@ int main(int argc, char *argv[])
 
         update_sol(dt, phi, phi_np1);
 
-        if ( t >= static_cast<double>(nsave+1)*dt_save || t == Tf)
+        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
             auto level = samurai::make_field<std::size_t, 1>("level", mesh);
-            samurai::for_each_interval(mesh[MeshID::cells], [&](std::size_t l, const auto& i, auto)
-            {
-                level(l, i) = l;
-            });
+            samurai::for_each_interval(mesh[MeshID::cells],
+                                       [&](std::size_t l, const auto& i, auto)
+                                       {
+                                           level(l, i) = l;
+                                       });
 
-            std::string suffix = (nfiles!=1)? fmt::format("_ite_{}", nsave++): "";
-            samurai::save(path , fmt::format("{}{}", filename, suffix), mesh, phi, level);
+            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, phi, level);
         }
     }
 
     return 0;
 }
-
