@@ -271,14 +271,6 @@ public:
         static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
     }
 
-    static auto flux_coefficients(double h)
-    {
-        std::array<double, 2> coeffs;
-        coeffs[0] = -1/h;
-        coeffs[1] =  1/h;
-        return coeffs;
-    }
-
     template<std::size_t d>
     static auto half_flux_in_direction(std::array<double, 2>& flux_coeffs, double h_face, double h_cell)
     {
@@ -301,9 +293,8 @@ public:
         for (std::size_t d = 0; d < dim; ++d)
         {
             auto& coeffs = coeffs_by_fluxes[d];
-            coeffs.flux.direction = xt::view(directions, d);
-            coeffs.flux.stencil = samurai::in_out_stencil<dim>(coeffs.flux.direction);
-            coeffs.flux.get_flux_coeffs = flux_coefficients;
+            samurai::DirectionVector<dim> direction = xt::view(directions, d);
+            coeffs.flux = samurai::petsc::normal_grad_order2<Field>(direction);
             if (d == 0)
             {
                 coeffs.get_cell1_coeffs = half_flux_in_direction<0>;
@@ -388,23 +379,6 @@ public:
     }
 
     template<std::size_t d>
-    static auto flux_coefficients(double h)
-    {
-        std::array<flux_matrix_t, 2> flux_coeffs;
-        if constexpr (field_size == 1)
-        {
-            flux_coeffs[0] = -1/h;
-            flux_coeffs[1] =  1/h;
-        }
-        else
-        {
-            flux_coeffs[0].fill(-1/h);
-            flux_coeffs[1].fill( 1/h);
-        }
-        return flux_coeffs;
-    }
-
-    template<std::size_t d>
     static auto minus_average(std::array<flux_matrix_t, 2>&, double h_face, double h_cell)
     {
         std::array<coeff_matrix_t, 2> coeffs;
@@ -454,11 +428,10 @@ public:
         for (std::size_t d = 0; d < dim; ++d)
         {
             auto& coeffs = coeffs_by_fluxes[d];
-            coeffs.flux.direction = xt::view(directions, d);
-            coeffs.flux.stencil = samurai::in_out_stencil<dim>(coeffs.flux.direction);
+            samurai::DirectionVector<dim> direction = xt::view(directions, d);
+            coeffs.flux = samurai::petsc::normal_grad_order2<Field>(direction);
             if (d == 0)
             {
-                coeffs.flux.get_flux_coeffs = flux_coefficients<0>;
                 coeffs.get_cell1_coeffs = minus_average<0>;
                 coeffs.get_cell2_coeffs = average<0>;
             }
@@ -466,7 +439,6 @@ public:
             {
                 if (d == 1)
                 {
-                    coeffs.flux.get_flux_coeffs = flux_coefficients<1>;
                     coeffs.get_cell1_coeffs = minus_average<1>;
                     coeffs.get_cell2_coeffs = average<1>;
                 }
@@ -475,7 +447,6 @@ public:
             {
                 if (d == 2)
                 {
-                    coeffs.flux.get_flux_coeffs = flux_coefficients<2>;
                     coeffs.get_cell1_coeffs = minus_average<2>;
                     coeffs.get_cell2_coeffs = average<2>;
                 }
