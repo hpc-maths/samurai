@@ -354,8 +354,8 @@ auto make_gradient_FV(Field& f)
  *               cell 1     cell 2
  * 
  * 2. On each couple (cell 1, cell 2), we compute Fx^R(1) or Fx^T(1) (according to the direction) and consider that
- *         Fx^L(1) = -Fx^R(2) 
- *         Fy^B(1) = -Fy^T(2).
+ *         Fx^L(2) = -Fx^R(1) 
+ *         Fy^B(2) = -Fy^T(1).
  *    The divergence scheme (S) becomes
  *         Div(u)(cell 1) = 1/2 (Fx^R(1) + Fx^L(2)) + 1/2 (Fy^T(1) + Fy^B(2)), where 2 denotes the neighbour in the appropriate direction.
  *    So the contribution of a flux F (R or T) computed on cell 1 is 
@@ -363,7 +363,7 @@ auto make_gradient_FV(Field& f)
  *         for cell 2: 1/2 F
 */
 template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::FluxBasedAssemblyConfig<1, 2>>
-class MinusDivergenceFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
+class DivergenceFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
 {
 public:
     using coefficients_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::coefficients_t;
@@ -371,31 +371,11 @@ public:
     using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
     static constexpr std::size_t field_size = Field::size;
 
-    MinusDivergenceFV(Field& u) : 
-        samurai::petsc::FluxBasedScheme<cfg, Field>(u, minus_div_coefficients())
+    DivergenceFV(Field& u) : 
+        samurai::petsc::FluxBasedScheme<cfg, Field>(u, div_coefficients())
     {
-        this->set_name("-Divergence");
+        this->set_name("Divergence");
         static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");
-    }
-
-    template<std::size_t d>
-    static auto minus_average(std::array<flux_matrix_t, 2>&, double h_face, double h_cell)
-    {
-        std::array<coeff_matrix_t, 2> coeffs;
-        double h_factor = pow(h_face, dim-1) / pow(h_cell, dim);
-        if constexpr (field_size == 1)
-        {
-            coeffs[0] = -0.5 * h_factor;
-            coeffs[1] = -0.5 * h_factor;
-        }
-        else
-        {
-            coeffs[0].fill(0);
-            coeffs[1].fill(0);
-            coeffs[0](d) = -0.5 * h_factor;
-            coeffs[1](d) = -0.5 * h_factor;
-        }
-        return coeffs;
     }
 
     template<std::size_t d>
@@ -418,11 +398,22 @@ public:
         return coeffs;
     }
 
+    template<std::size_t d>
+    static auto minus_average(std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
+    {
+        auto coeffs = average<d>(flux_coeffs, h_face, h_cell);
+        for (auto& coeff : coeffs)
+        {
+            coeff *= -1;
+        }
+        return coeffs;
+    }
+
 
     // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
-    static auto minus_div_coefficients()
+    static auto div_coefficients()
     {
-        static_assert(dim <= 3, "MinusDivergenceFV.minus_div_coefficients() not implemented for dim > 3.");
+        static_assert(dim <= 3, "DivergenceFV.div_coefficients() not implemented for dim > 3.");
         std::array<coefficients_t, dim> coeffs_by_fluxes;
         auto directions = samurai::positive_cartesian_directions<dim>();
         for (std::size_t d = 0; d < dim; ++d)
@@ -432,23 +423,23 @@ public:
             coeffs.flux = samurai::petsc::normal_grad_order2<Field>(direction);
             if (d == 0)
             {
-                coeffs.get_cell1_coeffs = minus_average<0>;
-                coeffs.get_cell2_coeffs = average<0>;
+                coeffs.get_cell1_coeffs = average<0>;
+                coeffs.get_cell2_coeffs = minus_average<0>;
             }
             if constexpr (dim >= 2)
             {
                 if (d == 1)
                 {
-                    coeffs.get_cell1_coeffs = minus_average<1>;
-                    coeffs.get_cell2_coeffs = average<1>;
+                    coeffs.get_cell1_coeffs = average<1>;
+                    coeffs.get_cell2_coeffs = minus_average<1>;
                 }
             }
             if constexpr (dim >= 3)
             {
                 if (d == 2)
                 {
-                    coeffs.get_cell1_coeffs = minus_average<2>;
-                    coeffs.get_cell2_coeffs = average<2>;
+                    coeffs.get_cell1_coeffs = average<2>;
+                    coeffs.get_cell2_coeffs = minus_average<2>;
                 }
             }
         }
@@ -457,9 +448,9 @@ public:
 };
 
 template<class Field>
-auto make_minus_divergence_FV(Field& f)
+auto make_divergence_FV(Field& f)
 {
-    return MinusDivergenceFV<Field>(f);
+    return DivergenceFV<Field>(f);
 }
 
 
@@ -618,7 +609,7 @@ int main(int argc, char* argv[])
         // Block operator
         auto diff_v      = samurai::petsc::make_diffusion_FV(velocity);
         auto grad_p      =                 make_gradient_FV(pressure);
-        auto minus_div_v =                 make_minus_divergence_FV(velocity);
+        auto minus_div_v =            -1 * make_divergence_FV(velocity);
         auto zero_p      = samurai::petsc::make_zero_operator_FV<1>(pressure);
 
         auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p,
@@ -781,16 +772,7 @@ int main(int argc, char* argv[])
         double mr_regularity = 3; // Regularity guess for multiresolution
 
 
-        /*std::cout << mesh << std::endl;
-        std::cout << std::endl;
-        std::cout << std::endl;
-        std::cout << std::endl;
-        std::cout << std::endl;
-        std::cout << std::endl;
-        std::cout << std::endl;*/
         auto MRadaptation = samurai::make_MRAdapt(velocity);
-        //MRadaptation(mr_epsilon, mr_regularity);
-        //std::cout << mesh << std::endl;
 
         std::size_t nfiles = 50;
 
@@ -815,11 +797,12 @@ int main(int argc, char* argv[])
             {
                 // Mesh adaptation
                 MRadaptation(mr_epsilon, mr_regularity);
-                //samurai::update_ghost_mr(velocity, update_velocity_bc);
+                //samurai::update_ghost_mr(velocity);
                 velocity_np1.resize();
                 pressure_np1.resize();
                 zero.resize(); zero.fill(0);
 
+                // Min and max levels actually used
                 std::size_t actual_min_level = 999;
                 std::size_t actual_max_level = 0;
                 samurai::for_each_level(velocity.mesh(), [&](auto level)
@@ -827,17 +810,16 @@ int main(int argc, char* argv[])
                     actual_min_level = std::min(actual_min_level, level);
                     actual_max_level = std::max(actual_max_level, level);
                 });
-
                 std::cout << ", levels " << actual_min_level << "-" << actual_max_level;
             }
             std::cout << std::endl;
 
             // Stokes operator
-            //             |   Diff  Grad |
-            //             | - Div     0  |
+            //             |  Diff  Grad |
+            //             | -Div     0  |
             auto diff_v      = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
             auto grad_p      =                              make_gradient_FV(pressure_np1);
-            auto minus_div_v =                              make_minus_divergence_FV(velocity_np1);
+            auto minus_div_v =                         -1 * make_divergence_FV(velocity_np1);
             auto zero_p      =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
 
             // Stokes with backward Euler
