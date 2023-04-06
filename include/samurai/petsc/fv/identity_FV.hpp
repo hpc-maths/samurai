@@ -1,6 +1,6 @@
 #pragma once
-//#include "flux_based_scheme.hpp"
-#include "cell_based_scheme.hpp"
+//#include "../flux_based_scheme.hpp"
+#include "../cell_based_scheme.hpp"
 
 namespace samurai 
 {

@@ -221,243 +221,6 @@ auto make_minus_divergence_FV_old(Field& f)
 
 /*****************************************************************/
 
-/**
- * If u is a scalar field in dimension 2, then
- *      Grad(u) = [d(u)/dx]
- *                [d(u)/dy].
- * On each cell, we adopt a cell-centered approximation:
- *         d(u)/dx = 1/2 [(u^R - u)/h + (u - u^L)/h]   where (L, R) = (Left, Right)
- *         d(u)/dy = 1/2 [(u^T - u)/h + (u - u^B)/h]   where (B, T) = (Bottom, Top).
- * We denote by Fx^f = d(u)/dx * n_f the outer normal flux through the face f, i.e.
- *         Fx^R = (u^R - u)/h,      Fx^L = (u^L - u)/h,
- *         Fy^T = (u^T - u)/h,      Fy^B = (u^B - u)/h.
- * The approximations become
- *         d(u)/dx = 1/2 (Fx^R - Fx^L)        (S)
- *         d(u)/dy = 1/2 (Fy^T - Fy^B).
- * 
- * Implementation:
- * 
- * 1. The computation of the normal fluxes between cell 1 and cell 2 (in the direction dir=x or y) is given by
- *         Fx = (u^2 - u^1)/h = -1/h * u^1 + 1/h * u^2    if dir=x
- *         Fy = (u^2 - u^1)/h = -1/h * u^1 + 1/h * u^2    if dir=y
- * 
- *    So   F = [ -1/h |  1/h ] whatever the direction
- *             |______|______|
- *              cell 1 cell 2
- * 
- * 2. On each couple (cell 1, cell 2), we compute Fx^R(1) or Fx^T(1) (according to the direction) and consider that
- *         Fx^L(1) = -Fx^R(2) 
- *         Fy^B(1) = -Fy^T(2).
- *    The gradient scheme (S) becomes
- *         Grad(u)(cell 1) = [1/2 (Fx^R(1) + Fx^L(2))]
- *                           [1/2 (Fy^T(1) + Fy^B(2))], where 2 denotes the neighbour in the appropriate direction.
- *    So the contribution of a flux F (R or T) computed on cell 1 is 
- *         for cell 1: [1/2 F] if dir=x,  [    0] if dir=y
- *                     [    0]            [1/2 F]
- *         for cell 2: [1/2 F] if dir=x,  [    0] if dir=y
- *                     [    0]            [1/2 F]
-*/
-template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::FluxBasedAssemblyConfig<dim, 2>>
-class GradientFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
-{
-public:
-    using coefficients_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::coefficients_t;
-    using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
-
-    GradientFV(Field& u) : 
-        samurai::petsc::FluxBasedScheme<cfg, Field>(u, grad_coefficients())
-    {
-        this->set_name("Gradient");
-        static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
-    }
-
-    template<std::size_t d>
-    static auto half_flux_in_direction(std::array<double, 2>& flux_coeffs, double h_face, double h_cell)
-    {
-        std::array<coeff_matrix_t, 2> coeffs;
-        coeffs[0].fill(0);
-        coeffs[1].fill(0);
-        double h_factor = pow(h_face, 2) / pow(h_cell, dim);
-        xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0] * h_factor;
-        xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1] * h_factor;
-        return coeffs;
-    }
-
-    // Grad_x(u) = 1/2 * [ Fx(L) + Fx(R) ]
-    // Grad_y(u) = 1/2 * [ Fx(B) + Fx(T) ]
-    static auto grad_coefficients()
-    {
-        static_assert(dim <= 3, "GradientFV.grad_coefficients() not implemented for dim > 3.");
-        std::array<coefficients_t, dim> coeffs_by_fluxes;
-        auto directions = samurai::positive_cartesian_directions<dim>();
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            auto& coeffs = coeffs_by_fluxes[d];
-            samurai::DirectionVector<dim> direction = xt::view(directions, d);
-            coeffs.flux = samurai::petsc::normal_grad_order2<Field>(direction);
-            if (d == 0)
-            {
-                coeffs.get_cell1_coeffs = half_flux_in_direction<0>;
-                coeffs.get_cell2_coeffs = half_flux_in_direction<0>;
-            }
-            if constexpr (dim >= 2)
-            {
-                if (d == 1)
-                {
-                    coeffs.get_cell1_coeffs = half_flux_in_direction<1>;
-                    coeffs.get_cell2_coeffs = half_flux_in_direction<1>;
-                }
-            }
-            if constexpr (dim >= 3)
-            {
-                if (d == 2)
-                {
-                    coeffs.get_cell1_coeffs = half_flux_in_direction<2>;
-                    coeffs.get_cell2_coeffs = half_flux_in_direction<2>;
-                }
-            }
-        }
-        return coeffs_by_fluxes;
-    }
-};
-
-template<class Field>
-auto make_gradient_FV(Field& f)
-{
-    return GradientFV<Field>(f);
-}
-
-/**
- * If u is a field of size 2, e.g. the velocity --> u = (u_x, u_y), then
- *         Div(u) = d(u_x)/dx + d(u_y)/dy.
- * On each cell, we adopt a cell-centered approximation:
- *         d(u_x)/dx = 1/2 [(u_x^R - u_x)/h + (u_x - u_x^L)/h]   where (L, R) = (Left, Right)
- *         d(u_y)/dy = 1/2 [(u_y^T - u_y)/h + (u_y - u_x^B)/h]   where (B, T) = (Bottom, Top).
- * We denote by Fx^f = d(u_x)/dx * n_f the outer normal flux through the face f, i.e.
- *         Fx^R = (u_x^R - u_x)/h,      Fx^L = (u_x^L - u_x)/h,
- *         Fy^T = (u_y^T - u_y)/h,      Fy^B = (u_y^B - u_y)/h.
- * The approximations become
- *         d(u_x)/dx = 1/2 (Fx^R - Fx^L)
- *         d(u_y)/dy = 1/2 (Fy^T - Fy^B).
- * and finally,
- *         Div(u) = 1/2 (Fx^R - Fx^L) + 1/2 (Fy^T - Fy^B)      (S)
- * 
- * Implementation:
- * 
- * 1. The computation of the normal fluxes between cell 1 and cell 2 (in the direction d=x or y) is given by
- *         Fx = (u_x^2 - u_x^1)/h = -1/h * u_x^1 + 1/h * u_x^2 +  0 * u_y^1 +   0 * u_y^2    if d=x
- *         Fy = (u_y^2 - u_y^1)/h =    0 * u_x^1 +   0 * u_x^2 -1/h * u_y^1 + 1/h * u_x^2    if d=y
- * 
- *    So   F = [-1/h   0 | 1/h   0  ] if d=x
- *         F = [  0  -1/h|  0   1/h ] if d=y
- *             |_________|__________|
- *               cell 1     cell 2
- * 
- * 2. On each couple (cell 1, cell 2), we compute Fx^R(1) or Fx^T(1) (according to the direction) and consider that
- *         Fx^L(2) = -Fx^R(1) 
- *         Fy^B(2) = -Fy^T(1).
- *    The divergence scheme (S) becomes
- *         Div(u)(cell 1) = 1/2 (Fx^R(1) + Fx^L(2)) + 1/2 (Fy^T(1) + Fy^B(2)), where 2 denotes the neighbour in the appropriate direction.
- *    So the contribution of a flux F (R or T) computed on cell 1 is 
- *         for cell 1: 1/2 F
- *         for cell 2: 1/2 F
-*/
-template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::FluxBasedAssemblyConfig<1, 2>>
-class DivergenceFV : public samurai::petsc::FluxBasedScheme<cfg, Field>
-{
-public:
-    using coefficients_t = typename samurai::petsc::FluxBasedScheme<cfg, Field>::coefficients_t;
-    using flux_matrix_t  = typename coefficients_t::flux_computation_t::flux_matrix_t;
-    using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
-    static constexpr std::size_t field_size = Field::size;
-
-    DivergenceFV(Field& u) : 
-        samurai::petsc::FluxBasedScheme<cfg, Field>(u, div_coefficients())
-    {
-        this->set_name("Divergence");
-        static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");
-    }
-
-    template<std::size_t d>
-    static auto average(std::array<flux_matrix_t, 2>&, double h_face, double h_cell)
-    {
-        std::array<coeff_matrix_t, 2> coeffs;
-        double h_factor = pow(h_face, dim-1) / pow(h_cell, dim);
-        if constexpr (field_size == 1)
-        {
-            coeffs[0] = 0.5 * h_factor;
-            coeffs[1] = 0.5 * h_factor;
-        }
-        else
-        {
-            coeffs[0].fill(0);
-            coeffs[1].fill(0);
-            coeffs[0](d) = 0.5 * h_factor;
-            coeffs[1](d) = 0.5 * h_factor;
-        }
-        return coeffs;
-    }
-
-    template<std::size_t d>
-    static auto minus_average(std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
-    {
-        auto coeffs = average<d>(flux_coeffs, h_face, h_cell);
-        for (auto& coeff : coeffs)
-        {
-            coeff *= -1;
-        }
-        return coeffs;
-    }
-
-
-    // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
-    static auto div_coefficients()
-    {
-        static_assert(dim <= 3, "DivergenceFV.div_coefficients() not implemented for dim > 3.");
-        std::array<coefficients_t, dim> coeffs_by_fluxes;
-        auto directions = samurai::positive_cartesian_directions<dim>();
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            auto& coeffs = coeffs_by_fluxes[d];
-            samurai::DirectionVector<dim> direction = xt::view(directions, d);
-            coeffs.flux = samurai::petsc::normal_grad_order2<Field>(direction);
-            if (d == 0)
-            {
-                coeffs.get_cell1_coeffs = average<0>;
-                coeffs.get_cell2_coeffs = minus_average<0>;
-            }
-            if constexpr (dim >= 2)
-            {
-                if (d == 1)
-                {
-                    coeffs.get_cell1_coeffs = average<1>;
-                    coeffs.get_cell2_coeffs = minus_average<1>;
-                }
-            }
-            if constexpr (dim >= 3)
-            {
-                if (d == 2)
-                {
-                    coeffs.get_cell1_coeffs = average<2>;
-                    coeffs.get_cell2_coeffs = minus_average<2>;
-                }
-            }
-        }
-        return coeffs_by_fluxes;
-    }
-};
-
-template<class Field>
-auto make_divergence_FV(Field& f)
-{
-    return DivergenceFV<Field>(f);
-}
-
-
-
-
-/***********************************************************************/
-
 //
 // Configuration of the PETSc solver for the Stokes problem
 //
@@ -607,10 +370,10 @@ int main(int argc, char* argv[])
                 .everywhere();
 
         // Block operator
-        auto diff_v      = samurai::petsc::make_diffusion_FV(velocity);
-        auto grad_p      =                 make_gradient_FV(pressure);
-        auto minus_div_v =            -1 * make_divergence_FV(velocity);
-        auto zero_p      = samurai::petsc::make_zero_operator_FV<1>(pressure);
+        auto diff_v      =      samurai::petsc::make_diffusion_FV(velocity);
+        auto grad_p      =      samurai::petsc::make_gradient_FV(pressure);
+        auto minus_div_v = -1 * samurai::petsc::make_divergence_FV(velocity);
+        auto zero_p      =      samurai::petsc::make_zero_operator_FV<1>(pressure);
 
         auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p,
                                                                 minus_div_v, zero_p);
@@ -818,8 +581,8 @@ int main(int argc, char* argv[])
             //             |  Diff  Grad |
             //             | -Div     0  |
             auto diff_v      = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
-            auto grad_p      =                              make_gradient_FV(pressure_np1);
-            auto minus_div_v =                         -1 * make_divergence_FV(velocity_np1);
+            auto grad_p      =              samurai::petsc::make_gradient_FV(pressure_np1);
+            auto minus_div_v =         -1 * samurai::petsc::make_divergence_FV(velocity_np1);
             auto zero_p      =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
 
             // Stokes with backward Euler
