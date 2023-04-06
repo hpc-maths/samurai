@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <samurai/cell_flag.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 template <class Field, class Tag, class Mesh>
@@ -47,7 +48,7 @@ void update_field(Field& f, const Tag& tag, Mesh& new_mesh)
     samurai::for_each_interval(mesh[mesh_id_t::cells],
                                [&](std::size_t level, const auto& interval, const auto&)
                                {
-                                   std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
+                                   auto itag = static_cast<std::size_t>(interval.start + interval.index);
                                    for (coord_index_t i = interval.start; i < interval.end; ++i)
                                    {
                                        if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))

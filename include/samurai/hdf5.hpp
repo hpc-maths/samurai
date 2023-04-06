@@ -177,7 +177,6 @@ namespace samurai
 
         using derived_type_save = D;
 
-        Hdf5(const std::string& filename);
         Hdf5(const fs::path& path, const std::string& filename);
 
         ~Hdf5();
@@ -185,8 +184,8 @@ namespace samurai
         Hdf5(const Hdf5&)            = delete;
         Hdf5& operator=(const Hdf5&) = delete;
 
-        Hdf5(Hdf5&&)            = default;
-        Hdf5& operator=(Hdf5&&) = default;
+        Hdf5(Hdf5&&) noexcept            = default;
+        Hdf5& operator=(Hdf5&&) noexcept = default;
 
         derived_type_save& derived_cast() & noexcept;
         const derived_type_save& derived_cast() const& noexcept;
@@ -194,7 +193,7 @@ namespace samurai
 
       protected:
 
-        pugi::xml_node domain;
+        pugi::xml_node& domain();
 
         template <class Submesh>
         void save_on_mesh(pugi::xml_node& grid_parent, const std::string& prefix, const Submesh& submesh, const std::string& mesh_name);
@@ -207,8 +206,8 @@ namespace samurai
         HighFive::File h5_file;
         fs::path m_path;
         std::string m_filename;
-        pugi::xml_document doc;
-        std::ofstream xdmf_file;
+        pugi::xml_document m_doc;
+        pugi::xml_node m_domain;
     };
 
     template <class D, class Mesh, class... T>
@@ -227,8 +226,10 @@ namespace samurai
         SaveBase(const SaveBase&)            = delete;
         SaveBase& operator=(const SaveBase&) = delete;
 
-        SaveBase(SaveBase&&)            = default;
-        SaveBase& operator=(SaveBase&&) = default;
+        SaveBase(SaveBase&&) noexcept            = default;
+        SaveBase& operator=(SaveBase&&) noexcept = default;
+
+        ~SaveBase() = default;
 
         void save();
 
@@ -244,13 +245,15 @@ namespace samurai
 
       protected:
 
-        const mesh_t& m_mesh;
-        options_t m_options;
+        const mesh_t& mesh() const;
+        const options_t& options() const;
 
       private:
 
         using fields_type = std::tuple<const T&...>;
 
+        const mesh_t& m_mesh; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+        options_t m_options;
         fields_type m_fields;
     };
 
@@ -309,6 +312,18 @@ namespace samurai
     }
 
     template <class D, class Mesh, class... T>
+    inline auto SaveBase<D, Mesh, T...>::mesh() const -> const mesh_t&
+    {
+        return m_mesh;
+    }
+
+    template <class D, class Mesh, class... T>
+    inline auto SaveBase<D, Mesh, T...>::options() const -> const options_t&
+    {
+        return m_options;
+    }
+
+    template <class D, class Mesh, class... T>
     class SaveCellArray : public SaveBase<D, Mesh, T...>
     {
       public:
@@ -336,21 +351,21 @@ namespace samurai
     template <class D, class Mesh, class... T>
     inline void SaveCellArray<D, Mesh, T...>::save()
     {
-        if (this->m_options.by_level)
+        if (this->options().by_level)
         {
-            auto min_level = this->m_mesh.min_level();
+            auto min_level = this->mesh().min_level();
             if (min_level > 0)
             {
                 min_level--;
             }
-            auto max_level = this->m_mesh.max_level();
+            auto max_level = this->mesh().max_level();
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto grid_level                         = this->domain.append_child("Grid");
+                auto grid_level                         = this->domain().append_child("Grid");
                 grid_level.append_attribute("Name")     = fmt::format("Level {}", level).data();
                 grid_level.append_attribute("GridType") = "Collection";
 
-                if (this->m_options.by_mesh_id)
+                if (this->options().by_mesh_id)
                 {
                     for (std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
                     {
@@ -375,7 +390,7 @@ namespace samurai
         }
         else
         {
-            if (this->m_options.by_mesh_id)
+            if (this->options().by_mesh_id)
             {
                 for (std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
                 {
@@ -383,7 +398,7 @@ namespace samurai
                     std::string mesh_name = this->derived_cast().get_submesh_name(im);
                     std::string prefix    = fmt::format("/mesh/{}", mesh_name);
 
-                    auto grid_mesh_id                         = this->domain.append_child("Grid");
+                    auto grid_mesh_id                         = this->domain().append_child("Grid");
                     grid_mesh_id.append_attribute("Name")     = mesh_name.data();
                     grid_mesh_id.append_attribute("GridType") = "Collection";
 
@@ -395,7 +410,7 @@ namespace samurai
                 auto& mesh = this->derived_cast().get_mesh();
 
                 std::string prefix = fmt::format("/mesh");
-                this->save_on_mesh(this->domain, prefix, mesh, "mesh");
+                this->save_on_mesh(this->domain(), prefix, mesh, "mesh");
             }
         }
     }
@@ -429,7 +444,7 @@ namespace samurai
     template <class D, class Mesh, class... T>
     inline void SaveLevelCellArray<D, Mesh, T...>::save()
     {
-        if (this->m_options.by_mesh_id)
+        if (this->options().by_mesh_id)
         {
             for (std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
             {
@@ -437,7 +452,7 @@ namespace samurai
                 std::string mesh_name = this->derived_cast().get_submesh_name(im);
                 std::string prefix    = fmt::format("/mesh/{}", mesh_name);
 
-                auto grid_mesh_id                         = this->domain.append_child("Grid");
+                auto grid_mesh_id                         = this->domain().append_child("Grid");
                 grid_mesh_id.append_attribute("Name")     = mesh_name.data();
                 grid_mesh_id.append_attribute("GridType") = "Collection";
 
@@ -449,7 +464,7 @@ namespace samurai
             auto& mesh = this->derived_cast().get_mesh();
 
             std::string prefix = fmt::format("/mesh");
-            this->save_on_mesh(this->domain, prefix, mesh, "mesh");
+            this->save_on_mesh(this->domain(), prefix, mesh, "mesh");
         }
     }
 
@@ -459,15 +474,21 @@ namespace samurai
         , m_path(path)
         , m_filename(filename)
     {
-        doc.append_child(pugi::node_doctype).set_value("Xdmf SYSTEM \"Xdmf.dtd\"");
-        auto xdmf = doc.append_child("Xdmf");
-        domain    = xdmf.append_child("Domain");
+        m_doc.append_child(pugi::node_doctype).set_value("Xdmf SYSTEM \"Xdmf.dtd\"");
+        auto xdmf = m_doc.append_child("Xdmf");
+        m_domain  = xdmf.append_child("Domain");
     }
 
     template <class D>
     inline Hdf5<D>::~Hdf5()
     {
-        doc.save_file(fmt::format("{}.xdmf", (m_path / m_filename).string()).data());
+        m_doc.save_file(fmt::format("{}.xdmf", (m_path / m_filename).string()).data());
+    }
+
+    template <class D>
+    inline pugi::xml_node& Hdf5<D>::domain()
+    {
+        return m_domain;
     }
 
     template <class D>
@@ -571,12 +592,12 @@ namespace samurai
 
         const mesh_t& get_mesh() const
         {
-            return this->m_mesh;
+            return this->mesh();
         }
 
         const mesh_t& get_submesh(std::size_t) const
         {
-            return this->m_mesh;
+            return this->mesh();
         }
 
         std::string get_submesh_name(std::size_t) const
@@ -609,12 +630,12 @@ namespace samurai
 
         const ca_type& get_mesh() const
         {
-            return this->m_mesh[mesh_id_t::cells];
+            return this->mesh()[mesh_id_t::cells];
         }
 
         const ca_type& get_submesh(std::size_t i) const
         {
-            return this->m_mesh[static_cast<mesh_id_t>(i)];
+            return this->mesh()[static_cast<mesh_id_t>(i)];
         }
 
         std::string get_submesh_name(std::size_t i) const
@@ -645,12 +666,12 @@ namespace samurai
 
         const ca_type& get_mesh() const
         {
-            return this->m_mesh;
+            return this->mesh();
         }
 
         const ca_type& get_submesh(std::size_t) const
         {
-            return this->m_mesh;
+            return this->mesh();
         }
 
         std::string get_submesh_name(std::size_t) const
@@ -683,12 +704,12 @@ namespace samurai
 
         const ca_type& get_mesh() const
         {
-            return this->m_mesh[mesh_id_t::cells];
+            return this->mesh()[mesh_id_t::cells];
         }
 
         const ca_type& get_submesh(std::size_t i) const
         {
-            return this->m_mesh[static_cast<mesh_id_t>(i)];
+            return this->mesh()[static_cast<mesh_id_t>(i)];
         }
 
         std::string get_submesh_name(std::size_t i) const

@@ -48,13 +48,6 @@ namespace samurai
                            ///< at @a index + @a start.
 
         Interval() = default;
-
-        Interval(const Interval&)            = default;
-        Interval& operator=(const Interval&) = default;
-
-        Interval(Interval&&)            = default;
-        Interval& operator=(Interval&&) = default;
-
         Interval(value_t start, value_t end, index_t index = 0);
 
         bool contains(value_t x) const;
@@ -298,11 +291,7 @@ namespace samurai
     template <class value_t, class index_t>
     inline bool operator==(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
     {
-        if (i1.start != i2.start || i1.end != i2.end || i1.step != i2.step || i1.index != i2.index)
-        {
-            return false;
-        }
-        return true;
+        return !(i1.start != i2.start || i1.end != i2.end || i1.step != i2.step || i1.index != i2.index);
     }
 
     template <class value_t, class index_t>

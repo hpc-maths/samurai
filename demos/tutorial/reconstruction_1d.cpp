@@ -3,10 +3,8 @@
 // license that can be found in the LICENSE file.
 #include "CLI/CLI.hpp"
 
-#include <filesystem>
-namespace fs = std::filesystem;
-
 #include <chrono>
+#include <filesystem>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/field.hpp>
@@ -15,6 +13,8 @@ namespace fs = std::filesystem;
 #include <samurai/mr/mesh.hpp>
 #include <samurai/reconstruction.hpp>
 #include <samurai/uniform_mesh.hpp>
+
+namespace fs = std::filesystem;
 
 enum class Case : int
 {
@@ -33,8 +33,8 @@ auto init(Mesh& mesh, Case& c)
     samurai::for_each_interval(mesh[mesh_id_t::cells],
                                [&](std::size_t level, auto& i, auto)
                                {
-                                   double dx = samurai::cell_length(level);
-                                   auto x    = dx * xt::arange(i.start, i.end) + 0.5 * dx;
+                                   const double dx = samurai::cell_length(level);
+                                   auto x          = dx * xt::arange(i.start, i.end) + 0.5 * dx;
 
                                    switch (c)
                                    {
@@ -62,16 +62,17 @@ int main(int argc, char* argv[])
     using MRConfig = samurai::MRConfig<dim, max_stencil_width_, graduation_width_, prediction_order_, max_refinement_level_>;
 
     Case test_case{Case::abs};
-    std::map<std::string, Case> map{
+    const std::map<std::string, Case> map{
         {"abs",  Case::abs },
         {"exp",  Case::exp },
         {"tanh", Case::tanh}
     };
 
     // Adaptation parameters
-    std::size_t min_level = 3, max_level = 8;
-    double mr_epsilon    = 1.e-4; // Threshold used by multiresolution
-    double mr_regularity = 2.;    // Regularity guess for multiresolution
+    std::size_t min_level = 3;
+    std::size_t max_level = 8;
+    double mr_epsilon     = 1.e-4; // Threshold used by multiresolution
+    double mr_regularity  = 2.;    // Regularity guess for multiresolution
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -105,7 +106,7 @@ int main(int argc, char* argv[])
     using UConfig = samurai::UniformConfig<dim>;
     using UMesh   = samurai::UniformMesh<UConfig>;
 
-    samurai::Box<double, dim> box({-1}, {1});
+    const samurai::Box<double, dim> box({-1}, {1});
     MRMesh mrmesh{box, min_level, max_level};
     UMesh umesh{box, max_level};
     auto u       = init(mrmesh, test_case);

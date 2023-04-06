@@ -26,10 +26,10 @@ auto init(Mesh& mesh)
     samurai::for_each_cell(mesh,
                            [&](auto& cell)
                            {
-                               auto center   = cell.center();
-                               double radius = .2;
+                               auto center         = cell.center();
+                               const double radius = .2;
 
-                               double x_center = 0;
+                               const double x_center = 0;
                                if (std::abs(center[0] - x_center) <= radius)
                                {
                                    u[cell] = 1;
@@ -62,7 +62,7 @@ void flux_correction(double dt, double a, const Field& u, Field& unp1)
         subset_right(
             [&](const auto& i, auto)
             {
-                double dx = samurai::cell_length(level);
+                const double dx = samurai::cell_length(level);
 
                 unp1(level, i) = unp1(level, i)
                                - dt / dx
@@ -79,7 +79,7 @@ void flux_correction(double dt, double a, const Field& u, Field& unp1)
         subset_left(
             [&](const auto& i, auto)
             {
-                double dx = samurai::cell_length(level);
+                const double dx = samurai::cell_length(level);
 
                 unp1(level, i) = unp1(level, i)
                                - dt / dx
@@ -111,21 +111,23 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    constexpr size_t dim = 1;
-    using Config         = samurai::MRConfig<dim>;
+    constexpr std::size_t dim = 1;
+    using Config              = samurai::MRConfig<dim>;
 
     // Simulation parameters
-    double left_box = -2, right_box = 2;
+    double left_box  = -2;
+    double right_box = 2;
     bool is_periodic = false;
     double a         = 1.;
     double Tf        = 1.;
     double cfl       = 0.95;
 
     // Multiresolution parameters
-    std::size_t min_level = 4, max_level = 10;
-    double mr_epsilon    = 2.e-4; // Threshold used by multiresolution
-    double mr_regularity = 1.;    // Regularity guess for multiresolution
-    bool correction      = false;
+    std::size_t min_level = 4;
+    std::size_t max_level = 10;
+    double mr_epsilon     = 2.e-4; // Threshold used by multiresolution
+    double mr_regularity  = 1.;    // Regularity guess for multiresolution
+    bool correction       = false;
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -159,17 +161,18 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     CLI11_PARSE(app, argc, argv);
 
-    samurai::Box<double, dim> box({left_box}, {right_box});
-    samurai::MRMesh<Config> mesh{box, min_level, max_level, {is_periodic}};
+    const samurai::Box<double, dim> box({left_box}, {right_box});
+    samurai::MRMesh<Config> mesh(box, min_level, max_level, {is_periodic});
 
-    double dt      = cfl / (1 << max_level);
-    double dt_save = Tf / static_cast<double>(nfiles);
-    double t       = 0.;
+    double dt            = cfl / (1 << max_level);
+    const double dt_save = Tf / static_cast<double>(nfiles);
+    double t             = 0.;
 
     auto u = init(mesh);
     if (!is_periodic)
     {
-        xt::xtensor_fixed<int, xt::xshape<1>> left{-1}, right{1};
+        const xt::xtensor_fixed<int, xt::xshape<1>> left{-1};
+        const xt::xtensor_fixed<int, xt::xshape<1>> right{1};
         samurai::make_bc<samurai::Dirichlet>(u, 0.)->on(left, right);
         // same as (just to test OnDirection instead of Everywhere)
         // samurai::make_bc<samurai::Dirichlet>(u, 0.);
@@ -180,7 +183,8 @@ int main(int argc, char* argv[])
     MRadaptation(mr_epsilon, mr_regularity);
     save(path, filename, u, "_init");
 
-    std::size_t nsave = 1, nt = 0;
+    std::size_t nsave = 1;
+    std::size_t nt    = 0;
 
     while (t != Tf)
     {
@@ -208,7 +212,7 @@ int main(int argc, char* argv[])
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
         }
     }

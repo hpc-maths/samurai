@@ -5,7 +5,6 @@
 #include <iostream>
 
 #include <filesystem>
-namespace fs = std::filesystem;
 
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xrandom.hpp>
@@ -16,6 +15,8 @@ namespace fs = std::filesystem;
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
+
+namespace fs = std::filesystem;
 
 template <class Mesh, class Container>
 void update_mesh(Mesh& mesh,
@@ -40,20 +41,20 @@ void update_mesh(Mesh& mesh,
 
             while (!inside && ib < nb_bubbles)
             {
-                double xc     = bb_xcenter[ib];
-                double yc     = bb_ycenter[ib];
-                double radius = bb_radius[ib];
+                const double xc     = bb_xcenter[ib];
+                const double yc     = bb_ycenter[ib];
+                const double radius = bb_radius[ib];
 
-                auto corner = cell.corner();
-                auto center = cell.center();
-                double dx   = cell.length;
+                auto corner     = cell.corner();
+                auto center     = cell.center();
+                const double dx = cell.length;
 
                 for (std::size_t i = 0; i < 2; ++i)
                 {
-                    double x = corner[0] + static_cast<double>(i) * dx;
+                    const double x = corner[0] + static_cast<double>(i) * dx;
                     for (std::size_t j = 0; j < 2; ++j)
                     {
-                        double y = corner[1] + static_cast<double>(j) * dx;
+                        const double y = corner[1] + static_cast<double>(j) * dx;
                         if (((!inside)
                              && (std::pow((x - xc), 2.0) + pow((y - yc), 2.0) <= 1.25 * std::pow(radius, 2.0)
                                  && std::pow((x - xc), 2.0) + pow((y - yc), 2.0) >= 0.75 * std::pow(radius, 2.0)))
@@ -83,7 +84,7 @@ void update_mesh(Mesh& mesh,
     samurai::for_each_interval(mesh,
                                [&](std::size_t level, const auto& interval, const auto& index_yz)
                                {
-                                   std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
+                                   auto itag = static_cast<std::size_t>(interval.start + interval.index);
                                    for (int i = interval.start; i < interval.end; ++i)
                                    {
                                        if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
@@ -267,29 +268,30 @@ int main(int argc, char* argv[])
 
     auto min_corner(xt::adapt(min_corner_v));
     auto max_corner(xt::adapt(max_corner_v));
-    double x_length = max_corner(0) - min_corner(0);
-    double y_length = max_corner(1) - min_corner(1);
+    const double x_length = max_corner(0) - min_corner(0);
+    const double y_length = max_corner(1) - min_corner(1);
 
     xt::random::seed(42);
-    using container_t       = xt::xtensor<double, 1>;
-    container_t bb_xcenter  = 0.8 * x_length * xt::random::rand<double>({nb_bubbles}) + 0.1 * x_length;
-    container_t bb0_xcenter = bb_xcenter;
-    container_t bb_ycenter  = y_length * xt::random::rand<double>({nb_bubbles}) - 0.5 * y_length;
-    container_t bb0_ycenter = bb_ycenter;
-    container_t bb_radius   = 0.1 * xt::random::rand<double>({nb_bubbles}) + 0.02;
-    container_t dy          = 0.005 + 0.05 * xt::random::rand<double>({nb_bubbles});
-    container_t omega       = 0.5 * xt::random::rand<double>({nb_bubbles});
-    container_t aa          = 0.15 * xt::random::rand<double>({nb_bubbles});
+    using container_t             = xt::xtensor<double, 1>;
+    container_t bb_xcenter        = 0.8 * x_length * xt::random::rand<double>({nb_bubbles}) + 0.1 * x_length;
+    const container_t bb0_xcenter = bb_xcenter;
+    container_t bb_ycenter        = y_length * xt::random::rand<double>({nb_bubbles}) - 0.5 * y_length;
+    const container_t bb0_ycenter = bb_ycenter;
+    const container_t bb_radius   = 0.1 * xt::random::rand<double>({nb_bubbles}) + 0.02;
+    const container_t dy          = 0.005 + 0.05 * xt::random::rand<double>({nb_bubbles});
+    const container_t omega       = 0.5 * xt::random::rand<double>({nb_bubbles});
+    const container_t aa          = 0.15 * xt::random::rand<double>({nb_bubbles});
 
     samurai::CellArray<dim> mesh;
 
-    samurai::Box<double, dim> box(min_corner, max_corner);
+    const samurai::Box<double, dim> box(min_corner, max_corner);
     mesh[start_level] = {start_level, box};
 
-    double dt_save = Tf / static_cast<double>(nfiles);
-    double t       = 0.;
+    const double dt_save = Tf / static_cast<double>(nfiles);
+    double t             = 0.;
 
-    std::size_t nsave = 1, nt = 0;
+    std::size_t nsave = 1;
+    std::size_t nt    = 0;
 
     while (t != Tf)
     {

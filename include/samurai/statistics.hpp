@@ -14,7 +14,7 @@ namespace samurai
 #if defined(WITH_STATS)
     struct Statistics
     {
-        Statistics(std::string filename = "stats.json", int save_all = 10)
+        Statistics(const std::string& filename, int save_all = 10)
             : filename(filename)
             , save_all(save_all)
             , icurrent(0)
@@ -106,9 +106,9 @@ namespace samurai
         int save_all;
     };
 
-    auto statistics = Statistics();
+    auto statistics = Statistics("stats.json");
 #else
     template <class Mesh>
-    void statistics(std::string test_case, const Mesh& mesh){};
+    void statistics(const std::string& test_case, const Mesh& mesh){};
 #endif
 }

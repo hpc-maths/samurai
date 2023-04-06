@@ -65,17 +65,7 @@ namespace samurai
 
       protected:
 
-        node_op()
-        {
-        }
-
-        ~node_op() = default;
-
-        node_op(const node_op&)            = default;
-        node_op& operator=(const node_op&) = default;
-
-        node_op(node_op&&)            = default;
-        node_op& operator=(node_op&&) = default;
+        node_op() = default;
     };
 
     /**************************
@@ -181,9 +171,6 @@ namespace samurai
         return this->derived_cast().m_data.is_empty();
     }
 
-    template <class E>
-    using is_node_op = xt::is_crtp_base_of<node_op, E>;
-
     /************************
      * mesh_node definition *
      ************************/
@@ -202,15 +189,6 @@ namespace samurai
         using value_t                    = typename mesh_type::value_t;
 
         mesh_node(const Mesh& v);
-
-        // mesh_node() : m_data{nullptr}
-        // {}
-
-        mesh_node(const mesh_node&)            = default;
-        mesh_node& operator=(const mesh_node&) = default;
-
-        mesh_node(mesh_node&&)            = default;
-        mesh_node& operator=(mesh_node&&) = default;
 
         auto index(int i) const noexcept;
         auto size(std::size_t d) const noexcept;
@@ -231,7 +209,7 @@ namespace samurai
 
       private:
 
-        const Mesh& m_data;
+        const Mesh& m_data; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 
         friend class node_op<mesh_node<Mesh>>;
     };
@@ -421,8 +399,8 @@ namespace samurai
       private:
 
         T m_data;
-        int m_shift_level;
-        std::size_t m_level;
+        int m_shift_level   = 0;
+        std::size_t m_level = 0;
 
         friend class node_op<projection_op<T>>;
     };
@@ -525,15 +503,13 @@ namespace samurai
         constexpr std::size_t dim = arg_t::dim;
         xt::xtensor_fixed<int, xt::xshape<dim>> c;
         c.fill(size);
-        return intersection(translate(std::forward<arg_t>(arg), c), translate(std::forward<arg_t>(arg), -c));
+        return intersection(translate(std::forward<T>(t), c), translate(std::forward<T>(t), -c));
     }
 
     template <class T, std::size_t dim>
     inline auto contraction(T&& t, const xt::xtensor_fixed<int, xt::xshape<dim>>& c)
     {
-        auto arg    = get_arg_node(std::forward<T>(t));
-        using arg_t = decltype(arg);
-        return intersection(translate(std::forward<arg_t>(arg), c), translate(std::forward<arg_t>(arg), -c));
+        return intersection(translate(std::forward<T>(t), c), translate(std::forward<T>(t), -c));
     }
 
     namespace detail

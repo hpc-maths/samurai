@@ -7,7 +7,7 @@
 #include <xtensor/xmasked_view.hpp>
 #include <xtensor/xtensor.hpp>
 
-#include "../mr/cell_flag.hpp"
+#include "../cell_flag.hpp"
 #include "../subset/subset_op.hpp"
 #include "utils.hpp"
 

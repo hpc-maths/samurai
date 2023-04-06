@@ -6,9 +6,6 @@ target_link_libraries(tutorial-2d-mesh PRIVATE samurai CLI11::CLI11)
 add_executable(tutorial-interval interval.cpp)
 target_link_libraries(tutorial-interval PRIVATE samurai CLI11::CLI11)
 
-add_executable(tutorial-mesh-base test_mesh_base.cpp)
-target_link_libraries(tutorial-mesh-base PRIVATE samurai CLI11::CLI11)
-
 add_executable(tutorial-set-operator set_operator.cpp)
 target_link_libraries(tutorial-set-operator PRIVATE samurai CLI11::CLI11)
 

@@ -59,12 +59,6 @@ namespace samurai
 
         using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
 
-        Mesh_base(const Mesh_base&)            = default;
-        Mesh_base& operator=(const Mesh_base&) = default;
-
-        Mesh_base(Mesh_base&&)            = default;
-        Mesh_base& operator=(Mesh_base&&) = default;
-
         std::size_t nb_cells(mesh_id_t mesh_id = mesh_id_t::reference) const;
         std::size_t nb_cells(std::size_t level, mesh_id_t mesh_id = mesh_id_t::reference) const;
 
@@ -106,9 +100,7 @@ namespace samurai
         const derived_type& derived_cast() const& noexcept;
         derived_type derived_cast() && noexcept;
 
-        mesh_t m_cells;
-        lca_type m_domain;
-        ca_type m_union;
+        mesh_t& cells();
 
       private:
 
@@ -117,9 +109,12 @@ namespace samurai
         void update_sub_mesh();
         void renumbering();
 
+        lca_type m_domain;
         std::size_t m_min_level;
         std::size_t m_max_level;
         std::array<bool, dim> m_periodic;
+        mesh_t m_cells;
+        ca_type m_union;
     };
 
     template <class D, class Config>
@@ -208,6 +203,12 @@ namespace samurai
         construct_union();
         update_sub_mesh();
         renumbering();
+    }
+
+    template <class D, class Config>
+    inline auto Mesh_base<D, Config>::cells() -> mesh_t&
+    {
+        return m_cells;
     }
 
     template <class D, class Config>
@@ -315,7 +316,7 @@ namespace samurai
 
         for (std::size_t id = 0; id < static_cast<std::size_t>(mesh_id_t::count); ++id)
         {
-            mesh_id_t mt = static_cast<mesh_id_t>(id);
+            auto mt = static_cast<mesh_id_t>(id);
 
             if (mt != mesh_id_t::reference)
             {
@@ -389,7 +390,7 @@ namespace samurai
     {
         for (std::size_t id = 0; id < static_cast<std::size_t>(mesh_id_t::count); ++id)
         {
-            mesh_id_t mt = static_cast<mesh_id_t>(id);
+            auto mt = static_cast<mesh_id_t>(id);
 
             os << fmt::format(fmt::emphasis::bold, "{}\n{:─^50}", mt, "") << std::endl;
             os << m_cells[id];

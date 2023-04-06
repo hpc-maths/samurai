@@ -4,9 +4,14 @@
 
 #pragma once
 
+#include <cstddef>
+
+// NOLINTBEGIN(cppcoreguidelines-macro-usage,modernize-macro-to-enum)
 #define SAMURAI_VERSION_MAJOR 0
 #define SAMURAI_VERSION_MINOR 1
 #define SAMURAI_VERSION_PATCH 0
+
+// NOLINTEND(cppcoreguidelines-macro-usage,modernize-macro-to-enum)
 
 namespace samurai
 {

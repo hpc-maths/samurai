@@ -30,12 +30,7 @@ namespace samurai
         static constexpr std::size_t dim = dim_;
         using point_t                    = xt::xtensor_fixed<value_t, xt::xshape<dim>>;
 
-        Box()                      = default;
-        Box(const Box&)            = default;
-        Box(Box&&)                 = default;
-        Box& operator=(const Box&) = default;
-        Box& operator=(Box&&)      = default;
-
+        Box() = default;
         Box(const point_t& min_corner, const point_t& max_corner);
 
         const point_t& min_corner() const;

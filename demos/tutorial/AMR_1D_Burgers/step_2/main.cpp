@@ -4,7 +4,6 @@
 #include "CLI/CLI.hpp"
 
 #include <filesystem>
-namespace fs = std::filesystem;
 
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
@@ -13,6 +12,8 @@ namespace fs = std::filesystem;
 
 #include "../step_1/init_sol.hpp"
 #include "update_sol.hpp"
+
+namespace fs = std::filesystem;
 
 /**
  * What will we learn ?
@@ -47,10 +48,10 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    constexpr std::size_t dim = 1;
-    std::size_t init_level    = 6;
+    constexpr std::size_t dim    = 1;
+    const std::size_t init_level = 6;
 
-    samurai::Box<double, dim> box({-3}, {3});
+    const samurai::Box<double, dim> box({-3}, {3});
     samurai::CellArray<dim> mesh;
 
     mesh[init_level] = {init_level, box};
@@ -58,9 +59,9 @@ int main(int argc, char* argv[])
     auto phi = init_sol(mesh);
 
     /////////////////////////////////
-    double dx      = 1. / (1 << init_level);
-    double dt      = cfl * dx;
-    double dt_save = Tf / static_cast<double>(nfiles);
+    const double dx      = 1. / (1 << init_level);
+    double dt            = cfl * dx;
+    const double dt_save = Tf / static_cast<double>(nfiles);
 
     double t          = 0.;
     std::size_t nsave = 1;

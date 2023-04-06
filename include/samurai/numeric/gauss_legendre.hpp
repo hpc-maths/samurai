@@ -3,38 +3,19 @@
 
 namespace samurai
 {
+    template <std::size_t polynomial_degree = 20>
     class GaussLegendre
     {
       private:
 
-        static const unsigned int N_IMPLEMENTED_POINTS = 20;
-        std::array<double, N_IMPLEMENTED_POINTS> points;
-        std::array<double, N_IMPLEMENTED_POINTS> weights;
+        std::array<double, polynomial_degree> points;
+        std::array<double, polynomial_degree> weights;
 
       public:
 
-        const unsigned int n_points;
-
-        static unsigned int n_required_points(int polynomial_degree)
-        {
-            return polynomial_degree < 0 ? N_IMPLEMENTED_POINTS : static_cast<unsigned int>(ceil((polynomial_degree + 1.) / 2.));
-        }
-
-        GaussLegendre(int polynomial_degree)
-            : n_points(n_required_points(polynomial_degree))
-        {
-            if (n_points > N_IMPLEMENTED_POINTS)
-            {
-                std::cout << "WARNING: The number of implemented points is not "
-                             "enough to ensure exact integration of "
-                             "polynomials of degree "
-                          << polynomial_degree << "!";
-            }
-            init();
-        }
+        static constexpr std::size_t n_points = polynomial_degree;
 
         GaussLegendre()
-            : n_points(N_IMPLEMENTED_POINTS)
         {
             init();
         }
@@ -73,7 +54,7 @@ namespace samurai
 
             if constexpr (dim == 1)
             {
-                for (unsigned int i = 0; i < n_points; ++i)
+                for (std::size_t i = 0; i < n_points; ++i)
                 {
                     eval_point[0] = half_h * points[i] + center[0];
                     sum += f(eval_point) * weights[i];
@@ -81,10 +62,10 @@ namespace samurai
             }
             else if constexpr (dim == 2)
             {
-                for (unsigned int i = 0; i < n_points; ++i)
+                for (std::size_t i = 0; i < n_points; ++i)
                 {
                     eval_point[0] = half_h * points[i] + center[0];
-                    for (unsigned int j = 0; j < n_points; ++j)
+                    for (std::size_t j = 0; j < n_points; ++j)
                     {
                         eval_point[1] = half_h * points[j] + center[1];
                         sum += f(eval_point) * weights[i] * weights[j];
@@ -93,13 +74,13 @@ namespace samurai
             }
             else if constexpr (dim == 3)
             {
-                for (unsigned int i = 0; i < n_points; ++i)
+                for (std::size_t i = 0; i < n_points; ++i)
                 {
                     eval_point[0] = half_h * points[i] + center[0];
-                    for (unsigned int j = 0; j < n_points; ++j)
+                    for (std::size_t j = 0; j < n_points; ++j)
                     {
                         eval_point[1] = half_h * points[j] + center[1];
-                        for (unsigned int k = 0; k < n_points; ++k)
+                        for (std::size_t k = 0; k < n_points; ++k)
                         {
                             eval_point[2] = half_h * points[k] + center[2];
                             sum += f(eval_point) * weights[i] * weights[j] * weights[k];
@@ -109,17 +90,15 @@ namespace samurai
             }
         }
 
-      private:
-
         void init()
         {
-            if (n_points == 1)
+            if constexpr (n_points == 1)
             {
                 points[0] = 0;
 
                 weights[0] = 2.0000000000000000;
             }
-            else if (n_points == 2)
+            else if constexpr (n_points == 2)
             {
                 points[0] = -0.5773502691896257;
                 points[1] = 0.5773502691896257;
@@ -127,7 +106,7 @@ namespace samurai
                 weights[0] = 1.0000000000000000;
                 weights[1] = 1.0000000000000000;
             }
-            else if (n_points == 3)
+            else if constexpr (n_points == 3)
             {
                 points[0] = 0.0000000000000000;
                 points[1] = -0.7745966692414834;
@@ -137,7 +116,7 @@ namespace samurai
                 weights[1] = 0.5555555555555556;
                 weights[2] = 0.5555555555555556;
             }
-            else if (n_points == 4)
+            else if constexpr (n_points == 4)
             {
                 points[0] = -0.3399810435848563;
                 points[1] = 0.3399810435848563;
@@ -149,7 +128,7 @@ namespace samurai
                 weights[2] = 0.3478548451374538;
                 weights[3] = 0.3478548451374538;
             }
-            else if (n_points == 5)
+            else if constexpr (n_points == 5)
             {
                 points[0] = 0.0000000000000000;
                 points[1] = -0.5384693101056831;
@@ -163,7 +142,7 @@ namespace samurai
                 weights[3] = 0.2369268850561891;
                 weights[4] = 0.2369268850561891;
             }
-            else if (n_points == 6)
+            else if constexpr (n_points == 6)
             {
                 points[0] = 0.6612093864662645;
                 points[1] = -0.6612093864662645;
@@ -179,7 +158,7 @@ namespace samurai
                 weights[4] = 0.1713244923791704;
                 weights[5] = 0.1713244923791704;
             }
-            else if (n_points == 7)
+            else if constexpr (n_points == 7)
             {
                 points[0] = 0.0000000000000000;
                 points[1] = 0.4058451513773972;
@@ -197,7 +176,7 @@ namespace samurai
                 weights[5] = 0.1294849661688697;
                 weights[6] = 0.1294849661688697;
             }
-            else if (n_points == 8)
+            else if constexpr (n_points == 8)
             {
                 points[0] = -0.1834346424956498;
                 points[1] = 0.1834346424956498;
@@ -217,7 +196,7 @@ namespace samurai
                 weights[6] = 0.1012285362903763;
                 weights[7] = 0.1012285362903763;
             }
-            else if (n_points == 9)
+            else if constexpr (n_points == 9)
             {
                 points[0] = 0.0000000000000000;
                 points[1] = -0.8360311073266358;
@@ -239,7 +218,7 @@ namespace samurai
                 weights[7] = 0.2606106964029354;
                 weights[8] = 0.2606106964029354;
             }
-            else if (n_points == 10)
+            else if constexpr (n_points == 10)
             {
                 points[0] = -0.1488743389816312;
                 points[1] = 0.1488743389816312;
@@ -263,7 +242,7 @@ namespace samurai
                 weights[8] = 0.0666713443086881;
                 weights[9] = 0.0666713443086881;
             }
-            else if (n_points == 11)
+            else if constexpr (n_points == 11)
             {
                 points[0]  = 0.0000000000000000;
                 points[1]  = -0.2695431559523450;
@@ -289,7 +268,7 @@ namespace samurai
                 weights[9]  = 0.0556685671161737;
                 weights[10] = 0.0556685671161737;
             }
-            else if (n_points == 12)
+            else if constexpr (n_points == 12)
             {
                 points[0]  = -0.1252334085114689;
                 points[1]  = 0.1252334085114689;
@@ -317,7 +296,7 @@ namespace samurai
                 weights[10] = 0.0471753363865118;
                 weights[11] = 0.0471753363865118;
             }
-            else if (n_points == 13)
+            else if constexpr (n_points == 13)
             {
                 points[0]  = 0.0000000000000000;
                 points[1]  = -0.2304583159551348;
@@ -347,7 +326,7 @@ namespace samurai
                 weights[11] = 0.0404840047653159;
                 weights[12] = 0.0404840047653159;
             }
-            else if (n_points == 14)
+            else if constexpr (n_points == 14)
             {
                 points[0]  = -0.1080549487073437;
                 points[1]  = 0.1080549487073437;
@@ -379,7 +358,7 @@ namespace samurai
                 weights[12] = 0.0351194603317519;
                 weights[13] = 0.0351194603317519;
             }
-            else if (n_points == 15)
+            else if constexpr (n_points == 15)
             {
                 points[0]  = 0.0000000000000000;
                 points[1]  = -0.2011940939974345;
@@ -413,7 +392,7 @@ namespace samurai
                 weights[13] = 0.0307532419961173;
                 weights[14] = 0.0307532419961173;
             }
-            else if (n_points == 16)
+            else if constexpr (n_points == 16)
             {
                 points[0]  = -0.0950125098376374;
                 points[1]  = 0.0950125098376374;
@@ -449,7 +428,7 @@ namespace samurai
                 weights[14] = 0.0271524594117541;
                 weights[15] = 0.0271524594117541;
             }
-            else if (n_points == 17)
+            else if constexpr (n_points == 17)
             {
                 points[0]  = 0.0000000000000000;
                 points[1]  = -0.1784841814958479;
@@ -487,7 +466,7 @@ namespace samurai
                 weights[15] = 0.0241483028685479;
                 weights[16] = 0.0241483028685479;
             }
-            else if (n_points == 18)
+            else if constexpr (n_points == 18)
             {
                 points[0]  = -0.0847750130417353;
                 points[1]  = 0.0847750130417353;
@@ -527,7 +506,7 @@ namespace samurai
                 weights[16] = 0.0216160135264833;
                 weights[17] = 0.0216160135264833;
             }
-            else if (n_points == 19)
+            else if constexpr (n_points == 19)
             {
                 points[0]  = 0.0000000000000000;
                 points[1]  = -0.1603586456402254;
@@ -569,7 +548,7 @@ namespace samurai
                 weights[17] = 0.0194617882297265;
                 weights[18] = 0.0194617882297265;
             }
-            else if (n_points == 20)
+            else if constexpr (n_points == 20)
             {
                 points[0]  = -0.0765265211334973;
                 points[1]  = 0.0765265211334973;

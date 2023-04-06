@@ -1,5 +1,7 @@
 #pragma once
 
+#include "field.hpp"
+#include "numeric/prediction.hpp"
 #include "samurai_config.hpp"
 #include "subset/subset_op.hpp"
 #include <array>
@@ -167,10 +169,7 @@ namespace samurai
             }
             return values[{order, level, i}];
         }
-        else
-        {
-            return iter->second;
-        }
+        return iter->second;
     }
 
     template <std::size_t order = 1, class index_t = default_config::value_t>
@@ -214,10 +213,7 @@ namespace samurai
             }
             return values[{order, level, i, j}];
         }
-        else
-        {
-            return iter->second;
-        }
+        return iter->second;
     }
 
     template <std::size_t order = 1, class index_t = default_config::value_t>
@@ -268,10 +264,7 @@ namespace samurai
             }
             return values[{order, level, i, j, k}];
         }
-        else
-        {
-            return iter->second;
-        }
+        return iter->second;
     }
 
     template <class TInterval>

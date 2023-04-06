@@ -32,7 +32,7 @@ namespace samurai
         static constexpr std::size_t dim = dim_;
         using value_t                    = TCoord_index;
 
-        Cell();
+        Cell() = default;
 
         template <class T>
         Cell(std::size_t level, const T& indices, std::size_t index);
@@ -48,25 +48,20 @@ namespace samurai
         template <class Vector>
         xt::xtensor_fixed<double, xt::xshape<dim>> face_center(const Vector& direction) const;
 
+        void to_stream(std::ostream& os) const;
+
         /// The level of the cell.
-        std::size_t level;
+        std::size_t level = 0;
 
         /// The integer coordinates of the cell.
         xt::xtensor_fixed<value_t, xt::xshape<dim>> indices;
 
         /// The index where the cell is in the data array.
-        std::size_t index;
+        std::size_t index = 0;
 
         /// The length of the cell.
-        double length;
-
-        void to_stream(std::ostream& os) const;
+        double length = 0;
     };
-
-    template <class TCoord_index, std::size_t dim_>
-    inline Cell<TCoord_index, dim_>::Cell()
-    {
-    }
 
     template <class TCoord_index, std::size_t dim_>
     template <class T>
@@ -74,9 +69,8 @@ namespace samurai
         : level(level_)
         , indices(indices_)
         , index(index_)
+        , length(cell_length(level))
     {
-        length = cell_length(level);
-        // center = length*(indices + 0.5);
     }
 
     /**

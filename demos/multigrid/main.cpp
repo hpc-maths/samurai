@@ -216,7 +216,7 @@ int main(int argc, char* argv[])
     // Create problem //
     //----------------//
 
-    auto source   = samurai::make_field<double, field_size, is_soa>("source", mesh, test_case->source(), test_case->source_poly_degree());
+    auto source   = samurai::make_field<double, field_size, is_soa>("source", mesh, test_case->source());
     auto solution = samurai::make_field<double, field_size, is_soa>("solution", mesh);
 
     // Boundary conditions

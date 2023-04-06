@@ -4,7 +4,6 @@
 #include "CLI/CLI.hpp"
 
 #include <filesystem>
-namespace fs = std::filesystem;
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xmasked_view.hpp>
@@ -16,6 +15,8 @@ namespace fs = std::filesystem;
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
+
+namespace fs = std::filesystem;
 
 auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsamples = 100)
 {

@@ -4,7 +4,6 @@
 #include "CLI/CLI.hpp"
 
 #include <filesystem>
-namespace fs = std::filesystem;
 
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
@@ -22,6 +21,8 @@ namespace fs = std::filesystem;
 #include "../step_5/update_ghost.hpp"
 
 #include "update_sol.hpp" // with flux correction
+
+namespace fs = std::filesystem;
 
 /**
  * What will we learn ?
@@ -67,14 +68,14 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim = 1;
 
-    samurai::Box<double, dim> box({-3}, {3});
+    const samurai::Box<double, dim> box({-3}, {3});
     Mesh<MeshConfig<dim>> mesh(box, start_level, min_level, max_level);
 
     auto phi = init_sol(mesh);
 
-    double dx      = 1. / (1 << max_level);
-    double dt      = cfl * dx;
-    double dt_save = Tf / static_cast<double>(nfiles);
+    const double dx      = 1. / (1 << max_level);
+    double dt            = cfl * dx;
+    const double dt_save = Tf / static_cast<double>(nfiles);
 
     double t          = 0.;
     std::size_t nsave = 1;
@@ -116,9 +117,9 @@ int main(int argc, char* argv[])
         {
             auto level = samurai::make_field<std::size_t, 1>("level", mesh);
             samurai::for_each_interval(mesh[MeshID::cells],
-                                       [&](std::size_t l, const auto& i, auto)
+                                       [&](std::size_t lvl, const auto& i, auto)
                                        {
-                                           level(l, i) = l;
+                                           level(lvl, i) = lvl;
                                        });
 
             std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";

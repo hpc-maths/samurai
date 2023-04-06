@@ -93,7 +93,8 @@ namespace samurai
         xt::xarray<int> expected_min{-5, -5};
         xt::xarray<int> expected_max{5, 5};
 
-        auto bl = b * 5, br = 5 * b;
+        auto bl = b * 5;
+        auto br = 5 * b;
         EXPECT_EQ(bl.min_corner(), expected_min);
         EXPECT_EQ(br.min_corner(), expected_min);
         EXPECT_EQ(bl.max_corner(), expected_max);

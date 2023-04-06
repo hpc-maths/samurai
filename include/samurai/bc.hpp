@@ -97,9 +97,7 @@ namespace samurai
 
       protected:
 
-        BcValue()
-        {
-        }
+        BcValue() = default;
     };
 
     template <std::size_t dim, class T, std::size_t size>
@@ -113,9 +111,6 @@ namespace samurai
 
         template <class... CT>
         ConstantBc(const CT... v);
-
-        ConstantBc(const ConstantBc& bc);
-        ConstantBc& operator=(const ConstantBc& bc);
 
         value_t get_value(const coords_t&) const override;
         std::unique_ptr<base_t> clone() const override;
@@ -131,15 +126,12 @@ namespace samurai
     {
       public:
 
-        using base_t   = BcValue<dim, T, size>;
-        using value_t  = typename base_t::value_t;
-        using coords_t = typename base_t::coords_t;
+        using base_t     = BcValue<dim, T, size>;
+        using value_t    = typename base_t::value_t;
+        using coords_t   = typename base_t::coords_t;
+        using function_t = std::function<value_t(const coords_t&)>;
 
-        template <class Func>
-        FunctionBc(Func&& f);
-
-        FunctionBc(const FunctionBc& bc);
-        FunctionBc& operator=(const FunctionBc& bc);
+        FunctionBc(const function_t& f);
 
         value_t get_value(const coords_t& coords) const override;
         std::unique_ptr<base_t> clone() const override;
@@ -147,7 +139,7 @@ namespace samurai
 
       private:
 
-        std::function<value_t(const coords_t&)> m_func;
+        function_t m_func;
     };
 
     ////////////////////////////
@@ -157,20 +149,8 @@ namespace samurai
     template <std::size_t dim, class T, std::size_t size>
     template <class... CT>
     ConstantBc<dim, T, size>::ConstantBc(const CT... v)
+        : m_v{v...}
     {
-        m_v = {v...};
-    }
-
-    template <std::size_t dim, class T, std::size_t size>
-    ConstantBc<dim, T, size>::ConstantBc(const ConstantBc& bc)
-        : m_v(bc.m_v)
-    {
-    }
-
-    template <std::size_t dim, class T, std::size_t size>
-    ConstantBc<dim, T, size>& ConstantBc<dim, T, size>::operator=(const ConstantBc& bc)
-    {
-        return {bc.m_v};
     }
 
     template <std::size_t dim, class T, std::size_t size>
@@ -182,7 +162,7 @@ namespace samurai
     template <std::size_t dim, class T, std::size_t size>
     auto ConstantBc<dim, T, size>::clone() const -> std::unique_ptr<base_t>
     {
-        return std::make_unique<ConstantBc>(*this);
+        return std::make_unique<ConstantBc>(m_v);
     }
 
     template <std::size_t dim, class T, std::size_t size>
@@ -192,22 +172,9 @@ namespace samurai
     }
 
     template <std::size_t dim, class T, std::size_t size>
-    template <class Func>
-    FunctionBc<dim, T, size>::FunctionBc(Func&& f)
-        : m_func(std::forward<Func>(f))
+    FunctionBc<dim, T, size>::FunctionBc(const function_t& f)
+        : m_func(f)
     {
-    }
-
-    template <std::size_t dim, class T, std::size_t size>
-    FunctionBc<dim, T, size>::FunctionBc(const FunctionBc& bc)
-        : m_func(bc.m_func)
-    {
-    }
-
-    template <std::size_t dim, class T, std::size_t size>
-    FunctionBc<dim, T, size>& FunctionBc<dim, T, size>::operator=(const FunctionBc& bc)
-    {
-        return {bc.m_func};
     }
 
     template <std::size_t dim, class T, std::size_t size>
@@ -219,7 +186,7 @@ namespace samurai
     template <std::size_t dim, class T, std::size_t size>
     auto FunctionBc<dim, T, size>::clone() const -> std::unique_ptr<base_t>
     {
-        return std::make_unique<FunctionBc>(*this);
+        return std::make_unique<FunctionBc>(m_func);
     }
 
     template <std::size_t dim, class T, std::size_t size>
@@ -244,14 +211,12 @@ namespace samurai
         BcRegion(BcRegion&&)                 = delete;
         BcRegion& operator=(BcRegion&&)      = delete;
 
-        virtual const region_t get_region(const lca_t&) const = 0;
-        virtual std::unique_ptr<BcRegion> clone() const       = 0;
+        virtual region_t get_region(const lca_t&) const = 0;
+        virtual std::unique_ptr<BcRegion> clone() const = 0;
 
       protected:
 
-        BcRegion()
-        {
-        }
+        BcRegion() = default;
     };
 
     template <std::size_t dim, class TInterval>
@@ -262,19 +227,9 @@ namespace samurai
         using lca_t       = typename base_t::lca_t;
         using region_t    = typename base_t::region_t;
 
-        Everywhere()
-        {
-        }
+        Everywhere() = default;
 
-        Everywhere(const Everywhere&)
-        {
-        }
-
-        Everywhere& operator=(const Everywhere&)
-        {
-        }
-
-        const region_t get_region(const lca_t& mesh) const override;
+        region_t get_region(const lca_t& domain) const override;
         std::unique_ptr<base_t> clone() const override;
     };
 
@@ -289,10 +244,8 @@ namespace samurai
         using region_t    = typename base_t::region_t;
 
         OnDirection(const std::array<direction_t, nd>& d);
-        OnDirection(const OnDirection&);
-        OnDirection& operator=(const OnDirection&);
 
-        const region_t get_region(const lca_t& mesh) const override;
+        region_t get_region(const lca_t& domain) const override;
         std::unique_ptr<base_t> clone() const override;
 
       private:
@@ -309,19 +262,16 @@ namespace samurai
         using direction_t = typename base_t::direction_t;
         using lca_t       = typename base_t::lca_t;
         using region_t    = typename base_t::region_t;
+        using function_t  = std::function<bool(const xt::xtensor_fixed<double, xt::xshape<dim>>&)>;
 
-        template <class Func>
-        CoordsRegion(Func&& f);
-
-        CoordsRegion(const CoordsRegion& r);
-        CoordsRegion& operator=(const CoordsRegion& r);
+        CoordsRegion(const function_t& f);
 
         std::unique_ptr<base_t> clone() const override;
-        const region_t get_region(const lca_t& mesh) const override;
+        region_t get_region(const lca_t& domain) const override;
 
       private:
 
-        std::function<bool(const xt::xtensor_fixed<double, xt::xshape<dim>>&)> m_func;
+        function_t m_func;
     };
 
     template <std::size_t dim, class TInterval, class Set>
@@ -336,11 +286,8 @@ namespace samurai
 
         SetRegion(const Set& set);
 
-        SetRegion(const SetRegion& r);
-        SetRegion& operator=(const SetRegion& r);
-
         std::unique_ptr<base_t> clone() const override;
-        const region_t get_region(const lca_t& mesh) const override;
+        region_t get_region(const lca_t& domain) const override;
 
       private:
 
@@ -385,7 +332,7 @@ namespace samurai
 
     // Everywhere
     template <std::size_t dim, class TInterval>
-    inline auto Everywhere<dim, TInterval>::get_region(const lca_t& domain) const -> const region_t
+    inline auto Everywhere<dim, TInterval>::get_region(const lca_t& domain) const -> region_t
     {
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
@@ -428,7 +375,7 @@ namespace samurai
     template <std::size_t dim, class TInterval>
     auto Everywhere<dim, TInterval>::clone() const -> std::unique_ptr<base_t>
     {
-        return std::make_unique<Everywhere>(*this);
+        return std::make_unique<Everywhere>();
     }
 
     // OnDirection
@@ -439,19 +386,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, std::size_t nd>
-    OnDirection<dim, TInterval, nd>::OnDirection(const OnDirection& r)
-        : m_d{r.m_d}
-    {
-    }
-
-    template <std::size_t dim, class TInterval, std::size_t nd>
-    OnDirection<dim, TInterval, nd>& OnDirection<dim, TInterval, nd>::operator=(const OnDirection& r)
-    {
-        return {r.m_d};
-    }
-
-    template <std::size_t dim, class TInterval, std::size_t nd>
-    inline auto OnDirection<dim, TInterval, nd>::get_region(const lca_t& domain) const -> const region_t
+    inline auto OnDirection<dim, TInterval, nd>::get_region(const lca_t& domain) const -> region_t
     {
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
@@ -493,38 +428,25 @@ namespace samurai
     template <std::size_t dim, class TInterval, std::size_t nd>
     auto OnDirection<dim, TInterval, nd>::clone() const -> std::unique_ptr<base_t>
     {
-        return std::make_unique<OnDirection>(*this);
+        return std::make_unique<OnDirection>(m_d);
     }
 
     // CoordsRegion
     template <std::size_t dim, class TInterval>
-    template <class Func>
-    CoordsRegion<dim, TInterval>::CoordsRegion(Func&& f)
-        : m_func(std::forward<Func>(f))
+    CoordsRegion<dim, TInterval>::CoordsRegion(const function_t& f)
+        : m_func(f)
     {
-    }
-
-    template <std::size_t dim, class TInterval>
-    CoordsRegion<dim, TInterval>::CoordsRegion(const CoordsRegion& r)
-        : m_func{r.m_func}
-    {
-    }
-
-    template <std::size_t dim, class TInterval>
-    CoordsRegion<dim, TInterval>& CoordsRegion<dim, TInterval>::operator=(const CoordsRegion& r)
-    {
-        return {r.m_func};
     }
 
     template <std::size_t dim, class TInterval>
     auto CoordsRegion<dim, TInterval>::clone() const -> std::unique_ptr<base_t>
     {
-        return std::make_unique<CoordsRegion>(*this);
+        return std::make_unique<CoordsRegion>(m_func);
     }
 
     // TODO: must be implemented
     template <std::size_t dim, class TInterval>
-    inline auto CoordsRegion<dim, TInterval>::get_region(const lca_t&) const -> const region_t
+    inline auto CoordsRegion<dim, TInterval>::get_region(const lca_t&) const -> region_t
     {
         return std::make_pair(std::vector<direction_t>(), std::vector<lca_t>());
     }
@@ -537,25 +459,13 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, class Set>
-    SetRegion<dim, TInterval, Set>::SetRegion(const SetRegion& r)
-        : m_set{r.m_set}
-    {
-    }
-
-    template <std::size_t dim, class TInterval, class Set>
-    SetRegion<dim, TInterval, Set>& SetRegion<dim, TInterval, Set>::operator=(const SetRegion& r)
-    {
-        return {r.m_set};
-    }
-
-    template <std::size_t dim, class TInterval, class Set>
     auto SetRegion<dim, TInterval, Set>::clone() const -> std::unique_ptr<base_t>
     {
-        return std::make_unique<SetRegion>(*this);
+        return std::make_unique<SetRegion>(m_set);
     }
 
     template <std::size_t dim, class TInterval, class Set>
-    inline auto SetRegion<dim, TInterval, Set>::get_region(const lca_t& domain) const -> const region_t
+    inline auto SetRegion<dim, TInterval, Set>::get_region(const lca_t& domain) const -> region_t
     {
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
@@ -638,8 +548,8 @@ namespace samurai
         Bc(const Bc& bc);
         Bc& operator=(const Bc& bc);
 
-        Bc(Bc&& bc)            = default;
-        Bc& operator=(Bc&& bc) = default;
+        Bc(Bc&& bc) noexcept            = default;
+        Bc& operator=(Bc&& bc) noexcept = default;
 
         virtual std::unique_ptr<Bc> clone() const = 0;
 
@@ -655,7 +565,7 @@ namespace samurai
         void update_values(const Direction& d,
                            std::size_t level,
                            const TInterval& i,
-                           const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>> index);
+                           xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>> index);
 
         value_t constant_value();
         const auto& value() const;
@@ -664,7 +574,7 @@ namespace samurai
       private:
 
         bcvalue_impl p_bcvalue;
-        const lca_t& m_domain;
+        const lca_t& m_domain; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         region_t m_region;
         xt::xtensor<T, detail::return_type<T, size>::dim> m_value;
     };
@@ -699,6 +609,10 @@ namespace samurai
     template <std::size_t dim, class TInterval, class T, std::size_t size>
     Bc<dim, TInterval, T, size>& Bc<dim, TInterval, T, size>::operator=(const Bc& bc)
     {
+        if (this == &bc)
+        {
+            return *this;
+        }
         bcvalue_impl bcvalue = bc.p_bcvalue->clone();
         std::swap(p_bcvalue, bcvalue);
         m_domain = bc.m_domain;
@@ -733,12 +647,12 @@ namespace samurai
     void Bc<dim, TInterval, T, size>::update_values(const Direction& dir,
                                                     std::size_t level,
                                                     const TInterval& i,
-                                                    const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>> index)
+                                                    xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>> index)
     {
-        if (p_bcvalue.get()->type() == BCVType::function)
+        if (p_bcvalue->type() == BCVType::function)
         {
             coords_t coords;
-            double dx = 1. / (1 << level);
+            const double dx = 1. / (1 << level);
 
             coords[0] = dx * i.start + 0.5 * (1 + dir[0]) * dx;
             for (std::size_t d = 1; d < dim; ++d)
@@ -766,7 +680,7 @@ namespace samurai
     template <std::size_t dim, class TInterval, class T, std::size_t size>
     inline auto Bc<dim, TInterval, T, size>::constant_value() -> value_t
     {
-        return p_bcvalue.get()->get_value({});
+        return p_bcvalue->get_value({});
     }
 
     template <std::size_t dim, class TInterval, class T, std::size_t size>
@@ -778,7 +692,7 @@ namespace samurai
     template <std::size_t dim, class TInterval, class T, std::size_t size>
     inline BCVType Bc<dim, TInterval, T, size>::get_value_type() const
     {
-        return p_bcvalue.get()->type();
+        return p_bcvalue->type();
     }
 
     /////////////////////////
@@ -847,7 +761,7 @@ namespace samurai
         using base_t = Bc<dim, TInterval, T, size>;
         using Bc<dim, TInterval, T, size>::Bc;
 
-        virtual std::unique_ptr<base_t> clone() const override
+        std::unique_ptr<base_t> clone() const override
         {
             return std::make_unique<Dirichlet>(*this);
         }
@@ -859,7 +773,7 @@ namespace samurai
         using base_t = Bc<dim, TInterval, T, size>;
         using Bc<dim, TInterval, T, size>::Bc;
 
-        virtual std::unique_ptr<base_t> clone() const override
+        std::unique_ptr<base_t> clone() const override
         {
             return std::make_unique<Neumann>(*this);
         }
@@ -970,7 +884,7 @@ namespace samurai
             set(
                 [&](const auto& i, const auto& index)
                 {
-                    double dx = 1. / (1 << level);
+                    const double dx = 1. / (1 << level);
                     if (bc.get_value_type() == BCVType::constant)
                     {
                         for (int ig = 0; ig < ghost_width; ++ig)

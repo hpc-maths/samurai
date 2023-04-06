@@ -78,14 +78,14 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
     void update_sub_mesh_impl()
     {
         cl_type cl;
-        for_each_interval(this->m_cells[mesh_id_t::cells],
+        for_each_interval(this->cells()[mesh_id_t::cells],
                           [&](std::size_t level, const auto& interval, auto)
                           {
                               lcl_type& lcl = cl[level];
                               lcl[{}].add_interval({interval.start - 1, interval.end + 1});
                           });
         // Put into the cells_and_ghosts category
-        this->m_cells[mesh_id_t::cells_and_ghosts] = {cl, false};
+        this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
     }
 };
 

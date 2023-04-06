@@ -55,12 +55,6 @@ namespace samurai
         UniformMesh(const cl_type& cl);
         UniformMesh(const Box<double, dim>& b, std::size_t level);
 
-        UniformMesh(const UniformMesh&)            = default;
-        UniformMesh& operator=(const UniformMesh&) = default;
-
-        UniformMesh(UniformMesh&&)            = default;
-        UniformMesh& operator=(UniformMesh&&) = default;
-
         std::size_t nb_cells(mesh_id_t mesh_id = mesh_id_t::reference) const;
 
         const ca_type& operator[](mesh_id_t mesh_id) const;
@@ -160,7 +154,7 @@ namespace samurai
 
         for (std::size_t id = 0; id < static_cast<std::size_t>(mesh_id_t::count); ++id)
         {
-            mesh_id_t mt = static_cast<mesh_id_t>(id);
+            auto mt = static_cast<mesh_id_t>(id);
 
             if (mt != mesh_id_t::reference)
             {
@@ -182,7 +176,7 @@ namespace samurai
     {
         for (std::size_t id = 0; id < static_cast<std::size_t>(mesh_id_t::count); ++id)
         {
-            mesh_id_t mt = static_cast<mesh_id_t>(id);
+            auto mt = static_cast<mesh_id_t>(id);
 
             os << fmt::format(fmt::emphasis::bold, "{}\n{:─^50}", mt, "") << std::endl;
             os << m_cells[id];

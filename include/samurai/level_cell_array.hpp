@@ -69,13 +69,6 @@ namespace samurai
         using index_type = std::array<value_t, dim>;
 
         LevelCellArray() = default;
-
-        LevelCellArray(const LevelCellArray&)            = default;
-        LevelCellArray& operator=(const LevelCellArray&) = default;
-
-        LevelCellArray(LevelCellArray&&)            = default;
-        LevelCellArray& operator=(LevelCellArray&&) = default;
-
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
         template <class F, class... CT>
@@ -146,7 +139,7 @@ namespace samurai
         std::array<std::vector<interval_t>, dim> m_cells;        ///< All intervals in every direction
         std::array<std::vector<std::size_t>, dim - 1> m_offsets; ///< Offsets in interval list for each dim >
                                                                  ///< 1
-        std::size_t m_level;
+        std::size_t m_level = 0;
     };
 
     ////////////////////////////////////////
@@ -238,6 +231,7 @@ namespace samurai
     ///////////////////////////////////
     template <std::size_t Dim, class TInterval>
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(const LevelCellList<Dim, TInterval>& lcl)
+        : m_level(lcl.level())
     {
         /* Estimating reservation size
          *
@@ -251,7 +245,6 @@ namespace samurai
          * NOTE2: in fact, hard setting the optimal values for cnt_x and cnt_yz
          * doesn't speedup things, strang...
          */
-        m_level = lcl.level();
         if (!lcl.empty())
         {
             // Filling cells and offsets from the level cell list
@@ -472,9 +465,9 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     inline std::size_t LevelCellArray<Dim, TInterval>::nb_cells() const
     {
-        auto op = [](auto&& init, const auto& interval)
+        auto op = [](std::size_t i, const auto& interval)
         {
-            return std::move(init) + interval.size();
+            return i + interval.size();
         };
 
         return std::accumulate(m_cells[0].cbegin(), m_cells[0].cend(), std::size_t(0), op);
