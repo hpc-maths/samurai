@@ -1,0 +1,30 @@
+---
+Checks: "*,
+         -android-*,
+         -abseil-*,
+         -altera-*,
+         -google-*,
+         -llvm*,
+         -fuchsia-*,
+        -readability-identifier-length,
+        -readability-function-cognitive-complexity,
+        -readability-magic-numbers,
+        -readability-named-parameter,
+        -modernize-use-nodiscard,
+        -modernize-use-trailing-return-type,
+        -bugprone-easily-swappable-parameters,
+        -bugprone-exception-escape,
+        -hicpp-signed-bitwise,
+        -hicpp-explicit-conversions,
+        -hicpp-named-parameter,
+        -cppcoreguidelines-avoid-magic-numbers,
+        -cppcoreguidelines-init-variables,
+"
+WarningsAsErrors: '*'
+HeaderFilterRegex: ''
+FormatStyle:     none
+CheckOptions:
+ - key: hicpp-signed-bitwise.IgnorePositiveIntegerLiterals
+   value: true
+ - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+   value: '1'
