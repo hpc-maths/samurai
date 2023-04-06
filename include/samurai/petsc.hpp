@@ -11,5 +11,4 @@
 #include "petsc/fv/identity_FV.hpp"
 #include "petsc/scheme_operators.hpp"
 #include "petsc/backward_euler.hpp"
-#include "petsc/block_backward_euler.hpp"
 #include "petsc/solver.hpp"

@@ -74,152 +74,6 @@ bool check_nan_or_inf(const Field& f)
     return !is_nan_or_inf;
 }
 
-/*template<class Mesh>
-Mesh create_uniform_mesh(std::size_t level)
-{
-    using Box = samurai::Box<double, Mesh::dim>;
-
-    Box box;
-    if constexpr(Mesh::dim == 1)
-    {
-        box = Box({0}, {1});
-    }
-    else if constexpr(Mesh::dim == 2)
-    {
-        box = Box({0,0}, {1,1});
-    }
-    else if constexpr(Mesh::dim == 3)
-    {
-        box = Box({0,0,0}, {1,1,1});
-    }
-    std::size_t start_level, min_level, max_level;
-    start_level = level;
-    min_level = level;
-    max_level = level;
-
-    return Mesh(box, start_level, min_level, max_level); // amr::Mesh
-    //return Mesh(box, min_level, max_level); // MRMesh
-}*/
-
-template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::StarStencilFV<dim, Field::size*dim, 1>>
-class GradientFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
-{
-public:
-    using local_matrix_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::local_matrix_t;
-
-    GradientFV_old(Field& u) : 
-        samurai::petsc::CellBasedScheme<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
-    {}
-
-    static std::array<local_matrix_t, 5> coefficients(double h)
-    {
-        static constexpr unsigned int L = 0; // left  
-        static constexpr unsigned int C = 1; // center
-        static constexpr unsigned int R = 2; // right 
-        static constexpr unsigned int B = 3; // bottom
-        static constexpr unsigned int T = 4; // top   
-
-        static constexpr unsigned int x = 0;
-        static constexpr unsigned int y = 1;
-
-        // We have:
-        // Grad_x(u) = 1/2 * [ (u_{R} - u_{C})/h + (u_{C} - u_{L})/h ]
-        //           = 1/(2h) * (u_{R} - u_{L})
-        // Grad_y(u) = 1/2 * [ (u_{T} - u_{C})/h + (u_{C} - u_{B})/h ]
-        //           = 1/(2h) * (u_{T} - u_{B})
-        //
-        // The coefficient array is:
-        //                           L  C  R  B  T
-        //     Grad_x --> 1/(2h) * |-1|  | 1|  |  |
-        //     Grad_y --> 1/(2h) * |  |  |  |-1| 1|
-        //
-        std::array<local_matrix_t, 5> coeffs;
-        double one_over_2h = 1/(2*h);
-
-        xt::view(coeffs[L], x) = -one_over_2h;
-        xt::view(coeffs[C], x) =  0;
-        xt::view(coeffs[R], x) =  one_over_2h;
-        xt::view(coeffs[B], x) =  0;
-        xt::view(coeffs[T], x) =  0;
-
-        xt::view(coeffs[L], y) =  0;
-        xt::view(coeffs[C], y) =  0;
-        xt::view(coeffs[R], y) =  0;
-        xt::view(coeffs[B], y) = -one_over_2h;
-        xt::view(coeffs[T], y) =  one_over_2h;
-
-        return coeffs;
-    }
-};
-
-template<class Field>
-auto make_gradient_FV_old(Field& f)
-{
-    return GradientFV_old<Field>(f);
-}
-
-template<class Field, std::size_t dim=Field::dim, class cfg=samurai::petsc::StarStencilFV<dim, 1, 1>>
-class MinusDivergenceFV_old : public samurai::petsc::CellBasedScheme<cfg, Field>
-{
-public:
-    using local_matrix_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::local_matrix_t;
-
-    MinusDivergenceFV_old(Field& u) : 
-        samurai::petsc::CellBasedScheme<cfg, Field>(u, samurai::star_stencil<dim>(), coefficients)
-    {}
-
-    static std::array<local_matrix_t, 5> coefficients(double h)
-    {
-        static constexpr unsigned int L = 0; // left  
-        static constexpr unsigned int C = 1; // center
-        static constexpr unsigned int R = 2; // right 
-        static constexpr unsigned int B = 3; // bottom
-        static constexpr unsigned int T = 4; // top   
-
-        static constexpr unsigned int x = 0;
-        static constexpr unsigned int y = 1;
-
-        // Let F be a vector field (Fx, Fy), such as a gradient for instance.
-        // We have:
-        // Div(F) =              (Fx_{L} + Fx_{R})/2             +        (Fy_{B} + Fy_{T})/2
-        //        = 1/(2h) * [(u_{C} - u_{L}) + (u_{R} - u_{C}) + (u_{C} - u_{B}) + (u_{T} - u_{C})]
-        //        = 1/(2h) * [u_{R} - u_{L} + u_{T} - u_{B}]
-        //
-        // The coefficient array is:
-        //                             L     C     R     B     T 
-        //                           Fx Fy Fx Fy Fx Fy Fx Fy Fx Fy
-        //     Div     --> 1/(2h) * |-1  0| 0  0| 1  0| 0 -1| 0  1|
-        //
-        std::array<local_matrix_t, 5> coeffs;
-        double one_over_2h = 1/(2*h);
-
-        coeffs[L][x] = -one_over_2h * (-1);
-        coeffs[L][y] =  0;
-
-        coeffs[C][x] =  0;
-        coeffs[C][y] =  0;
-
-        coeffs[R][x] =  one_over_2h * (-1);
-        coeffs[R][y] =  0;
-
-        coeffs[B][x] =  0;
-        coeffs[B][y] = -one_over_2h * (-1);
-
-        coeffs[T][x] =  0;
-        coeffs[T][y] =  one_over_2h * (-1);
-
-        return coeffs;
-    }
-};
-
-template<class Field>
-auto make_minus_divergence_FV_old(Field& f)
-{
-    return MinusDivergenceFV_old<Field>(f);
-}
-
-
-/*****************************************************************/
 
 //
 // Configuration of the PETSc solver for the Stokes problem
@@ -482,19 +336,7 @@ int main(int argc, char* argv[])
         zero.fill(0);
 
         // Boundary conditions
-        // velocity.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {1, 0}; })
-        //         .where([](const auto& coord) 
-        //         {
-        //             const auto& y = coord[1];
-        //             return y == 1;
-        //         });
-        // velocity.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {0, 0}; })
-        //         .where([](const auto& coord) 
-        //         {
-        //             const auto& y = coord[1];
-        //             return y != 1;
-        //         });
-
+        // (new BC for MR)
         samurai::DirectionVector<dim> left   = {-1,  0};
         samurai::DirectionVector<dim> right  = { 1,  0};
         samurai::DirectionVector<dim> bottom = { 0, -1};
@@ -503,6 +345,7 @@ int main(int argc, char* argv[])
         samurai::make_bc<samurai::Dirichlet>(velocity, 0., 0.)->on(left, bottom, right);
 
         // Boundary conditions (n+1)
+        // (old BC for the assembly of the matrices)
         velocity_np1.set_dirichlet([](const auto&) { return xt::xtensor_fixed<double, xt::xshape<dim>> {1, 0}; })
                 .where([](const auto& coord) 
                 {
