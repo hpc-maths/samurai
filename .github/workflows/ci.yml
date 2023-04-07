@@ -25,11 +25,52 @@ jobs:
           check-path: ${{ matrix.path }}
 
   #
+  # Check samurai with clang-tidy
+  #
+  #########################################################
+  clang-tidy-check:
+    name: clang-tidy Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: clang-tidy
+
+      - name: Mamba and samurai env installation
+        uses: mamba-org/provision-with-micromamba@main
+        with:
+          environment-file: conda/environment.yml
+          environment-name: samurai-env
+
+      - name: clang-tidy installation
+        shell: bash -l {0}
+        run: |
+          conda install -y clang-tools cxx-compiler clang clangxx
+          pip install compdb
+
+      - name: Configure
+        shell: bash -l {0}
+        run: |
+          cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
+          compdb -p build list > compile_commands.json
+
+      - name: run clang-tidy on samurai
+        shell: bash -l {0}
+        run: |
+          run-clang-tidy
+
+  #
   # Check linux build with mamba environment
   #
   #########################################################
   linux-mamba:
-    needs: formatting-check
+    needs: [formatting-check, clang-tidy-check]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -92,7 +133,6 @@ jobs:
         run: |
           sudo apt update
           sudo apt install ${{ matrix.package }}
-          sudo apt install clang-tidy iwyu
 
       # - name: Information about ccache
       #   run: |
@@ -125,8 +165,7 @@ jobs:
               -GNinja \
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
-              -DBUILD_TESTS=ON \
-              # -DIWYU=ON
+              -DBUILD_TESTS=ON
 
       - name: Build
         shell: bash -l {0}
@@ -152,7 +191,7 @@ jobs:
   #
   #########################################################
   conan:
-    needs: formatting-check
+    needs: [formatting-check, clang-tidy-check]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -196,9 +235,9 @@ jobs:
         if: runner.os == 'Windows'
         uses: al-cheb/configure-pagefile-action@v1.2
         with:
-            minimum-size: 16GB
-            maximum-size: 16GB
-            disk-root: "C:"
+          minimum-size: 16GB
+          maximum-size: 16GB
+          disk-root: "C:"
 
       - name: Setup Cpp
         uses: aminya/setup-cpp@v0.26.2
@@ -256,7 +295,7 @@ jobs:
   #
   #########################################################
   vcpkg:
-    needs: formatting-check
+    needs: [formatting-check, clang-tidy-check]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
