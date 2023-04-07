@@ -35,7 +35,7 @@ namespace samurai
             Solver(Dsctzr& discretizer)
                 : m_discretizer(discretizer)
             {
-                create_solver(m_discretizer.mesh());
+                create_solver();
             }
 
             ~Solver()
@@ -67,11 +67,7 @@ namespace samurai
 
           private:
 
-            void create_solver(Mesh&
-#ifdef ENABLE_MG
-                                   mesh
-#endif
-            )
+            void create_solver()
             {
                 KSP user_ksp;
                 KSPCreate(PETSC_COMM_SELF, &user_ksp);
@@ -98,10 +94,11 @@ namespace samurai
                         assert(false);
                         exit(EXIT_FAILURE);
                     }
-                    _samurai_mg = GeometricMultigrid(m_discretizer, mesh);
+                    _samurai_mg = GeometricMultigrid(m_discretizer, m_discretizer.mesh());
                     _samurai_mg.apply_as_pc(m_ksp);
                 }
 #endif
+                m_is_set_up = false;
             }
 
           public:
@@ -174,6 +171,12 @@ namespace samurai
                 KSPGetIterationNumber(m_ksp, &n_iterations);
                 return n_iterations;
             }
+
+            void reset()
+            {
+                destroy_petsc_objects();
+                create_solver();
+            }
         };
 
         template <class Dsctzr>
@@ -192,10 +195,11 @@ namespace samurai
         /**
          * PETSc block solver
          */
-        template <int rows, int cols, class... Operators>
-        class Solver<BlockAssembly<rows, cols, Operators...>>
+        template <class Dsctzr>
+        class BlockSolver
         {
-            using Dsctzr = BlockAssembly<rows, cols, Operators...>;
+            static constexpr int rows = Dsctzr::n_rows;
+            static constexpr int cols = Dsctzr::n_cols;
 
           private:
 
@@ -206,13 +210,13 @@ namespace samurai
 
           public:
 
-            Solver(Dsctzr& discretizer)
+            BlockSolver(Dsctzr& discretizer)
                 : m_discretizer(discretizer)
             {
                 create_solver();
             }
 
-            ~Solver()
+            ~BlockSolver()
             {
                 destroy_petsc_objects();
             }
@@ -310,19 +314,17 @@ namespace samurai
                          });
                 Vec b;
                 VecCreateNest(PETSC_COMM_SELF, rows, NULL, b_blocks.data(), &b);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(b),
-                                   "right-hand side"); // VecView(b,
-                                                       // PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                                                       // std::cout << std::endl;
+                PetscObjectSetName(reinterpret_cast<PetscObject>(b), "right-hand side"); // VecView(b_blocks[0],
+                                                                                         // PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                                                                                         // std::cout << std::endl;
+                // assert(check_nan_or_inf(b));
 
-                // Update the right-hand side with the boundary conditions
-                // stored in the solution field
-                m_discretizer.enforce_bc(b_blocks);                    // VecView(b,
-                                                                       // PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // Update the right-hand side with the boundary conditions stored in the solution field
+                m_discretizer.enforce_projection_prediction(b_blocks); // VecView(b_blocks[0], PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
                                                                        // std::cout << std::endl;
-                m_discretizer.enforce_projection_prediction(b_blocks); // VecView(b,
-                                                                       // PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                                                                       // std::cout << std::endl;
+                m_discretizer.enforce_bc(b_blocks); // VecView(b_blocks[0], PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // m_discretizer.add_0_for_useless_ghosts(b_blocks);                        //VecView(b,
+                // PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl; assert(check_nan_or_inf(b));
 
                 // Create the solution vector
                 std::array<Vec, cols> x_blocks = m_discretizer.create_solution_vectors();
@@ -344,7 +346,8 @@ namespace samurai
                     const char* reason_text;
                     KSPGetConvergedReasonString(m_ksp, &reason_text);
                     std::cerr << "Divergence of the solver ("s + reason_text + ")" << std::endl;
-                    assert(false);
+                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                    assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout
@@ -360,12 +363,18 @@ namespace samurai
                 KSPGetIterationNumber(m_ksp, &n_iterations);
                 return n_iterations;
             }
+
+            void reset()
+            {
+                destroy_petsc_objects();
+                create_solver();
+            }
         };
 
-        template <int rows, int cols>
-        Solver<BlockAssembly<rows, cols>> make_solver(BlockAssembly<rows, cols>& discretizer)
+        template <class Dsctzr>
+        auto make_block_solver(Dsctzr& discretizer)
         {
-            return Solver<BlockAssembly<rows, cols>>(discretizer);
+            return BlockSolver<Dsctzr>(discretizer);
         }
 
     } // end namespace petsc

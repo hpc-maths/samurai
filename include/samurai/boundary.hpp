@@ -12,10 +12,26 @@ namespace samurai
         auto& cells  = mesh[mesh_id_t::cells][level];
         auto& domain = mesh.domain();
 
-        auto max_level    = mesh[mesh_id_t::cells].max_level();
+        auto max_level    = domain.level(); // domain.level();//mesh[mesh_id_t::cells].max_level();
         auto one_interval = 1 << (max_level - level);
 
         return difference(cells, translate(domain, -one_interval * direction)).on(level);
+    }
+
+    template <class Mesh, class Vector>
+    auto boundary_mr(const Mesh& mesh, std::size_t level, const Vector& direction)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        auto& domain    = mesh.domain();
+
+        auto max_level    = domain.level();
+        auto one_interval = 1 << (max_level - level);
+
+        auto boundary_cells = difference(domain, translate(domain, -one_interval * direction));
+
+        auto& all_on_level = mesh[mesh_id_t::reference][level];
+
+        return intersection(boundary_cells, all_on_level).on(level);
     }
 
     template <class Mesh, class Vector, class Func>
@@ -45,6 +61,29 @@ namespace samurai
             if (xt::any(direction)) // if (direction != 0)
             {
                 auto bdry = boundary(mesh, level, direction);
+                for_each_meshinterval<mesh_interval_t>(bdry,
+                                                       [&](auto& mesh_interval)
+                                                       {
+                                                           func(mesh_interval, direction);
+                                                       });
+            }
+        }
+    }
+
+    template <class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_meshinterval_on_boundary_mr(const Mesh& mesh,
+                                                     std::size_t level,
+                                                     const Stencil<stencil_size, Mesh::dim>& boundary_directions,
+                                                     Func&& func)
+    {
+        using mesh_interval_t = typename Mesh::mesh_interval_t;
+
+        for (unsigned int is = 0; is < stencil_size; ++is)
+        {
+            auto direction = xt::view(boundary_directions, is);
+            if (xt::any(direction)) // if (direction != 0)
+            {
+                auto bdry = boundary_mr(mesh, level, direction);
                 for_each_meshinterval<mesh_interval_t>(bdry,
                                                        [&](auto& mesh_interval)
                                                        {
@@ -205,7 +244,7 @@ namespace samurai
 
     template <class Mesh, std::size_t stencil_size, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
-                                      const StencilVector<Mesh::dim>& boundary_direction,
+                                      const DirectionVector<Mesh::dim>& boundary_direction,
                                       const Stencil<stencil_size, Mesh::dim>& stencil,
                                       Func&& func)
     {
@@ -219,7 +258,7 @@ namespace samurai
 
     template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
-                                      const StencilVector<Mesh::dim>& boundary_direction,
+                                      const DirectionVector<Mesh::dim>& boundary_direction,
                                       const Stencil<stencil_size, Mesh::dim>& stencil,
                                       GetCoeffsFunc&& get_coefficients,
                                       Func&& func)
@@ -241,7 +280,7 @@ namespace samurai
 
     template <class Mesh, std::size_t n_directions, std::size_t stencil_size, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
-                                      const std::array<StencilVector<Mesh::dim>, n_directions>& boundary_directions,
+                                      const std::array<DirectionVector<Mesh::dim>, n_directions>& boundary_directions,
                                       const std::array<Stencil<stencil_size, Mesh::dim>, n_directions>& stencils,
                                       Func&& func)
     {
@@ -259,7 +298,7 @@ namespace samurai
 
     template <class Mesh, std::size_t n_directions, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
-                                      const std::array<StencilVector<Mesh::dim>, n_directions>& boundary_directions,
+                                      const std::array<DirectionVector<Mesh::dim>, n_directions>& boundary_directions,
                                       const std::array<Stencil<stencil_size, Mesh::dim>, n_directions>& stencils,
                                       GetCoeffsFunc&& get_coefficients,
                                       Func&& func)
@@ -272,7 +311,7 @@ namespace samurai
                                          get_coefficients,
                                          [&](auto& cells, auto& coeffs)
                                          {
-                                             func(cells, coeffs, boundary_directions[i]);
+                                             func(cells, boundary_directions[i], coeffs);
                                          });
         }
     }

@@ -50,37 +50,23 @@ class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
 
     void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
     {
-        std::array<samurai::StencilVector<dim>, 4> bdry_directions;
+        std::array<samurai::DirectionVector<dim>, 4> bdry_directions;
         std::array<samurai::Stencil<3, dim>, 4> bdry_stencils;
 
+        // clang-format off
         // Left boundary
         bdry_directions[0] = {-1, 0};
-        bdry_stencils[0]   = {
-            {0,  0},
-            {-1, 0},
-            {-2, 0}
-        };
+        bdry_stencils[0]   = {{0, 0}, {-1, 0}, {-2, 0}};
         // Top boundary
         bdry_directions[1] = {0, 1};
-        bdry_stencils[1]   = {
-            {0, 0},
-            {0, 1},
-            {0, 2}
-        };
+        bdry_stencils[1]   = {{0, 0}, {0, 1}, {0, 2}};
         // Right boundary
         bdry_directions[2] = {1, 0};
-        bdry_stencils[2]   = {
-            {0, 0},
-            {1, 0},
-            {2, 0}
-        };
+        bdry_stencils[2]   = {{0, 0}, {1, 0}, {2, 0}};
         // Bottom boundary
         bdry_directions[3] = {0, -1};
-        bdry_stencils[3]   = {
-            {0, 0 },
-            {0, -1},
-            {0, -2}
-        };
+        bdry_stencils[3]   = {{0, 0 }, {0, -1}, {0, -2}};
+        // clang-format on
 
         samurai::for_each_stencil_on_boundary(this->m_mesh,
                                               bdry_directions,
@@ -96,45 +82,23 @@ class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
 
     void assemble_boundary_conditions(Mat& A) override
     {
-        std::array<samurai::StencilVector<dim>, 4> bdry_directions;
+        std::array<samurai::DirectionVector<dim>, 4> bdry_directions;
         std::array<samurai::Stencil<5, dim>, 4> bdry_stencils;
 
+        // clang-format off
         // Left boundary
         bdry_directions[0] = {-1, 0};
-        bdry_stencils[0]   = {
-            {0,  0},
-            {1,  0},
-            {2,  0},
-            {-1, 0},
-            {-2, 0}
-        };
+        bdry_stencils[0]   = {{0,  0}, {1,  0}, {2,  0}, {-1, 0}, {-2, 0}};
         // Top boundary
         bdry_directions[1] = {0, 1};
-        bdry_stencils[1]   = {
-            {0, 0 },
-            {0, -1},
-            {0, -2},
-            {0, 1 },
-            {0, 2 }
-        };
+        bdry_stencils[1]   = {{0, 0 }, {0, -1}, {0, -2}, {0, 1 }, {0, 2 }};
         // Right boundary
         bdry_directions[2] = {1, 0};
-        bdry_stencils[2]   = {
-            {0,  0},
-            {-1, 0},
-            {-2, 0},
-            {1,  0},
-            {2,  0}
-        };
+        bdry_stencils[2]   = {{0,  0}, {-1, 0}, {-2, 0}, {1,  0}, {2,  0}};
         // Bottom boundary
         bdry_directions[3] = {0, -1};
-        bdry_stencils[3]   = {
-            {0, 0 },
-            {0, 1 },
-            {0, 2 },
-            {0, -1},
-            {0, -2}
-        };
+        bdry_stencils[3]   = {{0, 0 }, {0, 1 }, {0, 2 }, {0, -1}, {0, -2}};
+        // clang-format on
 
         samurai::for_each_stencil_on_boundary(this->m_mesh,
                                               bdry_directions,
@@ -191,37 +155,23 @@ class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
 
     void enforce_bc(Vec& b) const override
     {
-        std::array<samurai::StencilVector<dim>, 4> bdry_directions;
+        std::array<samurai::DirectionVector<dim>, 4> bdry_directions;
         std::array<samurai::Stencil<3, dim>, 4> bdry_stencils;
 
+        // clang-format off
         // Left boundary
         bdry_directions[0] = {-1, 0};
-        bdry_stencils[0]   = {
-            {0,  0},
-            {-1, 0},
-            {-2, 0}
-        };
+        bdry_stencils[0]   = {{0,  0}, {-1, 0}, {-2, 0}};
         // Top boundary
         bdry_directions[1] = {0, 1};
-        bdry_stencils[1]   = {
-            {0, 0},
-            {0, 1},
-            {0, 2}
-        };
+        bdry_stencils[1]   = {{0, 0}, {0, 1}, {0, 2}};
         // Right boundary
         bdry_directions[2] = {1, 0};
-        bdry_stencils[2]   = {
-            {0, 0},
-            {1, 0},
-            {2, 0}
-        };
+        bdry_stencils[2]   = {{0, 0}, {1, 0}, {2, 0}};
         // Bottom boundary
         bdry_directions[3] = {0, -1};
-        bdry_stencils[3]   = {
-            {0, 0 },
-            {0, -1},
-            {0, -2}
-        };
+        bdry_stencils[3]   = {{0, 0 }, {0, -1}, {0, -2}};
+        // clang-format on
 
         samurai::for_each_stencil_on_boundary(this->m_mesh,
                                               bdry_directions,
@@ -300,9 +250,9 @@ int main(int argc, char* argv[])
     CLI11_PARSE(app, argc, argv);
 
     samurai::Box<double, dim> box(min_corner, max_corner);
-    using mesh_t    = samurai::MRMesh<Config>;
-    using mesh_id_t = typename mesh_t::mesh_id_t;
-    using cl_type   = typename mesh_t::cl_type;
+    using mesh_t = samurai::MRMesh<Config>;
+    // using mesh_id_t = typename mesh_t::mesh_id_t;
+    // using cl_type   = typename mesh_t::cl_type;
     mesh_t mesh{box, min_level, max_level};
 
     PetscInitialize(&argc, &argv, 0, nullptr);

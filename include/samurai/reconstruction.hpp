@@ -400,7 +400,7 @@ namespace samurai
         reconstruct_mesh.update_index();
 
         auto m                 = holder(reconstruct_mesh);
-        auto reconstruct_field = make_field<typename Field::value_type, Field::size>(field.name(), m);
+        auto reconstruct_field = make_field<typename Field::value_type, Field::size, Field::is_soa>(field.name(), m);
         reconstruct_field.fill(0.);
 
         std::size_t min_level = mesh[mesh_id_t::cells].min_level();

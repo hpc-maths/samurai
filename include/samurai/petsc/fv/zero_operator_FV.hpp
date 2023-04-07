@@ -1,5 +1,5 @@
 #pragma once
-#include "cell_based_scheme.hpp"
+#include "../cell_based_scheme.hpp"
 
 namespace samurai
 {
@@ -15,6 +15,7 @@ namespace samurai
             ZeroOperatorFV(Field& unknown)
                 : CellBasedScheme<cfg, Field>(unknown, star_stencil<dim>(), coefficients)
             {
+                this->set_name("Zero");
             }
 
             static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double)

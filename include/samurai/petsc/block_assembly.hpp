@@ -9,6 +9,11 @@ namespace samurai
         template <int rows, int cols, class... Operators>
         class BlockAssembly
         {
+          public:
+
+            static constexpr int n_rows = rows;
+            static constexpr int n_cols = cols;
+
           private:
 
             std::tuple<Operators&...> m_operators;
@@ -89,6 +94,12 @@ namespace samurai
                 MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
             }
 
+            Mat& block(std::size_t row, std::size_t col)
+            {
+                auto i = row * cols + col;
+                return m_blocks[i];
+            }
+
             void enforce_bc(std::array<Vec, rows>& b) const
             {
                 std::size_t i = 0;
@@ -122,6 +133,23 @@ namespace samurai
                                  // << col << ") on b[" << row << "]" <<
                                  // std::endl;
                                  op.enforce_projection_prediction(b[row]);
+                             }
+                             i++;
+                         });
+            }
+
+            void add_0_for_useless_ghosts(std::array<Vec, rows>& b) const
+            {
+                std::size_t i = 0;
+                for_each(m_operators,
+                         [&](const auto& op)
+                         {
+                             auto row = i / cols;
+                             // auto col = i % cols;
+                             if (op.must_add_1_on_diag_for_useless_ghosts())
+                             {
+                                 // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
+                                 op.add_0_for_useless_ghosts(b[row]);
                              }
                              i++;
                          });

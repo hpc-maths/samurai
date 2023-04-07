@@ -7,7 +7,7 @@ namespace samurai
     using Stencil = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
 
     template <std::size_t dim>
-    using StencilVector = xt::xtensor_fixed<int, xt::xshape<dim>>;
+    using DirectionVector = xt::xtensor_fixed<int, xt::xshape<dim>>;
 
     template <std::size_t stencil_size, std::size_t dim>
     int find_stencil_origin(const Stencil<stencil_size, dim>& stencil)
@@ -32,30 +32,58 @@ namespace samurai
         return -1;
     }
 
+    template <std::size_t stencil_size, std::size_t dim>
+    int find(const Stencil<stencil_size, dim>& stencil, const DirectionVector<dim>& vector)
+    {
+        for (unsigned int id = 0; id < stencil_size; ++id)
+        {
+            auto d     = xt::view(stencil, id);
+            bool found = true;
+            for (unsigned int i = 0; i < dim; ++i)
+            {
+                if (d[i] != vector[i])
+                {
+                    found = false;
+                    break;
+                }
+            }
+            if (found)
+            {
+                return static_cast<int>(id);
+            }
+        }
+        return -1;
+    }
+
     template <class Mesh, std::size_t stencil_size>
     class IteratorStencil
     {
+      public:
+
         static constexpr std::size_t dim = Mesh::dim;
-        using value_t                    = typename Mesh::config::interval_t::value_t;
-        using Cell                       = typename samurai::Cell<value_t, dim>;
+        using mesh_interval_t            = typename Mesh::mesh_interval_t;
+        using coord_index_t              = typename Mesh::config::interval_t::coord_index_t;
+        using Cell                       = typename samurai::Cell<coord_index_t, dim>;
 
       private:
 
+        const Mesh& m_mesh;
         const Stencil<stencil_size, dim> m_stencil;
         std::array<Cell, stencil_size> m_cells;
         unsigned int m_origin_cell;
 
       public:
 
-        IteratorStencil(const Stencil<stencil_size, dim>& stencil)
-            : m_stencil(stencil)
+        IteratorStencil(const Mesh& mesh, const Stencil<stencil_size, dim>& stencil)
+            : m_mesh(mesh)
+            , m_stencil(stencil)
         {
             int origin_index = find_stencil_origin(stencil);
             assert(origin_index >= 0 && "the zero vector is required in the stencil definition.");
             m_origin_cell = static_cast<unsigned int>(origin_index);
         }
 
-        void init(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval)
+        void init(const mesh_interval_t& mesh_interval)
         {
             double length = cell_length(mesh_interval.level);
             for (Cell& cell : m_cells)
@@ -71,7 +99,7 @@ namespace samurai
             {
                 origin_cell.indices[d + 1] = mesh_interval.index[d];
             }
-            origin_cell.index = get_index_start(mesh, mesh_interval);
+            origin_cell.index = get_index_start(m_mesh, mesh_interval);
 
             for (unsigned int id = 0; id < stencil_size; ++id)
             {
@@ -106,7 +134,7 @@ namespace samurai
                 }
                 else
                 {
-                    cell.index = get_index_start_translated(mesh, mesh_interval, d);
+                    cell.index = get_index_start_translated(m_mesh, mesh_interval, d);
                 }
             }
         }
@@ -126,13 +154,18 @@ namespace samurai
         }
     };
 
-    template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil_sliding_in_interval(const Mesh& mesh,
-                                                     const typename Mesh::mesh_interval_t& mesh_interval,
-                                                     IteratorStencil<Mesh, stencil_size>& stencil_it,
+    template <class Mesh, std::size_t stencil_size>
+    auto make_stencil_iterator(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil)
+    {
+        return IteratorStencil<Mesh, stencil_size>(mesh, stencil);
+    }
+
+    template <class iterator_stencil, class Func>
+    inline void for_each_stencil_sliding_in_interval(const typename iterator_stencil::mesh_interval_t& mesh_interval,
+                                                     iterator_stencil& stencil_it,
                                                      Func&& f)
     {
-        stencil_it.init(mesh, mesh_interval);
+        stencil_it.init(mesh_interval);
         for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
         {
             f(stencil_it.cells());
@@ -146,8 +179,8 @@ namespace samurai
                                                      const Stencil<stencil_size, Mesh::dim>& stencil,
                                                      Func&& f)
     {
-        IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
-        for_each_stencil_sliding_in_interval(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+        IteratorStencil<Mesh, stencil_size> stencil_it(mesh, stencil);
+        for_each_stencil_sliding_in_interval(mesh_interval, stencil_it, std::forward<Func>(f));
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
@@ -157,27 +190,26 @@ namespace samurai
         for_each_meshinterval(mesh[mesh_id_t::cells][level],
                               [&](auto mesh_interval)
                               {
-                                  for_each_stencil_sliding_in_interval(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
+                                  for_each_stencil_sliding_in_interval(mesh_interval, stencil_it, std::forward<Func>(f));
                               });
     }
 
-    template <class Mesh, class Set, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, Set& set, IteratorStencil<Mesh, stencil_size>& stencil_it, Func&& f)
+    template <class Set, class iterator_stencil, class Func>
+    inline void for_each_stencil(Set& set, iterator_stencil& stencil_it, Func&& f)
     {
-        using mesh_interval_t = typename Mesh::mesh_interval_t;
-        for_each_meshinterval<mesh_interval_t>(
-            set,
-            [&](auto mesh_interval)
-            {
-                for_each_stencil_sliding_in_interval(mesh, mesh_interval, stencil_it, std::forward<Func>(f));
-            });
+        using mesh_interval_t = typename iterator_stencil::mesh_interval_t;
+        for_each_meshinterval<mesh_interval_t>(set,
+                                               [&](auto mesh_interval)
+                                               {
+                                                   for_each_stencil_sliding_in_interval(mesh_interval, stencil_it, std::forward<Func>(f));
+                                               });
     }
 
     template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     inline void
     for_each_stencil(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func&& f)
     {
-        IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
+        IteratorStencil<Mesh, stencil_size> stencil_it(mesh, stencil);
 
         for_each_level(mesh,
                        [&](std::size_t level)
@@ -197,14 +229,8 @@ namespace samurai
     template <class Mesh, class Set, std::size_t stencil_size, class Func>
     inline void for_each_stencil(const Mesh& mesh, Set& set, const Stencil<stencil_size, Mesh::dim>& stencil, Func&& f)
     {
-        IteratorStencil<Mesh, stencil_size> stencil_it(stencil);
-        for_each_stencil(mesh,
-                         set,
-                         stencil_it,
-                         [&](auto& cells)
-                         {
-                             f(cells);
-                         });
+        IteratorStencil<Mesh, stencil_size> stencil_it(mesh, stencil);
+        for_each_stencil(set, stencil_it, std::forward<Func>(f));
     }
 
     //-----------------------//
@@ -337,6 +363,36 @@ namespace samurai
             };
         }
         return Stencil<2 * dim, dim>();
+    }
+
+    template <std::size_t dim>
+    constexpr Stencil<dim, dim> positive_cartesian_directions()
+    {
+        static_assert(dim >= 1 || dim <= 3, "positive_cartesian_directions() not implemented for this dimension");
+
+        if constexpr (dim == 1)
+        {
+            //     right
+            return {{1}};
+        }
+        else if constexpr (dim == 2)
+        {
+            //      right,   top
+            return {
+                {1, 0},
+                {0, 1}
+            };
+        }
+        else if constexpr (dim == 3)
+        {
+            //       right,   back,     top
+            return {
+                {1, 0, 0},
+                {0, 1, 0},
+                {0, 0, 1}
+            };
+        }
+        return Stencil<dim, dim>();
     }
 
     template <std::size_t dim>

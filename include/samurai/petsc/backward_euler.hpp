@@ -49,9 +49,24 @@ namespace samurai
                 return m_operator.matrix_cols();
             }
 
-            std::vector<PetscInt> sparsity_pattern() const override
+            void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
-                return m_operator.sparsity_pattern();
+                return m_operator.sparsity_pattern_scheme(nnz);
+            }
+
+            void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
+            {
+                return m_operator.sparsity_pattern_boundary(nnz);
+            }
+
+            void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
+            {
+                return m_operator.sparsity_pattern_projection(nnz);
+            }
+
+            void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
+            {
+                return m_operator.sparsity_pattern_prediction(nnz);
             }
 
             bool matrix_is_spd() const override
@@ -83,7 +98,7 @@ namespace samurai
 
           private:
 
-            void assemble_scheme_on_uniform_grid(Mat&) override
+            void assemble_scheme(Mat&) override
             {
             }
 
