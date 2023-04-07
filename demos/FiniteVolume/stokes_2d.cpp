@@ -204,18 +204,16 @@ int main(int argc, char* argv[])
         auto stokes = samurai::petsc::make_block_operator<2, 2>(diff_v, grad_p, minus_div_v, zero_p);
 
         // Right-hand side
-        auto f = samurai::make_field<double, dim, is_soa>(
-            "f",
-            mesh,
-            [](const auto& coord)
-            {
-                const auto& x = coord[0];
-                const auto& y = coord[1];
-                double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-                double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-                return xt::xtensor_fixed<double, xt::xshape<dim>>{f_x, f_y};
-            },
-            0);
+        auto f    = samurai::make_field<double, dim, is_soa>("f",
+                                                          mesh,
+                                                          [](const auto& coord)
+                                                          {
+                                                              const auto& x = coord[0];
+                                                              const auto& y = coord[1];
+                                                              double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
+                                                              double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
+                                                              return xt::xtensor_fixed<double, xt::xshape<dim>>{f_x, f_y};
+                                                          });
         auto zero = samurai::make_field<double, 1, is_soa>("zero", mesh);
         zero.fill(0);
 
@@ -258,17 +256,16 @@ int main(int argc, char* argv[])
             samurai::save(path, filename, mesh, velocity);
             samurai::save(path, "pressure", mesh, pressure);
 
-            auto exact_velocity = samurai::make_field<double, dim, is_soa>(
-                "exact_velocity",
-                mesh,
-                [](const auto& coord)
-                {
-                    const auto& x = coord[0];
-                    const auto& y = coord[1];
-                    auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
-                    return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-                },
-                0);
+            auto exact_velocity = samurai::make_field<double, dim, is_soa>("exact_velocity",
+                                                                           mesh,
+                                                                           [](const auto& coord)
+                                                                           {
+                                                                               const auto& x = coord[0];
+                                                                               const auto& y = coord[1];
+                                                                               auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
+                                                                               auto v_y      = -v_x;
+                                                                               return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
+                                                                           });
             samurai::save(path, "exact_velocity", mesh, exact_velocity);
 
             /*auto err = samurai::make_field<double, dim, is_soa>("error", mesh);
@@ -278,16 +275,14 @@ int main(int argc, char* argv[])
                 });
             samurai::save(path, "error_velocity", mesh, err);*/
 
-            auto exact_pressure = samurai::make_field<double, 1, is_soa>(
-                "exact_pressure",
-                mesh,
-                [](const auto& coord)
-                {
-                    const auto& x = coord[0];
-                    const auto& y = coord[1];
-                    return 1 / (pi * pi) * sin(pi * (x + y));
-                },
-                0);
+            auto exact_pressure = samurai::make_field<double, 1, is_soa>("exact_pressure",
+                                                                         mesh,
+                                                                         [](const auto& coord)
+                                                                         {
+                                                                             const auto& x = coord[0];
+                                                                             const auto& y = coord[1];
+                                                                             return 1 / (pi * pi) * sin(pi * (x + y));
+                                                                         });
             samurai::save(path, "exact_pressure", mesh, exact_pressure);
         }
         block_solver.destroy_petsc_objects();
@@ -317,95 +312,108 @@ int main(int argc, char* argv[])
 
         // Boundary conditions
         // (new BC for MR)
-        return xt::xtensor_fixed<double, xt::xshape<dim>>{1, 0};
-    })
+        samurai::DirectionVector<dim> left   = {-1, 0};
+        samurai::DirectionVector<dim> right  = {1, 0};
+        samurai::DirectionVector<dim> bottom = {0, -1};
+        samurai::DirectionVector<dim> top    = {0, 1};
+        samurai::make_bc<samurai::Dirichlet>(velocity, 1., 0.)->on(top);
+        samurai::make_bc<samurai::Dirichlet>(velocity, 0., 0.)->on(left, bottom, right);
+
+        // Boundary conditions (n+1)
+        // (old BC for the assembly of the matrices)
+        velocity_np1
+            .set_dirichlet(
+                [](const auto&)
+                {
+                    return xt::xtensor_fixed<double, xt::xshape<dim>>{1, 0};
+                })
             .where(
                 [](const auto& coord)
                 {
-        const auto& y = coord[1];
-        return y == 1;
+                    const auto& y = coord[1];
+                    return y == 1;
                 });
-    velocity_np1
-        .set_dirichlet(
-            [](const auto&)
-            {
-                return xt::xtensor_fixed<double, xt::xshape<dim>>{0, 0};
-            })
-        .where(
-            [](const auto& coord)
-            {
-                const auto& y = coord[1];
-                return y != 1;
-            });
+        velocity_np1
+            .set_dirichlet(
+                [](const auto&)
+                {
+                    return xt::xtensor_fixed<double, xt::xshape<dim>>{0, 0};
+                })
+            .where(
+                [](const auto& coord)
+                {
+                    const auto& y = coord[1];
+                    return y != 1;
+                });
 
-    pressure_np1
-        .set_neumann(
-            [](const auto&)
-            {
-                return 0.0;
-            })
-        .everywhere();
+        pressure_np1
+            .set_neumann(
+                [](const auto&)
+                {
+                    return 0.0;
+                })
+            .everywhere();
 
-    // Initial condition
-    velocity.fill(0);
+        // Initial condition
+        velocity.fill(0);
 
-    velocity_np1.fill(0);
-    pressure_np1.fill(0);
+        velocity_np1.fill(0);
+        pressure_np1.fill(0);
 
-    //--------------------//
-    //   Time iteration   //
-    //--------------------//
+        //--------------------//
+        //   Time iteration   //
+        //--------------------//
 
-    double Tf = 1.;
-    double dt = Tf / 100;
+        double Tf = 1.;
+        double dt = Tf / 100;
 
-    double mr_epsilon    = 1e-1; // Threshold used by multiresolution
-    double mr_regularity = 3;    // Regularity guess for multiresolution
+        double mr_epsilon    = 1e-1; // Threshold used by multiresolution
+        double mr_regularity = 3;    // Regularity guess for multiresolution
 
-    auto MRadaptation = samurai::make_MRAdapt(velocity);
+        auto MRadaptation = samurai::make_MRAdapt(velocity);
 
-    std::size_t nfiles = 50;
+        std::size_t nfiles = 50;
 
-    samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
-    double dt_save    = dt; // Tf/static_cast<double>(nfiles);
-    std::size_t nsave = 1, nt = 0;
+        samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
+        double dt_save    = dt; // Tf/static_cast<double>(nfiles);
+        std::size_t nsave = 1, nt = 0;
 
-    double t = 0;
-    while (t != Tf)
-    {
-        // Move to next timestep
-        t += dt;
-        if (t > Tf)
+        double t = 0;
+        while (t != Tf)
         {
-            dt += Tf - t;
-            t = Tf;
-        }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
+            // Move to next timestep
+            t += dt;
+            if (t > Tf)
+            {
+                dt += Tf - t;
+                t = Tf;
+            }
+            std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
 
-        if (min_level != max_level)
-        {
-            // Mesh adaptation
-            MRadaptation(mr_epsilon, mr_regularity);
-            // samurai::update_ghost_mr(velocity);
-            velocity_np1.resize();
-            pressure_np1.resize();
-            zero.resize();
-            zero.fill(0);
+            if (min_level != max_level)
+            {
+                // Mesh adaptation
+                MRadaptation(mr_epsilon, mr_regularity);
+                // samurai::update_ghost_mr(velocity);
+                velocity_np1.resize();
+                pressure_np1.resize();
+                zero.resize();
+                zero.fill(0);
 
-            // Min and max levels actually used
-            std::size_t actual_min_level = 999;
-            std::size_t actual_max_level = 0;
-            samurai::for_each_level(velocity.mesh(),
-                                    [&](auto level)
-                                    {
-                                        actual_min_level = std::min(actual_min_level, level);
-                                        actual_max_level = std::max(actual_max_level, level);
-                                    });
-            std::cout << ", levels " << actual_min_level << "-" << actual_max_level;
-        }
-        std::cout << std::endl;
+                // Min and max levels actually used
+                std::size_t actual_min_level = 999;
+                std::size_t actual_max_level = 0;
+                samurai::for_each_level(velocity.mesh(),
+                                        [&](auto level)
+                                        {
+                                            actual_min_level = std::min(actual_min_level, level);
+                                            actual_max_level = std::max(actual_max_level, level);
+                                        });
+                std::cout << ", levels " << actual_min_level << "-" << actual_max_level;
+            }
+            std::cout << std::endl;
 
-        // clang-format off
+            // clang-format off
 
             // Stokes operator
             //             |  Diff  Grad |
@@ -424,38 +432,38 @@ int main(int argc, char* argv[])
 
             auto stokes = samurai::petsc::make_block_operator<2, 2>(id_plus_dt_diff, dt_grad_p,
                                                                         minus_div_v,    zero_p);
-        // clang-format on
+            // clang-format on
 
-        // Linear solver
-        auto block_solver = samurai::petsc::make_block_solver(stokes);
-        configure_petsc_solver(block_solver);
+            // Linear solver
+            auto block_solver = samurai::petsc::make_block_solver(stokes);
+            configure_petsc_solver(block_solver);
 
-        // Solve the linear equation
-        //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n
-        //                         -Div v_np1            = 0
-        block_solver.solve(velocity, zero);
+            // Solve the linear equation
+            //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n
+            //                         -Div v_np1            = 0
+            block_solver.solve(velocity, zero);
 
-        // Prepare next step
-        std::swap(velocity.array(), velocity_np1.array());
+            // Prepare next step
+            std::swap(velocity.array(), velocity_np1.array());
 
-        // Save the result
-        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
-        {
-            samurai::update_ghost_mr(velocity);
-            auto velocity_recons = samurai::reconstruction(velocity);
+            // Save the result
+            if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
+            {
+                samurai::update_ghost_mr(velocity);
+                auto velocity_recons = samurai::reconstruction(velocity);
 
-            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
-            samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
+                std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+                samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
+            }
         }
     }
-}
 
-//--------------------//
-//     Finalize       //
-//--------------------//
+    //--------------------//
+    //     Finalize       //
+    //--------------------//
 
-PetscFinalize();
+    PetscFinalize();
 
-return 0;
+    return 0;
 }
