@@ -44,40 +44,49 @@ bool check_nan_or_inf(const Field& f)
 template <class Solver>
 void configure_petsc_solver(Solver& block_solver)
 {
-    // 1. Set the use of a Schur complement preconditioner eliminating the velocity
+    // The matrix has the saddle-point structure
+    //           | A    B |
+    //           | B^T  C |
+
+    // The Schur complement eliminating the first variable (here, the velocity) is
+    //            Schur = C - B^T * A^-1 * B
+    // We define the preconditioner
+    //            S = C - B^T * ksp(A) * B
+    // where ksp(A) is a solver for A.
+
     KSP ksp = block_solver.Ksp();
     PC pc;
     KSPGetPC(ksp, &pc);
-    PCSetType(pc, PCFIELDSPLIT); // (equiv. '-pc_type fieldsplit')
-    PCFieldSplitSetType(pc,
-                        PC_COMPOSITE_SCHUR); // Schur complement preconditioner (equiv.
-                                             // '-pc_fieldsplit_type schur')
-    PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP,
-                            PETSC_NULL);                             // (equiv. '-pc_fieldsplit_schur_precondition selfp')
-    PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL); // (equiv.
-                                                                     // '-pc_fieldsplit_schur_fact_type
-                                                                     // full')
+    PCSetType(pc, PCFIELDSPLIT);                 // (equiv. '-pc_type fieldsplit')
+    PCFieldSplitSetType(pc, PC_COMPOSITE_SCHUR); // Schur complement preconditioner (equiv. '-pc_fieldsplit_type schur')
+    PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP, PETSC_NULL); // (equiv. '-pc_fieldsplit_schur_precondition selfp')
+    PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL);        // (equiv. '-pc_fieldsplit_schur_fact_type full')
 
-    // 2. Configure the sub-solvers
-    block_solver.setup(); // must be called before using PCFieldSplitSchurGetSubKSP(),
-                          // because the matrices are needed.
+    // Configure the sub-solvers
+    block_solver.setup(); // must be called before using PCFieldSplitSchurGetSubKSP(), because the matrices are needed.
     KSP* sub_ksp;
     PCFieldSplitSchurGetSubKSP(pc, nullptr, &sub_ksp);
-    KSP velocity_ksp = sub_ksp[0];
-    KSP schur_ksp    = sub_ksp[1];
-    // Set LU by default for the diffusion block. Consider using 'hypre' for
-    // large problems, using the option '-fieldsplit_velocity_pc_type hypre'.
-    PC velocity_pc;
-    KSPGetPC(velocity_ksp, &velocity_pc);
-    PCSetType(velocity_pc,
-              PCLU);                 // (equiv. '-fieldsplit_velocity_pc_type lu' or 'hypre')
-    KSPSetFromOptions(velocity_ksp); // overwrite by user value if needed
+    KSP A_ksp     = sub_ksp[0];
+    KSP schur_ksp = sub_ksp[1];
+
+    // Set LU by default for the A block (diffusion). Consider using 'hypre' for large problems,
+    // using the option '-fieldsplit_velocity_[np1]_pc_type hypre'.
+    PC A_pc;
+    KSPGetPC(A_ksp, &A_pc);
+    PCSetType(A_pc, PCLU);    // (equiv. '-fieldsplit_velocity_[np1]_pc_type lu')
+    KSPSetFromOptions(A_ksp); // KSP and PC overwritten by user value if needed
+
+    PC schur_pc;
+    KSPGetPC(schur_ksp, &schur_pc);
+    PCSetType(schur_pc, PCNONE);  // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
+    KSPSetFromOptions(schur_ksp); // KSP and PC overwritten by user value if needed
+
     // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
     // tolerance to all the sub-solvers
     PetscReal ksp_rtol;
     KSPGetTolerances(ksp, &ksp_rtol, PETSC_NULL, PETSC_NULL, PETSC_NULL);
-    KSPSetTolerances(velocity_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
-    KSPSetTolerances(schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);    // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
+    KSPSetTolerances(A_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);     // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
+    KSPSetTolerances(schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
 }
 
 int main(int argc, char* argv[])
@@ -410,13 +419,15 @@ int main(int argc, char* argv[])
             }
             std::cout << std::endl;
 
+            // clang-format off
+
             // Stokes operator
             //             |  Diff  Grad |
             //             | -Div     0  |
             auto diff_v      = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
-            auto grad_p      = samurai::petsc::make_gradient_FV(pressure_np1);
-            auto minus_div_v = -1 * samurai::petsc::make_divergence_FV(velocity_np1);
-            auto zero_p      = samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
+            auto grad_p      =              samurai::petsc::make_gradient_FV(pressure_np1);
+            auto minus_div_v =         -1 * samurai::petsc::make_divergence_FV(velocity_np1);
+            auto zero_p      =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
 
             // Stokes with backward Euler
             //             | I + dt*Diff    dt*Grad |
@@ -425,14 +436,13 @@ int main(int argc, char* argv[])
             auto id_plus_dt_diff = id_v + dt * diff_v;
             auto dt_grad_p       = dt * grad_p;
 
-            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_plus_dt_diff, dt_grad_p, minus_div_v, zero_p);
+            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_plus_dt_diff, dt_grad_p, 
+                                                                        minus_div_v,    zero_p);
+            // clang-format on
 
             // Linear solver
             auto block_solver = samurai::petsc::make_block_solver(stokes);
             configure_petsc_solver(block_solver);
-
-            assert(check_nan_or_inf(velocity));
-            assert(check_nan_or_inf(zero));
 
             // Solve the linear equation
             //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n
