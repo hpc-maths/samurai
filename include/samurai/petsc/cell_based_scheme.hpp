@@ -9,65 +9,62 @@ namespace samurai
     {
         /**
          * Useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
-        */
+         */
         template <PetscInt output_field_size_,
-                PetscInt scheme_stencil_size_,
-                PetscInt center_index_,
-                PetscInt contiguous_indices_start_ = 0,
-                PetscInt contiguous_indices_size_ = 0,
-                DirichletEnforcement dirichlet_enfcmt_ = Equation>
+                  PetscInt scheme_stencil_size_,
+                  PetscInt center_index_,
+                  PetscInt contiguous_indices_start_     = 0,
+                  PetscInt contiguous_indices_size_      = 0,
+                  DirichletEnforcement dirichlet_enfcmt_ = Equation>
         struct CellBasedAssemblyConfig
         {
-            static constexpr PetscInt output_field_size = output_field_size_;
-            static constexpr PetscInt scheme_stencil_size = scheme_stencil_size_;
-            static constexpr PetscInt center_index = center_index_;
-            static constexpr PetscInt contiguous_indices_start = contiguous_indices_start_;
-            static constexpr PetscInt contiguous_indices_size = contiguous_indices_size_;
+            static constexpr PetscInt output_field_size            = output_field_size_;
+            static constexpr PetscInt scheme_stencil_size          = scheme_stencil_size_;
+            static constexpr PetscInt center_index                 = center_index_;
+            static constexpr PetscInt contiguous_indices_start     = contiguous_indices_start_;
+            static constexpr PetscInt contiguous_indices_size      = contiguous_indices_size_;
             static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
         };
-        
-        template<std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width=1, DirichletEnforcement dirichlet_enfcmt = Equation>
-        using StarStencilFV = CellBasedAssemblyConfig
-        <
-            output_field_size,
-            // ----  Stencil size 
-            // Cell-centered Finite Volume scheme:
-            // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim directions) --> 1+2=3 in 1D
-            //                                                                                              1+4=5 in 2D
-            1 + 2*dim*neighbourhood_width,
-            // ---- Index of the stencil center
-            // (as defined in star_stencil())
-            neighbourhood_width, 
-            // ---- Start index and size of contiguous cell indices
-            // (as defined in star_stencil())
-            0, 1+2*neighbourhood_width,
-            // ---- Method of Dirichlet condition enforcement
-            dirichlet_enfcmt
-        >;
 
-        template<std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-        using OneCellStencilFV = CellBasedAssemblyConfig
-        <
-            output_field_size,
-            // ----  Stencil size 
-            // Only one cell:
-            1,
-            // ---- Index of the stencil center
-            // (as defined in center_only_stencil())
-            0, 
-            // ---- Start index and size of contiguous cell indices
-            0, 0,
-            // ---- Method of Dirichlet condition enforcement
-            dirichlet_enfcmt
-        >;
+        template <std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width = 1, DirichletEnforcement dirichlet_enfcmt = Equation>
+        using StarStencilFV = CellBasedAssemblyConfig<output_field_size,
+                                                      // ----  Stencil size
+                                                      // Cell-centered Finite Volume scheme:
+                                                      // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim
+                                                      // directions) --> 1+2=3 in 1D
+                                                      //                                                                                              1+4=5 in 2D
+                                                      1 + 2 * dim * neighbourhood_width,
+                                                      // ---- Index of the stencil center
+                                                      // (as defined in star_stencil())
+                                                      neighbourhood_width,
+                                                      // ---- Start index and size of contiguous cell indices
+                                                      // (as defined in star_stencil())
+                                                      0,
+                                                      1 + 2 * neighbourhood_width,
+                                                      // ---- Method of Dirichlet condition enforcement
+                                                      dirichlet_enfcmt>;
+
+        template <std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
+        using OneCellStencilFV = CellBasedAssemblyConfig<output_field_size,
+                                                         // ----  Stencil size
+                                                         // Only one cell:
+                                                         1,
+                                                         // ---- Index of the stencil center
+                                                         // (as defined in center_only_stencil())
+                                                         0,
+                                                         // ---- Start index and size of contiguous cell indices
+                                                         0,
+                                                         0,
+                                                         // ---- Method of Dirichlet condition enforcement
+                                                         dirichlet_enfcmt>;
 
         template <class cfg, class Field>
         class CellBasedScheme : public MatrixAssembly
         {
-            template<class Scheme1, class Scheme2>
+            template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
-        public:
+          public:
 
             using cfg_t   = cfg;
             using field_t = Field;
@@ -82,14 +79,14 @@ namespace samurai
                                                                                                              // = 1, 'xtensor'
                                                                                                              // representing a matrix
                                                                                                              // otherwise
-            using mesh_id_t                  = typename Mesh::mesh_id_t;
-            static constexpr std::size_t dim = Mesh::dim;
+            using mesh_id_t                               = typename Mesh::mesh_id_t;
+            static constexpr std::size_t dim              = Mesh::dim;
             static constexpr std::size_t prediction_order = Mesh::config::prediction_order;
 
             using stencil_t            = Stencil<cfg::scheme_stencil_size, dim>;
             using GetCoefficientsFunc  = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
             using boundary_condition_t = typename Field::boundary_condition_t;
-        
+
             using MatrixAssembly::assemble_matrix;
 
           protected:
@@ -247,8 +244,9 @@ namespace samurai
                 }
             }
 
-            template<class Coeffs>
-            inline double cell_coeff(const Coeffs& coeffs, std::size_t cell_number_in_stencil, unsigned int field_i, unsigned int field_j) const
+            template <class Coeffs>
+            inline double
+            cell_coeff(const Coeffs& coeffs, std::size_t cell_number_in_stencil, unsigned int field_i, unsigned int field_j) const
             {
                 if constexpr (field_size == 1 && output_field_size == 1)
                 {
@@ -260,7 +258,8 @@ namespace samurai
                 }
             }
 
-        public:
+          public:
+
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
                 auto coeffs = m_get_coefficients(cell_length(0));
@@ -320,50 +319,53 @@ namespace samurai
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
-                for_each_stencil_center_and_outside_ghost(m_mesh, m_stencil, [&](const auto& cells, const auto& towards_ghost)
-                {
-                    auto& cell  = cells[0];
-                    auto& ghost = cells[1];
-                    auto boundary_point = cell.face_center(towards_ghost);
-                    auto bc = find(m_boundary_conditions, boundary_point);
-                    if (bc.is_dirichlet())
-                    {
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                            {
-                                nnz[row_index(ghost, field_i)] = 1;
-                            }
-                            else
-                            {
-                                nnz[row_index(ghost, field_i)] = 2;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            nnz[row_index(ghost, field_i)] = 2;
-                        }
-                    }
-                });
+                for_each_stencil_center_and_outside_ghost(m_mesh,
+                                                          m_stencil,
+                                                          [&](const auto& cells, const auto& towards_ghost)
+                                                          {
+                                                              auto& cell          = cells[0];
+                                                              auto& ghost         = cells[1];
+                                                              auto boundary_point = cell.face_center(towards_ghost);
+                                                              auto bc             = find(m_boundary_conditions, boundary_point);
+                                                              if (bc.is_dirichlet())
+                                                              {
+                                                                  for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                                                  {
+                                                                      if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                                                                      {
+                                                                          nnz[row_index(ghost, field_i)] = 1;
+                                                                      }
+                                                                      else
+                                                                      {
+                                                                          nnz[row_index(ghost, field_i)] = 2;
+                                                                      }
+                                                                  }
+                                                              }
+                                                              else
+                                                              {
+                                                                  for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                                                  {
+                                                                      nnz[row_index(ghost, field_i)] = 2;
+                                                                  }
+                                                              }
+                                                          });
             }
 
             void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
             {
                 // ----  Projection stencil size
-                // cell + 2^dim children --> 1+2=3 in 1D 
+                // cell + 2^dim children --> 1+2=3 in 1D
                 //                           1+4=5 in 2D
                 static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
 
-                for_each_projection_ghost(m_mesh, [&](auto& ghost)
-                {
-                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                    {
-                        nnz[row_index(ghost, field_i)] = proj_stencil_size;
-                    }
-                });
+                for_each_projection_ghost(m_mesh,
+                                          [&](auto& ghost)
+                                          {
+                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                              {
+                                                  nnz[row_index(ghost, field_i)] = proj_stencil_size;
+                                              }
+                                          });
             }
 
             void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
@@ -375,16 +377,18 @@ namespace samurai
                 //                                                  1 +25=21 in 2D
                 static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_order + 1, dim);
 
-                for_each_prediction_ghost(m_mesh, [&](auto& ghost)
-                {
-                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                    {
-                        nnz[row_index(ghost, field_i)] = pred_stencil_size;
-                    }
-                });
+                for_each_prediction_ghost(m_mesh,
+                                          [&](auto& ghost)
+                                          {
+                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                              {
+                                                  nnz[row_index(ghost, field_i)] = pred_stencil_size;
+                                              }
+                                          });
             }
 
-        private:
+          private:
+
             void assemble_scheme(Mat& A) override
             {
                 // Apply the given coefficents to the given stencil
@@ -740,7 +744,7 @@ namespace samurai
                     if (m_is_row_empty[i])
                     {
                         MatSetValue(A, static_cast<PetscInt>(i), static_cast<PetscInt>(i), 1, INSERT_VALUES);
-                        //m_is_row_empty[i] = false;
+                        // m_is_row_empty[i] = false;
                     }
                 }
             }
@@ -837,7 +841,7 @@ namespace samurai
 
             void add_0_for_useless_ghosts(Vec& b) const
             {
-                for (std::size_t i = 0; i<m_is_row_empty.size(); i++)
+                for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
                     if (m_is_row_empty[i])
                     {
@@ -913,31 +917,6 @@ namespace samurai
 
             void assemble_prediction_1D(Mat& A)
             {
-                /*std::array<double, 3> pred{{1./8, 0, -1./8}};
-                for_each_prediction_ghost(m_mesh, [&](auto& ghost)
-                {
-                    for (unsigned int field_i = 0; field_i < output_field_size;
-                ++field_i)
-                    {
-                        PetscInt ghost_index =
-                static_cast<PetscInt>(row_index(ghost, field_i)); MatSetValue(A,
-                ghost_index, ghost_index, 1, INSERT_VALUES);
-
-                        auto ii = ghost.indices(0);
-                        int sign_i = (ii & 1) ? -1 : 1;
-
-                        auto parent_index =
-                col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level -
-                1, ii/2)), field_i); auto parent_left  = col_index(parent_index
-                - 1, field_i); auto parent_right = col_index(parent_index + 1,
-                field_i); MatSetValue(A, ghost_index, parent_index, -1,
-                INSERT_VALUES); MatSetValue(A, ghost_index, parent_left, -sign_i
-                * pred[0], INSERT_VALUES); MatSetValue(A, ghost_index,
-                parent_right, -sign_i * pred[2], INSERT_VALUES);
-                        m_is_row_empty[static_cast<std::size_t>(ghost_index)] =
-                false;
-                    }
-                });*/
                 using index_t = int;
                 samurai::for_each_prediction_ghost(
                     m_mesh,
@@ -976,58 +955,6 @@ namespace samurai
 
             void assemble_prediction_2D(Mat& A)
             {
-                /*std::array<double, 3> pred{{1./8, 0, -1./8}};
-                for_each_prediction_ghost(m_mesh, [&](auto& ghost)
-                {
-                    for (unsigned int field_i = 0; field_i < field_size;
-                ++field_i)
-                    {
-                        PetscInt ghost_index =
-                static_cast<PetscInt>(row_index(ghost, field_i)); MatSetValue(A,
-                ghost_index, ghost_index, 1, INSERT_VALUES);
-
-                        auto ii = ghost.indices(0);
-                        auto  j = ghost.indices(1);
-                        int sign_i = (ii & 1) ? -1 : 1;
-                        int sign_j =  (j & 1) ? -1 : 1;
-
-                        auto parent              =
-                col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level -
-                1, ii/2, j/2    )), field_i); auto parent_bottom       =
-                col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level -
-                1, ii/2, j/2 - 1)), field_i); auto parent_top          =
-                col_index(static_cast<PetscInt>(m_mesh.get_index(ghost.level -
-                1, ii/2, j/2 + 1)), field_i); auto parent_left         =
-                col_index(parent - 1       , field_i); auto parent_right =
-                col_index(parent + 1       , field_i); auto parent_bottom_left
-                = col_index(parent_bottom - 1, field_i); auto
-                parent_bottom_right = col_index(parent_bottom + 1, field_i);
-                        auto parent_top_left     = col_index(parent_top - 1   ,
-                field_i); auto parent_top_right    = col_index(parent_top + 1 ,
-                field_i);
-
-                        MatSetValue(A, ghost_index, parent             , -1,
-                INSERT_VALUES); MatSetValue(A, ghost_index, parent_bottom      ,
-                -sign_j * pred[0], INSERT_VALUES); //        sign_j * -1/8
-                        MatSetValue(A, ghost_index, parent_top         , -sign_j
-                * pred[2], INSERT_VALUES); //        sign_j *  1/8
-                        MatSetValue(A, ghost_index, parent_left        , -sign_i
-                * pred[0], INSERT_VALUES); // sign_i        * -1/8
-                        MatSetValue(A, ghost_index, parent_right       , -sign_i
-                * pred[2], INSERT_VALUES); // sign_i        *  1/8
-                        MatSetValue(A, ghost_index, parent_bottom_left , sign_i
-                * sign_j * pred[0] * pred[0], INSERT_VALUES); // sign_i*sign_j *
-                1/64 MatSetValue(A, ghost_index, parent_bottom_right, sign_i *
-                sign_j * pred[2] * pred[0], INSERT_VALUES); // sign_i*sign_j *
-                -1/64 MatSetValue(A, ghost_index, parent_top_left    , sign_i *
-                sign_j * pred[0] * pred[2], INSERT_VALUES); // sign_i*sign_j *
-                -1/64 MatSetValue(A, ghost_index, parent_top_right   , sign_i *
-                sign_j * pred[2] * pred[2], INSERT_VALUES); // sign_i*sign_j *
-                1/64 m_is_row_empty[static_cast<std::size_t>(ghost_index)] =
-                false;
-                    }
-                });*/
-
                 using index_t = int;
                 samurai::for_each_prediction_ghost(
                     m_mesh,
@@ -1185,12 +1112,11 @@ namespace samurai
             }
         };
 
-
         template <typename, typename = void>
         constexpr bool is_CellBasedScheme{};
 
         template <typename T>
-        constexpr bool is_CellBasedScheme<T, std::void_t<decltype(std::declval<T>().stencil())> > = true;
+        constexpr bool is_CellBasedScheme<T, std::void_t<decltype(std::declval<T>().stencil())>> = true;
 
     } // end namespace petsc
 } // end namespace samurai

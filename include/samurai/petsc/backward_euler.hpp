@@ -53,14 +53,17 @@ namespace samurai
             {
                 return m_operator.sparsity_pattern_scheme(nnz);
             }
+
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
                 return m_operator.sparsity_pattern_boundary(nnz);
             }
+
             void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
             {
                 return m_operator.sparsity_pattern_projection(nnz);
             }
+
             void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
             {
                 return m_operator.sparsity_pattern_prediction(nnz);
@@ -93,12 +96,27 @@ namespace samurai
                 m_operator.enforce_projection_prediction(b);
             }
 
-        private:
-            void assemble_scheme(Mat&) override {}
-            void assemble_boundary_conditions(Mat&) override {}
-            void assemble_projection(Mat&) override {}
-            void assemble_prediction(Mat&) override {}
-            void add_1_on_diag_for_useless_ghosts(Mat&) override {}
+          private:
+
+            void assemble_scheme(Mat&) override
+            {
+            }
+
+            void assemble_boundary_conditions(Mat&) override
+            {
+            }
+
+            void assemble_projection(Mat&) override
+            {
+            }
+
+            void assemble_prediction(Mat&) override
+            {
+            }
+
+            void add_1_on_diag_for_useless_ghosts(Mat&) override
+            {
+            }
         };
 
         template <class Operator>

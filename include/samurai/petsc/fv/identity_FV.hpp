@@ -1,12 +1,12 @@
 #pragma once
-//#include "../flux_based_scheme.hpp"
+// #include "../flux_based_scheme.hpp"
 #include "../cell_based_scheme.hpp"
 
-namespace samurai 
+namespace samurai
 {
     namespace petsc
     {
-        
+
         /*template<class Field, class cfg=FluxBasedAssemblyConfig<Field::size, 2>>
         class IdentityFV : public FluxBasedScheme<cfg, Field>
         {
@@ -23,7 +23,7 @@ namespace samurai
         private:
 
         public:
-            IdentityFV(Field& unknown) : 
+            IdentityFV(Field& unknown) :
                 FluxBasedScheme<cfg, Field>(unknown, identity_coefficients())
             {}
 
@@ -102,14 +102,15 @@ namespace samurai
             }
         };*/
 
-        template<class Field, std::size_t dim=Field::dim, std::size_t neighbourhood_width=0, class cfg=StarStencilFV<dim, dim, neighbourhood_width>>
+        template <class Field, std::size_t dim = Field::dim, std::size_t neighbourhood_width = 0, class cfg = StarStencilFV<dim, dim, neighbourhood_width>>
         class IdentityFV : public CellBasedScheme<cfg, Field>
         {
-        public:
+          public:
+
             using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
 
-            IdentityFV(Field& unknown) : 
-                CellBasedScheme<cfg, Field>(unknown, star_stencil<dim, neighbourhood_width>(), coefficients) 
+            IdentityFV(Field& unknown)
+                : CellBasedScheme<cfg, Field>(unknown, star_stencil<dim, neighbourhood_width>(), coefficients)
             {
                 this->set_name("Identity");
             }
@@ -118,7 +119,7 @@ namespace samurai
             {
                 std::array<local_matrix_t, cfg::scheme_stencil_size> coeffs;
 
-                for (std::size_t i=0; i<cfg::scheme_stencil_size; i++)
+                for (std::size_t i = 0; i < cfg::scheme_stencil_size; i++)
                 {
                     if (i == cfg::center_index)
                     {
@@ -133,7 +134,7 @@ namespace samurai
             }
         };
 
-        template<class Field>
+        template <class Field>
         auto make_identity_FV(Field& f)
         {
             return IdentityFV<Field>(f);

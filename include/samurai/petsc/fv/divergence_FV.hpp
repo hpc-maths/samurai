@@ -1,7 +1,7 @@
 #pragma once
 #include "../flux_based_scheme.hpp"
 
-namespace samurai 
+namespace samurai
 {
     namespace petsc
     {
@@ -19,48 +19,47 @@ namespace samurai
          *         d(u_y)/dy = 1/2 (Fy^T - Fy^B).
          * and finally,
          *         Div(u) = 1/2 (Fx^R - Fx^L) + 1/2 (Fy^T - Fy^B)      (S)
-         * 
+         *
          * Implementation:
-         * 
+         *
          * 1. The computation of the normal fluxes between cell 1 and cell 2 (in the direction d=x or y) is given by
          *         Fx = (u_x^2 - u_x^1)/h = -1/h * u_x^1 + 1/h * u_x^2 +  0 * u_y^1 +   0 * u_y^2    if d=x
          *         Fy = (u_y^2 - u_y^1)/h =    0 * u_x^1 +   0 * u_x^2 -1/h * u_y^1 + 1/h * u_x^2    if d=y
-         * 
+         *
          *    So   F = [-1/h   0 | 1/h   0  ] if d=x
          *         F = [  0  -1/h|  0   1/h ] if d=y
          *             |_________|__________|
          *               cell 1     cell 2
-         * 
+         *
          * 2. On each couple (cell 1, cell 2), we compute Fx^R(1) or Fx^T(1) (according to the direction) and consider that
-         *         Fx^L(2) = -Fx^R(1) 
+         *         Fx^L(2) = -Fx^R(1)
          *         Fy^B(2) = -Fy^T(1).
          *    The divergence scheme (S) becomes
-         *         Div(u)(cell 1) = 1/2 (Fx^R(1) + Fx^L(2)) + 1/2 (Fy^T(1) + Fy^B(2)), where 2 denotes the neighbour in the appropriate direction.
-         *    So the contribution of a flux F (R or T) computed on cell 1 is 
-         *         for cell 1: 1/2 F
-         *         for cell 2: 1/2 F
-        */
-        template<class Field, std::size_t dim=Field::dim, class cfg=FluxBasedAssemblyConfig<1, 2>>
+         *         Div(u)(cell 1) = 1/2 (Fx^R(1) + Fx^L(2)) + 1/2 (Fy^T(1) + Fy^B(2)), where 2 denotes the neighbour in the appropriate
+         * direction. So the contribution of a flux F (R or T) computed on cell 1 is for cell 1: 1/2 F for cell 2: 1/2 F
+         */
+        template <class Field, std::size_t dim = Field::dim, class cfg = FluxBasedAssemblyConfig<1, 2>>
         class DivergenceFV : public FluxBasedScheme<cfg, Field>
         {
-        public:
-            using coefficients_t = typename FluxBasedScheme<cfg, Field>::coefficients_t;
-            using flux_matrix_t  = typename coefficients_t::flux_computation_t::flux_matrix_t;
-            using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
+          public:
+
+            using coefficients_t                    = typename FluxBasedScheme<cfg, Field>::coefficients_t;
+            using flux_matrix_t                     = typename coefficients_t::flux_computation_t::flux_matrix_t;
+            using coeff_matrix_t                    = typename coefficients_t::coeff_matrix_t;
             static constexpr std::size_t field_size = Field::size;
 
-            DivergenceFV(Field& u) : 
-                FluxBasedScheme<cfg, Field>(u, div_coefficients())
+            DivergenceFV(Field& u)
+                : FluxBasedScheme<cfg, Field>(u, div_coefficients())
             {
                 this->set_name("Divergence");
                 static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");
             }
 
-            template<std::size_t d>
+            template <std::size_t d>
             static auto average(std::array<flux_matrix_t, 2>&, double h_face, double h_cell)
             {
                 std::array<coeff_matrix_t, 2> coeffs;
-                double h_factor = pow(h_face, dim-1) / pow(h_cell, dim);
+                double h_factor = pow(h_face, dim - 1) / pow(h_cell, dim);
                 if constexpr (field_size == 1)
                 {
                     coeffs[0] = 0.5 * h_factor;
@@ -76,7 +75,7 @@ namespace samurai
                 return coeffs;
             }
 
-            template<std::size_t d>
+            template <std::size_t d>
             static auto minus_average(std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
             {
                 auto coeffs = average<d>(flux_coeffs, h_face, h_cell);
@@ -87,7 +86,6 @@ namespace samurai
                 return coeffs;
             }
 
-
             // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
             static auto div_coefficients()
             {
@@ -96,9 +94,9 @@ namespace samurai
                 auto directions = positive_cartesian_directions<dim>();
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    auto& coeffs = coeffs_by_fluxes[d];
+                    auto& coeffs                   = coeffs_by_fluxes[d];
                     DirectionVector<dim> direction = xt::view(directions, d);
-                    coeffs.flux = normal_grad_order2<Field>(direction);
+                    coeffs.flux                    = normal_grad_order2<Field>(direction);
                     if (d == 0)
                     {
                         coeffs.get_cell1_coeffs = average<0>;
@@ -125,7 +123,7 @@ namespace samurai
             }
         };
 
-        template<class Field>
+        template <class Field>
         auto make_divergence_FV(Field& f)
         {
             return DivergenceFV<Field>(f);

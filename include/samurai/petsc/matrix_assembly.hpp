@@ -7,22 +7,25 @@ namespace samurai
     {
         class MatrixAssembly
         {
-            template<class Scheme1, class Scheme2>
+            template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
-            
-        private:
-            bool m_is_deleted = false;
+
+          private:
+
+            bool m_is_deleted  = false;
             std::string m_name = "(unnamed)";
-            
-            bool m_include_bc = true;
-            bool m_assemble_proj_pred = true;
+
+            bool m_include_bc                       = true;
+            bool m_assemble_proj_pred               = true;
             bool m_add_1_on_diag_for_useless_ghosts = true;
 
-        public:
+          public:
+
             std::string name() const
             {
                 return m_name;
             }
+
             void set_name(std::string name)
             {
                 m_name = name;
@@ -52,6 +55,7 @@ namespace samurai
             {
                 return m_add_1_on_diag_for_useless_ghosts;
             }
+
             void add_1_on_diag_for_useless_ghosts_if(bool value)
             {
                 m_add_1_on_diag_for_useless_ghosts = value;
@@ -94,7 +98,7 @@ namespace samurai
                 // }
 
                 MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, nnz.data());
-                //MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+                // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
             }
 
             /**
@@ -125,13 +129,13 @@ namespace samurai
                 MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
             }
 
-            virtual ~MatrixAssembly() 
+            virtual ~MatrixAssembly()
             {
-                //std::cout << "Destruction of '" << name() << "'" << std::endl;
+                // std::cout << "Destruction of '" << name() << "'" << std::endl;
                 m_is_deleted = true;
             }
 
-        protected:
+          protected:
 
             /**
              * @brief Returns the number of matrix rows.
@@ -142,26 +146,25 @@ namespace samurai
              */
             virtual PetscInt matrix_cols() const = 0;
 
-
             /**
              * @brief Sets the sparsity pattern of the matrix for the interior of the domain (cells only).
              * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
-            */
+             */
             virtual void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const = 0;
             /**
              * @brief Sets the sparsity pattern of the matrix for the boundary conditions.
              * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
-            */
+             */
             virtual void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const = 0;
             /**
              * @brief Sets the sparsity pattern of the matrix for the projection ghosts.
              * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
-            */
+             */
             virtual void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const = 0;
             /**
              * @brief Sets the sparsity pattern of the matrix for the prediction ghosts.
              * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
-            */
+             */
             virtual void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const = 0;
 
             /**
@@ -175,7 +178,7 @@ namespace samurai
             /**
              * @brief Inserts coefficients into the matrix.
              * This function defines the scheme in the inside of the domain.
-            */
+             */
             virtual void assemble_scheme(Mat& A) = 0;
 
             /**
@@ -216,14 +219,12 @@ namespace samurai
             Elimination
         };
 
-
-        
         namespace detail
         {
             /**
              * Local square matrix to store the coefficients of a vectorial field.
-            */
-            template<class value_type, std::size_t rows, std::size_t cols=rows>
+             */
+            template <class value_type, std::size_t rows, std::size_t cols = rows>
             struct LocalMatrix
             {
                 using Type = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;
@@ -231,28 +232,28 @@ namespace samurai
 
             /**
              * Template specialization: if rows=cols=1, then just a scalar coefficient
-            */
-            template<class value_type>
+             */
+            template <class value_type>
             struct LocalMatrix<value_type, 1, 1>
             {
                 using Type = value_type;
             };
         }
 
-        template<class matrix_type>
+        template <class matrix_type>
         matrix_type eye()
         {
             static constexpr auto s = typename matrix_type::shape_type();
             return xt::eye(s[0]);
         }
 
-        template<>
+        template <>
         double eye<double>()
         {
             return 1;
         }
 
-        template<class matrix_type>
+        template <class matrix_type>
         matrix_type zeros()
         {
             matrix_type mat;
@@ -260,7 +261,7 @@ namespace samurai
             return mat;
         }
 
-        template<>
+        template <>
         double zeros<double>()
         {
             return 0;
