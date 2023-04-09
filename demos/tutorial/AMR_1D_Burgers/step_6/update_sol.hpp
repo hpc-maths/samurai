@@ -5,6 +5,7 @@
 #pragma once
 
 #include <samurai/algorithm.hpp>
+#include <samurai/subset/subset_op.hpp>
 
 template <class Field>
 void update_sol(double dt, Field& phi, Field& phi_np1)
@@ -15,7 +16,7 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
     samurai::for_each_interval(mesh[mesh_id_t::cells],
                                [&](std::size_t level, const auto& i, auto)
                                {
-                                   double dx = samurai::cell_length(level);
+                                   const double dx = samurai::cell_length(level);
 
                                    phi_np1(level, i) = phi(level, i)
                                                      - .5 * dt / dx * (xt::pow(phi(level, i), 2.) - xt::pow(phi(level, i - 1), 2.));
@@ -37,7 +38,7 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
      */
     for (std::size_t level = mesh.min_level(); level < mesh.max_level(); ++level)
     {
-        double dx = samurai::cell_length(level);
+        const double dx = samurai::cell_length(level);
 
         int stencil      = 1;
         auto subset_left = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),

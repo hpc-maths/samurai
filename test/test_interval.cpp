@@ -11,7 +11,7 @@ namespace samurai
     TEST(interval, size)
     {
         Interval<int, int> i{0, 3, 0};
-        EXPECT_EQ(i.size(), 3u);
+        EXPECT_EQ(i.size(), 3U);
     }
 
     TEST(interval, contains)

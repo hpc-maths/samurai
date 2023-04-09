@@ -5,11 +5,12 @@
 #include <iostream>
 
 #include <filesystem>
-namespace fs = std::filesystem;
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/hdf5.hpp>
+
+namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
@@ -50,7 +51,7 @@ int main(int argc, char* argv[])
     cl[2][{14}].add_interval({14, 16});
     cl[2][{15}].add_interval({14, 16});
 
-    samurai::CellArray<dim> ca{cl};
+    const samurai::CellArray<dim> ca{cl};
 
     std::cout << ca << std::endl;
 

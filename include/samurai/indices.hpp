@@ -58,7 +58,7 @@ namespace samurai
         static constexpr std::size_t dim                = Mesh::dim;
         static constexpr std::size_t number_of_children = (1 << dim);
 
-        static_assert(dim >= 1 || dim <= 3,
+        static_assert(dim >= 1 && dim <= 3,
                       "for_each_projection_ghost_and_children_cells() not "
                       "implemented for this dimension");
 
@@ -93,14 +93,14 @@ namespace samurai
                     else if constexpr (dim == 2)
                     {
                         std::array<int, dim> j{0, 0};
-                        auto children_row_2j___start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, j));
+                        auto children_row_2j_start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, j));
                         std::array<int, dim> jp1{0, 1};
                         auto children_row_2jp1_start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, jp1));
                         for (DesiredIndexType ii = 0; ii < static_cast<DesiredIndexType>(i.size()); ++ii)
                         {
                             auto cell   = cell_start + ii;
-                            children[0] = children_row_2j___start + 2 * ii;     // bottom-left:  (2i  , 2j  )
-                            children[1] = children_row_2j___start + 2 * ii + 1; // bottom-right: (2i+1, 2j  )
+                            children[0] = children_row_2j_start + 2 * ii;       // bottom-left:  (2i  , 2j  )
+                            children[1] = children_row_2j_start + 2 * ii + 1;   // bottom-right: (2i+1, 2j  )
                             children[2] = children_row_2jp1_start + 2 * ii;     // top-left:     (2i  , 2j+1)
                             children[3] = children_row_2jp1_start + 2 * ii + 1; // top-right:    (2i+1, 2j+1)
                             f(cell, children);
@@ -108,25 +108,25 @@ namespace samurai
                     }
                     else if constexpr (dim == 3)
                     {
-                        std::array<int, dim> j___k{0, 0, 0};
-                        auto children_2j___2k___start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, j___k));
+                        std::array<int, dim> j_k{0, 0, 0};
+                        auto children_2j_2k_start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, j_k));
                         std::array<int, dim> jp1_k{0, 1, 0};
-                        auto children_2jp1_2k___start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, jp1_k));
-                        std::array<int, dim> j___kp1{0, 0, 1};
-                        auto children_2j___2kp1_start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, j___kp1));
+                        auto children_2jp1_2k_start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, jp1_k));
+                        std::array<int, dim> j_kp1{0, 0, 1};
+                        auto children_2j_2kp1_start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, j_kp1));
                         std::array<int, dim> jp1_kp1{0, 1, 1};
                         auto children_2jp1_2kp1_start = static_cast<DesiredIndexType>(get_index_start_children(mesh, mesh_interval, jp1_kp1));
                         for (DesiredIndexType ii = 0; ii < static_cast<DesiredIndexType>(i.size()); ++ii)
                         {
                             auto cell   = cell_start + ii;
-                            children[0] = children_2j___2k___start + 2 * ii;     // (2i  , 2j  , 2k  )
-                            children[1] = children_2j___2k___start + 2 * ii + 1; // (2i+1, 2j  , 2k  )
-                            children[2] = children_2jp1_2k___start + 2 * ii;     // (2i  , 2j+1, 2k  )
-                            children[3] = children_2jp1_2k___start + 2 * ii + 1; // (2i+1, 2j+1, 2k  )
+                            children[0] = children_2j_2k_start + 2 * ii;         // (2i  , 2j  , 2k  )
+                            children[1] = children_2j_2k_start + 2 * ii + 1;     // (2i+1, 2j  , 2k  )
+                            children[2] = children_2jp1_2k_start + 2 * ii;       // (2i  , 2j+1, 2k  )
+                            children[3] = children_2jp1_2k_start + 2 * ii + 1;   // (2i+1, 2j+1, 2k  )
                             children[4] = children_2jp1_2kp1_start + 2 * ii;     // (2i  , 2j+1, 2k+1)
                             children[5] = children_2jp1_2kp1_start + 2 * ii + 1; // (2i+1, 2j+1, 2k+1)
-                            children[6] = children_2j___2kp1_start + 2 * ii;     // (2i  , 2j  , 2k+1)
-                            children[7] = children_2j___2kp1_start + 2 * ii + 1; // (2i+1, 2j  , 2k+1)
+                            children[6] = children_2j_2kp1_start + 2 * ii;       // (2i  , 2j  , 2k+1)
+                            children[7] = children_2j_2kp1_start + 2 * ii + 1;   // (2i+1, 2j  , 2k+1)
                             f(cell, children);
                         }
                     }

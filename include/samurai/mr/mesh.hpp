@@ -71,12 +71,6 @@ namespace samurai
         using ca_type  = typename base_type::ca_type;
         using lca_type = typename base_type::lca_type;
 
-        MRMesh(const MRMesh&)            = default;
-        MRMesh& operator=(const MRMesh&) = default;
-
-        MRMesh(MRMesh&&)            = default;
-        MRMesh& operator=(MRMesh&&) = default;
-
         MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
@@ -118,8 +112,8 @@ namespace samurai
     template <class Config>
     inline void MRMesh<Config>::update_sub_mesh_impl()
     {
-        auto max_level = this->m_cells[mesh_id_t::cells].max_level();
-        auto min_level = this->m_cells[mesh_id_t::cells].min_level();
+        auto max_level = this->cells()[mesh_id_t::cells].max_level();
+        auto min_level = this->cells()[mesh_id_t::cells].min_level();
         cl_type cell_list;
 
         // Construction of union cells
@@ -132,12 +126,12 @@ namespace samurai
         // level 0 |-------|                       |-------|
         //                 |.......|.......|.......|
         //
-        this->m_cells[mesh_id_t::union_cells][max_level] = {max_level};
+        this->cells()[mesh_id_t::union_cells][max_level] = {max_level};
 
         for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
         {
             lcl_type lcl{level - 1};
-            auto expr = union_(this->m_cells[mesh_id_t::cells][level], this->m_cells[mesh_id_t::union_cells][level]).on(level - 1);
+            auto expr = union_(this->cells()[mesh_id_t::cells][level], this->cells()[mesh_id_t::union_cells][level]).on(level - 1);
 
             expr(
                 [&](const auto& interval, const auto& index_yz)
@@ -145,7 +139,7 @@ namespace samurai
                     lcl[index_yz].add_interval({interval.start, interval.end});
                 });
 
-            this->m_cells[mesh_id_t::union_cells][level - 1] = {lcl};
+            this->cells()[mesh_id_t::union_cells][level - 1] = {lcl};
         }
 
         // Construction of ghost cells
@@ -162,7 +156,7 @@ namespace samurai
         //
         // level 0 |.......|-------|.......|       |.......|-------|.......|
         //
-        for_each_interval(this->m_cells[mesh_id_t::cells],
+        for_each_interval(this->cells()[mesh_id_t::cells],
                           [&](std::size_t level, const auto& interval, const auto& index_yz)
                           {
                               lcl_type& lcl = cell_list[level];
@@ -173,7 +167,7 @@ namespace samurai
                                       lcl[index].add_interval({interval.start - config::ghost_width, interval.end + config::ghost_width});
                                   });
                           });
-        this->m_cells[mesh_id_t::cells_and_ghosts] = {cell_list, false};
+        this->cells()[mesh_id_t::cells_and_ghosts] = {cell_list, false};
 
         // Construction of projection cells
         // ================================
@@ -196,7 +190,7 @@ namespace samurai
 
         for (std::size_t level = ((min_level == 0) ? 1 : min_level); level <= max_level; ++level)
         {
-            lca_type& lca = this->m_cells[mesh_id_t::cells][level];
+            lca_type& lca = this->cells()[mesh_id_t::cells][level];
             lcl_type& lcl = cell_list[level - 1];
 
             for_each_interval(lca,
@@ -212,7 +206,7 @@ namespace samurai
                                       });
                               });
         }
-        this->m_cells[mesh_id_t::all_cells] = {cell_list, false};
+        this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
         // Make sure that the ghost cells where their values are computed using
         // the prediction operator have enough cells on the coarse level below.
@@ -228,11 +222,11 @@ namespace samurai
         //
         for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
         {
-            if (!this->m_cells[mesh_id_t::cells][level].empty())
+            if (!this->cells()[mesh_id_t::cells][level].empty())
             {
                 auto expr = intersection(
-                                difference(this->m_cells[mesh_id_t::all_cells][level],
-                                           union_(this->m_cells[mesh_id_t::cells][level], this->m_cells[mesh_id_t::union_cells][level])),
+                                difference(this->cells()[mesh_id_t::all_cells][level],
+                                           union_(this->cells()[mesh_id_t::cells][level], this->cells()[mesh_id_t::union_cells][level])),
                                 this->domain())
                                 .on(level - 1);
 
@@ -250,16 +244,16 @@ namespace samurai
                     });
             }
         }
-        this->m_cells[mesh_id_t::all_cells] = {cell_list, false};
+        this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
         // add ghosts for periodicity
         xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
         xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil_dir;
-        auto& domain     = this->m_domain;
+        auto& domain     = this->domain();
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
 
-        for (std::size_t level = this->m_cells[mesh_id_t::reference].min_level(); level <= this->m_cells[mesh_id_t::reference].max_level();
+        for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <= this->cells()[mesh_id_t::reference].max_level();
              ++level)
         {
             lcl_type& lcl = cell_list[level];
@@ -273,7 +267,7 @@ namespace samurai
                     stencil.fill(0);
                     stencil[d] = max_indices[d] - min_indices[d];
 
-                    auto set1 = intersection(this->m_cells[mesh_id_t::reference][level],
+                    auto set1 = intersection(this->cells()[mesh_id_t::reference][level],
                                              expand(translate(domain, stencil), config::ghost_width << delta_l))
                                     .on(level);
                     set1(
@@ -282,7 +276,7 @@ namespace samurai
                             lcl[index_yz - (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i - (stencil[0] >> delta_l));
                         });
 
-                    auto set2 = intersection(this->m_cells[mesh_id_t::reference][level],
+                    auto set2 = intersection(this->cells()[mesh_id_t::reference][level],
                                              expand(translate(domain, -stencil), config::ghost_width << delta_l))
                                     .on(level);
                     set2(
@@ -291,7 +285,7 @@ namespace samurai
                             lcl[index_yz + (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i + (stencil[0] >> delta_l));
                         });
                 }
-                this->m_cells[mesh_id_t::all_cells][level] = {lcl};
+                this->cells()[mesh_id_t::all_cells][level] = {lcl};
             }
         }
 
@@ -309,7 +303,7 @@ namespace samurai
         //
         for (std::size_t level = ((min_level == 0) ? 1 : min_level); level <= max_level; ++level)
         {
-            auto expr = intersection(this->m_cells[mesh_id_t::union_cells][level - 1], this->m_cells[mesh_id_t::all_cells][level - 1])
+            auto expr = intersection(this->cells()[mesh_id_t::union_cells][level - 1], this->cells()[mesh_id_t::all_cells][level - 1])
                             .on(level - 1);
 
             lcl_type& lcl = cell_list[level];
@@ -323,11 +317,11 @@ namespace samurai
                             lcl[(index_yz << 1) + stencil].add_interval({interval.start << 1, interval.end << 1});
                         });
                 });
-            this->m_cells[mesh_id_t::all_cells][level] = {lcl};
+            this->cells()[mesh_id_t::all_cells][level] = {lcl};
         }
 
         // add ghosts for periodicity
-        for (std::size_t level = this->m_cells[mesh_id_t::reference].min_level(); level <= this->m_cells[mesh_id_t::reference].max_level();
+        for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <= this->cells()[mesh_id_t::reference].max_level();
              ++level)
         {
             lcl_type& lcl = cell_list[level];
@@ -341,7 +335,7 @@ namespace samurai
                     stencil.fill(0);
                     stencil[d] = max_indices[d] - min_indices[d];
 
-                    auto set1 = intersection(this->m_cells[mesh_id_t::reference][level],
+                    auto set1 = intersection(this->cells()[mesh_id_t::reference][level],
                                              expand(translate(domain, stencil), config::ghost_width << delta_l))
                                     .on(level);
                     set1(
@@ -350,7 +344,7 @@ namespace samurai
                             lcl[index_yz - (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i - (stencil[0] >> delta_l));
                         });
 
-                    auto set2 = intersection(this->m_cells[mesh_id_t::reference][level],
+                    auto set2 = intersection(this->cells()[mesh_id_t::reference][level],
                                              expand(translate(domain, -stencil), config::ghost_width << delta_l))
                                     .on(level);
                     set2(
@@ -359,11 +353,11 @@ namespace samurai
                             lcl[index_yz + (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i + (stencil[0] >> delta_l));
                         });
                 }
-                this->m_cells[mesh_id_t::all_cells][level] = {lcl};
+                this->cells()[mesh_id_t::all_cells][level] = {lcl};
             }
         }
 
-        this->m_cells[mesh_id_t::all_cells].update_index();
+        this->cells()[mesh_id_t::all_cells].update_index();
 
         // Extract the projection cells from the all_cells
         // Do we really need this ?
@@ -373,7 +367,7 @@ namespace samurai
         for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
         {
             lcl_type lcl{level - 1};
-            auto expr = intersection(this->m_cells[mesh_id_t::all_cells][level - 1], this->m_cells[mesh_id_t::union_cells][level - 1]);
+            auto expr = intersection(this->cells()[mesh_id_t::all_cells][level - 1], this->cells()[mesh_id_t::union_cells][level - 1]);
 
             expr(
                 [&](const auto& interval, const auto& index_yz)
@@ -381,7 +375,7 @@ namespace samurai
                     lcl[index_yz].add_interval({interval.start, interval.end});
                 });
 
-            this->m_cells[mesh_id_t::proj_cells][level - 1] = {lcl};
+            this->cells()[mesh_id_t::proj_cells][level - 1] = {lcl};
         }
     }
 
@@ -390,7 +384,7 @@ namespace samurai
     inline xt::xtensor<bool, 1> MRMesh<Config>::exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const
     {
         using coord_index_t      = typename interval_t::coord_index_t;
-        const auto& lca          = this->m_cells[type][level];
+        const auto& lca          = this->cells()[type][level];
         std::size_t size         = interval.size() / interval.step;
         xt::xtensor<bool, 1> out = xt::empty<bool>({size});
         std::size_t iout         = 0;

@@ -77,8 +77,8 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
         subset_right(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 unp1(level,
                      i,
@@ -100,8 +100,8 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
         subset_left(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   - dt / dx
@@ -120,8 +120,8 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
         subset_up(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 unp1(level,
                      i,
@@ -143,8 +143,8 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
         subset_down(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   - dt / dx
@@ -221,7 +221,7 @@ int main(int argc, char* argv[])
     CLI::App app{"Finite volume example for the scalar Burgers equation in 2d "
                  "using multiresolution"};
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--velocity", k, "The velocity of the Burgers equation")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
@@ -244,12 +244,12 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     CLI11_PARSE(app, argc, argv);
 
-    samurai::Box<double, dim> box(min_corner, max_corner);
+    const samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    double dt      = cfl / (1 << max_level);
-    double dt_save = Tf / static_cast<double>(nfiles);
-    double t       = 0.;
+    double dt            = cfl / (1 << max_level);
+    const double dt_save = Tf / static_cast<double>(nfiles);
+    double t             = 0.;
 
     auto u    = init(mesh);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
@@ -283,7 +283,7 @@ int main(int argc, char* argv[])
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
         }
     }

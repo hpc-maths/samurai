@@ -42,12 +42,6 @@ namespace samurai
         subset_operator(F&& f, CT&&... e);
         auto on(std::size_t ref_level) const;
 
-        subset_operator(const subset_operator&)            = default;
-        subset_operator& operator=(const subset_operator&) = default;
-
-        subset_operator(subset_operator&&)            = default;
-        subset_operator& operator=(subset_operator&&) = default;
-
         template <class Func>
         void operator()(Func&& func);
 
@@ -130,7 +124,7 @@ namespace samurai
         //! ...)
         functor_type m_functor;
         //! The level where we want a result if it exists.
-        std::size_t m_ref_level;
+        std::size_t m_ref_level = 0;
         //! Storage of the current value in each dimension greater than 0
         xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>> m_index_yz;
         //! Intervals found for each dimension
@@ -457,7 +451,7 @@ namespace samurai
             //   it means that scan is the first value outside of the result.
             //   Thus, close the interval and use it for the next dimensions.
 
-            if (in_res ^ (r_ipos & 1))
+            if (in_res ^ (r_ipos & 1)) // NOLINT(hicpp-signed-bitwise)
             {
                 if (r_ipos == 0)
                 {
@@ -569,6 +563,15 @@ namespace samurai
     {
         (void)std::initializer_list<int>{(std::get<I>(m_e).get_interval_index(index), 0)...};
     }
+
+    template <class D>
+    class node_op;
+
+    template <class Mesh>
+    struct mesh_node;
+
+    template <class E>
+    using is_node_op = xt::is_crtp_base_of<node_op, E>;
 
     namespace detail
     {

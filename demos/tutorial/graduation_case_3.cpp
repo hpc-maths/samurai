@@ -2,10 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include "CLI/CLI.hpp"
-#include <math.h>
+#include <cmath>
 
 #include <filesystem>
-namespace fs = std::filesystem;
 
 #include <xtensor/xmasked_view.hpp>
 
@@ -15,10 +14,12 @@ namespace fs = std::filesystem;
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
 
+namespace fs = std::filesystem;
+
 auto generate_mesh(std::size_t start_level)
 {
     constexpr std::size_t dim = 2;
-    samurai::Box<int, dim> box({-(2 << start_level), -(2 << start_level)}, {2 << start_level, 2 << start_level});
+    const samurai::Box<int, dim> box({-(2 << start_level), -(2 << start_level)}, {2 << start_level, 2 << start_level});
     samurai::CellArray<dim> ca;
 
     ca[start_level] = {start_level, box};
@@ -65,18 +66,20 @@ int main(int argc, char* argv[])
         samurai::for_each_cell(ca,
                                [&](auto cell)
                                {
-                                   auto corner = cell.corner();
-                                   double dx   = cell.length;
+                                   auto corner     = cell.corner();
+                                   const double dx = cell.length;
 
-                                   std::size_t npoints = 1 << (max_level + 4);
-                                   double dt           = 2. * PI / static_cast<double>(npoints);
-                                   double t            = 0;
+                                   const std::size_t npoints = 1 << (max_level + 4);
+                                   const double dt           = 2. * PI / static_cast<double>(npoints);
+                                   double t                  = 0;
 
                                    for (std::size_t it = 0; it < npoints; ++it)
                                    {
-                                       double a = 3, b = 2, delta = PI * .5;
-                                       double xc = std::sin(a * t + delta);
-                                       double yc = std::sin(b * t);
+                                       const double a     = 3;
+                                       const double b     = 2;
+                                       const double delta = PI * .5;
+                                       const double xc    = std::sin(a * t + delta);
+                                       const double yc    = std::sin(b * t);
 
                                        if ((corner[0] < xc) && (corner[0] + dx > xc) && (corner[1] < yc) && (corner[1] + dx > yc))
                                        {
@@ -135,8 +138,8 @@ int main(int argc, char* argv[])
         samurai::for_each_interval(ca,
                                    [&](std::size_t level, const auto& interval, const auto& index)
                                    {
-                                       auto j           = index[0];
-                                       std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
+                                       auto j    = index[0];
+                                       auto itag = static_cast<std::size_t>(interval.start + interval.index);
                                        for (int i = interval.start; i < interval.end; ++i)
                                        {
                                            if (tag[itag] && level < max_level)

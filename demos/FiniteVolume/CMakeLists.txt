@@ -1,6 +1,7 @@
 include(FindPkgConfig)
 pkg_check_modules(PETSC PETSc)
-if (PETSC_FOUND)
+
+if(PETSC_FOUND)
     find_package(MPI)
 
     add_executable(finite-volume-heat-1d heat_1d.cpp)
@@ -19,16 +20,13 @@ target_link_libraries(finite-volume-level-set samurai CLI11::CLI11)
 add_executable(finite-volume-level-set-from-scratch level_set_from_scratch.cpp)
 target_link_libraries(finite-volume-level-set-from-scratch samurai CLI11::CLI11)
 
-if (MSVC)
+if(MSVC)
     target_compile_options(finite-volume-level-set-from-scratch PUBLIC /bigobj)
     target_compile_options(finite-volume-level-set PUBLIC /bigobj)
 endif()
 
 add_executable(finite-volume-advection-1d advection_1d.cpp)
 target_link_libraries(finite-volume-advection-1d samurai CLI11::CLI11)
-
-add_executable(finite-volume-advection-1d-periodic advection_1d_periodic.cpp)
-target_link_libraries(finite-volume-advection-1d-periodic samurai CLI11::CLI11)
 
 add_executable(finite-volume-advection-2d advection_2d.cpp)
 target_link_libraries(finite-volume-advection-2d samurai CLI11::CLI11)

@@ -118,23 +118,22 @@ namespace samurai
     }
 } // namespace samurai
 
-namespace xt
+namespace xt::detail
 {
-    namespace detail
+    template <class F, class... E>
+    struct select_xfunction_expression<samurai::field_expression_tag, F, E...>
     {
-        template <class F, class... E>
-        struct select_xfunction_expression<samurai::field_expression_tag, F, E...>
-        {
-            using type = samurai::field_function<F, E...>;
-        };
-    } // namespace detail
+        using type = samurai::field_function<F, E...>;
+    };
 } // namespace xt
 
 namespace samurai
 {
+    // NOLINTBEGIN(misc-unused-using-decls)
     using xt::operator+;
     using xt::operator-;
     using xt::operator*;
     using xt::operator/;
     using xt::operator%;
+    // NOLINTEND(misc-unused-using-decls)
 } // namespace samurai

@@ -31,7 +31,7 @@ auto init_solution(Mesh& mesh)
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)
                            {
-                               double x = cell.center(0);
+                               const double x = cell.center(0);
                                // double u = 0.;
 
                                // // Initial hat solution
@@ -63,7 +63,7 @@ void AMR_criteria(const Field& f, Tag& tag)
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        double dx = samurai::cell_length(level);
+        const double dx = samurai::cell_length(level);
 
         samurai::for_each_interval(
             mesh[mesh_id_t::cells][level],
@@ -128,15 +128,15 @@ void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
     using mesh_id_t  = typename mesh_t::mesh_id_t;
     using interval_t = typename mesh_t::interval_t;
 
-    auto mesh             = phi_np1.mesh();
-    std::size_t min_level = mesh[mesh_id_t::cells].min_level();
-    std::size_t max_level = mesh[mesh_id_t::cells].max_level();
+    auto mesh                   = phi_np1.mesh();
+    const std::size_t min_level = mesh[mesh_id_t::cells].min_level();
+    const std::size_t max_level = mesh[mesh_id_t::cells].max_level();
 
-    double dx = 1. / (1 << max_level);
+    const double dx = 1. / (1 << max_level);
 
     for (std::size_t level = min_level; level < max_level; ++level)
     {
-        double dx_loc = samurai::cell_length(level);
+        const double dx_loc = samurai::cell_length(level);
         xt::xtensor_fixed<int, xt::xshape<1>> stencil;
 
         stencil           = {-1};
@@ -175,9 +175,10 @@ int main(int argc, char* argv[])
     using Config              = samurai::amr::Config<dim>;
 
     // Simulation parameters
-    double left_box = -3, right_box = 3;
-    double Tf  = 1.5; // We have blowup at t = 1
-    double cfl = 0.99;
+    double left_box  = -3;
+    double right_box = 3;
+    double Tf        = 1.5; // We have blowup at t = 1
+    double cfl       = 0.99;
 
     // AMR parameters
     std::size_t start_level = 6;
@@ -206,7 +207,7 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     CLI11_PARSE(app, argc, argv);
 
-    samurai::Box<double, dim> box({left_box}, {right_box});
+    const samurai::Box<double, dim> box({left_box}, {right_box});
     samurai::amr::Mesh<Config> mesh(box, start_level, min_level, max_level);
 
     auto phi = init_solution(mesh);
@@ -215,12 +216,12 @@ int main(int argc, char* argv[])
     auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
 
     auto tag = samurai::make_field<int, 1>("tag", mesh);
-    xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil_grad{{1}, {-1}};
+    const xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil_grad{{1}, {-1}};
 
-    double dx      = 1. / (1 << max_level);
-    double dt      = 0.99 * dx;
-    double dt_save = Tf / static_cast<double>(nfiles);
-    double t       = 0.;
+    const double dx      = 1. / (1 << max_level);
+    double dt            = 0.99 * dx;
+    const double dt_save = Tf / static_cast<double>(nfiles);
+    double t             = 0.;
 
     std::size_t nsave = 1;
     std::size_t nt    = 0;
@@ -229,7 +230,7 @@ int main(int argc, char* argv[])
     {
         // AMR adaptation
         std::size_t ite_adapt = 0;
-        while (1)
+        while (true)
         {
             std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
             samurai::update_ghost(phi);
@@ -264,7 +265,7 @@ int main(int argc, char* argv[])
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, phi, suffix);
         }
     }

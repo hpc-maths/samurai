@@ -264,15 +264,8 @@ namespace samurai
                 {
                     return static_cast<int>(std::distance(first, result));
                 }
-                else
-                {
-                    return -1;
-                }
             }
-            else
-            {
-                return -1;
-            }
+            return -1;
         }
 
         template <std::size_t dim, class TInterval, class index_t = typename TInterval::index_t, class coord_index_t = typename TInterval::coord_index_t>

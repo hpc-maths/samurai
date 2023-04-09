@@ -45,7 +45,7 @@ namespace samurai
         std::size_t mem = 0;
         for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
         {
-            mesh_id_t id       = static_cast<mesh_id_t>(i);
+            auto id            = static_cast<mesh_id_t>(i);
             std::size_t mem_id = memory_usage(mesh[id]);
             if (verbose)
             {

@@ -42,17 +42,7 @@ namespace samurai
 
       protected:
 
-        finite_volume()
-        {
-        }
-
-        ~finite_volume() = default;
-
-        finite_volume(const finite_volume&)            = default;
-        finite_volume& operator=(const finite_volume&) = default;
-
-        finite_volume(finite_volume&&)            = default;
-        finite_volume& operator=(finite_volume&&) = default;
+        finite_volume() = default;
     };
 
     template <class D>

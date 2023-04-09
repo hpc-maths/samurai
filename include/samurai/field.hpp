@@ -332,7 +332,7 @@ namespace samurai
 
       private:
 
-        Mesh& m_mesh;
+        Mesh& m_mesh; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
     };
 
     template <class Mesh>
@@ -454,13 +454,15 @@ namespace samurai
 
         Field() = default;
 
-        Field(const std::string& name, mesh_t& mesh);
+        Field(std::string name, mesh_t& mesh);
 
         Field(Field&);
         Field& operator=(const Field&) = default;
 
-        Field(Field&&)            = default;
-        Field& operator=(Field&&) = default;
+        Field(Field&&) noexcept            = default;
+        Field& operator=(Field&&) noexcept = default;
+
+        ~Field() = default;
 
         template <class E>
         Field& operator=(const field_expression<E>& e);
@@ -493,7 +495,7 @@ namespace samurai
       private:
 
         template <class... T>
-        const interval_t& get_interval(std::string rw, const std::size_t level, const interval_t& interval, const T... index) const;
+        const interval_t& get_interval(std::string rw, std::size_t level, const interval_t& interval, const T... index) const;
 
         std::string m_name;
         data_type m_data;
@@ -510,9 +512,9 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline Field<mesh_t, value_t, size_, SOA>::Field(const std::string& name, mesh_t& mesh)
+    inline Field<mesh_t, value_t, size_, SOA>::Field(std::string name, mesh_t& mesh)
         : inner_mesh_t(mesh)
-        , m_name(name)
+        , m_name(std::move(name))
     {
         this->resize();
     }
@@ -553,7 +555,7 @@ namespace samurai
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     template <class... T>
     inline auto
-    Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw, const std::size_t level, const interval_t& interval, const T... index) const
+    Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw, std::size_t level, const interval_t& interval, const T... index) const
         -> const interval_t&
     {
         const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index...);
@@ -680,21 +682,38 @@ namespace samurai
      * @brief Creates a field.
      * @param name Name of the returned Field.
      * @param f Continuous function.
-     * @param polynomial_degree Polynomial degree of the function (-1 if not
-     * polynomial).
+     * @param gl Gauss Legendre polynomial
      */
-    template <class value_t, std::size_t size, bool SOA = false, class mesh_t, class Func>
-    auto make_field(std::string name, mesh_t& mesh, Func&& f, int polynomial_degree = -1)
+    template <class value_t, std::size_t size, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
+    auto make_field(std::string name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
         auto field = make_field<value_t, size, SOA, mesh_t>(name, mesh);
         field.fill(0);
-        GaussLegendre gl(polynomial_degree);
 
         for_each_cell(mesh,
                       [&](const auto& cell)
                       {
                           const double& h = cell.length;
                           field[cell]     = gl.quadrature<size>(cell, f) / pow(h, mesh_t::dim);
+                      });
+        return field;
+    }
+
+    /**
+     * @brief Creates a field.
+     * @param name Name of the returned Field.
+     * @param f Continuous function.
+     */
+    template <class value_t, std::size_t size, bool SOA = false, class mesh_t, class Func>
+    auto make_field(std::string name, mesh_t& mesh, Func&& f)
+    {
+        auto field = make_field<value_t, size, SOA, mesh_t>(name, mesh);
+        field.fill(0);
+
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          field[cell] = f(cell.center());
                       });
         return field;
     }

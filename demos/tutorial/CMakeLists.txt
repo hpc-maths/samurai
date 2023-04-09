@@ -6,9 +6,6 @@ target_link_libraries(tutorial-2d-mesh PRIVATE samurai CLI11::CLI11)
 add_executable(tutorial-interval interval.cpp)
 target_link_libraries(tutorial-interval PRIVATE samurai CLI11::CLI11)
 
-add_executable(tutorial-mesh-base test_mesh_base.cpp)
-target_link_libraries(tutorial-mesh-base PRIVATE samurai CLI11::CLI11)
-
 add_executable(tutorial-set-operator set_operator.cpp)
 target_link_libraries(tutorial-set-operator PRIVATE samurai CLI11::CLI11)
 
@@ -30,9 +27,6 @@ target_link_libraries(tutorial-reconstruction-2d PRIVATE samurai CLI11::CLI11)
 add_executable(tutorial-reconstruction-3d reconstruction_3d.cpp)
 target_link_libraries(tutorial-reconstruction-3d PRIVATE samurai CLI11::CLI11)
 
-if (MSVC)
+if(MSVC)
     target_compile_options(tutorial-reconstruction-3d PUBLIC /bigobj)
 endif()
-
-add_executable(tutorial-new-bc new_bc_2.cpp)
-target_link_libraries(tutorial-new-bc PRIVATE samurai CLI11::CLI11)

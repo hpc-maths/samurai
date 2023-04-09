@@ -240,8 +240,8 @@ namespace samurai
     template <std::size_t dim, std::size_t neighbourhood_width = 1>
     constexpr Stencil<1 + 2 * dim * neighbourhood_width, dim> star_stencil()
     {
-        static_assert(dim >= 1 || dim <= 3, "Star stencil not implemented for this dimension");
-        static_assert(neighbourhood_width >= 0 || neighbourhood_width <= 2, "Star stencil not implemented for this neighbourhood width");
+        static_assert(dim >= 1 && dim <= 3, "Star stencil not implemented for this dimension");
+        static_assert(neighbourhood_width >= 0 && neighbourhood_width <= 2, "Star stencil not implemented for this neighbourhood width");
 
         if constexpr (neighbourhood_width == 0)
         {
@@ -333,7 +333,7 @@ namespace samurai
     template <std::size_t dim>
     constexpr Stencil<2 * dim, dim> cartesian_directions()
     {
-        static_assert(dim >= 1 || dim <= 3, "cartesian_directions() not implemented for this dimension");
+        static_assert(dim >= 1 && dim <= 3, "cartesian_directions() not implemented for this dimension");
 
         if constexpr (dim == 1)
         {

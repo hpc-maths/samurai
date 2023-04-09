@@ -1008,7 +1008,7 @@ namespace samurai
                 // In FV, we want only 1 quadrature point.
                 // This is equivalent to
                 //       error += pow(exact(cell.center()) - approximate(cell.index), 2) * cell.length;
-                GaussLegendre gl(0);
+                GaussLegendre<0> gl;
 
                 double error_norm = 0;
                 // double solution_norm = 0;

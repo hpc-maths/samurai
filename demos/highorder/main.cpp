@@ -210,10 +210,12 @@ int main(int argc, char* argv[])
     using Config                           = samurai::MRConfig<dim, stencil_width, graduation_width, prediction_order>;
 
     // Simulation parameters
-    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.}, max_corner = {1., 1.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
 
     // Multiresolution parameters
-    std::size_t min_level = 4, max_level = 4;
+    std::size_t min_level  = 4;
+    std::size_t max_level  = 4;
     std::size_t refinement = 0;
     double mr_epsilon      = 2.e-4; // Threshold used by multiresolution
     double mr_regularity   = 1.;    // Regularity guess for multiresolution
@@ -258,24 +260,22 @@ int main(int argc, char* argv[])
     PetscInitialize(&argc, &argv, 0, nullptr);
     PetscOptionsSetValue(NULL, "-options_left", "off");
 
-    auto adapt_field = samurai::make_field<double, 1>(
-        "adapt_field",
-        mesh,
-        [](const auto& coord)
-        {
-            const auto& x = coord[0];
-            const auto& y = coord[1];
-            double radius = 0.1;
-            if ((x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5) < radius * radius)
-            {
-                return 1;
-            }
-            else
-            {
-                return 0;
-            }
-        },
-        0);
+    auto adapt_field = samurai::make_field<double, 1>("adapt_field",
+                                                      mesh,
+                                                      [](const auto& coord)
+                                                      {
+                                                          const auto& x = coord[0];
+                                                          const auto& y = coord[1];
+                                                          double radius = 0.1;
+                                                          if ((x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5) < radius * radius)
+                                                          {
+                                                              return 1;
+                                                          }
+                                                          else
+                                                          {
+                                                              return 0;
+                                                          }
+                                                      });
 
     // std::array<samurai::StencilVector<dim>, 4> bdry_directions;
     // std::array<samurai::Stencil<5, dim>   , 4> bdry_stencils;
@@ -339,19 +339,17 @@ int main(int argc, char* argv[])
 
     // Equation: -Lap u = f   in [0, 1]^2
     //            f(x,y) = 2(y(1-y) + x(1-x))
-    auto f = samurai::make_field<double, 1>(
-        "f",
-        mesh,
-        [](const auto& coord)
-        {
-            const auto& x = coord[0];
-            const auto& y = coord[1];
-            // return 2 * (y*(1 - y) + x * (1 - x));
-            // return 2 * pow(4 * M_PI, 2) * sin(4 * M_PI * x)*sin(4 * M_PI *
-            // y);
-            return (-pow(y, 4) - 2 * x * (1 + 2 * x * y * y)) * exp(x * y * y);
-        },
-        0);
+    auto f = samurai::make_field<double, 1>("f",
+                                            mesh,
+                                            [](const auto& coord)
+                                            {
+                                                const auto& x = coord[0];
+                                                const auto& y = coord[1];
+                                                // return 2 * (y*(1 - y) + x * (1 - x));
+                                                // return 2 * pow(4 * M_PI, 2) * sin(4 * M_PI * x)*sin(4 * M_PI *
+                                                // y);
+                                                return (-pow(y, 4) - 2 * x * (1 + 2 * x * y * y)) * exp(x * y * y);
+                                            });
 
     // samurai::for_each_cell(mesh[mesh_id_t::reference], [&](auto& cell)
     // {

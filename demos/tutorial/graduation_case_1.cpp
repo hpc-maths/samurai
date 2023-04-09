@@ -4,7 +4,6 @@
 #include "CLI/CLI.hpp"
 
 #include <filesystem>
-namespace fs = std::filesystem;
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xmasked_view.hpp>
@@ -17,10 +16,12 @@ namespace fs = std::filesystem;
 #include <samurai/hdf5.hpp>
 #include <samurai/subset/subset_op.hpp>
 
+namespace fs = std::filesystem;
+
 auto generate_mesh(std::size_t start_level, std::size_t max_level)
 {
     constexpr std::size_t dim = 2;
-    samurai::Box<int, dim> box({0, 0}, {1 << start_level, 1 << start_level});
+    const samurai::Box<int, dim> box({0, 0}, {1 << start_level, 1 << start_level});
     samurai::CellArray<dim> ca;
 
     xt::random::seed(42);
@@ -83,8 +84,8 @@ int main(int argc, char* argv[])
 
     auto ca = generate_mesh(start_level, max_refinement_level);
 
-    std::size_t min_level = ca.min_level();
-    std::size_t max_level = ca.max_level();
+    const std::size_t min_level = ca.min_level();
+    const std::size_t max_level = ca.max_level();
 
     samurai::save(path, fmt::format("{}_before_graduation", filename), ca);
 

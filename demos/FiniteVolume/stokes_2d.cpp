@@ -204,18 +204,16 @@ int main(int argc, char* argv[])
         auto stokes = samurai::petsc::make_block_operator<2, 2>(diff_v, grad_p, minus_div_v, zero_p);
 
         // Right-hand side
-        auto f = samurai::make_field<double, dim, is_soa>(
-            "f",
-            mesh,
-            [](const auto& coord)
-            {
-                const auto& x = coord[0];
-                const auto& y = coord[1];
-                double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-                double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-                return xt::xtensor_fixed<double, xt::xshape<dim>>{f_x, f_y};
-            },
-            0);
+        auto f    = samurai::make_field<double, dim, is_soa>("f",
+                                                          mesh,
+                                                          [](const auto& coord)
+                                                          {
+                                                              const auto& x = coord[0];
+                                                              const auto& y = coord[1];
+                                                              double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
+                                                              double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
+                                                              return xt::xtensor_fixed<double, xt::xshape<dim>>{f_x, f_y};
+                                                          });
         auto zero = samurai::make_field<double, 1, is_soa>("zero", mesh);
         zero.fill(0);
 
@@ -258,18 +256,16 @@ int main(int argc, char* argv[])
             samurai::save(path, filename, mesh, velocity);
             samurai::save(path, "pressure", mesh, pressure);
 
-            auto exact_velocity = samurai::make_field<double, dim, is_soa>(
-                "exact_velocity",
-                mesh,
-                [](const auto& coord)
-                {
-                    const auto& x = coord[0];
-                    const auto& y = coord[1];
-                    auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
-                    auto v_y      = -v_x;
-                    return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-                },
-                0);
+            auto exact_velocity = samurai::make_field<double, dim, is_soa>("exact_velocity",
+                                                                           mesh,
+                                                                           [](const auto& coord)
+                                                                           {
+                                                                               const auto& x = coord[0];
+                                                                               const auto& y = coord[1];
+                                                                               auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
+                                                                               auto v_y      = -v_x;
+                                                                               return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
+                                                                           });
             samurai::save(path, "exact_velocity", mesh, exact_velocity);
 
             /*auto err = samurai::make_field<double, dim, is_soa>("error", mesh);
@@ -279,16 +275,14 @@ int main(int argc, char* argv[])
                 });
             samurai::save(path, "error_velocity", mesh, err);*/
 
-            auto exact_pressure = samurai::make_field<double, 1, is_soa>(
-                "exact_pressure",
-                mesh,
-                [](const auto& coord)
-                {
-                    const auto& x = coord[0];
-                    const auto& y = coord[1];
-                    return 1 / (pi * pi) * sin(pi * (x + y));
-                },
-                0);
+            auto exact_pressure = samurai::make_field<double, 1, is_soa>("exact_pressure",
+                                                                         mesh,
+                                                                         [](const auto& coord)
+                                                                         {
+                                                                             const auto& x = coord[0];
+                                                                             const auto& y = coord[1];
+                                                                             return 1 / (pi * pi) * sin(pi * (x + y));
+                                                                         });
             samurai::save(path, "exact_pressure", mesh, exact_pressure);
         }
         block_solver.destroy_petsc_objects();
@@ -436,7 +430,7 @@ int main(int argc, char* argv[])
             auto id_plus_dt_diff = id_v + dt * diff_v;
             auto dt_grad_p       = dt * grad_p;
 
-            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_plus_dt_diff, dt_grad_p, 
+            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_plus_dt_diff, dt_grad_p,
                                                                         minus_div_v,    zero_p);
             // clang-format on
 

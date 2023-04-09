@@ -28,9 +28,9 @@ auto init_level_set(Mesh& mesh)
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)
                            {
-                               auto center = cell.center();
-                               double x    = center[0];
-                               double y    = center[1];
+                               auto center    = cell.center();
+                               const double x = center[0];
+                               const double y = center[1];
 
                                constexpr double radius   = .15;
                                constexpr double x_center = 0.5;
@@ -48,7 +48,7 @@ template <class Mesh>
 auto init_velocity(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    double PI       = xt::numeric_constants<double>::PI;
+    const double PI = xt::numeric_constants<double>::PI;
 
     auto u = samurai::make_field<double, 2>("u", mesh);
     u.fill(0);
@@ -56,9 +56,9 @@ auto init_velocity(Mesh& mesh)
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
                            [&](auto& cell)
                            {
-                               auto center = cell.center();
-                               double x    = center[0];
-                               double y    = center[1];
+                               auto center    = cell.center();
+                               const double x = center[0];
+                               const double y = center[1];
 
                                u[cell][0] = -std::pow(std::sin(PI * x), 2.) * std::sin(2. * PI * y);
                                u[cell][1] = std::pow(std::sin(PI * y), 2.) * std::sin(2. * PI * x);
@@ -84,13 +84,13 @@ void AMR_criteria(const Field& f, Tag& tag)
     auto mesh       = f.mesh();
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    std::size_t min_level = mesh.min_level();
-    std::size_t max_level = mesh.max_level();
+    const std::size_t min_level = mesh.min_level();
+    const std::size_t max_level = mesh.max_level();
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto cell)
                            {
-                               double dx = 1. / (1 << (max_level));
+                               const double dx = 1. / (1 << (max_level));
 
                                if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)
                                {
@@ -124,9 +124,9 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
     using mesh_id_t  = typename mesh_t::mesh_id_t;
     using interval_t = typename mesh_t::interval_t;
 
-    auto mesh             = phi_np1.mesh();
-    std::size_t min_level = mesh[mesh_id_t::cells].min_level();
-    std::size_t max_level = mesh[mesh_id_t::cells].max_level();
+    auto mesh                   = phi_np1.mesh();
+    const std::size_t min_level = mesh[mesh_id_t::cells].min_level();
+    const std::size_t max_level = mesh[mesh_id_t::cells].max_level();
     for (std::size_t level = min_level; level < max_level; ++level)
     {
         xt::xtensor_fixed<int, xt::xshape<2>> stencil;
@@ -142,8 +142,8 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
         subset_right(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 phi_np1(level,
                         i,
@@ -165,8 +165,8 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
         subset_left(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 phi_np1(level,
                         i,
@@ -187,8 +187,8 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
         subset_up(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 phi_np1(level,
                         i,
@@ -210,8 +210,8 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
         subset_down(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 phi_np1(level,
                         i,
@@ -268,7 +268,7 @@ int main(int argc, char* argv[])
 
     CLI::App app{"Finite volume example with a level set in 2d using AMR"};
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("AMR parameters");
@@ -282,12 +282,12 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     CLI11_PARSE(app, argc, argv);
 
-    samurai::Box<double, dim> box(min_corner, max_corner);
+    const samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::amr::Mesh<Config> mesh(box, start_level, min_level, max_level);
 
-    double dt      = cfl / (1 << max_level);
-    double dt_save = Tf / static_cast<double>(nfiles);
-    double t       = 0.;
+    double dt            = cfl / (1 << max_level);
+    const double dt_save = Tf / static_cast<double>(nfiles);
+    double t             = 0.;
 
     auto phi = init_level_set(mesh);
     auto u   = init_velocity(mesh);
@@ -297,7 +297,7 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann>(phihat, 0.);
     auto tag = samurai::make_field<int, 1>("tag", mesh);
 
-    xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil_grad{
+    const xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil_grad{
         {1,  0 },
         {-1, 0 },
         {0,  1 },
@@ -342,8 +342,8 @@ int main(int argc, char* argv[])
         std::swap(phi.array(), phinp1.array());
 
         // Reinitialization of the level set
-        std::size_t fict_iteration = 2;         // Number of fictitious iterations
-        double dt_fict             = 0.01 * dt; // Fictitious Time step
+        const std::size_t fict_iteration = 2;         // Number of fictitious iterations
+        const double dt_fict             = 0.01 * dt; // Fictitious Time step
 
         auto phi_0 = phi;
         for (std::size_t k = 0; k < fict_iteration; ++k)
@@ -364,7 +364,7 @@ int main(int argc, char* argv[])
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, phi, suffix);
         }
     }

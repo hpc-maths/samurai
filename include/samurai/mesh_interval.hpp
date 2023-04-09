@@ -19,13 +19,13 @@ namespace samurai
         interval_t i;
         coord_type index;
 
-        MeshInterval(std::size_t l)
-            : level(l)
+        MeshInterval(std::size_t _level)
+            : level(_level)
         {
         }
 
-        MeshInterval(std::size_t l, const interval_t& _i, const coord_type& _index)
-            : level(l)
+        MeshInterval(std::size_t _level, const interval_t& _i, const coord_type& _index)
+            : level(_level)
             , i(_i)
             , index(_index)
         {

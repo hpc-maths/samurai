@@ -5,8 +5,11 @@
 #pragma once
 
 #include <xtensor/xmasked_view.hpp>
+#include <xtensor/xtensor.hpp>
 
+#include "../cell_flag.hpp"
 #include "../operators_base.hpp"
+#include "../static_algorithm.hpp"
 
 namespace samurai
 {

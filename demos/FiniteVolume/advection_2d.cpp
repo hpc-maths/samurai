@@ -27,10 +27,10 @@ auto init(Mesh& mesh)
         mesh,
         [&](auto& cell)
         {
-            auto center     = cell.center();
-            double radius   = .2;
-            double x_center = 0.3;
-            double y_center = 0.3;
+            auto center           = cell.center();
+            const double radius   = .2;
+            const double x_center = 0.3;
+            const double y_center = 0.3;
             if (((center[0] - x_center) * (center[0] - x_center) + (center[1] - y_center) * (center[1] - y_center)) <= radius * radius)
             {
                 u[cell] = 1;
@@ -69,8 +69,8 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
         subset_right(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   + dt / dx
@@ -90,8 +90,8 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
         subset_left(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   - dt / dx
@@ -110,8 +110,8 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
         subset_up(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   + dt / dx
@@ -131,8 +131,8 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
         subset_down(
             [&](const auto& i, const auto& index)
             {
-                auto j    = index[0];
-                double dx = samurai::cell_length(level);
+                auto j          = index[0];
+                const double dx = samurai::cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   - dt / dx
@@ -186,7 +186,8 @@ int main(int argc, char* argv[])
     using Config         = samurai::MRConfig<dim>;
 
     // Simulation parameters
-    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.}, max_corner = {1., 1.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
     std::array<double, dim> a{
         {1, 1}
     };
@@ -194,10 +195,11 @@ int main(int argc, char* argv[])
     double cfl = 0.5;
 
     // Multiresolution parameters
-    std::size_t min_level = 4, max_level = 10;
-    double mr_epsilon    = 2.e-4; // Threshold used by multiresolution
-    double mr_regularity = 1.;    // Regularity guess for multiresolution
-    bool correction      = false;
+    std::size_t min_level = 4;
+    std::size_t max_level = 10;
+    double mr_epsilon     = 2.e-4; // Threshold used by multiresolution
+    double mr_regularity  = 1.;    // Regularity guess for multiresolution
+    bool correction       = false;
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -207,7 +209,7 @@ int main(int argc, char* argv[])
     CLI::App app{"Finite volume example for the advection equation in 2d "
                  "using multiresolution"};
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
@@ -230,12 +232,12 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     CLI11_PARSE(app, argc, argv);
 
-    samurai::Box<double, dim> box(min_corner, max_corner);
+    const samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    double dt      = cfl / (1 << max_level);
-    double dt_save = Tf / static_cast<double>(nfiles);
-    double t       = 0.;
+    double dt            = cfl / (1 << max_level);
+    const double dt_save = Tf / static_cast<double>(nfiles);
+    double t             = 0.;
 
     auto u = init(mesh);
     samurai::make_bc<samurai::Dirichlet>(u, 0.);
@@ -245,7 +247,8 @@ int main(int argc, char* argv[])
     MRadaptation(mr_epsilon, mr_regularity);
     save(path, filename, u, "_init");
 
-    std::size_t nsave = 1, nt = 0;
+    std::size_t nsave = 1;
+    std::size_t nt    = 0;
 
     while (t != Tf)
     {
@@ -272,7 +275,7 @@ int main(int argc, char* argv[])
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
         }
     }

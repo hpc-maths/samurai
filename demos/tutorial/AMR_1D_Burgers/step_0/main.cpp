@@ -4,11 +4,12 @@
 #include "CLI/CLI.hpp"
 
 #include <filesystem>
-namespace fs = std::filesystem;
 
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/hdf5.hpp>
+
+namespace fs = std::filesystem;
 
 /**
  * What will we learn ?
@@ -36,8 +37,8 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    constexpr std::size_t dim = 1;
-    std::size_t init_level    = 4;
+    constexpr std::size_t dim    = 1;
+    const std::size_t init_level = 4;
 
     /**
      *
@@ -47,7 +48,7 @@ int main(int argc, char* argv[])
      *           -2    -1     0     1     2
      */
 
-    samurai::Box<double, dim> box({-2}, {2});
+    const samurai::Box<double, dim> box({-2}, {2});
     samurai::CellArray<dim> mesh;
 
     mesh[init_level] = {init_level, box};

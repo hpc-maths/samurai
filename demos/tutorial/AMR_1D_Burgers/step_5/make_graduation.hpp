@@ -9,7 +9,7 @@
 #include <xtensor/xmasked_view.hpp>
 
 #include <samurai/algorithm.hpp>
-#include <samurai/mr/cell_flag.hpp>
+#include <samurai/cell_flag.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 template <class Field>
@@ -71,7 +71,7 @@ void make_graduation(Field& tag)
                 xt::masked_view(tag(level, 2 * i + 1), mask) |= static_cast<int>(samurai::CellFlag::keep);
             });
 
-        std::array<int, 2> stencil{1, -1};
+        const std::array<int, 2> stencil{1, -1};
 
         /**
          * Case 1

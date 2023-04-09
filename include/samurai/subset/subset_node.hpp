@@ -67,17 +67,17 @@ namespace samurai
       private:
 
         //! Shift between the ref_level and the node level
-        int m_shift_ref;
+        int m_shift_ref = 0;
         //! Shift between the common_level and the node level
-        int m_shift_common;
+        int m_shift_common = 0;
         //! Minimum value between shift_ref and shift_common
-        int m_shift;
+        int m_shift = 0;
         //! The reference level where to compute the subset
-        std::size_t m_ref_level;
+        std::size_t m_ref_level = 0;
         //! The biggest level where all nodes of the subset can be compared
-        std::size_t m_common_level;
+        std::size_t m_common_level = 0;
         //! The current dimension
-        std::size_t m_d;
+        std::size_t m_d = 0;
         //! The position of the current interval for each dimension
         std::array<std::size_t, dim> m_index;
         //! The position inside the current interval for each dimension
@@ -186,7 +186,6 @@ namespace samurai
         }
         else
         {
-            std::size_t index;
             auto shift_i = detail::shift_value(i, -m_shift);
             // Shift the index i for the dimension d to the level of the node.
             // spdlog::debug("DECREMENT_DIM: dim = {}, level = {}, i = {},
@@ -219,7 +218,7 @@ namespace samurai
                 // start_offset = {}, end_offset = {}, i transformed = {}",
                 // m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d,
                 // shift_i));
-                index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i));
+                std::size_t index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i));
                 // spdlog::debug("DECREMENT_DIM: index found = {}", index);
                 if (index != std::numeric_limits<std::size_t>::max())
                 {
@@ -228,9 +227,9 @@ namespace samurai
 
                     // Find the list of intervals for the dimension d - 1 for
                     // shift_i
-                    std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i));
-                    m_start[m_d - 1]    = m_node.offset(m_d, off_ind);
-                    m_end[m_d - 1]      = m_node.offset(m_d, off_ind + 1);
+                    auto off_ind     = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i));
+                    m_start[m_d - 1] = m_node.offset(m_d, off_ind);
+                    m_end[m_d - 1]   = m_node.offset(m_d, off_ind + 1);
                     // spdlog::debug("DECREMENT_DIM: start_offset = {}, off_ind
                     // = {} interval = {}", m_start_offset[m_d - 1], off_ind,
                     // interval);
@@ -294,13 +293,13 @@ namespace samurai
                 if (m_d == dim - 1)
                 {
                     m_work_offsets[m_d - 1].clear();
-                    for (int s = 0; s < 1 << (-m_shift); ++s)
+                    for (int s = 0; s < 1 << (-m_shift); ++s) // NOLINT(hicpp-signed-bitwise)
                     {
-                        index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i + s));
+                        std::size_t index = m_node.find(m_d, m_start_offset[m_d], m_end_offset[m_d], m_node.transform(m_d, shift_i + s));
                         if (index != std::numeric_limits<std::size_t>::max())
                         {
-                            auto interval       = m_node.interval(m_d, index);
-                            std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i + s));
+                            auto interval = m_node.interval(m_d, index);
+                            auto off_ind  = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i + s));
                             m_work_offsets[m_d - 1].push_back(std::make_pair(m_node.offset(m_d, off_ind), m_node.offset(m_d, off_ind + 1)));
 
                             for (std::size_t o = m_node.offset(m_d, off_ind); o < m_node.offset(m_d, off_ind + 1); ++o)
@@ -322,14 +321,14 @@ namespace samurai
 
                     for (auto& offset : m_work_offsets[m_d])
                     {
-                        for (int s = 0; s < 1 << (-m_shift); ++s)
+                        for (int s = 0; s < 1 << (-m_shift); ++s) // NOLINT(hicpp-signed-bitwise)
                         {
-                            index = m_node.find(m_d, offset.first, offset.second, m_node.transform(m_d, shift_i + s));
+                            std::size_t index = m_node.find(m_d, offset.first, offset.second, m_node.transform(m_d, shift_i + s));
 
                             if (index != std::numeric_limits<std::size_t>::max())
                             {
-                                auto interval       = m_node.interval(m_d, index);
-                                std::size_t off_ind = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i + s));
+                                auto interval = m_node.interval(m_d, index);
+                                auto off_ind  = static_cast<std::size_t>(interval.index + m_node.transform(m_d, shift_i + s));
                                 m_work_offsets[m_d - 1].push_back(
                                     std::make_pair(m_node.offset(m_d, off_ind), m_node.offset(m_d, off_ind + 1)));
 
@@ -472,26 +471,18 @@ namespace samurai
             {
                 return detail::shift_value(m_node.end(m_d, m_end[m_d] - 1) + (m_node.end(m_d, m_end[m_d] - 1) & 1), m_shift);
             }
-            else if (m_d == (dim - 1))
+
+            if (m_d == (dim - 1))
             {
                 return detail::shift_value(m_node.end(m_d, m_end[m_d] - 1) - 1, m_shift) + 1;
             }
-            else
+
+            if (m_work[m_d].size() != 0)
             {
-                if (m_work[m_d].size() != 0)
-                {
-                    return m_work[m_d].back().end;
-                }
-                else
-                {
-                    return std::numeric_limits<coord_index_t>::min();
-                }
+                return m_work[m_d].back().end;
             }
         }
-        else
-        {
-            return std::numeric_limits<coord_index_t>::min();
-        }
+        return std::numeric_limits<coord_index_t>::min();
     }
 
     template <class T>

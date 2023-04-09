@@ -63,7 +63,7 @@ inline void update_bc_1D_constant_extension(Field& field, std::size_t level)
     using mesh_id_t  = typename decltype(mesh)::mesh_id_t;
     size_t max_level = mesh.max_level();
 
-    size_t j = max_level - level;
+    const std::size_t j = max_level - level;
 
     // E first rank (not projected on the level for future use)
     auto east_1 = samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), (1 << j) * xp), mesh.domain()),
@@ -103,13 +103,13 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
     const xt::xtensor_fixed<int, xt::xshape<2>> pp{1, 1};
     const xt::xtensor_fixed<int, xt::xshape<2>> pm{1, -1};
 
-    auto& mesh       = field.mesh();
-    using mesh_id_t  = typename decltype(mesh)::mesh_id_t;
-    size_t max_level = mesh.max_level();
+    auto& mesh            = field.mesh();
+    using mesh_id_t       = typename decltype(mesh)::mesh_id_t;
+    std::size_t max_level = mesh.max_level();
 
     // for (std::size_t level = min_level - 1; level <= max_level; ++level)
     {
-        size_t j = max_level - level;
+        const std::size_t j = max_level - level;
 
         // E first rank (not projected on the level for future use)
         auto east_1 = samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), (1 << j) * xp), mesh.domain()),
@@ -309,7 +309,7 @@ inline void update_bc_D2Q4_3_Euler_linear_extension(Field& field, std::size_t le
     size_t max_level = mesh.max_level();
 
     {
-        size_t j = max_level - level;
+        const std::size_t j = max_level - level;
 
         // E first rank (not projected on the level for future use)
         auto east_1 = samurai::intersection(samurai::difference(samurai::translate(mesh.domain(), (1 << j) * xp), mesh.domain()),

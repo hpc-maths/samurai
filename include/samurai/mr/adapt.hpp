@@ -86,7 +86,7 @@ namespace samurai
         template <class... Fields>
         bool harten(std::size_t ite, double eps, double regularity, field_type& field_old, Fields&... other_fields);
 
-        field_type& m_field;
+        field_type& m_field; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         field_type m_detail;
         tag_type m_tag;
     };
@@ -137,13 +137,13 @@ namespace samurai
         auto box_dir();
 
         template <>
-        auto box_dir<1>()
+        inline auto box_dir<1>()
         {
             return xt::xtensor_fixed<int, xt::xshape<2, 1>>{{-1}, {1}};
         }
 
         template <>
-        auto box_dir<2>()
+        inline auto box_dir<2>()
         {
             return xt::xtensor_fixed<int, xt::xshape<4, 2>>{
                 {-1, 1 },
@@ -154,7 +154,7 @@ namespace samurai
         }
 
         template <>
-        auto box_dir<3>()
+        inline auto box_dir<3>()
         {
             return xt::xtensor_fixed<int, xt::xshape<8, 3>>{
                 {-1, -1, -1},
@@ -175,7 +175,8 @@ namespace samurai
     {
         auto& mesh = m_field.mesh();
 
-        std::size_t min_level = mesh.min_level(), max_level = mesh.max_level();
+        std::size_t min_level = mesh.min_level();
+        std::size_t max_level = mesh.max_level();
 
         for_each_cell(mesh[mesh_id_t::cells],
                       [&](auto& cell)
@@ -274,12 +275,7 @@ namespace samurai
 
         update_ghost_mr(field_old);
         update_ghost_mr(other_fields...);
-        if (update_field_mr(m_tag, m_field, field_old, other_fields...))
-        {
-            return true;
-        }
-
-        return false;
+        return update_field_mr(m_tag, m_field, field_old, other_fields...);
     }
 
     template <class TField>

@@ -26,7 +26,7 @@ namespace samurai
             return (a && operator()(dim, std::forward<CT>(b)...));
         }
 
-        inline bool is_empty(bool a) const
+        inline static bool is_empty(bool a)
         {
             return a;
         }
@@ -61,7 +61,7 @@ namespace samurai
             return (a || operator()(dim, b...));
         }
 
-        inline bool is_empty(bool a) const
+        inline static bool is_empty(bool a)
         {
             return a;
         }
@@ -113,10 +113,7 @@ namespace samurai
             {
                 return (a || union_fn{}(dim, b...));
             }
-            else
-            {
-                return (a && not_fn{}(dim, b...));
-            }
+            return (a && not_fn{}(dim, b...));
         }
 
         template <class... CT>

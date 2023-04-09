@@ -68,9 +68,12 @@ namespace samurai
         using interval_t    = TInterval;
         using coord_index_t = typename interval_t::coord_index_t;
 
-        std::size_t level;
+        // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+        std::size_t level = 0;
         interval_t i;
-        coord_index_t j, k;
+        coord_index_t j = 0, k = 0;
+
+        // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
         double dx() const
         {
@@ -124,6 +127,7 @@ namespace samurai
         double m_dx;
     };
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define INIT_OPERATOR(NAME)                                                                                                     \
     using interval_t    = TInterval;                                                                                            \
     using coord_index_t = typename interval_t::coord_index_t;                                                                   \
@@ -146,4 +150,5 @@ namespace samurai
         : base(level_, interval, index...)                                                                                      \
     {                                                                                                                           \
     }
+    // NOLINTEND(cppcoreguidelines-macro-usage)
 } // namespace samurai
