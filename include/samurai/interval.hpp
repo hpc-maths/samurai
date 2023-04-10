@@ -152,7 +152,7 @@ namespace samurai
         end   = std::floor(end / static_cast<double>(i));
         if (start == end)
         {
-            end++;
+            ++end;
         }
         step = 1;
         return *this;
@@ -167,7 +167,7 @@ namespace samurai
         end >>= i;
         if (end_odd || (start == end && add_one))
         {
-            end++;
+            ++end;
         }
         step = 1;
         return *this;

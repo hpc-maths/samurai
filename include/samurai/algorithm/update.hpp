@@ -142,7 +142,7 @@ namespace samurai
                                          expand(translate(domain, stencil_dir), (config::ghost_width << delta_l)))
                                 .on(level);
                 set1(
-                    [&](auto& i, auto& index)
+                    [&](const auto& i, const auto& index)
                     {
                         if constexpr (dim == 1)
                         {
@@ -169,7 +169,7 @@ namespace samurai
                                 .on(level);
 
                 set2(
-                    [&](auto& i, auto& index)
+                    [&](const auto& i, const auto& index)
                     {
                         if constexpr (dim == 1)
                         {
@@ -254,7 +254,7 @@ namespace samurai
                                          expand(translate(domain, stencil_dir), (config::ghost_width << delta_l)))
                                 .on(level);
                 set1(
-                    [&](auto& i, auto& index)
+                    [&](const auto& i, const auto& index)
                     {
                         if constexpr (dim == 1)
                         {
@@ -286,7 +286,7 @@ namespace samurai
                                          expand(translate(domain, -stencil_dir), (config::ghost_width << delta_l)))
                                 .on(level);
                 set2(
-                    [&](auto& i, auto& index)
+                    [&](const auto& i, const auto& index)
                     {
                         if constexpr (dim == 1)
                         {
@@ -410,7 +410,7 @@ namespace samurai
                                       if (level < mesh.max_level())
                                       {
                                           static_nested_loop<dim - 1, 0, 2>(
-                                              [&](auto& stencil)
+                                              [&](const auto& stencil)
                                               {
                                                   auto new_index = 2 * index + stencil;
                                                   cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});
@@ -479,7 +479,7 @@ namespace samurai
                                       if (level < mesh.max_level())
                                       {
                                           static_nested_loop<dim - 1, 0, 2>(
-                                              [&](auto& stencil)
+                                              [&](const auto& stencil)
                                               {
                                                   auto new_index = 2 * index + stencil;
                                                   cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});

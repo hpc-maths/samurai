@@ -4,8 +4,10 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <memory>
+#include <stdexcept>
 
 #include <fmt/format.h>
 
@@ -377,7 +379,7 @@ namespace samurai
 
       private:
 
-        mesh_t* p_mesh;
+        mesh_t* p_mesh = nullptr;
     };
 
     template <class Mesh>
@@ -525,10 +527,13 @@ namespace samurai
         , m_name(field.m_name)
         , m_data(field.m_data)
     {
-        for (auto& v : field.p_bc)
-        {
-            p_bc.emplace_back(v->clone());
-        }
+        std::transform(field.p_bc.cbegin(),
+                       field.p_bc.cend(),
+                       std::back_inserter(p_bc),
+                       [](const auto& v)
+                       {
+                           return v->clone();
+                       });
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
@@ -562,9 +567,7 @@ namespace samurai
 
         if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
         {
-            std::cout << fmt::format("{} FIELD ERROR on level {}: try to find interval {}", rw, level, interval) << std::endl;
-            // std::cout << this->mesh() << std::endl;
-            throw;
+            throw std::out_of_range(fmt::format("{} FIELD ERROR on level {}: try to find interval {}", rw, level, interval));
         }
 
         return interval_tmp;

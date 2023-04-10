@@ -418,7 +418,7 @@ namespace samurai
                         coord_index_t value = detail::shift_value(m_node.end(m_d, m_index[m_d]) - 1, m_shift) + 1;
                         if (m_current_value[m_d] == value)
                         {
-                            value++;
+                            ++value;
                         }
                         // spdlog::debug("UPDATE: dim = {}, level = {}, value =
                         // {}, m_index = {}", m_d, m_node.level(), value,

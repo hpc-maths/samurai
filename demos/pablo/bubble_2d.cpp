@@ -276,7 +276,6 @@ int main(int argc, char* argv[])
     container_t bb_xcenter        = 0.8 * x_length * xt::random::rand<double>({nb_bubbles}) + 0.1 * x_length;
     const container_t bb0_xcenter = bb_xcenter;
     container_t bb_ycenter        = y_length * xt::random::rand<double>({nb_bubbles}) - 0.5 * y_length;
-    const container_t bb0_ycenter = bb_ycenter;
     const container_t bb_radius   = 0.1 * xt::random::rand<double>({nb_bubbles}) + 0.02;
     const container_t dy          = 0.005 + 0.05 * xt::random::rand<double>({nb_bubbles});
     const container_t omega       = 0.5 * xt::random::rand<double>({nb_bubbles});

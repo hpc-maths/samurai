@@ -363,11 +363,13 @@ namespace samurai
     template <class D, class Config>
     inline void Mesh_base<D, Config>::construct_union()
     {
-        std::size_t min_level = m_cells[mesh_id_t::cells].min_level();
-        std::size_t max_level = m_cells[mesh_id_t::cells].max_level();
+        std::size_t min_lvl = m_cells[mesh_id_t::cells].min_level();
+        std::size_t max_lvl = m_cells[mesh_id_t::cells].max_level();
 
-        m_union[max_level] = m_cells[mesh_id_t::cells][max_level];
-        for (std::size_t level = max_level - 1; level >= ((min_level == 0) ? 1 : min_level); --level)
+        // FIX: cppcheck false positive ?
+        // cppcheck-suppress redundantAssignment
+        m_union[max_lvl] = m_cells[mesh_id_t::cells][max_lvl];
+        for (std::size_t level = max_lvl - 1; level >= ((min_lvl == 0) ? 1 : min_lvl); --level)
         // for (std::size_t level = max_level - 1; level--> 0; )
         {
             lcl_type lcl{level};

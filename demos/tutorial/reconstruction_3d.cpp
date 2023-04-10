@@ -31,7 +31,7 @@ auto init(Mesh& mesh, Case& c)
     auto u = samurai::make_field<double, 1>("u", mesh);
 
     samurai::for_each_interval(mesh[mesh_id_t::cells],
-                               [&](std::size_t level, auto& i, auto& index)
+                               [&](std::size_t level, const auto& i, const auto& index)
                                {
                                    auto j          = index[0];
                                    auto k          = index[1];
@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
 
     auto level_ = samurai::make_field<std::size_t, 1>("level", mrmesh);
     samurai::for_each_cell(mrmesh[mrmesh_id_t::cells],
-                           [&](auto& cell)
+                           [&](const auto& cell)
                            {
                                level_[cell] = cell.level;
                            });
@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
 
     auto error = samurai::make_field<double, 1>("error", u_reconstruct.mesh());
     samurai::for_each_interval(u_reconstruct.mesh(),
-                               [&](std::size_t level, auto& i, auto& index)
+                               [&](std::size_t level, const auto& i, const auto& index)
                                {
                                    auto j                = index[0];
                                    auto k                = index[1];

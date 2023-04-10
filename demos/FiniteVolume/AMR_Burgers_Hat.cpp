@@ -113,7 +113,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     }
 
     samurai::for_each_cell(mesh,
-                           [&](auto& cell)
+                           [&](const auto& cell)
                            {
                                level_[cell] = cell.level;
                            });
