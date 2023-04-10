@@ -20,7 +20,7 @@ repos:
       - id: remove-tabs
         args: [--whitespaces-count, "4"]
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v16.0.0
+    rev: v15.0.7
     hooks:
       - id: clang-format
         files: .*\.[hc]pp$
