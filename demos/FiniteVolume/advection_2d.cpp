@@ -144,23 +144,6 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
 }
 
 template <class Field>
-void dirichlet(std::size_t level, Field& u)
-{
-    using mesh_t    = typename Field::mesh_t;
-    using mesh_id_t = typename mesh_t::mesh_id_t;
-
-    auto mesh = u.mesh();
-
-    auto boundary = samurai::difference(mesh[mesh_id_t::reference][level], mesh.domain()).on(level);
-    boundary(
-        [&](const auto& i, const auto& index)
-        {
-            auto j         = index[0];
-            u(level, i, j) = 0.;
-        });
-}
-
-template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
@@ -172,7 +155,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     }
 
     samurai::for_each_cell(mesh,
-                           [&](auto& cell)
+                           [&](const auto& cell)
                            {
                                level_[cell] = cell.level;
                            });

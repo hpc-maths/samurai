@@ -1,4 +1,6 @@
 #pragma once
+#include <algorithm>
+
 #include <xtensor/xtensor.hpp>
 
 namespace samurai
@@ -99,12 +101,16 @@ namespace samurai
     const BoundaryCondition<value_t, dim, size>& find(const std::vector<BoundaryCondition<value_t, dim, size>>& boundary_conditions,
                                                       const typename BoundaryCondition<value_t, dim, size>::boundary_point_t& boundary_point)
     {
-        for (const auto& bc : boundary_conditions)
+        auto bc = std::find_if(boundary_conditions.cbegin(),
+                               boundary_conditions.cend(),
+                               [&boundary_point](const auto& bc)
+                               {
+                                   return bc.applies_to(boundary_point);
+                               });
+
+        if (bc != boundary_conditions.cend())
         {
-            if (bc.applies_to(boundary_point))
-            {
-                return bc;
-            }
+            return *bc;
         }
         std::cout << "No boundary condition found for the point of coordinates " << boundary_point << std::endl;
         assert(false && "No boundary condition found for this point");

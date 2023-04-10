@@ -253,6 +253,8 @@ namespace samurai
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
 
+        // FIX: cppcheck false positive ?
+        // cppcheck-suppress constStatement
         for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <= this->cells()[mesh_id_t::reference].max_level();
              ++level)
         {
@@ -271,7 +273,7 @@ namespace samurai
                                              expand(translate(domain, stencil), config::ghost_width << delta_l))
                                     .on(level);
                     set1(
-                        [&](auto& i, auto& index_yz)
+                        [&](const auto& i, const auto& index_yz)
                         {
                             lcl[index_yz - (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i - (stencil[0] >> delta_l));
                         });
@@ -280,7 +282,7 @@ namespace samurai
                                              expand(translate(domain, -stencil), config::ghost_width << delta_l))
                                     .on(level);
                     set2(
-                        [&](auto& i, auto& index_yz)
+                        [&](const auto& i, const auto& index_yz)
                         {
                             lcl[index_yz + (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i + (stencil[0] >> delta_l));
                         });
@@ -321,6 +323,8 @@ namespace samurai
         }
 
         // add ghosts for periodicity
+        // FIX: cppcheck false positive ?
+        // cppcheck-suppress constStatement
         for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <= this->cells()[mesh_id_t::reference].max_level();
              ++level)
         {
@@ -339,7 +343,7 @@ namespace samurai
                                              expand(translate(domain, stencil), config::ghost_width << delta_l))
                                     .on(level);
                     set1(
-                        [&](auto& i, auto& index_yz)
+                        [&](const auto& i, const auto& index_yz)
                         {
                             lcl[index_yz - (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i - (stencil[0] >> delta_l));
                         });
@@ -348,7 +352,7 @@ namespace samurai
                                              expand(translate(domain, -stencil), config::ghost_width << delta_l))
                                     .on(level);
                     set2(
-                        [&](auto& i, auto& index_yz)
+                        [&](const auto& i, const auto& index_yz)
                         {
                             lcl[index_yz + (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i + (stencil[0] >> delta_l));
                         });

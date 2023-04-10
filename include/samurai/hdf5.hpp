@@ -152,8 +152,8 @@ namespace samurai
         {
         }
 
-        bool by_level;
-        bool by_mesh_id;
+        bool by_level   = false;
+        bool by_mesh_id = false;
     };
 
     template <class Config>
@@ -381,7 +381,7 @@ namespace samurai
                 }
                 else
                 {
-                    auto& mesh = this->derived_cast().get_mesh();
+                    const auto& mesh = this->derived_cast().get_mesh();
 
                     std::string prefix = fmt::format("/level/{}/mesh", level);
                     this->save_on_mesh(grid_level, prefix, mesh[level], "mesh");
@@ -394,7 +394,7 @@ namespace samurai
             {
                 for (std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
                 {
-                    auto& submesh         = this->derived_cast().get_submesh(im);
+                    const auto& submesh   = this->derived_cast().get_submesh(im);
                     std::string mesh_name = this->derived_cast().get_submesh_name(im);
                     std::string prefix    = fmt::format("/mesh/{}", mesh_name);
 
@@ -407,7 +407,7 @@ namespace samurai
             }
             else
             {
-                auto& mesh = this->derived_cast().get_mesh();
+                const auto& mesh = this->derived_cast().get_mesh();
 
                 std::string prefix = fmt::format("/mesh");
                 this->save_on_mesh(this->domain(), prefix, mesh, "mesh");
@@ -448,7 +448,7 @@ namespace samurai
         {
             for (std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
             {
-                auto& submesh         = this->derived_cast().get_submesh(im);
+                const auto& submesh   = this->derived_cast().get_submesh(im);
                 std::string mesh_name = this->derived_cast().get_submesh_name(im);
                 std::string prefix    = fmt::format("/mesh/{}", mesh_name);
 
@@ -461,7 +461,7 @@ namespace samurai
         }
         else
         {
-            auto& mesh = this->derived_cast().get_mesh();
+            const auto& mesh = this->derived_cast().get_mesh();
 
             std::string prefix = fmt::format("/mesh");
             this->save_on_mesh(this->domain(), prefix, mesh, "mesh");

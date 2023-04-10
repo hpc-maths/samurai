@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <numeric>
+
 #include <fmt/format.h>
 
 #include "level_cell_array.hpp"
@@ -14,11 +16,8 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     std::size_t memory_usage(const LevelCellArray<Dim, TInterval>& lca)
     {
-        std::size_t mem = 0;
-        for (auto& v : lca.shape())
-        {
-            mem += v * sizeof(TInterval);
-        }
+        std::size_t mem = lca.nb_intervals() * sizeof(TInterval);
+
         for (std::size_t d = 1; d < Dim; ++d)
         {
             mem += lca.offsets(d).size() * sizeof(std::size_t);

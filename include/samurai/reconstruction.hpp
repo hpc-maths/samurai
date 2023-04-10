@@ -51,20 +51,18 @@ namespace samurai
 
         prediction_map& operator+=(const prediction_map& p)
         {
-            for (auto& c : p.coeff)
+            for (const auto& c : p.coeff)
             {
-                auto& cc = (*this)(c.first);
-                cc += c.second;
+                (*this)(c.first) += c.second;
             }
             return *this;
         }
 
         prediction_map& operator-=(const prediction_map& p)
         {
-            for (auto& c : p.coeff)
+            for (const auto& c : p.coeff)
             {
-                auto& cc = (*this)(c.first);
-                cc -= c.second;
+                (*this)(c.first) -= c.second;
             }
             return *this;
         }
@@ -89,9 +87,9 @@ namespace samurai
 
         void to_stream(std::ostream& out) const
         {
-            for (auto& c : coeff)
+            for (const auto& c : coeff)
             {
-                for (auto& i : c.first)
+                for (const auto& i : c.first)
                 {
                 }
                 out << fmt::format("({}):  {}", c.first[0], c.second) << std::endl;
@@ -291,7 +289,7 @@ namespace samurai
                 for (index_t ii = 0; ii < nb_cells; ++ii)
                 {
                     auto pred = prediction<prediction_order, index_t>(delta_l, ii);
-                    for (auto& kv : pred.coeff)
+                    for (const auto& kv : pred.coeff)
                     {
                         auto i_f = (i << delta_l) + ii;
                         i_f.step = nb_cells;
@@ -324,7 +322,7 @@ namespace samurai
                         auto i_f  = (i << delta_l) + ii;
                         i_f.step  = nb_cells;
 
-                        for (auto& kv : pred.coeff)
+                        for (const auto& kv : pred.coeff)
                         {
                             dest(reconstruct_level, i_f, j_f) += kv.second * src(level, i + kv.first[0], j + kv.first[1]);
                         }
@@ -359,7 +357,7 @@ namespace samurai
                             auto i_f  = (i << delta_l) + ii;
                             i_f.step  = nb_cells;
 
-                            for (auto& kv : pred.coeff)
+                            for (const auto& kv : pred.coeff)
                             {
                                 dest(reconstruct_level, i_f, j_f, k_f) += kv.second
                                                                         * src(level, i + kv.first[0], j + kv.first[1], k + kv.first[2]);
@@ -418,8 +416,9 @@ namespace samurai
 
             auto result = xt::zeros_like(f(element, level, i));
 
-            for (auto& kv : pred.coeff)
+            for (const auto& kv : pred.coeff)
             {
+                // cppcheck-suppress useStlAlgorithm
                 result += kv.second * f(element, level, i + kv.first[0]);
             }
             return result;
@@ -432,8 +431,9 @@ namespace samurai
 
             auto result = xt::zeros_like(f(level, i));
 
-            for (auto& kv : pred.coeff)
+            for (const auto& kv : pred.coeff)
             {
+                // cppcheck-suppress useStlAlgorithm
                 result += kv.second * f(level, i + kv.first[0]);
             }
             return result;
@@ -454,8 +454,9 @@ namespace samurai
 
             auto result = xt::zeros_like(f(element, level, i, j));
 
-            for (auto& kv : pred.coeff)
+            for (const auto& kv : pred.coeff)
             {
+                // cppcheck-suppress useStlAlgorithm
                 result += kv.second * f(element, level, i + kv.first[0], j + kv.first[1]);
             }
             return result;
@@ -469,8 +470,9 @@ namespace samurai
 
             auto result = xt::zeros_like(f(level, i, j));
 
-            for (auto& kv : pred.coeff)
+            for (const auto& kv : pred.coeff)
             {
+                // cppcheck-suppress useStlAlgorithm
                 result += kv.second * f(level, i + kv.first[0], j + kv.first[1]);
             }
             return result;
@@ -493,8 +495,9 @@ namespace samurai
 
             auto result = xt::zeros_like(f(element, level, i, j, k));
 
-            for (auto& kv : pred.coeff)
+            for (const auto& kv : pred.coeff)
             {
+                // cppcheck-suppress useStlAlgorithm
                 result += kv.second * f(element, level, i + kv.first[0], j + kv.first[1], k + kv.first[2]);
             }
             return result;
@@ -515,8 +518,9 @@ namespace samurai
 
             auto result = xt::zeros_like(f(level, i, j, k));
 
-            for (auto& kv : pred.coeff)
+            for (const auto& kv : pred.coeff)
             {
+                // cppcheck-suppress useStlAlgorithm
                 result += kv.second * f(level, i + kv.first[0], j + kv.first[1], k + kv.first[2]);
             }
             return result;

@@ -121,7 +121,7 @@ namespace samurai
     template <typename value_t, typename index_t>
     inline std::ostream& operator<<(std::ostream& out, const ListOfIntervals<value_t, index_t>& interval_list)
     {
-        for (auto& interval : interval_list)
+        for (const auto& interval : interval_list)
         {
             out << interval << " ";
         }
