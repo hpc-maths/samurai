@@ -264,3 +264,45 @@ jobs:
         run: |
           .\build\test\Release\test_samurai_lib
           cd test; pytest -s --h5diff
+
+  #
+  # Check windows build using mamba
+  #
+  #########################################################
+  win-mamba:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v3
+      - name: Mamba and samurai env installation
+        uses: mamba-org/provision-with-micromamba@main
+        with:
+          environment-file: conda/environment.yml
+          environment-name: samurai-env
+
+      - name: micromamba informations
+        shell: bash -l {0}
+        run: |
+          micromamba info
+          micromamba list
+
+      - name: Configure
+        shell: bash -l {0}
+        run: |
+          cmake \
+              . \
+              -Bbuild \
+              -G "Visual Studio 17 2022" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_DEMOS=ON \
+              -DBUILD_TESTS=ON
+
+      - name: Build
+        shell: bash -l {0}
+        run: |
+          cmake --build ./build --config Release
+
+      - name: Windows test
+        shell: bash -l {0}
+        run: |
+          ./build/test/Release/test_samurai_lib
+          cd test; pytest -s --h5diff
