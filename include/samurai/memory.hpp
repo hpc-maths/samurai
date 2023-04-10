@@ -16,7 +16,7 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     std::size_t memory_usage(const LevelCellArray<Dim, TInterval>& lca)
     {
-        std::size_t mem = std::accumulate(lca.shape().cbegin(), lca.shape().cend(), 0.) * sizeof(TInterval);
+        std::size_t mem = lca.size() * sizeof(TInterval);
 
         for (std::size_t d = 1; d < Dim; ++d)
         {
