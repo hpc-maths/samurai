@@ -108,7 +108,7 @@ namespace samurai
         auto shape() const;
 
         //// Gives the total number of intervals
-        auto size() const;
+        auto nb_intervals() const;
 
         //// Gives the number of cells
         std::size_t nb_cells() const;
@@ -448,7 +448,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::size() const
+    inline auto LevelCellArray<Dim, TInterval>::nb_intervals() const
     {
         std::size_t s = 0;
         for (std::size_t d = 0; d < dim; ++d)
