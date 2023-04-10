@@ -7,7 +7,7 @@
 int main()
 {
     constexpr std::size_t dim = 2;
-    std::size_t start_level = 3;
+    std::size_t start_level   = 3;
 
     samurai::Box<double, dim> box({-1, -1}, {1, 1});
     samurai::CellArray<dim> ca_box;

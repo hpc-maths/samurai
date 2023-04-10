@@ -29,7 +29,7 @@ Test cases
 .. toctree::
    :caption: Test cases
    :hidden:
-   
+
    LBM/test_cases
 
 

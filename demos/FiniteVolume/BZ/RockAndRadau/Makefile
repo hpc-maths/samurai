@@ -3,10 +3,10 @@ FC = gfortran -fPIC
 # -fno-underscoring
 LD = gcc
 
-CCFLAGS = 
-LDFLAGS = 
+CCFLAGS =
+LDFLAGS =
 
-OBJS = dc_decsol.o  decsol.o radau5.o rock4.o integration_stiff.o 
+OBJS = dc_decsol.o  decsol.o radau5.o rock4.o integration_stiff.o
 LIB = libintegration_stiff.so
 
 all: $(LIB)

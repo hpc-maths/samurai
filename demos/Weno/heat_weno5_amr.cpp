@@ -479,7 +479,7 @@ class laplace_explicit : public samurai::field_operator_base<TInterval>,
         /* Flux Ordre 2 */
 
         //        auto fip12 = (  xt::view(phi_i, 1)
-        //	      - xt::view(phi_i, 0) ) * inv_dx;
+        //        - xt::view(phi_i, 0) ) * inv_dx;
 
         /* Ordre 4 : fb(i+1/2) = ( -f(i+2) + 15*f(j+1) - 15*f(j) + f(j-1) )/dx
          */

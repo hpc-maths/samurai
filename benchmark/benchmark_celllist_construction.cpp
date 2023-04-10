@@ -21,10 +21,11 @@ static void BM_CellListConstruction_2D(benchmark::State& state)
             auto x     = std::experimental::randint(0, (100 << level) - 1);
             auto y     = std::experimental::randint(0, (100 << level) - 1);
 
-            cl[level][{ y }].add_point(x);
+            cl[level][{y}].add_point(x);
         }
     }
 }
+
 BENCHMARK(BM_CellListConstruction_2D)->Range(8, 8 << 18);
 
 static void BM_CellListConstruction_3D(benchmark::State& state)
@@ -45,10 +46,11 @@ static void BM_CellListConstruction_3D(benchmark::State& state)
             auto y     = std::experimental::randint(0, (100 << level) - 1);
             auto z     = std::experimental::randint(0, (100 << level) - 1);
 
-            cl[level][{ y, z }].add_point(x);
+            cl[level][{y, z}].add_point(x);
         }
     }
 }
+
 BENCHMARK(BM_CellListConstruction_3D)->Range(8, 8 << 18);
 
 static void BM_CellList2CellArray_2D(benchmark::State& state)
@@ -67,14 +69,15 @@ static void BM_CellList2CellArray_2D(benchmark::State& state)
         auto x     = std::experimental::randint(0, (100 << level) - 1);
         auto y     = std::experimental::randint(0, (100 << level) - 1);
 
-        cl[level][{ y }].add_point(x);
+        cl[level][{y}].add_point(x);
     }
 
     for (auto _ : state)
     {
-        ca = { cl };
+        ca = {cl};
     }
 }
+
 BENCHMARK(BM_CellList2CellArray_2D)->Range(8, 8 << 18);
 
 static void BM_CellList2CellArray_3D(benchmark::State& state)
@@ -94,12 +97,13 @@ static void BM_CellList2CellArray_3D(benchmark::State& state)
         auto y     = std::experimental::randint(0, (100 << level) - 1);
         auto z     = std::experimental::randint(0, (100 << level) - 1);
 
-        cl[level][{ y, z }].add_point(x);
+        cl[level][{y, z}].add_point(x);
     }
 
     for (auto _ : state)
     {
-        ca = { cl };
+        ca = {cl};
     }
 }
+
 BENCHMARK(BM_CellList2CellArray_3D)->Range(8, 8 << 18);

@@ -96,7 +96,7 @@ Vectorial D2Q4444 scheme for Euler system for the Lax-Liu problem
 The corresponding file is ``D2Q4444_Euler_Lax_Liux.cpp`` for the plot of the solution to perform the computations presented in the paper.
 
 
-The system we consider is 
+The system we consider is
 
 .. math::
     :label: eq_EulerSystem
@@ -105,14 +105,14 @@ The system we consider is
         \partial_t \rho + \partial_x (\rho u) + \partial_x (\rho v) = 0, \\
         \partial_t (\rho u) + \partial_x (\rho u^2 + p) + \partial_y (\rho uv) = 0, \\
         \partial_t (\rho v) + \partial_x (\rho uv) + \partial_y (\rho v^2 + p) = 0, \\
-        \partial_t E + \partial_x (Eu + pu) + \partial_y (Ev + pv) = 0, 
+        \partial_t E + \partial_x (Eu + pu) + \partial_y (Ev + pv) = 0,
     \end{cases}
 
 with pressure law given by :math:`E = \rho u^2/2 + p/(\gamma+1)`, where :math:`\gamma` is the gas constant taken equal to 1.4.
 The initial datum is the following
 
 .. math::
-        (\rho, u, v, p)(t = 0, x) = 
+        (\rho, u, v, p)(t = 0, x) =
         \begin{cases}
             (\rho_{\text{UR}}, u_{\text{UR}}, v_{\text{UR}}, p_{\text{UR}}), \qquad &x > 1/2, \quad y > 1/2, \\
             (\rho_{\text{UL}}, u_{\text{UL}}, v_{\text{UL}}, p_{\text{UL}}), \qquad &x < 1/2, \quad y > 1/2, \\
@@ -158,7 +158,7 @@ The initial datum is [eq_EulerSystem]
 .. math::
     (\rho, u, v, p)(t=0, x, y) = (1/8 \chi_{|x|+|y| \leq 1/2} + \chi_{|x|+|y| > 1/2}, 0, 0, 7/50 \chi_{|x|+|y| \leq 1/2} + \chi_{|x|+|y| > 1/2}).
 
- 
+
 
 The boundary conditions are
 
@@ -215,7 +215,3 @@ The boundary conditions we enforce on the system are
 .. image:: ./figures/D2Q5444_Rayleigh_Taylor_cropped.png
     :width: 100%
     :align: center
-
-
-
-

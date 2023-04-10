@@ -16,7 +16,6 @@ int main()
     cl[0][{2}].add_interval({3, 4});
     cl[0][{3}].add_interval({0, 3});
 
-
     cl[1][{2}].add_interval({2, 6});
     cl[1][{3}].add_interval({2, 6});
     cl[1][{4}].add_interval({2, 4});
@@ -25,8 +24,8 @@ int main()
     cl[1][{6}].add_interval({6, 8});
     cl[1][{7}].add_interval({6, 7});
 
-    cl[2][{8}].add_interval({ 8, 10});
-    cl[2][{8}].add_interval({ 8, 10});
+    cl[2][{8}].add_interval({8, 10});
+    cl[2][{8}].add_interval({8, 10});
     cl[2][{14}].add_interval({14, 16});
     cl[2][{15}].add_interval({14, 16});
 

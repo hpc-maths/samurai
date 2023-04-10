@@ -1,7 +1,7 @@
 Algorithm
 =========
 
-In |project|, two different algorithms are implemented to browse all the cells of the mesh in order to apply some operator on them. 
+In |project|, two different algorithms are implemented to browse all the cells of the mesh in order to apply some operator on them.
 The choice depends on whether one has a local operator, that is, utilizing information belonging only to one cell without interaction with the neighbors; or an operator encoding some interaction with the surrounding cells.
 
 If the operator is local, one can use :cpp:func:`samurai::for_each_cell`, otherwise, when the operator has an extended stencil, one can employ :cpp:func:`samurai::for_each_interval`.
@@ -13,7 +13,7 @@ If the operator is local, one can use :cpp:func:`samurai::for_each_cell`, otherw
 Apply a function on all cells
 -----------------------------
 
-In the previous section, we have seen that we can access the data field using :cpp:class:`Cell`. 
+In the previous section, we have seen that we can access the data field using :cpp:class:`Cell`.
 The algorithm in :cpp:func:`samurai::for_each_cell` browses all the cells of the mesh and applies a lambda function on them.
 It can be useful, for example, when one wants to initialize a field.
 
@@ -50,7 +50,6 @@ As suggested before, we can also evaluate a function on a given interval using :
         u(level, i, j) = i;
     });
 
-The first parameter is the mesh where we want to browse all the intervals and the second parameter is again a lambda function. 
+The first parameter is the mesh where we want to browse all the intervals and the second parameter is again a lambda function.
 This function takes three parameters: the level of the intervals we want to pick, the interval in the x-direction, and `index[dim-1]`
 an array with the index for the other dimensions.
-

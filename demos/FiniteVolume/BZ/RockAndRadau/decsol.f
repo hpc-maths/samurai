@@ -32,7 +32,7 @@ C-----------------------------------------------------------------------
         KP1 = K + 1
         M = K
         DO 10 I = KP1,N
-          IF (DABS(A(I,K)) .GT. DABS(A(M,K))) M = I  
+          IF (DABS(A(I,K)) .GT. DABS(A(M,K))) M = I
  10     CONTINUE
         IP(K) = M
         T = A(M,K)
@@ -387,7 +387,7 @@ C-----------------------------------------------------------------------
         BI(1)=PRODI/DEN
       RETURN
 C----------------------- END OF SUBROUTINE SOLC ------------------------
-      END  
+      END
 C
 C
       SUBROUTINE DECHC (N, NDIM, AR, AI, LB, IP, IER)
@@ -428,7 +428,7 @@ C-----------------------------------------------------------------------
       NM1 = N - 1
       DO 60 K = 1,NM1
         KP1 = K + 1
-        M = K 
+        M = K
         NA = MIN0(N,LB+K)
         DO 10 I = KP1,NA
           IF (DABS(AR(I,K))+DABS(AI(I,K)) .GT.
@@ -562,7 +562,7 @@ C-----------------------------------------------------------------------
         BI(1)=PRODI/DEN
       RETURN
 C----------------------- END OF SUBROUTINE SOLHC -----------------------
-      END  
+      END
 C
       SUBROUTINE DECB (N, NDIM, A, ML, MU, IP, IER)
       REAL*8 A,T
@@ -573,15 +573,15 @@ C  MATRIX WITH LOWER BANDWIDTH ML AND UPPER BANDWIDTH MU
 C  INPUT..
 C     N       ORDER OF THE ORIGINAL MATRIX A.
 C     NDIM    DECLARED DIMENSION OF ARRAY  A.
-C     A       CONTAINS THE MATRIX IN BAND STORAGE.   THE COLUMNS  
+C     A       CONTAINS THE MATRIX IN BAND STORAGE.   THE COLUMNS
 C                OF THE MATRIX ARE STORED IN THE COLUMNS OF  A  AND
-C                THE DIAGONALS OF THE MATRIX ARE STORED IN ROWS 
+C                THE DIAGONALS OF THE MATRIX ARE STORED IN ROWS
 C                ML+1 THROUGH 2*ML+MU+1 OF  A.
 C     ML      LOWER BANDWIDTH OF A (DIAGONAL IS NOT COUNTED).
 C     MU      UPPER BANDWIDTH OF A (DIAGONAL IS NOT COUNTED).
 C  OUTPUT..
-C     A       AN UPPER TRIANGULAR MATRIX IN BAND STORAGE AND 
-C                THE MULTIPLIERS WHICH WERE USED TO OBTAIN IT.  
+C     A       AN UPPER TRIANGULAR MATRIX IN BAND STORAGE AND
+C                THE MULTIPLIERS WHICH WERE USED TO OBTAIN IT.
 C     IP      INDEX VECTOR OF PIVOT INDICES.
 C     IP(N)   (-1)**(NUMBER OF INTERCHANGES) OR O .
 C     IER     = 0 IF MATRIX A IS NONSINGULAR, OR  = K IF FOUND TO BE
@@ -596,7 +596,7 @@ C     C. B. MOLER, ALGORITHM 423, LINEAR EQUATION SOLVER,
 C     C.A.C.M. 15 (1972), P. 274.
 C-----------------------------------------------------------------------
       IER = 0
-      IP(N) = 1 
+      IP(N) = 1
       MD = ML + MU + 1
       MD1 = MD + 1
       JU = 0
@@ -624,14 +624,14 @@ C-----------------------------------------------------------------------
         IF (T .EQ. 0.D0) GO TO 80
         T = 1.D0/T
         DO 30 I = MD1,MDL
- 30       A(I,K) = -A(I,K)*T 
+ 30       A(I,K) = -A(I,K)*T
         JU = MIN0(MAX0(JU,MU+IP(K)),N)
         MM = MD
         IF (JU .LT. KP1) GO TO 55
         DO 50 J = KP1,JU
           M = M - 1
           MM = MM - 1
-          T = A(M,J) 
+          T = A(M,J)
           IF (M .EQ. MM) GO TO 35
           A(M,J) = A(MM,J)
           A(MM,J) = T
@@ -692,7 +692,7 @@ C-----------------------------------------------------------------------
       DO 40 KB = 1,NM1
         K = N + 1 - KB
         B(K) = B(K)/A(MD,K)
-        T = -B(K) 
+        T = -B(K)
         KMD = MD - K
         LM = MAX0(1,KMD+1)
         DO 30 I = LM,MDM
@@ -713,16 +713,16 @@ C  MATRIX WITH LOWER BANDWIDTH ML AND UPPER BANDWIDTH MU
 C  INPUT..
 C     N       ORDER OF THE ORIGINAL MATRIX A.
 C     NDIM    DECLARED DIMENSION OF ARRAY  A.
-C     AR, AI     CONTAINS THE MATRIX IN BAND STORAGE.   THE COLUMNS  
+C     AR, AI     CONTAINS THE MATRIX IN BAND STORAGE.   THE COLUMNS
 C                OF THE MATRIX ARE STORED IN THE COLUMNS OF  AR (REAL
 C                PART) AND AI (IMAGINARY PART)  AND
-C                THE DIAGONALS OF THE MATRIX ARE STORED IN ROWS 
+C                THE DIAGONALS OF THE MATRIX ARE STORED IN ROWS
 C                ML+1 THROUGH 2*ML+MU+1 OF  AR AND AI.
 C     ML      LOWER BANDWIDTH OF A (DIAGONAL IS NOT COUNTED).
 C     MU      UPPER BANDWIDTH OF A (DIAGONAL IS NOT COUNTED).
 C  OUTPUT..
-C     AR, AI  AN UPPER TRIANGULAR MATRIX IN BAND STORAGE AND 
-C                THE MULTIPLIERS WHICH WERE USED TO OBTAIN IT.  
+C     AR, AI  AN UPPER TRIANGULAR MATRIX IN BAND STORAGE AND
+C                THE MULTIPLIERS WHICH WERE USED TO OBTAIN IT.
 C     IP      INDEX VECTOR OF PIVOT INDICES.
 C     IP(N)   (-1)**(NUMBER OF INTERCHANGES) OR O .
 C     IER     = 0 IF MATRIX A IS NONSINGULAR, OR  = K IF FOUND TO BE
@@ -737,7 +737,7 @@ C     C. B. MOLER, ALGORITHM 423, LINEAR EQUATION SOLVER,
 C     C.A.C.M. 15 (1972), P. 274.
 C-----------------------------------------------------------------------
       IER = 0
-      IP(N) = 1 
+      IP(N) = 1
       MD = ML + MU + 1
       MD1 = MD + 1
       JU = 0
@@ -1004,4 +1004,3 @@ C
   200 return
 C    :::::::::: last card of elmhes ::::::::::
       end
-
