@@ -4,27 +4,6 @@ on: [pull_request]
 
 jobs:
   #
-  # Check samurai format
-  #
-  #########################################################
-  formatting-check:
-    name: Formatting Check
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        path:
-          - "demos"
-          - "include"
-          - "test"
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run clang-format style check
-        uses: jidicula/clang-format-action@v4.11.0
-        with:
-          clang-format-version: "15"
-          check-path: ${{ matrix.path }}
-
-  #
   # Check samurai with pre-commit
   #
   #########################################################
@@ -87,7 +66,7 @@ jobs:
   #
   #########################################################
   linux-mamba:
-    needs: [formatting-check, pre-commit, cppcheck]
+    needs: [pre-commit, cppcheck]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -202,3 +181,47 @@ jobs:
           export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
           cd test
           pytest -v -s --h5diff
+
+  macos-mamba:
+    needs: [pre-commit, cppcheck]
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v3
+      - name: Mamba and samurai env installation
+        uses: mamba-org/provision-with-micromamba@main
+        with:
+          environment-file: conda/environment.yml
+          environment-name: samurai-env
+
+      # - name: Petsc installation
+      #   shell: bash -l {0}
+      #   run: |
+      #     micromamba install -y petsc=3.18 pkg-config
+
+      - name: micromamba informations
+        shell: bash -l {0}
+        run: |
+          micromamba info
+          micromamba list
+
+      - name: Configure
+        shell: bash -l {0}
+        run: |
+          cmake \
+              . \
+              -Bbuild \
+              -GNinja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_DEMOS=ON \
+              -DBUILD_TESTS=ON
+
+      - name: Build
+        shell: bash -l {0}
+        run: |
+          cmake --build ./build --config Release
+
+      - name: Run tests
+        shell: bash -l {0}
+        run: |
+          ./build/test/test_samurai_lib
+          cd test; pytest --h5diff
