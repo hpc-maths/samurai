@@ -486,4 +486,3 @@ The time-step is chosen as :math:`\Delta t = 5\Delta x/8` and :math:`\Delta \tau
 .. image:: ./figures/level_set.png
     :width: 100%
     :align: center
-

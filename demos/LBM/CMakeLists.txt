@@ -45,4 +45,3 @@ target_link_libraries(lbm-D2Q4444-euler-implosion samurai)
 
 add_executable(lbm-D2Q5444-euler-rayleigh-taylor D2Q5444_Euler_Rayleigh_Taylor.cpp)
 target_link_libraries(lbm-D2Q5444-euler-rayleigh-taylor samurai)
-

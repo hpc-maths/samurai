@@ -1,5 +1,5 @@
 C ******************************************
-C     VERSION OF SEPTEMBER 18, 1995      
+C     VERSION OF SEPTEMBER 18, 1995
 C ******************************************
 C
       SUBROUTINE DECOMR(N,FJAC,LDJAC,FMAS,LDMAS,MLMAS,MUMAS,
@@ -183,7 +183,7 @@ C -----------------------------------------------------------
 C
    7  CONTINUE
 C ---  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
-      IF (CALHES) CALL ELMHES (LDJAC,N,1,N,FJAC,IPHES) 
+      IF (CALHES) CALL ELMHES (LDJAC,N,1,N,FJAC,IPHES)
       CALHES=.FALSE.
       DO J=1,N-1
          J1=J+1
@@ -635,7 +635,7 @@ C ---  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
           Z1(MP)=Z1(I)
           Z1(I)=ZSAFE
  746      CONTINUE
-          DO I=MP+1,N 
+          DO I=MP+1,N
              Z1(I)=Z1(I)-FJAC(I,MP1)*Z1(MP)
           END DO
        END DO
@@ -643,7 +643,7 @@ C ---  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
        DO MM=1,N-2
           MP=N-MM
           MP1=MP-1
-          DO I=MP+1,N 
+          DO I=MP+1,N
              Z1(I)=Z1(I)+FJAC(I,MP1)*Z1(MP)
           END DO
           I=IPHES(MP)
@@ -902,12 +902,12 @@ C ---  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
           IF (I.EQ.MP) GOTO 746
           ZSAFE=Z2(MP)
           Z2(MP)=Z2(I)
-          Z2(I)=ZSAFE 
+          Z2(I)=ZSAFE
           ZSAFE=Z3(MP)
           Z3(MP)=Z3(I)
           Z3(I)=ZSAFE
  746      CONTINUE
-          DO I=MP+1,N 
+          DO I=MP+1,N
              E1IMP=FJAC(I,MP1)
              Z2(I)=Z2(I)-E1IMP*Z2(MP)
              Z3(I)=Z3(I)-E1IMP*Z3(MP)
@@ -917,7 +917,7 @@ C ---  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
        DO MM=1,N-2
           MP=N-MM
           MP1=MP-1
-          DO I=MP+1,N 
+          DO I=MP+1,N
              E1IMP=FJAC(I,MP1)
              Z2(I)=Z2(I)+E1IMP*Z2(MP)
              Z3(I)=Z3(I)+E1IMP*Z3(MP)
@@ -926,7 +926,7 @@ C ---  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
           IF (I.EQ.MP) GOTO 750
           ZSAFE=Z2(MP)
           Z2(MP)=Z2(I)
-          Z2(I)=ZSAFE 
+          Z2(I)=ZSAFE
           ZSAFE=Z3(MP)
           Z3(MP)=Z3(I)
           Z3(I)=ZSAFE
@@ -1222,12 +1222,12 @@ C ---  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
           Z1(I)=ZSAFE
           ZSAFE=Z2(MP)
           Z2(MP)=Z2(I)
-          Z2(I)=ZSAFE 
+          Z2(I)=ZSAFE
           ZSAFE=Z3(MP)
           Z3(MP)=Z3(I)
           Z3(I)=ZSAFE
  746      CONTINUE
-          DO I=MP+1,N 
+          DO I=MP+1,N
              E1IMP=FJAC(I,MP1)
              Z1(I)=Z1(I)-E1IMP*Z1(MP)
              Z2(I)=Z2(I)-E1IMP*Z2(MP)
@@ -1239,7 +1239,7 @@ C ---  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
        DO MM=1,N-2
           MP=N-MM
           MP1=MP-1
-          DO I=MP+1,N 
+          DO I=MP+1,N
              E1IMP=FJAC(I,MP1)
              Z1(I)=Z1(I)+E1IMP*Z1(MP)
              Z2(I)=Z2(I)+E1IMP*Z2(MP)
@@ -1252,7 +1252,7 @@ C ---  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
           Z1(I)=ZSAFE
           ZSAFE=Z2(MP)
           Z2(MP)=Z2(I)
-          Z2(I)=ZSAFE 
+          Z2(I)=ZSAFE
           ZSAFE=Z3(MP)
           Z3(MP)=Z3(I)
           Z3(I)=ZSAFE
@@ -1287,16 +1287,16 @@ C
 C
    1  CONTINUE
 C ------  B=IDENTITY, JACOBIAN A FULL MATRIX
-      DO  I=1,N 
+      DO  I=1,N
          F2(I)=HEE1*Z1(I)+HEE2*Z2(I)+HEE3*Z3(I)
          CONT(I)=F2(I)+Y0(I)
       END DO
-      CALL SOL (N,LDE1,E1,CONT,IP1) 
+      CALL SOL (N,LDE1,E1,CONT,IP1)
       GOTO 77
 C
   11  CONTINUE
 C ------  B=IDENTITY, JACOBIAN A FULL MATRIX, SECOND ORDER
-      DO I=1,N 
+      DO I=1,N
          F2(I)=HEE1*Z1(I)+HEE2*Z2(I)+HEE3*Z3(I)
          CONT(I)=F2(I)+Y0(I)
       END DO
@@ -1311,7 +1311,7 @@ C ------  B=IDENTITY, JACOBIAN A FULL MATRIX, SECOND ORDER
             END DO
          END DO
       END DO
-      CALL SOL (NM1,LDE1,E1,CONT(M1+1),IP1) 
+      CALL SOL (NM1,LDE1,E1,CONT(M1+1),IP1)
       DO I=M1,1,-1
          CONT(I)=(CONT(I)+CONT(M2+I))/FAC1
       END DO
@@ -1319,7 +1319,7 @@ C ------  B=IDENTITY, JACOBIAN A FULL MATRIX, SECOND ORDER
 C
    2  CONTINUE
 C ------  B=IDENTITY, JACOBIAN A BANDED MATRIX
-      DO I=1,N 
+      DO I=1,N
          F2(I)=HEE1*Z1(I)+HEE2*Z2(I)+HEE3*Z3(I)
          CONT(I)=F2(I)+Y0(I)
       END DO
@@ -1328,7 +1328,7 @@ C ------  B=IDENTITY, JACOBIAN A BANDED MATRIX
 C
   12  CONTINUE
 C ------  B=IDENTITY, JACOBIAN A BANDED MATRIX, SECOND ORDER
-      DO I=1,N 
+      DO I=1,N
          F2(I)=HEE1*Z1(I)+HEE2*Z2(I)+HEE3*Z3(I)
          CONT(I)=F2(I)+Y0(I)
       END DO
@@ -1362,7 +1362,7 @@ C ------  B IS A BANDED MATRIX, JACOBIAN A FULL MATRIX
          F2(I)=SUM
          CONT(I)=SUM+Y0(I)
       END DO
-      CALL SOL (N,LDE1,E1,CONT,IP1) 
+      CALL SOL (N,LDE1,E1,CONT,IP1)
       GOTO 77
 C
   13  CONTINUE
@@ -1434,7 +1434,7 @@ C ------  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX
          F2(I)=SUM
          CONT(I)=SUM+Y0(I)
       END DO
-      CALL SOL (N,LDE1,E1,CONT,IP1) 
+      CALL SOL (N,LDE1,E1,CONT,IP1)
       GOTO 77
 C
   15  CONTINUE
@@ -1464,7 +1464,7 @@ C ------  THIS OPTION IS NOT PROVIDED
 C
    7  CONTINUE
 C ------  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
-      DO I=1,N 
+      DO I=1,N
          F2(I)=HEE1*Z1(I)+HEE2*Z2(I)+HEE3*Z3(I)
          CONT(I)=F2(I)+Y0(I)
       END DO
@@ -1476,14 +1476,14 @@ C ------  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
          CONT(MP)=CONT(I)
          CONT(I)=ZSAFE
  310     CONTINUE
-         DO I=MP+1,N 
+         DO I=MP+1,N
             CONT(I)=CONT(I)-FJAC(I,MP-1)*CONT(MP)
          END DO
       END DO
       CALL SOLH(N,LDE1,E1,1,CONT,IP1)
       DO MM=1,N-2
          MP=N-MM
-         DO I=MP+1,N 
+         DO I=MP+1,N
             CONT(I)=CONT(I)+FJAC(I,MP-1)*CONT(MP)
          END DO
          I=IPHES(MP)
@@ -1516,7 +1516,7 @@ C
           GOTO (31,32,31,32,31,32,33,55,55,55,41,42,41,42,41), IJOB
 C ------ FULL MATRIX OPTION
   31      CONTINUE
-          CALL SOL(N,LDE1,E1,CONT,IP1) 
+          CALL SOL(N,LDE1,E1,CONT,IP1)
           GOTO 88
 C ------ FULL MATRIX OPTION, SECOND ORDER
  41      CONTINUE
@@ -1530,7 +1530,7 @@ C ------ FULL MATRIX OPTION, SECOND ORDER
                END DO
             END DO
          END DO
-         CALL SOL(NM1,LDE1,E1,CONT(M1+1),IP1) 
+         CALL SOL(NM1,LDE1,E1,CONT(M1+1),IP1)
          DO I=M1,1,-1
             CONT(I)=(CONT(I)+CONT(M2+I))/FAC1
          END DO
@@ -1566,14 +1566,14 @@ C ------ HESSENBERG MATRIX OPTION
              CONT(MP)=CONT(I)
              CONT(I)=ZSAFE
  510         CONTINUE
-             DO I=MP+1,N 
+             DO I=MP+1,N
                 CONT(I)=CONT(I)-FJAC(I,MP-1)*CONT(MP)
              END DO
           END DO
           CALL SOLH(N,LDE1,E1,1,CONT,IP1)
           DO MM=1,N-2
              MP=N-MM
-             DO I=MP+1,N 
+             DO I=MP+1,N
                 CONT(I)=CONT(I)+FJAC(I,MP-1)*CONT(MP)
              END DO
              I=IPHES(MP)
@@ -1585,7 +1585,7 @@ C ------ HESSENBERG MATRIX OPTION
           END DO
 C -----------------------------------
    88     CONTINUE
-          ERR=0.D0 
+          ERR=0.D0
           DO I=1,N
              ERR=ERR+(CONT(I)/SCAL(I))**2
           END DO
@@ -1623,7 +1623,7 @@ C ------  B=IDENTITY, JACOBIAN A FULL MATRIX
          FF(I+N)=SUM/H
          CONT(I)=FF(I+N)+Y0(I)
       END DO
-      CALL SOL (N,LDE1,E1,CONT,IP1) 
+      CALL SOL (N,LDE1,E1,CONT,IP1)
       GOTO 77
 C
   11  CONTINUE
@@ -1647,7 +1647,7 @@ C ------  B=IDENTITY, JACOBIAN A FULL MATRIX, SECOND ORDER
             END DO
          END DO
       END DO
-      CALL SOL (NM1,LDE1,E1,CONT(M1+1),IP1) 
+      CALL SOL (NM1,LDE1,E1,CONT(M1+1),IP1)
       DO I=M1,1,-1
          CONT(I)=(CONT(I)+CONT(M2+I))/FAC1
       END DO
@@ -1710,7 +1710,7 @@ C ------  B IS A BANDED MATRIX, JACOBIAN A FULL MATRIX
          FF(I+N)=SUM
          CONT(I)=SUM+Y0(I)
       END DO
-      CALL SOL (N,LDE1,E1,CONT,IP1) 
+      CALL SOL (N,LDE1,E1,CONT,IP1)
       GOTO 77
 C
   13  CONTINUE
@@ -1806,7 +1806,7 @@ C ------  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX
          FF(I+N)=SUM
          CONT(I)=SUM+Y0(I)
       END DO
-      CALL SOL (N,LDE1,E1,CONT,IP1) 
+      CALL SOL (N,LDE1,E1,CONT,IP1)
       GOTO 77
 C
   15  CONTINUE
@@ -1860,14 +1860,14 @@ C ------  B=IDENTITY, JACOBIAN A FULL MATRIX, HESSENBERG-OPTION
          CONT(MP)=CONT(I)
          CONT(I)=ZSAFE
  310     CONTINUE
-         DO I=MP+1,N 
+         DO I=MP+1,N
             CONT(I)=CONT(I)-FJAC(I,MP-1)*CONT(MP)
          END DO
       END DO
       CALL SOLH(N,LDE1,E1,1,CONT,IP1)
       DO MM=1,N-2
          MP=N-MM
-         DO I=MP+1,N 
+         DO I=MP+1,N
             CONT(I)=CONT(I)+FJAC(I,MP-1)*CONT(MP)
          END DO
          I=IPHES(MP)
@@ -1900,7 +1900,7 @@ C
           GOTO (31,32,31,32,31,32,33,55,55,55,41,42,41,42,41), IJOB
 C ------ FULL MATRIX OPTION
  31      CONTINUE
-         CALL SOL (N,LDE1,E1,CONT,IP1) 
+         CALL SOL (N,LDE1,E1,CONT,IP1)
           GOTO 88
 C ------ FULL MATRIX OPTION, SECOND ORDER
  41      CONTINUE
@@ -1914,7 +1914,7 @@ C ------ FULL MATRIX OPTION, SECOND ORDER
                END DO
             END DO
          END DO
-         CALL SOL (NM1,LDE1,E1,CONT(M1+1),IP1) 
+         CALL SOL (NM1,LDE1,E1,CONT(M1+1),IP1)
          DO I=M1,1,-1
             CONT(I)=(CONT(I)+CONT(M2+I))/FAC1
          END DO
@@ -1950,14 +1950,14 @@ C ------ HESSENBERG MATRIX OPTION
              CONT(MP)=CONT(I)
              CONT(I)=ZSAFE
  510         CONTINUE
-             DO I=MP+1,N 
+             DO I=MP+1,N
                 CONT(I)=CONT(I)-FJAC(I,MP-1)*CONT(MP)
              END DO
           END DO
           CALL SOLH(N,LDE1,E1,1,CONT,IP1)
           DO MM=1,N-2
              MP=N-MM
-             DO I=MP+1,N 
+             DO I=MP+1,N
                 CONT(I)=CONT(I)+FJAC(I,MP-1)*CONT(MP)
              END DO
              I=IPHES(MP)
@@ -1969,7 +1969,7 @@ C ------ HESSENBERG MATRIX OPTION
           END DO
 C -----------------------------------
   88      CONTINUE
-          ERR=0.D0 
+          ERR=0.D0
           DO I=1,N
              ERR=ERR+(CONT(I)/SCAL(I))**2
           END DO
@@ -2278,7 +2278,7 @@ C ---  HESSENBERG OPTION
          DEL(MP)=DEL(I)
          DEL(I)=ZSAFE
  110     CONTINUE
-         DO I=MP+1,N 
+         DO I=MP+1,N
             DEL(I)=DEL(I)-FJAC(I,MP1)*DEL(MP)
          END DO
       END DO
@@ -2286,7 +2286,7 @@ C ---  HESSENBERG OPTION
       DO MMM=1,N-2
          MP=N-MMM
          MP1=MP-1
-         DO I=MP+1,N 
+         DO I=MP+1,N
             DEL(I)=DEL(I)+FJAC(I,MP1)*DEL(MP)
          END DO
          I=IPHES(MP)

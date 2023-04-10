@@ -113,7 +113,7 @@ namespace samurai
             {
                 return (a || union_fn{}(dim, b...));
             }
-            return (a && not_fn{}(dim, b...));
+            return (a&& not_fn{}(dim, b...));
         }
 
         template <class... CT>

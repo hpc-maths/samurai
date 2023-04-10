@@ -1,56 +1,56 @@
       subroutine rock4(neqn,t,tend,h,y,f,atol,rtol,work,iwork,idid)
 c ----------------------------------------------------------
-c   
-c    Numerical solution of a (mildly) stiff system  
+c
+c    Numerical solution of a (mildly) stiff system
 c    of first order differential equations. ROCK4 is
 c    based on a family of 4th order explicit Runge-
-c    Kutta methods with nearly optimal stability domain 
-c    on the negative real axis. The numerical method is 
-c    based on a three-term recursion relation, and a 
+c    Kutta methods with nearly optimal stability domain
+c    on the negative real axis. The numerical method is
+c    based on a three-term recursion relation, and a
 c    composition of two sub-methods.
-c    The size (along the negative axis) of the stability 
+c    The size (along the negative axis) of the stability
 c    domains increases quadratically with the stage number.
-c          
+c
 c    Intended for problems of large dimensions with
 c    eigenvalues of the Jacobian close to the negative
 c    real axis. Typically for problems originating from
-c    parabolic PDEs.   
-c 
+c    parabolic PDEs.
 c
-c     
-c     
+c
+c
+c
 c    Author: A. Abdulle
 c            Universite de Geneve, Dept. de mathematiques
-c            Ch-1211 Geneve 24, Switzerland 
-c            e-mail: assyr.abdulle@math.unige.ch 
+c            Ch-1211 Geneve 24, Switzerland
+c            e-mail: assyr.abdulle@math.unige.ch
 c
-c    Version of April 2002  minor bug corrected 
+c    Version of April 2002  minor bug corrected
 c
 c    The analysis of the ROCK4 method is described in:
 c
-c    [ ] A. Abdulle 
+c    [ ] A. Abdulle
 c        Fourth order Chebyshev methods with
 c        recurrence relation
 c        To appear in SISC
 c        http://www.unige.ch/math/biblio/preprint/liste.html
-c      
-c     Input parameters  
-c     ----------------  
-c     NEQN:       Number of differential equations of the system 
+c
+c     Input parameters
+c     ----------------
+c     NEQN:       Number of differential equations of the system
 c                 (integer).
 c
 c     T:          Initial point of integration (double precision).
 c
-c     TEND:       End of the interval of integration, 
+c     TEND:       End of the interval of integration,
 c                 may be less than t (double precision)
 c
-c     H:          Initial step size guess 
+c     H:          Initial step size guess
 c                 (usually between 1d-4 and 1d-6).
 c
-c     Y(NEQN):    Initial value of the solution 
+c     Y(NEQN):    Initial value of the solution
 c                 (double precision array of length neqn).
 c
-c     F:          Name (external) of subroutine computing the value 
+c     F:          Name (external) of subroutine computing the value
 c                 of f(x,y). Must have the form
 c
 c                   subroutine f(neqn,t,y,dy)
@@ -60,63 +60,63 @@ c                   dy(1)=...
 c                   ...
 c                   dy(neqn)=...
 c                   return
-c                   end 
+c                   end
 c
-c                 Implementation:   
-c                 for stability issues when the problem 
-c                 is originating from parabolic PDEs, transforming 
+c                 Implementation:
+c                 for stability issues when the problem
+c                 is originating from parabolic PDEs, transforming
 c                 inhomogeneous boundary conditions in homogeneous ones
 c                 (by adding the appropriate function to the right-hand side)
 c                 may increase the performance of the code.
 c
 c
-c                 
-c     ATOL(*) :   Absolute and relative error tolerances 
+c
+c     ATOL(*) :   Absolute and relative error tolerances
 c     RTOL(*)     can be both scalar (double precision)
 c                 or vectors of length neqn (double precision).
 c
-c     RHO:        Name (external) of a function (double precision) 
-c                 giving the spectral radius of the Jacobian  
+c     RHO:        Name (external) of a function (double precision)
+c                 giving the spectral radius of the Jacobian
 c                 matrix of f at (t,y). Must have the form
-c                 
+c
 c                   double precision function rho(neqn,t,y)
 c                   double precision y(neqn),t
 c                   integer neqn
 c                   ...
-c                   rho=... 
+c                   rho=...
 c                   return
 c                   end
-c               
+c
 c                 N.b. Gerschgorin's theorem can be helpful. If the
-c                 Jacobian is known to be constant it should be  
+c                 Jacobian is known to be constant it should be
 c                 specified by setting iwork(2)=1 (see below).
 c
-c                 ROCK4 can also compute this estimate. In that 
-c                 case, provide a dummy function rho(neqn,t,y) 
+c                 ROCK4 can also compute this estimate. In that
+c                 case, provide a dummy function rho(neqn,t,y)
 c                 and set iwork(1)=0 (see below).
 c
 c                 If it is possible to give an estimate of
 c                 the spectral radius, it should be preferred to
 c                 the estimate computed internally by ROCK4.
 c
-c     IWORK(*):   Integer array of length 12 that gives information 
-c                 on how the problem is to be solved and communicates 
+c     IWORK(*):   Integer array of length 12 that gives information
+c                 on how the problem is to be solved and communicates
 c                 statistics about the integration process.
-c               
-c     IWORK(1):   =0 ROCK4 attempts to compute the spectral radius 
+c
+c     IWORK(1):   =0 ROCK4 attempts to compute the spectral radius
 c                    internally. Define a dummy function
 c
 c                    double precision function rho(neqn,t,y)
 c                    double precision y(neqn),t
 c                    integer neqn
-c                    rho=0.d0 
+c                    rho=0.d0
 c                    return
 c                    end
 c
-c                 =1 RHO returns an upper bound of the spectral 
+c                 =1 RHO returns an upper bound of the spectral
 c                    radius  of the Jacobian matrix of f at (t,y).
-c    
-c     IWORK(2):   =0 The Jacobian is not constant.                  
+c
+c     IWORK(2):   =0 The Jacobian is not constant.
 c                 =1 The Jacobian is constant
 c                    the function rho is called only once.
 c
@@ -137,14 +137,14 @@ c                   working space for the solution of
 c                   the ode.
 c                   Work(7*neqn+1),..,work(8*neqn)
 c                   serve as working space for the
-c                   internal computation of the 
+c                   internal computation of the
 c                   spectral radius of the Jacobian.
-c                   
+c
 c     IDID:         Report on successfulness upon return
 c                   (integer).
 c
 c
-c     Output parameters 
+c     Output parameters
 c     -----------------
 c     T:          T-value for which the solution has been computed
 c                 (after successful return t=tend).
@@ -159,7 +159,7 @@ c                    To continue call ROCK4 again without
 c                    altering any arguments.
 c                 =-1 invalid input parameters.
 c                 =-2 Stepsize becomes to small.
-c                 =-3 The method used in ROCK4 to estimate 
+c                 =-3 The method used in ROCK4 to estimate
 c                     the spectral radius did not converge.
 c
 c     IWORK(5)    =Number of function evaluations.
@@ -170,68 +170,68 @@ c     IWORK(9)    =Number of evaluations of f used
 c                 to estimate the spectral radius
 c                 (equal to zero if iwork(1)=1).
 c     IWORK(10)   =Maximum number of stages used.
-c     IWORK(11)   =Maximum value of the estimated 
-c                  bound for the spectral radius 
+c     IWORK(11)   =Maximum value of the estimated
+c                  bound for the spectral radius
 c                  (rounded to the nearest integer).
-c     IWORK(12)   =Minimum value of the estimated  
-c                  bound for the spectral radius 
+c     IWORK(12)   =Minimum value of the estimated
+c                  bound for the spectral radius
 c                  (rounded to the nearest integer).
-c                       
-c   
+c
+c
 c    Caution:     The variable UROUND (the rounding unit) is set to
 c    -------      1.0d-16 and may depends on the machines.
 c-------------------------------------------------------------------
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** 
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 c         Numerical method
 c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 c      The nearly optimal stability polynomial is computed
 c      as a product:  R_s(z)=P_{s-4}(z)*w(z).
 c      We realize this polynomial as a composition of two
-c      Runge-Kutta methods W(P), where the stability 
-c      polynomial of the method P is P_{s-4}(z) and the stability 
+c      Runge-Kutta methods W(P), where the stability
+c      polynomial of the method P is P_{s-4}(z) and the stability
 c      polynomial of the method W is w(z). The first s-4 stages
 c      possess a three-term recurrence formula.
 c
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** 
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 c         Stability functions and three-term recurrence relation
 c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-c     
+c
 c     The stability functions: R_j(z)=P_{j-4}(z)  (internal j<=ms-4)
-c                             R_{ms}=P_{s-4}(z)*w(z) ( absolute) 
-c                             w(z)=1+a_1*z+a_2*z^2+a_3*z^3+a_4*z^4 
-c                 
+c                             R_{ms}=P_{s-4}(z)*w(z) ( absolute)
+c                             w(z)=1+a_1*z+a_2*z^2+a_3*z^3+a_4*z^4
+c
 c     P_j(z) orthogonal with respect to w(z)^2/sqrt{1-x^2}
-c     
-c     Recurrence formula: 
-c     
-c     P_j(z)=(a_j*z-b_j)*P_{j-1}(z)-c_j*P_{j-2}(z) 
+c
+c     Recurrence formula:
+c
+c     P_j(z)=(a_j*z-b_j)*P_{j-1}(z)-c_j*P_{j-2}(z)
 c                 j=1..ms-4 b_1=-1,c_1=0
 c
-c     Normalization: P_(0)=1  =>b_{j}=-(1+c_{j}) 
+c     Normalization: P_(0)=1  =>b_{j}=-(1+c_{j})
 c
 c     Runge-Kutta formula:
 c
-c     g_j(z)=a_{j}*f(g_{j-1})-b_{j}*g_{j-1}-c_{j}*g_{j-2} j=1..ms-4 
+c     g_j(z)=a_{j}*f(g_{j-1})-b_{j}*g_{j-1}-c_{j}*g_{j-2} j=1..ms-4
 c
 c     Data (rec. param.): rec(i)= a_1,a_2,c_2,a_3,c_3,.,a_(ms-4),
-c                          c_(ms-4)  for ms=1,3,5,..  
+c                          c_(ms-4)  for ms=1,3,5,..
 c
 c     The finishing procedure:
-c     
+c
 c     g_{s-3}=g_{s-4} + h*a_{2,1}*f(g_{s-4}
 c     g_{s-2}=g_{s-4} + h*(a_{3,1}*f(g_{s-4}+a_{3,2}*f(g_{s-3})
 c     g_{s-1}=g_{s-4} + h*(a_{4,1}*f(g_{s-4}
 c                     + a_{4,2}*f(g_{s-3}a_{4,3}*f(g_{s-2})
 c     y1:=g_{s}=g_{s-4} h*(b_1*f(g_{s-4}+b_2*f(g_{s-3}+
 c     b_3*f(g_{s-2})+b_4*f(g_{s-1})
-c     
+c
 c     Embedded method:
 c
 c     y1e:=g_{s}=g_{s-4} h*(be_1*f(g_{s-4}+be_2*f(g_{s-3}+
 c     be_3*f(g_{s-2})+be_4*f(g_{s-1}+be_5*f(y_1))
-c 
-c     Data (finish. proced.):fpa(i,j)=a_ij,fpb(i)=b_i,fpbe(i)=be_i 
-c                             i=1,.,4 j=1,.,i-1  for ms=1,3,5,..     
+c
+c     Data (finish. proced.):fpa(i,j)=a_ij,fpb(i)=b_i,fpbe(i)=be_i
+c                             i=1,.,4 j=1,.,i-1  for ms=1,3,5,..
 c
 c     Chosen degrees: s=5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,
 c     26,28,30,32,34,36,38,40,42,45,48,51,54,57,60,63,67,71,75,
@@ -239,24 +239,24 @@ c     80,85,90,96,102,109,116,124,133,142,152  ms=s-4
 c
 c------------------------------------------------------------------
 c
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***          
-c             Declarations 
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+c             Declarations
 c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 c
       double precision y(neqn),work(*),atol(*),rtol(*),
      & t,tend,h,uround,recf(4382),fpa(50,6),fpb(50,4),
-     & fpbe(50,5)       
+     & fpbe(50,5)
       integer iwork(12),ms(50),neqn,i,j,n1,n2,n3,n4,n5,
      & n6,n7,ntol,idid
       logical arret
-      external f     
+      external f
 c -------- Uround: smallest number satisfying 1.d0+uround>1.d0
-      data uround/1.0d-16/ 
-c             
+      data uround/1.0d-16/
+c
 c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 c             Data of the stability polynomials
 c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-c -------- Degrees ---------------------------------------------------- 
+c -------- Degrees ----------------------------------------------------
        data ms/1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,
      & 22,24,26,28,30,32,34,36,38,41,44,47,50,53,56,59,63,67,71,
      & 76,81,86,92,98,105,112,120,129,138,148/
@@ -336,7 +336,7 @@ c -------- Parameters of the finishing procedure.----------------------
      &-.117020809344219D+00,0.508234853606851D+00,-.283411245544839D+00,
      &-.225511383509412D-01,-.804255449961079D-02,0.480240908974576D+00,
      &-.116840110106662D+00,0.508513931927332D+00,-.283708061860511D+00,
-     &-.228054436800931D-01,-.784157438541911D-02,0.480258758199155D+00/      
+     &-.228054436800931D-01,-.784157438541911D-02,0.480258758199155D+00/
       data ((fpa(i,j),j=1,6),i=37,45)/
      &-.116999141776097D+00,0.507738965363869D+00,-.283085550597818D+00,
      &-.223557928014705D-01,-.817646181729438D-02,0.479839084150866D+00,
@@ -345,7 +345,7 @@ c -------- Parameters of the finishing procedure.----------------------
      &-.116543053242319D+00,0.508649023059358D+00,-.283975543942050D+00,
      &-.230858609767789D-01,-.760742817737876D-02,0.480040247388773D+00,
      &-.116369877848172D+00,0.508950670881779D+00,-.284284071372858D+00,
-     &-.233448484372084D-01,-.740387836067644D-02,0.480081925815726D+00, 
+     &-.233448484372084D-01,-.740387836067644D-02,0.480081925815726D+00,
      &-.115981831952477D+00,0.509942937789055D+00,-.285192892337194D+00,
      &-.240615204888854D-01,-.685134671736066D-02,0.480412958109969D+00,
      &-.115934409239879D+00,0.509932625794726D+00,-.285214065725890D+00,
@@ -367,7 +367,7 @@ c -------- Parameters of the finishing procedure.----------------------
      &-.291406743553601D-01,-.292560575875699D-02,0.482899951273987D+00,
      &-.112938370080633D+00,0.518440212713205D+00,-.292882869228272D+00,
      &-.300502325911247D-01,-.222188377341845D-02,0.483386803334408D+00/
-c      
+c
       data ((fpb(i,j),j=1,4),i=1,12)/
      &0.934502625489809D+00,-.426556402801135D+00,-.428612609028723D+00,
      &0.744370090574855D+00,0.727428506710284D+00,-.281882500610754D+00,
@@ -2046,11 +2046,11 @@ c ------- Recurrence parameters.------------------------------------
      &.4649211971655587D-03,.9060838340132801D+00,.4655237774111018D-03,
      &.9084558761162183D+00,.4661652880954744D-03,.9109829176962647D+00,
      &.4668480955879464D-03,.9136748776971255D+00/
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** 
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 c             initializations
 c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
       arret=.false.
-c -------- Prepare the entry-points for the arrays in work.--------     
+c -------- Prepare the entry-points for the arrays in work.--------
       n1=1
       n2=n1+neqn
       n3=n2+neqn
@@ -2058,19 +2058,19 @@ c -------- Prepare the entry-points for the arrays in work.--------
       n5=n4+neqn
       n6=n5+neqn
       n7=n6+neqn
-c -------- Test the initial step size and tolerances.--------      
+c -------- Test the initial step size and tolerances.--------
       if (h.gt.abs(tend-t)) then
         write(6,*)'initial step is longer than the integration interval'
         arret=.true.
         idid=-1
         return
-      end if  
+      end if
       if (h.lt.10.d0*uround) then
         write(6,*)'initial step-size is too small'
         idid=-1
         arret=.true.
         return
-      end if 
+      end if
       if (iwork(4).eq.0) then
         ntol=0
         if (atol(1).le.0.d0.or.rtol(1).le.10.d0*uround) then
@@ -2105,7 +2105,7 @@ c
      & arret,uround,idid)
 c ----------------------------------------------
 c    Core integrator for ROCK4.
-c ---------------------------------------------- 
+c ----------------------------------------------
 c             Declarations
 c ----------------------------------------------
        double precision y(*),yn(*),fn(*),fnt(neqn),work(*),
@@ -2116,15 +2116,15 @@ c ----------------------------------------------
      & nrho,mdego,nrej,idid
        logical last,reject,arret
        external f
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** 
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 c             initializations
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***  
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
       iwork(5)=0
       iwork(6)=0
       iwork(7)=0
       iwork(8)=0
       iwork(9)=0
-      iwork(10)=0      
+      iwork(10)=0
       iwork(11)=0
       iwork(12)=0
       facmax=5.d0
@@ -2133,21 +2133,21 @@ c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
       hp=h
       mdego=0
       last=.false.
-      reject=.false. 
+      reject=.false.
       err=0.d0
       nrho=0
       idid=1
-c -------- initialization of the integration step.-------- 
+c -------- initialization of the integration step.--------
 10    if (iwork(6).ne.0) then
         do i=1,neqn
           yn(i)=y(i)
           fn(i)=fnt(i)
-        end do 
+        end do
                else
         do i=1,neqn
           yn(i)=y(i)
         end do
-      call f(neqn,t,yn,fn) 
+      call f(neqn,t,yn,fn)
       end if
       iwork(5)=iwork(5)+1
       errp=err
@@ -2165,27 +2165,27 @@ c -------- Step-size is adjusted.--------
 c -------- Spectral radius.--------
       if (nrho.eq.0) then
         if (iwork(6).eq.0.or.iwork(2).eq.0) then
-c ------- Computed externally by rho.-------- 
+c ------- Computed externally by rho.--------
           if (iwork(1).eq.1) then
             eigmax=rho(neqn,t,yn)
-            if (idnint(eigmax).gt.iwork(11)) 
+            if (idnint(eigmax).gt.iwork(11))
      &         iwork(11)=idnint(eigmax)
             if (iwork(6).eq.0) iwork(12)=iwork(11)
-            if (idnint(eigmax).lt.iwork(12)) 
+            if (idnint(eigmax).lt.iwork(12))
      &         iwork(12)=idnint(eigmax)
-c ------- Computed internally by rockfrho.--------    
+c ------- Computed internally by rockfrho.--------
                              else
             call rockfrho(neqn,t,y,f,yn,fn,work,yjm1,
      &                   yjm2,eigmax,uround,idid,iwork)
-            if (idnint(eigmax).gt.iwork(11)) 
+            if (idnint(eigmax).gt.iwork(11))
      &         iwork(11)=idnint(eigmax)
             if (iwork(6).eq.0) iwork(12)=iwork(11)
-            if (idnint(eigmax).lt.iwork(12)) 
+            if (idnint(eigmax).lt.iwork(12))
      &         iwork(12)=idnint(eigmax)
           end if
         end if
       end if
-c -------- The number of stages.-------- 
+c -------- The number of stages.--------
        mdeg=sqrt((3.d0+h*eigmax)/0.353d0)+1
       if (mdeg.gt.152) then
         h=0.8d0*(152.d0**2*0.353d0-3.d0)/eigmax
@@ -2201,7 +2201,7 @@ c -------- Computation of an integration step.--------
       call rfstep(neqn,t,h,y,f,yn,fn,fnt,yjm1,yjm2,yjm3,yjm4,
      & mdeg,mp,err,atol,rtol,ntol,recf,fpa,fpb,fpbe)
       mdego=mdeg
-      iwork(6)=iwork(6)+1 
+      iwork(6)=iwork(6)+1
       iwork(5)=iwork(5)+mdeg+4
 c -------- Error control procedure.--------
       fac=(1.d0/err)**(0.25d0)
@@ -2211,7 +2211,7 @@ c -------- Error control procedure.--------
       end if
       if (reject) then
         facmax=1.d0
-      end if  
+      end if
       fac=dmin1(facmax,dmax1(0.1d0,0.8d0*fac))
       hnew=h*fac
 c -------- Accepted step.--------
@@ -2229,7 +2229,7 @@ c -------- Accepted step.--------
         h=hnew
         nrho=nrho+1
         nrho=mod(nrho+1,10)
-        if (last) then 
+        if (last) then
           return
         elseif (iwork(3).eq.1) then
           if (idid.eq.1) idid=2
@@ -2238,39 +2238,39 @@ c -------- Accepted step.--------
         else
           goto 10
         end if
-                   else            
+                   else
 c -------- Rejected step.--------
         iwork(8)=iwork(8)+1
         reject= .true.
         last=.false.
         h= 0.8d0*hnew
         if (iwork(6).eq.0) h=0.1d0*h
-        if (told.eq.t) then 
+        if (told.eq.t) then
           nrej=nrej+1
           if (nrej.eq.10) h=1.0d-5
         end if
-        told=t      
-c -------The spectral radius is recomputed.-------- 
+        told=t
+c -------The spectral radius is recomputed.--------
 c        after a step failure
-        if (nrho.ne.0) then 
+        if (nrho.ne.0) then
           nrho=0
                        else
           nrho=1
         end if
         goto 20
-      end if        
-      return      
+      end if
+      return
       end
 c ----------------------------------------------
 c     End of subroutine rockcore.
-c ---------------------------------------------- 
-c        
+c ----------------------------------------------
+c
       subroutine rfstep(neqn,t,h,y,f,yn,fn,fnt,yjm1,yjm2,yjm3,
      & yjm4,mdeg,mp,err,atol,rtol,ntol,recf,fpa,fpb,fpbe)
 c ----------------------------------------------
 c  Solut. at t+h by an explicit (mdeg+4)-stages formula.
 c-----------------------------------------------
-c ---------------------------------------------- 
+c ----------------------------------------------
 c             Declarations
 c ----------------------------------------------
        double precision y(neqn),yn(neqn),fn(neqn),fnt(neqn),
@@ -2279,7 +2279,7 @@ c ----------------------------------------------
      & h,ci1,ci2,ci3,temp1,temp2,temp3,temp4,temp5,ato,rto
        integer mp(2),neqn,mdeg,mr,mz,i,j,ntol
        external f
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** 
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 c             initializations
 c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
       err=0.d0
@@ -2310,19 +2310,19 @@ c -------- Shift the value "y" for the next stage.--------
           if (i.lt.mdeg) then
             yjm2(j)=yjm1(j)
             yjm1(j)=y(j)
-          end if 
+          end if
         end do
         ci3=ci2
         ci2=ci1
-      end do          
+      end do
 c -------- The finishing procedure (4-stage method).
-c -------- Stage 1.--------  
+c -------- Stage 1.--------
       temp1=h*fpa(mz,1)
       call f(neqn,ci1,y,yjm1)
       do j=1,neqn
         yjm3(j)=y(j)+temp1*yjm1(j)
       end do
-c -------- Stage 2.--------    
+c -------- Stage 2.--------
       ci2=ci1+temp1
       temp1=h*fpa(mz,2)
       temp2=h*fpa(mz,3)
@@ -2375,29 +2375,29 @@ c -------- Atol and rtol are array.--------
         end do
       end if
       err=sqrt(err/neqn)
-      return 
+      return
       end
 c ----------------------------------------------
 c     End of subroutine rfstep.
-c ----------------------------------------------   
-c    
+c ----------------------------------------------
+c
       subroutine mdegre(mdeg,mp,ms)
-c-------------------------------------------------------------          
+c-------------------------------------------------------------
 c       Find the optimal degree.
 c       MP(1): pointer which select the degree in ms(i)\1,2,..
 c             such that mdeg<=ms(i).
 c       MP(2): pointer which gives the corresponding position
-c       of a_1 in the data recf for the selected degree.        
-c------------------------------------------------------------- 
-c ---------------------------------------------- 
+c       of a_1 in the data recf for the selected degree.
+c-------------------------------------------------------------
+c ----------------------------------------------
 c             Declarations
 c ----------------------------------------------
       integer ms(50),mp(2),mdeg,i
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** 
-c             initializations 
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***     
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+c             initializations
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
       mp(2)=1
-c -------- Find the degree.--------      
+c -------- Find the degree.--------
       do i=1,50
         if ((ms(i)/mdeg).ge.1) then
           mdeg=ms(i)
@@ -2407,17 +2407,17 @@ c -------- Find the degree.--------
       mp(2)=mp(2)+ms(i)*2-1
       end do
       return
-      end   
+      end
 c ----------------------------------------------
 c     End of subroutine mdegr.
 c ----------------------------------------------
-c   
+c
       subroutine rockfrho(neqn,t,y,f,yn,fn,work,z,fz,eigmax,
      &                   uround,idid,iwork)
-c------------------------------------------------------------ 
+c------------------------------------------------------------
 c     Rockfrho compute eigmax, a close upper bound of the
-c     spectral radius of the Jacobian matrix using a 
-c     power method (J.N. Franklin (matrix theory)). 
+c     spectral radius of the Jacobian matrix using a
+c     power method (J.N. Franklin (matrix theory)).
 c     The algorithm used is a small change (initial vector
 c     and stopping criteria) of that of
 c     Sommeijer-Shampine-Verwer, implemented in RKC.
@@ -2428,21 +2428,21 @@ c-------------------------------------------------------------
      & work(*),fz(neqn),t,eigmax,eigmaxo,sqrtu,uround,znor,
      & ynor,quot,dzyn,dfzfn,safe
        integer iwork(12),neqn,n8,i,iter,maxiter,nind,ntest,
-     & ind,idid  
+     & ind,idid
        parameter (maxiter=50)
        parameter (safe=1.2d0)
        external f
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** 
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 c             initializations
-c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***     
+c *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
       sqrtu=sqrt(uround)
       ynor=0.d0
       znor=0.d0
       n8=7*neqn
 c ------ The initial vectors for the power method are yn --------
-c       and yn+c*f(v_n), where vn=f(yn) a perturbation of yn 
+c       and yn+c*f(v_n), where vn=f(yn) a perturbation of yn
 c       (if iwork(6)=0) or a perturbation of the last computed
-c       eigenvector (if iwork(6).neq.0). 
+c       eigenvector (if iwork(6).neq.0).
 c
       if (iwork(6).eq.0) then
         do i=1,neqn
@@ -2463,7 +2463,7 @@ c ------ Perturbation.--------
       ynor=sqrt(ynor)
       znor=sqrt(znor)
 c ------ Normalization of the vector z so that --------
-c        the difference z-yn lie in a circle 
+c        the difference z-yn lie in a circle
 c        around yn (i.e has a constant modulus).
 c
       if (ynor.ne.0.d0.and.znor.ne.0.d0) then
@@ -2502,20 +2502,20 @@ c ------ Start the power method.--------
         eigmaxo=eigmax
         eigmax=dfzfn/dzyn
         eigmax=safe*eigmax
-c ------ The stopping criteria is based on a 
+c ------ The stopping criteria is based on a
 c        relative error between two succesive
 c        estimation ``eigmax'' of the spectral
-c        radius. 
+c        radius.
 c
         if (iter.ge.2.and.dabs(eigmax-eigmaxo)
      &    .le.(eigmax*0.05d0)) then
-c ----- The last eigenvector is stored.-------- 
+c ----- The last eigenvector is stored.--------
           do i=1,neqn
             work(n8+i)=z(i)-yn(i)
           end do
           return
         end if
-c ----- The next z is defined by -------- 
+c ----- The next z is defined by --------
 c       z_new=yn+coef*(fz-fn) where
 c       coef is choosen so that
 c       norm(z_new-yn)=norm(z_old-yn)
@@ -2535,13 +2535,13 @@ c
           ind=1+mod(iter,nind)
           if (z(ind).ne.yn(ind).or.ntest.eq.10) then
             z(ind)=yn(ind)-(z(ind)-yn(ind))
-          else 
+          else
             nind=neqn+ind
             ntest=ntest+1
           end if
         end if
       end do
-      write(6,*) 'convergence failure in the 
+      write(6,*) 'convergence failure in the
      & spectral radius computation'
       idid=-3
       return

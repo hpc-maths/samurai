@@ -27,7 +27,7 @@ We choose to number the cells from the coarsest to the finest level navigating f
     :width: 80%
     :align: center
 
-In the end, a field is stored in a contiguous linear data structure such as a 1D array. 
+In the end, a field is stored in a contiguous linear data structure such as a 1D array.
 The size of this array is the size of the sum of each interval size in the x-direction.
 
 Since the cells belonging to the same intervals are contiguous in the x-direction, we will use the index defined by the `@` operator in the intervals in the x-directions (one scalar per interval is sufficient) to create the link between `field(level, i)` and the cells.
@@ -38,8 +38,8 @@ For example, we have
 - `field(0, 0)` is the entry `0` and pertains to the interval :math:`[0, 2[`,
 - `field(2, 14)` is the entry `8` and pertains to the interval :math:`[14, 16[`.
 
-Using @index, we want to find the entry associated to a given interval. 
-The interval :math:`[14, 16[` at level 2 is connected to the entries :math:`[8, 9]` in the field array. 
+Using @index, we want to find the entry associated to a given interval.
+The interval :math:`[14, 16[` at level 2 is connected to the entries :math:`[8, 9]` in the field array.
 Therefore, if we choose @index equal to `-6` we can easily find the entries in the field array from the interval in the x-direction by summing the index with the start of the interval it refers to.
 That is
 
@@ -104,8 +104,8 @@ The whole :cpp:class:`samurai::CellArray` is given by
 The construction of a field
 ---------------------------
 
-The construction of a field is made using a :cpp:class:`samurai::CellArray` or a derived class from :cpp:class:`samurai::Mesh`.  
-:cpp:class:`samurai::Mesh` is used to describe grids with several :cpp:class:`samurai::CellArray` and offers useful methods such as :cpp_code::`operator[]`, :cpp_code::`nb_cells`, ... 
+The construction of a field is made using a :cpp:class:`samurai::CellArray` or a derived class from :cpp:class:`samurai::Mesh`.
+:cpp:class:`samurai::Mesh` is used to describe grids with several :cpp:class:`samurai::CellArray` and offers useful methods such as :cpp_code::`operator[]`, :cpp_code::`nb_cells`, ...
 We shall describe more precisely how to use it in a next tutorial.
 
 The example below shows how to initialize a vectorial field of type `double` with 2 components, over a mesh `mesh`.
@@ -129,26 +129,26 @@ The first one is to use a :cpp:class:`samurai::Cell` together with the `[]` oper
 
     u[cell] = ...;
 
-:cpp:class:`samurai::Cell` is defined by the level, the integer coordinates of the cell and the index where we can find this cell into the field. 
-For more information see the dedicated part in the first tutorial (:ref:`cell`). 
-Generally, we do not have to create a cell using the constructor of :cpp_code:`samurai::Cell<coord_index_t, dim>`. 
+:cpp:class:`samurai::Cell` is defined by the level, the integer coordinates of the cell and the index where we can find this cell into the field.
+For more information see the dedicated part in the first tutorial (:ref:`cell`).
+Generally, we do not have to create a cell using the constructor of :cpp_code:`samurai::Cell<coord_index_t, dim>`.
 We can use algorithms that perform a loop over the cells of the mesh as we will see in the next tutorial (:doc:`algorithm`).
 
-The second way is to access the elements of the field as if we were on a cartesian grid. 
+The second way is to access the elements of the field as if we were on a cartesian grid.
 Let us give an example to better understand how it works
 
 .. code-block:: c++
 
     u(level, i, j) = ...
 
-If we forget the level attribute for a moment, we observe that we can access the data of the field by using the indices `i`, `j`, `k` as we would do on a code for a uniform structured mesh. 
-Here, the level is needed to know where the indices live: `i=1` at level `0` is completely different from `i=1` at level `10`. 
-The other difference is that the parameter `i` is not a scalar but an interval. 
-Contrarily, the other indices (`j`, `k`, ...) are scalars. 
+If we forget the level attribute for a moment, we observe that we can access the data of the field by using the indices `i`, `j`, `k` as we would do on a code for a uniform structured mesh.
+Here, the level is needed to know where the indices live: `i=1` at level `0` is completely different from `i=1` at level `10`.
+The other difference is that the parameter `i` is not a scalar but an interval.
+Contrarily, the other indices (`j`, `k`, ...) are scalars.
 Therefore, :cpp_code:`u(level, i, j)` is an array of the size of the interval `i`.
 
-The operation `u(level, i, j)` returns a `xtensor view <https://xtensor.readthedocs.io/en/latest/view.html>`_ of the field where the values for the interval `i` in the x-direction, `j` in the y-direction at level are stored. 
-It means that we can use lazy expressions (evaluated eventually in time) as in `xtensor <https://xtensor.readthedocs.io>`_ to update the data. 
+The operation `u(level, i, j)` returns a `xtensor view <https://xtensor.readthedocs.io/en/latest/view.html>`_ of the field where the values for the interval `i` in the x-direction, `j` in the y-direction at level are stored.
+It means that we can use lazy expressions (evaluated eventually in time) as in `xtensor <https://xtensor.readthedocs.io>`_ to update the data.
 The library `xtensor` offers an API very close to NumPy as described here: `From numpy to xtensor <https://xtensor.readthedocs.io/en/latest/numpy.html>`_.
 
 For example
@@ -160,7 +160,7 @@ For example
     auto y = dx * j;
     u(level, i, j) = xt::cos(x)*xt::sin(y);
 
-where `x` is a vector of the size of the interval and `y` is a scalar. 
+where `x` is a vector of the size of the interval and `y` is a scalar.
 Remember that the field `u` has two components, thus if they are left unspecified, this expression is applied to them both.
 
 If we want to apply this expression only to one component, we can add a parameter at the beginning to specify which one we want to modify
