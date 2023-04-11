@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+#include "CLI/CLI.hpp"
 #include <iostream>
 #include <samurai/amr/mesh.hpp>
 #include <samurai/bc.hpp>
@@ -12,11 +13,6 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
 #include <samurai/reconstruction.hpp>
-
-static char help[] = "Solution of the Stokes problem in the domain [0,1]^2.\n"
-                     "Important: use argument '-fieldsplit_pressure_pc_type none' for the stationary problem,\n"
-                     "                        '-fieldsplit_pressure_np1_pc_type none' for the non stationary problem.\n"
-                     "\n";
 
 static constexpr double pi = M_PI;
 
@@ -96,72 +92,67 @@ int main(int argc, char* argv[])
     // using Mesh = samurai::amr::Mesh<Config>;
     using Config          = samurai::MRConfig<dim, 1>;
     using Mesh            = samurai::MRMesh<Config>;
-    constexpr bool is_soa = false;
-
-    //------------------//
-    // Petsc initialize //
-    //------------------//
-
-    PetscInitialize(&argc, &argv, 0, help);
-
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
+    constexpr bool is_soa = true;
 
     //----------------//
     //   Parameters   //
     //----------------//
 
-    // Default values
-    PetscInt min_level      = 2;
-    PetscInt max_level      = 2;
-    PetscBool save_solution = PETSC_FALSE;
-    PetscBool save_mesh     = PETSC_FALSE;
-    fs::path path           = fs::current_path();
-    std::string filename    = "velocity";
+    bool stationary   = false;
+    double diff_coeff = 1. / 100;
 
-    // Get user options
-    PetscOptionsGetInt(NULL, NULL, "--min-level", &min_level, NULL);
-    PetscOptionsGetInt(NULL, NULL, "--max-level", &max_level, NULL);
+    std::size_t min_level = 2;
+    std::size_t max_level = 2;
+    double Tf             = 1.;
+    double dt             = Tf / 100;
 
-    PetscOptionsGetBool(NULL, NULL, "--save_sol", &save_solution, NULL);
-    PetscOptionsGetBool(NULL, NULL, "--save_mesh", &save_mesh, NULL);
+    double mr_epsilon    = 1e-1; // Threshold used by multiresolution
+    double mr_regularity = 3;    // Regularity guess for multiresolution
+    std::size_t nfiles   = 50;
 
-    PetscBool path_is_set = PETSC_FALSE;
-    std::string path_str(100, '\0');
-    PetscOptionsGetString(NULL, NULL, "--path", path_str.data(), path_str.size(), &path_is_set);
-    if (path_is_set)
+    fs::path path        = fs::current_path();
+    std::string filename = "velocity";
+    bool save_solution   = false;
+
+    CLI::App app{"Stokes problem"};
+    app.add_flag("--stationary", stationary, "Solves the stationary problem")->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
+        ->capture_default_str()
+        ->group("Multiresolution");
+    app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
+        ->capture_default_str()
+        ->group("Multiresolution");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    // app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.allow_extras();
+    CLI11_PARSE(app, argc, argv);
+
+    if (!fs::exists(path))
     {
-        path = path_str.substr(0, path_str.find('\0'));
-        if (!fs::exists(path))
-        {
-            fs::create_directory(path);
-        }
+        fs::create_directory(path);
     }
 
-    PetscBool filename_is_set = PETSC_FALSE;
-    std::string filename_str(100, '\0');
-    PetscOptionsGetString(NULL, NULL, "--filename", filename_str.data(), filename_str.size(), &filename_is_set);
-    if (path_is_set)
-    {
-        filename = filename_str.substr(0, filename_str.find('\0'));
-    }
+    PetscInitialize(&argc, &argv, 0, nullptr);
+
+    PetscMPIInt size;
+    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
+    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
+    PetscOptionsSetValue(NULL, "-options_left", "off"); // disable warning for unused options
 
     auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
     // auto mesh = Mesh(box, start_level, min_level, max_level); // amr::Mesh
     auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level)); // MRMesh
-
-    bool stationary = false;
 
     //--------------------//
     // Stationary problem //
     //--------------------//
     if (stationary)
     {
-        //----------------//
-        // Create problem //
-        //----------------//
-
         // 2 equations: -Lap(v) + Grad(p) = f
         //              -Div(v)           = 0
         // where v = velocity
@@ -195,13 +186,18 @@ int main(int argc, char* argv[])
                 })
             .everywhere();
 
-        // Block operator
-        auto diff_v      = samurai::petsc::make_diffusion_FV(velocity);
-        auto grad_p      = samurai::petsc::make_gradient_FV(pressure);
-        auto minus_div_v = -1 * samurai::petsc::make_divergence_FV(velocity);
-        auto zero_p      = samurai::petsc::make_zero_operator_FV<1>(pressure);
+        // clang-format off
 
-        auto stokes = samurai::petsc::make_block_operator<2, 2>(diff_v, grad_p, minus_div_v, zero_p);
+        // Block operator
+        auto diff_v      =      samurai::petsc::make_diffusion_FV(velocity);
+        auto grad_p      =      samurai::petsc::make_gradient_FV(pressure);
+        auto minus_div_v = -1 * samurai::petsc::make_divergence_FV(velocity);
+        auto zero_p      =      samurai::petsc::make_zero_operator_FV<1>(pressure);
+
+        auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p, 
+                                                                minus_div_v, zero_p);
+
+        // clang-format on
 
         // Right-hand side
         auto f    = samurai::make_field<double, dim, is_soa>("f",
@@ -217,22 +213,15 @@ int main(int argc, char* argv[])
         auto zero = samurai::make_field<double, 1, is_soa>("zero", mesh);
         zero.fill(0);
 
-        //-------------------//
-        //   Linear solver   //
-        //-------------------//
-
+        // Linear solver
         std::cout << "Solving Stokes system..." << std::endl;
         auto block_solver = samurai::petsc::make_block_solver(stokes);
         configure_petsc_solver(block_solver);
         block_solver.solve(f, zero);
         std::cout << block_solver.iterations() << " iterations" << std::endl << std::endl;
 
-        //--------------------//
-        //       Error        //
-        //--------------------//
-
+        // Error
         std::cout.precision(2);
-
         double error = diff_v.L2Error(velocity,
                                       [](auto& coord)
                                       {
@@ -242,13 +231,9 @@ int main(int argc, char* argv[])
                                           auto v_y      = -v_x;
                                           return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
                                       });
-
         std::cout << "L2-error on the velocity: " << std::scientific << error << std::endl;
 
-        //--------------------//
-        //   Save solution    //
-        //--------------------//
-
+        // Save solution
         if (save_solution)
         {
             std::cout << "Saving solution..." << std::endl;
@@ -287,21 +272,16 @@ int main(int argc, char* argv[])
         }
         block_solver.destroy_petsc_objects();
     }
+
     //------------------------//
     // Non stationary problem //
     //------------------------//
     else
     {
-        //----------------//
-        // Create problem //
-        //----------------//
-
         // 2 equations: v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = dt*f_n + v_n
         //                                        Div(v_np1)                = 0
         // where v = velocity
         //       p = pressure
-
-        double diff_coeff = 1. / 100;
 
         // Unknowns
         auto velocity     = samurai::make_field<double, dim, is_soa>("velocity", mesh);
@@ -360,19 +340,9 @@ int main(int argc, char* argv[])
         velocity_np1.fill(0);
         pressure_np1.fill(0);
 
-        //--------------------//
-        //   Time iteration   //
-        //--------------------//
-
-        double Tf = 1.;
-        double dt = Tf / 100;
-
-        double mr_epsilon    = 1e-1; // Threshold used by multiresolution
-        double mr_regularity = 3;    // Regularity guess for multiresolution
+        // Time iteration
 
         auto MRadaptation = samurai::make_MRAdapt(velocity);
-
-        std::size_t nfiles = 50;
 
         samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
         double dt_save    = dt; // Tf/static_cast<double>(nfiles);
@@ -459,11 +429,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    //--------------------//
-    //     Finalize       //
-    //--------------------//
-
     PetscFinalize();
-
     return 0;
 }
