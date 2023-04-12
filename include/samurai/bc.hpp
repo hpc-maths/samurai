@@ -74,6 +74,18 @@ namespace samurai
 
         template <class T, std::size_t size>
         using return_type_t = typename return_type<T, size>::type;
+
+        template <class T, std::size_t size>
+        void fill(xt::xtensor_fixed<T, xt::xshape<size>>& data, T value)
+        {
+            data.fill(value);
+        }
+
+        template <class T>
+        void fill(T& data, T value)
+        {
+            data = value;
+        }
     }
 
     ////////////////////////
@@ -111,6 +123,8 @@ namespace samurai
 
         template <class... CT>
         ConstantBc(const CT... v);
+
+        ConstantBc();
 
         value_t get_value(const coords_t&) const override;
         std::unique_ptr<base_t> clone() const override;
@@ -151,6 +165,12 @@ namespace samurai
     ConstantBc<dim, T, size>::ConstantBc(const CT... v)
         : m_v{v...}
     {
+    }
+
+    template <std::size_t dim, class T, std::size_t size>
+    ConstantBc<dim, T, size>::ConstantBc()
+    {
+        detail::fill(m_v, T{0});
     }
 
     template <std::size_t dim, class T, std::size_t size>
@@ -732,6 +752,18 @@ namespace samurai
 
         auto& mesh = detail::get_mesh(field.mesh());
         return field.attach_bc(bc_type<dim, interval_t, value_t, size>(mesh, FunctionBc<dim, value_t, size>(func)));
+    }
+
+    template <template <std::size_t, class, class, std::size_t> class bc_type, class Field>
+    auto make_bc(Field& field)
+    {
+        using value_t              = typename Field::value_type;
+        using interval_t           = typename Field::interval_t;
+        constexpr std::size_t dim  = Field::dim;
+        constexpr std::size_t size = Field::size;
+
+        auto& mesh = detail::get_mesh(field.mesh());
+        return field.attach_bc(bc_type<dim, interval_t, value_t, size>(mesh, ConstantBc<dim, value_t, size>()));
     }
 
     template <template <std::size_t, class, class, std::size_t> class bc_type, class Field, class... T>

@@ -11,6 +11,7 @@ set(COMMON_BASE
 )
 
 set(SAMURAI_TESTS
+    test_bc.cpp
     test_box.cpp
     test_cell.cpp
     test_cell_list.cpp
@@ -22,7 +23,7 @@ set(SAMURAI_TESTS
     test_portion.cpp
 )
 
-if (rapidcheck_FOUND)
+if(rapidcheck_FOUND)
     list(APPEND SAMURAI_TESTS test_operator_set.cpp)
 endif()
 
@@ -30,10 +31,12 @@ foreach(filename IN LISTS SAMURAI_TESTS)
     string(REPLACE ".cpp" "" targetname ${filename})
     add_executable(${targetname} ${COMMON_BASE} ${filename} ${SAMURAI_HEADERS})
     target_include_directories(${targetname} PRIVATE ${SAMURAI_INCLUDE_DIR})
-    if (MSVC)
+
+    if(MSVC)
         target_compile_options(${targetname} PUBLIC /bigobj)
     endif()
-    if (rapidcheck_FOUND)
+
+    if(rapidcheck_FOUND)
         target_link_libraries(${targetname} samurai gtest_main gtest rapidcheck rapidcheck_gtest)
     else()
         target_link_libraries(${targetname} samurai gtest_main gtest)
@@ -43,11 +46,11 @@ endforeach()
 add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${SAMURAI_HEADERS})
 target_include_directories(test_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
 
-if (MSVC)
+if(MSVC)
     target_compile_options(test_samurai_lib PUBLIC /bigobj)
 endif()
 
-if (rapidcheck_FOUND)
+if(rapidcheck_FOUND)
     target_link_libraries(test_samurai_lib samurai gtest_main gtest rapidcheck rapidcheck_gtest)
 else()
     target_link_libraries(test_samurai_lib samurai gtest_main gtest)
