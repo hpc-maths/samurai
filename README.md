@@ -1,5 +1,6 @@
 
-# ![samurai](doc/source/logo/samurai_logo.png)
+# ![samurai](doc/source/logo/dark_logo.png#gh-dark-mode-only)
+# ![samurai](doc/source/logo/light_logo.png#gh-light-mode-only)
 # SAMURAI: Structured Adaptive mesh and MUlti-Resolution based on Algebra of Intervals.
 
 The main goal of Samurai is to provide a new data structure based on intervals and algebra of sets to handle efficiently adaptive mesh refinement methods based on a cartesian grid. Such an approach has to be versatile enough to handle both AMR and multi-resolution methods.
