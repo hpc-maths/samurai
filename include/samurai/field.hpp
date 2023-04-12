@@ -18,6 +18,7 @@
 #include "bc.hpp"
 #include "cell.hpp"
 #include "field_expression.hpp"
+#include "mesh_holder.hpp"
 #include "mr/operators.hpp"
 #include "numeric/gauss_legendre.hpp"
 
@@ -313,126 +314,6 @@ namespace samurai
 
     } // namespace detail
 
-    template <class Mesh>
-    class hold
-    {
-      public:
-
-        static constexpr std::size_t dim = Mesh::dim;
-        using interval_t                 = typename Mesh::interval_t;
-
-        hold(Mesh& mesh)
-            : m_mesh(mesh)
-        {
-        }
-
-        Mesh& get()
-        {
-            return m_mesh;
-        }
-
-      private:
-
-        Mesh& m_mesh; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
-    };
-
-    template <class Mesh>
-    auto holder(Mesh& mesh)
-    {
-        return hold<Mesh>(mesh);
-    }
-
-    template <class Mesh>
-    class inner_mesh_type
-    {
-      public:
-
-        using mesh_t = Mesh;
-
-        inner_mesh_type() = default;
-
-        inner_mesh_type(const mesh_t& mesh)
-            : p_mesh(&(const_cast<mesh_t&>(mesh)))
-        {
-        }
-
-        const mesh_t& mesh() const
-        {
-            return *p_mesh;
-        }
-
-        mesh_t& mesh()
-        {
-            return *p_mesh;
-        }
-
-        const mesh_t* mesh_ptr() const
-        {
-            return p_mesh;
-        }
-
-        mesh_t* mesh_ptr()
-        {
-            return p_mesh;
-        }
-
-      private:
-
-        mesh_t* p_mesh = nullptr;
-    };
-
-    template <class Mesh>
-    class inner_mesh_type<hold<Mesh>>
-    {
-      public:
-
-        using mesh_t = Mesh;
-
-        inner_mesh_type() = default;
-
-        inner_mesh_type(hold<Mesh>& mesh)
-            : m_mesh(mesh.get())
-        {
-        }
-
-        inner_mesh_type(const Mesh& mesh)
-            : m_mesh(mesh)
-        {
-        }
-
-        const mesh_t& mesh() const
-        {
-            return m_mesh;
-        }
-
-        mesh_t& mesh()
-        {
-            return m_mesh;
-        }
-
-        const mesh_t* mesh_ptr() const
-        {
-            return &m_mesh;
-        }
-
-        mesh_t* mesh_ptr()
-        {
-            return &m_mesh;
-        }
-
-      private:
-
-        mesh_t m_mesh;
-    };
-
-    namespace detail
-    {
-        // template <class Mesh>
-        // auto get_inner_mesh(mesh& mesh);
-        // template <class mesh>
-        // get_inner_mesh()
-    }
-
     template <class mesh_t_, class value_t = double, std::size_t size_ = 1, bool SOA = false>
     class Field : public field_expression<Field<mesh_t_, value_t, size_, SOA>>,
                   public detail::inner_field_types<Field<mesh_t_, value_t, size_, SOA>>,
@@ -470,14 +351,6 @@ namespace samurai
         template <class E>
         Field& operator=(const field_expression<E>& e);
 
-        // template<class... T>
-        // auto operator()(const std::size_t level, const interval_t& interval,
-        // const T... index);
-
-        // template<class... T>
-        // auto operator()(const std::size_t level, const interval_t& interval,
-        // const T... index) const;
-
         void fill(value_type v);
 
         const data_type& array() const;
@@ -490,6 +363,14 @@ namespace samurai
         template <class Bc_derived>
         auto attach_bc(const Bc_derived& bc);
         auto& get_bc();
+
+        iterator begin();
+        const_iterator begin() const;
+        const_iterator cbegin() const;
+
+        iterator end();
+        const_iterator end() const;
+        const_iterator cend() const;
 
       private:
 
@@ -509,8 +390,60 @@ namespace samurai
         friend struct detail::inner_field_types<Field<mesh_t, value_t, size_, SOA>>;
     };
 
+    namespace detail
+    {
+        template <class Field>
+        struct field_iterator_types
+        {
+            using value_type          = typename Field::value_type;
+            using index_type          = std::vector<value_type>;
+            using index_type_iterator = std::conditional_t<is_const, typename index_type::const_iterator, typename index_type::iterator>;
+            using const_index_type_iterator = typename index_type::const_iterator;
+            using reference                 = typename index_type_iterator::reference;
+            using pointer                   = typename index_type_iterator::pointer;
+            using difference_type           = typename index_type_iterator::difference_type;
+        };
+    } // namespace detail
+
+    template <class Mesh, class Field>
+    class field_iterator
+    {
+      public:
+
+        field_iterator(const Mesh& mesh, Field* field, std::size_t offset);
+
+        self_type& operator++();
+        self_type& operator--();
+
+        self_type& operator+=(difference_type n);
+        self_type& operator-=(difference_type n);
+
+        difference_type operator-(const self_type& rhs) const;
+
+        reference operator*() const;
+        pointer operator->() const;
+        const coord_type& index() const;
+
+        bool equal(const self_type& rhs) const;
+        bool less_than(const self_type& rhs) const;
+
+      private:
+
+        Field* p_field;
+        const Mesh* p_mesh;
+        std::size_t m_offset;
+    };
+
+    template <class Mesh, class Field>
+    field_iterator(const Mesh& mesh, Field* field, std::size_t offset)
+        : p_field(&field)
+        , p_mesh(&mesh)
+    {
+    }
+
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline void Field<mesh_t, value_t, size_, SOA>::fill(value_type v)
+
     {
         m_data.fill(v);
     }
