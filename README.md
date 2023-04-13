@@ -1,7 +1,11 @@
-
-
-![samurai](doc/source/logo/dark_logo.png#gh-dark-mode-only)
-![samurai](doc/source/logo/light_logo.png#gh-light-mode-only)
+<h1 align="center">
+  <a href="https://github.com/hpc-maths/samurai">
+    <picture>
+        <source media="(prefers-color-scheme: dark)" height="200" srcset="./doc/source/logo/dark_logo.png">
+        <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" height=200 src="./doc/source/logo/light_logo.png">
+    </picture>
+  </a>
+</h1>
 
 <div align="center">
   <br />
