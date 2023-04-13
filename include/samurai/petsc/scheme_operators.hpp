@@ -168,6 +168,11 @@ namespace samurai
         template <class FluxScheme, class CellScheme>
         class FluxBasedScheme_Sum_CellBasedScheme : public MatrixAssembly
         {
+          public:
+
+            using field_t = typename FluxScheme::field_t;
+            using Mesh    = typename field_t::mesh_t;
+
           private:
 
             FluxScheme m_flux_scheme;
@@ -213,15 +218,14 @@ namespace samurai
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
-                // !!!!!!!!!!!!!!!!!!!
-                // We hope that flux_scheme allocates enough non-zeros for both...!
+                // To be safe, allocate for both schemes (nnz is the sum of both)
+                m_cell_scheme.sparsity_pattern_scheme(nnz);
                 m_flux_scheme.sparsity_pattern_scheme(nnz);
             }
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
-                // !!!!!!!!!!!!!!!!!!!
-                // We hope that flux_scheme allocates enough non-zeros for both...!
+                // Only the flux scheme will assemble the boundary conditions
                 m_flux_scheme.sparsity_pattern_boundary(nnz);
             }
 

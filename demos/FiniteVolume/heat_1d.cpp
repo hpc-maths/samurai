@@ -42,6 +42,8 @@ int main(int argc, char* argv[])
     constexpr size_t dim = 1;
     using Config         = samurai::MRConfig<dim>;
 
+    std::cout << "------------------------- Heat -------------------------" << std::endl;
+
     //--------------------//
     // Program parameters //
     //--------------------//
@@ -117,18 +119,8 @@ int main(int argc, char* argv[])
 
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
-    u.set_neumann(
-         [](auto&)
-         {
-             return 0.;
-         })
-        .everywhere();
-    unp1.set_neumann(
-            [](auto&)
-            {
-                return 0.;
-            })
-        .everywhere();
+    samurai::make_bc<samurai::Neumann>(u, 0.);
+    samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
     //--------------------//
     //   Time iteration   //
@@ -151,7 +143,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
+        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::endl;
 
         // Mesh adaptation
         MRadaptation(mr_epsilon, mr_regularity);
@@ -160,10 +152,11 @@ int main(int argc, char* argv[])
 
         // Solve the linear equation:
         //            unp1 - dt*Lap(unp1) = u
-        auto diff_unp1  = samurai::petsc::make_diffusion_FV(unp1);            // diff_unp1  = -Lap(unp1)
-        auto back_euler = samurai::petsc::make_backward_euler(diff_unp1, dt); // back_euler = [Id - dt*Lap](unp1)
-        samurai::petsc::solve(back_euler,
-                              u); // solves the linear equation   [Id - dt*Lap](unp1) = u
+        auto diff_unp1  = samurai::petsc::make_diffusion_FV(unp1); // diff_unp1  = -Lap(unp1)
+        auto id_v       = samurai::petsc::make_identity_FV(unp1);
+        auto back_euler = id_v + dt * diff_unp1; // back_euler = [Id - dt*Lap](unp1)
+
+        samurai::petsc::solve(back_euler, u); // solves the linear equation   [Id - dt*Lap](unp1) = u
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
@@ -176,12 +169,12 @@ int main(int argc, char* argv[])
         }
 
         // Compute the error at instant t with respect to the exact solution
-        double error = decltype(diff_unp1)::L2Error(u,
-                                                    [&](auto& coord)
-                                                    {
-                                                        double x = coord[0];
-                                                        return exact_solution(x, t);
-                                                    });
+        double error = u.L2_error(
+            [&](auto& coord)
+            {
+                double x = coord[0];
+                return exact_solution(x, t);
+            });
         std::cout.precision(2);
         std::cout << "L2-error: " << std::scientific << error << std::endl;
     }
