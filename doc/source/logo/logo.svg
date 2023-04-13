@@ -7,7 +7,7 @@
    viewBox="0 0 297 210"
    version="1.1"
    id="svg834"
-   inkscape:export-filename="light_logo.png"
+   inkscape:export-filename="dark_logo.png"
    inkscape:export-xdpi="300"
    inkscape:export-ydpi="300"
    inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
@@ -28,16 +28,28 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="0.73885628"
-     inkscape:cx="526.4894"
-     inkscape:cy="423.62772"
-     inkscape:window-width="1512"
-     inkscape:window-height="916"
+     inkscape:cx="282.1929"
+     inkscape:cy="413.47689"
+     inkscape:window-width="3840"
+     inkscape:window-height="2107"
      inkscape:window-x="0"
-     inkscape:window-y="1216"
-     inkscape:window-maximized="0"
+     inkscape:window-y="25"
+     inkscape:window-maximized="1"
      inkscape:current-layer="layer1" />
   <defs
      id="defs831">
+    <rect
+       x="1015.0824"
+       y="487.88093"
+       width="2.7068864"
+       height="54.611038"
+       id="rect909" />
+    <rect
+       x="603.63566"
+       y="259.34129"
+       width="401.97263"
+       height="99.525331"
+       id="rect853" />
     <rect
        x="568.44614"
        y="455.91662"
@@ -163,9 +175,21 @@
     <rect
        x="568.44614"
        y="455.91662"
-       width="457.4638"
-       height="76.542192"
+       width="499.42054"
+       height="96.507343"
        id="rect1541" />
+    <rect
+       x="568.44614"
+       y="455.91662"
+       width="499.42054"
+       height="96.507343"
+       id="rect1935" />
+    <rect
+       x="561.25984"
+       y="344.67579"
+       width="460.58977"
+       height="212.67706"
+       id="rect1941" />
   </defs>
   <g
      inkscape:label="Calque 1"
@@ -742,44 +766,39 @@
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-16.315233,-0.9412113)"
-       id="text587"
-       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:80px;line-height:1.25;font-family:Cinzel;-inkscape-font-specification:'Cinzel, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;white-space:pre;shape-inside:url(#rect589);display:none;fill:#ffffff"
-       inkscape:label="White text" />
-    <text
-       xml:space="preserve"
-       transform="matrix(0.26458333,0,0,0.26458333,-16.315233,-0.9412113)"
        id="text811"
-       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:80px;line-height:1.25;font-family:Cinzel;-inkscape-font-specification:'Cinzel, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;white-space:pre;shape-inside:url(#rect813);display:inline;fill:#000000"
-       inkscape:label="Black text"><tspan
-         x="616.51494"
-         y="412.59863"
-         id="tspan1793">samurai</tspan></text>
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:80px;line-height:1.25;font-family:Cinzel;-inkscape-font-specification:'Cinzel, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;white-space:pre;shape-inside:url(#rect813);display:none;fill:#ffffff"
+       inkscape:label="White title" />
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-2.8512746,-8.4666669)"
-       id="text861"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:26.6667px;line-height:1.25;font-family:Raleway;-inkscape-font-specification:'Raleway, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;white-space:pre;shape-inside:url(#rect863);display:none;fill:#ffffff"
+       id="text1539"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:24px;line-height:1.25;font-family:Raleway;-inkscape-font-specification:'Raleway, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;white-space:pre;shape-inside:url(#rect1541);display:none;fill:#ffffff"
        x="-216.00938"
        y="0"
        inkscape:label="White description" />
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-2.8512746,-8.4666669)"
-       id="text1539"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:26.6667px;line-height:1.25;font-family:Raleway;-inkscape-font-specification:'Raleway, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;white-space:pre;shape-inside:url(#rect1541);fill:#000000"
+       id="text1933"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:24px;line-height:1.25;font-family:Raleway;-inkscape-font-specification:'Raleway, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;white-space:pre;shape-inside:url(#rect1935);display:inline;fill:#000000"
        x="-216.00938"
        y="0"
-       inkscape:label="White description"><tspan
+       inkscape:label="black description"><tspan
          x="568.44531"
-         y="480.60088"
-         id="tspan1795">Structured Adaptive mesh and </tspan><tspan
+         y="478.13237"
+         id="tspan2143">Structured Adaptive mesh and MUlti-</tspan><tspan
          x="568.44531"
-         y="513.93426"
-         id="tspan1797">MUlti-Resolution based on Algebra </tspan><tspan
-         x="568.44531"
-         y="557.14385"
-         id="tspan1801"><tspan
-           dx="0 15.626647 8.2133074 6.7999878 6.6133194 15.41328 8.6932983 15.653351 9.3600082 13.866646 14.533302 7.2533264"
-           id="tspan1799">of Intervals</tspan></tspan></text>
+         y="508.13237"
+         id="tspan2145">Resolution based on Algebra of Intervals</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(0.26458333,0,0,0.26458333,-16.315233,-0.9412113)"
+       id="text1939"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:80px;line-height:1.25;font-family:Cinzel;-inkscape-font-specification:'Cinzel, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;white-space:pre;shape-inside:url(#rect1941);display:inline;fill:#000000"
+       inkscape:label="Black title"><tspan
+         x="616.51494"
+         y="412.59863"
+         id="tspan2147">samurai</tspan></text>
   </g>
 </svg>
