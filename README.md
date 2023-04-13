@@ -1,5 +1,8 @@
 
 # ![samurai](doc/source/logo/samurai_logo.png)
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/f2bc644047484f0e85bad090d49ee28c)](https://app.codacy.com/gh/hpc-maths/samurai?utm_source=github.com&utm_medium=referral&utm_content=hpc-maths/samurai&utm_campaign=Badge_Grade)
+
 # SAMURAI: Structured Adaptive mesh and MUlti-Resolution based on Algebra of Intervals.
 
 The main goal of Samurai is to provide a new data structure based on intervals and algebra of sets to handle efficiently adaptive mesh refinement methods based on a cartesian grid. Such an approach has to be versatile enough to handle both AMR and multi-resolution methods.
