@@ -139,6 +139,16 @@ namespace samurai
     }
 
     /**
+     * constexpr ceil function
+     */
+    template <typename float_type, typename std::enable_if<std::is_floating_point<float_type>::value>::type* = nullptr>
+    constexpr int ce_ceil(float_type f)
+    {
+        const int i = static_cast<int>(f);
+        return f > static_cast<float_type>(i) ? i + 1 : i;
+    }
+
+    /**
      * Iterates over the elements of a tuple
      */
     template <std::size_t Index = 0,                                                 // start iteration at 0 index

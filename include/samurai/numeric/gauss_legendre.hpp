@@ -3,17 +3,23 @@
 
 namespace samurai
 {
-    template <std::size_t polynomial_degree = 20>
+    template <std::size_t polynomial_degree = 0>
     class GaussLegendre
     {
       private:
 
-        std::array<double, polynomial_degree> points;
-        std::array<double, polynomial_degree> weights;
+        static constexpr std::size_t n_required_points(int degree)
+        {
+            return degree < 0 ? N_IMPLEMENTED_POINTS : static_cast<std::size_t>(ce_ceil((degree + 1.) / 2.));
+        }
+
+        static constexpr std::size_t N_IMPLEMENTED_POINTS = 20;
+        static constexpr std::size_t n_points             = n_required_points(polynomial_degree);
+
+        std::array<double, n_points> points;
+        std::array<double, n_points> weights;
 
       public:
-
-        static constexpr std::size_t n_points = polynomial_degree;
 
         GaussLegendre()
         {
