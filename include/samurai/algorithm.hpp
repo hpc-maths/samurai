@@ -92,8 +92,18 @@ namespace samurai
         }
     }
 
-    template <class SetType, class Func>
-    inline void for_each_interval(SetType& set, Func&& f)
+    template <class Mesh, class Func>
+    inline void for_each_interval(const Mesh& mesh, Func&& f)
+    {
+        using mesh_id_t = typename Mesh::config::mesh_id_t;
+        for_each_interval(mesh[mesh_id_t::cells], std::forward<Func>(f));
+    }
+
+    template <class F, class... CT>
+    class subset_operator;
+
+    template <class Func, class F, class... CT>
+    inline void for_each_interval(subset_operator<F, CT...>& set, Func&& f)
     {
         set(
             [&](const auto& i, const auto& index)
