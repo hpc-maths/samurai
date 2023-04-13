@@ -35,7 +35,7 @@ namespace samurai
     template <std::size_t Dim>
     struct BC
     {
-        std::vector<std::pair<BCType, double>> type;
+        std::vector<std::pair<BCType, double>> type; // ???
     };
 
     template <class F, class... CT>
@@ -62,7 +62,7 @@ namespace samurai
         struct return_type
         {
             using type                       = xt::xtensor_fixed<T, xt::xshape<size>>;
-            static constexpr std::size_t dim = 2;
+            static constexpr std::size_t dim = 2; // ???
         };
 
         template <class T>
@@ -337,37 +337,39 @@ namespace samurai
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
 
-        static_nested_loop<dim, -1, 2>(
-            [&](auto& stencil)
-            {
-                int number_of_one = xt::sum(xt::abs(stencil))[0];
-                if (number_of_one > 0)
-                {
-                    dir.emplace_back(-stencil);
-                }
+        // static_nested_loop<dim, -1, 2>(
+        //     [&](auto& stencil)
+        for (auto& stencil : detail::get_direction<dim>())
+        {
+            // int number_of_one = xt::sum(xt::abs(stencil))[0];
+            // if (number_of_one > 0)
+            //{
+            dir.emplace_back(stencil);
+            //}
 
-                if (number_of_one == 1)
-                {
-                    lca.emplace_back(difference(translate(domain, stencil), domain));
-                }
-                else if (number_of_one > 1)
-                {
-                    if constexpr (dim == 2)
-                    {
-                        lca.emplace_back(difference(
-                            translate(domain, stencil),
-                            union_(domain, translate(domain, direction_t{stencil[0], 0}), translate(domain, direction_t{0, stencil[1]}))));
-                    }
-                    else if constexpr (dim == 3)
-                    {
-                        lca.emplace_back(difference(translate(domain, stencil),
-                                                    union_(domain,
-                                                           translate(domain, direction_t{stencil[0], 0, 0}),
-                                                           translate(domain, direction_t{0, stencil[1], 0}),
-                                                           translate(domain, direction_t{0, 0, stencil[2]}))));
-                    }
-                }
-            });
+            // if (number_of_one == 1)
+            //{
+            lca.emplace_back(difference(domain, translate(domain, -stencil)));
+            //}
+            // else if (number_of_one > 1)
+            // {
+            //     if constexpr (dim == 2)
+            //     {
+            //         lca.emplace_back(difference(
+            //             translate(domain, stencil),
+            //             union_(domain, translate(domain, direction_t{stencil[0], 0}), translate(domain, direction_t{0, stencil[1]}))));
+            //     }
+            //     else if constexpr (dim == 3)
+            //     {
+            //         lca.emplace_back(difference(translate(domain, stencil),
+            //                                     union_(domain,
+            //                                            translate(domain, direction_t{stencil[0], 0, 0}),
+            //                                            translate(domain, direction_t{0, stencil[1], 0}),
+            //                                            translate(domain, direction_t{0, 0, stencil[2]}))));
+            //     }
+            // }
+        }
+        //);
 
         return std::make_pair(dir, lca);
     }
@@ -396,12 +398,12 @@ namespace samurai
             int number_of_one = xt::sum(xt::abs(stencil))[0];
             if (number_of_one > 0)
             {
-                dir.emplace_back(-stencil);
+                dir.emplace_back(stencil);
             }
 
             if (number_of_one == 1)
             {
-                lca.emplace_back(difference(translate(domain, stencil), domain));
+                lca.emplace_back(difference(domain, translate(domain, -stencil)));
             }
             else if (number_of_one > 1)
             {
@@ -568,6 +570,7 @@ namespace samurai
                            xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>> index);
 
         value_t constant_value();
+        value_t value(const coords_t coords) const;
         const auto& value() const;
         BCVType get_value_type() const;
 
@@ -690,6 +693,12 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, class T, std::size_t size>
+    inline auto Bc<dim, TInterval, T, size>::value(const coords_t coords) const -> value_t
+    {
+        return p_bcvalue->get_value(coords);
+    }
+
+    template <std::size_t dim, class TInterval, class T, std::size_t size>
     inline BCVType Bc<dim, TInterval, T, size>::get_value_type() const
     {
         return p_bcvalue->type();
@@ -782,8 +791,8 @@ namespace samurai
     template <std::size_t dim, class TInterval, class T, std::size_t size, class Field>
     void apply_bc_impl(Dirichlet<dim, TInterval, T, size>& bc, std::size_t level, Field& field)
     {
-        constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
-                                             static_cast<int>(Field::mesh_t::config::prediction_order));
+        // constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
+        //                                      static_cast<int>(Field::mesh_t::config::prediction_order));
 
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto& mesh      = field.mesh()[mesh_id_t::reference];
@@ -799,67 +808,42 @@ namespace samurai
                 {
                     if (bc.get_value_type() == BCVType::constant)
                     {
-                        for (int ig = 0; ig < ghost_width; ++ig)
+                        if constexpr (dim == 1)
                         {
-                            if constexpr (dim == 1)
-                            {
-                                field(level, i - ig * direction[d][0]) = 2 * bc.constant_value()
-                                                                       - field(level, i + (ig + 1) * direction[d][0]);
-                            }
-                            else if constexpr (dim == 2)
-                            {
-                                auto j                                                           = index[0];
-                                field(level, i - ig * direction[d][0], j - ig * direction[d][1]) = 2 * bc.constant_value()
-                                                                                                 - field(level,
-                                                                                                         i + (ig + 1) * direction[d][0],
-                                                                                                         j + (ig + 1) * direction[d][1]);
-                            }
-                            else if constexpr (dim == 3)
-                            {
-                                auto j                          = index[0];
-                                auto k                          = index[1];
-                                field(level,
-                                      i - ig * direction[d][0],
-                                      j - ig * direction[d][1],
-                                      k - ig * direction[d][2]) = 2 * bc.constant_value()
-                                                                - field(level,
-                                                                        i + (ig + 1) * direction[d][0],
-                                                                        j + (ig + 1) * direction[d][1],
-                                                                        k + (ig + 1) * direction[d][2]);
-                            }
+                            field(level, i + direction[d][0]) = 2 * bc.constant_value() - field(level, i);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j                                                 = index[0];
+                            field(level, i + direction[d][0], j + direction[d][1]) = 2 * bc.constant_value() - field(level, i, j);
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j                                                                      = index[0];
+                            auto k                                                                      = index[1];
+                            field(level, i + direction[d][0], j + direction[d][1], k + direction[d][2]) = 2 * bc.constant_value()
+                                                                                                        - field(level, i, j, k);
                         }
                     }
                     else if (bc.get_value_type() == BCVType::function)
                     {
                         bc.update_values(direction[d], level, i, index);
 
-                        for (int ig = 0; ig < ghost_width; ++ig)
+                        if constexpr (dim == 1)
                         {
-                            if constexpr (dim == 1)
-                            {
-                                field(level, i - ig * direction[d][0]) = 2 * bc.value() - field(level, i + (ig + 1) * direction[d][0]);
-                            }
-                            else if constexpr (dim == 2)
-                            {
-                                auto j                                                           = index[0];
-                                field(level, i - ig * direction[d][0], j - ig * direction[d][1]) = 2 * bc.value()
-                                                                                                 - field(level,
-                                                                                                         i + (ig + 1) * direction[d][0],
-                                                                                                         j + (ig + 1) * direction[d][1]);
-                            }
-                            else if constexpr (dim == 3)
-                            {
-                                auto j                          = index[0];
-                                auto k                          = index[1];
-                                field(level,
-                                      i - ig * direction[d][0],
-                                      j - ig * direction[d][1],
-                                      k - ig * direction[d][2]) = 2 * bc.value()
-                                                                - field(level,
-                                                                        i + (ig + 1) * direction[d][0],
-                                                                        j + (ig + 1) * direction[d][1],
-                                                                        k + (ig + 1) * direction[d][2]);
-                            }
+                            field(level, i + direction[d][0]) = 2 * bc.value() - field(level, i);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j                                                 = index[0];
+                            field(level, i + direction[d][0], j + direction[d][1]) = 2 * bc.value() - field(level, i, j);
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j                                                                      = index[0];
+                            auto k                                                                      = index[1];
+                            field(level, i + direction[d][0], j + direction[d][1], k + direction[d][2]) = 2 * bc.value()
+                                                                                                        - field(level, i, j, k);
                         }
                     }
                 });
@@ -869,8 +853,8 @@ namespace samurai
     template <std::size_t dim, class TInterval, class T, std::size_t size, class Field>
     void apply_bc_impl(Neumann<dim, TInterval, T, size>& bc, std::size_t level, Field& field)
     {
-        constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
-                                             static_cast<int>(Field::mesh_t::config::prediction_order));
+        // constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
+        //                                      static_cast<int>(Field::mesh_t::config::prediction_order));
 
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto& mesh      = field.mesh()[mesh_id_t::reference];
@@ -884,86 +868,60 @@ namespace samurai
             set(
                 [&](const auto& i, const auto& index)
                 {
-                    const double dx = 1. / (1 << level);
+                    const double dx = cell_length(level);
                     if (bc.get_value_type() == BCVType::constant)
                     {
-                        for (int ig = 0; ig < ghost_width; ++ig)
+                        if constexpr (dim == 1)
                         {
-                            if constexpr (dim == 1)
+                            field(level, i + direction[d][0]) = dx * bc.constant_value() + field(level, i);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            if (!xt::all(direction[d]))
                             {
-                                field(level, i - ig * direction[d][0]) = dx * bc.constant_value()
-                                                                       + field(level, i + (ig + 1) * direction[d][0]);
+                                field(level, i + direction[d][0], j + direction[d][1]) = dx * bc.constant_value() + field(level, i, j);
                             }
-                            else if constexpr (dim == 2)
+                            else
                             {
-                                auto j = index[0];
-                                if (!xt::all(direction[d]))
-                                {
-                                    field(level, i - ig * direction[d][0], j - ig * direction[d][1]) = dx * bc.constant_value()
-                                                                                                     + field(level,
-                                                                                                             i + (ig + 1) * direction[d][0],
-                                                                                                             j + (ig + 1) * direction[d][1]);
-                                }
-                                else
-                                {
-                                    // Diagonal direction
-                                    for (int jg = 0; jg < ghost_width; ++jg)
-                                    {
-                                        field(level,
-                                              i - ig * direction[d][0],
-                                              j - jg * direction[d][1]) = dx * bc.constant_value()
-                                                                        + field(level,
-                                                                                i + (ig + 1) * direction[d][0],
-                                                                                j + (jg + 1) * direction[d][1]);
-                                    }
-                                }
+                                // Diagonal direction
+                                // for (int jg = 0; jg < ghost_width; ++jg)
+                                // {
+                                //     field(level, i - ig * direction[d][0], j - jg * direction[d][1]) = dx * bc.constant_value()
+                                //                                                                      + field(level,
+                                //                                                                              i + (ig + 1) *
+                                //                                                                              direction[d][0], j + (jg +
+                                //                                                                              1) * direction[d][1]);
+                                // }
                             }
-                            else if constexpr (dim == 3)
-                            {
-                                auto j                          = index[0];
-                                auto k                          = index[1];
-                                field(level,
-                                      i - ig * direction[d][0],
-                                      j - ig * direction[d][1],
-                                      k - ig * direction[d][2]) = dx * bc.constant_value()
-                                                                + field(level,
-                                                                        i + (ig + 1) * direction[d][0],
-                                                                        j + (ig + 1) * direction[d][1],
-                                                                        k + (ig + 1) * direction[d][2]);
-                            }
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j                                                                      = index[0];
+                            auto k                                                                      = index[1];
+                            field(level, i + direction[d][0], j + direction[d][1], k + direction[d][2]) = dx * bc.constant_value()
+                                                                                                        + field(level, i, j, k);
                         }
                     }
                     else if (bc.get_value_type() == BCVType::function)
                     {
                         bc.update_values(direction[d], level, i, index);
 
-                        for (int ig = 0; ig < ghost_width; ++ig)
+                        if constexpr (dim == 1)
                         {
-                            if constexpr (dim == 1)
-                            {
-                                field(level, i - ig * direction[d][0]) = dx * bc.value() + field(level, i + (ig + 1) * direction[d][0]);
-                            }
-                            else if constexpr (dim == 2)
-                            {
-                                auto j                                                           = index[0];
-                                field(level, i - ig * direction[d][0], j - ig * direction[d][1]) = dx * bc.value()
-                                                                                                 + field(level,
-                                                                                                         i + (ig + 1) * direction[d][0],
-                                                                                                         j + (ig + 1) * direction[d][1]);
-                            }
-                            else if constexpr (dim == 3)
-                            {
-                                auto j                          = index[0];
-                                auto k                          = index[1];
-                                field(level,
-                                      i - ig * direction[d][0],
-                                      j - ig * direction[d][1],
-                                      k - ig * direction[d][2]) = dx * bc.value()
-                                                                + field(level,
-                                                                        i + (ig + 1) * direction[d][0],
-                                                                        j + (ig + 1) * direction[d][1],
-                                                                        k + (ig + 1) * direction[d][2]);
-                            }
+                            field(level, i + direction[d][0]) = dx * bc.value() + field(level, i);
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j                                                 = index[0];
+                            field(level, i + direction[d][0], j + direction[d][1]) = dx * bc.value() + field(level, i, j);
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j                                                                      = index[0];
+                            auto k                                                                      = index[1];
+                            field(level, i + direction[d][0], j + direction[d][1], k + direction[d][2]) = dx * bc.value()
+                                                                                                        + field(level, i, j, k);
                         }
                     }
                 });

@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
     // using Mesh = samurai::amr::Mesh<Config>;
     using Config          = samurai::MRConfig<dim, 1>;
     using Mesh            = samurai::MRMesh<Config>;
-    constexpr bool is_soa = true;
+    constexpr bool is_soa = false;
 
     //----------------//
     //   Parameters   //
@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
         auto pressure = samurai::make_field<double, 1, is_soa>("pressure", mesh);
 
         // Boundary conditions
-        velocity
+        /*velocity
             .set_dirichlet(
                 [](const auto& coord)
                 {
@@ -173,7 +173,16 @@ int main(int argc, char* argv[])
                     double v_y    = -v_x;
                     return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
                 })
-            .everywhere();
+            .everywhere();*/
+        samurai::make_bc<samurai::Dirichlet>(velocity,
+                                             [](const auto& coord)
+                                             {
+                                                 const auto& x = coord[0];
+                                                 const auto& y = coord[1];
+                                                 double v_x    = 1 / (pi * pi) * sin(pi * (x + y));
+                                                 double v_y    = -v_x;
+                                                 return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
+                                             });
 
         pressure
             .set_neumann(
@@ -185,6 +194,14 @@ int main(int argc, char* argv[])
                     return normal * (1 / pi) * cos(pi * (x + y));
                 })
             .everywhere();
+        /*samurai::make_bc<samurai::Dirichlet>(pressure,
+                                             [](const auto& coord)
+                                             {
+                                                 const auto& x = coord[0];
+                                                 const auto& y = coord[1];
+                                                 int normal    = (x == 0 || y == 0) ? -1 : 1;
+                                                 return normal * (1 / pi) * cos(pi * (x + y));
+                                             });*/
 
         // clang-format off
 
@@ -194,7 +211,7 @@ int main(int argc, char* argv[])
         auto minus_div_v = -1 * samurai::petsc::make_divergence_FV(velocity);
         auto zero_p      =      samurai::petsc::make_zero_operator_FV<1>(pressure);
 
-        auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p, 
+        auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p,
                                                                 minus_div_v, zero_p);
 
         // clang-format on
@@ -300,31 +317,8 @@ int main(int argc, char* argv[])
         samurai::make_bc<samurai::Dirichlet>(velocity, 0., 0.)->on(left, bottom, right);
 
         // Boundary conditions (n+1)
-        // (old BC for the assembly of the matrices)
-        velocity_np1
-            .set_dirichlet(
-                [](const auto&)
-                {
-                    return xt::xtensor_fixed<double, xt::xshape<dim>>{1, 0};
-                })
-            .where(
-                [](const auto& coord)
-                {
-                    const auto& y = coord[1];
-                    return y == 1;
-                });
-        velocity_np1
-            .set_dirichlet(
-                [](const auto&)
-                {
-                    return xt::xtensor_fixed<double, xt::xshape<dim>>{0, 0};
-                })
-            .where(
-                [](const auto& coord)
-                {
-                    const auto& y = coord[1];
-                    return y != 1;
-                });
+        samurai::make_bc<samurai::Dirichlet>(velocity_np1, 1., 0.)->on(top);
+        samurai::make_bc<samurai::Dirichlet>(velocity_np1, 0., 0.)->on(left, bottom, right);
 
         pressure_np1
             .set_neumann(
@@ -333,6 +327,7 @@ int main(int argc, char* argv[])
                     return 0.0;
                 })
             .everywhere();
+        samurai::make_bc<samurai::Neumann>(pressure_np1, 0.);
 
         // Initial condition
         velocity.fill(0);
