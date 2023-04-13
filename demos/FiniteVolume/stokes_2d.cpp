@@ -238,16 +238,16 @@ int main(int argc, char* argv[])
         std::cout << block_solver.iterations() << " iterations" << std::endl << std::endl;
 
         // Error
+        double error = velocity.L2_error(
+            [](auto& coord)
+            {
+                const auto& x = coord[0];
+                const auto& y = coord[1];
+                auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
+                auto v_y      = -v_x;
+                return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
+            });
         std::cout.precision(2);
-        double error = diff_v.L2Error(velocity,
-                                      [](auto& coord)
-                                      {
-                                          const auto& x = coord[0];
-                                          const auto& y = coord[1];
-                                          auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
-                                          auto v_y      = -v_x;
-                                          return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-                                      });
         std::cout << "L2-error on the velocity: " << std::scientific << error << std::endl;
 
         // Save solution

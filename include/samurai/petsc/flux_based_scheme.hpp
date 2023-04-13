@@ -1165,60 +1165,6 @@ namespace samurai
                         }
                     });
             }
-
-          public:
-
-            template <class Func>
-            static double L2Error(const Field& approximate, Func&& exact)
-            {
-                // In FV, we want only 1 quadrature point.
-                // This is equivalent to
-                //       error += pow(exact(cell.center()) - approximate(cell.index), 2) * cell.length;
-                GaussLegendre<0> gl;
-
-                double error_norm = 0;
-                // double solution_norm = 0;
-                for_each_cell(approximate.mesh(),
-                              [&](const auto& cell)
-                              {
-                                  error_norm += gl.quadrature<1>(cell,
-                                                                 [&](const auto& point)
-                                                                 {
-                                                                     auto e = exact(point) - approximate[cell];
-                                                                     double norm_square;
-                                                                     if constexpr (Field::size == 1)
-                                                                     {
-                                                                         norm_square = e * e;
-                                                                     }
-                                                                     else
-                                                                     {
-                                                                         norm_square = xt::sum(e * e)();
-                                                                     }
-                                                                     return norm_square;
-                                                                 });
-
-                                  /*solution_norm += gl.quadrature<1>(cell, [&](const auto& point)
-                                  {
-                                      auto v = exact(point);
-                                      double v_square;
-                                      if constexpr (Field::size == 1)
-                                      {
-                                          v_square = v * v;
-                                      }
-                                      else
-                                      {
-                                          v_square = xt::sum(v * v)();
-                                      }
-                                      return v_square;
-                                  });*/
-                              });
-
-                error_norm = sqrt(error_norm);
-                // solution_norm = sqrt(solution_norm);
-                // double relative_error = error_norm/solution_norm;
-                // return relative_error;
-                return error_norm;
-            }
         };
 
         template <typename, typename = void>
