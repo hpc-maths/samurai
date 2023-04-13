@@ -163,17 +163,6 @@ int main(int argc, char* argv[])
         auto pressure = samurai::make_field<double, 1, is_soa>("pressure", mesh);
 
         // Boundary conditions
-        /*velocity
-            .set_dirichlet(
-                [](const auto& coord)
-                {
-                    const auto& x = coord[0];
-                    const auto& y = coord[1];
-                    double v_x    = 1 / (pi * pi) * sin(pi * (x + y));
-                    double v_y    = -v_x;
-                    return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-                })
-            .everywhere();*/
         samurai::make_bc<samurai::Dirichlet>(velocity,
                                              [](const auto& coord)
                                              {
@@ -184,24 +173,14 @@ int main(int argc, char* argv[])
                                                  return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
                                              });
 
-        pressure
-            .set_neumann(
-                [](const auto& coord)
-                {
-                    const auto& x = coord[0];
-                    const auto& y = coord[1];
-                    int normal    = (x == 0 || y == 0) ? -1 : 1;
-                    return normal * (1 / pi) * cos(pi * (x + y));
-                })
-            .everywhere();
-        /*samurai::make_bc<samurai::Dirichlet>(pressure,
-                                             [](const auto& coord)
-                                             {
-                                                 const auto& x = coord[0];
-                                                 const auto& y = coord[1];
-                                                 int normal    = (x == 0 || y == 0) ? -1 : 1;
-                                                 return normal * (1 / pi) * cos(pi * (x + y));
-                                             });*/
+        samurai::make_bc<samurai::Neumann>(pressure,
+                                           [](const auto& coord)
+                                           {
+                                               const auto& x = coord[0];
+                                               const auto& y = coord[1];
+                                               int normal    = (x == 0 || y == 0) ? -1 : 1;
+                                               return normal * (1 / pi) * cos(pi * (x + y));
+                                           });
 
         // clang-format off
 
@@ -307,8 +286,7 @@ int main(int argc, char* argv[])
         auto zero         = samurai::make_field<double, 1, is_soa>("zero", mesh);
         zero.fill(0);
 
-        // Boundary conditions
-        // (new BC for MR)
+        // Boundary conditions (n)
         samurai::DirectionVector<dim> left   = {-1, 0};
         samurai::DirectionVector<dim> right  = {1, 0};
         samurai::DirectionVector<dim> bottom = {0, -1};
@@ -320,13 +298,6 @@ int main(int argc, char* argv[])
         samurai::make_bc<samurai::Dirichlet>(velocity_np1, 1., 0.)->on(top);
         samurai::make_bc<samurai::Dirichlet>(velocity_np1, 0., 0.)->on(left, bottom, right);
 
-        pressure_np1
-            .set_neumann(
-                [](const auto&)
-                {
-                    return 0.0;
-                })
-            .everywhere();
         samurai::make_bc<samurai::Neumann>(pressure_np1, 0.);
 
         // Initial condition

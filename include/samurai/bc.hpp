@@ -450,6 +450,8 @@ namespace samurai
     template <std::size_t dim, class TInterval>
     inline auto CoordsRegion<dim, TInterval>::get_region(const lca_t&) const -> region_t
     {
+        std::cerr << "CoordsRegion::get_region() not implemented" << std::endl;
+        assert(false && "To be implemented");
         return std::make_pair(std::vector<direction_t>(), std::vector<lca_t>());
     }
 

@@ -375,7 +375,7 @@ namespace samurai
                 }
             }
 
-          private:
+          protected:
 
             template <class CellList>
             void sparsity_pattern_dirichlet_bc(std::vector<PetscInt>& nnz, CellList& cells) const

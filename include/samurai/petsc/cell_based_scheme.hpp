@@ -32,7 +32,7 @@ namespace samurai
                                                       // Cell-centered Finite Volume scheme:
                                                       // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim
                                                       // directions) --> 1+2=3 in 1D
-                                                      //                                                                                              1+4=5 in 2D
+                                                      //                 1+4=5 in 2D
                                                       1 + 2 * dim * neighbourhood_width,
                                                       // ---- Index of the stencil center
                                                       // (as defined in star_stencil())
@@ -70,22 +70,23 @@ namespace samurai
             using field_t = Field;
 
             using Mesh                                     = typename Field::mesh_t;
+            using mesh_id_t                                = typename Mesh::mesh_id_t;
+            using interval_t                               = typename Mesh::interval_t;
             using field_value_type                         = typename Field::value_type; // double
             static constexpr std::size_t field_size        = Field::size;
             static constexpr std::size_t output_field_size = cfg::output_field_size;
             using local_matrix_t                           = typename detail::LocalMatrix<field_value_type,
                                                                 output_field_size,
-                                                                field_size>::Type; // 'double' if field_size
-                                                                                                             // = 1, 'xtensor'
-                                                                                                             // representing a matrix
-                                                                                                             // otherwise
-            using mesh_id_t                               = typename Mesh::mesh_id_t;
+                                                                field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a
+                                                                                                             // matrix otherwise
             static constexpr std::size_t dim              = Mesh::dim;
             static constexpr std::size_t prediction_order = Mesh::config::prediction_order;
 
-            using stencil_t            = Stencil<cfg::scheme_stencil_size, dim>;
-            using GetCoefficientsFunc  = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
-            using boundary_condition_t = typename Field::boundary_condition_t;
+            using stencil_t           = Stencil<cfg::scheme_stencil_size, dim>;
+            using GetCoefficientsFunc = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
+
+            using dirichlet_t = Dirichlet<dim, interval_t, field_value_type, field_size>;
+            using neumann_t   = Neumann<dim, interval_t, field_value_type, field_size>;
 
             using MatrixAssembly::assemble_matrix;
 
@@ -96,7 +97,6 @@ namespace samurai
             std::size_t m_n_cells;
             stencil_t m_stencil;
             GetCoefficientsFunc m_get_coefficients;
-            const std::vector<boundary_condition_t>& m_boundary_conditions;
             std::vector<bool> m_is_row_empty;
 
           public:
@@ -106,7 +106,6 @@ namespace samurai
                 , m_mesh(unknown.mesh())
                 , m_stencil(s)
                 , m_get_coefficients(get_coeffs)
-                , m_boundary_conditions(unknown.boundary_conditions())
             {
                 m_n_cells      = m_mesh.nb_cells();
                 m_is_row_empty = std::vector(static_cast<std::size_t>(matrix_rows()), true);
@@ -125,11 +124,6 @@ namespace samurai
             auto& stencil() const
             {
                 return m_stencil;
-            }
-
-            const auto& boundary_conditions() const
-            {
-                return m_boundary_conditions;
             }
 
             PetscInt matrix_rows() const override
@@ -260,6 +254,10 @@ namespace samurai
 
           public:
 
+            //-------------------------------------------------------------//
+            //                     Sparsity pattern                        //
+            //-------------------------------------------------------------//
+
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
                 auto coeffs = m_get_coefficients(cell_length(0));
@@ -319,37 +317,82 @@ namespace samurai
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
-                for_each_stencil_center_and_outside_ghost(m_mesh,
-                                                          m_stencil,
-                                                          [&](const auto& cells, const auto& towards_ghost)
-                                                          {
-                                                              auto& cell          = cells[0];
-                                                              auto& ghost         = cells[1];
-                                                              auto boundary_point = cell.face_center(towards_ghost);
-                                                              auto bc             = find(m_boundary_conditions, boundary_point);
-                                                              if (bc.is_dirichlet())
-                                                              {
-                                                                  for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                                                  {
-                                                                      if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                                                                      {
-                                                                          nnz[row_index(ghost, field_i)] = 1;
-                                                                      }
-                                                                      else
-                                                                      {
-                                                                          nnz[row_index(ghost, field_i)] = 2;
-                                                                      }
-                                                                  }
-                                                              }
-                                                              else
-                                                              {
-                                                                  for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                                                  {
-                                                                      nnz[row_index(ghost, field_i)] = 2;
-                                                                  }
-                                                              }
-                                                          });
+                // Iterate over the boundary conditions set by the user
+                for (auto& bc : m_unknown.get_bc())
+                {
+                    auto bc_region                  = bc->get_region(); // get the region
+                    auto& directions                = bc_region.first;
+                    auto& boundary_cells_directions = bc_region.second;
+                    // Iterate over the directions in that region
+                    for (std::size_t d = 0; d < directions.size(); ++d)
+                    {
+                        auto& towards_out    = directions[d];
+                        auto& boundary_cells = boundary_cells_directions[d];
+
+                        Stencil<2, dim> stencil = in_out_stencil<dim>(towards_out);
+
+                        dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
+                        neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
+                        if (dirichlet)
+                        {
+                            for_each_stencil_on_boundary(m_mesh,
+                                                         boundary_cells,
+                                                         stencil,
+                                                         [&](auto& cells)
+                                                         {
+                                                             sparsity_pattern_dirichlet_bc(nnz, cells);
+                                                         });
+                        }
+                        else if (neumann)
+                        {
+                            for_each_stencil_on_boundary(m_mesh,
+                                                         boundary_cells,
+                                                         stencil,
+                                                         [&](auto& cells)
+                                                         {
+                                                             sparsity_pattern_neumann_bc(nnz, cells);
+                                                         });
+                        }
+                        else
+                        {
+                            std::cerr << "Unknown boundary condition type" << std::endl;
+                        }
+                    }
+                }
             }
+
+          protected:
+
+            template <class CellList>
+            void sparsity_pattern_dirichlet_bc(std::vector<PetscInt>& nnz, CellList& cells) const
+            {
+                // auto& cell  = cells[0];
+                auto& ghost = cells[1];
+                for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                {
+                    if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                    {
+                        nnz[row_index(ghost, field_i)] = 1;
+                    }
+                    else
+                    {
+                        nnz[row_index(ghost, field_i)] = 2;
+                    }
+                }
+            }
+
+            template <class CellList>
+            void sparsity_pattern_neumann_bc(std::vector<PetscInt>& nnz, CellList& cells) const
+            {
+                // auto& cell  = cells[0];
+                auto& ghost = cells[1];
+                for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                {
+                    nnz[row_index(ghost, field_i)] = 2;
+                }
+            }
+
+          public:
 
             void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
             {
@@ -387,7 +430,11 @@ namespace samurai
                                           });
             }
 
-          private:
+          protected:
+
+            //-------------------------------------------------------------//
+            //             Assemble scheme in the interior                 //
+            //-------------------------------------------------------------//
 
             void assemble_scheme(Mat& A) override
             {
@@ -399,8 +446,7 @@ namespace samurai
                     [&](const auto& cells, const auto& coeffs)
                     {
                         // std::cout << "coeffs: " << std::endl;
-                        // for (std::size_t i=0; i<cfg::scheme_stencil_size;
-                        // i++)
+                        // for (std::size_t i=0; i<cfg::scheme_stencil_size; i++)
                         //     std::cout << i << ": " << coeffs[i] << std::endl;
 
                         // Global rows and columns
@@ -424,9 +470,7 @@ namespace samurai
                         // The stencil coefficients are stored as an array of
                         // matrices. For instance, vector diffusion in 2D:
                         //
-                        //                        L     R     C     B     T
-                        //                        (left, right, center, bottom,
-                        //                        top)
+                        //                        L     R     C     B     T   (left, right, center, bottom, top)
                         //     field_i (Lap_x) |-1   |-1   | 4   |-1   |-1   |
                         //     field_j (Lap_y) |   -1|   -1|    4|   -1|   -1|
                         //
@@ -443,11 +487,9 @@ namespace samurai
                             // all cells, then field_j for all cells:
                             //
                             // - Diffusion example:
-                            //            [         field_i        | field_j ]
-                            //            [  L    R    C    B    T |  L    R C
-                            //            B    T ]
-                            //  coupling: [ i j| i j| i j| i j| i j| i j| i j| i
-                            //  j| i j| i j]
+                            //            [         field_i        |         field_j        ]
+                            //            [  L    R    C    B    T |  L    R    C    B    T ]
+                            //  coupling: [ i j| i j| i j| i j| i j| i j| i j| i j| i j| i j]
                             //            [-1 0|-1 0| 4 0|-1 0|-1 0|0 -1|0 -1|0
                             //            4|0 -1|0 -1]
                             //
@@ -552,14 +594,10 @@ namespace samurai
 
                             for (unsigned int c = 0; c < cfg::scheme_stencil_size; ++c)
                             {
-                                // Insert a coefficient block of size in
-                                // <output_field_size x field_size>:
-                                // - in 'rows', for each cell,
-                                // <output_field_size> rows are contiguous.
-                                // - in 'cols', for each cell, <field_size> cols
-                                // are contiguous.
-                                // - coeffs[c] is a row-major matrix (xtensor),
-                                // as requested by PETSc.
+                                // Insert a coefficient block of size <output_field_size x field_size>:
+                                // - in 'rows', for each cell, <output_field_size> rows are contiguous.
+                                // - in 'cols', for each cell, <field_size> cols are contiguous.
+                                // - coeffs[c] is a row-major matrix (xtensor), as requested by PETSc.
                                 MatSetValues(A,
                                              static_cast<PetscInt>(output_field_size),
                                              &rows[local_row_index(cfg::center_index, 0)],
@@ -578,6 +616,10 @@ namespace samurai
                     });
             }
 
+            //-------------------------------------------------------------//
+            //             Assemble the boundary conditions                //
+            //-------------------------------------------------------------//
+
             void assemble_boundary_conditions(Mat& A) override
             {
                 if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
@@ -587,158 +629,272 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                 }
 
-                for_each_stencil_center_and_outside_ghost(
-                    m_mesh,
-                    m_stencil,
-                    m_get_coefficients,
-                    [&](const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
-                    {
-                        const auto& cell    = cells[0];
-                        const auto& ghost   = cells[1];
-                        auto boundary_point = cell.face_center(towards_ghost);
-                        auto bc             = find(m_boundary_conditions, boundary_point);
-
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            PetscInt cell_index  = static_cast<PetscInt>(col_index(cell, field_i));
-                            PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
-                            double coeff;
-                            if constexpr (field_size == 1 && output_field_size == 1)
-                            {
-                                coeff = ghost_coeff;
-                            }
-                            else
-                            {
-                                coeff = ghost_coeff(field_i, field_i);
-                            }
-                            if (bc.is_dirichlet())
-                            {
-                                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                                {
-                                    // We have (u_ghost + u_cell)/2 =
-                                    // dirichlet_value ==> u_ghost =
-                                    // 2*dirichlet_value - u_cell The equation
-                                    // on the cell row is
-                                    //                     coeff*u_ghost +
-                                    //                     coeff_cell*u_cell +
-                                    //                     ... = f
-                                    // Eliminating u_ghost, it gives
-                                    //                           (coeff_cell -
-                                    //                           coeff)*u_cell +
-                                    //                           ... = f -
-                                    //                           2*coeff*dirichlet_value
-                                    // which means that:
-                                    // - on the cell row, we have to 1) remove
-                                    // the coeff in the column of the ghost,
-                                    //                               2)
-                                    //                               substract
-                                    //                               coeff in
-                                    //                               the column
-                                    //                               of the
-                                    //                               cell.
-                                    // - on the cell row of the right-hand side,
-                                    // we have to add -2*coeff*dirichlet_value.
-                                    MatSetValue(A,
-                                                cell_index,
-                                                ghost_index,
-                                                -coeff,
-                                                ADD_VALUES); // the coeff of the ghost
-                                                             // is removed from the
-                                                             // stencil (we want 0 so we
-                                                             // substract the coeff we
-                                                             // set before)
-                                    MatSetValue(A,
-                                                cell_index,
-                                                cell_index,
-                                                -coeff,
-                                                ADD_VALUES); // the coeff is substracted
-                                                             // from the center of the
-                                                             // stencil
-                                    MatSetValue(A,
-                                                ghost_index,
-                                                ghost_index,
-                                                1,
-                                                ADD_VALUES); // 1 is added to the
-                                                             // diagonal of the ghost
-                                }
-                                else
-                                {
-                                    coeff = coeff == 0 ? 1 : coeff;
-                                    // We have (u_ghost + u_cell)/2 =
-                                    // dirichlet_value, so the coefficient
-                                    // equation is [  1/2    1/2 ] =
-                                    // dirichlet_value which is equivalent to
-                                    // [-coeff -coeff] = -2 * coeff *
-                                    // dirichlet_value
-                                    MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
-                                    MatSetValue(A, ghost_index, cell_index, -coeff, INSERT_VALUES);
-                                }
-                            }
-                            else
-                            {
-                                coeff = coeff == 0 ? 1 : coeff;
-                                // The outward flux is (u_ghost - u_cell)/h =
-                                // neumann_value, so the coefficient equation is
-                                // [  1/h  -1/h ] = neumann_value However, to
-                                // have symmetry, we want to have coeff as the
-                                // off-diagonal coefficient, so     [-coeff
-                                // coeff] = -coeff * h * neumann_value
-                                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                                {
-                                    MatSetValue(A,
-                                                ghost_index,
-                                                ghost_index,
-                                                -coeff,
-                                                ADD_VALUES); ////////// REMOVE THIS
-                                                             /// COMMENT// We want -coeff
-                                                             /// in the matrix, but we
-                                                             /// added 1 before, so we
-                                                             /// remove it
-                                    MatSetValue(A, ghost_index, cell_index, coeff, ADD_VALUES);
-                                }
-                                else
-                                {
-                                    MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
-                                    MatSetValue(A, ghost_index, cell_index, coeff, INSERT_VALUES);
-                                }
-                            }
-
-                            m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
-                        }
-                    });
-
-                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                // Iterate over the boundary conditions set by the user
+                for (auto& bc : m_unknown.get_bc())
                 {
-                    // Must flush to use INSERT_VALUES instead of ADD_VALUES
-                    MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
-                    MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
+                    auto bc_region                  = bc->get_region(); // get the region
+                    auto& directions                = bc_region.first;
+                    auto& boundary_cells_directions = bc_region.second;
+                    // Iterate over the directions in that region
+                    for (std::size_t d = 0; d < directions.size(); ++d)
+                    {
+                        auto& towards_out    = directions[d];
+                        auto& boundary_cells = boundary_cells_directions[d];
+
+                        Stencil<2, dim> stencil = in_out_stencil<dim>(towards_out);
+
+                        dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
+                        neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
+                        if (dirichlet)
+                        {
+                            for_each_stencil_on_boundary(m_mesh,
+                                                         boundary_cells,
+                                                         stencil,
+                                                         m_get_coefficients,
+                                                         [&](auto& cells, auto& coeffs)
+                                                         {
+                                                             assemble_dirichlet_bc(A, cells, coeffs);
+                                                         });
+                        }
+                        else if (neumann)
+                        {
+                            for_each_stencil_on_boundary(m_mesh,
+                                                         boundary_cells,
+                                                         stencil,
+                                                         m_get_coefficients,
+                                                         [&](auto& cells, auto& coeffs)
+                                                         {
+                                                             assemble_neumann_bc(A, cells, coeffs);
+                                                         });
+                        }
+                        else
+                        {
+                            std::cerr << "Unknown boundary condition type" << std::endl;
+                        }
+                    }
                 }
             }
 
-            void add_1_on_diag_for_useless_ghosts(Mat& A) override
+            template <class CellList, class CoeffList>
+            void assemble_dirichlet_bc(Mat& A, CellList& cells, CoeffList& coeffs)
             {
-                /*for_each_outside_ghost(m_mesh, [&](const auto& ghost)
+                const auto& cell = cells[0];
+                for (std::size_t g = 1; g < 2; ++g)
                 {
-                    for (unsigned int field_i = 0; field_i < field_size;
-                ++field_i)
+                    const auto& ghost = cells[g];
+                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        auto ghost_row = static_cast<PetscInt>(row_index(ghost,
-                field_i)); if
-                (m_is_row_empty[static_cast<std::size_t>(ghost_row)])
+                        PetscInt cell_index  = static_cast<PetscInt>(col_index(cell, field_i));
+                        PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
+
+                        double coeff = cell_coeff(coeffs, g, field_i, field_i);
+
+                        if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
                         {
-                        //for (unsigned int field_j = 0; field_j < field_size;
-                ++field_j)
-                        //{
-                        // auto ghost_col =
-                static_cast<PetscInt>(row_index(ghost, field_j)); MatSetValue(A,
-                ghost_row, ghost_row, 1, INSERT_VALUES);
-                            m_is_row_empty[static_cast<std::size_t>(ghost_row)]
-                = false;
-                        //}
+                            // We have (u_ghost + u_cell)/2 = dirichlet_value ==> u_ghost = 2*dirichlet_value - u_cell
+                            // The equation on the cell row is
+                            //                     coeff*u_ghost + coeff_cell*u_cell + ... = f
+                            // Eliminating u_ghost, it gives
+                            //                           (coeff_cell - coeff)*u_cell + ... = f - 2*coeff*dirichlet_value
+                            // which means that:
+                            // - on the cell row, we have to 1) remove the coeff in the column of the ghost,
+                            //                               2) substract coeff in the column of the cell.
+                            // - on the cell row of the right-hand side, we have to add -2*coeff*dirichlet_value.
+
+                            // the coeff of the ghost is removed from the stencil (we want 0 so we substract the coeff we set before)
+                            MatSetValue(A, cell_index, ghost_index, -coeff, ADD_VALUES);
+                            // the coeff is substracted from the center of the stencil
+                            MatSetValue(A, cell_index, cell_index, -coeff, ADD_VALUES);
+                            // 1 is added to the diagonal of the ghost
+                            MatSetValue(A, ghost_index, ghost_index, 1, ADD_VALUES);
+                        }
+                        else
+                        {
+                            coeff = coeff == 0 ? 1 : coeff;
+                            // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is
+                            //                        [  1/2    1/2 ] = dirichlet_value
+                            // which is equivalent to
+                            //                        [-coeff -coeff] = -2 * coeff * dirichlet_value
+                            MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, cell_index, -coeff, INSERT_VALUES);
+                        }
+                        m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                    }
+                }
+            }
+
+            template <class CellList, class CoeffList>
+            void assemble_neumann_bc(Mat& A, CellList& cells, CoeffList& coeffs)
+            {
+                const auto& cell = cells[0];
+                for (std::size_t g = 1; g < 2; ++g)
+                {
+                    const auto& ghost = cells[g];
+                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                    {
+                        PetscInt cell_index  = static_cast<PetscInt>(col_index(cell, field_i));
+                        PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
+
+                        double coeff = cell_coeff(coeffs, g, field_i, field_i);
+                        coeff        = coeff == 0 ? 1 : coeff;
+                        // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is
+                        //                    [ 1/h  -1/h ] = neumann_value
+                        // However, to have symmetry, we want to have coeff as the off-diagonal coefficient, so
+                        //                   [-coeff coeff] = -coeff * h * neumann_value
+                        if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                        {
+                            MatSetValue(A, ghost_index, ghost_index, -coeff, ADD_VALUES);
+                            MatSetValue(A, ghost_index, cell_index, coeff, ADD_VALUES);
+                        }
+                        else
+                        {
+                            MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, cell_index, coeff, INSERT_VALUES);
+                        }
+
+                        m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                    }
+                }
+            }
+
+          public:
+
+            //-------------------------------------------------------------//
+            //   Enforce the boundary conditions on the right-hand side    //
+            //-------------------------------------------------------------//
+
+            virtual void enforce_bc(Vec& b) const
+            {
+                // Iterate over the boundary conditions set by the user
+                for (auto& bc : m_unknown.get_bc())
+                {
+                    auto bc_region                  = bc->get_region(); // get the region
+                    auto& directions                = bc_region.first;
+                    auto& boundary_cells_directions = bc_region.second;
+                    // Iterate over the directions in that region
+                    for (std::size_t d = 0; d < directions.size(); ++d)
+                    {
+                        auto& towards_out    = directions[d];
+                        auto& boundary_cells = boundary_cells_directions[d];
+
+                        Stencil<2, dim> stencil = in_out_stencil<dim>(towards_out);
+
+                        dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
+                        neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
+                        if (dirichlet)
+                        {
+                            for_each_stencil_on_boundary(m_mesh,
+                                                         boundary_cells,
+                                                         stencil,
+                                                         m_get_coefficients,
+                                                         [&](auto& cells, auto& coeffs)
+                                                         {
+                                                             enforce_dirichlet_bc(b, cells, coeffs, *dirichlet, towards_out);
+                                                         });
+                        }
+                        else if (neumann)
+                        {
+                            for_each_stencil_on_boundary(m_mesh,
+                                                         boundary_cells,
+                                                         stencil,
+                                                         m_get_coefficients,
+                                                         [&](auto& cells, auto& coeffs)
+                                                         {
+                                                             enforce_neumann_bc(b, cells, coeffs, *neumann, towards_out);
+                                                         });
+                        }
+                        else
+                        {
+                            std::cerr << "Unknown boundary condition type" << std::endl;
                         }
                     }
-                });*/
+                }
+            }
 
+            template <class CellList, class CoeffList>
+            void enforce_dirichlet_bc(Vec& b,
+                                      CellList& cells,
+                                      CoeffList& coeffs,
+                                      const dirichlet_t& dirichlet,
+                                      const DirectionVector<dim>& towards_out) const
+            {
+                auto& cell          = cells[0];
+                auto boundary_point = cell.face_center(towards_out);
+
+                for (std::size_t g = 1; g < 2; ++g)
+                {
+                    const auto& ghost = cells[g];
+                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                    {
+                        PetscInt cell_index  = static_cast<PetscInt>(col_index(cell, field_i));
+                        PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
+
+                        double coeff = cell_coeff(coeffs, g, field_i, field_i);
+
+                        double dirichlet_value;
+                        if constexpr (field_size == 1)
+                        {
+                            dirichlet_value = dirichlet.value(boundary_point);
+                        }
+                        else
+                        {
+                            dirichlet_value = dirichlet.value(boundary_point)(field_i); // TODO: call get_value() only once instead of once
+                                                                                        // per field_i
+                        }
+
+                        if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                        {
+                            VecSetValue(b, cell_index, -2 * coeff * dirichlet_value, ADD_VALUES);
+                        }
+                        else
+                        {
+                            coeff = coeff == 0 ? 1 : coeff;
+                            VecSetValue(b, ghost_index, -2 * coeff * dirichlet_value, INSERT_VALUES);
+                        }
+                    }
+                }
+            }
+
+            template <class CellList, class CoeffList>
+            void
+            enforce_neumann_bc(Vec& b, CellList& cells, CoeffList& coeffs, const neumann_t& neumann, const DirectionVector<dim>& towards_out) const
+            {
+                auto& cell          = cells[0];
+                auto boundary_point = cell.face_center(towards_out);
+
+                for (std::size_t g = 1; g < 2; ++g)
+                {
+                    const auto& ghost = cells[g];
+                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                    {
+                        // PetscInt cell_index  = static_cast<PetscInt>(col_index(cell, field_i));
+                        PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
+
+                        double coeff = cell_coeff(coeffs, g, field_i, field_i);
+
+                        coeff   = coeff == 0 ? 1 : coeff;
+                        auto& h = cell.length;
+                        double neumann_value;
+                        if constexpr (field_size == 1)
+                        {
+                            neumann_value = neumann.value(boundary_point);
+                        }
+                        else
+                        {
+                            neumann_value = neumann.value(boundary_point)(field_i); // TODO: call get_value() only once instead of once per
+                                                                                    // field_i
+                        }
+                        VecSetValue(b, ghost_index, -coeff * h * neumann_value, INSERT_VALUES);
+                    }
+                }
+            }
+
+            //-------------------------------------------------------------//
+            //                      Useless ghosts                         //
+            //-------------------------------------------------------------//
+
+            void add_1_on_diag_for_useless_ghosts(Mat& A) override
+            {
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
                     if (m_is_row_empty[i])
@@ -747,96 +903,6 @@ namespace samurai
                         // m_is_row_empty[i] = false;
                     }
                 }
-            }
-
-          public:
-
-            virtual void enforce_bc(Vec& b) const
-            {
-                for_each_stencil_center_and_outside_ghost(
-                    m_mesh,
-                    m_stencil,
-                    m_get_coefficients,
-                    [&](const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
-                    {
-                        auto& cell          = cells[0];
-                        auto& ghost         = cells[1];
-                        auto boundary_point = cell.face_center(towards_ghost);
-                        auto bc             = find(m_boundary_conditions, boundary_point);
-
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            PetscInt cell_index  = static_cast<PetscInt>(col_index(cell, field_i));
-                            PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
-                            double coeff;
-                            if constexpr (field_size == 1 && output_field_size == 1)
-                            {
-                                coeff = ghost_coeff;
-                            }
-                            else
-                            {
-                                coeff = ghost_coeff(field_i, field_i);
-                            }
-                            if (bc.is_dirichlet())
-                            {
-                                double dirichlet_value;
-                                if constexpr (field_size == 1)
-                                {
-                                    dirichlet_value = bc.get_value(boundary_point);
-                                }
-                                else
-                                {
-                                    dirichlet_value = bc.get_value(boundary_point)(field_i); // TODO: call
-                                                                                             // get_value()
-                                                                                             // only once
-                                                                                             // instead of
-                                                                                             // once per
-                                                                                             // field_i
-                                }
-
-                                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                                {
-                                    // std::cout << "ADD " << (- 2 * coeff *
-                                    // dirichlet_value) << " to row " <<
-                                    // cell_index << " (field " << field_i << ",
-                                    // cell " << cell.index << ", ghost " <<
-                                    // ghost.index << ")" << std::endl;
-                                    VecSetValue(b, cell_index, -2 * coeff * dirichlet_value, ADD_VALUES);
-                                }
-                                else
-                                {
-                                    coeff = coeff == 0 ? 1 : coeff;
-                                    VecSetValue(b, ghost_index, -2 * coeff * dirichlet_value,
-                                                ADD_VALUES); // ADD_VALUES ?
-                                }
-                            }
-                            else
-                            {
-                                coeff   = coeff == 0 ? 1 : coeff;
-                                auto& h = cell.length;
-                                double neumann_value;
-                                if constexpr (field_size == 1)
-                                {
-                                    neumann_value = bc.get_value(boundary_point);
-                                }
-                                else
-                                {
-                                    neumann_value = bc.get_value(boundary_point)(field_i); // TODO: call
-                                                                                           // get_value()
-                                                                                           // only once
-                                                                                           // instead of once
-                                                                                           // per field_i
-                                }
-                                // std::cout << "ADD " << (- coeff * h *
-                                // neumann_value) << " to row " << ghost_index
-                                // << " (field " << field_i << ", cell " <<
-                                // cell.index << ", ghost " << ghost.index <<
-                                // ")" << std::endl;
-                                VecSetValue(b, ghost_index, -coeff * h * neumann_value,
-                                            ADD_VALUES); // ADD_VALUES ?
-                            }
-                        }
-                    });
             }
 
             void add_0_for_useless_ghosts(Vec& b) const
@@ -849,6 +915,10 @@ namespace samurai
                     }
                 }
             }
+
+            //-------------------------------------------------------------//
+            //                  Projection / prediction                    //
+            //-------------------------------------------------------------//
 
             virtual void enforce_projection_prediction(Vec& b) const
             {
@@ -1053,62 +1123,6 @@ namespace samurai
                             this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
                         }
                     });
-            }
-
-          public:
-
-            template <class Func>
-            static double L2Error(const Field& approximate, Func&& exact)
-            {
-                // In FV, we want only 1 quadrature point.
-                // This is equivalent to
-                //       error += pow(exact(cell.center()) -
-                //       approximate(cell.index), 2) * cell.length;
-                GaussLegendre<0> gl;
-
-                double error_norm = 0;
-                // double solution_norm = 0;
-                for_each_cell(approximate.mesh(),
-                              [&](const auto& cell)
-                              {
-                                  error_norm += gl.quadrature<1>(cell,
-                                                                 [&](const auto& point)
-                                                                 {
-                                                                     auto e = exact(point) - approximate[cell];
-                                                                     double norm_square;
-                                                                     if constexpr (Field::size == 1)
-                                                                     {
-                                                                         norm_square = e * e;
-                                                                     }
-                                                                     else
-                                                                     {
-                                                                         norm_square = xt::sum(e * e)();
-                                                                     }
-                                                                     return norm_square;
-                                                                 });
-
-                                  /*solution_norm += gl.quadrature<1>(cell,
-                                  [&](const auto& point)
-                                  {
-                                      auto v = exact(point);
-                                      double v_square;
-                                      if constexpr (Field::size == 1)
-                                      {
-                                          v_square = v * v;
-                                      }
-                                      else
-                                      {
-                                          v_square = xt::sum(v * v)();
-                                      }
-                                      return v_square;
-                                  });*/
-                              });
-
-                error_norm = sqrt(error_norm);
-                // solution_norm = sqrt(solution_norm);
-                // double relative_error = error_norm/solution_norm;
-                // return relative_error;
-                return error_norm;
             }
         };
 

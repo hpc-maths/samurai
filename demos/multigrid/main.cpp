@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
     using Mesh                = samurai::amr::Mesh<Config>;
     // using Config = samurai::MRConfig<dim>;
     // using Mesh = samurai::MRMesh<Config>;
-    constexpr unsigned int field_size = 2;
+    constexpr unsigned int field_size = 1;
     constexpr bool is_soa             = true;
     using Field                       = samurai::Field<Mesh, double, field_size, is_soa>;
 
@@ -220,38 +220,17 @@ int main(int argc, char* argv[])
     auto solution = samurai::make_field<double, field_size, is_soa>("solution", mesh);
 
     // Boundary conditions
-
-    solution.set_dirichlet(test_case->dirichlet()).everywhere();
-    // Other possibilities:
-    /*if constexpr (dim == 2)
+    samurai::make_bc<samurai::Dirichlet>(solution, test_case->dirichlet());
+    //  Other possibilities:
+    /*samurai::DirectionVector<dim> left   = {-1, 0};
+    samurai::DirectionVector<dim> right  = {1, 0};
+    samurai::DirectionVector<dim> bottom = {0, -1};
+    samurai::DirectionVector<dim> top    = {0, 1};
+    if constexpr (dim == 2)
     {
-        solution.set_dirichlet(test_case->dirichlet())
-                .where([](const auto& coord)
-                {
-                    auto& x = coord[0];
-                    return x == 0 || x == 1;
-                });
-        solution.set_neumann(test_case->neumann())
-                .where([](const auto& coord)
-                {
-                    auto& y = coord[1];
-                    return y == 0 || y == 1;
-                });
-    }
-
-    solution.set_dirichlet([](const auto&) { return 0; })
-            .where([](const auto& coord)
-            {
-                auto& x = coord[0];
-                return x > 0;//abs(x) > 1e-12; // x != 0
-            });
-
-    solution.set_neumann([](const auto&) { return -1; })
-            .where([](const auto& coord)
-            {
-                auto& x = coord[0];
-                return x == 0;//abs(x) < 1e-12; // x == 0
-            });*/
+        samurai::make_bc<samurai::Dirichlet>(solution, test_case->dirichlet())->on(left, right);
+        samurai::make_bc<samurai::Neumann>(solution, test_case->neumann())->on(bottom, top);
+    }*/
 
     //---------------------//
     // Solve linear system //
@@ -310,7 +289,7 @@ int main(int argc, char* argv[])
 
     if (test_case->solution_is_known())
     {
-        double error = diff.L2Error(solution, test_case->solution());
+        double error = solution.L2_error(test_case->solution());
         std::cout.precision(2);
         std::cout << "L2-error: " << std::scientific << error << std::endl;
     }
