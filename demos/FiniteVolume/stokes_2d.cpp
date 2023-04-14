@@ -38,7 +38,7 @@ bool check_nan_or_inf(const Field& f)
 // Configuration of the PETSc solver for the Stokes problem
 //
 template <class Solver>
-void configure_petsc_solver(Solver& block_solver)
+void configure_saddle_point_solver(Solver& block_solver)
 {
     // The matrix has the saddle-point structure
     //           | A    B |
@@ -211,10 +211,10 @@ int main(int argc, char* argv[])
 
         // Linear solver
         std::cout << "Solving Stokes system..." << std::endl;
-        auto block_solver = samurai::petsc::make_block_solver(stokes);
-        configure_petsc_solver(block_solver);
-        block_solver.solve(f, zero);
-        std::cout << block_solver.iterations() << " iterations" << std::endl << std::endl;
+        auto stokes_solver = samurai::petsc::make_block_solver(stokes);
+        configure_saddle_point_solver(stokes_solver);
+        stokes_solver.solve(f, zero);
+        std::cout << stokes_solver.iterations() << " iterations" << std::endl << std::endl;
 
         // Error
         double error = velocity.L2_error(
@@ -266,7 +266,6 @@ int main(int argc, char* argv[])
                                                                          });
             samurai::save(path, "exact_pressure", mesh, exact_pressure);
         }
-        block_solver.destroy_petsc_objects();
     }
 
     //------------------------//
@@ -371,13 +370,13 @@ int main(int argc, char* argv[])
             // clang-format on
 
             // Linear solver
-            auto block_solver = samurai::petsc::make_block_solver(stokes);
-            configure_petsc_solver(block_solver);
+            auto stokes_solver = samurai::petsc::make_block_solver(stokes);
+            configure_saddle_point_solver(stokes_solver);
 
             // Solve the linear equation
             //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n
             //                         -Div v_np1            = 0
-            block_solver.solve(velocity, zero);
+            stokes_solver.solve(velocity, zero);
 
             // Prepare next step
             std::swap(velocity.array(), velocity_np1.array());

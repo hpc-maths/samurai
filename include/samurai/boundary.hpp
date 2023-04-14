@@ -1,10 +1,8 @@
 #pragma once
 #include "stencil.hpp"
-#include <utility>
 
 namespace samurai
 {
-    // OBSOLETE
     template <class Mesh, class Vector>
     auto boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
     {
@@ -20,7 +18,7 @@ namespace samurai
     }
 
     // OBSOLETE
-    template <class Mesh, class Vector>
+    /*template <class Mesh, class Vector>
     auto boundary_mr(const Mesh& mesh, std::size_t level, const Vector& direction)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
@@ -34,10 +32,10 @@ namespace samurai
         auto& all_on_level = mesh[mesh_id_t::reference][level];
 
         return intersection(boundary_cells, all_on_level).on(level);
-    }
+    }*/
 
     // OBSOLETE
-    template <class Mesh, class Vector, class Func>
+    /*template <class Mesh, class Vector, class Func>
     auto for_each_meshinterval_on_boundary(const Mesh& mesh, const Vector& direction, Func&& func)
     {
         using mesh_interval_t = typename Mesh::mesh_interval_t;
@@ -48,10 +46,10 @@ namespace samurai
                            auto bdry = boundary(mesh, level, direction);
                            for_each_meshinterval<mesh_interval_t>(bdry, std::forward<Func>(func));
                        });
-    }
+    }*/
 
     // OBSOLETE
-    template <class Mesh, std::size_t stencil_size, class Func>
+    /*template <class Mesh, std::size_t stencil_size, class Func>
     inline void for_each_meshinterval_on_boundary(const Mesh& mesh,
                                                   std::size_t level,
                                                   const Stencil<stencil_size, Mesh::dim>& boundary_directions,
@@ -72,10 +70,10 @@ namespace samurai
                                                        });
             }
         }
-    }
+    }*/
 
     // OBSOLETE
-    template <class Mesh, std::size_t stencil_size, class Func>
+    /*template <class Mesh, std::size_t stencil_size, class Func>
     inline void for_each_meshinterval_on_boundary_mr(const Mesh& mesh,
                                                      std::size_t level,
                                                      const Stencil<stencil_size, Mesh::dim>& boundary_directions,
@@ -142,9 +140,9 @@ namespace samurai
                 for_each_meshinterval_on_boundary(mesh, level, boundary_directions, coeffs, std::forward<Func>(func));
             }
         }
-    }
+    }*/
 
-    template <class Mesh, std::size_t stencil_size, class Func>
+    /*template <class Mesh, std::size_t stencil_size, class Func>
     void for_each_meshinterval_on_boundary(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& boundary_directions, Func&& func)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
@@ -157,9 +155,9 @@ namespace samurai
                 for_each_meshinterval_on_boundary(mesh, level, boundary_directions, std::forward<Func>(func));
             }
         }
-    }
+    }*/
 
-    template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
+    /*template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_cell_on_boundary(const Mesh& mesh,
                                    const Stencil<stencil_size, Mesh::dim>& boundary_directions,
                                    GetCoeffsFunc&& get_coefficients,
@@ -179,9 +177,9 @@ namespace samurai
                                                                 func(cell, stencil_vector, out_coeff);
                                                             });
                                           });
-    }
+    }*/
 
-    template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
+    /*template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_stencil_center_and_outside_ghost(const Mesh& mesh,
                                                    const Stencil<stencil_size, Mesh::dim>& stencil,
                                                    GetCoeffsFunc&& get_coefficients,
@@ -231,10 +229,10 @@ namespace samurai
                                                                      });
                                                              });
                        });
-    }
+    }*/
 
     // OBSOLETE
-    template <class Mesh, std::size_t stencil_size, class Func>
+    /*template <class Mesh, std::size_t stencil_size, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
                                       const DirectionVector<Mesh::dim>& boundary_direction,
                                       const Stencil<stencil_size, Mesh::dim>& stencil,
@@ -246,7 +244,7 @@ namespace samurai
                            auto bdry = boundary(mesh, level, boundary_direction);
                            for_each_stencil(mesh, bdry, stencil, std::forward<Func>(func));
                        });
-    }
+    }*/
 
     // NEW
     template <class Mesh, class Subset, std::size_t stencil_size, class Func>
@@ -288,7 +286,7 @@ namespace samurai
                        });
     }
 
-    template <class Mesh, std::size_t n_directions, std::size_t stencil_size, class Func>
+    /*template <class Mesh, std::size_t n_directions, std::size_t stencil_size, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
                                       const std::array<DirectionVector<Mesh::dim>, n_directions>& boundary_directions,
                                       const std::array<Stencil<stencil_size, Mesh::dim>, n_directions>& stencils,
@@ -324,6 +322,6 @@ namespace samurai
                                              func(cells, boundary_directions[i], coeffs);
                                          });
         }
-    }
+    }*/
 
 }

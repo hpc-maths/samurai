@@ -14,6 +14,7 @@
 #include <xtensor/xnoalias.hpp>
 #include <xtensor/xview.hpp>
 
+#include "cell.hpp"
 #include "static_algorithm.hpp"
 
 namespace samurai
