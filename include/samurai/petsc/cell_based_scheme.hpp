@@ -66,10 +66,10 @@ namespace samurai
         {
             static constexpr std::size_t field_size = Field::size;
             using field_value_type                  = typename Field::value_type; // double
-            using local_matrix_t                    = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
+            using coeffs_t                          = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
 
-            using stencil_coeffs_t = std::array<local_matrix_t, bdry_stencil_size>;
-            using rhs_coeffs_t     = local_matrix_t;
+            using stencil_coeffs_t = std::array<coeffs_t, bdry_stencil_size>;
+            using rhs_coeffs_t     = coeffs_t;
 
             std::size_t ghost_index;
             stencil_coeffs_t stencil_coeffs;
@@ -79,12 +79,6 @@ namespace samurai
         template <class Field, std::size_t output_field_size, std::size_t bdry_stencil_size>
         struct BoundaryEquationConfig
         {
-            /*static constexpr std::size_t field_size = Field::size;
-            using field_value_type                  = typename Field::value_type; // double
-            using local_matrix_t                    = typename detail::LocalMatrix<field_value_type,
-                                                                output_field_size,
-                                                                field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a
-                                                                                                      // matrix otherwise*/
             using equation_coeffs_t         = BoundaryEquationCoeffs<Field, output_field_size, bdry_stencil_size>;
             using stencil_coeffs_t          = typename equation_coeffs_t::stencil_coeffs_t;
             using rhs_coeffs_t              = typename equation_coeffs_t::rhs_coeffs_t;
@@ -758,7 +752,7 @@ namespace samurai
 
             virtual directional_bdry_config_t dirichlet_config(const DirectionVector<dim>& direction) const
             {
-                using local_matrix_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::local_matrix_t;
+                using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
                 directional_bdry_config_t config;
 
                 auto dir_stencils = directional_stencils<dim, neighbourhood_width>();
@@ -787,17 +781,17 @@ namespace samurai
                     config.equations[0].ghost_index        = ghost;
                     config.equations[0].get_stencil_coeffs = [&](double h)
                     {
-                        std::array<local_matrix_t, bdry_stencil_size> coeffs;
-                        auto Identity         = eye<local_matrix_t>();
+                        std::array<coeffs_t, bdry_stencil_size> coeffs;
+                        auto Identity         = eye<coeffs_t>();
                         coeffs[cell]          = 1 / (h * h) * Identity;
                         coeffs[ghost]         = 1 / (h * h) * Identity;
-                        coeffs[interior_cell] = zeros<local_matrix_t>();
+                        coeffs[interior_cell] = zeros<coeffs_t>();
                         return coeffs;
                     };
                     config.equations[0].get_rhs_coeffs = [&](double h)
                     {
-                        local_matrix_t coeffs;
-                        auto Identity = eye<local_matrix_t>();
+                        coeffs_t coeffs;
+                        auto Identity = eye<coeffs_t>();
                         coeffs        = 2 / (h * h) * Identity;
                         return coeffs;
                     };
@@ -811,7 +805,7 @@ namespace samurai
 
             virtual directional_bdry_config_t neumann_config(const DirectionVector<dim>& direction) const
             {
-                using local_matrix_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::local_matrix_t;
+                using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
                 directional_bdry_config_t config;
 
                 auto dir_stencils = directional_stencils<dim, neighbourhood_width>();
@@ -840,18 +834,18 @@ namespace samurai
                     config.equations[0].ghost_index        = ghost;
                     config.equations[0].get_stencil_coeffs = [&](double h)
                     {
-                        std::array<local_matrix_t, bdry_stencil_size> coeffs;
+                        std::array<coeffs_t, bdry_stencil_size> coeffs;
                         double one_over_h2    = 1 / (h * h);
-                        auto Identity         = eye<local_matrix_t>();
+                        auto Identity         = eye<coeffs_t>();
                         coeffs[cell]          = -one_over_h2 * Identity;
                         coeffs[ghost]         = one_over_h2 * Identity;
-                        coeffs[interior_cell] = zeros<local_matrix_t>();
+                        coeffs[interior_cell] = zeros<coeffs_t>();
                         return coeffs;
                     };
                     config.equations[0].get_rhs_coeffs = [&](double h)
                     {
-                        auto Identity         = eye<local_matrix_t>();
-                        local_matrix_t coeffs = (1 / h) * Identity;
+                        auto Identity   = eye<coeffs_t>();
+                        coeffs_t coeffs = (1 / h) * Identity;
                         return coeffs;
                     };
                 }
