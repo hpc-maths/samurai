@@ -2,6 +2,20 @@ cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# Set version
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/version.txt")
+  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/version.txt" SAMURAI_VERSION)
+  string(STRIP "${SAMURAI_VERSION}" SAMURAI_VERSION)
+else()
+  message(FATAL_ERROR "File ${CMAKE_CURRENT_SOURCE_DIR}/version.txt not found")
+endif()
+
+configure_file(
+  version.hpp.in
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/samurai/version.hpp
+  @ONLY
+)
+
 # Add project_options v0.26.1
 # https://github.com/aminya/project_options
 include(FetchContent)
@@ -12,12 +26,13 @@ include(${_project_options_SOURCE_DIR}/Index.cmake)
 # install vcpkg dependencies: - should be called before defining project()
 option(ENABLE_VCPKG "Use vcpkg to install dependencies" OFF)
 option(ENABLE_CONAN_OPTION "Use Conan to install dependencies" OFF)
-if (${ENABLE_VCPKG})
+
+if(${ENABLE_VCPKG})
   run_vcpkg()
   set(VCPKG_BUILD_TYPE release)
 endif()
 
-if (${ENABLE_CONAN_OPTION})
+if(${ENABLE_CONAN_OPTION})
   set(ENABLE_CONAN "ENABLE_CONAN")
 endif()
 
@@ -28,58 +43,36 @@ option(IWYU "Activate include-what-you-use" OFF)
 option(SANITIZERS "Activate sanitizers" OFF)
 option(ENABLE_COVERAGE "Activate coverage" OFF)
 
-project(samurai VERSION 0.1.0 LANGUAGES CXX C)
+project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
 SET(FEATURES)
-if (${CLANG_TIDY})
+
+if(${CLANG_TIDY})
   LIST(APPEND FEATURES ENABLE_CLANG_TIDY)
 endif()
 
-if (${CPPCHECK})
+if(${CPPCHECK})
   LIST(APPEND FEATURES ENABLE_CPPCHECK)
 endif()
 
-if (${IWYU})
+if(${IWYU})
   LIST(APPEND FEATURES ENABLE_INCLUDE_WHAT_YOU_USE)
 endif()
 
-if (${SANITIZERS})
+if(${SANITIZERS})
   LIST(APPEND FEATURES ENABLE_SANITIZER_ADDRESS)
   LIST(APPEND FEATURES ENABLE_SANITIZER_UNDEFINED_BEHAVIOR)
 endif()
 
-if (${COVERAGE})
+if(${COVERAGE})
   LIST(APPEND FEATURES ENABLE_COVERAGE)
 endif()
 
 message(STATUS "Available FEATURES: ${FEATURES}")
-# set(coucous ENABLE_CLANG_TIDY ENABLE_CPPCHECK)
-# Initialize project_options variable related to this project
-# This overwrites `project_options` and sets `project_warnings`
-# uncomment to enable the options. Some of them accept one or more inputs:
 project_options(
-  # ENABLE_CACHE
-  # ${ENABLE_CPPCHECK}
-  # ${ENABLE_CLANG_TIDY}
   ${FEATURES}
   ENABLE_VS_ANALYSIS
   ${ENABLE_CONAN}
-  # ENABLE_INTERPROCEDURAL_OPTIMIZATION
-  # ENABLE_NATIVE_OPTIMIZATION
-  #   ${ENABLE_DOXYGEN}
-  # ${ENABLE_COVERAGE}
-  # ${ENABLE_SANITIZER_ADDRESS}
-  # ${ENABLE_SANITIZER_UNDEFINED_BEHAVIOR}
-  # ENABLE_SANITIZER_THREAD
-  # ENABLE_SANITIZER_MEMORY
-  # ENABLE_PCH
-  # PCH_HEADERS
-    # WARNINGS_AS_ERRORS
-  # ${ENABLE_INCLUDE_WHAT_YOU_USE}
-  # ENABLE_USER_LINKER
-  #   ENABLE_BUILD_WITH_TIME_TRACE
-  # ENABLE_UNITY
-  # CONAN_PROFILE ${profile_path}  # passes a profile to conan: see https://docs.conan.io/en/latest/reference/profiles.html
 )
 
 add_library(samurai INTERFACE)
@@ -89,12 +82,12 @@ target_compile_features(samurai INTERFACE cxx_std_17)
 # Includes
 set(INCLUDE_DIR "include") # must be relative paths
 target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${INCLUDE_DIR}>"
-                                             "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 # Find dependencies:
 set(DEPENDENCIES_CONFIGURED xtensor HighFive pugixml fmt)
 
-if (${ENABLE_VCPKG})
+if(${ENABLE_VCPKG})
   list(APPEND DEPENDENCIES_CONFIGURED hdf5)
 endif()
 
@@ -104,7 +97,6 @@ option(HIGHFIVE_USE_INSTALL_DEPS "End applications by default use detected depen
 foreach(DEPENDENCY ${DEPENDENCIES_CONFIGURED})
   find_package(${DEPENDENCY} CONFIG REQUIRED)
 endforeach()
-
 
 # Link dependencies:
 target_link_system_libraries(
@@ -123,7 +115,7 @@ OPTION(BUILD_DEMOS "samurai build all demos" OFF)
 OPTION(BUILD_TESTS "samurai test suite" OFF)
 OPTION(WITH_STATS "samurai mesh stats" OFF)
 
-if (WITH_STATS)
+if(WITH_STATS)
   find_package(nlohmann_json REQUIRED)
   target_link_libraries(samurai INTERFACE nlohmann_json::nlohmann_json)
   target_compile_definitions(samurai INTERFACE WITH_STATS)
@@ -138,9 +130,9 @@ if(BUILD_TESTS)
 endif()
 
 if(BUILD_DEMOS)
-    add_subdirectory(demos)
+  add_subdirectory(demos)
 else()
-    add_subdirectory(demos EXCLUDE_FROM_ALL)
+  add_subdirectory(demos EXCLUDE_FROM_ALL)
 endif()
 
 # Package the project
