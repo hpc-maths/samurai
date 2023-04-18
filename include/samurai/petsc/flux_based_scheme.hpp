@@ -567,8 +567,7 @@ namespace samurai
             //             Assemble the boundary conditions                //
             //-------------------------------------------------------------//
 
-            template <class DirVector>
-            auto find_stencil_from_scheme(const DirVector& direction) const
+            auto find_stencil_from_scheme(const DirectionVector<dim>& direction) const
             {
                 bool found = false;
                 Stencil<comput_stencil_size, dim> stencil;

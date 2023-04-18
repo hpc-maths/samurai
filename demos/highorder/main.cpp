@@ -19,12 +19,12 @@ class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
   public:
 
-    static constexpr std::size_t dim              = Field::dim;
-    using field_t                                 = Field;
-    using Mesh                                    = typename Field::mesh_t;
-    static constexpr std::size_t ghost_width      = Mesh::config::ghost_width;
-    using boundary_condition_t                    = typename Field::boundary_condition_t;
-    static constexpr std::size_t prediction_order = samurai::petsc::CellBasedScheme<cfg, Field>::prediction_order;
+    static constexpr std::size_t dim = Field::dim;
+    using field_t                    = Field;
+    // using Mesh                                    = typename Field::mesh_t;
+    // static constexpr std::size_t ghost_width      = Mesh::config::ghost_width;
+    // static constexpr std::size_t prediction_order = samurai::petsc::CellBasedScheme<cfg, Field>::prediction_order;
+    using directional_bdry_config_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::directional_bdry_config_t;
 
     HighOrderDiffusion(Field& unknown)
         : samurai::petsc::CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
@@ -48,150 +48,80 @@ class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
         return coeffs;
     }
 
-    void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
+    directional_bdry_config_t dirichlet_config(const samurai::DirectionVector<dim>& direction) const override
     {
-        std::array<samurai::DirectionVector<dim>, 4> bdry_directions;
-        std::array<samurai::Stencil<3, dim>, 4> bdry_stencils;
+        directional_bdry_config_t config;
 
-        // clang-format off
-        // Left boundary
-        bdry_directions[0] = {-1, 0};
-        bdry_stencils[0]   = {{0, 0}, {-1, 0}, {-2, 0}};
-        // Top boundary
-        bdry_directions[1] = {0, 1};
-        bdry_stencils[1]   = {{0, 0}, {0, 1}, {0, 2}};
-        // Right boundary
-        bdry_directions[2] = {1, 0};
-        bdry_stencils[2]   = {{0, 0}, {1, 0}, {2, 0}};
-        // Bottom boundary
-        bdry_directions[3] = {0, -1};
-        bdry_stencils[3]   = {{0, 0 }, {0, -1}, {0, -2}};
-        // clang-format on
+        auto dir_stencils = samurai::directional_stencils<dim, 2>();
+        bool found        = false;
+        for (std::size_t d = 0; d < 2 * dim; ++d)
+        {
+            if (direction == dir_stencils[d].direction)
+            {
+                found                      = true;
+                config.directional_stencil = dir_stencils[d];
+                break;
+            }
+        }
+        assert(found);
 
-        samurai::for_each_stencil_on_boundary(this->m_mesh,
-                                              bdry_directions,
-                                              bdry_stencils,
-                                              [&](const auto& cells, const auto&)
-                                              {
-                                                  auto& ghost1      = cells[1];
-                                                  auto& ghost2      = cells[2];
-                                                  nnz[ghost1.index] = 4;
-                                                  nnz[ghost2.index] = 4;
-                                              });
-    }
+        // We need to define a polynomial of degree 3 that passes by the 4 points c3, c2, c1 and the boundary point.
+        // This polynomial writes
+        //                       p(x) = a*x^3 + b*x^2 + c*x + d.
+        // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 points into
+        // the polynomial. If we set the abscissa 0 at the center of c1, this system reads
+        //                       p(  0) = u1
+        //                       p( -h) = u2
+        //                       p(-2h) = u3
+        //                       p(h/2) = dirichlet_value.
+        // Then, we want that the ghost values be also located on this polynomial, i.e.
+        //                       u_g1 = p( h)
+        //                       u_g2 = p(2h).
+        // This gives
+        //             5/16 * u_g1  +  15/16 * u1  -5/16 * u2  +  1/16 * u3 = dirichlet_value
+        //             5/64 * u_g2  +  45/32 * u1  -5/8  * u2  +  9/64 * u3 = dirichlet_value
 
-    void assemble_boundary_conditions(Mat& A) override
-    {
-        std::array<samurai::DirectionVector<dim>, 4> bdry_directions;
-        std::array<samurai::Stencil<5, dim>, 4> bdry_stencils;
+        static constexpr std::size_t cell1  = 0;
+        static constexpr std::size_t cell2  = 1;
+        static constexpr std::size_t cell3  = 2;
+        static constexpr std::size_t ghost1 = 3;
+        static constexpr std::size_t ghost2 = 4;
 
-        // clang-format off
-        // Left boundary
-        bdry_directions[0] = {-1, 0};
-        bdry_stencils[0]   = {{0,  0}, {1,  0}, {2,  0}, {-1, 0}, {-2, 0}};
-        // Top boundary
-        bdry_directions[1] = {0, 1};
-        bdry_stencils[1]   = {{0, 0 }, {0, -1}, {0, -2}, {0, 1 }, {0, 2 }};
-        // Right boundary
-        bdry_directions[2] = {1, 0};
-        bdry_stencils[2]   = {{0,  0}, {-1, 0}, {-2, 0}, {1,  0}, {2,  0}};
-        // Bottom boundary
-        bdry_directions[3] = {0, -1};
-        bdry_stencils[3]   = {{0, 0 }, {0, 1 }, {0, 2 }, {0, -1}, {0, -2}};
-        // clang-format on
+        // Equation of ghost1
+        config.equations[0].ghost_index        = ghost1;
+        config.equations[0].get_stencil_coeffs = [&](double)
+        {
+            std::array<double, 5> coeffs;
+            coeffs[ghost1] = 5. / 16;
+            coeffs[cell1]  = 15. / 16;
+            coeffs[cell2]  = -5. / 16;
+            coeffs[cell3]  = 1. / 16;
+            coeffs[ghost2] = 0;
+            return coeffs;
+        };
+        config.equations[0].get_rhs_coeffs = [&](double)
+        {
+            return 1.;
+        };
 
-        samurai::for_each_stencil_on_boundary(this->m_mesh,
-                                              bdry_directions,
-                                              bdry_stencils,
-                                              [&](const auto& cells, const auto&)
-                                              {
-                                                  auto& cell1  = cells[0];
-                                                  auto& cell2  = cells[1];
-                                                  auto& cell3  = cells[2];
-                                                  auto& ghost1 = cells[3];
-                                                  auto& ghost2 = cells[4];
+        // Equation of ghost2
+        config.equations[1].ghost_index        = ghost2;
+        config.equations[1].get_stencil_coeffs = [&](double)
+        {
+            std::array<double, 5> coeffs;
+            coeffs[ghost2] = 5. / 64;
+            coeffs[cell1]  = 45. / 32;
+            coeffs[cell2]  = -5. / 8;
+            coeffs[cell3]  = 9. / 64;
+            coeffs[ghost1] = 0;
+            return coeffs;
+        };
+        config.equations[1].get_rhs_coeffs = [&](double)
+        {
+            return 1.;
+        };
 
-                                                  PetscInt cell1_index  = static_cast<PetscInt>(cell1.index);
-                                                  PetscInt cell2_index  = static_cast<PetscInt>(cell2.index);
-                                                  PetscInt cell3_index  = static_cast<PetscInt>(cell3.index);
-                                                  PetscInt ghost1_index = static_cast<PetscInt>(ghost1.index);
-                                                  PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
-
-                                                  // We need to define a polynomial of degree 3 that passes by the
-                                                  // 4 points c3, c2, c1 and the boundary point. This polynomial
-                                                  // writes
-                                                  //                       p(x) = a*x^3 + b*x^2 + c*x + d.
-                                                  // The coefficients a, b, c, d are found by inverting the
-                                                  // Vandermonde matrix obtained by inserting the 4 points into
-                                                  // the polynomial. If we set the abscissa 0 at the center of c1,
-                                                  // this system reads
-                                                  //                       p(  0) = u1
-                                                  //                       p( -h) = u2
-                                                  //                       p(-2h) = u3
-                                                  //                       p(h/2) = dirichlet_value.
-                                                  // Then, we want that the ghost values be also located on this
-                                                  // polynomial, i.e.
-                                                  //                       u_g1 = p( h)
-                                                  //                       u_g2 = p(2h).
-                                                  // This gives
-                                                  //             5/16 * u_g1  +  15/16 * u1  -5/16 * u2  +  1/16 *
-                                                  //             u3 = dirichlet_value 5/64 * u_g2  +  45/32 * u1
-                                                  //             -5/8  * u2  +  9/64 * u3 = dirichlet_value
-
-                                                  MatSetValue(A, ghost1_index, ghost1_index, 5. / 16, INSERT_VALUES);
-                                                  MatSetValue(A, ghost1_index, cell1_index, 15. / 16, INSERT_VALUES);
-                                                  MatSetValue(A, ghost1_index, cell2_index, -5. / 16, INSERT_VALUES);
-                                                  MatSetValue(A, ghost1_index, cell3_index, 1. / 16, INSERT_VALUES);
-
-                                                  MatSetValue(A, ghost2_index, ghost2_index, 5. / 64, INSERT_VALUES);
-                                                  MatSetValue(A, ghost2_index, cell1_index, 45. / 32, INSERT_VALUES);
-                                                  MatSetValue(A, ghost2_index, cell2_index, -5. / 8, INSERT_VALUES);
-                                                  MatSetValue(A, ghost2_index, cell3_index, 9. / 64, INSERT_VALUES);
-
-                                                  this->m_is_row_empty[ghost1.index] = false;
-                                                  this->m_is_row_empty[ghost2.index] = false;
-                                              });
-    }
-
-    void enforce_bc(Vec& b) const override
-    {
-        std::array<samurai::DirectionVector<dim>, 4> bdry_directions;
-        std::array<samurai::Stencil<3, dim>, 4> bdry_stencils;
-
-        // clang-format off
-        // Left boundary
-        bdry_directions[0] = {-1, 0};
-        bdry_stencils[0]   = {{0,  0}, {-1, 0}, {-2, 0}};
-        // Top boundary
-        bdry_directions[1] = {0, 1};
-        bdry_stencils[1]   = {{0, 0}, {0, 1}, {0, 2}};
-        // Right boundary
-        bdry_directions[2] = {1, 0};
-        bdry_stencils[2]   = {{0, 0}, {1, 0}, {2, 0}};
-        // Bottom boundary
-        bdry_directions[3] = {0, -1};
-        bdry_stencils[3]   = {{0, 0 }, {0, -1}, {0, -2}};
-        // clang-format on
-
-        samurai::for_each_stencil_on_boundary(this->m_mesh,
-                                              bdry_directions,
-                                              bdry_stencils,
-                                              [&](const auto& cells, const auto& towards_ghost)
-                                              {
-                                                  auto& cell1  = cells[0];
-                                                  auto& ghost1 = cells[1];
-                                                  auto& ghost2 = cells[2];
-
-                                                  PetscInt ghost1_index = static_cast<PetscInt>(ghost1.index);
-                                                  PetscInt ghost2_index = static_cast<PetscInt>(ghost2.index);
-
-                                                  auto boundary_point    = cell1.face_center(towards_ghost);
-                                                  auto bc                = samurai::find(this->m_boundary_conditions, boundary_point);
-                                                  double dirichlet_value = bc.get_value(boundary_point);
-
-                                                  VecSetValue(b, ghost1_index, dirichlet_value, ADD_VALUES);
-                                                  VecSetValue(b, ghost2_index, dirichlet_value, ADD_VALUES);
-                                              });
+        return config;
     }
 };
 
@@ -277,45 +207,6 @@ int main(int argc, char* argv[])
                                                           }
                                                       });
 
-    // std::array<samurai::StencilVector<dim>, 4> bdry_directions;
-    // std::array<samurai::Stencil<5, dim>   , 4> bdry_stencils;
-
-    // // Left boundary
-    // bdry_directions[0] = {-1, 0};
-    // bdry_stencils[0] = {{0, 0}, {1, 0}, {2, 0}, {-1, 0}, {-2, 0}};
-    // // Top boundary
-    // bdry_directions[1] = {0, 1};
-    // bdry_stencils[1] = {{0, 0}, {0, -1}, {0, -2}, {0, 1}, {0, 2}};
-    // // Right boundary
-    // bdry_directions[2] = {1, 0};
-    // bdry_stencils[2] = {{0, 0}, {-1, 0}, {-2, 0}, {1, 0}, {2, 0}};
-    // // Bottom boundary
-    // bdry_directions[3] = {0, -1};
-    // bdry_stencils[3] = {{0, 0}, {0, 1}, {0, 2}, {0, -1}, {0, -2}};
-
-    // auto update_bc = [&](auto& , std::size_t)
-    // {
-    // samurai::for_each_stencil_on_boundary(field.mesh(), bdry_directions,
-    // bdry_stencils,
-    // [&](const auto& cells, const auto& towards_ghost)
-    // {
-    //     auto& cell1  = cells[0];
-    //     auto& cell2  = cells[1];
-    //     auto& cell3  = cells[2];
-    //     auto& ghost1 = cells[3];
-    //     auto& ghost2 = cells[4];
-    //     const double& h = cell1.length;
-    //     auto boundary_point = cell1.face_center(towards_ghost);
-    //     auto bc = find(field.boundary_conditions(), boundary_point);
-    //     auto dirichlet_value = bc.get_value(boundary_point);
-
-    //     field[ghost1] =  -3 * field[cell1] +      field[cell2] - 1./5 *
-    //     field[cell3] + 16./5 * dirichlet_value; field[ghost2] = -18 *
-    //     field[cell1] + 8  * field[cell2] - 9./5 * field[cell3] + 64./5 *
-    //     dirichlet_value;
-    // });
-    // };
-
     auto MRadaptation = samurai::make_MRAdapt(adapt_field);
     MRadaptation(mr_epsilon, mr_regularity);
 
@@ -376,15 +267,14 @@ int main(int argc, char* argv[])
     // return 0;
 
     auto u = samurai::make_field<double, 1>("u", mesh);
-    u.set_dirichlet(
-         [](const auto& coord)
-         {
-             const auto& x = coord[0];
-             const auto& y = coord[1];
-             // return 0.;
-             return exp(x * y * y);
-         })
-        .everywhere();
+    samurai::make_bc<samurai::Dirichlet>(u,
+                                         [](const auto& coord)
+                                         {
+                                             const auto& x = coord[0];
+                                             const auto& y = coord[1];
+                                             // return 0.;
+                                             return exp(x * y * y);
+                                         });
     u.fill(0);
 
     auto diff = make_high_order_diffusion(u);
@@ -392,16 +282,16 @@ int main(int argc, char* argv[])
     auto solver = samurai::petsc::make_solver(diff);
     solver.solve(f);
 
-    double error = diff.L2Error(u,
-                                [](const auto& coord)
-                                {
-                                    const auto& x = coord[0];
-                                    const auto& y = coord[1];
-                                    // return x * (1 - x) * y*(1 - y);
-                                    // return sin(4 * M_PI * x)*sin(4 * M_PI *
-                                    // y);
-                                    return exp(x * y * y);
-                                });
+    double error = u.L2_error(
+        [](const auto& coord)
+        {
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            // return x * (1 - x) * y*(1 - y);
+            // return sin(4 * M_PI * x)*sin(4 * M_PI *
+            // y);
+            return exp(x * y * y);
+        });
     std::cout.precision(2);
     std::cout << "L2-error: " << std::scientific << error << std::endl;
 

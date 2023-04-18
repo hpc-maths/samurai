@@ -10,6 +10,13 @@ namespace samurai
     using DirectionVector = xt::xtensor_fixed<int, xt::xshape<dim>>;
 
     template <std::size_t stencil_size, std::size_t dim>
+    struct DirectionalStencil
+    {
+        DirectionVector<dim> direction;
+        Stencil<stencil_size, dim> stencil;
+    };
+
+    template <std::size_t stencil_size, std::size_t dim>
     int find_stencil_origin(const Stencil<stencil_size, dim>& stencil)
     {
         for (unsigned int id = 0; id < stencil_size; ++id)
@@ -251,6 +258,7 @@ namespace samurai
         }
         else if constexpr (neighbourhood_width == 1)
         {
+            // clang-format off
             if constexpr (dim == 1)
             {
                 //    left, center, right
@@ -258,32 +266,19 @@ namespace samurai
             }
             else if constexpr (dim == 2)
             {
-                //       left,   center,  right,   bottom,  top
-                return {
-                    {-1, 0 },
-                    {0,  0 },
-                    {1,  0 },
-                    {0,  -1},
-                    {0,  1 }
-                };
+                //       left,   center,  right,  bottom,  top
+                return {{-1, 0}, {0, 0}, {1, 0}, {0, -1}, {0, 1} };
             }
             else if constexpr (dim == 3)
             {
-                //       left,   center,    right,   front,    back,    bottom,
-                //       top
-                return {
-                    {-1, 0,  0 },
-                    {0,  0,  0 },
-                    {1,  0,  0 },
-                    {0,  -1, 0 },
-                    {0,  1,  0 },
-                    {0,  0,  -1},
-                    {0,  0,  1 }
-                };
+                //        left,      center,     right,     front,       back,     bottom,      top
+                return {{-1, 0, 0}, {0, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}};
             }
+            // clang-format on
         }
         else if constexpr (neighbourhood_width == 2)
         {
+            // clang-format off
             if constexpr (dim == 1)
             {
                 //   left2, left, center, right, right2
@@ -291,41 +286,15 @@ namespace samurai
             }
             else if constexpr (dim == 2)
             {
-                //       left2,   left,   center,  right, right2  bottom2,
-                //       bottom,   top,    top2
-                return {
-                    {-2, 0 },
-                    {-1, 0 },
-                    {0,  0 },
-                    {1,  0 },
-                    {2,  0 },
-                    {0,  -2},
-                    {0,  -1},
-                    {0,  1 },
-                    {0,  2 }
-                };
+                //       left2,   left,   center,  right, right2  bottom2, bottom,   top,    top2
+                return {{-2, 0}, {-1, 0}, {0, 0}, {1, 0}, {2, 0}, {0, -2}, {0, -1}, {0, 1}, {0, 2}};
             }
             else if constexpr (dim == 3)
             {
-                //        left2,    left,    center,  right,   right2,  front2,
-                //        front,   back,    back2,   bottom2,  bottom,    top,
-                //        top2
-                return {
-                    {-2, 0,  0 },
-                    {-1, 0,  0 },
-                    {0,  0,  0 },
-                    {1,  0,  0 },
-                    {2,  0,  0 },
-                    {0,  -2, 0 },
-                    {0,  -1, 0 },
-                    {0,  1,  0 },
-                    {0,  2,  0 },
-                    {0,  0,  -2},
-                    {0,  0,  -1},
-                    {0,  0,  1 },
-                    {0,  0,  2 }
-                };
+                //        left2,       left,     center,     right,    right2,    front2,      front,      back,      back2,    bottom2,     bottom,      top,      top2
+                return {{-2, 0, 0}, {-1, 0, 0}, {0, 0, 0}, {1, 0, 0}, {2, 0, 0}, {0, -2, 0}, {0, -1, 0}, {0, 1, 0}, {0, 2, 0}, {0, 0, -2}, {0, 0, -1}, {0, 0, 1}, {0, 0, 2}};
             }
+            // clang-format on
         }
         return Stencil<1 + 2 * dim * neighbourhood_width, dim>();
     }
@@ -335,6 +304,7 @@ namespace samurai
     {
         static_assert(dim >= 1 && dim <= 3, "cartesian_directions() not implemented for this dimension");
 
+        // clang-format off
         if constexpr (dim == 1)
         {
             //     left, right
@@ -343,25 +313,14 @@ namespace samurai
         else if constexpr (dim == 2)
         {
             //       left,   right,   bottom,  top
-            return {
-                {-1, 0 },
-                {1,  0 },
-                {0,  -1},
-                {0,  1 }
-            };
+            return {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
         }
         else if constexpr (dim == 3)
         {
-            //       left,    right,   front,    back,    bottom,    top
-            return {
-                {-1, 0,  0 },
-                {1,  0,  0 },
-                {0,  -1, 0 },
-                {0,  1,  0 },
-                {0,  0,  -1},
-                {0,  0,  1 }
-            };
+            //         left,      right,     front,      back,      bottom,      top
+            return {{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}};
         }
+        // clang-format on
         return Stencil<2 * dim, dim>();
     }
 
@@ -369,7 +328,7 @@ namespace samurai
     constexpr Stencil<dim, dim> positive_cartesian_directions()
     {
         static_assert(dim >= 1 || dim <= 3, "positive_cartesian_directions() not implemented for this dimension");
-
+        // clang-format off
         if constexpr (dim == 1)
         {
             //     right
@@ -378,21 +337,94 @@ namespace samurai
         else if constexpr (dim == 2)
         {
             //      right,   top
-            return {
-                {1, 0},
-                {0, 1}
-            };
+            return {{1, 0}, {0, 1}};
         }
         else if constexpr (dim == 3)
         {
-            //       right,   back,     top
-            return {
-                {1, 0, 0},
-                {0, 1, 0},
-                {0, 0, 1}
-            };
+            //        right,     back,       top
+            return {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
         }
+        // clang-format on
         return Stencil<dim, dim>();
+    }
+
+    /**
+     * Returns a table of the form
+     *      dir_stencils[i].direction = {direction};
+     *      dir_stencils[i].stencil   = {{center}, {-directions...}, {directions...}};
+     * so that on the boundary, we have     |             |                 |
+     *                                current cell      cells             ghosts
+     */
+    template <std::size_t dim, std::size_t neighbourhood_width = 1>
+    auto directional_stencils()
+    {
+        static_assert(dim >= 1 && dim <= 2, "directional_stencils() not implemented for this dimension");
+        static_assert(neighbourhood_width >= 1 && neighbourhood_width <= 2,
+                      "directional_stencils() not implemented for this neighbourhood width");
+
+        static constexpr std::size_t stencil_size = 1 + 2 * neighbourhood_width;
+
+        std::array<DirectionalStencil<stencil_size, dim>, 2 * dim> dir_stencils;
+
+        if constexpr (neighbourhood_width == 1)
+        {
+            // clang-format off
+            if constexpr (dim == 1)
+            {
+                // Left
+                dir_stencils[0].direction = {-1};
+                dir_stencils[0].stencil   = {{0}, {1}, {-1}};
+                // Right
+                dir_stencils[1].direction = {1};
+                dir_stencils[1].stencil   = {{0}, {-1}, {1}};
+            }
+            else if constexpr (dim == 2)
+            {
+                // Left
+                dir_stencils[0].direction = {-1, 0};
+                dir_stencils[0].stencil   = {{0,  0}, {1,  0}, {-1, 0}};
+                // Top
+                dir_stencils[1].direction = {0, 1};
+                dir_stencils[1].stencil   = {{0, 0 }, {0, -1}, {0, 1 }};
+                // Right
+                dir_stencils[2].direction = {1, 0};
+                dir_stencils[2].stencil   = {{0,  0}, {-1, 0}, {1,  0}};
+                // Bottom
+                dir_stencils[3].direction = {0, -1};
+                dir_stencils[3].stencil   = {{0, 0 }, {0, 1 }, {0, -1}};
+            }
+            // clang-format on
+        }
+        else if constexpr (neighbourhood_width == 2)
+        {
+            // clang-format off
+            if constexpr (dim == 1)
+            {
+                // Left
+                dir_stencils[0].direction = {-1};
+                dir_stencils[0].stencil   = {{0}, {1}, {2}, {-1}, {-2}};
+                // right
+                dir_stencils[1].direction = {1};
+                dir_stencils[1].stencil   = {{0}, {-1}, {-2}, {1}, {2}};
+            }
+            else if constexpr (dim == 2)
+            {
+                // Left
+                dir_stencils[0].direction = {-1, 0};
+                dir_stencils[0].stencil   = {{0,  0}, {1,  0}, {2,  0}, {-1, 0}, {-2, 0}};
+                // Top
+                dir_stencils[1].direction = {0, 1};
+                dir_stencils[1].stencil   = {{0, 0 }, {0, -1}, {0, -2}, {0, 1 }, {0, 2 }};
+                // Right
+                dir_stencils[2].direction = {1, 0};
+                dir_stencils[2].stencil   = {{0,  0}, {-1, 0}, {-2, 0}, {1,  0}, {2,  0}};
+                // Bottom
+                dir_stencils[3].direction = {0, -1};
+                dir_stencils[3].stencil   = {{0, 0 }, {0, 1 }, {0, 2 }, {0, -1}, {0, -2}};
+            }
+            // clang-format on
+        }
+        return dir_stencils;
     }
 
     template <std::size_t dim>

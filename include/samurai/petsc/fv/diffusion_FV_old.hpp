@@ -18,10 +18,9 @@ namespace samurai
         {
           public:
 
-            using field_t              = Field;
-            using Mesh                 = typename Field::mesh_t;
-            using local_matrix_t       = typename CellBasedScheme<cfg, Field>::local_matrix_t;
-            using boundary_condition_t = typename Field::boundary_condition_t;
+            using field_t        = Field;
+            using Mesh           = typename Field::mesh_t;
+            using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
 
             DiffusionFV_old(Field& unknown)
                 : CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
@@ -58,16 +57,6 @@ namespace samurai
                 }
                 coeffs[cfg::center_index] = (cfg::scheme_stencil_size - 1) * one_over_h2 * Identity;
                 return coeffs;
-            }
-
-            /**
-             * @brief Creates a coarse object from a coarse mesh and a fine
-             * object.
-             * @note  This method is used by the multigrid.
-             */
-            static DiffusionFV_old create_coarse(const DiffusionFV_old& fine, Mesh& coarse_mesh)
-            {
-                return DiffusionFV_old(coarse_mesh, fine.m_boundary_conditions);
             }
         };
 

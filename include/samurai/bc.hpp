@@ -14,18 +14,19 @@
 #include <xtensor/xnoalias.hpp>
 #include <xtensor/xview.hpp>
 
-#include "cell.hpp"
 #include "static_algorithm.hpp"
+#include "stencil.hpp"
 
 namespace samurai
 {
-    enum class BCType
+    // Still useful?
+    /*enum class BCType
     {
         dirichlet     = 0,
         neumann       = 1,
         periodic      = 2,
         interpolation = 3 // Reconstruct the function by linear approximation
-    };
+    };*/
 
     enum class BCVType
     {
@@ -33,11 +34,12 @@ namespace samurai
         function = 1,
     };
 
-    template <std::size_t Dim>
+    // Still useful?
+    /*template <std::size_t Dim>
     struct BC
     {
-        std::vector<std::pair<BCType, double>> type; // ???
-    };
+        std::vector<std::pair<BCType, double>> type;
+    };*/
 
     template <class F, class... CT>
     class subset_operator;
@@ -299,38 +301,6 @@ namespace samurai
     // BcRegion implementation //
     /////////////////////////////
 
-    namespace detail
-    {
-        template <std::size_t dim>
-        auto get_direction()
-        {
-            if constexpr (dim == 1)
-            {
-                return std::vector<xt::xtensor_fixed<int, xt::xshape<1>>>{{-1}, {1}};
-            }
-            else if constexpr (dim == 2)
-            {
-                return std::vector<xt::xtensor_fixed<int, xt::xshape<2>>>{
-                    {1,  0 },
-                    {-1, 0 },
-                    {0,  1 },
-                    {0,  -1}
-                };
-            }
-            else if constexpr (dim == 3)
-            {
-                return std::vector<xt::xtensor_fixed<int, xt::xshape<3>>>{
-                    {1,  0,  0 },
-                    {-1, 0,  0 },
-                    {0,  1,  0 },
-                    {0,  -1, 0 },
-                    {0,  0,  1 },
-                    {0,  0,  -1}
-                };
-            }
-        }
-    }
-
     // Everywhere
     template <std::size_t dim, class TInterval>
     inline auto Everywhere<dim, TInterval>::get_region(const lca_t& domain) const -> region_t
@@ -340,8 +310,10 @@ namespace samurai
 
         // static_nested_loop<dim, -1, 2>(
         //     [&](auto& stencil)
-        for (auto& stencil : detail::get_direction<dim>())
+        // for (auto& stencil : cartesian_directions<dim>())
+        for (std::size_t d = 0; d < 2 * dim; ++d)
         {
+            DirectionVector<dim> stencil = xt::view(cartesian_directions<dim>(), d);
             // int number_of_one = xt::sum(xt::abs(stencil))[0];
             // if (number_of_one > 0)
             //{
@@ -474,9 +446,10 @@ namespace samurai
     {
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
-        for (auto& d : detail::get_direction<dim>())
+        for (std::size_t d = 0; d < 2 * dim; ++d)
         {
-            lca_t lca_temp = intersection(m_set, difference(translate(domain, d), domain));
+            DirectionVector<dim> stencil = xt::view(cartesian_directions<dim>(), d);
+            lca_t lca_temp               = intersection(m_set, difference(translate(domain, d), domain));
             if (!lca_temp.empty())
             {
                 dir.emplace_back(-d);
