@@ -41,7 +41,12 @@ namespace samurai
          *         for cell 2: [1/2 F] if dir=x,  [    0] if dir=y
          *                     [    0]            [1/2 F]
          */
-        template <class Field, std::size_t dim = Field::dim, class cfg = FluxBasedAssemblyConfig<dim, 2>>
+        template <class Field,
+                  std::size_t dim                 = Field::dim,
+                  std::size_t output_field_size   = dim,
+                  std::size_t neighbourhood_width = 1,
+                  std::size_t comput_stencil_size = 2,
+                  class cfg                       = FluxBasedAssemblyConfig<output_field_size, neighbourhood_width, comput_stencil_size>>
         class GradientFV : public FluxBasedScheme<cfg, Field>
         {
           public:

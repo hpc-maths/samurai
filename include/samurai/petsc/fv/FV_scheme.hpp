@@ -48,6 +48,9 @@ namespace samurai
         template <class Field, std::size_t output_field_size, std::size_t neighbourhood_width, DirichletEnforcement dirichlet_enfcmt = Equation>
         class FVScheme : public MatrixAssembly
         {
+            template <class Scheme1, class Scheme2>
+            friend class FluxBasedScheme_Sum_CellBasedScheme;
+
           public:
 
             using Mesh                                     = typename Field::mesh_t;
@@ -107,6 +110,11 @@ namespace samurai
             }
 
           protected:
+
+            virtual InsertMode scheme_insert_mode() const
+            {
+                return INSERT_VALUES;
+            }
 
             // Global data index
             inline PetscInt col_index(PetscInt cell_index, unsigned int field_j) const
@@ -208,23 +216,26 @@ namespace samurai
             //      Configuration of the BC stencils and equations         //
             //-------------------------------------------------------------//
 
+            auto get_directional_stencil(const DirectionVector<dim>& direction) const
+            {
+                auto dir_stencils = directional_stencils<dim, neighbourhood_width>();
+                for (std::size_t d = 0; d < 2 * dim; ++d)
+                {
+                    if (direction == dir_stencils[d].direction)
+                    {
+                        return dir_stencils[d];
+                    }
+                }
+                assert(false);
+                return dir_stencils[0];
+            }
+
             virtual directional_bdry_config_t dirichlet_config(const DirectionVector<dim>& direction) const
             {
                 using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
                 directional_bdry_config_t config;
 
-                auto dir_stencils = directional_stencils<dim, neighbourhood_width>();
-                bool found        = false;
-                for (std::size_t d = 0; d < 2 * dim; ++d)
-                {
-                    if (direction == dir_stencils[d].direction)
-                    {
-                        found                      = true;
-                        config.directional_stencil = dir_stencils[d];
-                        break;
-                    }
-                }
-                assert(found);
+                config.directional_stencil = get_directional_stencil(direction);
 
                 if constexpr (neighbourhood_width == 1)
                 {
@@ -234,23 +245,21 @@ namespace samurai
 
                     // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is
                     //                        [  1/2    1/2 ] = dirichlet_value
-                    // which is equivalent to
-                    //                        [  1/h2   1/h2] = 2 * 1/h2 * dirichlet_value
                     config.equations[0].ghost_index        = ghost;
-                    config.equations[0].get_stencil_coeffs = [&](double h)
+                    config.equations[0].get_stencil_coeffs = [&](double)
                     {
                         std::array<coeffs_t, bdry_stencil_size> coeffs;
                         auto Identity         = eye<coeffs_t>();
-                        coeffs[cell]          = 1 / (h * h) * Identity;
-                        coeffs[ghost]         = 1 / (h * h) * Identity;
+                        coeffs[cell]          = 0.5 * Identity;
+                        coeffs[ghost]         = 0.5 * Identity;
                         coeffs[interior_cell] = zeros<coeffs_t>();
                         return coeffs;
                     };
-                    config.equations[0].get_rhs_coeffs = [&](double h)
+                    config.equations[0].get_rhs_coeffs = [&](double)
                     {
                         coeffs_t coeffs;
                         auto Identity = eye<coeffs_t>();
-                        coeffs        = 2 / (h * h) * Identity;
+                        coeffs        = Identity;
                         return coeffs;
                     };
                 }
@@ -263,18 +272,7 @@ namespace samurai
                 using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
                 directional_bdry_config_t config;
 
-                auto dir_stencils = directional_stencils<dim, neighbourhood_width>();
-                bool found        = false;
-                for (std::size_t d = 0; d < 2 * dim; ++d)
-                {
-                    if (direction == dir_stencils[d].direction)
-                    {
-                        found                      = true;
-                        config.directional_stencil = dir_stencils[d];
-                        break;
-                    }
-                }
-                assert(found);
+                config.directional_stencil = get_directional_stencil(direction);
 
                 if constexpr (neighbourhood_width == 1)
                 {
@@ -284,23 +282,20 @@ namespace samurai
 
                     // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is
                     //                    [ 1/h  -1/h ] = neumann_value
-                    // However, to have symmetry, we want to have 1/h2 as the off-diagonal coefficient, so
-                    //                    [1/h2  -1/h2] = (1/h) * neumann_value
                     config.equations[0].ghost_index        = ghost;
-                    config.equations[0].get_stencil_coeffs = [&](double h)
+                    config.equations[0].get_stencil_coeffs = [&](double)
                     {
                         std::array<coeffs_t, bdry_stencil_size> coeffs;
-                        double one_over_h2    = 1 / (h * h);
                         auto Identity         = eye<coeffs_t>();
-                        coeffs[cell]          = -one_over_h2 * Identity;
-                        coeffs[ghost]         = one_over_h2 * Identity;
+                        coeffs[cell]          = -Identity;
+                        coeffs[ghost]         = Identity;
                         coeffs[interior_cell] = zeros<coeffs_t>();
                         return coeffs;
                     };
                     config.equations[0].get_rhs_coeffs = [&](double h)
                     {
                         auto Identity   = eye<coeffs_t>();
-                        coeffs_t coeffs = (1 / h) * Identity;
+                        coeffs_t coeffs = h * Identity;
                         return coeffs;
                     };
                 }
@@ -408,7 +403,8 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
-                if constexpr (dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                if ((scheme_insert_mode() == ADD_VALUES && dirichlet_enfcmt != DirichletEnforcement::Elimination)
+                    || (scheme_insert_mode() == INSERT_VALUES && dirichlet_enfcmt == DirichletEnforcement::Elimination))
                 {
                     // Must flush to use ADD_VALUES instead of INSERT_VALUES
                     MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
@@ -600,6 +596,12 @@ namespace samurai
 
             void add_1_on_diag_for_useless_ghosts(Mat& A) override
             {
+                if (scheme_insert_mode() == ADD_VALUES)
+                {
+                    // Must flush to use ADD_VALUES instead of INSERT_VALUES
+                    MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
+                    MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
+                }
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
                     if (m_is_row_empty[i])

@@ -359,14 +359,19 @@ namespace samurai
     auto directional_stencils()
     {
         static_assert(dim >= 1 && dim <= 2, "directional_stencils() not implemented for this dimension");
-        static_assert(neighbourhood_width >= 1 && neighbourhood_width <= 2,
+        static_assert(neighbourhood_width >= 0 && neighbourhood_width <= 2,
                       "directional_stencils() not implemented for this neighbourhood width");
 
         static constexpr std::size_t stencil_size = 1 + 2 * neighbourhood_width;
 
         std::array<DirectionalStencil<stencil_size, dim>, 2 * dim> dir_stencils;
 
-        if constexpr (neighbourhood_width == 1)
+        if constexpr (neighbourhood_width == 0)
+        {
+            dir_stencils[0].direction.fill(0);
+            dir_stencils[0].stencil.fill(0);
+        }
+        else if constexpr (neighbourhood_width == 1)
         {
             // clang-format off
             if constexpr (dim == 1)

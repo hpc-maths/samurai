@@ -11,20 +11,16 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <class Field,
-          class cfg = samurai::petsc::StarStencilFV<Field::dim,
-                                                    Field::size,
-                                                    2>> // neighbouhood_width = 2
+template <class Field, std::size_t neighbourhood_width = 2, class cfg = samurai::petsc::StarStencilFV<Field::dim, Field::size, neighbourhood_width>>
 class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
 {
+    using base_class = samurai::petsc::CellBasedScheme<cfg, Field>;
+
   public:
 
     static constexpr std::size_t dim = Field::dim;
     using field_t                    = Field;
-    // using Mesh                                    = typename Field::mesh_t;
-    // static constexpr std::size_t ghost_width      = Mesh::config::ghost_width;
-    // static constexpr std::size_t prediction_order = samurai::petsc::CellBasedScheme<cfg, Field>::prediction_order;
-    using directional_bdry_config_t = typename samurai::petsc::CellBasedScheme<cfg, Field>::directional_bdry_config_t;
+    using directional_bdry_config_t  = typename base_class::directional_bdry_config_t;
 
     HighOrderDiffusion(Field& unknown)
         : samurai::petsc::CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
@@ -52,18 +48,13 @@ class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
     {
         directional_bdry_config_t config;
 
-        auto dir_stencils = samurai::directional_stencils<dim, 2>();
-        bool found        = false;
-        for (std::size_t d = 0; d < 2 * dim; ++d)
-        {
-            if (direction == dir_stencils[d].direction)
-            {
-                found                      = true;
-                config.directional_stencil = dir_stencils[d];
-                break;
-            }
-        }
-        assert(found);
+        config.directional_stencil = this->get_directional_stencil(direction);
+
+        static constexpr std::size_t cell1  = 0;
+        static constexpr std::size_t cell2  = 1;
+        static constexpr std::size_t cell3  = 2;
+        static constexpr std::size_t ghost1 = 3;
+        static constexpr std::size_t ghost2 = 4;
 
         // We need to define a polynomial of degree 3 that passes by the 4 points c3, c2, c1 and the boundary point.
         // This polynomial writes
@@ -80,12 +71,6 @@ class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
         // This gives
         //             5/16 * u_g1  +  15/16 * u1  -5/16 * u2  +  1/16 * u3 = dirichlet_value
         //             5/64 * u_g2  +  45/32 * u1  -5/8  * u2  +  9/64 * u3 = dirichlet_value
-
-        static constexpr std::size_t cell1  = 0;
-        static constexpr std::size_t cell2  = 1;
-        static constexpr std::size_t cell3  = 2;
-        static constexpr std::size_t ghost1 = 3;
-        static constexpr std::size_t ghost2 = 4;
 
         // Equation of ghost1
         config.equations[0].ghost_index        = ghost1;
