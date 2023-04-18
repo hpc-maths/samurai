@@ -1,0 +1,5 @@
+#pragma once
+
+#include <string>
+
+const std::string SAMURAI_VERSION = "@SAMURAI_VERSION@";

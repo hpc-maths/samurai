@@ -6,3 +6,4 @@
 .VSCodeCounter
 vcpkg*
 __pycache__
+include/samurai/version.hpp
