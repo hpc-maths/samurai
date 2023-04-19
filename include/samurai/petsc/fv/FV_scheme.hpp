@@ -72,6 +72,7 @@ namespace samurai
             Field& m_unknown;
             Mesh& m_mesh;
             std::size_t m_n_cells;
+            InsertMode m_current_insert_mode = INSERT_VALUES;
             std::vector<bool> m_is_row_empty;
 
           public:
@@ -111,9 +112,14 @@ namespace samurai
 
           protected:
 
-            virtual InsertMode scheme_insert_mode() const
+            InsertMode current_insert_mode() const
             {
-                return INSERT_VALUES;
+                return m_current_insert_mode;
+            }
+
+            void set_current_insert_mode(InsertMode insert_mode)
+            {
+                m_current_insert_mode = insert_mode;
             }
 
             // Global data index
@@ -403,12 +409,12 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
-                if ((scheme_insert_mode() == ADD_VALUES && dirichlet_enfcmt != DirichletEnforcement::Elimination)
-                    || (scheme_insert_mode() == INSERT_VALUES && dirichlet_enfcmt == DirichletEnforcement::Elimination))
+                if (current_insert_mode() == ADD_VALUES)
                 {
-                    // Must flush to use ADD_VALUES instead of INSERT_VALUES
+                    // Must flush to use INSERT_VALUES instead of ADD_VALUES
                     MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
+                    set_current_insert_mode(INSERT_VALUES);
                 }
 
                 // Iterate over the boundary conditions set by the user
@@ -596,11 +602,12 @@ namespace samurai
 
             void add_1_on_diag_for_useless_ghosts(Mat& A) override
             {
-                if (scheme_insert_mode() == ADD_VALUES)
+                if (current_insert_mode() == ADD_VALUES)
                 {
-                    // Must flush to use ADD_VALUES instead of INSERT_VALUES
+                    // Must flush to use INSERT_VALUES instead of ADD_VALUES
                     MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
+                    set_current_insert_mode(INSERT_VALUES);
                 }
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {

@@ -121,6 +121,7 @@ namespace samurai
             using base_class::m_is_row_empty;
             using base_class::m_mesh;
             using base_class::row_index;
+            using base_class::set_current_insert_mode;
 
             using base_class::m_unknown;
             using dirichlet_t = typename base_class::dirichlet_t;
@@ -159,13 +160,6 @@ namespace samurai
             auto& scheme_coefficients()
             {
                 return m_scheme_coefficients;
-            }
-
-          protected:
-
-            InsertMode scheme_insert_mode() const override
-            {
-                return ADD_VALUES;
             }
 
           public:
@@ -326,6 +320,8 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
+                set_current_insert_mode(ADD_VALUES);
+
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     auto scheme_coeffs_dir = m_scheme_coefficients[d];

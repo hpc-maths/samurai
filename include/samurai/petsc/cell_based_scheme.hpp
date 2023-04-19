@@ -71,6 +71,7 @@ namespace samurai
             using base_class::m_is_row_empty;
             using base_class::m_mesh;
             using base_class::row_index;
+            using base_class::set_current_insert_mode;
 
           public:
 
@@ -213,6 +214,8 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
+                set_current_insert_mode(INSERT_VALUES);
+
                 // Apply the given coefficents to the given stencil
                 for_each_stencil(
                     m_mesh,
