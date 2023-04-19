@@ -72,6 +72,11 @@ jobs:
       fail-fast: true
       matrix:
         include:
+          - cpp-version: gcc-9
+            compiler: "gcc"
+            package: "gcc-9 g++-9"
+            cc: "gcc-9"
+            cxx: "g++-9"
           - cpp-version: gcc-10
             compiler: "gcc"
             package: "gcc-10 g++-10"
