@@ -7,6 +7,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
+#include <samurai/reconstruction.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -121,7 +122,7 @@ int main(int argc, char* argv[])
     constexpr std::size_t dim              = 2;
     constexpr std::size_t stencil_width    = 2;
     constexpr std::size_t graduation_width = 4;
-    constexpr std::size_t prediction_order = 3;
+    constexpr std::size_t prediction_order = 4;
     using Config                           = samurai::MRConfig<dim, stencil_width, graduation_width, prediction_order>;
 
     // Simulation parameters
@@ -167,28 +168,28 @@ int main(int argc, char* argv[])
     CLI11_PARSE(app, argc, argv);
 
     samurai::Box<double, dim> box(min_corner, max_corner);
-    using mesh_t = samurai::MRMesh<Config>;
-    // using mesh_id_t = typename mesh_t::mesh_id_t;
-    // using cl_type   = typename mesh_t::cl_type;
-    mesh_t mesh{box, min_level, max_level};
+    using mesh_t    = samurai::MRMesh<Config>;
+    using mesh_id_t = typename mesh_t::mesh_id_t;
+    using cl_type   = typename mesh_t::cl_type;
+    mesh_t init_mesh{box, min_level, max_level};
 
     PetscInitialize(&argc, &argv, 0, nullptr);
     PetscOptionsSetValue(NULL, "-options_left", "off");
 
     auto adapt_field = samurai::make_field<double, 1>("adapt_field",
-                                                      mesh,
+                                                      init_mesh,
                                                       [](const auto& coord)
                                                       {
                                                           const auto& x = coord[0];
                                                           const auto& y = coord[1];
-                                                          double radius = 0.1;
+                                                          double radius = 0.4;
                                                           if ((x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5) < radius * radius)
                                                           {
-                                                              return 1;
+                                                              return 0;
                                                           }
                                                           else
                                                           {
-                                                              return 0;
+                                                              return 1;
                                                           }
                                                       });
 
@@ -197,78 +198,83 @@ int main(int argc, char* argv[])
 
     // samurai::save("initial_mesh", mesh);
 
-    // for(std::size_t ite = 0; ite < refinement; ++ite)
-    // {
-    //     cl_type cl;
-    //     samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t
-    //     level, const auto& i, const auto& index)
-    //     {
-    //         samurai::static_nested_loop<dim-1, 0, 2>([&](auto& stencil)
-    //         {
-    //             auto new_index = 2*index + stencil;
-    //             cl[level+1][new_index].add_interval(i<<1);
-    //         });
-    //     });
-    //     mesh = {cl, mesh.min_level(), mesh.max_level()+1};
-    // }
-    // samurai::save("refine_mesh", mesh);
+    for (std::size_t ite = 0; ite < refinement; ++ite)
+    {
+        auto mesh = init_mesh;
+        for (std::size_t i_ref = 0; i_ref < ite; ++i_ref)
+        {
+            cl_type cl;
+            samurai::for_each_interval(mesh[mesh_id_t::cells],
+                                       [&](std::size_t level, const auto& i, const auto& index)
+                                       {
+                                           samurai::static_nested_loop<dim - 1, 0, 2>(
+                                               [&](auto& stencil)
+                                               {
+                                                   auto new_index = 2 * index + stencil;
+                                                   cl[level + 1][new_index].add_interval(i << 1);
+                                               });
+                                       });
+            // mesh = {cl, mesh.min_level() + 1, mesh.max_level() + 1};
+            mesh = {cl, min_level + i_ref + 1, max_level + i_ref + 1};
+        }
+        // std::cout << mesh << std::endl;
+        // samurai::save("refine_mesh", mesh);
 
-    // Equation: -Lap u = f   in [0, 1]^2
-    //            f(x,y) = 2(y(1-y) + x(1-x))
-    auto f = samurai::make_field<double, 1>("f",
-                                            mesh,
-                                            [](const auto& coord)
-                                            {
-                                                const auto& x = coord[0];
-                                                const auto& y = coord[1];
-                                                // return 2 * (y*(1 - y) + x * (1 - x));
-                                                // return 2 * pow(4 * M_PI, 2) * sin(4 * M_PI * x)*sin(4 * M_PI *
-                                                // y);
-                                                return (-pow(y, 4) - 2 * x * (1 + 2 * x * y * y)) * exp(x * y * y);
-                                            });
+        // Equation: -Lap u = f   in [0, 1]^2
+        //            f(x,y) = 2(y(1-y) + x(1-x))
+        auto f = samurai::make_field<double, 1>("f",
+                                                mesh,
+                                                [](const auto& coord)
+                                                {
+                                                    const auto& x = coord[0];
+                                                    const auto& y = coord[1];
+                                                    // return 2 * (y*(1 - y) + x * (1 - x));
+                                                    // return 2 * pow(4 * M_PI, 2) * sin(4 * M_PI * x)*sin(4 * M_PI *
+                                                    // y);
+                                                    return (-pow(y, 4) - 2 * x * (1 + 2 * x * y * y)) * exp(x * y * y);
+                                                });
 
-    // samurai::for_each_cell(mesh[mesh_id_t::reference], [&](auto& cell)
-    // {
-    //     double x = cell.center(0);
-    //     double y = cell.center(1);
-    //     f[cell] =  2 * (y*(1 - y) + x * (1 - x));
-    // });
+        // samurai::for_each_cell(mesh[mesh_id_t::reference], [&](auto& cell)
+        // {
+        //     double x = cell.center(0);
+        //     double y = cell.center(1);
+        //     f[cell] =  2 * (y*(1 - y) + x * (1 - x));
+        // });
 
-    // std::size_t level = mesh.max_level();
-    // auto set = samurai::intersection(mesh[mesh_id_t::cells][level],
-    // mesh[mesh_id_t::reference][level-1]).on(level-1);
-    // set.apply_op(samurai::projection(f));
-    // auto f_recons = samurai::make_field<double, 1>("f_recons", mesh);
-    // auto error_f = samurai::make_field<double, 1>("error", mesh);
-    // set.apply_op(samurai::prediction<prediction_order, true>(f_recons, f));
-    // samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level,
-    // const auto& i, const auto& index)
-    // {
-    //     auto j = index[0];
-    //     error_f(level, i, j) = xt::abs(f(level, i, j) - f_recons(level, i,
-    //     j));
-    // });
-    // samurai::save("test_pred", mesh, f, f_recons, error_f);
-    // return 0;
+        // std::size_t level = mesh.max_level();
+        // auto set = samurai::intersection(mesh[mesh_id_t::cells][level],
+        // mesh[mesh_id_t::reference][level-1]).on(level-1);
+        // set.apply_op(samurai::projection(f));
+        // auto f_recons = samurai::make_field<double, 1>("f_recons", mesh);
+        // auto error_f = samurai::make_field<double, 1>("error", mesh);
+        // set.apply_op(samurai::prediction<prediction_order, true>(f_recons, f));
+        // samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level,
+        // const auto& i, const auto& index)
+        // {
+        //     auto j = index[0];
+        //     error_f(level, i, j) = xt::abs(f(level, i, j) - f_recons(level, i,
+        //     j));
+        // });
+        // samurai::save("test_pred", mesh, f, f_recons, error_f);
+        // return 0;
 
-    auto u = samurai::make_field<double, 1>("u", mesh);
-    samurai::make_bc<samurai::Dirichlet>(u,
-                                         [](const auto& coord)
-                                         {
-                                             const auto& x = coord[0];
-                                             const auto& y = coord[1];
-                                             // return 0.;
-                                             return exp(x * y * y);
-                                         });
-    u.fill(0);
+        auto u = samurai::make_field<double, 1>("u", mesh);
+        samurai::make_bc<samurai::Dirichlet>(u,
+                                             [](const auto& coord)
+                                             {
+                                                 const auto& x = coord[0];
+                                                 const auto& y = coord[1];
+                                                 // return 0.;
+                                                 return exp(x * y * y);
+                                             });
+        u.fill(0);
 
-    auto diff = make_high_order_diffusion(u);
+        auto diff = make_high_order_diffusion(u);
 
-    auto solver = samurai::petsc::make_solver(diff);
-    solver.solve(f);
+        auto solver = samurai::petsc::make_solver(diff);
+        solver.solve(f);
 
-    double error = u.L2_error(
-        [](const auto& coord)
+        auto exact_func = [](const auto& coord)
         {
             const auto& x = coord[0];
             const auto& y = coord[1];
@@ -276,27 +282,36 @@ int main(int argc, char* argv[])
             // return sin(4 * M_PI * x)*sin(4 * M_PI *
             // y);
             return exp(x * y * y);
-        });
-    std::cout.precision(2);
-    std::cout << "L2-error: " << std::scientific << error << std::endl;
+        };
 
-    auto error_field = samurai::make_field<double, 1>("error", mesh);
-    samurai::for_each_cell(mesh,
-                           [&](const auto& cell)
-                           {
-                               double x = cell.center(0);
-                               double y = cell.center(1);
-                               // double sol = sin(4 * M_PI * x)*sin(4 * M_PI *
-                               // y); double sol = x * (1 - x) * y*(1 - y);
-                               double sol        = exp(x * y * y);
-                               error_field[cell] = abs(u[cell] - sol);
-                           });
+        double error = L2_error(u, exact_func);
+        std::cout.precision(2);
+        std::cout << "refinement: " << ite << std::endl;
+        std::cout << "L2-error         : " << std::scientific << error << std::endl;
 
-    samurai::save("error", mesh, error_field);
-    samurai::save("solution", mesh, u);
+        samurai::update_ghost_mr(u);
+        auto u_recons = samurai::reconstruction(u);
 
-    // Destroy Petsc objects
-    solver.destroy_petsc_objects();
+        double error_recons = L2_error(u_recons, exact_func);
+        std::cout.precision(2);
+        std::cout << "L2-error (recons): " << std::scientific << error_recons << std::endl;
+
+        auto error_field = samurai::make_field<double, 1>("error", mesh);
+        samurai::for_each_cell(mesh,
+                               [&](const auto& cell)
+                               {
+                                   double x = cell.center(0);
+                                   double y = cell.center(1);
+                                   // double sol = sin(4 * M_PI * x)*sin(4 * M_PI *
+                                   // y); double sol = x * (1 - x) * y*(1 - y);
+                                   double sol        = exp(x * y * y);
+                                   error_field[cell] = abs(u[cell] - sol);
+                               });
+
+        samurai::save(fmt::format("error_ref_{}", ite), mesh, error_field);
+        samurai::save(fmt::format("solution_{}_{}_ref_{}", min_level, max_level, ite), mesh, u);
+        samurai::save(fmt::format("solution_recons_{}_{}_ref_{}", min_level, max_level, ite), u_recons.mesh(), u_recons);
+    }
     PetscFinalize();
 
     return 0;

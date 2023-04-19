@@ -348,12 +348,12 @@ namespace samurai
                     // Iterate over the directions in that region
                     for (std::size_t d = 0; d < directions.size(); ++d)
                     {
-                        auto& towards_out    = directions[d];
-                        auto& boundary_cells = boundary_cells_directions[d];
+                        auto& towards_out = directions[d];
 
                         int number_of_one = xt::sum(xt::abs(towards_out))[0];
                         if (number_of_one == 1)
                         {
+                            auto& boundary_cells   = boundary_cells_directions[d];
                             dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
                             neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
                             if (dirichlet)
@@ -451,12 +451,12 @@ namespace samurai
                     // Iterate over the directions in that region
                     for (std::size_t d = 0; d < directions.size(); ++d)
                     {
-                        auto& towards_out    = directions[d];
-                        auto& boundary_cells = boundary_cells_directions[d];
+                        auto& towards_out = directions[d];
 
                         int number_of_one = xt::sum(xt::abs(towards_out))[0];
                         if (number_of_one == 1)
                         {
+                            auto& boundary_cells   = boundary_cells_directions[d];
                             dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
                             neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
                             if (dirichlet)
@@ -541,12 +541,12 @@ namespace samurai
                     // Iterate over the directions in that region
                     for (std::size_t d = 0; d < directions.size(); ++d)
                     {
-                        auto& towards_out    = directions[d];
-                        auto& boundary_cells = boundary_cells_directions[d];
+                        auto& towards_out = directions[d];
 
                         int number_of_one = xt::sum(xt::abs(towards_out))[0];
                         if (number_of_one == 1)
                         {
+                            auto& boundary_cells   = boundary_cells_directions[d];
                             dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
                             neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
                             if (dirichlet)
