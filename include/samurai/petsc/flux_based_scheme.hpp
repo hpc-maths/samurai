@@ -173,20 +173,21 @@ namespace samurai
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     auto scheme_coeffs_dir = m_scheme_coefficients[d];
-                    for_each_interior_interface(m_mesh,
-                                                scheme_coeffs_dir.flux.direction,
-                                                scheme_coeffs_dir.flux.stencil,
-                                                [&](auto& interface_cells, auto&)
-                                                {
-                                                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                                    {
-                                                        for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                                        {
-                                                            nnz[row_index(interface_cells[0], field_i)] += comput_stencil_size * field_size;
-                                                            nnz[row_index(interface_cells[1], field_i)] += comput_stencil_size * field_size;
-                                                        }
-                                                    }
-                                                });
+                    for_each_interior_interface(
+                        m_mesh,
+                        scheme_coeffs_dir.flux.direction,
+                        scheme_coeffs_dir.flux.stencil,
+                        [&](auto& interface_cells, auto&)
+                        {
+                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                            {
+                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                                {
+                                    nnz[this->row_index(interface_cells[0], field_i)] += comput_stencil_size * field_size;
+                                    nnz[this->row_index(interface_cells[1], field_i)] += comput_stencil_size * field_size;
+                                }
+                            }
+                        });
 
                     for_each_boundary_interface(m_mesh,
                                                 scheme_coeffs_dir.flux.direction,
@@ -197,7 +198,8 @@ namespace samurai
                                                     {
                                                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                                         {
-                                                            nnz[row_index(interface_cells[0], field_i)] += comput_stencil_size * field_size;
+                                                            nnz[this->row_index(interface_cells[0], field_i)] += comput_stencil_size
+                                                                                                               * field_size;
                                                         }
                                                     }
                                                 });
@@ -213,7 +215,8 @@ namespace samurai
                                                     {
                                                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                                         {
-                                                            nnz[row_index(interface_cells[0], field_i)] += comput_stencil_size * field_size;
+                                                            nnz[this->row_index(interface_cells[0], field_i)] += comput_stencil_size
+                                                                                                               * field_size;
                                                         }
                                                     }
                                                 });
@@ -275,7 +278,7 @@ namespace samurai
                 auto& cell = cells[0];
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
-                    nnz[row_index(cell, field_i)]++;
+                    nnz[this->row_index(cell, field_i)]++;
                 }
                 for (std::size_t g = 1; g < comput_stencil_size; ++g)
                 {
@@ -284,11 +287,11 @@ namespace samurai
                     {
                         if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
                         {
-                            nnz[row_index(ghost, field_i)] = 1;
+                            nnz[this->row_index(ghost, field_i)] = 1;
                         }
                         else
                         {
-                            nnz[row_index(ghost, field_i)] = 2;
+                            nnz[this->row_index(ghost, field_i)] = 2;
                         }
                     }
                 }
@@ -300,14 +303,14 @@ namespace samurai
                 auto& cell = cells[0];
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
-                    nnz[row_index(cell, field_i)]++;
+                    nnz[this->row_index(cell, field_i)]++;
                 }
                 for (std::size_t g = 1; g < comput_stencil_size; ++g)
                 {
                     auto& ghost = cells[g];
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        nnz[row_index(ghost, field_i)] = 2;
+                        nnz[this->row_index(ghost, field_i)] = 2;
                     }
                 }
             }*/
