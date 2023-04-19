@@ -65,6 +65,8 @@ namespace samurai
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
+          protected:
+
             using base_class = FVScheme<Field, cfg::output_field_size, cfg::neighbourhood_width>;
             using base_class::cell_coeff;
             using base_class::col_index;

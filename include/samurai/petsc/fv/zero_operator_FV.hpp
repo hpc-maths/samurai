@@ -18,7 +18,7 @@ namespace samurai
 
             using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
 
-            ZeroOperatorFV(Field& unknown)
+            explicit ZeroOperatorFV(Field& unknown)
                 : CellBasedScheme<cfg, Field>(unknown, star_stencil<dim>(), coefficients)
             {
                 this->set_name("Zero");

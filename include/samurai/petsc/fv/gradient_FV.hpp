@@ -54,7 +54,7 @@ namespace samurai
             using coefficients_t = typename FluxBasedScheme<cfg, Field>::coefficients_t;
             using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
 
-            GradientFV(Field& u)
+            explicit GradientFV(Field& u)
                 : FluxBasedScheme<cfg, Field>(u, grad_coefficients())
             {
                 this->set_name("Gradient");

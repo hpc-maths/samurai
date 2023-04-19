@@ -53,7 +53,7 @@ namespace samurai
             using coeff_matrix_t                    = typename coefficients_t::coeff_matrix_t;
             static constexpr std::size_t field_size = Field::size;
 
-            DivergenceFV(Field& u)
+            explicit DivergenceFV(Field& u)
                 : FluxBasedScheme<cfg, Field>(u, div_coefficients())
             {
                 this->set_name("Divergence");

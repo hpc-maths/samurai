@@ -21,19 +21,19 @@ namespace samurai
         {
             using base_class = FluxBasedScheme<cfg, Field>;
             using base_class::bdry_stencil_size;
+            using base_class::field_size;
 
           public:
 
-            using cfg_t                             = cfg;
-            using field_t                           = Field;
-            using Mesh                              = typename Field::mesh_t;
-            using coefficients_t                    = typename base_class::coefficients_t;
-            using flux_matrix_t                     = typename coefficients_t::flux_computation_t::flux_matrix_t;
-            using coeff_matrix_t                    = typename coefficients_t::coeff_matrix_t;
-            using directional_bdry_config_t         = typename base_class::directional_bdry_config_t;
-            static constexpr std::size_t field_size = Field::size;
+            using cfg_t                     = cfg;
+            using field_t                   = Field;
+            using Mesh                      = typename Field::mesh_t;
+            using coefficients_t            = typename base_class::coefficients_t;
+            using flux_matrix_t             = typename coefficients_t::flux_computation_t::flux_matrix_t;
+            using coeff_matrix_t            = typename coefficients_t::coeff_matrix_t;
+            using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
-            DiffusionFV(Field& unknown)
+            explicit DiffusionFV(Field& unknown)
                 : FluxBasedScheme<cfg, Field>(unknown, diffusion_coefficients())
             {
                 this->set_name("Diffusion");
