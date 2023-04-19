@@ -19,27 +19,11 @@
 
 namespace samurai
 {
-    // Still useful?
-    /*enum class BCType
-    {
-        dirichlet     = 0,
-        neumann       = 1,
-        periodic      = 2,
-        interpolation = 3 // Reconstruct the function by linear approximation
-    };*/
-
     enum class BCVType
     {
         constant = 0,
         function = 1,
     };
-
-    // Still useful?
-    /*template <std::size_t Dim>
-    struct BC
-    {
-        std::vector<std::pair<BCType, double>> type;
-    };*/
 
     template <class F, class... CT>
     class subset_operator;
@@ -65,7 +49,7 @@ namespace samurai
         struct return_type
         {
             using type                       = xt::xtensor_fixed<T, xt::xshape<size>>;
-            static constexpr std::size_t dim = 2; // ???
+            static constexpr std::size_t dim = 2;
         };
 
         template <class T>
@@ -308,41 +292,36 @@ namespace samurai
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
 
-        // static_nested_loop<dim, -1, 2>(
-        //     [&](auto& stencil)
-        // for (auto& stencil : cartesian_directions<dim>())
-        for (std::size_t d = 0; d < 2 * dim; ++d)
-        {
-            DirectionVector<dim> stencil = xt::view(cartesian_directions<dim>(), d);
-            // int number_of_one = xt::sum(xt::abs(stencil))[0];
-            // if (number_of_one > 0)
-            //{
-            dir.emplace_back(stencil);
-            //}
+        static_nested_loop<dim, -1, 2>(
+            [&](auto& stencil)
+            {
+                int number_of_one = xt::sum(xt::abs(stencil))[0];
+                if (number_of_one > 0)
+                {
+                    dir.emplace_back(stencil);
+                }
 
-            // if (number_of_one == 1)
-            //{
-            lca.emplace_back(difference(domain, translate(domain, -stencil)));
-            //}
-            // else if (number_of_one > 1)
-            // {
-            //     if constexpr (dim == 2)
-            //     {
-            //         lca.emplace_back(difference(
-            //             translate(domain, stencil),
-            //             union_(domain, translate(domain, direction_t{stencil[0], 0}), translate(domain, direction_t{0, stencil[1]}))));
-            //     }
-            //     else if constexpr (dim == 3)
-            //     {
-            //         lca.emplace_back(difference(translate(domain, stencil),
-            //                                     union_(domain,
-            //                                            translate(domain, direction_t{stencil[0], 0, 0}),
-            //                                            translate(domain, direction_t{0, stencil[1], 0}),
-            //                                            translate(domain, direction_t{0, 0, stencil[2]}))));
-            //     }
-            // }
-        }
-        //);
+                if (number_of_one == 1)
+                {
+                    lca.emplace_back(difference(domain, translate(domain, -stencil)));
+                }
+                else if (number_of_one > 1)
+                {
+                    if constexpr (dim == 2)
+                    {
+                        lca.emplace_back(difference(
+                            domain,
+                            union_(translate(domain, direction_t{-stencil[0], 0}), translate(domain, direction_t{0, -stencil[1]}))));
+                    }
+                    else if constexpr (dim == 3)
+                    {
+                        lca.emplace_back(difference(domain,
+                                                    union_(translate(domain, direction_t{-stencil[0], 0, 0}),
+                                                           translate(domain, direction_t{0, -stencil[1], 0}),
+                                                           translate(domain, direction_t{0, 0, -stencil[2]}))));
+                    }
+                }
+            });
 
         return std::make_pair(dir, lca);
     }
@@ -382,17 +361,16 @@ namespace samurai
             {
                 if constexpr (dim == 2)
                 {
-                    lca.emplace_back(difference(
-                        translate(domain, stencil),
-                        union_(domain, translate(domain, direction_t{stencil[0], 0}), translate(domain, direction_t{0, stencil[1]}))));
+                    lca.emplace_back(
+                        difference(domain,
+                                   union_(translate(domain, direction_t{-stencil[0], 0}), translate(domain, direction_t{0, -stencil[1]}))));
                 }
                 else if constexpr (dim == 3)
                 {
-                    lca.emplace_back(difference(translate(domain, stencil),
-                                                union_(domain,
-                                                       translate(domain, direction_t{stencil[0], 0, 0}),
-                                                       translate(domain, direction_t{0, stencil[1], 0}),
-                                                       translate(domain, direction_t{0, 0, stencil[2]}))));
+                    lca.emplace_back(difference(domain,
+                                                union_(translate(domain, direction_t{-stencil[0], 0, 0}),
+                                                       translate(domain, direction_t{0, -stencil[1], 0}),
+                                                       translate(domain, direction_t{0, 0, -stencil[2]}))));
                 }
             }
         }

@@ -104,7 +104,7 @@ namespace samurai
 
           public:
 
-            FVScheme(Field& unknown)
+            explicit FVScheme(Field& unknown)
                 : m_unknown(unknown)
                 , m_mesh(unknown.mesh())
             {
