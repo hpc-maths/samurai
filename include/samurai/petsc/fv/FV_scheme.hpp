@@ -351,35 +351,39 @@ namespace samurai
                         auto& towards_out    = directions[d];
                         auto& boundary_cells = boundary_cells_directions[d];
 
-                        dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
-                        neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
-                        if (dirichlet)
+                        int number_of_one = xt::sum(xt::abs(towards_out))[0];
+                        if (number_of_one == 1)
                         {
-                            auto config = dirichlet_config(towards_out);
-                            for_each_stencil_on_boundary(m_mesh,
-                                                         boundary_cells,
-                                                         config.directional_stencil.stencil,
-                                                         config.equations,
-                                                         [&](auto& cells, auto& equations)
-                                                         {
-                                                             sparsity_pattern_dirichlet_bc(nnz, cells, equations);
-                                                         });
-                        }
-                        else if (neumann)
-                        {
-                            auto config = neumann_config(towards_out);
-                            for_each_stencil_on_boundary(m_mesh,
-                                                         boundary_cells,
-                                                         config.directional_stencil.stencil,
-                                                         config.equations,
-                                                         [&](auto& cells, auto& equations)
-                                                         {
-                                                             sparsity_pattern_neumann_bc(nnz, cells, equations);
-                                                         });
-                        }
-                        else
-                        {
-                            std::cerr << "Unknown boundary condition type" << std::endl;
+                            dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
+                            neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
+                            if (dirichlet)
+                            {
+                                auto config = dirichlet_config(towards_out);
+                                for_each_stencil_on_boundary(m_mesh,
+                                                             boundary_cells,
+                                                             config.directional_stencil.stencil,
+                                                             config.equations,
+                                                             [&](auto& cells, auto& equations)
+                                                             {
+                                                                 sparsity_pattern_dirichlet_bc(nnz, cells, equations);
+                                                             });
+                            }
+                            else if (neumann)
+                            {
+                                auto config = neumann_config(towards_out);
+                                for_each_stencil_on_boundary(m_mesh,
+                                                             boundary_cells,
+                                                             config.directional_stencil.stencil,
+                                                             config.equations,
+                                                             [&](auto& cells, auto& equations)
+                                                             {
+                                                                 sparsity_pattern_neumann_bc(nnz, cells, equations);
+                                                             });
+                            }
+                            else
+                            {
+                                std::cerr << "Unknown boundary condition type" << std::endl;
+                            }
                         }
                     }
                 }
@@ -450,35 +454,39 @@ namespace samurai
                         auto& towards_out    = directions[d];
                         auto& boundary_cells = boundary_cells_directions[d];
 
-                        dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
-                        neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
-                        if (dirichlet)
+                        int number_of_one = xt::sum(xt::abs(towards_out))[0];
+                        if (number_of_one == 1)
                         {
-                            auto config = dirichlet_config(towards_out);
-                            for_each_stencil_on_boundary(m_mesh,
-                                                         boundary_cells,
-                                                         config.directional_stencil.stencil,
-                                                         config.equations,
-                                                         [&](auto& cells, auto& equations)
-                                                         {
-                                                             assemble_bc(A, cells, equations);
-                                                         });
-                        }
-                        else if (neumann)
-                        {
-                            auto config = neumann_config(towards_out);
-                            for_each_stencil_on_boundary(m_mesh,
-                                                         boundary_cells,
-                                                         config.directional_stencil.stencil,
-                                                         config.equations,
-                                                         [&](auto& cells, auto& equations)
-                                                         {
-                                                             assemble_bc(A, cells, equations);
-                                                         });
-                        }
-                        else
-                        {
-                            std::cerr << "Unknown boundary condition type" << std::endl;
+                            dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
+                            neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
+                            if (dirichlet)
+                            {
+                                auto config = dirichlet_config(towards_out);
+                                for_each_stencil_on_boundary(m_mesh,
+                                                             boundary_cells,
+                                                             config.directional_stencil.stencil,
+                                                             config.equations,
+                                                             [&](auto& cells, auto& equations)
+                                                             {
+                                                                 assemble_bc(A, cells, equations);
+                                                             });
+                            }
+                            else if (neumann)
+                            {
+                                auto config = neumann_config(towards_out);
+                                for_each_stencil_on_boundary(m_mesh,
+                                                             boundary_cells,
+                                                             config.directional_stencil.stencil,
+                                                             config.equations,
+                                                             [&](auto& cells, auto& equations)
+                                                             {
+                                                                 assemble_bc(A, cells, equations);
+                                                             });
+                            }
+                            else
+                            {
+                                std::cerr << "Unknown boundary condition type" << std::endl;
+                            }
                         }
                     }
                 }
@@ -536,35 +544,39 @@ namespace samurai
                         auto& towards_out    = directions[d];
                         auto& boundary_cells = boundary_cells_directions[d];
 
-                        dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
-                        neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
-                        if (dirichlet)
+                        int number_of_one = xt::sum(xt::abs(towards_out))[0];
+                        if (number_of_one == 1)
                         {
-                            auto config = dirichlet_config(towards_out);
-                            for_each_stencil_on_boundary(m_mesh,
-                                                         boundary_cells,
-                                                         config.directional_stencil.stencil,
-                                                         config.equations,
-                                                         [&](auto& cells, auto& equations)
-                                                         {
-                                                             enforce_bc(b, cells, equations, dirichlet, towards_out);
-                                                         });
-                        }
-                        else if (neumann)
-                        {
-                            auto config = neumann_config(towards_out);
-                            for_each_stencil_on_boundary(m_mesh,
-                                                         boundary_cells,
-                                                         config.directional_stencil.stencil,
-                                                         config.equations,
-                                                         [&](auto& cells, auto& equations)
-                                                         {
-                                                             enforce_bc(b, cells, equations, neumann, towards_out);
-                                                         });
-                        }
-                        else
-                        {
-                            std::cerr << "Unknown boundary condition type" << std::endl;
+                            dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
+                            neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
+                            if (dirichlet)
+                            {
+                                auto config = dirichlet_config(towards_out);
+                                for_each_stencil_on_boundary(m_mesh,
+                                                             boundary_cells,
+                                                             config.directional_stencil.stencil,
+                                                             config.equations,
+                                                             [&](auto& cells, auto& equations)
+                                                             {
+                                                                 enforce_bc(b, cells, equations, dirichlet, towards_out);
+                                                             });
+                            }
+                            else if (neumann)
+                            {
+                                auto config = neumann_config(towards_out);
+                                for_each_stencil_on_boundary(m_mesh,
+                                                             boundary_cells,
+                                                             config.directional_stencil.stencil,
+                                                             config.equations,
+                                                             [&](auto& cells, auto& equations)
+                                                             {
+                                                                 enforce_bc(b, cells, equations, neumann, towards_out);
+                                                             });
+                            }
+                            else
+                            {
+                                std::cerr << "Unknown boundary condition type" << std::endl;
+                            }
                         }
                     }
                 }
