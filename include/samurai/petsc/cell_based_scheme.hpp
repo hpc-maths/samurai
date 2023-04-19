@@ -69,6 +69,7 @@ namespace samurai
             using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;
+            using base_class::field_size;
             using base_class::m_is_row_empty;
             using base_class::m_mesh;
             using base_class::row_index;
@@ -79,7 +80,6 @@ namespace samurai
             using cfg_t                                    = cfg;
             using field_t                                  = Field;
             using field_value_type                         = typename Field::value_type; // double
-            static constexpr std::size_t field_size        = Field::size;
             static constexpr std::size_t output_field_size = cfg::output_field_size;
             using local_matrix_t                           = typename detail::LocalMatrix<field_value_type,
                                                                 output_field_size,
@@ -201,7 +201,7 @@ namespace samurai
                     for_each_cell(m_mesh,
                                   [&](auto& cell)
                                   {
-                                      nnz[row_index(cell, field_i)] = scheme_nnz_i;
+                                      nnz[this->row_index(cell, field_i)] = scheme_nnz_i;
                                   });
                 }
             }

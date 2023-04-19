@@ -119,22 +119,19 @@ namespace samurai
             using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;
+            using base_class::field_size;
             using base_class::m_is_row_empty;
             using base_class::m_mesh;
+            using base_class::m_unknown;
             using base_class::row_index;
             using base_class::set_current_insert_mode;
-
-            using base_class::m_unknown;
             using dirichlet_t = typename base_class::dirichlet_t;
             using neumann_t   = typename base_class::neumann_t;
 
           public:
 
-            using cfg_t   = cfg;
-            using field_t = Field;
-
-            using field_value_type                           = typename Field::value_type; // double
-            static constexpr std::size_t field_size          = Field::size;
+            using cfg_t                                      = cfg;
+            using field_t                                    = Field;
             static constexpr std::size_t output_field_size   = cfg::output_field_size;
             static constexpr std::size_t comput_stencil_size = cfg::comput_stencil_size;
 
