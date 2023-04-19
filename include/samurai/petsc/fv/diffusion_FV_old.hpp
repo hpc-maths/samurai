@@ -18,14 +18,14 @@ namespace samurai
         class DiffusionFV_old : public CellBasedScheme<cfg, Field>
         {
             using base_class = CellBasedScheme<cfg, Field>;
+            using base_class::bdry_stencil_size;
 
           public:
 
-            using field_t                                  = Field;
-            using Mesh                                     = typename Field::mesh_t;
-            using local_matrix_t                           = typename base_class::local_matrix_t;
-            using directional_bdry_config_t                = typename base_class::directional_bdry_config_t;
-            static constexpr std::size_t bdry_stencil_size = base_class::bdry_stencil_size;
+            using field_t                   = Field;
+            using Mesh                      = typename Field::mesh_t;
+            using local_matrix_t            = typename base_class::local_matrix_t;
+            using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
             DiffusionFV_old(Field& unknown)
                 : CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)

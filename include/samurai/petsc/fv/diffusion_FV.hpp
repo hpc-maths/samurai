@@ -20,18 +20,18 @@ namespace samurai
         class DiffusionFV : public FluxBasedScheme<cfg, Field>
         {
             using base_class = FluxBasedScheme<cfg, Field>;
+            using base_class::bdry_stencil_size;
 
           public:
 
-            using cfg_t                                    = cfg;
-            using field_t                                  = Field;
-            using Mesh                                     = typename Field::mesh_t;
-            using coefficients_t                           = typename base_class::coefficients_t;
-            using flux_matrix_t                            = typename coefficients_t::flux_computation_t::flux_matrix_t;
-            using coeff_matrix_t                           = typename coefficients_t::coeff_matrix_t;
-            using directional_bdry_config_t                = typename base_class::directional_bdry_config_t;
-            static constexpr std::size_t field_size        = Field::size;
-            static constexpr std::size_t bdry_stencil_size = base_class::bdry_stencil_size;
+            using cfg_t                             = cfg;
+            using field_t                           = Field;
+            using Mesh                              = typename Field::mesh_t;
+            using coefficients_t                    = typename base_class::coefficients_t;
+            using flux_matrix_t                     = typename coefficients_t::flux_computation_t::flux_matrix_t;
+            using coeff_matrix_t                    = typename coefficients_t::coeff_matrix_t;
+            using directional_bdry_config_t         = typename base_class::directional_bdry_config_t;
+            static constexpr std::size_t field_size = Field::size;
 
             DiffusionFV(Field& unknown)
                 : FluxBasedScheme<cfg, Field>(unknown, diffusion_coefficients())
@@ -193,18 +193,18 @@ namespace samurai
                 return config;
             }
 
-            bool matrix_is_spd() const override
-            {
-                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                {
-                    // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
-                    return this->mesh().min_level() == this->mesh().max_level();
-                }
-                else
-                {
-                    return false;
-                }
-            }
+            // bool matrix_is_spd() const override
+            // {
+            //     if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+            //     {
+            //         // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
+            //         return this->mesh().min_level() == this->mesh().max_level();
+            //     }
+            //     else
+            //     {
+            //         return false;
+            //     }
+            // }
         };
 
         template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>

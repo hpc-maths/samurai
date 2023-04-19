@@ -6,6 +6,9 @@ namespace samurai
 {
     namespace petsc
     {
+        /**
+         * Definition of one ghost equation to enforce the boundary condition.
+         */
         template <class Field, std::size_t output_field_size, std::size_t bdry_stencil_size>
         struct BoundaryEquationCoeffs
         {
@@ -16,11 +19,18 @@ namespace samurai
             using stencil_coeffs_t = std::array<coeffs_t, bdry_stencil_size>;
             using rhs_coeffs_t     = coeffs_t;
 
+            // Index of the ghost in the boundary stencil. The equation coefficients will be added on its row.
             std::size_t ghost_index;
+            // Coefficients of the equation
             stencil_coeffs_t stencil_coeffs;
+            // Coefficients of the right-hand side
             rhs_coeffs_t rhs_coeffs;
         };
 
+        /**
+         * Definition of one ghost equation to enforce the boundary condition.
+         * It contains functions depending on h to get the equation coefficients.
+         */
         template <class Field, std::size_t output_field_size, std::size_t bdry_stencil_size>
         struct BoundaryEquationConfig
         {
@@ -30,21 +40,37 @@ namespace samurai
             using get_stencil_coeffs_func_t = std::function<stencil_coeffs_t(double)>;
             using get_rhs_coeffs_func_t     = std::function<rhs_coeffs_t(double)>;
 
+            // Index of the ghost in the boundary stencil. The equation coefficients will be added on its row.
             std::size_t ghost_index;
+            // Function to get the coefficients of the equation
             get_stencil_coeffs_func_t get_stencil_coeffs;
+            // Function to get the coefficients of the right-hand side
             get_rhs_coeffs_func_t get_rhs_coeffs;
         };
 
-        template <class Field, std::size_t output_field_size, std::size_t bdry_stencil_size, std::size_t nb_ghosts>
+        /**
+         * For a boundary direction, defines one equation per boundary ghost.
+         */
+        template <class Field, std::size_t output_field_size, std::size_t bdry_stencil_size, std::size_t nb_bdry_ghosts>
         struct DirectionalBoundaryConfig
         {
             static constexpr std::size_t dim = Field::dim;
             using bdry_equation_config_t     = BoundaryEquationConfig<Field, output_field_size, bdry_stencil_size>;
 
+            // Direction of the boundary and stencil for the computation of the boundary condition
             DirectionalStencil<bdry_stencil_size, dim> directional_stencil;
-            std::array<bdry_equation_config_t, nb_ghosts> equations;
+            // One equation per boundary ghost
+            std::array<bdry_equation_config_t, nb_bdry_ghosts> equations;
         };
 
+        /**
+         * Finite Volume scheme.
+         * This is the base class of CellBasedScheme and FluxBasedScheme.
+         * It contains the management of
+         *     - the boundary conditions
+         *     - the projection/prediction ghosts
+         *     - the unused ghosts
+         */
         template <class Field, std::size_t output_field_size, std::size_t neighbourhood_width, DirichletEnforcement dirichlet_enfcmt = Equation>
         class FVScheme : public MatrixAssembly
         {
@@ -61,11 +87,12 @@ namespace samurai
             static constexpr std::size_t field_size        = Field::size;
             static constexpr std::size_t prediction_order  = Mesh::config::prediction_order;
             static constexpr std::size_t bdry_stencil_size = 1 + 2 * neighbourhood_width;
+            static constexpr std::size_t nb_bdry_ghosts    = neighbourhood_width;
 
             using dirichlet_t = Dirichlet<dim, interval_t, field_value_type, field_size>;
             using neumann_t   = Neumann<dim, interval_t, field_value_type, field_size>;
 
-            using directional_bdry_config_t = DirectionalBoundaryConfig<Field, output_field_size, bdry_stencil_size, neighbourhood_width>;
+            using directional_bdry_config_t = DirectionalBoundaryConfig<Field, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
 
           protected:
 
@@ -255,17 +282,14 @@ namespace samurai
                     config.equations[0].get_stencil_coeffs = [&](double)
                     {
                         std::array<coeffs_t, bdry_stencil_size> coeffs;
-                        auto Identity         = eye<coeffs_t>();
-                        coeffs[cell]          = 0.5 * Identity;
-                        coeffs[ghost]         = 0.5 * Identity;
+                        coeffs[cell]          = 0.5 * eye<coeffs_t>();
+                        coeffs[ghost]         = 0.5 * eye<coeffs_t>();
                         coeffs[interior_cell] = zeros<coeffs_t>();
                         return coeffs;
                     };
                     config.equations[0].get_rhs_coeffs = [&](double)
                     {
-                        coeffs_t coeffs;
-                        auto Identity = eye<coeffs_t>();
-                        coeffs        = Identity;
+                        coeffs_t coeffs = eye<coeffs_t>();
                         return coeffs;
                     };
                 }
@@ -292,16 +316,14 @@ namespace samurai
                     config.equations[0].get_stencil_coeffs = [&](double)
                     {
                         std::array<coeffs_t, bdry_stencil_size> coeffs;
-                        auto Identity         = eye<coeffs_t>();
-                        coeffs[cell]          = -Identity;
-                        coeffs[ghost]         = Identity;
+                        coeffs[cell]          = -eye<coeffs_t>();
+                        coeffs[ghost]         = eye<coeffs_t>();
                         coeffs[interior_cell] = zeros<coeffs_t>();
                         return coeffs;
                     };
                     config.equations[0].get_rhs_coeffs = [&](double h)
                     {
-                        auto Identity   = eye<coeffs_t>();
-                        coeffs_t coeffs = h * Identity;
+                        coeffs_t coeffs = h * eye<coeffs_t>();
                         return coeffs;
                     };
                 }
@@ -366,11 +388,10 @@ namespace samurai
           protected:
 
             template <class CellList, class CoeffList>
-            void sparsity_pattern_dirichlet_bc(std::vector<PetscInt>& nnz,
-                                               CellList& cells,
-                                               std::array<CoeffList, neighbourhood_width>& equations) const
+            void
+            sparsity_pattern_dirichlet_bc(std::vector<PetscInt>& nnz, CellList& cells, std::array<CoeffList, nb_bdry_ghosts>& equations) const
             {
-                for (std::size_t e = 0; e < neighbourhood_width; ++e)
+                for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
                 {
                     const auto& eq    = equations[e];
                     const auto& ghost = cells[eq.ghost_index];
@@ -390,9 +411,9 @@ namespace samurai
 
             template <class CellList, class CoeffList>
             void
-            sparsity_pattern_neumann_bc(std::vector<PetscInt>& nnz, CellList& cells, std::array<CoeffList, neighbourhood_width>& equations) const
+            sparsity_pattern_neumann_bc(std::vector<PetscInt>& nnz, CellList& cells, std::array<CoeffList, nb_bdry_ghosts>& equations) const
             {
-                for (std::size_t e = 0; e < neighbourhood_width; ++e)
+                for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
                 {
                     const auto& eq    = equations[e];
                     const auto& ghost = cells[eq.ghost_index];
@@ -464,9 +485,9 @@ namespace samurai
             }
 
             template <class CellList, class CoeffList>
-            void assemble_bc(Mat& A, CellList& cells, std::array<CoeffList, neighbourhood_width>& equations)
+            void assemble_bc(Mat& A, CellList& cells, std::array<CoeffList, nb_bdry_ghosts>& equations)
             {
-                for (std::size_t e = 0; e < neighbourhood_width; ++e)
+                for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
                 {
                     auto eq                    = equations[e];
                     const auto& equation_ghost = cells[eq.ghost_index];
@@ -515,8 +536,6 @@ namespace samurai
                         auto& towards_out    = directions[d];
                         auto& boundary_cells = boundary_cells_directions[d];
 
-                        // Stencil<2, dim> stencil = in_out_stencil<dim>(towards_out);
-
                         dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
                         neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
                         if (dirichlet)
@@ -554,14 +573,14 @@ namespace samurai
             template <class CellList, class CoeffList, class BoundaryCondition>
             void enforce_bc(Vec& b,
                             CellList& cells,
-                            std::array<CoeffList, neighbourhood_width>& equations,
+                            std::array<CoeffList, nb_bdry_ghosts>& equations,
                             const BoundaryCondition* bc,
                             const DirectionVector<dim>& towards_out) const
             {
                 auto& cell          = cells[0];
                 auto boundary_point = cell.face_center(towards_out);
 
-                for (std::size_t e = 0; e < neighbourhood_width; ++e)
+                for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
                 {
                     auto eq                    = equations[e];
                     const auto& equation_ghost = cells[eq.ghost_index];

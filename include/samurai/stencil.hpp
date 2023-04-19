@@ -327,7 +327,7 @@ namespace samurai
     template <std::size_t dim>
     constexpr Stencil<dim, dim> positive_cartesian_directions()
     {
-        static_assert(dim >= 1 || dim <= 3, "positive_cartesian_directions() not implemented for this dimension");
+        static_assert(dim >= 1 && dim <= 3, "positive_cartesian_directions() not implemented for this dimension");
         // clang-format off
         if constexpr (dim == 1)
         {
@@ -362,9 +362,10 @@ namespace samurai
         static_assert(neighbourhood_width >= 0 && neighbourhood_width <= 2,
                       "directional_stencils() not implemented for this neighbourhood width");
 
-        static constexpr std::size_t stencil_size = 1 + 2 * neighbourhood_width;
+        static constexpr std::size_t stencil_size      = 1 + 2 * neighbourhood_width;
+        static constexpr std::size_t n_cart_directions = 2 * dim;
 
-        std::array<DirectionalStencil<stencil_size, dim>, 2 * dim> dir_stencils;
+        std::array<DirectionalStencil<stencil_size, dim>, n_cart_directions> dir_stencils;
 
         if constexpr (neighbourhood_width == 0)
         {
