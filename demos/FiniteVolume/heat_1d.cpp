@@ -169,12 +169,12 @@ int main(int argc, char* argv[])
         }
 
         // Compute the error at instant t with respect to the exact solution
-        double error = u.L2_error(
-            [&](auto& coord)
-            {
-                double x = coord[0];
-                return exact_solution(x, t);
-            });
+        double error = L2_error(u,
+                                [&](auto& coord)
+                                {
+                                    double x = coord[0];
+                                    return exact_solution(x, t);
+                                });
         std::cout.precision(2);
         std::cout << "L2-error: " << std::scientific << error << std::endl;
     }

@@ -480,11 +480,6 @@ namespace samurai
         auto attach_bc(const Bc_derived& bc);
         auto& get_bc();
 
-        template <bool relative_error, class Func>
-        double L2_error(Func&& exact) const;
-        template <class Func>
-        double L2_error(Func&& exact) const;
-
       private:
 
         template <class... T>
@@ -642,78 +637,6 @@ namespace samurai
     inline auto& Field<mesh_t, value_t, size_, SOA>::get_bc()
     {
         return p_bc;
-    }
-
-    /**
-     * Computes the L2-error with respect to an exact solution.
-     * @tparam relative_error: if true, compute the relative error instead of the absolute one.
-     */
-    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    template <bool relative_error, class Func>
-    double Field<mesh_t, value_t, size_, SOA>::L2_error(Func&& exact) const
-    {
-        // In FV, we want only 1 quadrature point.
-        // This is equivalent to
-        //       error += pow(exact(cell.center()) - approximate(cell.index), 2) * cell.length^dim;
-        GaussLegendre<0> gl;
-
-        double error_norm    = 0;
-        double solution_norm = 0;
-        for_each_cell(this->mesh(),
-                      [&](const auto& cell)
-                      {
-                          error_norm += gl.quadrature<1>(cell,
-                                                         [&](const auto& point)
-                                                         {
-                                                             auto e = exact(point) - (*this)[cell];
-                                                             double norm_square;
-                                                             if constexpr (size == 1)
-                                                             {
-                                                                 norm_square = e * e;
-                                                             }
-                                                             else
-                                                             {
-                                                                 norm_square = xt::sum(e * e)();
-                                                             }
-                                                             return norm_square;
-                                                         });
-                          if constexpr (relative_error)
-                          {
-                              solution_norm += gl.quadrature<1>(cell,
-                                                                [&](const auto& point)
-                                                                {
-                                                                    auto v = exact(point);
-                                                                    double v_square;
-                                                                    if constexpr (size == 1)
-                                                                    {
-                                                                        v_square = v * v;
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        v_square = xt::sum(v * v)();
-                                                                    }
-                                                                    return v_square;
-                                                                });
-                          }
-                      });
-
-        error_norm    = sqrt(error_norm);
-        solution_norm = sqrt(solution_norm);
-        if constexpr (relative_error)
-        {
-            return error_norm / solution_norm;
-        }
-        else
-        {
-            return error_norm;
-        }
-    }
-
-    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    template <class Func>
-    double Field<mesh_t, value_t, size_, SOA>::L2_error(Func&& exact) const
-    {
-        return L2_error<false, Func>(std::forward<Func>(exact));
     }
 
     template <class value_t, std::size_t size, bool SOA = false, class mesh_t>

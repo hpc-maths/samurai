@@ -289,7 +289,7 @@ int main(int argc, char* argv[])
 
     if (test_case->solution_is_known())
     {
-        double error = solution.L2_error(test_case->solution());
+        double error = L2_error(solution, test_case->solution());
         std::cout.precision(2);
         std::cout << "L2-error: " << std::scientific << error << std::endl;
     }

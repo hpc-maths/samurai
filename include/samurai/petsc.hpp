@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 #pragma once
+#include "numeric/error.hpp"
 #include "petsc/fv/diffusion_FV.hpp"
 #include "petsc/fv/diffusion_FV_old.hpp"
 #include "petsc/fv/divergence_FV.hpp"

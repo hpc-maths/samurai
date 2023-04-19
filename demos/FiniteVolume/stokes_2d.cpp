@@ -112,7 +112,6 @@ int main(int argc, char* argv[])
 
     fs::path path        = fs::current_path();
     std::string filename = "velocity";
-    bool save_solution   = false;
 
     CLI::App app{"Stokes problem"};
     app.add_flag("--stationary", stationary, "Solves the stationary problem")->group("Simulation parameters");
@@ -128,7 +127,7 @@ int main(int argc, char* argv[])
         ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    // app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
 
@@ -217,19 +216,20 @@ int main(int argc, char* argv[])
         std::cout << stokes_solver.iterations() << " iterations" << std::endl << std::endl;
 
         // Error
-        double error = velocity.L2_error(
-            [](auto& coord)
-            {
-                const auto& x = coord[0];
-                const auto& y = coord[1];
-                auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
-                auto v_y      = -v_x;
-                return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-            });
+        double error = L2_error(velocity,
+                                [](auto& coord)
+                                {
+                                    const auto& x = coord[0];
+                                    const auto& y = coord[1];
+                                    auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
+                                    auto v_y      = -v_x;
+                                    return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
+                                });
         std::cout.precision(2);
         std::cout << "L2-error on the velocity: " << std::scientific << error << std::endl;
 
         // Save solution
+        bool save_solution = false;
         if (save_solution)
         {
             std::cout << "Saving solution..." << std::endl;
