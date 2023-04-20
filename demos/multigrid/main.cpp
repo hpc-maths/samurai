@@ -292,6 +292,21 @@ int main(int argc, char* argv[])
         double error = L2_error(solution, test_case->solution());
         std::cout.precision(2);
         std::cout << "L2-error: " << std::scientific << error << std::endl;
+
+        if (test_case_code == "poly")
+        {
+            // double hidden_constant             = samurai::compute_error_bound_hidden_constant<order>(h, error);
+            // std::cout << "hidden_constant: " << hidden_constant << std::endl;
+            static constexpr std::size_t order = 2;
+            double h                           = samurai::cell_length(mesh.min_level());
+            double hidden_constant             = 5e-2;
+            double theoretical_bound           = samurai::theoretical_error_bound<order>(field_size * hidden_constant, h);
+            // std::cout << "theoretical_bound: " << theoretical_bound << std::endl;
+            if (error > theoretical_bound)
+            {
+                std::cerr << "Convergence order failure: the error must be < " << theoretical_bound << "." << std::endl;
+            }
+        }
     }
 
     // Save solution
