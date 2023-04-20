@@ -197,6 +197,9 @@ int main(int argc, char* argv[])
     MRadaptation(mr_epsilon, mr_regularity);
 
     // samurai::save("initial_mesh", mesh);
+    double h_coarse            = -1;
+    double error_coarse        = -1;
+    double error_recons_coarse = -1;
 
     for (std::size_t ite = 0; ite < refinement; ++ite)
     {
@@ -284,17 +287,33 @@ int main(int argc, char* argv[])
             return exp(x * y * y);
         };
 
+        double h = samurai::cell_length(mesh.min_level());
+
         double error = L2_error(u, exact_func);
         std::cout.precision(2);
         std::cout << "refinement: " << ite << std::endl;
-        std::cout << "L2-error         : " << std::scientific << error << std::endl;
+        std::cout << "L2-error         : " << std::scientific << error;
+        if (h_coarse != -1)
+        {
+            double convergence_order = samurai::convergence_order(h, error, h_coarse, error_coarse);
+            std::cout << " (order = " << std::defaultfloat << convergence_order << ")";
+        }
+        std::cout << std::endl;
 
         samurai::update_ghost_mr(u);
         auto u_recons = samurai::reconstruction(u);
 
         double error_recons = L2_error(u_recons, exact_func);
+
         std::cout.precision(2);
-        std::cout << "L2-error (recons): " << std::scientific << error_recons << std::endl;
+        std::cout << "L2-error (recons): " << std::scientific << error_recons;
+
+        if (h_coarse != -1)
+        {
+            double convergence_order = samurai::convergence_order(h, error_recons, h_coarse, error_recons_coarse);
+            std::cout << " (order = " << std::defaultfloat << convergence_order << ")";
+        }
+        std::cout << std::endl;
 
         auto error_field = samurai::make_field<double, 1>("error", mesh);
         samurai::for_each_cell(mesh,
@@ -311,6 +330,9 @@ int main(int argc, char* argv[])
         samurai::save(fmt::format("error_ref_{}", ite), mesh, error_field);
         samurai::save(fmt::format("solution_{}_{}_ref_{}", min_level, max_level, ite), mesh, u);
         samurai::save(fmt::format("solution_recons_{}_{}_ref_{}", min_level, max_level, ite), u_recons.mesh(), u_recons);
+        h_coarse            = h;
+        error_coarse        = error;
+        error_recons_coarse = error_recons;
     }
     PetscFinalize();
 
