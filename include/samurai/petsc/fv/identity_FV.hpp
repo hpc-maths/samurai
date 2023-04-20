@@ -109,7 +109,7 @@ namespace samurai
 
             using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
 
-            IdentityFV(Field& unknown)
+            explicit IdentityFV(Field& unknown)
                 : CellBasedScheme<cfg, Field>(unknown, star_stencil<dim, neighbourhood_width>(), coefficients)
             {
                 this->set_name("Identity");

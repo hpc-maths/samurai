@@ -323,17 +323,17 @@ namespace samurai
                 m_discretizer.enforce_projection_prediction(b_blocks); // VecView(b_blocks[0], PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
                                                                        // std::cout << std::endl;
                 m_discretizer.enforce_bc(b_blocks); // VecView(b_blocks[0], PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
-                // m_discretizer.add_0_for_useless_ghosts(b_blocks);                        //VecView(b,
-                // PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl; assert(check_nan_or_inf(b));
+                // m_discretizer.add_0_for_useless_ghosts(b_blocks);
+                // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // std::cout << std::endl;
+                // assert(check_nan_or_inf(b));
 
                 // Create the solution vector
                 std::array<Vec, cols> x_blocks = m_discretizer.create_solution_vectors();
                 Vec x;
                 VecCreateNest(PETSC_COMM_SELF, cols, NULL, x_blocks.data(), &x);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(x),
-                                   "solution"); // VecView(x,
-                                                // PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                                                // std::cout << std::endl;
+                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "solution");
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
 
                 // Solve the system
                 KSPSolve(m_ksp, b, x);

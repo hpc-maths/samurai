@@ -16,7 +16,6 @@
 
 #include "algorithm.hpp"
 #include "bc.hpp"
-#include "boundary_condition.hpp"
 #include "cell.hpp"
 #include "field_expression.hpp"
 #include "mr/operators.hpp"
@@ -443,15 +442,6 @@ namespace samurai
         using interval_t = typename mesh_t::interval_t;
         using cell_t     = Cell<typename interval_t::coord_index_t, dim>;
 
-        using boundary_condition_t = BoundaryCondition<value_t, dim, size>;
-        using boundary_point_t     = typename boundary_condition_t::boundary_point_t;
-        using boundary_part_t      = typename boundary_condition_t::boundary_part_t;
-        using boundary_cond_t      = typename boundary_condition_t::boundary_cond_t;
-
-      private:
-
-        std::vector<boundary_condition_t> m_boundary_conditions;
-
       public:
 
         Field() = default;
@@ -489,10 +479,6 @@ namespace samurai
         template <class Bc_derived>
         auto attach_bc(const Bc_derived& bc);
         auto& get_bc();
-
-        const std::vector<boundary_condition_t>& boundary_conditions() const;
-        boundary_condition_t& set_dirichlet(boundary_cond_t dirichlet_value);
-        boundary_condition_t& set_neumann(boundary_cond_t neumann_value);
 
       private:
 
@@ -651,27 +637,6 @@ namespace samurai
     inline auto& Field<mesh_t, value_t, size_, SOA>::get_bc()
     {
         return p_bc;
-    }
-
-    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    const std::vector<typename Field<mesh_t, value_t, size_, SOA>::boundary_condition_t>&
-    Field<mesh_t, value_t, size_, SOA>::boundary_conditions() const
-    {
-        return m_boundary_conditions;
-    }
-
-    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    auto Field<mesh_t, value_t, size_, SOA>::set_dirichlet(boundary_cond_t dirichlet_value) -> boundary_condition_t&
-    {
-        m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Dirichlet, dirichlet_value);
-        return m_boundary_conditions.back();
-    }
-
-    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    auto Field<mesh_t, value_t, size_, SOA>::set_neumann(boundary_cond_t neumann_value) -> boundary_condition_t&
-    {
-        m_boundary_conditions.emplace_back(boundary_condition_t::BCType::Neumann, neumann_value);
-        return m_boundary_conditions.back();
     }
 
     template <class value_t, std::size_t size, bool SOA = false, class mesh_t>

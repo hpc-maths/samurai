@@ -38,7 +38,12 @@ namespace samurai
          *         Div(u)(cell 1) = 1/2 (Fx^R(1) + Fx^L(2)) + 1/2 (Fy^T(1) + Fy^B(2)), where 2 denotes the neighbour in the appropriate
          * direction. So the contribution of a flux F (R or T) computed on cell 1 is for cell 1: 1/2 F for cell 2: 1/2 F
          */
-        template <class Field, std::size_t dim = Field::dim, class cfg = FluxBasedAssemblyConfig<1, 2>>
+        template <class Field,
+                  std::size_t dim              = Field::dim,
+                  PetscInt output_field_size   = 1,
+                  PetscInt neighbourhood_width = 1,
+                  PetscInt comput_stencil_size = 2,
+                  class cfg                    = FluxBasedAssemblyConfig<output_field_size, neighbourhood_width, comput_stencil_size>>
         class DivergenceFV : public FluxBasedScheme<cfg, Field>
         {
           public:
@@ -48,7 +53,7 @@ namespace samurai
             using coeff_matrix_t                    = typename coefficients_t::coeff_matrix_t;
             static constexpr std::size_t field_size = Field::size;
 
-            DivergenceFV(Field& u)
+            explicit DivergenceFV(Field& u)
                 : FluxBasedScheme<cfg, Field>(u, div_coefficients())
             {
                 this->set_name("Divergence");

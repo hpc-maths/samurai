@@ -1,5 +1,5 @@
 #pragma once
-#include <functional>
+#include <samurai/bc.hpp>
 #include <samurai/cell_array.hpp>
 
 template <class Field>
@@ -10,15 +10,9 @@ class TestCase
     static constexpr std::size_t dim = Field::dim;
     using coords                     = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
-    using field_value_t = typename samurai::point_value<typename Field::value_type, Field::size>::type; // if
-                                                                                                        // Field::size
-                                                                                                        // = 1 -->
-                                                                                                        // 'double',
-                                                                                                        // else -->
-                                                                                                        // 'xt::xtensor_fixed<value_t,
-                                                                                                        // xt::xshape<size>>'
-    using field_function_t = std::function<field_value_t(const coords&)>;
-    using boundary_cond_t  = typename Field::boundary_cond_t;
+    using field_value_t    = typename samurai::detail::return_type<double, Field::size>::type;
+    using field_function_t = typename samurai::FunctionBc<dim, double, Field::size>::function_t;
+    using boundary_cond_t  = field_function_t;
 
     virtual bool solution_is_known()
     {

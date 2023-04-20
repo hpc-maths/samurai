@@ -73,6 +73,7 @@ namespace samurai
                 MatCreate(PETSC_COMM_SELF, &A);
                 MatSetSizes(A, m, n, m, n);
                 MatSetFromOptions(A);
+                PetscObjectSetName(reinterpret_cast<PetscObject>(A), m_name.c_str());
 
                 // Number of non-zeros per row. 0 by default.
                 std::vector<PetscInt> nnz(static_cast<std::size_t>(m), 0);

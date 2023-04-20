@@ -1,7 +1,5 @@
 #pragma once
-#include "../boundary.hpp"
-#include "../numeric/gauss_legendre.hpp"
-#include "matrix_assembly.hpp"
+#include "fv/FV_scheme.hpp"
 
 namespace samurai
 {
@@ -11,6 +9,7 @@ namespace samurai
          * Useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
          */
         template <PetscInt output_field_size_,
+                  PetscInt neighbourhood_width_,
                   PetscInt scheme_stencil_size_,
                   PetscInt center_index_,
                   PetscInt contiguous_indices_start_     = 0,
@@ -19,6 +18,7 @@ namespace samurai
         struct CellBasedAssemblyConfig
         {
             static constexpr PetscInt output_field_size            = output_field_size_;
+            static constexpr PetscInt neighbourhood_width          = neighbourhood_width_;
             static constexpr PetscInt scheme_stencil_size          = scheme_stencil_size_;
             static constexpr PetscInt center_index                 = center_index_;
             static constexpr PetscInt contiguous_indices_start     = contiguous_indices_start_;
@@ -28,11 +28,12 @@ namespace samurai
 
         template <std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width = 1, DirichletEnforcement dirichlet_enfcmt = Equation>
         using StarStencilFV = CellBasedAssemblyConfig<output_field_size,
+                                                      neighbourhood_width,
                                                       // ----  Stencil size
                                                       // Cell-centered Finite Volume scheme:
                                                       // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim
                                                       // directions) --> 1+2=3 in 1D
-                                                      //                                                                                              1+4=5 in 2D
+                                                      //                 1+4=5 in 2D
                                                       1 + 2 * dim * neighbourhood_width,
                                                       // ---- Index of the stencil center
                                                       // (as defined in star_stencil())
@@ -59,67 +60,49 @@ namespace samurai
                                                          dirichlet_enfcmt>;
 
         template <class cfg, class Field>
-        class CellBasedScheme : public MatrixAssembly
+        class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, cfg::neighbourhood_width>
         {
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
+          protected:
+
+            using base_class = FVScheme<Field, cfg::output_field_size, cfg::neighbourhood_width>;
+            using base_class::cell_coeff;
+            using base_class::col_index;
+            using base_class::dim;
+            using base_class::field_size;
+            using base_class::m_is_row_empty;
+            using base_class::m_mesh;
+            using base_class::row_index;
+            using base_class::set_current_insert_mode;
+
           public:
 
-            using cfg_t   = cfg;
-            using field_t = Field;
-
-            using Mesh                                     = typename Field::mesh_t;
+            using cfg_t                                    = cfg;
+            using field_t                                  = Field;
             using field_value_type                         = typename Field::value_type; // double
-            static constexpr std::size_t field_size        = Field::size;
             static constexpr std::size_t output_field_size = cfg::output_field_size;
             using local_matrix_t                           = typename detail::LocalMatrix<field_value_type,
                                                                 output_field_size,
-                                                                field_size>::Type; // 'double' if field_size
-                                                                                                             // = 1, 'xtensor'
-                                                                                                             // representing a matrix
-                                                                                                             // otherwise
-            using mesh_id_t                               = typename Mesh::mesh_id_t;
-            static constexpr std::size_t dim              = Mesh::dim;
-            static constexpr std::size_t prediction_order = Mesh::config::prediction_order;
+                                                                field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a
+                                                                                                             // matrix otherwise
 
-            using stencil_t            = Stencil<cfg::scheme_stencil_size, dim>;
-            using GetCoefficientsFunc  = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
-            using boundary_condition_t = typename Field::boundary_condition_t;
-
-            using MatrixAssembly::assemble_matrix;
+            using stencil_t         = Stencil<cfg::scheme_stencil_size, dim>;
+            using get_coeffs_func_t = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
 
           protected:
 
-            Field& m_unknown;
-            Mesh& m_mesh;
-            std::size_t m_n_cells;
             stencil_t m_stencil;
-            GetCoefficientsFunc m_get_coefficients;
-            const std::vector<boundary_condition_t>& m_boundary_conditions;
-            std::vector<bool> m_is_row_empty;
+            get_coeffs_func_t m_get_coefficients;
 
           public:
 
-            CellBasedScheme(Field& unknown, stencil_t s, GetCoefficientsFunc get_coeffs)
-                : m_unknown(unknown)
-                , m_mesh(unknown.mesh())
+            CellBasedScheme(Field& unknown, stencil_t s, get_coeffs_func_t get_coeffs)
+                : base_class(unknown)
                 , m_stencil(s)
                 , m_get_coefficients(get_coeffs)
-                , m_boundary_conditions(unknown.boundary_conditions())
             {
-                m_n_cells      = m_mesh.nb_cells();
-                m_is_row_empty = std::vector(static_cast<std::size_t>(matrix_rows()), true);
-            }
-
-            auto& unknown() const
-            {
-                return m_unknown;
-            }
-
-            auto& mesh() const
-            {
-                return m_mesh;
             }
 
             auto& stencil() const
@@ -127,89 +110,7 @@ namespace samurai
                 return m_stencil;
             }
 
-            const auto& boundary_conditions() const
-            {
-                return m_boundary_conditions;
-            }
-
-            PetscInt matrix_rows() const override
-            {
-                return static_cast<PetscInt>(m_n_cells * output_field_size);
-            }
-
-            PetscInt matrix_cols() const override
-            {
-                return static_cast<PetscInt>(m_n_cells * field_size);
-            }
-
           protected:
-
-            // Global data index
-            inline PetscInt col_index(PetscInt cell_index, unsigned int field_j) const
-            {
-                if constexpr (field_size == 1)
-                {
-                    return cell_index;
-                }
-                else if constexpr (Field::is_soa)
-                {
-                    return static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
-                }
-                else
-                {
-                    return cell_index * static_cast<PetscInt>(field_size) + static_cast<PetscInt>(field_j);
-                }
-            }
-
-            inline PetscInt row_index(PetscInt cell_index, unsigned int field_i) const
-            {
-                if constexpr (output_field_size == 1)
-                {
-                    return cell_index;
-                }
-                else if constexpr (Field::is_soa)
-                {
-                    return static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
-                }
-                else
-                {
-                    return cell_index * static_cast<PetscInt>(output_field_size) + static_cast<PetscInt>(field_i);
-                }
-            }
-
-            template <class CellT>
-            inline auto col_index(const CellT& cell, unsigned int field_j) const
-            {
-                if constexpr (field_size == 1)
-                {
-                    return cell.index;
-                }
-                else if constexpr (Field::is_soa)
-                {
-                    return field_j * m_n_cells + cell.index;
-                }
-                else
-                {
-                    return cell.index * field_size + field_j;
-                }
-            }
-
-            template <class CellT>
-            inline auto row_index(const CellT& cell, unsigned int field_i) const
-            {
-                if constexpr (output_field_size == 1)
-                {
-                    return cell.index;
-                }
-                else if constexpr (Field::is_soa)
-                {
-                    return field_i * m_n_cells + cell.index;
-                }
-                else
-                {
-                    return cell.index * output_field_size + field_i;
-                }
-            }
 
             // Data index in the given stencil
             inline auto local_col_index(unsigned int cell_local_index, unsigned int field_j) const
@@ -244,21 +145,11 @@ namespace samurai
                 }
             }
 
-            template <class Coeffs>
-            inline double
-            cell_coeff(const Coeffs& coeffs, std::size_t cell_number_in_stencil, unsigned int field_i, unsigned int field_j) const
-            {
-                if constexpr (field_size == 1 && output_field_size == 1)
-                {
-                    return coeffs[cell_number_in_stencil];
-                }
-                else
-                {
-                    return coeffs[cell_number_in_stencil](field_i, field_j);
-                }
-            }
-
           public:
+
+            //-------------------------------------------------------------//
+            //                     Sparsity pattern                        //
+            //-------------------------------------------------------------//
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
@@ -312,85 +203,21 @@ namespace samurai
                     for_each_cell(m_mesh,
                                   [&](auto& cell)
                                   {
-                                      nnz[row_index(cell, field_i)] = scheme_nnz_i;
+                                      nnz[this->row_index(cell, field_i)] = scheme_nnz_i;
                                   });
                 }
             }
 
-            void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
-            {
-                for_each_stencil_center_and_outside_ghost(m_mesh,
-                                                          m_stencil,
-                                                          [&](const auto& cells, const auto& towards_ghost)
-                                                          {
-                                                              auto& cell          = cells[0];
-                                                              auto& ghost         = cells[1];
-                                                              auto boundary_point = cell.face_center(towards_ghost);
-                                                              auto bc             = find(m_boundary_conditions, boundary_point);
-                                                              if (bc.is_dirichlet())
-                                                              {
-                                                                  for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                                                  {
-                                                                      if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                                                                      {
-                                                                          nnz[row_index(ghost, field_i)] = 1;
-                                                                      }
-                                                                      else
-                                                                      {
-                                                                          nnz[row_index(ghost, field_i)] = 2;
-                                                                      }
-                                                                  }
-                                                              }
-                                                              else
-                                                              {
-                                                                  for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                                                  {
-                                                                      nnz[row_index(ghost, field_i)] = 2;
-                                                                  }
-                                                              }
-                                                          });
-            }
+          protected:
 
-            void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
-            {
-                // ----  Projection stencil size
-                // cell + 2^dim children --> 1+2=3 in 1D
-                //                           1+4=5 in 2D
-                static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
-
-                for_each_projection_ghost(m_mesh,
-                                          [&](auto& ghost)
-                                          {
-                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                              {
-                                                  nnz[row_index(ghost, field_i)] = proj_stencil_size;
-                                              }
-                                          });
-            }
-
-            void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
-            {
-                // ----  Prediction stencil size
-                // Order 1: cell + hypercube of 3 coarser cells --> 1 + 3= 4 in 1D
-                //                                                  1 + 9=10 in 2D
-                // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
-                //                                                  1 +25=21 in 2D
-                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_order + 1, dim);
-
-                for_each_prediction_ghost(m_mesh,
-                                          [&](auto& ghost)
-                                          {
-                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                              {
-                                                  nnz[row_index(ghost, field_i)] = pred_stencil_size;
-                                              }
-                                          });
-            }
-
-          private:
+            //-------------------------------------------------------------//
+            //             Assemble scheme in the interior                 //
+            //-------------------------------------------------------------//
 
             void assemble_scheme(Mat& A) override
             {
+                set_current_insert_mode(INSERT_VALUES);
+
                 // Apply the given coefficents to the given stencil
                 for_each_stencil(
                     m_mesh,
@@ -399,8 +226,7 @@ namespace samurai
                     [&](const auto& cells, const auto& coeffs)
                     {
                         // std::cout << "coeffs: " << std::endl;
-                        // for (std::size_t i=0; i<cfg::scheme_stencil_size;
-                        // i++)
+                        // for (std::size_t i=0; i<cfg::scheme_stencil_size; i++)
                         //     std::cout << i << ": " << coeffs[i] << std::endl;
 
                         // Global rows and columns
@@ -424,9 +250,7 @@ namespace samurai
                         // The stencil coefficients are stored as an array of
                         // matrices. For instance, vector diffusion in 2D:
                         //
-                        //                        L     R     C     B     T
-                        //                        (left, right, center, bottom,
-                        //                        top)
+                        //                        L     R     C     B     T   (left, right, center, bottom, top)
                         //     field_i (Lap_x) |-1   |-1   | 4   |-1   |-1   |
                         //     field_j (Lap_y) |   -1|   -1|    4|   -1|   -1|
                         //
@@ -443,11 +267,9 @@ namespace samurai
                             // all cells, then field_j for all cells:
                             //
                             // - Diffusion example:
-                            //            [         field_i        | field_j ]
-                            //            [  L    R    C    B    T |  L    R C
-                            //            B    T ]
-                            //  coupling: [ i j| i j| i j| i j| i j| i j| i j| i
-                            //  j| i j| i j]
+                            //            [         field_i        |         field_j        ]
+                            //            [  L    R    C    B    T |  L    R    C    B    T ]
+                            //  coupling: [ i j| i j| i j| i j| i j| i j| i j| i j| i j| i j]
                             //            [-1 0|-1 0| 4 0|-1 0|-1 0|0 -1|0 -1|0
                             //            4|0 -1|0 -1]
                             //
@@ -552,14 +374,10 @@ namespace samurai
 
                             for (unsigned int c = 0; c < cfg::scheme_stencil_size; ++c)
                             {
-                                // Insert a coefficient block of size in
-                                // <output_field_size x field_size>:
-                                // - in 'rows', for each cell,
-                                // <output_field_size> rows are contiguous.
-                                // - in 'cols', for each cell, <field_size> cols
-                                // are contiguous.
-                                // - coeffs[c] is a row-major matrix (xtensor),
-                                // as requested by PETSc.
+                                // Insert a coefficient block of size <output_field_size x field_size>:
+                                // - in 'rows', for each cell, <output_field_size> rows are contiguous.
+                                // - in 'cols', for each cell, <field_size> cols are contiguous.
+                                // - coeffs[c] is a row-major matrix (xtensor), as requested by PETSc.
                                 MatSetValues(A,
                                              static_cast<PetscInt>(output_field_size),
                                              &rows[local_row_index(cfg::center_index, 0)],
@@ -576,539 +394,6 @@ namespace samurai
                             }
                         }
                     });
-            }
-
-            void assemble_boundary_conditions(Mat& A) override
-            {
-                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                {
-                    // Must flush to use ADD_VALUES instead of INSERT_VALUES
-                    MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
-                    MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
-                }
-
-                for_each_stencil_center_and_outside_ghost(
-                    m_mesh,
-                    m_stencil,
-                    m_get_coefficients,
-                    [&](const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
-                    {
-                        const auto& cell    = cells[0];
-                        const auto& ghost   = cells[1];
-                        auto boundary_point = cell.face_center(towards_ghost);
-                        auto bc             = find(m_boundary_conditions, boundary_point);
-
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            PetscInt cell_index  = static_cast<PetscInt>(col_index(cell, field_i));
-                            PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
-                            double coeff;
-                            if constexpr (field_size == 1 && output_field_size == 1)
-                            {
-                                coeff = ghost_coeff;
-                            }
-                            else
-                            {
-                                coeff = ghost_coeff(field_i, field_i);
-                            }
-                            if (bc.is_dirichlet())
-                            {
-                                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                                {
-                                    // We have (u_ghost + u_cell)/2 =
-                                    // dirichlet_value ==> u_ghost =
-                                    // 2*dirichlet_value - u_cell The equation
-                                    // on the cell row is
-                                    //                     coeff*u_ghost +
-                                    //                     coeff_cell*u_cell +
-                                    //                     ... = f
-                                    // Eliminating u_ghost, it gives
-                                    //                           (coeff_cell -
-                                    //                           coeff)*u_cell +
-                                    //                           ... = f -
-                                    //                           2*coeff*dirichlet_value
-                                    // which means that:
-                                    // - on the cell row, we have to 1) remove
-                                    // the coeff in the column of the ghost,
-                                    //                               2)
-                                    //                               substract
-                                    //                               coeff in
-                                    //                               the column
-                                    //                               of the
-                                    //                               cell.
-                                    // - on the cell row of the right-hand side,
-                                    // we have to add -2*coeff*dirichlet_value.
-                                    MatSetValue(A,
-                                                cell_index,
-                                                ghost_index,
-                                                -coeff,
-                                                ADD_VALUES); // the coeff of the ghost
-                                                             // is removed from the
-                                                             // stencil (we want 0 so we
-                                                             // substract the coeff we
-                                                             // set before)
-                                    MatSetValue(A,
-                                                cell_index,
-                                                cell_index,
-                                                -coeff,
-                                                ADD_VALUES); // the coeff is substracted
-                                                             // from the center of the
-                                                             // stencil
-                                    MatSetValue(A,
-                                                ghost_index,
-                                                ghost_index,
-                                                1,
-                                                ADD_VALUES); // 1 is added to the
-                                                             // diagonal of the ghost
-                                }
-                                else
-                                {
-                                    coeff = coeff == 0 ? 1 : coeff;
-                                    // We have (u_ghost + u_cell)/2 =
-                                    // dirichlet_value, so the coefficient
-                                    // equation is [  1/2    1/2 ] =
-                                    // dirichlet_value which is equivalent to
-                                    // [-coeff -coeff] = -2 * coeff *
-                                    // dirichlet_value
-                                    MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
-                                    MatSetValue(A, ghost_index, cell_index, -coeff, INSERT_VALUES);
-                                }
-                            }
-                            else
-                            {
-                                coeff = coeff == 0 ? 1 : coeff;
-                                // The outward flux is (u_ghost - u_cell)/h =
-                                // neumann_value, so the coefficient equation is
-                                // [  1/h  -1/h ] = neumann_value However, to
-                                // have symmetry, we want to have coeff as the
-                                // off-diagonal coefficient, so     [-coeff
-                                // coeff] = -coeff * h * neumann_value
-                                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                                {
-                                    MatSetValue(A,
-                                                ghost_index,
-                                                ghost_index,
-                                                -coeff,
-                                                ADD_VALUES); ////////// REMOVE THIS
-                                                             /// COMMENT// We want -coeff
-                                                             /// in the matrix, but we
-                                                             /// added 1 before, so we
-                                                             /// remove it
-                                    MatSetValue(A, ghost_index, cell_index, coeff, ADD_VALUES);
-                                }
-                                else
-                                {
-                                    MatSetValue(A, ghost_index, ghost_index, -coeff, INSERT_VALUES);
-                                    MatSetValue(A, ghost_index, cell_index, coeff, INSERT_VALUES);
-                                }
-                            }
-
-                            m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
-                        }
-                    });
-
-                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                {
-                    // Must flush to use INSERT_VALUES instead of ADD_VALUES
-                    MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
-                    MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
-                }
-            }
-
-            void add_1_on_diag_for_useless_ghosts(Mat& A) override
-            {
-                /*for_each_outside_ghost(m_mesh, [&](const auto& ghost)
-                {
-                    for (unsigned int field_i = 0; field_i < field_size;
-                ++field_i)
-                    {
-                        auto ghost_row = static_cast<PetscInt>(row_index(ghost,
-                field_i)); if
-                (m_is_row_empty[static_cast<std::size_t>(ghost_row)])
-                        {
-                        //for (unsigned int field_j = 0; field_j < field_size;
-                ++field_j)
-                        //{
-                        // auto ghost_col =
-                static_cast<PetscInt>(row_index(ghost, field_j)); MatSetValue(A,
-                ghost_row, ghost_row, 1, INSERT_VALUES);
-                            m_is_row_empty[static_cast<std::size_t>(ghost_row)]
-                = false;
-                        //}
-                        }
-                    }
-                });*/
-
-                for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
-                {
-                    if (m_is_row_empty[i])
-                    {
-                        MatSetValue(A, static_cast<PetscInt>(i), static_cast<PetscInt>(i), 1, INSERT_VALUES);
-                        // m_is_row_empty[i] = false;
-                    }
-                }
-            }
-
-          public:
-
-            virtual void enforce_bc(Vec& b) const
-            {
-                for_each_stencil_center_and_outside_ghost(
-                    m_mesh,
-                    m_stencil,
-                    m_get_coefficients,
-                    [&](const auto& cells, const auto& towards_ghost, auto& ghost_coeff)
-                    {
-                        auto& cell          = cells[0];
-                        auto& ghost         = cells[1];
-                        auto boundary_point = cell.face_center(towards_ghost);
-                        auto bc             = find(m_boundary_conditions, boundary_point);
-
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            PetscInt cell_index  = static_cast<PetscInt>(col_index(cell, field_i));
-                            PetscInt ghost_index = static_cast<PetscInt>(col_index(ghost, field_i));
-                            double coeff;
-                            if constexpr (field_size == 1 && output_field_size == 1)
-                            {
-                                coeff = ghost_coeff;
-                            }
-                            else
-                            {
-                                coeff = ghost_coeff(field_i, field_i);
-                            }
-                            if (bc.is_dirichlet())
-                            {
-                                double dirichlet_value;
-                                if constexpr (field_size == 1)
-                                {
-                                    dirichlet_value = bc.get_value(boundary_point);
-                                }
-                                else
-                                {
-                                    dirichlet_value = bc.get_value(boundary_point)(field_i); // TODO: call
-                                                                                             // get_value()
-                                                                                             // only once
-                                                                                             // instead of
-                                                                                             // once per
-                                                                                             // field_i
-                                }
-
-                                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                                {
-                                    // std::cout << "ADD " << (- 2 * coeff *
-                                    // dirichlet_value) << " to row " <<
-                                    // cell_index << " (field " << field_i << ",
-                                    // cell " << cell.index << ", ghost " <<
-                                    // ghost.index << ")" << std::endl;
-                                    VecSetValue(b, cell_index, -2 * coeff * dirichlet_value, ADD_VALUES);
-                                }
-                                else
-                                {
-                                    coeff = coeff == 0 ? 1 : coeff;
-                                    VecSetValue(b, ghost_index, -2 * coeff * dirichlet_value,
-                                                ADD_VALUES); // ADD_VALUES ?
-                                }
-                            }
-                            else
-                            {
-                                coeff   = coeff == 0 ? 1 : coeff;
-                                auto& h = cell.length;
-                                double neumann_value;
-                                if constexpr (field_size == 1)
-                                {
-                                    neumann_value = bc.get_value(boundary_point);
-                                }
-                                else
-                                {
-                                    neumann_value = bc.get_value(boundary_point)(field_i); // TODO: call
-                                                                                           // get_value()
-                                                                                           // only once
-                                                                                           // instead of once
-                                                                                           // per field_i
-                                }
-                                // std::cout << "ADD " << (- coeff * h *
-                                // neumann_value) << " to row " << ghost_index
-                                // << " (field " << field_i << ", cell " <<
-                                // cell.index << ", ghost " << ghost.index <<
-                                // ")" << std::endl;
-                                VecSetValue(b, ghost_index, -coeff * h * neumann_value,
-                                            ADD_VALUES); // ADD_VALUES ?
-                            }
-                        }
-                    });
-            }
-
-            void add_0_for_useless_ghosts(Vec& b) const
-            {
-                for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
-                {
-                    if (m_is_row_empty[i])
-                    {
-                        VecSetValue(b, static_cast<PetscInt>(i), 0, INSERT_VALUES);
-                    }
-                }
-            }
-
-            virtual void enforce_projection_prediction(Vec& b) const
-            {
-                // Projection
-                for_each_projection_ghost(m_mesh,
-                                          [&](auto& ghost)
-                                          {
-                                              for (unsigned int field_i = 0; field_i < field_size; ++field_i)
-                                              {
-                                                  VecSetValue(b, static_cast<PetscInt>(col_index(ghost, field_i)), 0, INSERT_VALUES);
-                                              }
-                                          });
-
-                // Prediction
-                for_each_prediction_ghost(m_mesh,
-                                          [&](auto& ghost)
-                                          {
-                                              for (unsigned int field_i = 0; field_i < field_size; ++field_i)
-                                              {
-                                                  VecSetValue(b, static_cast<PetscInt>(col_index(ghost, field_i)), 0, INSERT_VALUES);
-                                              }
-                                          });
-            }
-
-          private:
-
-            void assemble_projection(Mat& A) override
-            {
-                static constexpr PetscInt number_of_children = (1 << dim);
-
-                for_each_projection_ghost_and_children_cells<PetscInt>(
-                    m_mesh,
-                    [&](PetscInt ghost, const std::array<PetscInt, number_of_children>& children)
-                    {
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            PetscInt ghost_index = row_index(ghost, field_i);
-                            MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
-                            for (unsigned int i = 0; i < number_of_children; ++i)
-                            {
-                                MatSetValue(A, ghost_index, col_index(children[i], field_i), -1. / number_of_children, INSERT_VALUES);
-                            }
-                            m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
-                        }
-                    });
-            }
-
-            void assemble_prediction(Mat& A) override
-            {
-                static_assert(dim >= 1 && dim <= 3,
-                              "assemble_prediction() is not implemented for "
-                              "this dimension.");
-                if constexpr (dim == 1)
-                {
-                    assemble_prediction_1D(A);
-                }
-                else if constexpr (dim == 2)
-                {
-                    assemble_prediction_2D(A);
-                }
-                else if constexpr (dim == 3)
-                {
-                    assemble_prediction_3D(A);
-                }
-            }
-
-            void assemble_prediction_1D(Mat& A)
-            {
-                using index_t = int;
-                samurai::for_each_prediction_ghost(
-                    m_mesh,
-                    [&](auto& ghost)
-                    {
-                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
-                        {
-                            PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
-                            MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
-
-                            auto ii      = ghost.indices(0);
-                            auto ig      = ii / 2;
-                            double isign = (ii & 1) ? -1 : 1;
-
-                            auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
-
-                            auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig)), field_i);
-                            MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
-
-                            for (std::size_t ci = 0; ci < interpx.size(); ++ci)
-                            {
-                                if (ci != prediction_order)
-                                {
-                                    double value           = -interpx[ci];
-                                    auto coarse_cell_index = this->col_index(
-                                        static_cast<PetscInt>(
-                                            this->m_mesh.get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order))),
-                                        field_i);
-                                    MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
-                                }
-                            }
-                            this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
-                        }
-                    });
-            }
-
-            void assemble_prediction_2D(Mat& A)
-            {
-                using index_t = int;
-                samurai::for_each_prediction_ghost(
-                    m_mesh,
-                    [&](auto& ghost)
-                    {
-                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
-                        {
-                            PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
-                            MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
-
-                            auto ii      = ghost.indices(0);
-                            auto ig      = ii / 2;
-                            auto j       = ghost.indices(1);
-                            auto jg      = j / 2;
-                            double isign = (ii & 1) ? -1 : 1;
-                            double jsign = (j & 1) ? -1 : 1;
-
-                            auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
-                            auto interpy = samurai::interp_coeffs<2 * prediction_order + 1>(jsign);
-
-                            auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig, jg)),
-                                                                field_i);
-                            MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
-
-                            for (std::size_t ci = 0; ci < interpx.size(); ++ci)
-                            {
-                                for (std::size_t cj = 0; cj < interpy.size(); ++cj)
-                                {
-                                    if (ci != prediction_order || cj != prediction_order)
-                                    {
-                                        double value           = -interpx[ci] * interpy[cj];
-                                        auto coarse_cell_index = this->col_index(
-                                            static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1,
-                                                                                         ig + static_cast<index_t>(ci - prediction_order),
-                                                                                         jg + static_cast<index_t>(cj - prediction_order))),
-                                            field_i);
-                                        MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
-                                    }
-                                }
-                            }
-                            this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
-                        }
-                    });
-            }
-
-            void assemble_prediction_3D(Mat& A)
-            {
-                using index_t = int;
-                samurai::for_each_prediction_ghost(
-                    m_mesh,
-                    [&](auto& ghost)
-                    {
-                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
-                        {
-                            PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
-                            MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
-
-                            auto ii      = ghost.indices(0);
-                            auto ig      = ii / 2;
-                            auto j       = ghost.indices(1);
-                            auto jg      = j / 2;
-                            auto k       = ghost.indices(2);
-                            auto kg      = k / 2;
-                            double isign = (ii & 1) ? -1 : 1;
-                            double jsign = (j & 1) ? -1 : 1;
-                            double ksign = (k & 1) ? -1 : 1;
-
-                            auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
-                            auto interpy = samurai::interp_coeffs<2 * prediction_order + 1>(jsign);
-                            auto interpz = samurai::interp_coeffs<2 * prediction_order + 1>(ksign);
-
-                            auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig, jg, kg)),
-                                                                field_i);
-                            MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
-
-                            for (std::size_t ci = 0; ci < interpx.size(); ++ci)
-                            {
-                                for (std::size_t cj = 0; cj < interpy.size(); ++cj)
-                                {
-                                    for (std::size_t ck = 0; ck < interpz.size(); ++ck)
-                                    {
-                                        if (ci != prediction_order || cj != prediction_order || ck != prediction_order)
-                                        {
-                                            double value           = -interpx[ci] * interpy[cj] * interpz[ck];
-                                            auto coarse_cell_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(
-                                                                                         ghost.level - 1,
-                                                                                         ig + static_cast<index_t>(ci - prediction_order),
-                                                                                         jg + static_cast<index_t>(cj - prediction_order),
-                                                                                         kg + static_cast<index_t>(ck - prediction_order))),
-                                                                                     field_i);
-                                            MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
-                                        }
-                                    }
-                                }
-                            }
-                            this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
-                        }
-                    });
-            }
-
-          public:
-
-            template <class Func>
-            static double L2Error(const Field& approximate, Func&& exact)
-            {
-                // In FV, we want only 1 quadrature point.
-                // This is equivalent to
-                //       error += pow(exact(cell.center()) -
-                //       approximate(cell.index), 2) * cell.length;
-                GaussLegendre<0> gl;
-
-                double error_norm = 0;
-                // double solution_norm = 0;
-                for_each_cell(approximate.mesh(),
-                              [&](const auto& cell)
-                              {
-                                  error_norm += gl.quadrature<1>(cell,
-                                                                 [&](const auto& point)
-                                                                 {
-                                                                     auto e = exact(point) - approximate[cell];
-                                                                     double norm_square;
-                                                                     if constexpr (Field::size == 1)
-                                                                     {
-                                                                         norm_square = e * e;
-                                                                     }
-                                                                     else
-                                                                     {
-                                                                         norm_square = xt::sum(e * e)();
-                                                                     }
-                                                                     return norm_square;
-                                                                 });
-
-                                  /*solution_norm += gl.quadrature<1>(cell,
-                                  [&](const auto& point)
-                                  {
-                                      auto v = exact(point);
-                                      double v_square;
-                                      if constexpr (Field::size == 1)
-                                      {
-                                          v_square = v * v;
-                                      }
-                                      else
-                                      {
-                                          v_square = xt::sum(v * v)();
-                                      }
-                                      return v_square;
-                                  });*/
-                              });
-
-                error_norm = sqrt(error_norm);
-                // solution_norm = sqrt(solution_norm);
-                // double relative_error = error_norm/solution_norm;
-                // return relative_error;
-                return error_norm;
             }
         };
 
