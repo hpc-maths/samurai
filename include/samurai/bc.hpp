@@ -805,7 +805,7 @@ namespace samurai
                             else if constexpr (dim == 2)
                             {
                                 auto j                                                           = index[0];
-                                field(level, i + ig * direction[d][0], j - ig * direction[d][1]) = 2 * bc.value()
+                                field(level, i + ig * direction[d][0], j + ig * direction[d][1]) = 2 * bc.value()
                                                                                                  - field(level,
                                                                                                          i - (ig + 1) * direction[d][0],
                                                                                                          j - (ig + 1) * direction[d][1]);
