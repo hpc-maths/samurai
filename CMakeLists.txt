@@ -11,7 +11,7 @@ else()
 endif()
 
 configure_file(
-  version.hpp.in
+  ${CMAKE_CURRENT_SOURCE_DIR}/version.hpp.in
   ${CMAKE_CURRENT_SOURCE_DIR}/include/samurai/version.hpp
   @ONLY
 )
