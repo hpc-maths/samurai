@@ -442,8 +442,6 @@ namespace samurai
         using interval_t = typename mesh_t::interval_t;
         using cell_t     = Cell<typename interval_t::coord_index_t, dim>;
 
-      public:
-
         Field() = default;
 
         Field(std::string name, mesh_t& mesh);
