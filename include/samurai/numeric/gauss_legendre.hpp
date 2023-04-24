@@ -1,5 +1,6 @@
 #pragma once
 #include "../cell.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
