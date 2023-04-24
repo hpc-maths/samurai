@@ -67,7 +67,7 @@ namespace samurai
                 std::array<coeff_matrix_t, 2> coeffs;
                 coeffs[0].fill(0);
                 coeffs[1].fill(0);
-                double h_factor        = pow(h_face, 2) / pow(h_cell, dim);
+                double h_factor        = pow(h_face, dim - 1) / pow(h_cell, dim);
                 xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0] * h_factor;
                 xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1] * h_factor;
                 return coeffs;

@@ -92,14 +92,14 @@ int main(int argc, char* argv[])
     // using Mesh = samurai::amr::Mesh<Config>;
     using Config          = samurai::MRConfig<dim, 1>;
     using Mesh            = samurai::MRMesh<Config>;
+    using mesh_id_t       = typename Mesh::mesh_id_t;
     constexpr bool is_soa = false;
 
     //----------------//
     //   Parameters   //
     //----------------//
 
-    bool stationary   = false;
-    double diff_coeff = 1. / 100;
+    std::string test_case = "ns";
 
     std::size_t min_level = 2;
     std::size_t max_level = 2;
@@ -114,7 +114,9 @@ int main(int argc, char* argv[])
     std::string filename = "velocity";
 
     CLI::App app{"Stokes problem"};
-    app.add_flag("--stationary", stationary, "Solves the stationary problem")->group("Simulation parameters");
+    app.add_option("--test-case", test_case, "Test case (s = stationary, ns = non-stationary, ldc = lid-driven cavity)")
+        ->capture_default_str()
+        ->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -150,7 +152,8 @@ int main(int argc, char* argv[])
     //--------------------//
     // Stationary problem //
     //--------------------//
-    if (stationary)
+
+    if (test_case == "s")
     {
         // 2 equations: -Lap(v) + Grad(p) = f
         //              -Div(v)           = 0
@@ -271,12 +274,192 @@ int main(int argc, char* argv[])
     //------------------------//
     // Non stationary problem //
     //------------------------//
-    else
+
+    else if (test_case == "ns")
     {
-        // 2 equations: v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = dt*f_n + v_n
+        // Equations:
+        //              v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = dt*f_n + v_n
         //                                        Div(v_np1)                = 0
         // where v = velocity
         //       p = pressure
+
+        double diff_coeff = 0.1;
+        auto analytic_f   = [&](double t, const auto& coord)
+        {
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            double f_x    = (cos(t) + 8 * diff_coeff * pi * pi * sin(t)) * sin(2 * pi * x) * cos(2 * pi * y)
+                       - pi * sin(t) * sin(t) * sin(pi * x) * sin(pi * y);
+            double f_y = -(cos(t) + 8 * diff_coeff * pi * pi * sin(t)) * cos(2 * pi * x) * sin(2 * pi * y)
+                       + pi * sin(t) * sin(t) * cos(pi * x) * cos(pi * y);
+            return xt::xtensor_fixed<double, xt::xshape<dim>>{f_x, f_y};
+        };
+
+        // Exact solution
+        auto exact_velocity = [&](double t, const auto& coord)
+        {
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            double v_x    = std::sin(t) * std::sin(2 * pi * x) * std::cos(2 * pi * y);
+            double v_y    = -std::sin(t) * std::cos(2 * pi * x) * std::sin(2 * pi * y);
+            return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
+        };
+        auto exact_normal_grad_pressure = [&](double t, const auto& coord)
+        {
+            const auto& x = coord[0];
+            const auto& y = coord[1];
+            int normal    = (x == 0 /*|| y == 0*/) ? -1 : 1;
+            return normal * (-pi * std::sin(t) * std::sin(t) * std::sin(pi * x) * std::sin(pi * y));
+        };
+
+        // Unknowns
+        auto velocity     = samurai::make_field<double, dim, is_soa>("velocity", mesh);
+        auto velocity_np1 = samurai::make_field<double, dim, is_soa>("velocity_np1", mesh);
+        auto pressure_np1 = samurai::make_field<double, 1, is_soa>("pressure_np1", mesh);
+        // Right-hand side
+        auto rhs  = samurai::make_field<double, dim, is_soa>("rhs", mesh);
+        auto zero = samurai::make_field<double, 1, is_soa>("zero", mesh);
+
+        // Initial condition
+        velocity.fill(0);
+
+        velocity_np1.fill(0);
+        pressure_np1.fill(0);
+
+        // Time iteration
+        auto MRadaptation = samurai::make_MRAdapt(velocity);
+
+        samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
+        std::size_t nsave = 1, nt = 0;
+
+        double t_n   = 0;
+        double t_np1 = 0;
+        while (t_np1 != Tf)
+        {
+            // Move to next timestep
+            t_np1 += dt;
+            if (t_np1 > Tf)
+            {
+                dt += Tf - t_np1;
+                t_np1 = Tf;
+            }
+            std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt);
+
+            if (min_level != max_level)
+            {
+                // Mesh adaptation
+                MRadaptation(mr_epsilon, mr_regularity);
+                velocity_np1.resize();
+                pressure_np1.resize();
+                rhs.resize();
+                zero.resize();
+                std::cout << ", levels " << mesh[mesh_id_t::cells].min_level() << "-" << mesh[mesh_id_t::cells].max_level();
+            }
+            std::cout.flush();
+
+            // Boundary conditions
+            velocity_np1.get_bc().clear();
+            samurai::make_bc<samurai::Dirichlet>(velocity_np1,
+                                                 [&](const auto& coord)
+                                                 {
+                                                     return exact_velocity(t_np1, coord);
+                                                 });
+            pressure_np1.get_bc().clear();
+            samurai::make_bc<samurai::Neumann>(pressure_np1,
+                                               [&](const auto& coord)
+                                               {
+                                                   return exact_normal_grad_pressure(t_np1, coord);
+                                               });
+
+            // clang-format off
+
+            // Stokes operator
+            //             |  Diff  Grad |
+            //             | -Div     0  |
+            auto diff_v      = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
+            auto grad_p      =              samurai::petsc::make_gradient_FV(pressure_np1);
+            auto minus_div_v =         -1 * samurai::petsc::make_divergence_FV(velocity_np1);
+            auto zero_p      =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
+
+            // Stokes with backward Euler
+            //             | I + dt*Diff    dt*Grad |
+            //             |       -Div        0    |
+            auto id_v            = samurai::petsc::make_identity_FV(velocity_np1);
+            auto id_plus_dt_diff = id_v + dt * diff_v;
+            auto dt_grad_p       = dt * grad_p;
+
+            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_plus_dt_diff, dt_grad_p,
+                                                                        minus_div_v,    zero_p);
+            // clang-format on
+
+            // Linear solver
+            auto stokes_solver = samurai::petsc::make_block_solver(stokes);
+            configure_saddle_point_solver(stokes_solver);
+
+            // Solve the linear equation
+            //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n + dt*f
+            //                         -Div v_np1            = 0
+
+            auto f = samurai::make_field<double, dim, is_soa>("f",
+                                                              mesh,
+                                                              [&](const auto& coord)
+                                                              {
+                                                                  return analytic_f(t_n, coord);
+                                                              });
+            rhs.fill(0);
+            rhs = velocity + dt * f;
+            zero.fill(0);
+            stokes_solver.solve(rhs, zero);
+
+            // Prepare next step
+            std::swap(velocity.array(), velocity_np1.array());
+            t_n = t_np1;
+
+            // Error
+            double error = L2_error(velocity,
+                                    [&](auto& coord)
+                                    {
+                                        return exact_velocity(t_n, coord);
+                                    });
+            std::cout.precision(2);
+            std::cout << ", L2-error: " << std::scientific << error;
+
+            // Save the result
+            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+
+            if (min_level != max_level)
+            {
+                // Reconstruction on the finest level
+                samurai::update_ghost_mr(velocity);
+                auto velocity_recons = samurai::reconstruction(velocity);
+                // Error
+                double error_recons = L2_error(velocity_recons,
+                                               [&](auto& coord)
+                                               {
+                                                   return exact_velocity(t_n, coord);
+                                               });
+                std::cout.precision(2);
+                std::cout << ", L2-error (recons): " << std::scientific << error_recons;
+                // Save
+                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    //------------------------//
+    //   Lid-driven cavity    //
+    //------------------------//
+
+    else if (test_case == "ldc")
+    {
+        // 2 equations: v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = v_n
+        //                                        Div(v_np1)                = 0
+        // where v = velocity
+        //       p = pressure
+
+        double diff_coeff = 1. / 100;
 
         // Unknowns
         auto velocity     = samurai::make_field<double, dim, is_soa>("velocity", mesh);
@@ -329,22 +512,11 @@ int main(int argc, char* argv[])
             {
                 // Mesh adaptation
                 MRadaptation(mr_epsilon, mr_regularity);
-                // samurai::update_ghost_mr(velocity);
                 velocity_np1.resize();
                 pressure_np1.resize();
                 zero.resize();
                 zero.fill(0);
-
-                // Min and max levels actually used
-                std::size_t actual_min_level = 999;
-                std::size_t actual_max_level = 0;
-                samurai::for_each_level(velocity.mesh(),
-                                        [&](auto level)
-                                        {
-                                            actual_min_level = std::min(actual_min_level, level);
-                                            actual_max_level = std::max(actual_max_level, level);
-                                        });
-                std::cout << ", levels " << actual_min_level << "-" << actual_max_level;
+                std::cout << ", levels " << mesh[mesh_id_t::cells].min_level() << "-" << mesh[mesh_id_t::cells].max_level();
             }
             std::cout << std::endl;
 
@@ -392,6 +564,11 @@ int main(int argc, char* argv[])
                 samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
             }
         }
+    }
+    else
+    {
+        std::cerr << "Unknown test case. Allowed options are 's' = stationary, 'ns' = non-stationary, 'ldc' = lid-driven cavity."
+                  << std::endl;
     }
 
     PetscFinalize();
