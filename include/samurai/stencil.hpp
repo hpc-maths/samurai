@@ -74,8 +74,8 @@ namespace samurai
 
       private:
 
-        const Mesh& m_mesh;
-        const Stencil<stencil_size, dim> m_stencil;
+        const Mesh& m_mesh;                         // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+        const Stencil<stencil_size, dim> m_stencil; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         std::array<Cell, stencil_size> m_cells;
         unsigned int m_origin_cell;
 
