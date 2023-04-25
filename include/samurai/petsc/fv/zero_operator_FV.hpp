@@ -11,10 +11,9 @@ namespace samurai
         {
             using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
             using base_class::dim;
+            using local_matrix_t = typename base_class::local_matrix_t;
 
           public:
-
-            using local_matrix_t = typename base_class::local_matrix_t;
 
             explicit ZeroOperatorFV(Field& unknown)
                 : base_class(unknown, center_only_stencil<dim>(), coefficients)
@@ -35,10 +34,9 @@ namespace samurai
         BoundaryConfigFV<1>> class ZeroOperatorFV : public CellBasedScheme<cfg, bdry_cfg, Field>
         {
             using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
+            using local_matrix_t = typename base_class::local_matrix_t;
 
           public:
-
-            using local_matrix_t = typename base_class::local_matrix_t;
 
             explicit ZeroOperatorFV(Field& unknown)
                 : base_class(unknown, {}, coefficients)

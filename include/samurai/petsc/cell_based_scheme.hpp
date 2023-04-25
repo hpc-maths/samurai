@@ -12,9 +12,8 @@ namespace samurai
                   PetscInt neighbourhood_width_,
                   PetscInt scheme_stencil_size_,
                   PetscInt center_index_,
-                  PetscInt contiguous_indices_start_     = 0,
-                  PetscInt contiguous_indices_size_      = 0,
-                  DirichletEnforcement dirichlet_enfcmt_ = Equation>
+                  PetscInt contiguous_indices_start_ = 0,
+                  PetscInt contiguous_indices_size_  = 0>
         struct CellBasedAssemblyConfig
         {
             static constexpr PetscInt output_field_size        = output_field_size_;
@@ -44,27 +43,15 @@ namespace samurai
 
         template <std::size_t output_field_size>
         using OneCellStencilFV = CellBasedAssemblyConfig<output_field_size,
-                                                         // ---- Neighbourhood width
-                                                         0,
-                                                         // ---- Stencil size (only one cell)
-                                                         1,
-                                                         // ---- Index of the stencil center (as defined in center_only_stencil())
-                                                         0,
-                                                         // ---- Start index and size of contiguous cell indices
-                                                         0,
-                                                         0>;
+                                                         0,  // Neighbourhood width
+                                                         1,  // Stencil size
+                                                         0>; // Index of the stencil center
 
         template <std::size_t output_field_size>
         using EmptyStencilFV = CellBasedAssemblyConfig<output_field_size,
-                                                       // ---- Neighbourhood width
-                                                       0,
-                                                       // ---- Stencil size
-                                                       0,
-                                                       // ---- Index of the stencil center
-                                                       0,
-                                                       // ---- Start index and size of contiguous cell indices
-                                                       0,
-                                                       0>;
+                                                       0,  // Neighbourhood width
+                                                       0,  // Stencil size
+                                                       0>; // Index of the stencil center
 
         template <class cfg, class bdry_cfg, class Field>
         class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
@@ -222,6 +209,26 @@ namespace samurai
 
           protected:
 
+            template <class Func>
+            void for_each_stencil_and_coeffs(Func&& f)
+            {
+                auto stencil_it = make_stencil_iterator(m_mesh, m_stencil);
+
+                for_each_level(m_mesh,
+                               [&](std::size_t level)
+                               {
+                                   auto coeffs = m_get_coefficients(cell_length(level));
+
+                                   for_each_stencil(m_mesh,
+                                                    level,
+                                                    stencil_it,
+                                                    [&](auto& cells)
+                                                    {
+                                                        f(cells, coeffs);
+                                                    });
+                               });
+            }
+
             //-------------------------------------------------------------//
             //             Assemble scheme in the interior                 //
             //-------------------------------------------------------------//
@@ -236,10 +243,7 @@ namespace samurai
                 set_current_insert_mode(INSERT_VALUES);
 
                 // Apply the given coefficents to the given stencil
-                for_each_stencil(
-                    m_mesh,
-                    m_stencil,
-                    m_get_coefficients,
+                for_each_stencil_and_coeffs(
                     [&](const auto& cells, const auto& coeffs)
                     {
                         // std::cout << "coeffs: " << std::endl;

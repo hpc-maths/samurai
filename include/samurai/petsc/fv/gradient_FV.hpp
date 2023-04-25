@@ -42,11 +42,11 @@ namespace samurai
          *                     [    0]            [1/2 F]
          */
         template <class Field,
-                  std::size_t dim                 = Field::dim,
-                  std::size_t output_field_size   = dim,
-                  std::size_t comput_stencil_size = 2,
-                  class cfg                       = FluxBasedAssemblyConfig<output_field_size, comput_stencil_size>,
-                  class bdry_cfg                  = BoundaryConfigFV<1>>
+                  std::size_t dim               = Field::dim,
+                  std::size_t output_field_size = dim,
+                  std::size_t stencil_size      = 2,
+                  class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
+                  class bdry_cfg                = BoundaryConfigFV<1>>
         class GradientFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
         {
             using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;

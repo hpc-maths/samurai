@@ -100,11 +100,11 @@ namespace samurai
         /**
          * Useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
          */
-        template <PetscInt output_field_size_, PetscInt comput_stencil_size_>
+        template <PetscInt output_field_size_, PetscInt stencil_size_>
         struct FluxBasedAssemblyConfig
         {
-            static constexpr PetscInt output_field_size   = output_field_size_;
-            static constexpr PetscInt comput_stencil_size = comput_stencil_size_;
+            static constexpr PetscInt output_field_size = output_field_size_;
+            static constexpr PetscInt stencil_size      = stencil_size_;
         };
 
         template <class cfg, class bdry_cfg, class Field>
@@ -130,13 +130,13 @@ namespace samurai
 
           public:
 
-            using cfg_t                                      = cfg;
-            using bdry_cfg_t                                 = bdry_cfg;
-            using field_t                                    = Field;
-            static constexpr std::size_t output_field_size   = cfg::output_field_size;
-            static constexpr std::size_t comput_stencil_size = cfg::comput_stencil_size;
+            using cfg_t                                    = cfg;
+            using bdry_cfg_t                               = bdry_cfg;
+            using field_t                                  = Field;
+            static constexpr std::size_t output_field_size = cfg::output_field_size;
+            static constexpr std::size_t stencil_size      = cfg::stencil_size;
 
-            using coefficients_t = FluxBasedCoefficients<Field, output_field_size, comput_stencil_size>;
+            using coefficients_t = FluxBasedCoefficients<Field, output_field_size, stencil_size>;
 
           protected:
 
@@ -171,21 +171,20 @@ namespace samurai
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     auto scheme_coeffs_dir = m_scheme_coefficients[d];
-                    for_each_interior_interface(
-                        m_mesh,
-                        scheme_coeffs_dir.flux.direction,
-                        scheme_coeffs_dir.flux.stencil,
-                        [&](auto& interface_cells, auto&)
-                        {
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                            {
-                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                {
-                                    nnz[this->row_index(interface_cells[0], field_i)] += comput_stencil_size * field_size;
-                                    nnz[this->row_index(interface_cells[1], field_i)] += comput_stencil_size * field_size;
-                                }
-                            }
-                        });
+                    for_each_interior_interface(m_mesh,
+                                                scheme_coeffs_dir.flux.direction,
+                                                scheme_coeffs_dir.flux.stencil,
+                                                [&](auto& interface_cells, auto&)
+                                                {
+                                                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                                    {
+                                                        for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                                                        {
+                                                            nnz[this->row_index(interface_cells[0], field_i)] += stencil_size * field_size;
+                                                            nnz[this->row_index(interface_cells[1], field_i)] += stencil_size * field_size;
+                                                        }
+                                                    }
+                                                });
 
                     for_each_boundary_interface(m_mesh,
                                                 scheme_coeffs_dir.flux.direction,
@@ -196,8 +195,7 @@ namespace samurai
                                                     {
                                                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                                         {
-                                                            nnz[this->row_index(interface_cells[0], field_i)] += comput_stencil_size
-                                                                                                               * field_size;
+                                                            nnz[this->row_index(interface_cells[0], field_i)] += stencil_size * field_size;
                                                         }
                                                     }
                                                 });
@@ -213,8 +211,7 @@ namespace samurai
                                                     {
                                                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                                         {
-                                                            nnz[this->row_index(interface_cells[0], field_i)] += comput_stencil_size
-                                                                                                               * field_size;
+                                                            nnz[this->row_index(interface_cells[0], field_i)] += stencil_size * field_size;
                                                         }
                                                     }
                                                 });
@@ -249,7 +246,7 @@ namespace samurai
                                 auto interface_cell2_row = static_cast<PetscInt>(row_index(interface_cells[1], field_i));
                                 for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                 {
-                                    for (std::size_t c = 0; c < comput_stencil_size; ++c)
+                                    for (std::size_t c = 0; c < stencil_size; ++c)
                                     {
                                         auto comput_cell_col = static_cast<PetscInt>(col_index(comput_cells[c], field_j));
                                         double cell1_coeff   = cell_coeff(cell1_coeffs, c, field_i, field_j);
@@ -282,7 +279,7 @@ namespace samurai
                                 auto interface_cell0_row = static_cast<PetscInt>(row_index(interface_cells[0], field_i));
                                 for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                 {
-                                    for (std::size_t c = 0; c < comput_stencil_size; ++c)
+                                    for (std::size_t c = 0; c < stencil_size; ++c)
                                     {
                                         double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                         if (coeff != 0)
@@ -296,9 +293,9 @@ namespace samurai
                             }
                         });
 
-                    auto opposite_direction                    = xt::eval(-scheme_coeffs_dir.flux.direction);
-                    Stencil<comput_stencil_size, dim> reversed = xt::eval(xt::flip(scheme_coeffs_dir.flux.stencil, 0));
-                    auto opposite_stencil                      = xt::eval(-reversed);
+                    auto opposite_direction             = xt::eval(-scheme_coeffs_dir.flux.direction);
+                    Stencil<stencil_size, dim> reversed = xt::eval(xt::flip(scheme_coeffs_dir.flux.stencil, 0));
+                    auto opposite_stencil               = xt::eval(-reversed);
                     for_each_boundary_interface(
                         m_mesh,
                         opposite_direction,
@@ -312,7 +309,7 @@ namespace samurai
                                 auto interface_cell0_row = static_cast<PetscInt>(row_index(interface_cells[0], field_i));
                                 for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                 {
-                                    for (std::size_t c = 0; c < comput_stencil_size; ++c)
+                                    for (std::size_t c = 0; c < stencil_size; ++c)
                                     {
                                         double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                         if (coeff != 0)
