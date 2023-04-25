@@ -102,10 +102,11 @@ namespace samurai
             }
         };*/
 
-        template <class Field, std::size_t dim = Field::dim, class cfg = OneCellStencilFV<Field::size>, class bdry_cfg = BoundaryConfigFV<1>>
+        template <class Field, class cfg = OneCellStencilFV<Field::size>, class bdry_cfg = BoundaryConfigFV<1>>
         class IdentityFV : public CellBasedScheme<cfg, bdry_cfg, Field>
         {
             using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
+            using base_class::dim;
 
           public:
 
@@ -117,21 +118,10 @@ namespace samurai
                 this->set_name("Identity");
             }
 
-            static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double)
+            static auto coefficients(double)
             {
-                std::array<local_matrix_t, cfg::scheme_stencil_size> coeffs;
-
-                for (std::size_t i = 0; i < cfg::scheme_stencil_size; i++)
-                {
-                    if (i == cfg::center_index)
-                    {
-                        coeffs[i] = eye<local_matrix_t>();
-                    }
-                    else
-                    {
-                        coeffs[i] = zeros<local_matrix_t>();
-                    }
-                }
+                std::array<local_matrix_t, 1> coeffs;
+                coeffs[0] = eye<local_matrix_t>();
                 return coeffs;
             }
         };

@@ -211,7 +211,7 @@ namespace samurai
                                                });
     }
 
-    template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
+    /*template <class Mesh, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     inline void
     for_each_stencil(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, GetCoeffsFunc&& get_coefficients, Func&& f)
     {
@@ -230,7 +230,7 @@ namespace samurai
                                                 f(cells, coeffs);
                                             });
                        });
-    }
+    }*/
 
     template <class Mesh, class Set, std::size_t stencil_size, class Func>
     inline void for_each_stencil(const Mesh& mesh, Set& set, const Stencil<stencil_size, Mesh::dim>& stencil, Func&& f)

@@ -54,6 +54,18 @@ namespace samurai
                                                          0,
                                                          0>;
 
+        template <std::size_t output_field_size>
+        using EmptyStencilFV = CellBasedAssemblyConfig<output_field_size,
+                                                       // ---- Neighbourhood width
+                                                       0,
+                                                       // ---- Stencil size
+                                                       0,
+                                                       // ---- Index of the stencil center
+                                                       0,
+                                                       // ---- Start index and size of contiguous cell indices
+                                                       0,
+                                                       0>;
+
         template <class cfg, class bdry_cfg, class Field>
         class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
         {
@@ -148,6 +160,11 @@ namespace samurai
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
+                if constexpr (cfg::scheme_stencil_size == 0)
+                {
+                    return;
+                }
+
                 auto coeffs = m_get_coefficients(cell_length(0));
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
@@ -211,6 +228,11 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
+                if constexpr (cfg::scheme_stencil_size == 0)
+                {
+                    return;
+                }
+
                 set_current_insert_mode(INSERT_VALUES);
 
                 // Apply the given coefficents to the given stencil
