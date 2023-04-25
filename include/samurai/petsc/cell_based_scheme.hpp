@@ -29,7 +29,7 @@ namespace samurai
         template <std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width = 1, DirichletEnforcement dirichlet_enfcmt = Equation>
         using StarStencilFV = CellBasedAssemblyConfig<output_field_size,
                                                       neighbourhood_width,
-                                                      // ----  Stencil size
+                                                      // ---- Stencil size
                                                       // Cell-centered Finite Volume scheme:
                                                       // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim
                                                       // directions) --> 1+2=3 in 1D
@@ -47,11 +47,11 @@ namespace samurai
 
         template <std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
         using OneCellStencilFV = CellBasedAssemblyConfig<output_field_size,
-                                                         // ----  Stencil size
-                                                         // Only one cell:
+                                                         // ---- Neighbourhood width
+                                                         0,
+                                                         // ---- Stencil size (only one cell)
                                                          1,
-                                                         // ---- Index of the stencil center
-                                                         // (as defined in center_only_stencil())
+                                                         // ---- Index of the stencil center (as defined in center_only_stencil())
                                                          0,
                                                          // ---- Start index and size of contiguous cell indices
                                                          0,
@@ -59,15 +59,15 @@ namespace samurai
                                                          // ---- Method of Dirichlet condition enforcement
                                                          dirichlet_enfcmt>;
 
-        template <class cfg, class Field>
-        class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, cfg::neighbourhood_width>
+        template <class cfg, class Field, std::size_t bdry_neighbourhood_width>
+        class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_neighbourhood_width>
         {
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
           protected:
 
-            using base_class = FVScheme<Field, cfg::output_field_size, cfg::neighbourhood_width>;
+            using base_class = FVScheme<Field, cfg::output_field_size, bdry_neighbourhood_width>;
             using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;

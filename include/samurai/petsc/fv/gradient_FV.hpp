@@ -42,20 +42,22 @@ namespace samurai
          *                     [    0]            [1/2 F]
          */
         template <class Field,
-                  std::size_t dim                 = Field::dim,
-                  std::size_t output_field_size   = dim,
-                  std::size_t neighbourhood_width = 1,
-                  std::size_t comput_stencil_size = 2,
-                  class cfg                       = FluxBasedAssemblyConfig<output_field_size, neighbourhood_width, comput_stencil_size>>
-        class GradientFV : public FluxBasedScheme<cfg, Field>
+                  std::size_t dim                      = Field::dim,
+                  std::size_t output_field_size        = dim,
+                  std::size_t bdry_neighbourhood_width = 1,
+                  std::size_t comput_stencil_size      = 2,
+                  class cfg                            = FluxBasedAssemblyConfig<output_field_size, comput_stencil_size>>
+        class GradientFV : public FluxBasedScheme<cfg, Field, bdry_neighbourhood_width>
         {
+            using base_class = FluxBasedScheme<cfg, Field, bdry_neighbourhood_width>;
+
           public:
 
-            using coefficients_t = typename FluxBasedScheme<cfg, Field>::coefficients_t;
+            using coefficients_t = typename base_class::coefficients_t;
             using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
 
             explicit GradientFV(Field& u)
-                : FluxBasedScheme<cfg, Field>(u, grad_coefficients())
+                : base_class(u, grad_coefficients())
             {
                 this->set_name("Gradient");
                 static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");

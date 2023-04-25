@@ -102,15 +102,17 @@ namespace samurai
             }
         };*/
 
-        template <class Field, std::size_t dim = Field::dim, std::size_t neighbourhood_width = 0, class cfg = StarStencilFV<dim, dim, neighbourhood_width>>
-        class IdentityFV : public CellBasedScheme<cfg, Field>
+        template <class Field, std::size_t dim = Field::dim, std::size_t bdry_neighbourhood_width = 1, class cfg = OneCellStencilFV<Field::size>>
+        class IdentityFV : public CellBasedScheme<cfg, Field, bdry_neighbourhood_width>
         {
+            using base_class = CellBasedScheme<cfg, Field, bdry_neighbourhood_width>;
+
           public:
 
-            using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
+            using local_matrix_t = typename base_class::local_matrix_t;
 
             explicit IdentityFV(Field& unknown)
-                : CellBasedScheme<cfg, Field>(unknown, star_stencil<dim, neighbourhood_width>(), coefficients)
+                : base_class(unknown, center_only_stencil<dim>(), coefficients)
             {
                 this->set_name("Identity");
             }

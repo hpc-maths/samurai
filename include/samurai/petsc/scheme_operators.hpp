@@ -10,14 +10,15 @@ namespace samurai
          * Multiplicatiion by a scalar value of the flux-based scheme
          */
         template <class Scheme>
-        class Scalar_x_FluxBasedScheme : public FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::field_t>
+        class Scalar_x_FluxBasedScheme
+            : public FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::field_t, Scheme::bdry_neighbourhood_width>
         {
           public:
 
             using cfg_t                      = typename Scheme::cfg_t;
             using field_t                    = typename Scheme::field_t;
             using Mesh                       = typename field_t::mesh_t;
-            using coefficients_t             = typename FluxBasedScheme<cfg_t, field_t>::coefficients_t;
+            using coefficients_t             = typename FluxBasedScheme<cfg_t, field_t, Scheme::bdry_neighbourhood_width>::coefficients_t;
             static constexpr std::size_t dim = field_t::dim;
 
           private:
@@ -28,7 +29,7 @@ namespace samurai
           public:
 
             Scalar_x_FluxBasedScheme(const Scheme& scheme, double scalar)
-                : FluxBasedScheme<cfg_t, field_t>(scheme.unknown(), scheme.scheme_coefficients())
+                : FluxBasedScheme<cfg_t, field_t, Scheme::bdry_neighbourhood_width>(scheme.unknown(), scheme.scheme_coefficients())
                 , m_scheme(scheme)
                 , m_scalar(scalar)
             {
@@ -72,14 +73,15 @@ namespace samurai
          * Addition of two flux-based schemes
          */
         template <class Scheme1, class Scheme2>
-        class Sum_FluxBasedScheme : public FluxBasedScheme<typename Scheme1::cfg_t, typename Scheme1::field_t>
+        class Sum_FluxBasedScheme
+            : public FluxBasedScheme<typename Scheme1::cfg_t, typename Scheme1::field_t, Scheme1::bdry_neighbourhood_width>
         {
           public:
 
             using cfg_t                      = typename Scheme1::cfg_t;
             using field_t                    = typename Scheme1::field_t;
             using Mesh                       = typename field_t::mesh_t;
-            using coefficients_t             = typename FluxBasedScheme<cfg_t, field_t>::coefficients_t;
+            using coefficients_t             = typename FluxBasedScheme<cfg_t, field_t, Scheme1::bdry_neighbourhood_width>::coefficients_t;
             static constexpr std::size_t dim = field_t::dim;
 
           private:
@@ -90,7 +92,7 @@ namespace samurai
           public:
 
             Sum_FluxBasedScheme(const Scheme1& scheme1, const Scheme2& scheme2)
-                : FluxBasedScheme<cfg_t, field_t>(scheme1.unknown(), sum_coefficients(scheme1, scheme2))
+                : FluxBasedScheme<cfg_t, field_t, Scheme1::bdry_neighbourhood_width>(scheme1.unknown(), sum_coefficients(scheme1, scheme2))
                 , m_scheme1(scheme1)
                 , m_scheme2(scheme2)
             {

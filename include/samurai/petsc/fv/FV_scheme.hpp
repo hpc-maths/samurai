@@ -71,7 +71,7 @@ namespace samurai
          *     - the projection/prediction ghosts
          *     - the unused ghosts
          */
-        template <class Field, std::size_t output_field_size, std::size_t neighbourhood_width, DirichletEnforcement dirichlet_enfcmt = Equation>
+        template <class Field, std::size_t output_field_size, std::size_t bdry_neighbourhood_width_, DirichletEnforcement dirichlet_enfcmt = Equation>
         class FVScheme : public MatrixAssembly
         {
             template <class Scheme1, class Scheme2>
@@ -79,15 +79,16 @@ namespace samurai
 
           public:
 
-            using Mesh                                     = typename Field::mesh_t;
-            using mesh_id_t                                = typename Mesh::mesh_id_t;
-            using interval_t                               = typename Mesh::interval_t;
-            using field_value_type                         = typename Field::value_type; // double
-            static constexpr std::size_t dim               = Field::dim;
-            static constexpr std::size_t field_size        = Field::size;
-            static constexpr std::size_t prediction_order  = Mesh::config::prediction_order;
-            static constexpr std::size_t bdry_stencil_size = 1 + 2 * neighbourhood_width;
-            static constexpr std::size_t nb_bdry_ghosts    = neighbourhood_width;
+            using Mesh                                            = typename Field::mesh_t;
+            using mesh_id_t                                       = typename Mesh::mesh_id_t;
+            using interval_t                                      = typename Mesh::interval_t;
+            using field_value_type                                = typename Field::value_type; // double
+            static constexpr std::size_t dim                      = Field::dim;
+            static constexpr std::size_t field_size               = Field::size;
+            static constexpr std::size_t prediction_order         = Mesh::config::prediction_order;
+            static constexpr std::size_t bdry_neighbourhood_width = bdry_neighbourhood_width_;
+            static constexpr std::size_t bdry_stencil_size        = 1 + 2 * bdry_neighbourhood_width;
+            static constexpr std::size_t nb_bdry_ghosts           = bdry_neighbourhood_width;
 
             using dirichlet_t = Dirichlet<dim, interval_t, field_value_type, field_size>;
             using neumann_t   = Neumann<dim, interval_t, field_value_type, field_size>;
@@ -251,7 +252,7 @@ namespace samurai
 
             auto get_directional_stencil(const DirectionVector<dim>& direction) const
             {
-                auto dir_stencils = directional_stencils<dim, neighbourhood_width>();
+                auto dir_stencils = directional_stencils<dim, bdry_neighbourhood_width>();
                 for (std::size_t d = 0; d < 2 * dim; ++d)
                 {
                     if (direction == dir_stencils[d].direction)
@@ -270,7 +271,7 @@ namespace samurai
 
                 config.directional_stencil = get_directional_stencil(direction);
 
-                if constexpr (neighbourhood_width == 1)
+                if constexpr (bdry_neighbourhood_width == 1)
                 {
                     static constexpr std::size_t cell          = 0;
                     static constexpr std::size_t interior_cell = 1;
@@ -304,7 +305,7 @@ namespace samurai
 
                 config.directional_stencil = get_directional_stencil(direction);
 
-                if constexpr (neighbourhood_width == 1)
+                if constexpr (bdry_neighbourhood_width == 1)
                 {
                     static constexpr std::size_t cell          = 0;
                     static constexpr std::size_t interior_cell = 1;

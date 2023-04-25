@@ -124,8 +124,7 @@ namespace samurai
                     cell.indices[k] = origin_cell.indices[k] + d[k];
                 }
 
-                // We are on the same row as the stencil origin if d = {d[0], 0,
-                // ..., 0}
+                // We are on the same row as the stencil origin if d = {d[0], 0,..., 0}
                 bool same_row = true;
                 for (std::size_t k = 1; k < dim; ++k)
                 {

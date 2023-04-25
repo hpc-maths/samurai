@@ -14,12 +14,12 @@ namespace samurai
                   DirichletEnforcement dirichlet_enfcmt = Equation,
                   std::size_t dim                       = Field::dim,
                   std::size_t output_field_size         = Field::size,
-                  std::size_t neighbourhood_width       = 1,
+                  std::size_t bdry_neighbourhood_width  = 1,
                   std::size_t comput_stencil_size       = 2,
-                  class cfg = FluxBasedAssemblyConfig<output_field_size, neighbourhood_width, comput_stencil_size, dirichlet_enfcmt>>
-        class DiffusionFV : public FluxBasedScheme<cfg, Field>
+                  class cfg                             = FluxBasedAssemblyConfig<output_field_size, comput_stencil_size, dirichlet_enfcmt>>
+        class DiffusionFV : public FluxBasedScheme<cfg, Field, bdry_neighbourhood_width>
         {
-            using base_class = FluxBasedScheme<cfg, Field>;
+            using base_class = FluxBasedScheme<cfg, Field, bdry_neighbourhood_width>;
             using base_class::bdry_stencil_size;
             using base_class::field_size;
 
@@ -34,7 +34,7 @@ namespace samurai
             using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
             explicit DiffusionFV(Field& unknown)
-                : FluxBasedScheme<cfg, Field>(unknown, diffusion_coefficients())
+                : base_class(unknown, diffusion_coefficients())
             {
                 this->set_name("Diffusion");
             }
