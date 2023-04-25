@@ -7,12 +7,12 @@ namespace samurai
     {
         template <class Field,
                   std::size_t output_field_size,
-                  std::size_t dim                      = Field::dim,
-                  std::size_t bdry_neighbourhood_width = 1,
-                  class cfg                            = OneCellStencilFV<output_field_size>>
-        class ZeroOperatorFV : public CellBasedScheme<cfg, Field, bdry_neighbourhood_width>
+                  std::size_t dim = Field::dim,
+                  class cfg       = OneCellStencilFV<output_field_size>,
+                  class bdry_cfg  = BoundaryConfigFV<1>>
+        class ZeroOperatorFV : public CellBasedScheme<cfg, bdry_cfg, Field>
         {
-            using base_class                = CellBasedScheme<cfg, Field, bdry_neighbourhood_width>;
+            using base_class                = CellBasedScheme<cfg, bdry_cfg, Field>;
             using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
           public:

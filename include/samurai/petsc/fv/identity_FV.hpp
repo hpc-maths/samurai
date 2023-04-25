@@ -102,10 +102,10 @@ namespace samurai
             }
         };*/
 
-        template <class Field, std::size_t dim = Field::dim, std::size_t bdry_neighbourhood_width = 1, class cfg = OneCellStencilFV<Field::size>>
-        class IdentityFV : public CellBasedScheme<cfg, Field, bdry_neighbourhood_width>
+        template <class Field, std::size_t dim = Field::dim, class cfg = OneCellStencilFV<Field::size>, class bdry_cfg = BoundaryConfigFV<1>>
+        class IdentityFV : public CellBasedScheme<cfg, bdry_cfg, Field>
         {
-            using base_class = CellBasedScheme<cfg, Field, bdry_neighbourhood_width>;
+            using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
 
           public:
 

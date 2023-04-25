@@ -100,26 +100,22 @@ namespace samurai
         /**
          * Useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
          */
-        template <PetscInt output_field_size_,
-                  /*PetscInt neighbourhood_width_,*/ PetscInt comput_stencil_size_,
-                  DirichletEnforcement dirichlet_enfcmt_ = Equation>
+        template <PetscInt output_field_size_, PetscInt comput_stencil_size_>
         struct FluxBasedAssemblyConfig
         {
-            static constexpr PetscInt output_field_size = output_field_size_;
-            // static constexpr PetscInt neighbourhood_width          = neighbourhood_width_;
-            static constexpr PetscInt comput_stencil_size          = comput_stencil_size_;
-            static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
+            static constexpr PetscInt output_field_size   = output_field_size_;
+            static constexpr PetscInt comput_stencil_size = comput_stencil_size_;
         };
 
-        template <class cfg, class Field, std::size_t bdry_neighbourhood_width>
-        class FluxBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_neighbourhood_width>
+        template <class cfg, class bdry_cfg, class Field>
+        class FluxBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
         {
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
           protected:
 
-            using base_class = FVScheme<Field, cfg::output_field_size, bdry_neighbourhood_width>;
+            using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
             using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;
@@ -135,6 +131,7 @@ namespace samurai
           public:
 
             using cfg_t                                      = cfg;
+            using bdry_cfg_t                                 = bdry_cfg;
             using field_t                                    = Field;
             static constexpr std::size_t output_field_size   = cfg::output_field_size;
             static constexpr std::size_t comput_stencil_size = cfg::comput_stencil_size;

@@ -17,16 +17,15 @@ namespace samurai
                   DirichletEnforcement dirichlet_enfcmt_ = Equation>
         struct CellBasedAssemblyConfig
         {
-            static constexpr PetscInt output_field_size            = output_field_size_;
-            static constexpr PetscInt neighbourhood_width          = neighbourhood_width_;
-            static constexpr PetscInt scheme_stencil_size          = scheme_stencil_size_;
-            static constexpr PetscInt center_index                 = center_index_;
-            static constexpr PetscInt contiguous_indices_start     = contiguous_indices_start_;
-            static constexpr PetscInt contiguous_indices_size      = contiguous_indices_size_;
-            static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
+            static constexpr PetscInt output_field_size        = output_field_size_;
+            static constexpr PetscInt neighbourhood_width      = neighbourhood_width_;
+            static constexpr PetscInt scheme_stencil_size      = scheme_stencil_size_;
+            static constexpr PetscInt center_index             = center_index_;
+            static constexpr PetscInt contiguous_indices_start = contiguous_indices_start_;
+            static constexpr PetscInt contiguous_indices_size  = contiguous_indices_size_;
         };
 
-        template <std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width = 1, DirichletEnforcement dirichlet_enfcmt = Equation>
+        template <std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width = 1>
         using StarStencilFV = CellBasedAssemblyConfig<output_field_size,
                                                       neighbourhood_width,
                                                       // ---- Stencil size
@@ -41,11 +40,9 @@ namespace samurai
                                                       // ---- Start index and size of contiguous cell indices
                                                       // (as defined in star_stencil())
                                                       0,
-                                                      1 + 2 * neighbourhood_width,
-                                                      // ---- Method of Dirichlet condition enforcement
-                                                      dirichlet_enfcmt>;
+                                                      1 + 2 * neighbourhood_width>;
 
-        template <std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
+        template <std::size_t output_field_size>
         using OneCellStencilFV = CellBasedAssemblyConfig<output_field_size,
                                                          // ---- Neighbourhood width
                                                          0,
@@ -55,19 +52,17 @@ namespace samurai
                                                          0,
                                                          // ---- Start index and size of contiguous cell indices
                                                          0,
-                                                         0,
-                                                         // ---- Method of Dirichlet condition enforcement
-                                                         dirichlet_enfcmt>;
+                                                         0>;
 
-        template <class cfg, class Field, std::size_t bdry_neighbourhood_width>
-        class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_neighbourhood_width>
+        template <class cfg, class bdry_cfg, class Field>
+        class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
         {
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
           protected:
 
-            using base_class = FVScheme<Field, cfg::output_field_size, bdry_neighbourhood_width>;
+            using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
             using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;

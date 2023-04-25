@@ -14,11 +14,11 @@ namespace samurai
                   DirichletEnforcement dirichlet_enfcmt = Equation,
                   std::size_t dim                       = Field::dim,
                   std::size_t neighbourhood_width       = 1,
-                  std::size_t bdry_neighbourhood_width  = 1,
-                  class cfg                             = StarStencilFV<dim, Field::size, neighbourhood_width, dirichlet_enfcmt>>
-        class DiffusionFV_old : public CellBasedScheme<cfg, Field, bdry_neighbourhood_width>
+                  class cfg                             = StarStencilFV<dim, Field::size, neighbourhood_width>,
+                  class bdry_cfg                        = BoundaryConfigFV<neighbourhood_width, dirichlet_enfcmt>>
+        class DiffusionFV_old : public CellBasedScheme<cfg, bdry_cfg, Field>
         {
-            using base_class = CellBasedScheme<cfg, Field, bdry_neighbourhood_width>;
+            using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
             using base_class::bdry_stencil_size;
 
           public:

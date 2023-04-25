@@ -6,6 +6,15 @@ namespace samurai
 {
     namespace petsc
     {
+        template <PetscInt neighbourhood_width_, DirichletEnforcement dirichlet_enfcmt_ = Equation>
+        struct BoundaryConfigFV
+        {
+            static constexpr PetscInt neighbourhood_width          = neighbourhood_width_;
+            static constexpr PetscInt stencil_size                 = 1 + 2 * neighbourhood_width;
+            static constexpr PetscInt nb_ghosts                    = neighbourhood_width;
+            static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
+        };
+
         /**
          * Definition of one ghost equation to enforce the boundary condition.
          */
@@ -71,7 +80,7 @@ namespace samurai
          *     - the projection/prediction ghosts
          *     - the unused ghosts
          */
-        template <class Field, std::size_t output_field_size, std::size_t bdry_neighbourhood_width_, DirichletEnforcement dirichlet_enfcmt = Equation>
+        template <class Field, std::size_t output_field_size, class bdry_cfg>
         class FVScheme : public MatrixAssembly
         {
             template <class Scheme1, class Scheme2>
@@ -79,16 +88,17 @@ namespace samurai
 
           public:
 
-            using Mesh                                            = typename Field::mesh_t;
-            using mesh_id_t                                       = typename Mesh::mesh_id_t;
-            using interval_t                                      = typename Mesh::interval_t;
-            using field_value_type                                = typename Field::value_type; // double
-            static constexpr std::size_t dim                      = Field::dim;
-            static constexpr std::size_t field_size               = Field::size;
-            static constexpr std::size_t prediction_order         = Mesh::config::prediction_order;
-            static constexpr std::size_t bdry_neighbourhood_width = bdry_neighbourhood_width_;
-            static constexpr std::size_t bdry_stencil_size        = 1 + 2 * bdry_neighbourhood_width;
-            static constexpr std::size_t nb_bdry_ghosts           = bdry_neighbourhood_width;
+            using Mesh                                             = typename Field::mesh_t;
+            using mesh_id_t                                        = typename Mesh::mesh_id_t;
+            using interval_t                                       = typename Mesh::interval_t;
+            using field_value_type                                 = typename Field::value_type; // double
+            static constexpr std::size_t dim                       = Field::dim;
+            static constexpr std::size_t field_size                = Field::size;
+            static constexpr std::size_t prediction_order          = Mesh::config::prediction_order;
+            static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg::neighbourhood_width;
+            static constexpr std::size_t bdry_stencil_size         = bdry_cfg::stencil_size;
+            static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg::nb_ghosts;
+            static constexpr DirichletEnforcement dirichlet_enfcmt = bdry_cfg::dirichlet_enfcmt;
 
             using dirichlet_t = Dirichlet<dim, interval_t, field_value_type, field_size>;
             using neumann_t   = Neumann<dim, interval_t, field_value_type, field_size>;

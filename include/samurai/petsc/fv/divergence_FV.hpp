@@ -39,14 +39,14 @@ namespace samurai
          * direction. So the contribution of a flux F (R or T) computed on cell 1 is for cell 1: 1/2 F for cell 2: 1/2 F
          */
         template <class Field,
-                  std::size_t dim                   = Field::dim,
-                  PetscInt output_field_size        = 1,
-                  PetscInt bdry_neighbourhood_width = 1,
-                  PetscInt comput_stencil_size      = 2,
-                  class cfg                         = FluxBasedAssemblyConfig<output_field_size, comput_stencil_size>>
-        class DivergenceFV : public FluxBasedScheme<cfg, Field, bdry_neighbourhood_width>
+                  std::size_t dim              = Field::dim,
+                  PetscInt output_field_size   = 1,
+                  PetscInt comput_stencil_size = 2,
+                  class cfg                    = FluxBasedAssemblyConfig<output_field_size, comput_stencil_size>,
+                  class bdry_cfg               = BoundaryConfigFV<1>>
+        class DivergenceFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
         {
-            using base_class = FluxBasedScheme<cfg, Field, bdry_neighbourhood_width>;
+            using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
 
           public:
 
