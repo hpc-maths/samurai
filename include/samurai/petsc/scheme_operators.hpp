@@ -84,6 +84,12 @@ namespace samurai
             return Scalar_x_FluxBasedScheme<Scheme>(scheme, scalar);
         }
 
+        template <class Scheme>
+        auto operator-(const Scheme& scheme)
+        {
+            return (-1) * scheme;
+        }
+
         /**
          * Addition of two flux-based schemes
          */

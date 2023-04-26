@@ -16,7 +16,7 @@ namespace samurai
 
           private:
 
-            std::tuple<Operators&...> m_operators;
+            std::tuple<Operators...> m_operators;
             std::array<Mat, rows * cols> m_blocks;
 
           public:
@@ -187,7 +187,7 @@ namespace samurai
         };
 
         template <int rows, int cols, class... Operators>
-        auto make_block_operator(Operators&... operators)
+        auto make_block_operator(Operators... operators)
         {
             return BlockAssembly<rows, cols, Operators...>(operators...);
         }

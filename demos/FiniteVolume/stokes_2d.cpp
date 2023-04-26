@@ -378,18 +378,16 @@ int main(int argc, char* argv[])
             //             | -Div     0  |
             auto diff_v      = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
             auto grad_p      =              samurai::petsc::make_gradient_FV(pressure_np1);
-            auto minus_div_v =         -1 * samurai::petsc::make_divergence_FV(velocity_np1);
+            auto minus_div_v =            - samurai::petsc::make_divergence_FV(velocity_np1);
             auto zero_p      =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
 
             // Stokes with backward Euler
             //             | I + dt*Diff    dt*Grad |
             //             |       -Div        0    |
-            auto id_v            = samurai::petsc::make_identity_FV(velocity_np1);
-            auto id_plus_dt_diff = id_v + dt * diff_v;
-            auto dt_grad_p       = dt * grad_p;
+            auto id_v        =              samurai::petsc::make_identity_FV(velocity_np1);
 
-            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_plus_dt_diff, dt_grad_p,
-                                                                        minus_div_v,    zero_p);
+            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
+                                                                           minus_div_v,      zero_p);
             // clang-format on
 
             // Linear solver
