@@ -72,4 +72,11 @@ namespace samurai
             return !is_nan_or_inf;
         }
     } // end namespace petsc
+
+    template <class Mesh>
+    bool is_uniform(const Mesh& mesh)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        return mesh[mesh_id_t::cells].min_level() == mesh[mesh_id_t::cells].max_level();
+    }
 } // end namespace samurai

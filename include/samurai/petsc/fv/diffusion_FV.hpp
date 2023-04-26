@@ -193,17 +193,17 @@ namespace samurai
                 return config;
             }
 
+          public:
+
+            bool matrix_is_symmetric() const override
+            {
+                // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
+                return is_uniform(this->mesh());
+            }
+
             bool matrix_is_spd() const override
             {
-                // if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                // {
-                // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
-                return this->mesh().min_level() == this->mesh().max_level();
-                // }
-                // else
-                // {
-                //     return false;
-                // }
+                return matrix_is_symmetric();
             }
         };
 

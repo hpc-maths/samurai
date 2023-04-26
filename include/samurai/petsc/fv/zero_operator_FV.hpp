@@ -21,11 +21,14 @@ namespace samurai
                 this->set_name("Zero");
             }
 
-            static auto coefficients(double)
+            static std::array<local_matrix_t, 1> coefficients(double)
             {
-                std::array<local_matrix_t, 1> coeffs;
-                coeffs[0] = zeros<local_matrix_t>();
-                return coeffs;
+                return {zeros<local_matrix_t>()};
+            }
+
+            bool matrix_is_symmetric() const override
+            {
+                return is_uniform(this->mesh());
             }
         };
 
@@ -47,6 +50,11 @@ namespace samurai
             static std::array<local_matrix_t, 0> coefficients(double)
             {
                 return {};
+            }
+
+            bool matrix_is_symmetric() const override
+            {
+                return is_uniform(this->mesh());
             }
         };*/
 

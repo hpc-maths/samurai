@@ -10,6 +10,9 @@ namespace samurai
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
+            template <class Scheme>
+            friend class Scalar_x_FluxBasedScheme;
+
           private:
 
             bool m_is_deleted  = false;
@@ -123,6 +126,9 @@ namespace samurai
                     add_1_on_diag_for_useless_ghosts(A);
                 }
 
+                PetscBool is_symmetric = matrix_is_symmetric() ? PETSC_TRUE : PETSC_FALSE;
+                MatSetOption(A, MAT_SYMMETRIC, is_symmetric);
+
                 PetscBool is_spd = matrix_is_spd() ? PETSC_TRUE : PETSC_FALSE;
                 MatSetOption(A, MAT_SPD, is_spd);
 
@@ -169,14 +175,6 @@ namespace samurai
             virtual void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const = 0;
 
             /**
-             * @brief Is the matrix symmetric positive-definite?
-             */
-            virtual bool matrix_is_spd() const
-            {
-                return false;
-            }
-
-            /**
              * @brief Inserts coefficients into the matrix.
              * This function defines the scheme in the inside of the domain.
              */
@@ -211,6 +209,24 @@ namespace samurai
                         row_nnz = 1;
                     }
                 }
+            }
+
+          public:
+
+            /**
+             * @brief Is the matrix symmetric?
+             */
+            virtual bool matrix_is_symmetric() const
+            {
+                return false;
+            }
+
+            /**
+             * @brief Is the matrix symmetric positive-definite?
+             */
+            virtual bool matrix_is_spd() const
+            {
+                return false;
             }
         };
 

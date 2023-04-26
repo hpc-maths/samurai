@@ -62,6 +62,20 @@ namespace samurai
                     };
                 }
             }
+
+            bool matrix_is_symmetric() const override
+            {
+                return m_scheme.matrix_is_symmetric();
+            }
+
+            bool matrix_is_spd() const override
+            {
+                if (m_scheme.matrix_is_spd())
+                {
+                    return m_scalar > 0;
+                }
+                return false;
+            }
         };
 
         template <class Scheme>
@@ -151,6 +165,18 @@ namespace samurai
                     };
                 }
                 return sum_fluxes;
+            }
+
+          public:
+
+            bool matrix_is_symmetric() const override
+            {
+                return m_scheme1.matrix_is_symmetric() && m_scheme2.matrix_is_symmetric();
+            }
+
+            bool matrix_is_spd() const override
+            {
+                return m_scheme1.matrix_is_spd() && m_scheme2.matrix_is_spd();
             }
         };
 
@@ -242,11 +268,6 @@ namespace samurai
                 m_flux_scheme.sparsity_pattern_prediction(nnz);
             }
 
-            bool matrix_is_spd() const override
-            {
-                return m_flux_scheme.matrix_is_spd() && m_cell_scheme.matrix_is_spd();
-            }
-
             void assemble_scheme(Mat& A) override
             {
                 // First the cell-based scheme because it uses INSERT_VALUES
@@ -299,6 +320,16 @@ namespace samurai
             void enforce_projection_prediction(Vec& b) const
             {
                 m_flux_scheme.enforce_projection_prediction(b);
+            }
+
+            bool matrix_is_symmetric() const override
+            {
+                return m_flux_scheme.matrix_is_symmetric() && m_cell_scheme.matrix_is_symmetric();
+            }
+
+            bool matrix_is_spd() const override
+            {
+                return m_flux_scheme.matrix_is_spd() && m_cell_scheme.matrix_is_spd();
             }
         };
 

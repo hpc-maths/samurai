@@ -38,18 +38,22 @@ namespace samurai
                 return star_stencil<dim>();
             }
 
-            bool matrix_is_spd() const override
+            bool matrix_is_symmetric() const override
             {
                 // if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
                 //  {
-                //  The projections/predictions kill the symmetry, so the
-                //  matrix is spd only if the mesh is uniform.
-                return this->mesh().min_level() == this->mesh().max_level();
+                //  The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
+                return is_uniform(this->mesh());
                 // }
                 // else
                 // {
                 //     return false;
                 // }
+            }
+
+            bool matrix_is_spd() const override
+            {
+                return matrix_is_symmetric();
             }
 
             static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double h)

@@ -114,6 +114,10 @@ namespace samurai
                     m_discretizer.create_matrix(m_A);
                     m_discretizer.assemble_matrix(m_A);
                     PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
+
+                    // PetscBool is_symmetric;
+                    // MatIsSymmetric(m_A, 0, &is_symmetric);
+
                     KSPSetOperators(m_ksp, m_A, m_A);
                 }
                 KSPSetUp(m_ksp);

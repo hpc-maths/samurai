@@ -121,6 +121,16 @@ namespace samurai
             {
                 return {eye<local_matrix_t>()};
             }
+
+            bool matrix_is_symmetric() const override
+            {
+                return is_uniform(this->mesh());
+            }
+
+            bool matrix_is_spd() const override
+            {
+                return matrix_is_symmetric();
+            }
         };
 
         template <class Field>
