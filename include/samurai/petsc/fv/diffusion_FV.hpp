@@ -136,14 +136,14 @@ namespace samurai
                 // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is
                 //                        [  1/2    1/2 ] = dirichlet_value
                 // which is equivalent to
-                //                        [  1/h2   1/h2] = 2/h2 * dirichlet_value
+                //                        [ -1/h2  -1/h2] = -2/h2 * dirichlet_value
                 config.equations[0].ghost_index        = ghost;
                 config.equations[0].get_stencil_coeffs = [&](double h)
                 {
                     std::array<coeffs_t, bdry_stencil_size> coeffs;
                     auto Identity         = eye<coeffs_t>();
-                    coeffs[cell]          = 1 / (h * h) * Identity;
-                    coeffs[ghost]         = 1 / (h * h) * Identity;
+                    coeffs[cell]          = -1 / (h * h) * Identity;
+                    coeffs[ghost]         = -1 / (h * h) * Identity;
                     coeffs[interior_cell] = zeros<coeffs_t>();
                     return coeffs;
                 };
@@ -151,7 +151,7 @@ namespace samurai
                 {
                     coeffs_t coeffs;
                     auto Identity = eye<coeffs_t>();
-                    coeffs        = 2 / (h * h) * Identity;
+                    coeffs        = -2 / (h * h) * Identity;
                     return coeffs;
                 };
 
@@ -193,18 +193,18 @@ namespace samurai
                 return config;
             }
 
-            // bool matrix_is_spd() const override
-            // {
-            //     if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-            //     {
-            //         // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
-            //         return this->mesh().min_level() == this->mesh().max_level();
-            //     }
-            //     else
-            //     {
-            //         return false;
-            //     }
-            // }
+            bool matrix_is_spd() const override
+            {
+                // if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                // {
+                // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
+                return this->mesh().min_level() == this->mesh().max_level();
+                // }
+                // else
+                // {
+                //     return false;
+                // }
+            }
         };
 
         template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
