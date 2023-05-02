@@ -109,6 +109,7 @@ namespace samurai
                 {
                     return;
                 }
+                m_discretizer.reset();
                 if (!m_use_samurai_mg)
                 {
                     m_discretizer.create_matrix(m_A);
@@ -179,6 +180,7 @@ namespace samurai
             void reset()
             {
                 destroy_petsc_objects();
+                m_is_set_up = false;
                 create_solver();
             }
         };
@@ -261,6 +263,7 @@ namespace samurai
                     return;
                 }
 
+                m_discretizer.reset();
                 m_discretizer.create_matrix(m_A);
                 m_discretizer.assemble_matrix(m_A);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(m_A),
@@ -371,6 +374,7 @@ namespace samurai
             void reset()
             {
                 destroy_petsc_objects();
+                m_is_set_up = false;
                 create_solver();
             }
         };

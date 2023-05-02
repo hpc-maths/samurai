@@ -68,8 +68,7 @@ namespace samurai
                          {
                              /*auto row = i / cols;
                              auto col = i % cols;
-                             std::cout << "create_matrix (" << row << ", " <<
-                             col << ")" << std::endl;*/
+                             std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;*/
                              op.create_matrix(m_blocks[i]);
                              i++;
                          });
@@ -85,13 +84,21 @@ namespace samurai
                          {
                              /*auto row = i / cols;
                              auto col = i % cols;
-                             std::cout << "assemble_matrix (" << row << ", " <<
-                             col << ")" << std::endl;*/
+                             std::cout << "assemble_matrix (" << row << ", " << col << ")" << std::endl;*/
                              op.assemble_matrix(m_blocks[i]);
                              i++;
                          });
                 MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
                 MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+            }
+
+            void reset()
+            {
+                for_each(m_operators,
+                         [&](auto& op)
+                         {
+                             op.reset();
+                         });
             }
 
             Mat& block(std::size_t row, std::size_t col)

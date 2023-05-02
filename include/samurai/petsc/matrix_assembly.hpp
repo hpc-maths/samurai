@@ -228,6 +228,10 @@ namespace samurai
             {
                 return false;
             }
+
+            virtual void reset()
+            {
+            }
         };
 
         enum DirichletEnforcement : int

@@ -86,6 +86,9 @@ namespace samurai
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
+            template <class Scheme>
+            friend class Scalar_x_FluxBasedScheme;
+
           public:
 
             using Mesh                                             = typename Field::mesh_t;
@@ -122,10 +125,13 @@ namespace samurai
                 reset();
             }
 
-            void reset()
+            void reset() override
             {
-                m_n_cells      = m_mesh.nb_cells();
-                m_is_row_empty = std::vector(static_cast<std::size_t>(matrix_rows()), true);
+                m_mesh    = m_unknown.mesh();
+                m_n_cells = m_mesh.nb_cells();
+                // std::cout << "reset " << this->name() << ", rows = " << matrix_rows() << std::endl;
+                m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()), true);
+                // m_is_row_empty = std::vector(static_cast<std::size_t>(matrix_rows()), true);
             }
 
             auto& unknown() const
@@ -350,6 +356,13 @@ namespace samurai
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
+                if (m_unknown.get_bc().empty())
+                {
+                    std::cerr << "Failure to assemble to boundary conditions in the operator '" << this->name()
+                              << "': no boundary condition attached to the field '" << m_unknown.name() << "'." << std::endl;
+                    assert(false);
+                    return;
+                }
                 // Iterate over the boundary conditions set by the user
                 for (auto& bc : m_unknown.get_bc())
                 {
@@ -445,6 +458,7 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
+                // std::cout << "assemble_boundary_conditions of " << this->name() << std::endl;
                 if (current_insert_mode() == ADD_VALUES)
                 {
                     // Must flush to use INSERT_VALUES instead of ADD_VALUES
@@ -543,6 +557,17 @@ namespace samurai
 
             virtual void enforce_bc(Vec& b) const
             {
+                // std::cout << "enforce_bc of " << this->name() << std::endl;
+                PetscInt b_rows;
+                VecGetSize(b, &b_rows);
+                if (b_rows != this->matrix_cols())
+                {
+                    std::cerr << "Operator '" << this->name() << "': the number of rows in vector (" << b_rows
+                              << ") does not equal the number of columns of the matrix (" << this->matrix_cols() << ")" << std::endl;
+                    assert(false);
+                    return;
+                }
+
                 // Iterate over the boundary conditions set by the user
                 for (auto& bc : m_unknown.get_bc())
                 {
@@ -651,11 +676,16 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
                 }
+                // std::cout << "add_1_on_diag_for_useless_ghosts of " << this->name() << std::endl;
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
                     if (m_is_row_empty[i])
                     {
-                        MatSetValue(A, static_cast<PetscInt>(i), static_cast<PetscInt>(i), 1, INSERT_VALUES);
+                        auto error = MatSetValue(A, static_cast<PetscInt>(i), static_cast<PetscInt>(i), 1, INSERT_VALUES);
+                        if (error)
+                        {
+                            assert(false);
+                        }
                         // m_is_row_empty[i] = false;
                     }
                 }

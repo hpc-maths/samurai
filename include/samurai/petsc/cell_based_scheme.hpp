@@ -235,6 +235,8 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
+                // std::cout << "assemble_scheme of " << this->name() << std::endl;
+
                 if constexpr (cfg::scheme_stencil_size == 0)
                 {
                     return;

@@ -13,24 +13,28 @@ namespace samurai
         class Scalar_x_FluxBasedScheme
             : public FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>
         {
+            template <class Scheme_>
+            friend auto operator*(double scalar, Scalar_x_FluxBasedScheme<Scheme_>& scalar_x_scheme);
+
           public:
 
             using cfg_t                      = typename Scheme::cfg_t;
             using bdry_cfg_t                 = typename Scheme::bdry_cfg_t;
             using field_t                    = typename Scheme::field_t;
+            using base_class                 = FluxBasedScheme<cfg_t, bdry_cfg_t, field_t>;
             using Mesh                       = typename field_t::mesh_t;
-            using coefficients_t             = typename FluxBasedScheme<cfg_t, bdry_cfg_t, field_t>::coefficients_t;
+            using coefficients_t             = typename base_class::coefficients_t;
             static constexpr std::size_t dim = field_t::dim;
 
           private:
 
-            const Scheme m_scheme;
+            Scheme m_scheme;
             const double m_scalar;
 
           public:
 
             Scalar_x_FluxBasedScheme(const Scheme& scheme, double scalar)
-                : FluxBasedScheme<cfg_t, bdry_cfg_t, field_t>(scheme.unknown(), scheme.scheme_coefficients())
+                : base_class(scheme.unknown(), scheme.scheme_coefficients())
                 , m_scheme(scheme)
                 , m_scalar(scalar)
             {
@@ -63,18 +67,78 @@ namespace samurai
                 }
             }
 
+            PetscInt matrix_rows() const override
+            {
+                return m_scheme.matrix_rows();
+            }
+
+            PetscInt matrix_cols() const override
+            {
+                return m_scheme.matrix_cols();
+            }
+
+            void assemble_scheme(Mat& A) override
+            {
+                base_class::assemble_scheme(A);
+                m_scheme.m_is_row_empty = std::move(this->m_is_row_empty);
+                m_scheme.set_current_insert_mode(this->current_insert_mode());
+            }
+
+            void assemble_boundary_conditions(Mat& A) override
+            {
+                // std::cout << "assemble_boundary_conditions of " << this->name() << std::endl;
+                m_scheme.assemble_boundary_conditions(A);
+            }
+
+            void assemble_projection(Mat& A) override
+            {
+                m_scheme.assemble_projection(A);
+            }
+
+            void assemble_prediction(Mat& A) override
+            {
+                m_scheme.assemble_prediction(A);
+            }
+
+            void add_1_on_diag_for_useless_ghosts(Mat& A) override
+            {
+                m_scheme.add_1_on_diag_for_useless_ghosts(A);
+            }
+
+            void enforce_bc(Vec& b) const override
+            {
+                m_scheme.enforce_bc(b);
+            }
+
+            void add_0_for_useless_ghosts(Vec& b)
+            {
+                m_scheme.add_0_for_useless_ghosts(b);
+            }
+
+            void enforce_projection_prediction(Vec& b) const override
+            {
+                m_scheme.enforce_projection_prediction(b);
+            }
+
             bool matrix_is_symmetric() const override
             {
-                return m_scheme.matrix_is_symmetric();
+                // return m_scheme.matrix_is_symmetric();
+                return false;
             }
 
             bool matrix_is_spd() const override
             {
-                if (m_scheme.matrix_is_spd())
+                /*if (m_scheme.matrix_is_spd())
                 {
                     return m_scalar > 0;
-                }
+                }*/
                 return false;
+            }
+
+            void reset() override
+            {
+                m_scheme.reset();
+                base_class::reset();
             }
         };
 
@@ -82,6 +146,12 @@ namespace samurai
         auto operator*(double scalar, const Scheme& scheme)
         {
             return Scalar_x_FluxBasedScheme<Scheme>(scheme, scalar);
+        }
+
+        template <class Scheme>
+        auto operator*(double scalar, Scalar_x_FluxBasedScheme<Scheme>& scalar_x_scheme)
+        {
+            return Scalar_x_FluxBasedScheme<Scheme>(scalar_x_scheme.m_scheme, scalar * scalar_x_scheme.m_scalar);
         }
 
         template <class Scheme>
@@ -107,8 +177,8 @@ namespace samurai
 
           private:
 
-            const Scheme1 m_scheme1;
-            const Scheme2 m_scheme2;
+            Scheme1 m_scheme1;
+            Scheme2 m_scheme2;
 
           public:
 
@@ -173,6 +243,65 @@ namespace samurai
                 return sum_fluxes;
             }
 
+            PetscInt matrix_rows() const override
+            {
+                if (m_scheme1.matrix_rows() != m_scheme2.matrix_rows())
+                {
+                    std::cerr << "Invalid '+' operation: both schemes must generate the same number of matrix rows." << std::endl;
+                    std::cerr << "                       '" << m_scheme1.name() << "': " << m_scheme1.matrix_rows() << ", "
+                              << m_scheme2.name() << ": " << m_scheme2.matrix_rows() << std::endl;
+                    assert(false);
+                }
+                return m_scheme1.matrix_rows();
+            }
+
+            PetscInt matrix_cols() const override
+            {
+                if (m_scheme1.matrix_cols() != m_scheme2.matrix_cols())
+                {
+                    std::cerr << "Invalid '+' operation: both schemes must generate the same number of matrix cols." << std::endl;
+                    std::cerr << "                       '" << m_scheme1.name() << "': " << m_scheme1.matrix_cols() << ", "
+                              << m_scheme2.name() << ": " << m_scheme2.matrix_cols() << std::endl;
+                    assert(false);
+                }
+                return m_scheme1.matrix_cols();
+            }
+
+            void assemble_boundary_conditions(Mat& A) override
+            {
+                m_scheme1.assemble_boundary_conditions(A);
+            }
+
+            void assemble_projection(Mat& A) override
+            {
+                m_scheme1.assemble_projection(A);
+            }
+
+            void assemble_prediction(Mat& A) override
+            {
+                m_scheme1.assemble_prediction(A);
+            }
+
+            void add_1_on_diag_for_useless_ghosts(Mat& A) override
+            {
+                m_scheme1.add_1_on_diag_for_useless_ghosts(A);
+            }
+
+            void enforce_bc(Vec& b) const
+            {
+                m_scheme1.enforce_bc(b);
+            }
+
+            void add_0_for_useless_ghosts(Vec& b)
+            {
+                m_scheme1.add_0_for_useless_ghosts(b);
+            }
+
+            void enforce_projection_prediction(Vec& b) const
+            {
+                m_scheme1.enforce_projection_prediction(b);
+            }
+
           public:
 
             bool matrix_is_symmetric() const override
@@ -183,6 +312,12 @@ namespace samurai
             bool matrix_is_spd() const override
             {
                 return m_scheme1.matrix_is_spd() && m_scheme2.matrix_is_spd();
+            }
+
+            void reset() override
+            {
+                m_scheme1.reset();
+                m_scheme2.reset();
             }
         };
 
@@ -238,6 +373,9 @@ namespace samurai
                 if (m_flux_scheme.matrix_rows() != m_cell_scheme.matrix_rows())
                 {
                     std::cerr << "Invalid '+' operation: both schemes must generate the same number of matrix rows." << std::endl;
+                    std::cerr << "                       '" << m_flux_scheme.name() << "': " << m_flux_scheme.matrix_rows() << ", "
+                              << m_cell_scheme.name() << ": " << m_cell_scheme.matrix_rows() << std::endl;
+                    assert(false);
                 }
                 return m_flux_scheme.matrix_rows();
             }
@@ -247,6 +385,9 @@ namespace samurai
                 if (m_flux_scheme.matrix_cols() != m_cell_scheme.matrix_cols())
                 {
                     std::cerr << "Invalid '+' operation: both schemes must generate the same number of matrix columns." << std::endl;
+                    std::cerr << "                       '" << m_flux_scheme.name() << "': " << m_flux_scheme.matrix_cols() << ", "
+                              << m_cell_scheme.name() << ": " << m_cell_scheme.matrix_cols() << std::endl;
+                    assert(false);
                 }
                 return m_flux_scheme.matrix_cols();
             }
@@ -336,6 +477,12 @@ namespace samurai
             bool matrix_is_spd() const override
             {
                 return m_flux_scheme.matrix_is_spd() && m_cell_scheme.matrix_is_spd();
+            }
+
+            void reset() override
+            {
+                m_flux_scheme.reset();
+                m_cell_scheme.reset();
             }
         };
 

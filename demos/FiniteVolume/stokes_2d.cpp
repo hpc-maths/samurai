@@ -308,7 +308,7 @@ int main(int argc, char* argv[])
         {
             const auto& x = coord[0];
             const auto& y = coord[1];
-            int normal    = (x == 0 /*|| y == 0*/) ? -1 : 1;
+            int normal    = (x == 0 || y == 0) ? -1 : 1;
             return normal * (-pi * std::sin(t) * std::sin(t) * std::sin(pi * x) * std::sin(pi * y));
         };
 
@@ -319,6 +319,40 @@ int main(int argc, char* argv[])
         // Right-hand side
         auto rhs  = samurai::make_field<double, dim, is_soa>("rhs", mesh);
         auto zero = samurai::make_field<double, 1, is_soa>("zero", mesh);
+
+        // Boundary conditions
+        samurai::make_bc<samurai::Dirichlet>(velocity_np1,
+                                             [&](const auto& coord)
+                                             {
+                                                 return exact_velocity(0, coord);
+                                             });
+        samurai::make_bc<samurai::Neumann>(pressure_np1,
+                                           [&](const auto& coord)
+                                           {
+                                               return exact_normal_grad_pressure(0, coord);
+                                           });
+
+        // clang-format off
+
+        // Stokes operator
+        //             |  Diff  Grad |
+        //             | -Div     0  |
+        auto diff_v = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
+        auto grad_p =              samurai::petsc::make_gradient_FV(pressure_np1);
+        auto div_v  =              samurai::petsc::make_divergence_FV(velocity_np1);
+        auto zero_p =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
+        auto id_v   =              samurai::petsc::make_identity_FV(velocity_np1);
+
+        // Stokes with backward Euler
+        //             | I + dt*Diff    dt*Grad |
+        //             |       -Div        0    |
+        auto stokes = samurai::petsc::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
+                                                                            -div_v,      zero_p);
+        // clang-format on
+
+        // Linear solver
+        auto stokes_solver = samurai::petsc::make_block_solver(stokes);
+        configure_saddle_point_solver(stokes_solver);
 
         // Initial condition
         velocity.fill(0);
@@ -332,6 +366,9 @@ int main(int argc, char* argv[])
         samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
         std::size_t nsave = 1, nt = 0;
 
+        bool mesh_has_changed = false;
+        bool dt_has_changed   = false;
+
         double t_n   = 0;
         double t_np1 = 0;
         while (t_np1 != Tf)
@@ -341,7 +378,8 @@ int main(int argc, char* argv[])
             if (t_np1 > Tf)
             {
                 dt += Tf - t_np1;
-                t_np1 = Tf;
+                t_np1          = Tf;
+                dt_has_changed = true;
             }
             std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt);
 
@@ -349,6 +387,8 @@ int main(int argc, char* argv[])
             {
                 // Mesh adaptation
                 MRadaptation(mr_epsilon, mr_regularity);
+                mesh_has_changed = true;
+
                 velocity_np1.resize();
                 pressure_np1.resize();
                 rhs.resize();
@@ -356,6 +396,12 @@ int main(int argc, char* argv[])
                 std::cout << ", levels " << mesh[mesh_id_t::cells].min_level() << "-" << mesh[mesh_id_t::cells].max_level();
             }
             std::cout.flush();
+
+            if (mesh_has_changed || dt_has_changed)
+            {
+                stokes_solver.reset();
+                configure_saddle_point_solver(stokes_solver);
+            }
 
             // Boundary conditions
             velocity_np1.get_bc().clear();
@@ -371,33 +417,9 @@ int main(int argc, char* argv[])
                                                    return exact_normal_grad_pressure(t_np1, coord);
                                                });
 
-            // clang-format off
-
-            // Stokes operator
-            //             |  Diff  Grad |
-            //             | -Div     0  |
-            auto diff_v      = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
-            auto grad_p      =              samurai::petsc::make_gradient_FV(pressure_np1);
-            auto minus_div_v =            - samurai::petsc::make_divergence_FV(velocity_np1);
-            auto zero_p      =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
-
-            // Stokes with backward Euler
-            //             | I + dt*Diff    dt*Grad |
-            //             |       -Div        0    |
-            auto id_v        =              samurai::petsc::make_identity_FV(velocity_np1);
-
-            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
-                                                                           minus_div_v,      zero_p);
-            // clang-format on
-
-            // Linear solver
-            auto stokes_solver = samurai::petsc::make_block_solver(stokes);
-            configure_saddle_point_solver(stokes_solver);
-
             // Solve the linear equation
             //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n + dt*f
             //                         -Div v_np1            = 0
-
             auto f = samurai::make_field<double, dim, is_soa>("f",
                                                               mesh,
                                                               [&](const auto& coord)
@@ -486,15 +508,38 @@ int main(int argc, char* argv[])
         velocity_np1.fill(0);
         pressure_np1.fill(0);
 
-        // Time iteration
+        // clang-format off
+
+        // Stokes operator
+        //             |  Diff  Grad |
+        //             | -Div     0  |
+        auto diff_v = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
+        auto grad_p =              samurai::petsc::make_gradient_FV(pressure_np1);
+        auto div_v  =              samurai::petsc::make_divergence_FV(velocity_np1);
+        auto zero_p =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
+        auto id_v   =              samurai::petsc::make_identity_FV(velocity_np1);
+
+        // Stokes with backward Euler
+        //             | I + dt*Diff    dt*Grad |
+        //             |       -Div        0    |
+        auto stokes = samurai::petsc::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
+                                                                            -div_v,      zero_p);
+        // clang-format on
 
         auto MRadaptation = samurai::make_MRAdapt(velocity);
 
+        // Linear solver
+        auto stokes_solver = samurai::petsc::make_block_solver(stokes);
+        configure_saddle_point_solver(stokes_solver);
+
+        // Time iteration
         samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
         double dt_save    = dt; // Tf/static_cast<double>(nfiles);
         std::size_t nsave = 1, nt = 0;
 
-        double t = 0;
+        bool mesh_has_changed = false;
+        bool dt_has_changed   = false;
+        double t              = 0;
         while (t != Tf)
         {
             // Move to next timestep
@@ -502,7 +547,8 @@ int main(int argc, char* argv[])
             if (t > Tf)
             {
                 dt += Tf - t;
-                t = Tf;
+                t              = Tf;
+                dt_has_changed = true;
             }
             std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
 
@@ -513,39 +559,19 @@ int main(int argc, char* argv[])
                 velocity_np1.resize();
                 pressure_np1.resize();
                 zero.resize();
-                zero.fill(0);
+                mesh_has_changed = true;
                 std::cout << ", levels " << mesh[mesh_id_t::cells].min_level() << "-" << mesh[mesh_id_t::cells].max_level();
             }
             std::cout << std::endl;
 
-            // clang-format off
+            // Solve system
+            if (mesh_has_changed || dt_has_changed)
+            {
+                stokes_solver.reset();
+                configure_saddle_point_solver(stokes_solver);
+            }
 
-            // Stokes operator
-            //             |  Diff  Grad |
-            //             | -Div     0  |
-            auto diff_v      = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
-            auto grad_p      =              samurai::petsc::make_gradient_FV(pressure_np1);
-            auto minus_div_v =         -1 * samurai::petsc::make_divergence_FV(velocity_np1);
-            auto zero_p      =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
-
-            // Stokes with backward Euler
-            //             | I + dt*Diff    dt*Grad |
-            //             |       -Div        0    |
-            auto id_v            = samurai::petsc::make_identity_FV(velocity_np1);
-            auto id_plus_dt_diff = id_v + dt * diff_v;
-            auto dt_grad_p       = dt * grad_p;
-
-            auto stokes = samurai::petsc::make_block_operator<2, 2>(id_plus_dt_diff, dt_grad_p,
-                                                                        minus_div_v,    zero_p);
-            // clang-format on
-
-            // Linear solver
-            auto stokes_solver = samurai::petsc::make_block_solver(stokes);
-            configure_saddle_point_solver(stokes_solver);
-
-            // Solve the linear equation
-            //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n
-            //                         -Div v_np1            = 0
+            zero.fill(0);
             stokes_solver.solve(velocity, zero);
 
             // Prepare next step

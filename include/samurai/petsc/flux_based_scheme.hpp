@@ -113,6 +113,9 @@ namespace samurai
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
+            template <class Scheme>
+            friend class Scalar_x_FluxBasedScheme;
+
           protected:
 
             using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
@@ -226,6 +229,7 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
+                // std::cout << "assemble_scheme of " << this->name() << std::endl;
                 set_current_insert_mode(ADD_VALUES);
 
                 for (std::size_t d = 0; d < dim; ++d)
