@@ -75,12 +75,12 @@ namespace samurai
                     {
                         coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                         {
-                            auto coeffs = get_laplacian_coeffs_cell1<0>(flux_coeffs, h_face, h_cell);
-                            for (auto& coeff : coeffs)
+                            auto cell_coeffs = get_laplacian_coeffs_cell1<0>(flux_coeffs, h_face, h_cell);
+                            for (auto& coeff : cell_coeffs)
                             {
                                 coeff *= -1;
                             }
-                            return coeffs;
+                            return cell_coeffs;
                         };
                         coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<0>;
                     }
@@ -90,12 +90,12 @@ namespace samurai
                         {
                             coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                             {
-                                auto coeffs = get_laplacian_coeffs_cell1<1>(flux_coeffs, h_face, h_cell);
-                                for (auto& coeff : coeffs)
+                                auto cell_coeffs = get_laplacian_coeffs_cell1<1>(flux_coeffs, h_face, h_cell);
+                                for (auto& coeff : cell_coeffs)
                                 {
                                     coeff *= -1;
                                 }
-                                return coeffs;
+                                return cell_coeffs;
                             };
                             coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<1>;
                         }
@@ -106,12 +106,12 @@ namespace samurai
                         {
                             coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                             {
-                                auto coeffs = get_laplacian_coeffs_cell1<2>(flux_coeffs, h_face, h_cell);
-                                for (auto& coeff : coeffs)
+                                auto cell_coeffs = get_laplacian_coeffs_cell1<2>(flux_coeffs, h_face, h_cell);
+                                for (auto& coeff : cell_coeffs)
                                 {
                                     coeff *= -1;
                                 }
-                                return coeffs;
+                                return cell_coeffs;
                             };
                             coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<2>;
                         }

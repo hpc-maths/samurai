@@ -116,7 +116,7 @@ namespace samurai
             template <class Scheme>
             friend class Scalar_x_FluxBasedScheme;
 
-            template <int rows, int cols, class... Operators>
+            template <std::size_t rows, std::size_t cols, class... Operators>
             friend class MonolithicBlockAssembly;
 
           protected:
@@ -293,7 +293,7 @@ namespace samurai
                                                 {
                                                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                                     {
-                                                        auto interface_cell0_row = row_index(interface_cells[0], field_i);
+                                                        auto interface_cell0_row = this->row_index(interface_cells[0], field_i);
                                                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                                         {
                                                             for (std::size_t c = 0; c < stencil_size; ++c)

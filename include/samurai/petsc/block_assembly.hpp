@@ -9,13 +9,13 @@ namespace samurai
         /**
          * Base class to assemble a block matrix.
          */
-        template <int rows, int cols, class... Operators>
+        template <std::size_t rows, std::size_t cols, class... Operators>
         class BlockAssembly
         {
           public:
 
-            static constexpr int n_rows = rows;
-            static constexpr int n_cols = cols;
+            static constexpr std::size_t n_rows = rows;
+            static constexpr std::size_t n_cols = cols;
 
           protected:
 
@@ -98,7 +98,7 @@ namespace samurai
         /**
          * Assemble block matrix using PETSc nested matrices.
          */
-        template <int rows, int cols, class... Operators>
+        template <std::size_t rows, std::size_t cols, class... Operators>
         class NestedBlockAssembly : public BlockAssembly<rows, cols, Operators...>
         {
             using block_assembly = BlockAssembly<rows, cols, Operators...>;
@@ -241,7 +241,7 @@ namespace samurai
         /**
          * Assemble block matrix as a monolithic matrix.
          */
-        template <int rows, int cols, class... Operators>
+        template <std::size_t rows, std::size_t cols, class... Operators>
         class MonolithicBlockAssembly : public BlockAssembly<rows, cols, Operators...>,
                                         public MatrixAssembly
         {
@@ -523,7 +523,7 @@ namespace samurai
             }
         };
 
-        template <int rows, int cols, bool monolithic = false, class... Operators>
+        template <std::size_t rows, std::size_t cols, bool monolithic = false, class... Operators>
         auto make_block_operator(Operators... operators)
         {
             if constexpr (monolithic)

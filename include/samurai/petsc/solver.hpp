@@ -270,8 +270,8 @@ namespace samurai
             using base_class::m_is_set_up;
             using base_class::m_ksp;
 
-            static constexpr int rows = Dsctzr::n_rows;
-            static constexpr int cols = Dsctzr::n_cols;
+            static constexpr std::size_t rows = Dsctzr::n_rows;
+            static constexpr std::size_t cols = Dsctzr::n_cols;
 
           public:
 
@@ -363,8 +363,8 @@ namespace samurai
             using base_class::m_is_set_up;
             using base_class::m_ksp;
 
-            static constexpr int rows = Dsctzr::n_rows;
-            static constexpr int cols = Dsctzr::n_cols;
+            static constexpr std::size_t rows = Dsctzr::n_rows;
+            static constexpr std::size_t cols = Dsctzr::n_cols;
 
           public:
 
@@ -418,13 +418,13 @@ namespace samurai
             solver.solve(rhs);
         }
 
-        template <int rows, int cols, class... Operators>
+        template <std::size_t rows, std::size_t cols, class... Operators>
         auto make_solver(NestedBlockAssembly<rows, cols, Operators...>& discretizer)
         {
             return NestedBlockSolver<NestedBlockAssembly<rows, cols, Operators...>>(discretizer);
         }
 
-        template <int rows, int cols, class... Operators>
+        template <std::size_t rows, std::size_t cols, class... Operators>
         auto make_solver(MonolithicBlockAssembly<rows, cols, Operators...>& discretizer)
         {
             return MonolithicBlockSolver<MonolithicBlockAssembly<rows, cols, Operators...>>(discretizer);

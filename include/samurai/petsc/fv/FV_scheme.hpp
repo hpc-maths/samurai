@@ -89,7 +89,7 @@ namespace samurai
             template <class Scheme>
             friend class Scalar_x_FluxBasedScheme;
 
-            template <int rows, int cols, class... Operators>
+            template <std::size_t rows, std::size_t cols, class... Operators>
             friend class MonolithicBlockAssembly;
 
             using MatrixAssembly::m_col_shift;
@@ -172,7 +172,7 @@ namespace samurai
             }
 
             // Global data index
-            inline PetscInt col_index(PetscInt cell_index, unsigned int field_j) const
+            inline PetscInt col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_size == 1)
                 {
@@ -188,7 +188,7 @@ namespace samurai
                 }
             }
 
-            inline PetscInt row_index(PetscInt cell_index, unsigned int field_i) const
+            inline PetscInt row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
             {
                 if constexpr (output_field_size == 1)
                 {
@@ -205,7 +205,7 @@ namespace samurai
             }
 
             template <class CellT>
-            inline PetscInt col_index(const CellT& cell, unsigned int field_j) const
+            inline PetscInt col_index(const CellT& cell, [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_size == 1)
                 {
@@ -222,7 +222,7 @@ namespace samurai
             }
 
             template <class CellT>
-            inline PetscInt row_index(const CellT& cell, unsigned int field_i) const
+            inline PetscInt row_index(const CellT& cell, [[maybe_unused]] unsigned int field_i) const
             {
                 if constexpr (output_field_size == 1)
                 {
@@ -239,8 +239,10 @@ namespace samurai
             }
 
             template <class Coeffs>
-            inline double
-            cell_coeff(const Coeffs& coeffs, std::size_t cell_number_in_stencil, unsigned int field_i, unsigned int field_j) const
+            inline double cell_coeff(const Coeffs& coeffs,
+                                     std::size_t cell_number_in_stencil,
+                                     [[maybe_unused]] unsigned int field_i,
+                                     [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_size == 1 && output_field_size == 1)
                 {

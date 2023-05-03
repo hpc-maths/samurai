@@ -59,7 +59,7 @@ namespace samurai
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
-            template <int rows, int cols, class... Operators>
+            template <std::size_t rows, std::size_t cols, class... Operators>
             friend class MonolithicBlockAssembly;
 
           protected:
@@ -110,7 +110,7 @@ namespace samurai
           protected:
 
             // Data index in the given stencil
-            inline auto local_col_index(unsigned int cell_local_index, unsigned int field_j) const
+            inline auto local_col_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_size == 1)
                 {
@@ -126,7 +126,7 @@ namespace samurai
                 }
             }
 
-            inline auto local_row_index(unsigned int cell_local_index, unsigned int field_i) const
+            inline auto local_row_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_i) const
             {
                 if constexpr (output_field_size == 1)
                 {
