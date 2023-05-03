@@ -136,7 +136,15 @@ namespace samurai
                 }
                 if (same_row) // same row as the stencil origin
                 {
-                    cell.index = origin_cell.index + d[0]; // translation on the row
+                    // translation on the row
+                    if (d[0] >= 0)
+                    {
+                        cell.index = origin_cell.index + static_cast<std::size_t>(d[0]);
+                    }
+                    else
+                    {
+                        cell.index = origin_cell.index - static_cast<std::size_t>(-d[0]);
+                    }
                 }
                 else
                 {
