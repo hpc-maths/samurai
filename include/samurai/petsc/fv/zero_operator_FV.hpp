@@ -36,7 +36,7 @@ namespace samurai
         /*template <class Field, std::size_t output_field_size, class cfg = EmptyStencilFV<output_field_size>, class bdry_cfg =
         BoundaryConfigFV<1>> class ZeroOperatorFV : public CellBasedScheme<cfg, bdry_cfg, Field>
         {
-            using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
+            using base_class     = CellBasedScheme<cfg, bdry_cfg, Field>;
             using local_matrix_t = typename base_class::local_matrix_t;
 
           public:

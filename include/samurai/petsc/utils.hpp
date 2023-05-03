@@ -31,6 +31,22 @@ namespace samurai
         }
 
         template <class Field>
+        void copy(Field& f, Vec& v, PetscInt shift)
+        {
+            auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::size);
+
+            PetscInt n_vec;
+            VecGetSize(v, &n_vec);
+            assert(shift + n <= n_vec);
+
+            for (PetscInt i = 0; i < n; ++i)
+            {
+                double value = f.array().data()[i];
+                VecSetValue(v, shift + i, value, INSERT_VALUES);
+            }
+        }
+
+        template <class Field>
         void copy(Vec& v, Field& f)
         {
             std::size_t n = f.mesh().nb_cells() * Field::size;
@@ -45,6 +61,26 @@ namespace samurai
             for (std::size_t i = 0; i < n; ++i)
             {
                 f.array().data()[i] = arr[i];
+            }
+
+            VecRestoreArrayRead(v, &arr);
+        }
+
+        template <class Field>
+        void copy(PetscInt shift, Vec& v, Field& f)
+        {
+            std::size_t n = f.mesh().nb_cells() * Field::size;
+
+            PetscInt n_vec;
+            VecGetSize(v, &n_vec);
+            assert(shift + static_cast<PetscInt>(n) <= n_vec);
+
+            const double* arr;
+            VecGetArrayRead(v, &arr);
+
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                f.array().data()[i] = arr[static_cast<std::size_t>(shift) + i];
             }
 
             VecRestoreArrayRead(v, &arr);

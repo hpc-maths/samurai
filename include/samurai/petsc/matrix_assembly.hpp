@@ -22,6 +22,12 @@ namespace samurai
             bool m_assemble_proj_pred               = true;
             bool m_add_1_on_diag_for_useless_ghosts = true;
 
+          protected:
+
+            bool m_is_block      = false; // is a block in a monolithic block matrix
+            PetscInt m_row_shift = 0;
+            PetscInt m_col_shift = 0;
+
           public:
 
             std::string name() const
@@ -64,6 +70,38 @@ namespace samurai
                 m_add_1_on_diag_for_useless_ghosts = value;
             }
 
+            void set_is_block(bool is_block)
+            {
+                m_is_block = is_block;
+            }
+
+            bool is_block() const
+            {
+                return m_is_block;
+            }
+
+            template <class int_type>
+            void set_row_shift(int_type row_shift)
+            {
+                m_row_shift = static_cast<PetscInt>(row_shift);
+            }
+
+            template <class int_type>
+            void set_col_shift(int_type col_shift)
+            {
+                m_col_shift = static_cast<PetscInt>(col_shift);
+            }
+
+            PetscInt row_shift() const
+            {
+                return m_row_shift;
+            }
+
+            PetscInt col_shift() const
+            {
+                return m_col_shift;
+            }
+
             /**
              * @brief Performs the memory preallocation of the Petsc matrix.
              * @see assemble_matrix
@@ -100,8 +138,10 @@ namespace samurai
                 // {
                 //     std::cout << "nnz[" << row << "] = " << nnz[row] << std::endl;
                 // }
-
-                MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, nnz.data());
+                if (!m_is_block)
+                {
+                    MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, nnz.data());
+                }
                 // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
             }
 
@@ -126,14 +166,17 @@ namespace samurai
                     add_1_on_diag_for_useless_ghosts(A);
                 }
 
-                PetscBool is_symmetric = matrix_is_symmetric() ? PETSC_TRUE : PETSC_FALSE;
-                MatSetOption(A, MAT_SYMMETRIC, is_symmetric);
+                if (!m_is_block)
+                {
+                    PetscBool is_symmetric = matrix_is_symmetric() ? PETSC_TRUE : PETSC_FALSE;
+                    MatSetOption(A, MAT_SYMMETRIC, is_symmetric);
 
-                PetscBool is_spd = matrix_is_spd() ? PETSC_TRUE : PETSC_FALSE;
-                MatSetOption(A, MAT_SPD, is_spd);
+                    PetscBool is_spd = matrix_is_spd() ? PETSC_TRUE : PETSC_FALSE;
+                    MatSetOption(A, MAT_SPD, is_spd);
 
-                MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-                MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+                    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                }
             }
 
             virtual ~MatrixAssembly()
@@ -202,11 +245,12 @@ namespace samurai
 
             virtual void sparsity_pattern_useless_ghosts(std::vector<PetscInt>& nnz)
             {
-                for (auto& row_nnz : nnz)
+                for (std::size_t row = static_cast<std::size_t>(m_row_shift); row < static_cast<std::size_t>(m_row_shift + matrix_rows());
+                     ++row)
                 {
-                    if (row_nnz == 0)
+                    if (nnz[row] == 0)
                     {
-                        row_nnz = 1;
+                        nnz[row] = 1;
                     }
                 }
             }

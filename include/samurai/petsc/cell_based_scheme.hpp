@@ -59,6 +59,9 @@ namespace samurai
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
+            template <int rows, int cols, class... Operators>
+            friend class MonolithicBlockAssembly;
+
           protected:
 
             using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
@@ -66,10 +69,10 @@ namespace samurai
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
-            using base_class::m_is_row_empty;
             using base_class::m_mesh;
             using base_class::row_index;
             using base_class::set_current_insert_mode;
+            using base_class::set_is_row_not_empty;
 
           public:
 
@@ -202,7 +205,7 @@ namespace samurai
                     for_each_cell(m_mesh,
                                   [&](auto& cell)
                                   {
-                                      nnz[this->row_index(cell, field_i)] = scheme_nnz_i;
+                                      nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += scheme_nnz_i;
                                   });
                 }
             }
@@ -235,14 +238,15 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
-                // std::cout << "assemble_scheme of " << this->name() << std::endl;
+                // std::cout << "assemble_scheme() of " << this->name() << std::endl;
 
-                if constexpr (cfg::scheme_stencil_size == 0)
+                if (this->current_insert_mode() == ADD_VALUES)
                 {
-                    return;
+                    // Must flush to use INSERT_VALUES instead of ADD_VALUES
+                    MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
+                    MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
+                    set_current_insert_mode(INSERT_VALUES);
                 }
-
-                set_current_insert_mode(INSERT_VALUES);
 
                 // Apply the given coefficents to the given stencil
                 for_each_stencil_and_coeffs(
@@ -375,14 +379,14 @@ namespace samurai
                                             {
                                                 coeff = coeffs[c](field_i, field_j);
                                             }
-                                            if (coeff != 0)
+                                            if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
                                                 MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, INSERT_VALUES);
                                             }
                                         }
                                     }
 
-                                    m_is_row_empty[static_cast<std::size_t>(stencil_center_row)] = false;
+                                    set_is_row_not_empty(stencil_center_row);
                                 }
                             }
                         }
@@ -412,8 +416,8 @@ namespace samurai
 
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
-                                auto row            = static_cast<std::size_t>(rows[local_row_index(cfg::center_index, field_i)]);
-                                m_is_row_empty[row] = false;
+                                auto row = rows[local_row_index(cfg::center_index, field_i)];
+                                set_is_row_not_empty(row);
                             }
                         }
                     });

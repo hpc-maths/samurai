@@ -186,14 +186,16 @@ int main(int argc, char* argv[])
 
         // clang-format off
 
-        // Block operator
-        auto diff_v      =      samurai::petsc::make_diffusion_FV(velocity);
-        auto grad_p      =      samurai::petsc::make_gradient_FV(pressure);
-        auto minus_div_v = -1 * samurai::petsc::make_divergence_FV(velocity);
-        auto zero_p      =      samurai::petsc::make_zero_operator_FV<1>(pressure);
+        // Stokes operator
+        //             |  Diff  Grad |
+        //             | -Div     0  |
+        auto diff_v = samurai::petsc::make_diffusion_FV(velocity);
+        auto grad_p = samurai::petsc::make_gradient_FV(pressure);
+        auto div_v  = samurai::petsc::make_divergence_FV(velocity);
+        auto zero_p = samurai::petsc::make_zero_operator_FV<1>(pressure);
 
-        auto stokes = samurai::petsc::make_block_operator<2, 2>(     diff_v, grad_p,
-                                                                minus_div_v, zero_p);
+        auto stokes = samurai::petsc::make_block_operator<2, 2>(diff_v, grad_p,
+                                                                -div_v, zero_p);
 
         // clang-format on
 
@@ -213,7 +215,7 @@ int main(int argc, char* argv[])
 
         // Linear solver
         std::cout << "Solving Stokes system..." << std::endl;
-        auto stokes_solver = samurai::petsc::make_block_solver(stokes);
+        auto stokes_solver = samurai::petsc::make_solver(stokes);
         configure_saddle_point_solver(stokes_solver);
         stokes_solver.solve(f, zero);
         std::cout << stokes_solver.iterations() << " iterations" << std::endl << std::endl;
@@ -351,7 +353,7 @@ int main(int argc, char* argv[])
         // clang-format on
 
         // Linear solver
-        auto stokes_solver = samurai::petsc::make_block_solver(stokes);
+        auto stokes_solver = samurai::petsc::make_solver(stokes);
         configure_saddle_point_solver(stokes_solver);
 
         // Initial condition
@@ -529,7 +531,7 @@ int main(int argc, char* argv[])
         auto MRadaptation = samurai::make_MRAdapt(velocity);
 
         // Linear solver
-        auto stokes_solver = samurai::petsc::make_block_solver(stokes);
+        auto stokes_solver = samurai::petsc::make_solver(stokes);
         configure_saddle_point_solver(stokes_solver);
 
         // Time iteration
