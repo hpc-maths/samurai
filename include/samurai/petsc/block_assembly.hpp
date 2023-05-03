@@ -441,7 +441,7 @@ namespace samurai
                 for_each(sources,
                          [&](auto& s)
                          {
-                             for_each_operator(
+                             this->for_each_operator(
                                  [&](auto& op, auto row, auto col)
                                  {
                                      if (col == 0 && row == i)
