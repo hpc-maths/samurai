@@ -110,7 +110,25 @@ namespace samurai
                 return m_blocks[i];
             }
 
-            void enforce_bc(std::array<Vec, rows>& b) const
+            template <class... Fields>
+            Vec create_rhs_vector(const std::tuple<Fields&...>& sources) const
+            {
+                std::array<Vec, rows> b_blocks;
+                std::size_t i = 0;
+                for_each(sources,
+                         [&](auto& s)
+                         {
+                             b_blocks[i] = create_petsc_vector_from(s);
+                             PetscObjectSetName(reinterpret_cast<PetscObject>(b_blocks[i]), s.name().c_str());
+                             i++;
+                         });
+                Vec b;
+                VecCreateNest(PETSC_COMM_SELF, rows, NULL, b_blocks.data(), &b);
+                PetscObjectSetName(reinterpret_cast<PetscObject>(b), "right-hand side");
+                return b;
+            }
+
+            void enforce_bc(Vec& b) const
             {
                 std::size_t i = 0;
                 for_each(m_operators,
@@ -120,52 +138,50 @@ namespace samurai
                              // auto col = i % cols;
                              if (op.include_bc())
                              {
-                                 // std::cout << "enforce_bc (" << row << ", "
-                                 // << col << ") on b[" << row << "]" <<
-                                 // std::endl;
-                                 op.enforce_bc(b[row]);
+                                 // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
+                                 Vec b_block;
+                                 VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
+                                 op.enforce_bc(b_block);
                              }
                              i++;
                          });
             }
 
-            void enforce_projection_prediction(std::array<Vec, rows>& b) const
+            void enforce_projection_prediction(Vec& b) const
             {
                 std::size_t i = 0;
                 for_each(m_operators,
                          [&](const auto& op)
                          {
                              auto row = i / cols;
-                             // auto col = i % cols;
                              if (op.assemble_proj_pred())
                              {
-                                 // std::cout << "enforce_bc (" << row << ", "
-                                 // << col << ") on b[" << row << "]" <<
-                                 // std::endl;
-                                 op.enforce_projection_prediction(b[row]);
+                                 Vec b_block;
+                                 VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
+                                 op.enforce_projection_prediction(b_block);
                              }
                              i++;
                          });
             }
 
-            void add_0_for_useless_ghosts(std::array<Vec, rows>& b) const
+            void add_0_for_useless_ghosts(Vec& b) const
             {
                 std::size_t i = 0;
                 for_each(m_operators,
                          [&](const auto& op)
                          {
                              auto row = i / cols;
-                             // auto col = i % cols;
                              if (op.must_add_1_on_diag_for_useless_ghosts())
                              {
-                                 // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
-                                 op.add_0_for_useless_ghosts(b[row]);
+                                 Vec b_block;
+                                 VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
+                                 op.add_0_for_useless_ghosts(b_block);
                              }
                              i++;
                          });
             }
 
-            std::array<Vec, cols> create_solution_vectors() const
+            Vec create_solution_vector() const
             {
                 std::array<Vec, cols> x_blocks;
                 std::size_t i = 0;
@@ -181,7 +197,10 @@ namespace samurai
                              }
                              i++;
                          });
-                return x_blocks;
+                Vec x;
+                VecCreateNest(PETSC_COMM_SELF, cols, NULL, x_blocks.data(), &x);
+                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "solution");
+                return x;
             }
 
             template <class... Fields>
@@ -465,6 +484,7 @@ namespace samurai
                                  });
                              i++;
                          });
+                PetscObjectSetName(reinterpret_cast<PetscObject>(b), "right-hand side");
                 return b;
             }
 
@@ -520,6 +540,7 @@ namespace samurai
                             x_blocks[col] = create_petsc_vector_from(op.unknown());
                         }
                     });*/
+                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "solution");
                 return x;
             }
 

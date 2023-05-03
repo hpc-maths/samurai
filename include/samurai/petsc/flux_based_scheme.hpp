@@ -236,7 +236,7 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
-                std::cout << "assemble_scheme() of " << this->name() << std::endl;
+                // std::cout << "assemble_scheme() of " << this->name() << std::endl;
 
                 if (this->current_insert_mode() == INSERT_VALUES)
                 {

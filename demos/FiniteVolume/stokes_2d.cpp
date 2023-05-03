@@ -74,8 +74,8 @@ void configure_saddle_point_solver(Solver& block_solver)
 
     PC schur_pc;
     KSPGetPC(schur_ksp, &schur_pc);
-    PCSetType(schur_pc, PCNONE);  // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
-    KSPSetFromOptions(schur_ksp); // KSP and PC overwritten by user value if needed
+    PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
+    KSPSetFromOptions(schur_ksp);  // KSP and PC overwritten by user value if needed
 
     // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
     // tolerance to all the sub-solvers
@@ -194,8 +194,9 @@ int main(int argc, char* argv[])
         auto div_v  = samurai::petsc::make_divergence_FV(velocity);
         auto zero_p = samurai::petsc::make_zero_operator_FV<1>(pressure);
 
-        auto stokes = samurai::petsc::make_block_operator<2, 2>(diff_v, grad_p,
-                                                                -div_v, zero_p);
+        static constexpr bool monolithic = true;
+        auto stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(diff_v, grad_p,
+                                                                            -div_v, zero_p);
 
         // clang-format on
 
@@ -216,9 +217,22 @@ int main(int argc, char* argv[])
         // Linear solver
         std::cout << "Solving Stokes system..." << std::endl;
         auto stokes_solver = samurai::petsc::make_solver(stokes);
-        configure_saddle_point_solver(stokes_solver);
+        if constexpr (monolithic)
+        {
+            KSP ksp = stokes_solver.Ksp();
+            PC pc;
+            KSPGetPC(ksp, &pc);
+            PCSetType(pc, PCILU);
+        }
+        else
+        {
+            configure_saddle_point_solver(stokes_solver);
+        }
         stokes_solver.solve(f, zero);
         std::cout << stokes_solver.iterations() << " iterations" << std::endl << std::endl;
+
+        // auto diff_solver = samurai::petsc::make_solver(diff_v);
+        // diff_solver.solve(f);
 
         // Error
         double error = L2_error(velocity,
