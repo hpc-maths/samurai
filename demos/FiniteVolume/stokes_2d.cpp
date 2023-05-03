@@ -231,9 +231,6 @@ int main(int argc, char* argv[])
         stokes_solver.solve(f, zero);
         std::cout << stokes_solver.iterations() << " iterations" << std::endl << std::endl;
 
-        // auto diff_solver = samurai::petsc::make_solver(diff_v);
-        // diff_solver.solve(f);
-
         // Error
         double error = L2_error(velocity,
                                 [](auto& coord)

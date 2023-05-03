@@ -25,7 +25,7 @@ namespace samurai
 
           public:
 
-            SolverBase(Dsctzr& discretizer)
+            explicit SolverBase(Dsctzr& discretizer)
                 : m_discretizer(discretizer)
             {
                 configure_default_solver();
@@ -168,7 +168,7 @@ namespace samurai
 
           public:
 
-            SingleFieldSolver(Dsctzr& discretizer)
+            explicit SingleFieldSolver(Dsctzr& discretizer)
                 : base_class(discretizer)
             {
                 configure_solver();
@@ -275,7 +275,7 @@ namespace samurai
 
           public:
 
-            NestedBlockSolver(Dsctzr& discretizer)
+            explicit NestedBlockSolver(Dsctzr& discretizer)
                 : base_class(discretizer)
             {
                 configure_solver();
@@ -368,7 +368,7 @@ namespace samurai
 
           public:
 
-            MonolithicBlockSolver(Dsctzr& discretizer)
+            explicit MonolithicBlockSolver(Dsctzr& discretizer)
                 : base_class(discretizer)
             {
             }

@@ -260,8 +260,8 @@ namespace samurai
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
-                                auto interface_cell1_row = row_index(interface_cells[0], field_i);
-                                auto interface_cell2_row = row_index(interface_cells[1], field_i);
+                                auto interface_cell1_row = this->row_index(interface_cells[0], field_i);
+                                auto interface_cell2_row = this->row_index(interface_cells[1], field_i);
                                 for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                 {
                                     for (std::size_t c = 0; c < stencil_size; ++c)

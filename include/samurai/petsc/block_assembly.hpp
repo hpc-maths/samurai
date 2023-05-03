@@ -110,7 +110,7 @@ namespace samurai
 
           public:
 
-            NestedBlockAssembly(Operators&... operators)
+            explicit NestedBlockAssembly(Operators&... operators)
                 : block_assembly(operators...)
             {
                 for_each_operator(
@@ -236,17 +236,6 @@ namespace samurai
                 PetscObjectSetName(reinterpret_cast<PetscObject>(x), "solution");
                 return x;
             }
-
-            template <class... Fields>
-            auto tie(Fields&... fields) const
-            {
-                static constexpr std::size_t n_fields = sizeof...(fields);
-                static_assert(n_fields == rows,
-                              "The number of fields must correspond to the "
-                              "number of rows of the block operator.");
-
-                return std::tuple<Fields&...>(fields...);
-            }
         };
 
         /**
@@ -261,7 +250,7 @@ namespace samurai
 
           public:
 
-            MonolithicBlockAssembly(Operators&... operators)
+            explicit MonolithicBlockAssembly(Operators&... operators)
                 : block_assembly(operators...)
             {
                 this->set_name("(unnamed monolithic block operator)");
