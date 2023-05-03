@@ -12,10 +12,13 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <class Field, std::size_t neighbourhood_width = 2, class cfg = samurai::petsc::StarStencilFV<Field::dim, Field::size, neighbourhood_width>>
-class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
+template <class Field,
+          std::size_t neighbourhood_width = 2,
+          class cfg                       = samurai::petsc::StarStencilFV<Field::dim, Field::size, neighbourhood_width>,
+          class bdry_cfg                  = samurai::petsc::BoundaryConfigFV<neighbourhood_width>>
+class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, bdry_cfg, Field>
 {
-    using base_class = samurai::petsc::CellBasedScheme<cfg, Field>;
+    using base_class = samurai::petsc::CellBasedScheme<cfg, bdry_cfg, Field>;
 
   public:
 
@@ -24,7 +27,7 @@ class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, Field>
     using directional_bdry_config_t  = typename base_class::directional_bdry_config_t;
 
     HighOrderDiffusion(Field& unknown)
-        : samurai::petsc::CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
+        : base_class(unknown, stencil(), coefficients)
     {
     }
 
