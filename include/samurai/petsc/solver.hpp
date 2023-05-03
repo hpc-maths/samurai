@@ -262,7 +262,7 @@ namespace samurai
          * PETSc block solver
          */
         template <class Dsctzr>
-        class BlockSolver : public SolverBase<Dsctzr>
+        class NestedBlockSolver : public SolverBase<Dsctzr>
         {
             using base_class = SolverBase<Dsctzr>;
             using base_class::m_A;
@@ -275,7 +275,7 @@ namespace samurai
 
           public:
 
-            BlockSolver(Dsctzr& discretizer)
+            NestedBlockSolver(Dsctzr& discretizer)
                 : base_class(discretizer)
             {
                 configure_solver();
@@ -326,8 +326,8 @@ namespace samurai
             template <class... Fields>
             void solve(const Fields&... sources)
             {
-                auto s = std::tuple<const Fields&...>(sources...);
-                solve(s);
+                auto tuple_sources = m_discretizer.tie(sources...);
+                solve(tuple_sources);
             }
 
             template <class... Fields>
@@ -376,8 +376,8 @@ namespace samurai
             template <class... Fields>
             void solve(const Fields&... sources)
             {
-                auto s = std::tuple<const Fields&...>(sources...);
-                solve(s);
+                auto tuple_sources = m_discretizer.tie(sources...);
+                solve(tuple_sources);
             }
 
             template <class... Fields>
@@ -419,9 +419,9 @@ namespace samurai
         }
 
         template <int rows, int cols, class... Operators>
-        auto make_solver(BlockAssembly<rows, cols, Operators...>& discretizer)
+        auto make_solver(NestedBlockAssembly<rows, cols, Operators...>& discretizer)
         {
-            return BlockSolver<BlockAssembly<rows, cols, Operators...>>(discretizer);
+            return NestedBlockSolver<NestedBlockAssembly<rows, cols, Operators...>>(discretizer);
         }
 
         template <int rows, int cols, class... Operators>

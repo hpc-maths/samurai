@@ -7,7 +7,7 @@ namespace samurai
     namespace petsc
     {
         /**
-         * Assemble block matrix using PETSc nested matrices.
+         * Base class to assemble a block matrix.
          */
         template <int rows, int cols, class... Operators>
         class BlockAssembly
@@ -17,10 +17,9 @@ namespace samurai
             static constexpr int n_rows = rows;
             static constexpr int n_cols = cols;
 
-          private:
+          protected:
 
             std::tuple<Operators...> m_operators;
-            std::array<Mat, rows * cols> m_blocks;
 
           public:
 
@@ -30,248 +29,15 @@ namespace samurai
                 static constexpr std::size_t n_operators = sizeof...(operators);
                 static_assert(n_operators == rows * cols, "The number of operators must correspond to rows*cols.");
 
-                std::size_t i = 0;
-                for_each(m_operators,
-                         [&](auto& op)
-                         {
-                             auto row            = i / cols;
-                             auto col            = i % cols;
-                             m_blocks[i]         = nullptr;
-                             bool diagonal_block = (row == col);
-                             op.add_1_on_diag_for_useless_ghosts_if(diagonal_block);
-                             op.include_bc_if(diagonal_block);
-                             op.assemble_proj_pred_if(diagonal_block);
-                             i++;
-                         });
-            }
-
-            std::array<std::string, cols> field_names() const
-            {
-                std::array<std::string, cols> names;
-                std::size_t i = 0;
-                for_each(m_operators,
-                         [&](auto& op)
-                         {
-                             auto row = i / cols;
-                             auto col = i % cols;
-                             if (row == col)
-                             {
-                                 names[col] = op.unknown().name();
-                             }
-                             i++;
-                         });
-                return names;
-            }
-
-            void create_matrix(Mat& A)
-            {
-                std::size_t i = 0;
-                for_each(m_operators,
-                         [&](auto& op)
-                         {
-                             /*auto row = i / cols;
-                             auto col = i % cols;
-                             std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;*/
-                             op.create_matrix(m_blocks[i]);
-                             i++;
-                         });
-
-                MatCreateNest(PETSC_COMM_SELF, rows, PETSC_NULL, cols, PETSC_NULL, m_blocks.data(), &A);
-            }
-
-            void assemble_matrix(Mat& A)
-            {
-                std::size_t i = 0;
-                for_each(m_operators,
-                         [&](auto& op)
-                         {
-                             /*auto row = i / cols;
-                             auto col = i % cols;
-                             std::cout << "assemble_matrix (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;*/
-                             op.assemble_matrix(m_blocks[i]);
-                             i++;
-                         });
-                MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-                MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-            }
-
-            void reset()
-            {
-                for_each(m_operators,
-                         [&](auto& op)
-                         {
-                             op.reset();
-                         });
-            }
-
-            Mat& block(std::size_t row, std::size_t col)
-            {
-                auto i = row * cols + col;
-                return m_blocks[i];
-            }
-
-            template <class... Fields>
-            Vec create_rhs_vector(const std::tuple<Fields&...>& sources) const
-            {
-                std::array<Vec, rows> b_blocks;
-                std::size_t i = 0;
-                for_each(sources,
-                         [&](auto& s)
-                         {
-                             b_blocks[i] = create_petsc_vector_from(s);
-                             PetscObjectSetName(reinterpret_cast<PetscObject>(b_blocks[i]), s.name().c_str());
-                             i++;
-                         });
-                Vec b;
-                VecCreateNest(PETSC_COMM_SELF, rows, NULL, b_blocks.data(), &b);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(b), "right-hand side");
-                return b;
-            }
-
-            void enforce_bc(Vec& b) const
-            {
-                std::size_t i = 0;
-                for_each(m_operators,
-                         [&](const auto& op)
-                         {
-                             auto row = i / cols;
-                             // auto col = i % cols;
-                             if (op.include_bc())
-                             {
-                                 // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
-                                 Vec b_block;
-                                 VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
-                                 op.enforce_bc(b_block);
-                             }
-                             i++;
-                         });
-            }
-
-            void enforce_projection_prediction(Vec& b) const
-            {
-                std::size_t i = 0;
-                for_each(m_operators,
-                         [&](const auto& op)
-                         {
-                             auto row = i / cols;
-                             if (op.assemble_proj_pred())
-                             {
-                                 Vec b_block;
-                                 VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
-                                 op.enforce_projection_prediction(b_block);
-                             }
-                             i++;
-                         });
-            }
-
-            void add_0_for_useless_ghosts(Vec& b) const
-            {
-                std::size_t i = 0;
-                for_each(m_operators,
-                         [&](const auto& op)
-                         {
-                             auto row = i / cols;
-                             if (op.must_add_1_on_diag_for_useless_ghosts())
-                             {
-                                 Vec b_block;
-                                 VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
-                                 op.add_0_for_useless_ghosts(b_block);
-                             }
-                             i++;
-                         });
-            }
-
-            Vec create_solution_vector() const
-            {
-                std::array<Vec, cols> x_blocks;
-                std::size_t i = 0;
-                for_each(m_operators,
-                         [&](const auto& op)
-                         {
-                             auto row = i / cols;
-                             auto col = i % cols;
-                             if (row == 0)
-                             {
-                                 x_blocks[col] = create_petsc_vector_from(op.unknown());
-                                 PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), op.unknown().name().c_str());
-                             }
-                             i++;
-                         });
-                Vec x;
-                VecCreateNest(PETSC_COMM_SELF, cols, NULL, x_blocks.data(), &x);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "solution");
-                return x;
-            }
-
-            template <class... Fields>
-            auto tie(Fields&... fields) const
-            {
-                static constexpr std::size_t n_fields = sizeof...(fields);
-                static_assert(n_fields == rows,
-                              "The number of fields must correspond to the "
-                              "number of rows of the block operator.");
-
-                return std::tuple<Fields&...>(fields...);
-            }
-        };
-
-        /**
-         * Assemble block matrix as a monolithic matrix.
-         */
-        template <int rows, int cols, class... Operators>
-        class MonolithicBlockAssembly : public MatrixAssembly
-        {
-          public:
-
-            static constexpr int n_rows = rows;
-            static constexpr int n_cols = cols;
-
-          private:
-
-            std::tuple<Operators...> m_operators;
-
-          public:
-
-            MonolithicBlockAssembly(Operators&... operators)
-                : m_operators(operators...)
-            {
-                static constexpr std::size_t n_operators = sizeof...(operators);
-                static_assert(n_operators == rows * cols, "The number of operators must correspond to rows*cols.");
-
-                this->set_name("(unnamed monolithic block operator)");
-
                 for_each_operator(
                     [&](auto& op, auto row, auto col)
                     {
-                        op.set_is_block(true);
                         bool diagonal_block = (row == col);
                         op.add_1_on_diag_for_useless_ghosts_if(diagonal_block);
                         op.include_bc_if(diagonal_block);
                         op.assemble_proj_pred_if(diagonal_block);
                     });
-                reset();
             }
-
-            void reset() override
-            {
-                PetscInt row_shift = 0;
-                PetscInt col_shift = 0;
-                for_each_operator(
-                    [&](auto& op, auto, auto col)
-                    {
-                        op.reset();
-                        op.set_row_shift(row_shift);
-                        op.set_col_shift(col_shift);
-                        col_shift += op.matrix_cols();
-                        if (col == cols - 1)
-                        {
-                            col_shift = 0;
-                            row_shift += op.matrix_rows();
-                        }
-                    });
-            }
-
-          private:
 
             template <class Func>
             void for_each_operator(Func&& f)
@@ -303,6 +69,232 @@ namespace samurai
 
           public:
 
+            std::array<std::string, cols> field_names() const
+            {
+                std::array<std::string, cols> names;
+                for_each_operator(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == col)
+                        {
+                            names[col] = op.unknown().name();
+                        }
+                    });
+                return names;
+            }
+
+            template <class... Fields>
+            auto tie(Fields&... fields) const
+            {
+                static constexpr std::size_t n_fields = sizeof...(fields);
+                static_assert(n_fields == rows,
+                              "The number of fields must correspond to the "
+                              "number of rows of the block operator.");
+
+                return std::tuple<Fields&...>(fields...);
+            }
+        };
+
+        /**
+         * Assemble block matrix using PETSc nested matrices.
+         */
+        template <int rows, int cols, class... Operators>
+        class NestedBlockAssembly : public BlockAssembly<rows, cols, Operators...>
+        {
+            using block_assembly = BlockAssembly<rows, cols, Operators...>;
+            using block_assembly::for_each_operator;
+
+          private:
+
+            std::array<Mat, rows * cols> m_blocks;
+
+          public:
+
+            NestedBlockAssembly(Operators&... operators)
+                : block_assembly(operators...)
+            {
+                for_each_operator(
+                    [&](auto&, auto row, auto col)
+                    {
+                        block(row, col) = nullptr;
+                    });
+            }
+
+            void create_matrix(Mat& A)
+            {
+                for_each_operator(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        // std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;
+                        op.create_matrix(block(row, col));
+                    });
+                MatCreateNest(PETSC_COMM_SELF, rows, PETSC_NULL, cols, PETSC_NULL, m_blocks.data(), &A);
+            }
+
+            void assemble_matrix(Mat& A)
+            {
+                for_each_operator(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        // std::cout << "assemble_matrix (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;
+                        op.assemble_matrix(block(row, col));
+                    });
+                MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+                MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+            }
+
+            void reset()
+            {
+                for_each_operator(
+                    [&](auto& op, auto, auto)
+                    {
+                        op.reset();
+                    });
+            }
+
+            Mat& block(std::size_t row, std::size_t col)
+            {
+                auto i = row * cols + col;
+                return m_blocks[i];
+            }
+
+            template <class... Fields>
+            Vec create_rhs_vector(const std::tuple<Fields&...>& sources) const
+            {
+                std::array<Vec, rows> b_blocks;
+                std::size_t i = 0;
+                for_each(sources,
+                         [&](auto& s)
+                         {
+                             b_blocks[i] = create_petsc_vector_from(s);
+                             PetscObjectSetName(reinterpret_cast<PetscObject>(b_blocks[i]), s.name().c_str());
+                             i++;
+                         });
+                Vec b;
+                VecCreateNest(PETSC_COMM_SELF, rows, NULL, b_blocks.data(), &b);
+                PetscObjectSetName(reinterpret_cast<PetscObject>(b), "right-hand side");
+                return b;
+            }
+
+            void enforce_bc(Vec& b) const
+            {
+                for_each_operator(
+                    [&](auto& op, auto row, auto)
+                    {
+                        if (op.include_bc())
+                        {
+                            // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
+                            Vec b_block;
+                            VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
+                            op.enforce_bc(b_block);
+                        }
+                    });
+            }
+
+            void enforce_projection_prediction(Vec& b) const
+            {
+                for_each_operator(
+                    [&](auto& op, auto row, auto)
+                    {
+                        if (op.assemble_proj_pred())
+                        {
+                            Vec b_block;
+                            VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
+                            op.enforce_projection_prediction(b_block);
+                        }
+                    });
+            }
+
+            void add_0_for_useless_ghosts(Vec& b) const
+            {
+                for_each_operator(
+                    [&](auto& op, auto row, auto)
+                    {
+                        if (op.must_add_1_on_diag_for_useless_ghosts())
+                        {
+                            Vec b_block;
+                            VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
+                            op.add_0_for_useless_ghosts(b_block);
+                        }
+                    });
+            }
+
+            Vec create_solution_vector() const
+            {
+                std::array<Vec, cols> x_blocks;
+                for_each_operator(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == 0)
+                        {
+                            x_blocks[col] = create_petsc_vector_from(op.unknown());
+                            PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), op.unknown().name().c_str());
+                        }
+                    });
+                Vec x;
+                VecCreateNest(PETSC_COMM_SELF, cols, NULL, x_blocks.data(), &x);
+                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "solution");
+                return x;
+            }
+
+            template <class... Fields>
+            auto tie(Fields&... fields) const
+            {
+                static constexpr std::size_t n_fields = sizeof...(fields);
+                static_assert(n_fields == rows,
+                              "The number of fields must correspond to the "
+                              "number of rows of the block operator.");
+
+                return std::tuple<Fields&...>(fields...);
+            }
+        };
+
+        /**
+         * Assemble block matrix as a monolithic matrix.
+         */
+        template <int rows, int cols, class... Operators>
+        class MonolithicBlockAssembly : public BlockAssembly<rows, cols, Operators...>,
+                                        public MatrixAssembly
+        {
+            using block_assembly = BlockAssembly<rows, cols, Operators...>;
+            using block_assembly::for_each_operator;
+
+          public:
+
+            MonolithicBlockAssembly(Operators&... operators)
+                : block_assembly(operators...)
+            {
+                this->set_name("(unnamed monolithic block operator)");
+
+                for_each_operator(
+                    [&](auto& op, auto, auto)
+                    {
+                        op.set_is_block(true);
+                    });
+                reset();
+            }
+
+            void reset() override
+            {
+                PetscInt row_shift = 0;
+                PetscInt col_shift = 0;
+                for_each_operator(
+                    [&](auto& op, auto, auto col)
+                    {
+                        op.reset();
+                        op.set_row_shift(row_shift);
+                        op.set_col_shift(col_shift);
+                        col_shift += op.matrix_cols();
+                        if (col == cols - 1)
+                        {
+                            col_shift = 0;
+                            row_shift += op.matrix_rows();
+                        }
+                    });
+            }
+
+          public:
+
             PetscInt matrix_rows() const override
             {
                 PetscInt total_rows = 0;
@@ -329,20 +321,6 @@ namespace samurai
                         }
                     });
                 return total_cols;
-            }
-
-            std::array<std::string, cols> field_names() const
-            {
-                std::array<std::string, cols> names;
-                for_each_operator(
-                    [&](auto& op, auto row, auto col)
-                    {
-                        if (row == col)
-                        {
-                            names[col] = op.unknown().name();
-                        }
-                    });
-                return names;
             }
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
@@ -522,7 +500,6 @@ namespace samurai
                     {
                         if (op.must_add_1_on_diag_for_useless_ghosts())
                         {
-                            // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
                             op.add_0_for_useless_ghosts(b);
                         }
                     });
@@ -555,17 +532,6 @@ namespace samurai
                         }
                     });
             }
-
-            template <class... Fields>
-            auto tie(Fields&... fields) const
-            {
-                static constexpr std::size_t n_fields = sizeof...(fields);
-                static_assert(n_fields == rows,
-                              "The number of fields must correspond to the "
-                              "number of rows of the block operator.");
-
-                return std::tuple<Fields&...>(fields...);
-            }
         };
 
         template <int rows, int cols, bool monolithic = false, class... Operators>
@@ -577,7 +543,7 @@ namespace samurai
             }
             else
             {
-                return BlockAssembly<rows, cols, Operators...>(operators...);
+                return NestedBlockAssembly<rows, cols, Operators...>(operators...);
             }
         }
 
