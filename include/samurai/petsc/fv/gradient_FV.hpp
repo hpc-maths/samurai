@@ -46,7 +46,7 @@ namespace samurai
                   std::size_t output_field_size = dim,
                   std::size_t stencil_size      = 2,
                   class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
-                  class bdry_cfg                = BoundaryConfigFV<1>>
+                  class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
         class GradientFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
         {
             using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;

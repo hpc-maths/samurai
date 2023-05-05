@@ -43,7 +43,7 @@ namespace samurai
                   PetscInt output_field_size = 1,
                   PetscInt stencil_size      = 2,
                   class cfg                  = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
-                  class bdry_cfg             = BoundaryConfigFV<1>>
+                  class bdry_cfg             = BoundaryConfigFV<stencil_size / 2>>
         class DivergenceFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
         {
             using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
