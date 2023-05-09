@@ -135,9 +135,10 @@ namespace samurai
     template <class Field>
     void update_ghost_subdomains(Field& field)
     {
-        using mesh_t    = typename Field::mesh_t;
-        using value_t   = typename Field::value_type;
-        using mesh_id_t = typename mesh_t::mesh_id_t;
+        static constexpr std::size_t dim = Field::dim;
+        using mesh_t                     = typename Field::mesh_t;
+        using value_t                    = typename Field::value_type;
+        using mesh_id_t                  = typename mesh_t::mesh_id_t;
 
         auto& mesh            = field.mesh();
         std::size_t min_level = mesh.min_level();
@@ -160,7 +161,20 @@ namespace samurai
                     out_interface(
                         [&](const auto& i, const auto& index)
                         {
-                            std::copy(field(level, i).begin(), field(level, i).end(), std::back_inserter(to_send[im]));
+                            if constexpr (dim == 1)
+                            {
+                                std::copy(field(level, i).begin(), field(level, i).end(), std::back_inserter(to_send[im]));
+                            }
+                            else if constexpr (dim == 2)
+                            {
+                                std::copy(field(level, i, index[0]).begin(), field(level, i, index[0]).end(), std::back_inserter(to_send[im]));
+                            }
+                            else if constexpr (dim == 3)
+                            {
+                                std::copy(field(level, i, index[0], index[1]).begin(),
+                                          field(level, i, index[0], index[1]).end(),
+                                          std::back_inserter(to_send[im]));
+                            }
                         });
                 }
                 world.isend(im, im, to_send[im]);
@@ -180,59 +194,29 @@ namespace samurai
                     in_interface(
                         [&](const auto& i, const auto& index)
                         {
-                            std::copy(to_recv[im].begin() + count, to_recv[im].begin() + count + i.size(), field(level, i).begin());
-                            count += i.size();
+                            if constexpr (dim == 1)
+                            {
+                                std::copy(to_recv[im].begin() + count,
+                                          to_recv[im].begin() + count + i.size() * field.size,
+                                          field(level, i).begin());
+                            }
+                            else if constexpr (dim == 2)
+                            {
+                                std::copy(to_recv[im].begin() + count,
+                                          to_recv[im].begin() + count + i.size() * field.size,
+                                          field(level, i, index[0]).begin());
+                            }
+                            else if constexpr (dim == 3)
+                            {
+                                std::copy(to_recv[im].begin() + count,
+                                          to_recv[im].begin() + count + i.size() * field.size,
+                                          field(level, i, index[0], index[1]).begin());
+                            }
+                            count += i.size() * field.size;
                         });
                 }
             }
         }
-
-        int rank_ouput = 1;
-
-        // std::vector<mesh_t> neighbour_meshes(mesh.neighbouring_ranks().size());
-        // for (int neighbour : mesh.neighbouring_ranks())
-        // {
-        //     if (world.rank() == rank_ouput)
-        //         std::cout <<"isend " <<world.rank() << " --> " <<neighbour << std::endl;
-        //     world.isend(neighbour, neighbour, mesh);
-        // }
-        // for (int neighbour : mesh.neighbouring_ranks())
-        // {
-        //     world.recv(neighbour, world.rank(), neighbour_meshes[neighbour]);
-        // }
-
-        // for (int neighbour : mesh.neighbouring_ranks())
-        // {
-        //     std::vector<value_t> to_send;
-        //     for (std::size_t level = min_level; level <= max_level; ++level)
-        //     {
-        //         auto out_interface = intersection(mesh[mesh_id_t::cells][level],
-        //         neighbour_meshes[neighbour][mesh_id_t::reference][level]); out_interface(
-        //             [&](const auto& i, const auto& index)
-        //             {
-        //                 std::copy(field(level, i).begin(), field(level, i).end(), std::back_inserter(to_send));
-        //             });
-        //     }
-        //     world.isend(neighbour, neighbour, to_send);
-        // }
-
-        // for (int neighbour : mesh.neighbouring_ranks())
-        // {
-        //     std::vector<value_t> to_recv;
-        //     std::size_t count = 0;
-
-        //     world.recv(neighbour, world.rank(), to_recv);
-        //     for (std::size_t level = min_level; level <= max_level; ++level)
-        //     {
-        //         auto in_interface = intersection(mesh[mesh_id_t::reference][level],
-        //         neighbour_meshes[neighbour][mesh_id_t::cells][level]); in_interface(
-        //             [&](const auto& i, const auto& index)
-        //             {
-        //                 std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i).begin());
-        //                 count += i.size();
-        //             });
-        //     }
-        // }
     }
 
     template <class Field>

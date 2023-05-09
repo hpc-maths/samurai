@@ -9,16 +9,18 @@ namespace fs = std::filesystem;
 #include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
-// #include <samurai/hdf5.hpp>
+#include <samurai/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/stencil_field.hpp>
 
 namespace mpi = boost::mpi;
 
+static constexpr std::size_t size = 2;
+
 template <class Mesh>
 auto init(Mesh& mesh)
 {
-    auto u = samurai::make_field<double, 1>("u", mesh);
+    auto u = samurai::make_field<double, size>("u", mesh);
     u.fill(0.);
 
     samurai::for_each_cell(mesh,
@@ -65,10 +67,17 @@ int main()
     output << "-----------------------------------" << std::endl;
 
     auto u = init(mesh);
-    samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    // if constexpr (size == 1)
+    // {
+    //     samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    // }
+    if constexpr (size == 2)
+    {
+        samurai::make_bc<samurai::Dirichlet>(u, 0., 0.);
+    }
     output << u << std::endl;
 
-    auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
+    auto unp1 = samurai::make_field<double, size>("unp1", mesh);
 
     double dt      = a * cfl / (1 << max_level);
     double t       = 0.;
@@ -93,10 +102,14 @@ int main()
         unp1.resize();
         unp1.fill(0);
 
-        unp1 = u - dt * samurai::upwind(a, u);
-
+        // unp1 = u - dt * samurai::upwind(a, u);
+        samurai::for_each_interval(mesh,
+                                   [&](std::size_t level, const auto& i, const auto&)
+                                   {
+                                       unp1(level, i) = u(level, i - 1);
+                                   });
         std::swap(u.array(), unp1.array());
-        // samurai::save(fmt::format("advection_1d_ite_{}_rank_{}", nt, world.rank()), mesh, u);
+        samurai::save(fmt::format("advection_1d_ite_{}", nt), mesh, u);
         nt++;
     }
 
