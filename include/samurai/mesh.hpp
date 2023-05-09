@@ -181,6 +181,9 @@ namespace samurai
         , m_min_level{min_level}
         , m_max_level{max_level}
     {
+        using box_t   = Box<value_t, dim>;
+        using point_t = typename box_t::point_t;
+
         assert(min_level <= max_level);
         m_periodic.fill(false);
 
@@ -203,32 +206,127 @@ namespace samurai
         //         std::cout << "p1 :" << neighbours.first << " p2: " << neighbours.second << '\n';
         //     }
         // }
-        if (rank > 0)
-        {
-            m_neighbouring_ranks.push_back(rank - 1);
-        }
-        if (rank < size - 1)
-        {
-            m_neighbouring_ranks.push_back(rank + 1);
-        }
-
-        using box_t   = Box<value_t, dim>;
-        using point_t = typename box_t::point_t;
-
-        point_t start_pt = b.min_corner() * static_cast<double>(1 << start_level);
-        point_t end_pt   = b.max_corner() * static_cast<double>(1 << start_level);
-
-        auto length = (end_pt - start_pt) / size;
 
         box_t box;
-        if (rank != size - 1)
+
+        double h = cell_length(start_level);
+        if constexpr (dim == 1)
         {
-            box = {start_pt + rank * length, start_pt + (rank + 1) * length};
+            point_t start_pt = b.min_corner() / h;
+            point_t end_pt   = b.max_corner() / h;
+
+            auto length = (end_pt - start_pt) / size;
+            if (rank != size - 1)
+            {
+                box = {start_pt + rank * length, start_pt + (rank + 1) * length};
+            }
+            else
+            {
+                box = {start_pt + rank * length, end_pt};
+            }
+
+            if (rank > 0)
+            {
+                m_neighbouring_ranks.push_back(rank - 1);
+            }
+            if (rank < size - 1)
+            {
+                m_neighbouring_ranks.push_back(rank + 1);
+            }
         }
-        else
+        else if constexpr (dim == 2)
         {
-            box = {start_pt + rank * length, end_pt};
+            std::array<int, dim> sizes;
+            sizes[1] = static_cast<int>(floor(sqrt(b.length()[1] / b.length()[0] * size)));
+            sizes[0] = size / sizes[1];
+            if (sizes[0] * sizes[1] != size)
+            {
+                std::cerr << "Wrong number of subdomains!" << std::endl;
+                exit(1);
+            }
+            // std::cout << "size_x = " << size_x << ", size_y = " << size_y << std::endl;
+            // exit(0);
+
+            point_t start_pt = b.min_corner() / h;
+            point_t end_pt   = b.max_corner() / h;
+            std::array<double, dim> lengths;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                lengths[d] = (end_pt[d] - start_pt[d]) / sizes[d];
+            }
+            auto row = rank / sizes[0];
+            auto col = rank % sizes[0];
+            point_t min_corner, max_corner;
+            min_corner[0] = start_pt[0] + col * lengths[0];
+            min_corner[1] = start_pt[1] + row * lengths[1];
+            max_corner[0] = min_corner[0] + lengths[0];
+            max_corner[1] = min_corner[1] + lengths[1];
+            if (row == sizes[1] - 1)
+            {
+                max_corner[1] = end_pt[1];
+            }
+            if (col == sizes[0] - 1)
+            {
+                max_corner[0] = end_pt[0];
+            }
+            box = {min_corner, max_corner};
+
+            // Neighbours
+            auto neighbour = [&](int shift_x, int shift_y)
+            {
+                return rank + shift_y * sizes[0] + shift_x;
+            };
+            if (col != 0) // not first column
+            {
+                // m_neighbouring_ranks.push_back(rank - 1); // left neighbour
+                m_neighbouring_ranks.push_back(neighbour(-1, 0)); // left neighbour
+            }
+            if (col != sizes[0] - 1) // not last column
+            {
+                // m_neighbouring_ranks.push_back(rank + 1); // right neighbour
+                m_neighbouring_ranks.push_back(neighbour(1, 0)); // right neighbour
+            }
+            if (row != 0) // not first row
+            {
+                // m_neighbouring_ranks.push_back(rank - sizes[0]); // bottom neighbour
+                m_neighbouring_ranks.push_back(neighbour(0, -1)); // bottom neighbour
+            }
+            if (row != sizes[1] - 1) // not last row
+            {
+                // m_neighbouring_ranks.push_back(rank + sizes[0]); // top neighbour
+                m_neighbouring_ranks.push_back(neighbour(0, 1)); // top neighbour
+            }
+            if (col != 0 && row != 0)
+            {
+                m_neighbouring_ranks.push_back(neighbour(-1, -1));
+            }
+            if (row != 0 && col != sizes[0] - 1)
+            {
+                m_neighbouring_ranks.push_back(neighbour(1, -1));
+            }
+            if (col != 0 && row != sizes[1] - 1)
+            {
+                m_neighbouring_ranks.push_back(neighbour(-1, 1));
+            }
+            if (row != sizes[1] - 1 && col != sizes[0] - 1)
+            {
+                m_neighbouring_ranks.push_back(neighbour(1, 1));
+            }
         }
+
+        // int output_rank = 5;
+        // if (rank == output_rank)
+        // {
+        //     std::cout << box << std::endl;
+        //     std::cout << "neighbours: ";
+        //     for (int neighbour : m_neighbouring_ranks)
+        //     {
+        //         std::cout << neighbour << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
+        // exit(0);
+
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, box};
 
         construct_subdomain();

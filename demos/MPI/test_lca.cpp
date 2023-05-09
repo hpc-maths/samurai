@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 
 namespace mpi = boost::mpi;
 
-static constexpr std::size_t size = 2;
+static constexpr std::size_t size = 1;
 
 template <class Mesh>
 auto init(Mesh& mesh)
@@ -42,8 +42,8 @@ auto init(Mesh& mesh)
 int main()
 {
     constexpr std::size_t dim       = 1;
-    constexpr std::size_t min_level = 4;
-    constexpr std::size_t max_level = 4;
+    constexpr std::size_t min_level = 10;
+    constexpr std::size_t max_level = 10;
 
     double a   = 1.;
     double Tf  = 1.;
@@ -56,7 +56,18 @@ int main()
 
     auto output = std::ofstream(output_name);
 
-    samurai::Box<double, dim> box = {{-1}, {1}};
+    samurai::Box<double, dim> box;
+    if constexpr (dim == 1)
+    {
+        box = samurai::Box<double, dim>{{-1}, {1}};
+    }
+    else if constexpr (dim == 2)
+    {
+        box = samurai::Box<double, dim>{
+            {-1, -1},
+            {1,  1 }
+        };
+    }
 
     using Config = samurai::MRConfig<dim>;
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
@@ -67,15 +78,8 @@ int main()
     output << "-----------------------------------" << std::endl;
 
     auto u = init(mesh);
-    // if constexpr (size == 1)
-    // {
-    //     samurai::make_bc<samurai::Dirichlet>(u, 0.);
-    // }
-    if constexpr (size == 2)
-    {
-        samurai::make_bc<samurai::Dirichlet>(u, 0., 0.);
-    }
-    output << u << std::endl;
+    samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    // output << u << std::endl;
 
     auto unp1 = samurai::make_field<double, size>("unp1", mesh);
 
@@ -102,16 +106,22 @@ int main()
         unp1.resize();
         unp1.fill(0);
 
-        // unp1 = u - dt * samurai::upwind(a, u);
-        samurai::for_each_interval(mesh,
-                                   [&](std::size_t level, const auto& i, const auto&)
-                                   {
-                                       unp1(level, i) = u(level, i - 1);
-                                   });
+        if constexpr (dim == 1)
+        {
+            unp1 = u - dt * samurai::upwind(a, u);
+        }
+        else if constexpr (dim == 2)
+        {
+            std::array<double, 2> a_2D = {a, a};
+
+            unp1 = u - dt * samurai::upwind(a_2D, u);
+        }
+
         std::swap(u.array(), unp1.array());
         samurai::save(fmt::format("advection_1d_ite_{}", nt), mesh, u);
         nt++;
     }
+    output << u << std::endl;
 
     // {
     //     std::array<mpi::request, 2> reqs;
