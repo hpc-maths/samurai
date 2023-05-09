@@ -8,6 +8,8 @@
 
 #include <fmt/format.h>
 
+#include <boost/serialization/base_object.hpp>
+
 #include "samurai_config.hpp"
 
 namespace samurai
@@ -34,6 +36,7 @@ namespace samurai
     template <class TValue, class TIndex = default_config::index_t>
     struct Interval
     {
+        friend class boost::serialization::access;
         static_assert(std::is_signed<TValue>::value, "Coordinate type must be signed");
         static_assert(std::is_signed<TIndex>::value, "Index type must be signed");
 
@@ -63,6 +66,15 @@ namespace samurai
         Interval& operator<<=(std::size_t i);
         Interval& operator+=(value_t i);
         Interval& operator-=(value_t i);
+
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned int)
+        {
+            ar& start;
+            ar& end;
+            ar& step;
+            ar& index;
+        }
     };
 
     /////////////////////////////

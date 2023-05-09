@@ -104,6 +104,8 @@ foreach(DEPENDENCY ${DEPENDENCIES_CONFIGURED})
   find_package(${DEPENDENCY} CONFIG REQUIRED)
 endforeach()
 
+find_package(Boost REQUIRED COMPONENTS serialization mpi)
+
 # Link dependencies:
 target_link_system_libraries(
   samurai
@@ -112,6 +114,8 @@ target_link_system_libraries(
   HighFive
   pugixml::pugixml
   fmt::fmt
+  Boost::serialization
+  Boost::mpi
 )
 
 target_compile_features(samurai INTERFACE cxx_std_17)

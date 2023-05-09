@@ -14,6 +14,12 @@
 
 #include "subset/subset_op.hpp"
 
+#include <boost/serialization/vector.hpp>
+
+#include <boost/mpi.hpp>
+#include <boost/mpi/cartesian_communicator.hpp>
+namespace mpi = boost::mpi;
+
 namespace samurai
 {
 
@@ -69,9 +75,11 @@ namespace samurai
         std::size_t max_level() const;
         std::size_t min_level() const;
         const lca_type& domain() const;
+        const lca_type& subdomain() const;
         const ca_type& get_union() const;
         bool is_periodic(std::size_t d) const;
         const std::array<bool, dim>& periodicity() const;
+        std::vector<int>& neighbouring_ranks();
 
         void swap(Mesh_base& mesh) noexcept;
 
@@ -97,6 +105,7 @@ namespace samurai
 
         using derived_type = D;
 
+        Mesh_base() = default;
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
         Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
@@ -114,17 +123,19 @@ namespace samurai
 
       private:
 
-        void construct_domain();
+        void construct_subdomain();
         void construct_union();
         void update_sub_mesh();
         void renumbering();
 
         lca_type m_domain;
+        lca_type m_subdomain;
         std::size_t m_min_level;
         std::size_t m_max_level;
         std::array<bool, dim> m_periodic;
         mesh_t m_cells;
         ca_type m_union;
+        std::vector<int> m_neighbouring_ranks;
 
         friend class boost::serialization::access;
 
@@ -136,6 +147,7 @@ namespace samurai
                 ar& m_cells[id];
             }
             ar& m_domain;
+            ar& m_subdomain;
             ar& m_union;
             ar& m_min_level;
             ar& m_min_level;
@@ -171,9 +183,55 @@ namespace samurai
     {
         assert(min_level <= max_level);
         m_periodic.fill(false);
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
 
-        construct_domain();
+        mpi::communicator world;
+        auto rank = world.rank();
+        auto size = world.size();
+
+        // mpi::cartesian_dimension dims[] = {
+        //     {size, false}
+        // };
+        // m_cartesian_comm = mpi::cartesian_communicator(world, mpi::cartesian_topology(dims));
+        // for (int r = 0; r < m_cartesian_comm.size(); ++r)
+        // {
+        //     m_cartesian_comm.barrier();
+        //     if (r == m_cartesian_comm.rank())
+        //     {
+        //         std::vector<int> c = m_cartesian_comm.coordinates(r);
+        //         std::cout << "rk :" << r << " coords: " << c[0] << '\n';
+        //         std::pair<int, int> neighbours = m_cartesian_comm.shifted_ranks(0, 1);
+        //         std::cout << "p1 :" << neighbours.first << " p2: " << neighbours.second << '\n';
+        //     }
+        // }
+        if (rank > 0)
+        {
+            m_neighbouring_ranks.push_back(rank - 1);
+        }
+        if (rank < size - 1)
+        {
+            m_neighbouring_ranks.push_back(rank + 1);
+        }
+
+        using box_t   = Box<value_t, dim>;
+        using point_t = typename box_t::point_t;
+
+        point_t start_pt = b.min_corner() * static_cast<double>(1 << start_level);
+        point_t end_pt   = b.max_corner() * static_cast<double>(1 << start_level);
+
+        auto length = (end_pt - start_pt) / size;
+
+        box_t box;
+        if (rank != size - 1)
+        {
+            box = {start_pt + rank * length, start_pt + (rank + 1) * length};
+        }
+        else
+        {
+            box = {start_pt + rank * length, end_pt};
+        }
+        this->m_cells[mesh_id_t::cells][start_level] = {start_level, box};
+
+        construct_subdomain();
         construct_union();
         update_sub_mesh();
         renumbering();
@@ -191,9 +249,10 @@ namespace samurai
         , m_periodic{periodic}
     {
         assert(min_level <= max_level);
+
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
 
-        construct_domain();
+        construct_subdomain();
         construct_union();
         update_sub_mesh();
         renumbering();
@@ -209,7 +268,7 @@ namespace samurai
 
         m_cells[mesh_id_t::cells] = {cl, false};
 
-        construct_domain();
+        construct_subdomain();
         construct_union();
         update_sub_mesh();
         renumbering();
@@ -224,7 +283,7 @@ namespace samurai
         assert(min_level <= max_level);
         m_cells[mesh_id_t::cells] = {cl, false};
 
-        construct_domain();
+        construct_subdomain();
         construct_union();
         update_sub_mesh();
         renumbering();
@@ -270,6 +329,12 @@ namespace samurai
     inline auto Mesh_base<D, Config>::domain() const -> const lca_type&
     {
         return m_domain;
+    }
+
+    template <class D, class Config>
+    inline auto Mesh_base<D, Config>::subdomain() const -> const lca_type&
+    {
+        return m_subdomain;
     }
 
     template <class D, class Config>
@@ -358,6 +423,12 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline auto Mesh_base<D, Config>::neighbouring_ranks() -> std::vector<int>&
+    {
+        return m_neighbouring_ranks;
+    }
+
+    template <class D, class Config>
     inline void Mesh_base<D, Config>::swap(Mesh_base<D, Config>& mesh) noexcept
     {
         using std::swap;
@@ -402,7 +473,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::construct_domain()
+    inline void Mesh_base<D, Config>::construct_subdomain()
     {
         // lcl_type lcl = {m_cells[mesh_id_t::cells].max_level()};
         lcl_type lcl = {m_max_level};
@@ -422,7 +493,7 @@ namespace samurai
                                                               lcl[new_index].add_interval(to_add);
                                                           });
                           });
-        m_domain = {lcl};
+        m_subdomain = {lcl};
     }
 
     template <class D, class Config>
@@ -459,8 +530,7 @@ namespace samurai
         {
             auto mt = static_cast<mesh_id_t>(id);
 
-            // os << fmt::format(fmt::emphasis::bold, "{}\n{:─^50}", mt, "") << std::endl;
-            os << fmt::format("{}\n{:─^50}", mt, "") << std::endl;
+            os << fmt::format(disable_color ? fmt::text_style() : fmt::emphasis::bold, "{}\n{:─^50}", mt, "") << std::endl;
             os << m_cells[id];
         }
     }

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <boost/mpi.hpp>
 #include <xtensor/xfixed.hpp>
 
 #include "../bc.hpp"
@@ -12,6 +13,8 @@
 #include "../numeric/projection.hpp"
 #include "../subset/subset_op.hpp"
 #include "utils.hpp"
+
+namespace mpi = boost::mpi;
 
 namespace samurai
 {
@@ -99,7 +102,7 @@ namespace samurai
         {
             auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
                                                 union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
-                                     mesh.domain())
+                                     mesh.subdomain())
                             .on(level);
 
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
@@ -127,6 +130,109 @@ namespace samurai
     inline void update_ghost_mr(Field_tuple<T...>& fields)
     {
         update_ghost_mr(fields.elements());
+    }
+
+    template <class Field>
+    void update_ghost_subdomains(Field& field)
+    {
+        using mesh_t    = typename Field::mesh_t;
+        using value_t   = typename Field::value_type;
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+
+        auto& mesh            = field.mesh();
+        std::size_t min_level = mesh.min_level();
+        std::size_t max_level = mesh.max_level();
+        mpi::communicator world;
+        std::vector<mpi::request> reqs;
+
+        std::vector<mesh_t> all_mesh(world.size());
+        std::vector<std::vector<value_t>> to_send(world.size()), to_recv(world.size());
+
+        mpi::all_gather(world, mesh, all_mesh);
+
+        for (std::size_t im = 0; im < world.size(); ++im)
+        {
+            if (im != world.rank())
+            {
+                for (std::size_t level = min_level; level <= max_level; ++level)
+                {
+                    auto out_interface = intersection(mesh[mesh_id_t::cells][level], all_mesh[im][mesh_id_t::reference][level]);
+                    out_interface(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::copy(field(level, i).begin(), field(level, i).end(), std::back_inserter(to_send[im]));
+                        });
+                }
+                world.isend(im, im, to_send[im]);
+            }
+        }
+
+        for (std::size_t im = 0; im < world.size(); ++im)
+        {
+            if (im != world.rank())
+            {
+                std::size_t count = 0;
+
+                world.recv(im, world.rank(), to_recv[im]);
+                for (std::size_t level = min_level; level <= max_level; ++level)
+                {
+                    auto in_interface = intersection(mesh[mesh_id_t::reference][level], all_mesh[im][mesh_id_t::cells][level]);
+                    in_interface(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::copy(to_recv[im].begin() + count, to_recv[im].begin() + count + i.size(), field(level, i).begin());
+                            count += i.size();
+                        });
+                }
+            }
+        }
+
+        int rank_ouput = 1;
+
+        // std::vector<mesh_t> neighbour_meshes(mesh.neighbouring_ranks().size());
+        // for (int neighbour : mesh.neighbouring_ranks())
+        // {
+        //     if (world.rank() == rank_ouput)
+        //         std::cout <<"isend " <<world.rank() << " --> " <<neighbour << std::endl;
+        //     world.isend(neighbour, neighbour, mesh);
+        // }
+        // for (int neighbour : mesh.neighbouring_ranks())
+        // {
+        //     world.recv(neighbour, world.rank(), neighbour_meshes[neighbour]);
+        // }
+
+        // for (int neighbour : mesh.neighbouring_ranks())
+        // {
+        //     std::vector<value_t> to_send;
+        //     for (std::size_t level = min_level; level <= max_level; ++level)
+        //     {
+        //         auto out_interface = intersection(mesh[mesh_id_t::cells][level],
+        //         neighbour_meshes[neighbour][mesh_id_t::reference][level]); out_interface(
+        //             [&](const auto& i, const auto& index)
+        //             {
+        //                 std::copy(field(level, i).begin(), field(level, i).end(), std::back_inserter(to_send));
+        //             });
+        //     }
+        //     world.isend(neighbour, neighbour, to_send);
+        // }
+
+        // for (int neighbour : mesh.neighbouring_ranks())
+        // {
+        //     std::vector<value_t> to_recv;
+        //     std::size_t count = 0;
+
+        //     world.recv(neighbour, world.rank(), to_recv);
+        //     for (std::size_t level = min_level; level <= max_level; ++level)
+        //     {
+        //         auto in_interface = intersection(mesh[mesh_id_t::reference][level],
+        //         neighbour_meshes[neighbour][mesh_id_t::cells][level]); in_interface(
+        //             [&](const auto& i, const auto& index)
+        //             {
+        //                 std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i).begin());
+        //                 count += i.size();
+        //             });
+        //     }
+        // }
     }
 
     template <class Field>

@@ -31,16 +31,27 @@ class Plot:
         self.artists = []
         self.ax = []
 
-        mesh = read_mesh(filename)
         if args.field is None:
             ax = plt.subplot(111)
-            self.plot(ax, mesh)
+            if args.mpi_size == 1:
+                mesh = read_mesh(filename)
+                self.plot(ax, mesh)
+            else:
+                for rank in range(args.mpi_size):
+                    mesh = read_mesh(f"{filename}_rank_{rank}")
+                    self.plot(ax, mesh)
             ax.set_title("Mesh")
             self.ax = [ax]
         else:
             for i, f in enumerate(args.field):
                 ax = plt.subplot(1, len(args.field), i + 1)
-                self.plot(ax, mesh, f)
+                if args.mpi_size == 1:
+                    mesh = read_mesh(filename)
+                    self.plot(ax, mesh, f)
+                else:
+                    for rank in range(args.mpi_size):
+                        mesh = read_mesh(f"{filename}_rank_{rank}")
+                        self.plot(ax, mesh, f)
                 ax.set_title(f)
                 self.ax.append(ax)
 
@@ -78,13 +89,25 @@ class Plot:
             aax.autoscale_view()
 
     def update(self, filename):
-        mesh = read_mesh(filename)
         self.index = 0
         if args.field is None:
-            self.plot(None, mesh, init=False)
+            if args.mpi_size == 1:
+                mesh = read_mesh(filename)
+                self.plot(None, mesh, init=False)
+            else:
+                for rank in range(args.mpi_size):
+                    mesh = read_mesh(f"{filename}_rank_{rank}")
+                    self.plot(None, mesh, init=False)
+
         else:
             for i, f in enumerate(args.field):
-                self.plot(None, mesh, f, init=False)
+                if args.mpi_size == 1:
+                    mesh = read_mesh(filename)
+                    self.plot(None, mesh, f, init=False)
+                else:
+                    for rank in range(args.mpi_size):
+                        mesh = read_mesh(f"{filename}_rank_{rank}")
+                        self.plot(None, mesh, f, init=False)
 
     def get_artist(self):
         return self.artists
@@ -95,6 +118,7 @@ parser.add_argument('--field', nargs="+", type=str, required=False, help='list o
 parser.add_argument('--start', type=int, required=False, default=0, help='iteration start')
 parser.add_argument('--end', type=int, required=False, default=None, help='iteration end')
 parser.add_argument('--save', type=str, required=False, help='output file')
+parser.add_argument('--mpi-size', type=int, default=1, required=False, help='number of mpi rank')
 parser.add_argument('--wait', type=int, default=200, required=False, help='time between two plot in ms')
 args = parser.parse_args()
 

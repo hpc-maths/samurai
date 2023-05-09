@@ -71,6 +71,7 @@ namespace samurai
         using ca_type  = typename base_type::ca_type;
         using lca_type = typename base_type::lca_type;
 
+        MRMesh() = default;
         MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);

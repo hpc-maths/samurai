@@ -15,6 +15,9 @@
 #include "samurai_config.hpp"
 #include "utils.hpp"
 
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/vector.hpp>
+
 namespace samurai
 {
 
@@ -133,7 +136,15 @@ namespace samurai
 
       private:
 
+        friend class boost::serialization::access;
+
         std::array<lca_type, max_size + 1> m_cells;
+
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned long)
+        {
+            ar& m_cells;
+        }
     };
 
     ////////////////////////////////////
@@ -396,7 +407,7 @@ namespace samurai
         {
             if (!m_cells[level].empty())
             {
-                os << fmt::format(fg(fmt::color::steel_blue) | fmt::emphasis::bold,
+                os << fmt::format(disable_color ? fmt::text_style() : fg(fmt::color::steel_blue) | fmt::emphasis::bold,
                                   "┌{0:─^{2}}┐\n"
                                   "│{1: ^{2}}│\n"
                                   "└{0:─^{2}}┘\n",

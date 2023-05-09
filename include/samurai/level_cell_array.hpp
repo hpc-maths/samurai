@@ -18,17 +18,17 @@
 #include "level_cell_list.hpp"
 #include "mesh_interval.hpp"
 #include "samurai_config.hpp"
-<<<<<<< HEAD
 #include "subset/subset_op_base.hpp"
 #include "utils.hpp"
-    =======
 
 #include <boost/mpi.hpp>
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
 
-    namespace mpi = boost::mpi;
->>>>>>> 270c007 (split box and add update_ghost_mpi)
+namespace mpi = boost::mpi;
+
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/vector.hpp>
 
 namespace samurai
 {
@@ -150,6 +150,22 @@ namespace samurai
         auto minmax_indices() const;
 
       private:
+
+        friend class boost::serialization::access;
+
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned long)
+        {
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                ar& m_cells[d];
+            }
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                ar& m_offsets[d];
+            }
+            ar& m_level;
+        }
 
         /// Recursive construction from a level cell list along dimension > 0
         template <typename TGrid, std::size_t N>
@@ -746,14 +762,12 @@ namespace samurai
     {
         for (std::size_t d = 0; d < dim; ++d)
         {
-            // os << fmt::format(fmt::emphasis::bold, "{:>10}", fmt::format("dim {}", d)) << std::endl;
-            os << fmt::format(fmt::format("dim {}", d)) << std::endl;
+            os << fmt::format(disable_color ? fmt::text_style() : fmt::emphasis::bold, "{:>10}", fmt::format("dim {}", d)) << std::endl;
 
             os << fmt::format("{:>20}", "cells = ");
             for (std::size_t ic = 0; ic < m_cells[d].size(); ++ic)
             {
-                // os << fmt::format(fmt::emphasis::bold, "{}->", ic);
-                os << fmt::format("{}->", ic);
+                os << fmt::format(disable_color ? fmt::text_style() : fmt::emphasis::bold, "{}->", ic);
                 os << m_cells[d][ic] << " ";
             }
             os << "\n" << std::endl;

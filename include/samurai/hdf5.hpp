@@ -18,12 +18,17 @@ namespace fs = std::filesystem;
 #endif
 
 #include <highfive/H5Easy.hpp>
+#include <highfive/H5PropertyList.hpp>
 #include <pugixml.hpp>
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xview.hpp>
 
 #include <fmt/core.h>
+
+#include <boost/mpi.hpp>
+#include <boost/mpi/collectives.hpp>
+namespace mpi = boost::mpi;
 
 #include "algorithm.hpp"
 #include "cell.hpp"
@@ -470,7 +475,7 @@ namespace samurai
 
     template <class D>
     inline Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename)
-        : h5_file(path.string() + '/' + filename + ".h5", HighFive::File::Overwrite)
+        : h5_file(path.string() + '/' + filename + ".h5", HighFive::File::Overwrite, HighFive::MPIOFileDriver(MPI_COMM_WORLD, MPI_INFO_NULL))
         , m_path(path)
         , m_filename(filename)
     {
@@ -496,22 +501,47 @@ namespace samurai
     inline void
     Hdf5<D>::save_on_mesh(pugi::xml_node& grid_parent, const std::string& prefix, const Submesh& submesh, const std::string& mesh_name)
     {
-        xt::xtensor<std::size_t, 2> connectivity;
-        xt::xtensor<double, 2> coords;
-        std::tie(coords, connectivity) = extract_coords_and_connectivity(submesh);
+        xt::xtensor<std::size_t, 2> local_connectivity;
+        xt::xtensor<double, 2> local_coords;
+        static constexpr std::size_t dim = derived_type_save::dim;
+        mpi::communicator world;
 
-        H5Easy::dump(h5_file, prefix + "/connectivity", connectivity);
-        H5Easy::dump(h5_file, prefix + "/points", coords);
+        std::tie(local_coords, local_connectivity) = extract_coords_and_connectivity(submesh);
+
+        xt::xtensor<std::size_t, 1> connectivity_sizes = xt::empty<std::size_t>({world.size()});
+        mpi::all_gather(world, local_connectivity.shape(0), connectivity_sizes.begin());
+        auto connectivity_cumsum = xt::nancumsum(connectivity_sizes);
+
+        xt::xtensor<std::size_t, 1> coords_sizes = xt::empty<std::size_t>({world.size()});
+        mpi::all_gather(world, local_coords.shape(0), coords_sizes.begin());
+        auto coords_cumsum = xt::nancumsum(coords_sizes);
+
+        auto connectivity = h5_file.createDataSet<std::size_t>(
+            "/connectivity",
+            HighFive::DataSpace(std::vector<std::size_t>{xt::sum(connectivity_sizes)[0], 1 << dim}));
+        auto coords = h5_file.createDataSet<std::size_t>("/points",
+                                                         HighFive::DataSpace(std::vector<std::size_t>{xt::sum(coords_sizes)[0], dim}));
+
+        auto xfer_props = HighFive::DataTransferProps{};
+        xfer_props.add(HighFive::UseCollectiveIO{});
+
+        auto connectivity_slice = connectivity.select({connectivity_cumsum[world.rank()], 0}, {connectivity_sizes[world.rank()], 1 << dim});
+        connectivity_slice.write(local_connectivity, xfer_props);
+
+        auto coords_slice = coords.select({coords_cumsum[world.rank()], 0}, {coords_sizes[world.rank()], dim});
+        coords_slice.write(local_coords, xfer_props);
+        //  H5Easy::dump(h5_file, prefix + "/connectivity", connectivity);
+        //  H5Easy::dump(h5_file, prefix + "/points", coords);
 
         auto grid                     = grid_parent.append_child("Grid");
         grid.append_attribute("Name") = mesh_name.data();
 
         auto topo                                 = grid.append_child("Topology");
         topo.append_attribute("TopologyType")     = element_type(derived_type_save::dim).c_str();
-        topo.append_attribute("NumberOfElements") = connectivity.shape()[0];
+        topo.append_attribute("NumberOfElements") = xt::sum(connectivity_sizes)[0];
 
         auto topo_data                           = topo.append_child("DataItem");
-        topo_data.append_attribute("Dimensions") = connectivity.size();
+        topo_data.append_attribute("Dimensions") = xt::sum(connectivity_sizes)[0] * (1 << dim);
         topo_data.append_attribute("Format")     = "HDF";
         topo_data.text()                         = fmt::format("{}.h5:{}/connectivity", m_filename, prefix).data();
 
@@ -519,7 +549,7 @@ namespace samurai
         geom.append_attribute("GeometryType") = "XYZ";
 
         auto geom_data                           = geom.append_child("DataItem");
-        geom_data.append_attribute("Dimensions") = coords.size();
+        geom_data.append_attribute("Dimensions") = xt::sum(coords_sizes)[0] * dim;
         geom_data.append_attribute("Format")     = "HDF";
         geom_data.text()                         = fmt::format("{}.h5:{}/points", m_filename, prefix).data();
 

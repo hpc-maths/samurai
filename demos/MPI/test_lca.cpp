@@ -1,100 +1,114 @@
-#include <iostream>
+#include <boost/mpi.hpp>
+#include <filesystem>
+#include <fmt/format.h>
 #include <fstream>
 
-#include <fmt/format.h>
+namespace fs = std::filesystem;
 
-#include <boost/mpi.hpp>
-#include <samurai/box.hpp>
-#include <samurai/mr/mesh.hpp>
-#include <samurai/field.hpp>
 #include <samurai/algorithm/update.hpp>
+#include <samurai/bc.hpp>
+#include <samurai/box.hpp>
+#include <samurai/field.hpp>
+// #include <samurai/hdf5.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/stencil_field.hpp>
 
 namespace mpi = boost::mpi;
+
+template <class Mesh>
+auto init(Mesh& mesh)
+{
+    auto u = samurai::make_field<double, 1>("u", mesh);
+    u.fill(0.);
+
+    samurai::for_each_cell(mesh,
+                           [&](auto& cell)
+                           {
+                               auto center         = cell.center();
+                               const double radius = .2;
+
+                               const double x_center = 0;
+                               if (std::abs(center[0] - x_center) <= radius)
+                               {
+                                   u[cell] = 1;
+                               }
+                           });
+
+    return u;
+}
+
 int main()
 {
-    constexpr std::size_t dim = 1;
+    constexpr std::size_t dim       = 1;
+    constexpr std::size_t min_level = 4;
+    constexpr std::size_t max_level = 4;
+
+    double a   = 1.;
+    double Tf  = 1.;
+    double cfl = 0.95;
+
     mpi::environment env;
     mpi::communicator world;
 
-    // // Test interval
-    // if (world.rank() == 0)
-    // {
-    //     mpi::request reqs[2];
-    //     samurai::Interval<int> i_0 = {0, 10}, i_1;
-    //     reqs[0] = world.isend(1, 0, i_0);
-    //     reqs[1] = world.irecv(1, 1, i_1);
-    //     mpi::wait_all(reqs, reqs + 2);
-    //     std::cout << world.rank() << i_1 << "!" << std::endl;
-    // }
-    // else
-    // {
-    //     mpi::request reqs[2];
-    //     samurai::Interval<int> i_0, i_1 = {10, 20};
-    //     reqs[0] = world.isend(0, 1, i_1);
-    //     reqs[1] = world.irecv(0, 0, i_0);
-    //     mpi::wait_all(reqs, reqs + 2);
-    //     std::cout << world.rank() << i_0 << ", " << std::endl;
-    // }
+    auto output_name = fmt::format("output_{}.log", world.rank());
 
-    // // Test CellArray
-    // if (world.rank() == 0)
-    // {
-    //     mpi::request reqs[2];
-    //     samurai::Box<int, 1> box = {{0}, {10}};
-    //     samurai::LevelCellArray<1> lca_0{0, box}, lca_1;
-    //     samurai::CellArray<1> ca_0, ca_1;
-    //     ca_0[0] = lca_0;
-    //     reqs[0] = world.isend(1, 0, ca_0);
-    //     reqs[1] = world.irecv(1, 1, ca_1);
-    //     mpi::wait_all(reqs, reqs + 2);
-    //     std::cout << world.rank() << ca_1 << "!" << std::endl;
-    // }
-    // else
-    // {
-    //     mpi::request reqs[2];
-    //     samurai::Box<int, 1> box = {{10}, {20}};
-    //     samurai::LevelCellArray<1> lca_0, lca_1{0, box};
-    //     samurai::CellArray<1> ca_0, ca_1;
-    //     ca_1[0] = lca_1;
-    //     reqs[0] = world.isend(0, 1, ca_1);
-    //     reqs[1] = world.irecv(0, 0, ca_0);
-    //     mpi::wait_all(reqs, reqs + 2);
-    //     std::cout << world.rank() << ca_0 << ", " << std::endl;
-    // }
+    auto output = std::ofstream(output_name);
 
-    samurai::Box<double, dim> box = {{0}, {1}};
+    samurai::Box<double, dim> box = {{-1}, {1}};
+
     using Config = samurai::MRConfig<dim>;
-    samurai::MRMesh<Config> mesh{box, 2, 4};
+    samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    std::ofstream out(fmt::format("output_{}.txt", world.rank()));
-    out << mesh << std::endl;
+    output << mesh << std::endl;
+    output << "-----------------------------------" << std::endl;
+    output << mesh.domain() << std::endl;
+    output << "-----------------------------------" << std::endl;
 
-    auto u = samurai::make_field<double, 1>("u", mesh);
-    u.fill(world.rank());
-    samurai::update_ghost_mpi(u);
-    out << u << std::endl;
-    // // Test MRMesh
-    // if (world.rank() == 0)
+    auto u = init(mesh);
+    samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    output << u << std::endl;
+
+    auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
+
+    double dt      = a * cfl / (1 << max_level);
+    double t       = 0.;
+    std::size_t nt = 0;
+
+    while (t != Tf)
+    {
+        t += dt;
+        if (t > Tf)
+        {
+            dt += Tf - t;
+            t = Tf;
+        }
+
+        if (world.rank() == 0)
+        {
+            std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt, t, dt) << std::endl;
+        }
+
+        samurai::update_ghost_subdomains(u);
+        samurai::update_ghost_mr(u);
+        unp1.resize();
+        unp1.fill(0);
+
+        unp1 = u - dt * samurai::upwind(a, u);
+
+        std::swap(u.array(), unp1.array());
+        // samurai::save(fmt::format("advection_1d_ite_{}_rank_{}", nt, world.rank()), mesh, u);
+        nt++;
+    }
+
     // {
-    //     mpi::request reqs[2];
-    //     samurai::Box<double, dim> box = {{0}, {1}};
-    //     using Config = samurai::MRConfig<dim>;
-    //     samurai::MRMesh<Config> mesh_0{box, 2, 4}, mesh_1;
-    //     reqs[0] = world.isend(1, 0, mesh_0);
-    //     reqs[1] = world.irecv(1, 1, mesh_1);
-    //     mpi::wait_all(reqs, reqs + 2);
-    //     std::cout << world.rank() << mesh_1 << "!" << std::endl;
-    // }
-    // else
-    // {
-    //     mpi::request reqs[2];
+    //     std::array<mpi::request, 2> reqs;
     //     samurai::Box<double, 1> box = {{1}, {2}};
-    //     using Config = samurai::MRConfig<dim>;
+    //     using Config                = samurai::MRConfig<dim>;
     //     samurai::MRMesh<Config> mesh_0, mesh_1{box, 2, 4};
     //     reqs[0] = world.isend(0, 1, mesh_1);
     //     reqs[1] = world.irecv(0, 0, mesh_0);
-    //     mpi::wait_all(reqs, reqs + 2);
-    //     std::cout << world.rank() << mesh_0 << ", " << std::endl;
+    //     mpi::wait_all(reqs.begin(), reqs.end());
+    //     output << world.rank() << mesh_0 << ", " << std::endl;
     // }
 
     return 0;

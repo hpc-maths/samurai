@@ -6,6 +6,8 @@
 
 namespace samurai
 {
+    static constexpr bool disable_color = true;
+
     template <class TValue, class TIndex>
     struct Interval;
 
