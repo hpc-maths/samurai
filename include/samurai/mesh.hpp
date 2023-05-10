@@ -75,6 +75,8 @@ namespace samurai
 
         template <typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
+        const interval_t&
+        get_interval(std::size_t level, const interval_t& interval, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const;
         const interval_t& get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
         template <typename... T>
@@ -258,6 +260,14 @@ namespace samurai
     inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index...);
+    }
+
+    template <class D, class Config>
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level,
+                                                   const interval_t& interval,
+                                                   const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const -> const interval_t&
+    {
+        return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }
 
     template <class D, class Config>

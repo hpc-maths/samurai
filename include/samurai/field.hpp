@@ -483,6 +483,11 @@ namespace samurai
         template <class... T>
         const interval_t& get_interval(std::string rw, std::size_t level, const interval_t& interval, const T... index) const;
 
+        const interval_t& get_interval(std::string rw,
+                                       std::size_t level,
+                                       const interval_t& interval,
+                                       const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const;
+
         std::string m_name;
         data_type m_data;
 
@@ -548,6 +553,23 @@ namespace samurai
         -> const interval_t&
     {
         const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index...);
+
+        if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
+        {
+            throw std::out_of_range(fmt::format("{} FIELD ERROR on level {}: try to find interval {}", rw, level, interval));
+        }
+
+        return interval_tmp;
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw,
+                                                                 std::size_t level,
+                                                                 const interval_t& interval,
+                                                                 const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const
+        -> const interval_t&
+    {
+        const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index);
 
         if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
         {

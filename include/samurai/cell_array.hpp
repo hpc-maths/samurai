@@ -55,6 +55,9 @@ namespace samurai
         template <typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
 
+        const interval_t&
+        get_interval(std::size_t level, const interval_t& interval, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const;
+
         const interval_t& get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
         template <typename... T>
@@ -138,6 +141,15 @@ namespace samurai
         -> const interval_t&
     {
         return m_cells[level].get_interval(interval, index...);
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level,
+                                                                    const interval_t& interval,
+                                                                    const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const
+        -> const interval_t&
+    {
+        return m_cells[level].get_interval(interval, index);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
