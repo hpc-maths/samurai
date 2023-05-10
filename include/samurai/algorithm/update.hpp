@@ -166,15 +166,7 @@ namespace samurai
                 out_interface(
                     [&](const auto& i, const auto& index)
                     {
-                        if constexpr (dim == 1)
-                        {
-                            std::copy(field(level, i).begin(), field(level, i).end(), std::back_inserter(to_send));
-                        }
-                        else if constexpr (dim == 2)
-                        {
-                            auto j = index[0];
-                            std::copy(field(level, i, j).begin(), field(level, i, j).end(), std::back_inserter(to_send));
-                        }
+                        std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send));
                     });
             }
             world.isend(neighbour_rank, neighbour_rank, to_send);
@@ -193,15 +185,7 @@ namespace samurai
                 in_interface(
                     [&](const auto& i, const auto& index)
                     {
-                        if constexpr (dim == 1)
-                        {
-                            std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i).begin());
-                        }
-                        else if constexpr (dim == 2)
-                        {
-                            auto j = index[0];
-                            std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i, j).begin());
-                        }
+                        std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i, index).begin());
                         count += i.size();
                     });
             }

@@ -25,10 +25,11 @@
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
 
-namespace mpi = boost::mpi;
-
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
+
+namespace mpi = boost::mpi;
+using namespace xt::placeholders;
 
 namespace samurai
 {
