@@ -550,7 +550,7 @@ namespace samurai
 
         auto topo                                 = grid.append_child("Topology");
         topo.append_attribute("TopologyType")     = element_type(derived_type_save::dim).c_str();
-        topo.append_attribute("NumberOfElements") = xt::sum(connectivity_sizes)[0];
+        topo.append_attribute("NumberOfElements") = xt::sum(connectivity_sizes)[0]; // recompute value
 
         auto topo_data                           = topo.append_child("DataItem");
         topo_data.append_attribute("Dimensions") = xt::sum(connectivity_sizes)[0] * (1 << dim);
@@ -617,7 +617,7 @@ namespace samurai
             attribute.append_attribute("Center") = "Cell";
 
             auto dataitem                           = attribute.append_child("DataItem");
-            dataitem.append_attribute("Dimensions") = submesh.nb_cells();
+            dataitem.append_attribute("Dimensions") = field_cumsum.back();
             dataitem.append_attribute("Format")     = "HDF";
             dataitem.append_attribute("Precision")  = "8";
             dataitem.text()                         = fmt::format("{}.h5:{}", m_filename, path).data();
