@@ -121,8 +121,17 @@ namespace samurai
         using derived_type = D;
 
         Mesh_base() = default;
-        Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
-        Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
+        Mesh_base(const cl_type& cl,
+                  std::size_t min_level,
+                  std::size_t max_level,
+                  const lca_type& domain,
+                  const std::vector<int>& neighbouring_ranks);
+        Mesh_base(const cl_type& cl,
+                  std::size_t min_level,
+                  std::size_t max_level,
+                  const lca_type& domain,
+                  const std::vector<int>& neighbouring_ranks,
+                  const std::array<bool, dim>& periodic);
         Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b,
                   std::size_t start_level,
@@ -245,9 +254,16 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : m_min_level{min_level}
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl,
+                                           std::size_t min_level,
+                                           std::size_t max_level,
+                                           const lca_type& domain,
+                                           const std::vector<int>& neighbouring_ranks)
+        : m_domain(domain)
+        , m_min_level{min_level}
         , m_max_level{max_level}
+        , m_neighbouring_ranks(neighbouring_ranks)
+
     {
         assert(min_level <= max_level);
         m_periodic.fill(false);
@@ -261,10 +277,17 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
-        : m_min_level{min_level}
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl,
+                                           std::size_t min_level,
+                                           std::size_t max_level,
+                                           const lca_type& domain,
+                                           const std::vector<int>& neighbouring_ranks,
+                                           const std::array<bool, dim>& periodic)
+        : m_domain(domain)
+        , m_min_level{min_level}
         , m_max_level{max_level}
         , m_periodic{periodic}
+        , m_neighbouring_ranks(neighbouring_ranks)
     {
         assert(min_level <= max_level);
         m_cells[mesh_id_t::cells] = {cl, false};

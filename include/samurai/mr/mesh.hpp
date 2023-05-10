@@ -72,8 +72,17 @@ namespace samurai
         using lca_type = typename base_type::lca_type;
 
         MRMesh() = default;
-        MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
-        MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
+        MRMesh(const cl_type& cl,
+               std::size_t min_level,
+               std::size_t max_level,
+               const lca_type& domain,
+               const std::vector<int>& neighbouring_ranks);
+        MRMesh(const cl_type& cl,
+               std::size_t min_level,
+               std::size_t max_level,
+               const lca_type& domain,
+               const std::vector<int>& neighbouring_ranks,
+               const std::array<bool, dim>& periodic);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
 
@@ -84,14 +93,23 @@ namespace samurai
     };
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : base_type(cl, min_level, max_level)
+    inline MRMesh<Config>::MRMesh(const cl_type& cl,
+                                  std::size_t min_level,
+                                  std::size_t max_level,
+                                  const lca_type& domain,
+                                  const std::vector<int>& neighbouring_ranks)
+        : base_type(cl, min_level, max_level, domain, neighbouring_ranks)
     {
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
-        : base_type(cl, min_level, max_level, periodic)
+    inline MRMesh<Config>::MRMesh(const cl_type& cl,
+                                  std::size_t min_level,
+                                  std::size_t max_level,
+                                  const lca_type& domain,
+                                  const std::vector<int>& neighbouring_ranks,
+                                  const std::array<bool, dim>& periodic)
+        : base_type(cl, min_level, max_level, domain, neighbouring_ranks, periodic)
     {
     }
 

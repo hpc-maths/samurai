@@ -514,8 +514,8 @@ namespace samurai
         xt::xtensor<std::size_t, 1> connectivity_sizes = xt::empty<std::size_t>({world.size()});
         mpi::all_gather(world, local_connectivity.shape(0), connectivity_sizes.begin());
 
-        std::vector<std::size_t> connectivity_cumsum(world.size() + 1, 0);
-        for (std::size_t i = 0; i < world.size(); ++i)
+        std::vector<std::size_t> connectivity_cumsum(static_cast<std::size_t>(world.size() + 1), 0);
+        for (std::size_t i = 0; i < static_cast<std::size_t>(world.size()); ++i)
         {
             connectivity_cumsum[i + 1] += connectivity_cumsum[i] + connectivity_sizes[i];
         }
@@ -523,8 +523,8 @@ namespace samurai
         xt::xtensor<std::size_t, 1> coords_sizes = xt::empty<std::size_t>({world.size()});
         mpi::all_gather(world, local_coords.shape(0), coords_sizes.begin());
 
-        std::vector<std::size_t> coords_cumsum(world.size() + 1, 0);
-        for (std::size_t i = 0; i < world.size(); ++i)
+        std::vector<std::size_t> coords_cumsum(static_cast<std::size_t>(world.size() + 1), 0);
+        for (std::size_t i = 0; i < static_cast<std::size_t>(world.size()); ++i)
         {
             coords_cumsum[i + 1] += coords_cumsum[i] + coords_sizes[i];
         }
@@ -538,11 +538,13 @@ namespace samurai
         auto xfer_props = HighFive::DataTransferProps{};
         xfer_props.add(HighFive::UseCollectiveIO{});
 
-        auto connectivity_slice = connectivity.select({connectivity_cumsum[world.rank()], 0}, {connectivity_sizes[world.rank()], 1 << dim});
-        local_connectivity += coords_cumsum[world.rank()];
+        auto connectivity_slice = connectivity.select({connectivity_cumsum[static_cast<std::size_t>(world.rank())], 0},
+                                                      {connectivity_sizes[static_cast<std::size_t>(world.rank())], 1 << dim});
+        local_connectivity += coords_cumsum[static_cast<std::size_t>(world.rank())];
         connectivity_slice.write_raw(local_connectivity.data(), HighFive::AtomicType<std::size_t>{}, xfer_props);
 
-        auto coords_slice = coords.select({coords_cumsum[world.rank()], 0}, {coords_sizes[world.rank()], 3});
+        auto coords_slice = coords.select({coords_cumsum[static_cast<std::size_t>(world.rank())], 0},
+                                          {coords_sizes[static_cast<std::size_t>(world.rank())], 3});
         coords_slice.write_raw(local_coords.data(), HighFive::AtomicType<double>{}, xfer_props);
 
         auto grid                     = grid_parent.append_child("Grid");
@@ -579,8 +581,8 @@ namespace samurai
         xt::xtensor<std::size_t, 1> field_sizes = xt::empty<std::size_t>({world.size()});
         mpi::all_gather(world, submesh.nb_cells(), field_sizes.begin());
 
-        std::vector<std::size_t> field_cumsum(world.size() + 1, 0);
-        for (std::size_t i = 0; i < world.size(); ++i)
+        std::vector<std::size_t> field_cumsum(static_cast<std::size_t>(world.size() + 1), 0);
+        for (std::size_t i = 0; i < static_cast<std::size_t>(world.size()); ++i)
         {
             field_cumsum[i + 1] += field_cumsum[i] + field_sizes[i];
         }
@@ -605,7 +607,8 @@ namespace samurai
             auto xfer_props = HighFive::DataTransferProps{};
             xfer_props.add(HighFive::UseCollectiveIO{});
 
-            auto data_slice = data.select({field_cumsum[world.rank()]}, {field_sizes[world.rank()]});
+            auto data_slice = data.select({field_cumsum[static_cast<std::size_t>(world.rank())]},
+                                          {field_sizes[static_cast<std::size_t>(world.rank())]});
             data_slice.write_raw(xt::eval(xt::view(local_data, xt::all(), i)).data(),
                                  HighFive::AtomicType<typename Field::value_type>{},
                                  xfer_props);
