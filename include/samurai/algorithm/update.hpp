@@ -144,74 +144,16 @@ namespace samurai
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
         mpi::communicator world;
-        // std::vector<mpi::request> reqs;
-
-        // std::vector<mesh_t> all_mesh(world.size());
-        // std::vector<std::vector<value_t>> to_send(world.size()), to_recv(world.size());
-
-        // mpi::all_gather(world, mesh, all_mesh);
-
-        // for (std::size_t im = 0; im < world.size(); ++im)
-        // {
-        //     if (im != world.rank())
-        //     {
-        //         for (std::size_t level = min_level; level <= max_level; ++level)
-        //         {
-        //             auto out_interface = intersection(mesh[mesh_id_t::cells][level], all_mesh[im][mesh_id_t::reference][level]);
-        //             out_interface(
-        //                 [&](const auto& i, const auto& index)
-        //                 {
-        //                     std::copy(field(level, i).begin(), field(level, i).end(), std::back_inserter(to_send[im]));
-        //                 });
-        //         }
-        //         world.isend(im, im, to_send[im]);
-        //     }
-        // }
-
-        // for (std::size_t im = 0; im < world.size(); ++im)
-        // {
-        //     if (im != world.rank())
-        //     {
-        //         std::size_t count = 0;
-
-        //         world.recv(im, world.rank(), to_recv[im]);
-        //         for (std::size_t level = min_level; level <= max_level; ++level)
-        //         {
-        //             auto in_interface = intersection(mesh[mesh_id_t::reference][level], all_mesh[im][mesh_id_t::cells][level]);
-        //             in_interface(
-        //                 [&](const auto& i, const auto& index)
-        //                 {
-        //                     std::copy(to_recv[im].begin() + count, to_recv[im].begin() + count + i.size(), field(level, i).begin());
-        //                     count += i.size();
-        //                 });
-        //         }
-        //     }
-        // }
-
-        int rank_ouput = 4;
 
         std::vector<mesh_t> neighbour_meshes(mesh.neighbouring_ranks().size());
         for (int neighbour_rank : mesh.neighbouring_ranks())
         {
-            // if (world.rank() == rank_ouput)
-            // {
-            //     std::cout << "isend " << world.rank() << " --> " << neighbour_rank << std::endl;
-            // }
             world.isend(neighbour_rank, neighbour_rank, mesh);
         }
         for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
         {
             int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            // if (world.rank() == rank_ouput)
-            // {
-            //     std::cout << "before recv " << world.rank() << " <-- " << neighbour_rank << std::endl;
-            // }
             world.recv(neighbour_rank, world.rank(), neighbour_meshes[i_rank]);
-            // if (world.rank() == rank_ouput)
-            // {
-            //     std::cout << "after recv " << world.rank() << " <-- " << neighbour_rank << std::endl;
-            //     // std::cout << neighbour_meshes[i] << std::endl;
-            // }
         }
 
         for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
@@ -235,14 +177,6 @@ namespace samurai
                         }
                     });
             }
-            // if (world.rank() == rank_ouput)
-            // {
-            //     for (std::size_t i = 0; i < to_send.size(); ++i)
-            //     {
-            //         std::cout << to_send[i] << " ";
-            //     }
-            //     std::cout << std::endl;
-            // }
             world.isend(neighbour_rank, neighbour_rank, to_send);
         }
 
