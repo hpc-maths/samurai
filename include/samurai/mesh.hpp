@@ -197,7 +197,7 @@ namespace samurai
         std::array<int, dim> sizes;
         auto product_of_length   = xt::prod(b.length())[0];
         auto length_harmonic_avg = pow(product_of_length, 1. / dim);
-        double product_of_sizes  = 1;
+        int product_of_sizes     = 1;
         for (std::size_t d = 0; d < dim - 1; ++d)
         {
             sizes[d] = static_cast<int>(floor(pow(size, 1. / dim) * b.length()[d] / length_harmonic_avg));
@@ -210,14 +210,13 @@ namespace samurai
             exit(1);
         }
 
-        // Compute the Cartesian coordinates of the subdomain
+        // Compute the Cartesian coordinates of the subdomain in the topology
         int a = rank;
         xt::xtensor_fixed<int, xt::xshape<dim>> coords;
         for (std::size_t d = 0; d < dim; ++d)
         {
-            int& b    = sizes[d];
-            coords[d] = a % b;
-            a         = a / b;
+            coords[d] = a % sizes[d];
+            a         = a / sizes[d];
         }
 
         // Directional lengths of a standard subdomain
@@ -244,7 +243,7 @@ namespace samurai
         box_t box = {min_corner, max_corner};
 
         // Neighbours
-        m_neighbouring_ranks.reserve(pow(3, dim) - 1);
+        m_neighbouring_ranks.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
         auto neighbour = [&](xt::xtensor_fixed<int, xt::xshape<dim>> shift)
         {
             auto neighbour_rank            = rank;
