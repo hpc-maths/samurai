@@ -52,12 +52,12 @@ auto init(Mesh& mesh)
 int main()
 {
     constexpr std::size_t dim       = 2;
-    constexpr std::size_t min_level = 4;
-    constexpr std::size_t max_level = 4;
+    constexpr std::size_t min_level = 8;
+    constexpr std::size_t max_level = 8;
 
     double a   = 1.;
     double Tf  = 1.;
-    double cfl = 0.45;
+    double cfl = 0.95 / pow(2, dim - 1);
 
     mpi::environment env;
     mpi::communicator world;
@@ -78,6 +78,13 @@ int main()
             {1,  1 }
         };
     }
+    else if constexpr (dim == 3)
+    {
+        box = samurai::Box<double, dim>{
+            {-1, -1, -1},
+            {1,  1,  1 }
+        };
+    }
 
     using Config = samurai::MRConfig<dim>;
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
@@ -95,7 +102,7 @@ int main()
     auto rank = samurai::make_field<double, size>("rank", mesh);
     rank.fill(world.rank());
 
-    double dt      = a * cfl / (1 << max_level);
+    double dt      = a * cfl * samurai::cell_length(max_level);
     double t       = 0.;
     std::size_t nt = 0;
 
@@ -122,11 +129,11 @@ int main()
         {
             unp1 = u - dt * samurai::upwind(a, u);
         }
-        else if constexpr (dim == 2)
+        else
         {
-            std::array<double, 2> a_2D = {a, a};
-
-            unp1 = u - dt * samurai::upwind(a_2D, u);
+            std::array<double, dim> a_;
+            a_.fill(a);
+            unp1 = u - dt * samurai::upwind(a_, u);
         }
 
         std::swap(u.array(), unp1.array());

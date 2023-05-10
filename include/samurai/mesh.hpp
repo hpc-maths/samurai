@@ -191,126 +191,89 @@ namespace samurai
         auto rank = world.rank();
         auto size = world.size();
 
-        // mpi::cartesian_dimension dims[] = {
-        //     {size, false}
-        // };
-        // m_cartesian_comm = mpi::cartesian_communicator(world, mpi::cartesian_topology(dims));
-        // for (int r = 0; r < m_cartesian_comm.size(); ++r)
-        // {
-        //     m_cartesian_comm.barrier();
-        //     if (r == m_cartesian_comm.rank())
-        //     {
-        //         std::vector<int> c = m_cartesian_comm.coordinates(r);
-        //         std::cout << "rk :" << r << " coords: " << c[0] << '\n';
-        //         std::pair<int, int> neighbours = m_cartesian_comm.shifted_ranks(0, 1);
-        //         std::cout << "p1 :" << neighbours.first << " p2: " << neighbours.second << '\n';
-        //     }
-        // }
-
-        box_t box;
-
         double h = cell_length(start_level);
-        if constexpr (dim == 1)
+
+        // Computes the number of subdomains according to each Cartesian direction
+        std::array<int, dim> sizes;
+        auto product_of_length   = xt::prod(b.length())[0];
+        auto length_harmonic_avg = pow(product_of_length, 1. / dim);
+        double product_of_sizes  = 1;
+        for (std::size_t d = 0; d < dim - 1; ++d)
         {
-            point_t start_pt = b.min_corner() / h;
-            point_t end_pt   = b.max_corner() / h;
+            sizes[d] = static_cast<int>(floor(pow(size, 1. / dim) * b.length()[d] / length_harmonic_avg));
+            product_of_sizes *= sizes[d];
+        }
+        sizes[dim - 1] = size / product_of_sizes;
+        if (sizes[dim - 1] * product_of_sizes != size)
+        {
+            std::cerr << "Wrong number of subdomains. You can use " << (sizes[dim - 1] * product_of_sizes) << " instead." << std::endl;
+            exit(1);
+        }
 
-            auto length = (end_pt - start_pt) / size;
-            if (rank != size - 1)
-            {
-                box = {start_pt + rank * length, start_pt + (rank + 1) * length};
-            }
-            else
-            {
-                box = {start_pt + rank * length, end_pt};
-            }
+        // Compute the Cartesian coordinates of the subdomain
+        int a = rank;
+        xt::xtensor_fixed<int, xt::xshape<dim>> coords;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            int& b    = sizes[d];
+            coords[d] = a % b;
+            a         = a / b;
+        }
 
-            if (rank > 0)
+        // Directional lengths of a standard subdomain
+        point_t start_pt = b.min_corner() / h;
+        point_t end_pt   = b.max_corner() / h;
+        xt::xtensor_fixed<double, xt::xshape<dim>> lengths;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            lengths[d] = ceil((end_pt[d] - start_pt[d]) / static_cast<double>(sizes[d]));
+        }
+
+        // Create the local box corresponding to the subdomain
+        point_t min_corner, max_corner;
+        min_corner = start_pt + coords * lengths;
+        max_corner = min_corner + lengths;
+
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            if (coords[d] == sizes[d] - 1)
             {
-                m_neighbouring_ranks.push_back(rank - 1);
-            }
-            if (rank < size - 1)
-            {
-                m_neighbouring_ranks.push_back(rank + 1);
+                max_corner[d] = end_pt[d];
             }
         }
-        else if constexpr (dim == 2)
-        {
-            std::array<int, dim> sizes;
-            sizes[1] = static_cast<int>(floor(sqrt(b.length()[1] / b.length()[0] * size)));
-            sizes[0] = size / sizes[1];
-            if (sizes[0] * sizes[1] != size)
-            {
-                std::cerr << "Wrong number of subdomains!" << std::endl;
-                exit(1);
-            }
-            // std::cout << rank << ": size_x = " << sizes[0] << ", size_y = " << sizes[1] << std::endl;
+        box_t box = {min_corner, max_corner};
 
-            point_t start_pt = b.min_corner() / h;
-            point_t end_pt   = b.max_corner() / h;
-            std::array<double, dim> lengths;
+        // Neighbours
+        m_neighbouring_ranks.reserve(pow(3, dim) - 1);
+        auto neighbour = [&](xt::xtensor_fixed<int, xt::xshape<dim>> shift)
+        {
+            auto neighbour_rank            = rank;
+            int product_of_preceding_sizes = 1;
             for (std::size_t d = 0; d < dim; ++d)
             {
-                lengths[d] = ceil((end_pt[d] - start_pt[d]) / static_cast<double>(sizes[d]));
+                neighbour_rank += product_of_preceding_sizes * shift[d];
+                product_of_preceding_sizes *= sizes[d];
             }
-            // std::cout << rank << ": length_x = " << lengths[0] << ", length_y = " << lengths[1] << std::endl;
-            auto row = rank / sizes[0];
-            auto col = rank % sizes[0];
-            point_t min_corner, max_corner;
-            min_corner[0] = start_pt[0] + col * lengths[0];
-            min_corner[1] = start_pt[1] + row * lengths[1];
-            max_corner[0] = min_corner[0] + lengths[0];
-            max_corner[1] = min_corner[1] + lengths[1];
-            if (row == sizes[1] - 1)
-            {
-                max_corner[1] = end_pt[1];
-            }
-            if (col == sizes[0] - 1)
-            {
-                max_corner[0] = end_pt[0];
-            }
-            box = {min_corner, max_corner};
+            return neighbour_rank;
+        };
 
-            // Neighbours
-            auto neighbour = [&](int shift_x, int shift_y)
+        static_nested_loop<dim, -1, 2>(
+            [&](auto& shift)
             {
-                return rank + shift_y * sizes[0] + shift_x;
-            };
-            if (col != 0) // not first column
-            {
-                m_neighbouring_ranks.push_back(neighbour(-1, 0)); // left neighbour
-            }
-            if (col != sizes[0] - 1) // not last column
-            {
-                m_neighbouring_ranks.push_back(neighbour(1, 0)); // right neighbour
-            }
-            if (row != 0) // not first row
-            {
-                m_neighbouring_ranks.push_back(neighbour(0, -1)); // bottom neighbour
-            }
-            if (row != sizes[1] - 1) // not last row
-            {
-                m_neighbouring_ranks.push_back(neighbour(0, 1)); // top neighbour
-            }
-            if (col != 0 && row != 0)
-            {
-                m_neighbouring_ranks.push_back(neighbour(-1, -1));
-            }
-            if (row != 0 && col != sizes[0] - 1)
-            {
-                m_neighbouring_ranks.push_back(neighbour(1, -1));
-            }
-            if (col != 0 && row != sizes[1] - 1)
-            {
-                m_neighbouring_ranks.push_back(neighbour(-1, 1));
-            }
-            if (row != sizes[1] - 1 && col != sizes[0] - 1)
-            {
-                m_neighbouring_ranks.push_back(neighbour(1, 1));
-            }
-        }
+                if (xt::any(shift))
+                {
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        if (coords[d] + shift[d] < 0 || coords[d] + shift[d] >= sizes[d])
+                        {
+                            return;
+                        }
+                    }
+                    m_neighbouring_ranks.push_back(neighbour(shift));
+                }
+            });
 
-        // int output_rank = 5;
+        // int output_rank = 10;
         // if (rank == output_rank)
         // {
         //     std::cout << box << std::endl;
