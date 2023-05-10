@@ -29,10 +29,20 @@ auto init(Mesh& mesh)
                                auto center         = cell.center();
                                const double radius = .2;
 
-                               const double x_center = 0;
-                               if (std::abs(center[0] - x_center) <= radius)
+                               const double x_center = -0.5;
+                               if constexpr (Mesh::dim == 2)
                                {
-                                   u[cell] = 1;
+                                   if (std::abs(center[0] - x_center) <= radius && std::abs(center[1] - x_center) <= radius)
+                                   {
+                                       u[cell] = 1;
+                                   }
+                               }
+                               else
+                               {
+                                   if (std::abs(center[0] - x_center) <= radius)
+                                   {
+                                       u[cell] = 1;
+                                   }
                                }
                            });
 
@@ -41,13 +51,13 @@ auto init(Mesh& mesh)
 
 int main()
 {
-    constexpr std::size_t dim       = 1;
-    constexpr std::size_t min_level = 10;
-    constexpr std::size_t max_level = 10;
+    constexpr std::size_t dim       = 2;
+    constexpr std::size_t min_level = 4;
+    constexpr std::size_t max_level = 4;
 
     double a   = 1.;
     double Tf  = 1.;
-    double cfl = 0.95;
+    double cfl = 0.45;
 
     mpi::environment env;
     mpi::communicator world;
@@ -82,6 +92,8 @@ int main()
     // output << u << std::endl;
 
     auto unp1 = samurai::make_field<double, size>("unp1", mesh);
+    auto rank = samurai::make_field<double, size>("rank", mesh);
+    rank.fill(world.rank());
 
     double dt      = a * cfl / (1 << max_level);
     double t       = 0.;
@@ -118,7 +130,7 @@ int main()
         }
 
         std::swap(u.array(), unp1.array());
-        samurai::save(fmt::format("advection_1d_ite_{}", nt), mesh, u);
+        samurai::save(fmt::format("advection_1d_ite_{}", nt), mesh, u, rank);
         nt++;
     }
     output << u << std::endl;

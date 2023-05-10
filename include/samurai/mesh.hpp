@@ -244,16 +244,16 @@ namespace samurai
                 std::cerr << "Wrong number of subdomains!" << std::endl;
                 exit(1);
             }
-            // std::cout << "size_x = " << size_x << ", size_y = " << size_y << std::endl;
-            // exit(0);
+            // std::cout << rank << ": size_x = " << sizes[0] << ", size_y = " << sizes[1] << std::endl;
 
             point_t start_pt = b.min_corner() / h;
             point_t end_pt   = b.max_corner() / h;
             std::array<double, dim> lengths;
             for (std::size_t d = 0; d < dim; ++d)
             {
-                lengths[d] = (end_pt[d] - start_pt[d]) / sizes[d];
+                lengths[d] = ceil((end_pt[d] - start_pt[d]) / static_cast<double>(sizes[d]));
             }
+            // std::cout << rank << ": length_x = " << lengths[0] << ", length_y = " << lengths[1] << std::endl;
             auto row = rank / sizes[0];
             auto col = rank % sizes[0];
             point_t min_corner, max_corner;
@@ -278,22 +278,18 @@ namespace samurai
             };
             if (col != 0) // not first column
             {
-                // m_neighbouring_ranks.push_back(rank - 1); // left neighbour
                 m_neighbouring_ranks.push_back(neighbour(-1, 0)); // left neighbour
             }
             if (col != sizes[0] - 1) // not last column
             {
-                // m_neighbouring_ranks.push_back(rank + 1); // right neighbour
                 m_neighbouring_ranks.push_back(neighbour(1, 0)); // right neighbour
             }
             if (row != 0) // not first row
             {
-                // m_neighbouring_ranks.push_back(rank - sizes[0]); // bottom neighbour
                 m_neighbouring_ranks.push_back(neighbour(0, -1)); // bottom neighbour
             }
             if (row != sizes[1] - 1) // not last row
             {
-                // m_neighbouring_ranks.push_back(rank + sizes[0]); // top neighbour
                 m_neighbouring_ranks.push_back(neighbour(0, 1)); // top neighbour
             }
             if (col != 0 && row != 0)

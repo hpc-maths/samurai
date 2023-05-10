@@ -188,7 +188,7 @@ namespace samurai
         //     }
         // }
 
-        int rank_ouput = 0;
+        int rank_ouput = 4;
 
         std::vector<mesh_t> neighbour_meshes(mesh.neighbouring_ranks().size());
         for (int neighbour_rank : mesh.neighbouring_ranks())
@@ -204,13 +204,13 @@ namespace samurai
             int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
             // if (world.rank() == rank_ouput)
             // {
-            //     std::cout << "recv " << world.rank() << " <-- " << neighbour << std::endl;
+            //     std::cout << "before recv " << world.rank() << " <-- " << neighbour_rank << std::endl;
             // }
             world.recv(neighbour_rank, world.rank(), neighbour_meshes[i_rank]);
             // if (world.rank() == rank_ouput)
             // {
-            //     std::cout << "recv 2 " << world.rank() << " <-- " << neighbour << std::endl;
-            //     std::cout << neighbour_meshes[i] << std::endl;
+            //     std::cout << "after recv " << world.rank() << " <-- " << neighbour_rank << std::endl;
+            //     // std::cout << neighbour_meshes[i] << std::endl;
             // }
         }
 
@@ -224,9 +224,25 @@ namespace samurai
                 out_interface(
                     [&](const auto& i, const auto& index)
                     {
-                        std::copy(field(level, i).begin(), field(level, i).end(), std::back_inserter(to_send));
+                        if constexpr (dim == 1)
+                        {
+                            std::copy(field(level, i).begin(), field(level, i).end(), std::back_inserter(to_send));
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            std::copy(field(level, i, j).begin(), field(level, i, j).end(), std::back_inserter(to_send));
+                        }
                     });
             }
+            // if (world.rank() == rank_ouput)
+            // {
+            //     for (std::size_t i = 0; i < to_send.size(); ++i)
+            //     {
+            //         std::cout << to_send[i] << " ";
+            //     }
+            //     std::cout << std::endl;
+            // }
             world.isend(neighbour_rank, neighbour_rank, to_send);
         }
 
@@ -243,7 +259,15 @@ namespace samurai
                 in_interface(
                     [&](const auto& i, const auto& index)
                     {
-                        std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i).begin());
+                        if constexpr (dim == 1)
+                        {
+                            std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i).begin());
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j = index[0];
+                            std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i, j).begin());
+                        }
                         count += i.size();
                     });
             }
