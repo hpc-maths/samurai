@@ -128,6 +128,8 @@ namespace samurai
         void update_sub_mesh();
         void renumbering();
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
+        void load_balancing();
+        void load_transfer(const std::vector<int>& load_fluxes);
 
         lca_type m_domain;
         lca_type m_subdomain;
@@ -186,6 +188,7 @@ namespace samurai
         m_periodic.fill(false);
 
         partition_mesh(start_level, b);
+        // load_balancing();
 
         construct_subdomain();
         construct_union();
@@ -587,6 +590,81 @@ namespace samurai
         //     std::cout << std::endl;
         // }
         // exit(0);
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::load_balancing()
+    {
+        mpi::communicator world;
+        auto rank = world.rank();
+
+        std::size_t load = nb_cells(mesh_id_t::cells);
+        std::vector<std::size_t> loads;
+
+        std::vector<double> load_fluxes(m_neighbouring_ranks.size(), 0);
+
+        const std::size_t n_iterations = 1;
+
+        for (std::size_t k = 0; k < n_iterations; ++k)
+        {
+            world.barrier();
+            if (rank == 0)
+            {
+                std::cout << "---------------- k = " << k << " ----------------" << std::endl;
+            }
+            mpi::all_gather(world, load, loads);
+
+            std::vector<std::size_t> nb_neighbours;
+            mpi::all_gather(world, m_neighbouring_ranks.size(), nb_neighbours);
+
+            double load_np1 = static_cast<double>(load);
+            for (std::size_t i_rank = 0; i_rank < m_neighbouring_ranks.size(); ++i_rank)
+            {
+                int neighbour_rank = m_neighbouring_ranks[i_rank];
+
+                auto neighbour_load = loads[static_cast<std::size_t>(neighbour_rank)];
+                int neighbour_load_minus_my_load;
+                if (load < neighbour_load)
+                {
+                    neighbour_load_minus_my_load = static_cast<int>(neighbour_load - load);
+                }
+                else
+                {
+                    neighbour_load_minus_my_load = -static_cast<int>(load - neighbour_load);
+                }
+                double weight       = 1. / std::max(m_neighbouring_ranks.size(), nb_neighbours[neighbour_rank]);
+                load_fluxes[i_rank] = weight * neighbour_load_minus_my_load;
+                load_np1 += load_fluxes[i_rank];
+            }
+            load_np1 = floor(load_np1);
+
+            load_transfer(load_fluxes);
+
+            std::cout << rank << ": load = " << load << ", load_np1 = " << load_np1 << std::endl;
+
+            load = static_cast<std::size_t>(load_np1);
+        }
+
+        // exit(0);
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::load_transfer(const std::vector<int>& load_fluxes)
+    {
+        mpi::communicator world;
+        std::cout << world.rank() << ": ";
+        for (std::size_t i_rank = 0; i_rank < m_neighbouring_ranks.size(); ++i_rank)
+        {
+            int neighbour_rank = m_neighbouring_ranks[i_rank];
+            if (load_fluxes[i_rank] < 0) // must tranfer load to the neighbour
+            {
+            }
+            else if (load_fluxes[i_rank] > 0) // must receive load from the neighbour
+            {
+            }
+            std::cout << "--> " << neighbour_rank << ": " << load_fluxes[i_rank] << ", ";
+        }
+        std::cout << std::endl;
     }
 
     template <class D, class Config>
