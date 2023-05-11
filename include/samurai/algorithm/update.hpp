@@ -145,43 +145,30 @@ namespace samurai
         std::size_t max_level = mesh.max_level();
         mpi::communicator world;
 
-        std::vector<mesh_t> neighbour_meshes(mesh.neighbouring_ranks().size());
-        for (int neighbour_rank : mesh.neighbouring_ranks())
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            world.isend(neighbour_rank, neighbour_rank, mesh);
-        }
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            world.recv(neighbour_rank, world.rank(), neighbour_meshes[i_rank]);
-        }
-
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
             std::vector<value_t> to_send;
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto out_interface = intersection(mesh[mesh_id_t::cells][level], neighbour_meshes[i_rank][mesh_id_t::reference][level]);
+                auto out_interface = intersection(mesh[mesh_id_t::cells][level], neighbour.mesh[mesh_id_t::reference][level]);
                 out_interface(
                     [&](const auto& i, const auto& index)
                     {
                         std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send));
                     });
             }
-            world.isend(neighbour_rank, neighbour_rank, to_send);
+            world.isend(neighbour.rank, neighbour.rank, to_send);
         }
 
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
             std::vector<value_t> to_recv;
             std::size_t count = 0;
 
-            world.recv(neighbour_rank, world.rank(), to_recv);
+            world.recv(neighbour.rank, world.rank(), to_recv);
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto in_interface = intersection(mesh[mesh_id_t::reference][level], neighbour_meshes[i_rank][mesh_id_t::cells][level]);
+                auto in_interface = intersection(mesh[mesh_id_t::reference][level], neighbour.mesh[mesh_id_t::cells][level]);
                 in_interface(
                     [&](const auto& i, const auto& index)
                     {

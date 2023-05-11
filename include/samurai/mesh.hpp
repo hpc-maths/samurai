@@ -41,6 +41,18 @@ namespace samurai
         }
     };
 
+    template <class MeshType>
+    struct MPI_Subdomain
+    {
+        int rank;
+        MeshType mesh;
+
+        MPI_Subdomain(int rank_)
+            : rank(rank_)
+        {
+        }
+    };
+
     template <class D, class Config>
     class Mesh_base
     {
@@ -67,6 +79,8 @@ namespace samurai
 
         using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
 
+        using mpi_subdomain_t = MPI_Subdomain<D>;
+
         std::size_t nb_cells(mesh_id_t mesh_id = mesh_id_t::reference) const;
         std::size_t nb_cells(std::size_t level, mesh_id_t mesh_id = mesh_id_t::reference) const;
 
@@ -79,7 +93,8 @@ namespace samurai
         const ca_type& get_union() const;
         bool is_periodic(std::size_t d) const;
         const std::array<bool, dim>& periodicity() const;
-        std::vector<int>& neighbouring_ranks();
+        // std::vector<int>& neighbouring_ranks();
+        std::vector<mpi_subdomain_t>& mpi_neighbourhood();
 
         void swap(Mesh_base& mesh) noexcept;
 
@@ -129,7 +144,7 @@ namespace samurai
         void renumbering();
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
-        void load_transfer(const std::vector<int>& load_fluxes);
+        void load_transfer(const std::vector<double>& load_fluxes);
 
         lca_type m_domain;
         lca_type m_subdomain;
@@ -138,7 +153,8 @@ namespace samurai
         std::array<bool, dim> m_periodic;
         mesh_t m_cells;
         ca_type m_union;
-        std::vector<int> m_neighbouring_ranks;
+        // std::vector<int> m_neighbouring_ranks;
+        std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
 
         friend class boost::serialization::access;
 
@@ -194,6 +210,17 @@ namespace samurai
         construct_union();
         update_sub_mesh();
         renumbering();
+
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.isend(neighbour.rank, neighbour.rank, derived_cast());
+        }
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh);
+        }
     }
 
     template <class D, class Config>
@@ -382,9 +409,9 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::neighbouring_ranks() -> std::vector<int>&
+    inline auto Mesh_base<D, Config>::mpi_neighbourhood() -> std::vector<mpi_subdomain_t>&
     {
-        return m_neighbouring_ranks;
+        return m_mpi_neighbourhood;
     }
 
     template <class D, class Config>
@@ -549,7 +576,7 @@ namespace samurai
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
 
         // Neighbours
-        m_neighbouring_ranks.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
+        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
         auto neighbour = [&](xt::xtensor_fixed<int, xt::xshape<dim>> shift)
         {
             auto neighbour_rank            = rank;
@@ -574,7 +601,7 @@ namespace samurai
                             return;
                         }
                     }
-                    m_neighbouring_ranks.push_back(neighbour(shift));
+                    m_mpi_neighbourhood.push_back(neighbour(shift));
                 }
             });
 
@@ -601,7 +628,7 @@ namespace samurai
         std::size_t load = nb_cells(mesh_id_t::cells);
         std::vector<std::size_t> loads;
 
-        std::vector<double> load_fluxes(m_neighbouring_ranks.size(), 0);
+        std::vector<double> load_fluxes(m_mpi_neighbourhood.size(), 0);
 
         const std::size_t n_iterations = 1;
 
@@ -615,14 +642,14 @@ namespace samurai
             mpi::all_gather(world, load, loads);
 
             std::vector<std::size_t> nb_neighbours;
-            mpi::all_gather(world, m_neighbouring_ranks.size(), nb_neighbours);
+            mpi::all_gather(world, m_mpi_neighbourhood.size(), nb_neighbours);
 
             double load_np1 = static_cast<double>(load);
-            for (std::size_t i_rank = 0; i_rank < m_neighbouring_ranks.size(); ++i_rank)
+            for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
             {
-                int neighbour_rank = m_neighbouring_ranks[i_rank];
+                auto neighbour = m_mpi_neighbourhood[i_rank];
 
-                auto neighbour_load = loads[static_cast<std::size_t>(neighbour_rank)];
+                auto neighbour_load = loads[static_cast<std::size_t>(neighbour.rank)];
                 int neighbour_load_minus_my_load;
                 if (load < neighbour_load)
                 {
@@ -632,7 +659,7 @@ namespace samurai
                 {
                     neighbour_load_minus_my_load = -static_cast<int>(load - neighbour_load);
                 }
-                double weight       = 1. / std::max(m_neighbouring_ranks.size(), nb_neighbours[neighbour_rank]);
+                double weight       = 1. / std::max(m_mpi_neighbourhood.size(), nb_neighbours[neighbour.rank]);
                 load_fluxes[i_rank] = weight * neighbour_load_minus_my_load;
                 load_np1 += load_fluxes[i_rank];
             }
@@ -649,20 +676,20 @@ namespace samurai
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::load_transfer(const std::vector<int>& load_fluxes)
+    void Mesh_base<D, Config>::load_transfer(const std::vector<double>& load_fluxes)
     {
         mpi::communicator world;
         std::cout << world.rank() << ": ";
-        for (std::size_t i_rank = 0; i_rank < m_neighbouring_ranks.size(); ++i_rank)
+        for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
         {
-            int neighbour_rank = m_neighbouring_ranks[i_rank];
+            auto neighbour = m_mpi_neighbourhood[i_rank];
             if (load_fluxes[i_rank] < 0) // must tranfer load to the neighbour
             {
             }
             else if (load_fluxes[i_rank] > 0) // must receive load from the neighbour
             {
             }
-            std::cout << "--> " << neighbour_rank << ": " << load_fluxes[i_rank] << ", ";
+            std::cout << "--> " << neighbour.rank << ": " << load_fluxes[i_rank] << ", ";
         }
         std::cout << std::endl;
     }
