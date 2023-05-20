@@ -10,12 +10,6 @@ else()
   message(FATAL_ERROR "File ${CMAKE_CURRENT_SOURCE_DIR}/version.txt not found")
 endif()
 
-configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/version.hpp.in
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/samurai/version.hpp
-  @ONLY
-)
-
 # Add project_options v0.29.0
 # https://github.com/aminya/project_options
 include(FetchContent)
