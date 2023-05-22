@@ -42,20 +42,22 @@ namespace samurai
          *                     [    0]            [1/2 F]
          */
         template <class Field,
-                  std::size_t dim                 = Field::dim,
-                  std::size_t output_field_size   = dim,
-                  std::size_t neighbourhood_width = 1,
-                  std::size_t comput_stencil_size = 2,
-                  class cfg                       = FluxBasedAssemblyConfig<output_field_size, neighbourhood_width, comput_stencil_size>>
-        class GradientFV : public FluxBasedScheme<cfg, Field>
+                  std::size_t dim               = Field::dim,
+                  std::size_t output_field_size = dim,
+                  std::size_t stencil_size      = 2,
+                  class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
+                  class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
+        class GradientFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
         {
+            using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
+
           public:
 
-            using coefficients_t = typename FluxBasedScheme<cfg, Field>::coefficients_t;
+            using coefficients_t = typename base_class::coefficients_t;
             using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
 
             explicit GradientFV(Field& u)
-                : FluxBasedScheme<cfg, Field>(u, grad_coefficients())
+                : base_class(u, grad_coefficients())
             {
                 this->set_name("Gradient");
                 static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
@@ -67,7 +69,7 @@ namespace samurai
                 std::array<coeff_matrix_t, 2> coeffs;
                 coeffs[0].fill(0);
                 coeffs[1].fill(0);
-                double h_factor        = pow(h_face, 2) / pow(h_cell, dim);
+                double h_factor        = pow(h_face, dim - 1) / pow(h_cell, dim);
                 xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0] * h_factor;
                 xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1] * h_factor;
                 return coeffs;

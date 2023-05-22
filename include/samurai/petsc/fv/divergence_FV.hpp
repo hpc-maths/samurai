@@ -39,22 +39,24 @@ namespace samurai
          * direction. So the contribution of a flux F (R or T) computed on cell 1 is for cell 1: 1/2 F for cell 2: 1/2 F
          */
         template <class Field,
-                  std::size_t dim              = Field::dim,
-                  PetscInt output_field_size   = 1,
-                  PetscInt neighbourhood_width = 1,
-                  PetscInt comput_stencil_size = 2,
-                  class cfg                    = FluxBasedAssemblyConfig<output_field_size, neighbourhood_width, comput_stencil_size>>
-        class DivergenceFV : public FluxBasedScheme<cfg, Field>
+                  std::size_t dim            = Field::dim,
+                  PetscInt output_field_size = 1,
+                  PetscInt stencil_size      = 2,
+                  class cfg                  = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
+                  class bdry_cfg             = BoundaryConfigFV<stencil_size / 2>>
+        class DivergenceFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
         {
+            using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
+
           public:
 
-            using coefficients_t                    = typename FluxBasedScheme<cfg, Field>::coefficients_t;
+            using coefficients_t                    = typename base_class::coefficients_t;
             using flux_matrix_t                     = typename coefficients_t::flux_computation_t::flux_matrix_t;
             using coeff_matrix_t                    = typename coefficients_t::coeff_matrix_t;
             static constexpr std::size_t field_size = Field::size;
 
             explicit DivergenceFV(Field& u)
-                : FluxBasedScheme<cfg, Field>(u, div_coefficients())
+                : base_class(u, div_coefficients())
             {
                 this->set_name("Divergence");
                 static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");

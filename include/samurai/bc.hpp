@@ -544,7 +544,7 @@ namespace samurai
                            xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>> index);
 
         value_t constant_value();
-        value_t value(coords_t coords) const;
+        value_t value(const coords_t& coords) const;
         const auto& value() const;
         BCVType get_value_type() const;
 
@@ -667,7 +667,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, class T, std::size_t size>
-    inline auto Bc<dim, TInterval, T, size>::value(const coords_t coords) const -> value_t
+    inline auto Bc<dim, TInterval, T, size>::value(const coords_t& coords) const -> value_t
     {
         return p_bcvalue->get_value(coords);
     }

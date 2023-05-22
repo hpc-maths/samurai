@@ -14,12 +14,12 @@ namespace samurai
                   DirichletEnforcement dirichlet_enfcmt = Equation,
                   std::size_t dim                       = Field::dim,
                   std::size_t output_field_size         = Field::size,
-                  std::size_t neighbourhood_width       = 1,
-                  std::size_t comput_stencil_size       = 2,
-                  class cfg = FluxBasedAssemblyConfig<output_field_size, neighbourhood_width, comput_stencil_size, dirichlet_enfcmt>>
-        class DiffusionFV : public FluxBasedScheme<cfg, Field>
+                  std::size_t stencil_size              = 2,
+                  class cfg                             = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
+                  class bdry_cfg                        = BoundaryConfigFV<stencil_size / 2, dirichlet_enfcmt>>
+        class DiffusionFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
         {
-            using base_class = FluxBasedScheme<cfg, Field>;
+            using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
             using base_class::bdry_stencil_size;
             using base_class::field_size;
 
@@ -34,7 +34,7 @@ namespace samurai
             using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
             explicit DiffusionFV(Field& unknown)
-                : FluxBasedScheme<cfg, Field>(unknown, diffusion_coefficients())
+                : base_class(unknown, diffusion_coefficients())
             {
                 this->set_name("Diffusion");
             }
@@ -75,12 +75,12 @@ namespace samurai
                     {
                         coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                         {
-                            auto coeffs = get_laplacian_coeffs_cell1<0>(flux_coeffs, h_face, h_cell);
-                            for (auto& coeff : coeffs)
+                            auto cell_coeffs = get_laplacian_coeffs_cell1<0>(flux_coeffs, h_face, h_cell);
+                            for (auto& coeff : cell_coeffs)
                             {
                                 coeff *= -1;
                             }
-                            return coeffs;
+                            return cell_coeffs;
                         };
                         coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<0>;
                     }
@@ -90,12 +90,12 @@ namespace samurai
                         {
                             coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                             {
-                                auto coeffs = get_laplacian_coeffs_cell1<1>(flux_coeffs, h_face, h_cell);
-                                for (auto& coeff : coeffs)
+                                auto cell_coeffs = get_laplacian_coeffs_cell1<1>(flux_coeffs, h_face, h_cell);
+                                for (auto& coeff : cell_coeffs)
                                 {
                                     coeff *= -1;
                                 }
-                                return coeffs;
+                                return cell_coeffs;
                             };
                             coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<1>;
                         }
@@ -106,12 +106,12 @@ namespace samurai
                         {
                             coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                             {
-                                auto coeffs = get_laplacian_coeffs_cell1<2>(flux_coeffs, h_face, h_cell);
-                                for (auto& coeff : coeffs)
+                                auto cell_coeffs = get_laplacian_coeffs_cell1<2>(flux_coeffs, h_face, h_cell);
+                                for (auto& coeff : cell_coeffs)
                                 {
                                     coeff *= -1;
                                 }
-                                return coeffs;
+                                return cell_coeffs;
                             };
                             coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<2>;
                         }
@@ -136,14 +136,14 @@ namespace samurai
                 // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is
                 //                        [  1/2    1/2 ] = dirichlet_value
                 // which is equivalent to
-                //                        [  1/h2   1/h2] = 2/h2 * dirichlet_value
+                //                        [ -1/h2  -1/h2] = -2/h2 * dirichlet_value
                 config.equations[0].ghost_index        = ghost;
                 config.equations[0].get_stencil_coeffs = [&](double h)
                 {
                     std::array<coeffs_t, bdry_stencil_size> coeffs;
                     auto Identity         = eye<coeffs_t>();
-                    coeffs[cell]          = 1 / (h * h) * Identity;
-                    coeffs[ghost]         = 1 / (h * h) * Identity;
+                    coeffs[cell]          = -1 / (h * h) * Identity;
+                    coeffs[ghost]         = -1 / (h * h) * Identity;
                     coeffs[interior_cell] = zeros<coeffs_t>();
                     return coeffs;
                 };
@@ -151,7 +151,7 @@ namespace samurai
                 {
                     coeffs_t coeffs;
                     auto Identity = eye<coeffs_t>();
-                    coeffs        = 2 / (h * h) * Identity;
+                    coeffs        = -2 / (h * h) * Identity;
                     return coeffs;
                 };
 
@@ -193,18 +193,18 @@ namespace samurai
                 return config;
             }
 
-            // bool matrix_is_spd() const override
-            // {
-            //     if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-            //     {
-            //         // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
-            //         return this->mesh().min_level() == this->mesh().max_level();
-            //     }
-            //     else
-            //     {
-            //         return false;
-            //     }
-            // }
+          public:
+
+            bool matrix_is_symmetric() const override
+            {
+                // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
+                return is_uniform(this->mesh());
+            }
+
+            bool matrix_is_spd() const override
+            {
+                return matrix_is_symmetric();
+            }
         };
 
         template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>

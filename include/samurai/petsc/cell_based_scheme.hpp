@@ -12,24 +12,22 @@ namespace samurai
                   PetscInt neighbourhood_width_,
                   PetscInt scheme_stencil_size_,
                   PetscInt center_index_,
-                  PetscInt contiguous_indices_start_     = 0,
-                  PetscInt contiguous_indices_size_      = 0,
-                  DirichletEnforcement dirichlet_enfcmt_ = Equation>
+                  PetscInt contiguous_indices_start_ = 0,
+                  PetscInt contiguous_indices_size_  = 0>
         struct CellBasedAssemblyConfig
         {
-            static constexpr PetscInt output_field_size            = output_field_size_;
-            static constexpr PetscInt neighbourhood_width          = neighbourhood_width_;
-            static constexpr PetscInt scheme_stencil_size          = scheme_stencil_size_;
-            static constexpr PetscInt center_index                 = center_index_;
-            static constexpr PetscInt contiguous_indices_start     = contiguous_indices_start_;
-            static constexpr PetscInt contiguous_indices_size      = contiguous_indices_size_;
-            static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
+            static constexpr PetscInt output_field_size        = output_field_size_;
+            static constexpr PetscInt neighbourhood_width      = neighbourhood_width_;
+            static constexpr PetscInt scheme_stencil_size      = scheme_stencil_size_;
+            static constexpr PetscInt center_index             = center_index_;
+            static constexpr PetscInt contiguous_indices_start = contiguous_indices_start_;
+            static constexpr PetscInt contiguous_indices_size  = contiguous_indices_size_;
         };
 
-        template <std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width = 1, DirichletEnforcement dirichlet_enfcmt = Equation>
+        template <std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width = 1>
         using StarStencilFV = CellBasedAssemblyConfig<output_field_size,
                                                       neighbourhood_width,
-                                                      // ----  Stencil size
+                                                      // ---- Stencil size
                                                       // Cell-centered Finite Volume scheme:
                                                       // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim
                                                       // directions) --> 1+2=3 in 1D
@@ -41,41 +39,40 @@ namespace samurai
                                                       // ---- Start index and size of contiguous cell indices
                                                       // (as defined in star_stencil())
                                                       0,
-                                                      1 + 2 * neighbourhood_width,
-                                                      // ---- Method of Dirichlet condition enforcement
-                                                      dirichlet_enfcmt>;
+                                                      1 + 2 * neighbourhood_width>;
 
-        template <std::size_t output_field_size, DirichletEnforcement dirichlet_enfcmt = Equation>
+        template <std::size_t output_field_size>
         using OneCellStencilFV = CellBasedAssemblyConfig<output_field_size,
-                                                         // ----  Stencil size
-                                                         // Only one cell:
-                                                         1,
-                                                         // ---- Index of the stencil center
-                                                         // (as defined in center_only_stencil())
-                                                         0,
-                                                         // ---- Start index and size of contiguous cell indices
-                                                         0,
-                                                         0,
-                                                         // ---- Method of Dirichlet condition enforcement
-                                                         dirichlet_enfcmt>;
+                                                         0,  // Neighbourhood width
+                                                         1,  // Stencil size
+                                                         0>; // Index of the stencil center
 
-        template <class cfg, class Field>
-        class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, cfg::neighbourhood_width>
+        template <std::size_t output_field_size>
+        using EmptyStencilFV = CellBasedAssemblyConfig<output_field_size,
+                                                       0,  // Neighbourhood width
+                                                       0,  // Stencil size
+                                                       0>; // Index of the stencil center
+
+        template <class cfg, class bdry_cfg, class Field>
+        class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
         {
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
+            template <std::size_t rows, std::size_t cols, class... Operators>
+            friend class MonolithicBlockAssembly;
+
           protected:
 
-            using base_class = FVScheme<Field, cfg::output_field_size, cfg::neighbourhood_width>;
+            using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
             using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
-            using base_class::m_is_row_empty;
             using base_class::m_mesh;
             using base_class::row_index;
             using base_class::set_current_insert_mode;
+            using base_class::set_is_row_not_empty;
 
           public:
 
@@ -113,7 +110,7 @@ namespace samurai
           protected:
 
             // Data index in the given stencil
-            inline auto local_col_index(unsigned int cell_local_index, unsigned int field_j) const
+            inline auto local_col_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_size == 1)
                 {
@@ -129,7 +126,7 @@ namespace samurai
                 }
             }
 
-            inline auto local_row_index(unsigned int cell_local_index, unsigned int field_i) const
+            inline auto local_row_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_i) const
             {
                 if constexpr (output_field_size == 1)
                 {
@@ -153,6 +150,11 @@ namespace samurai
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
+                if constexpr (cfg::scheme_stencil_size == 0)
+                {
+                    return;
+                }
+
                 auto coeffs = m_get_coefficients(cell_length(0));
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
@@ -203,12 +205,32 @@ namespace samurai
                     for_each_cell(m_mesh,
                                   [&](auto& cell)
                                   {
-                                      nnz[this->row_index(cell, field_i)] = scheme_nnz_i;
+                                      nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += scheme_nnz_i;
                                   });
                 }
             }
 
           protected:
+
+            template <class Func>
+            void for_each_stencil_and_coeffs(Func&& f)
+            {
+                auto stencil_it = make_stencil_iterator(m_mesh, m_stencil);
+
+                for_each_level(m_mesh,
+                               [&](std::size_t level)
+                               {
+                                   auto coeffs = m_get_coefficients(cell_length(level));
+
+                                   for_each_stencil(m_mesh,
+                                                    level,
+                                                    stencil_it,
+                                                    [&](auto& cells)
+                                                    {
+                                                        f(cells, coeffs);
+                                                    });
+                               });
+            }
 
             //-------------------------------------------------------------//
             //             Assemble scheme in the interior                 //
@@ -216,13 +238,18 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
-                set_current_insert_mode(INSERT_VALUES);
+                // std::cout << "assemble_scheme() of " << this->name() << std::endl;
+
+                if (this->current_insert_mode() == ADD_VALUES)
+                {
+                    // Must flush to use INSERT_VALUES instead of ADD_VALUES
+                    MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
+                    MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
+                    set_current_insert_mode(INSERT_VALUES);
+                }
 
                 // Apply the given coefficents to the given stencil
-                for_each_stencil(
-                    m_mesh,
-                    m_stencil,
-                    m_get_coefficients,
+                for_each_stencil_and_coeffs(
                     [&](const auto& cells, const auto& coeffs)
                     {
                         // std::cout << "coeffs: " << std::endl;
@@ -352,14 +379,14 @@ namespace samurai
                                             {
                                                 coeff = coeffs[c](field_i, field_j);
                                             }
-                                            if (coeff != 0)
+                                            if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
                                                 MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, INSERT_VALUES);
                                             }
                                         }
                                     }
 
-                                    m_is_row_empty[static_cast<std::size_t>(stencil_center_row)] = false;
+                                    set_is_row_not_empty(stencil_center_row);
                                 }
                             }
                         }
@@ -389,8 +416,8 @@ namespace samurai
 
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
-                                auto row            = static_cast<std::size_t>(rows[local_row_index(cfg::center_index, field_i)]);
-                                m_is_row_empty[row] = false;
+                                auto row = rows[local_row_index(cfg::center_index, field_i)];
+                                set_is_row_not_empty(row);
                             }
                         }
                     });

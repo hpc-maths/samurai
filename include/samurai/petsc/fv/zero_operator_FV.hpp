@@ -5,35 +5,58 @@ namespace samurai
 {
     namespace petsc
     {
-        template <class Field,
-                  std::size_t output_field_size,
-                  std::size_t dim                 = Field::dim,
-                  std::size_t neighbourhood_width = 1,
-                  class cfg                       = StarStencilFV<dim, output_field_size, neighbourhood_width>>
-        class ZeroOperatorFV : public CellBasedScheme<cfg, Field>
+
+        template <class Field, std::size_t output_field_size, class cfg = OneCellStencilFV<output_field_size>, class bdry_cfg = BoundaryConfigFV<1>>
+        class ZeroOperatorFV : public CellBasedScheme<cfg, bdry_cfg, Field>
         {
-            using directional_bdry_config_t = typename CellBasedScheme<cfg, Field>::directional_bdry_config_t;
+            using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
+            using base_class::dim;
+            using local_matrix_t = typename base_class::local_matrix_t;
 
           public:
 
-            using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
-
             explicit ZeroOperatorFV(Field& unknown)
-                : CellBasedScheme<cfg, Field>(unknown, star_stencil<dim>(), coefficients)
+                : base_class(unknown, center_only_stencil<dim>(), coefficients)
             {
                 this->set_name("Zero");
             }
 
-            static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double)
+            static std::array<local_matrix_t, 1> coefficients(double)
             {
-                std::array<local_matrix_t, cfg::scheme_stencil_size> coeffs;
-                for (std::size_t i = 0; i < cfg::scheme_stencil_size; i++)
-                {
-                    coeffs[i] = zeros<local_matrix_t>();
-                }
-                return coeffs;
+                return {zeros<local_matrix_t>()};
+            }
+
+            bool matrix_is_symmetric() const override
+            {
+                return is_uniform(this->mesh());
             }
         };
+
+        // For some reason this version with an empty stencil is slower...
+        /*template <class Field, std::size_t output_field_size, class cfg = EmptyStencilFV<output_field_size>, class bdry_cfg =
+        BoundaryConfigFV<1>> class ZeroOperatorFV : public CellBasedScheme<cfg, bdry_cfg, Field>
+        {
+            using base_class     = CellBasedScheme<cfg, bdry_cfg, Field>;
+            using local_matrix_t = typename base_class::local_matrix_t;
+
+          public:
+
+            explicit ZeroOperatorFV(Field& unknown)
+                : base_class(unknown, {}, coefficients)
+            {
+                this->set_name("Zero");
+            }
+
+            static std::array<local_matrix_t, 0> coefficients(double)
+            {
+                return {};
+            }
+
+            bool matrix_is_symmetric() const override
+            {
+                return is_uniform(this->mesh());
+            }
+        };*/
 
         template <std::size_t output_field_size, class Field>
         auto make_zero_operator_FV(Field& f)

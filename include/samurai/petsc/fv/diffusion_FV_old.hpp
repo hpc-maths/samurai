@@ -14,10 +14,11 @@ namespace samurai
                   DirichletEnforcement dirichlet_enfcmt = Equation,
                   std::size_t dim                       = Field::dim,
                   std::size_t neighbourhood_width       = 1,
-                  class cfg                             = StarStencilFV<dim, Field::size, neighbourhood_width, dirichlet_enfcmt>>
-        class DiffusionFV_old : public CellBasedScheme<cfg, Field>
+                  class cfg                             = StarStencilFV<dim, Field::size, neighbourhood_width>,
+                  class bdry_cfg                        = BoundaryConfigFV<neighbourhood_width, dirichlet_enfcmt>>
+        class DiffusionFV_old : public CellBasedScheme<cfg, bdry_cfg, Field>
         {
-            using base_class = CellBasedScheme<cfg, Field>;
+            using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
             using base_class::bdry_stencil_size;
 
           public:
@@ -28,7 +29,7 @@ namespace samurai
             using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
             explicit DiffusionFV_old(Field& unknown)
-                : CellBasedScheme<cfg, Field>(unknown, stencil(), coefficients)
+                : base_class(unknown, stencil(), coefficients)
             {
             }
 
@@ -37,18 +38,22 @@ namespace samurai
                 return star_stencil<dim>();
             }
 
+            bool matrix_is_symmetric() const override
+            {
+                // if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
+                //  {
+                //  The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
+                return is_uniform(this->mesh());
+                // }
+                // else
+                // {
+                //     return false;
+                // }
+            }
+
             bool matrix_is_spd() const override
             {
-                if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                {
-                    // The projections/predictions kill the symmetry, so the
-                    // matrix is spd only if the mesh is uniform.
-                    return this->mesh().min_level() == this->mesh().max_level();
-                }
-                else
-                {
-                    return false;
-                }
+                return matrix_is_symmetric();
             }
 
             static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double h)
@@ -80,14 +85,14 @@ namespace samurai
                 // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is
                 //                        [  1/2    1/2 ] = dirichlet_value
                 // which is equivalent to
-                //                        [  1/h2   1/h2] = 2/h2 * dirichlet_value
+                //                        [ -1/h2  -1/h2] = -2/h2 * dirichlet_value
                 config.equations[0].ghost_index        = ghost;
                 config.equations[0].get_stencil_coeffs = [&](double h)
                 {
                     std::array<coeffs_t, bdry_stencil_size> coeffs;
                     auto Identity         = eye<coeffs_t>();
-                    coeffs[cell]          = 1 / (h * h) * Identity;
-                    coeffs[ghost]         = 1 / (h * h) * Identity;
+                    coeffs[cell]          = -1 / (h * h) * Identity;
+                    coeffs[ghost]         = -1 / (h * h) * Identity;
                     coeffs[interior_cell] = zeros<coeffs_t>();
                     return coeffs;
                 };
@@ -95,7 +100,7 @@ namespace samurai
                 {
                     coeffs_t coeffs;
                     auto Identity = eye<coeffs_t>();
-                    coeffs        = 2 / (h * h) * Identity;
+                    coeffs        = -2 / (h * h) * Identity;
                     return coeffs;
                 };
 

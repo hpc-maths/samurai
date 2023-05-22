@@ -316,14 +316,7 @@ int main(int argc, char* argv[])
         samurai::save(path, filename, mesh, solution);
     }
 
-    //--------------------//
-    //     Finalize       //
-    //--------------------//
-
     delete test_case;
-
-    // Destroy Petsc objects
-    solver.destroy_petsc_objects();
     PetscFinalize();
 
     return 0;

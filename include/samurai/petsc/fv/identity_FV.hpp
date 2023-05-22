@@ -102,35 +102,34 @@ namespace samurai
             }
         };*/
 
-        template <class Field, std::size_t dim = Field::dim, std::size_t neighbourhood_width = 0, class cfg = StarStencilFV<dim, dim, neighbourhood_width>>
-        class IdentityFV : public CellBasedScheme<cfg, Field>
+        template <class Field, class cfg = OneCellStencilFV<Field::size>, class bdry_cfg = BoundaryConfigFV<1>>
+        class IdentityFV : public CellBasedScheme<cfg, bdry_cfg, Field>
         {
+            using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
+            using base_class::dim;
+            using local_matrix_t = typename base_class::local_matrix_t;
+
           public:
 
-            using local_matrix_t = typename CellBasedScheme<cfg, Field>::local_matrix_t;
-
             explicit IdentityFV(Field& unknown)
-                : CellBasedScheme<cfg, Field>(unknown, star_stencil<dim, neighbourhood_width>(), coefficients)
+                : base_class(unknown, center_only_stencil<dim>(), coefficients)
             {
                 this->set_name("Identity");
             }
 
-            static std::array<local_matrix_t, cfg::scheme_stencil_size> coefficients(double)
+            static std::array<local_matrix_t, 1> coefficients(double)
             {
-                std::array<local_matrix_t, cfg::scheme_stencil_size> coeffs;
+                return {eye<local_matrix_t>()};
+            }
 
-                for (std::size_t i = 0; i < cfg::scheme_stencil_size; i++)
-                {
-                    if (i == cfg::center_index)
-                    {
-                        coeffs[i] = eye<local_matrix_t>();
-                    }
-                    else
-                    {
-                        coeffs[i] = zeros<local_matrix_t>();
-                    }
-                }
-                return coeffs;
+            bool matrix_is_symmetric() const override
+            {
+                return is_uniform(this->mesh());
+            }
+
+            bool matrix_is_spd() const override
+            {
+                return matrix_is_symmetric();
             }
         };
 

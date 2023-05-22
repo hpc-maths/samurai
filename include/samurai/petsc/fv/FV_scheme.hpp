@@ -6,6 +6,15 @@ namespace samurai
 {
     namespace petsc
     {
+        template <PetscInt neighbourhood_width_, DirichletEnforcement dirichlet_enfcmt_ = Equation>
+        struct BoundaryConfigFV
+        {
+            static constexpr PetscInt neighbourhood_width          = neighbourhood_width_;
+            static constexpr PetscInt stencil_size                 = 1 + 2 * neighbourhood_width;
+            static constexpr PetscInt nb_ghosts                    = neighbourhood_width;
+            static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
+        };
+
         /**
          * Definition of one ghost equation to enforce the boundary condition.
          */
@@ -71,23 +80,34 @@ namespace samurai
          *     - the projection/prediction ghosts
          *     - the unused ghosts
          */
-        template <class Field, std::size_t output_field_size, std::size_t neighbourhood_width, DirichletEnforcement dirichlet_enfcmt = Equation>
+        template <class Field, std::size_t output_field_size, class bdry_cfg>
         class FVScheme : public MatrixAssembly
         {
             template <class Scheme1, class Scheme2>
             friend class FluxBasedScheme_Sum_CellBasedScheme;
 
+            template <class Scheme>
+            friend class Scalar_x_FluxBasedScheme;
+
+            template <std::size_t rows, std::size_t cols, class... Operators>
+            friend class MonolithicBlockAssembly;
+
+            using MatrixAssembly::m_col_shift;
+            using MatrixAssembly::m_row_shift;
+
           public:
 
-            using Mesh                                     = typename Field::mesh_t;
-            using mesh_id_t                                = typename Mesh::mesh_id_t;
-            using interval_t                               = typename Mesh::interval_t;
-            using field_value_type                         = typename Field::value_type; // double
-            static constexpr std::size_t dim               = Field::dim;
-            static constexpr std::size_t field_size        = Field::size;
-            static constexpr std::size_t prediction_order  = Mesh::config::prediction_order;
-            static constexpr std::size_t bdry_stencil_size = 1 + 2 * neighbourhood_width;
-            static constexpr std::size_t nb_bdry_ghosts    = neighbourhood_width;
+            using Mesh                                             = typename Field::mesh_t;
+            using mesh_id_t                                        = typename Mesh::mesh_id_t;
+            using interval_t                                       = typename Mesh::interval_t;
+            using field_value_type                                 = typename Field::value_type; // double
+            static constexpr std::size_t dim                       = Field::dim;
+            static constexpr std::size_t field_size                = Field::size;
+            static constexpr std::size_t prediction_order          = Mesh::config::prediction_order;
+            static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg::neighbourhood_width;
+            static constexpr std::size_t bdry_stencil_size         = bdry_cfg::stencil_size;
+            static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg::nb_ghosts;
+            static constexpr DirichletEnforcement dirichlet_enfcmt = bdry_cfg::dirichlet_enfcmt;
 
             using dirichlet_t = Dirichlet<dim, interval_t, field_value_type, field_size>;
             using neumann_t   = Neumann<dim, interval_t, field_value_type, field_size>;
@@ -111,10 +131,12 @@ namespace samurai
                 reset();
             }
 
-            void reset()
+            void reset() override
             {
-                m_n_cells      = m_mesh.nb_cells();
-                m_is_row_empty = std::vector(static_cast<std::size_t>(matrix_rows()), true);
+                m_mesh    = m_unknown.mesh();
+                m_n_cells = m_mesh.nb_cells();
+                // std::cout << "reset " << this->name() << ", rows = " << matrix_rows() << std::endl;
+                m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()), true);
             }
 
             auto& unknown() const
@@ -150,75 +172,77 @@ namespace samurai
             }
 
             // Global data index
-            inline PetscInt col_index(PetscInt cell_index, unsigned int field_j) const
+            inline PetscInt col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_size == 1)
                 {
-                    return cell_index;
+                    return m_col_shift + cell_index;
                 }
                 else if constexpr (Field::is_soa)
                 {
-                    return static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
+                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
                 }
                 else
                 {
-                    return cell_index * static_cast<PetscInt>(field_size) + static_cast<PetscInt>(field_j);
+                    return m_col_shift + cell_index * static_cast<PetscInt>(field_size) + static_cast<PetscInt>(field_j);
                 }
             }
 
-            inline PetscInt row_index(PetscInt cell_index, unsigned int field_i) const
+            inline PetscInt row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
             {
                 if constexpr (output_field_size == 1)
                 {
-                    return cell_index;
+                    return m_row_shift + cell_index;
                 }
                 else if constexpr (Field::is_soa)
                 {
-                    return static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
+                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
                 }
                 else
                 {
-                    return cell_index * static_cast<PetscInt>(output_field_size) + static_cast<PetscInt>(field_i);
+                    return m_row_shift + cell_index * static_cast<PetscInt>(output_field_size) + static_cast<PetscInt>(field_i);
                 }
             }
 
             template <class CellT>
-            inline auto col_index(const CellT& cell, unsigned int field_j) const
+            inline PetscInt col_index(const CellT& cell, [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_size == 1)
                 {
-                    return cell.index;
+                    return m_col_shift + static_cast<PetscInt>(cell.index);
                 }
                 else if constexpr (Field::is_soa)
                 {
-                    return field_j * m_n_cells + cell.index;
+                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells + cell.index);
                 }
                 else
                 {
-                    return cell.index * field_size + field_j;
+                    return m_col_shift + static_cast<PetscInt>(cell.index * field_size + field_j);
                 }
             }
 
             template <class CellT>
-            inline auto row_index(const CellT& cell, unsigned int field_i) const
+            inline PetscInt row_index(const CellT& cell, [[maybe_unused]] unsigned int field_i) const
             {
                 if constexpr (output_field_size == 1)
                 {
-                    return cell.index;
+                    return m_row_shift + static_cast<PetscInt>(cell.index);
                 }
                 else if constexpr (Field::is_soa)
                 {
-                    return field_i * m_n_cells + cell.index;
+                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells + cell.index);
                 }
                 else
                 {
-                    return cell.index * output_field_size + field_i;
+                    return m_row_shift + static_cast<PetscInt>(cell.index * output_field_size + field_i);
                 }
             }
 
             template <class Coeffs>
-            inline double
-            cell_coeff(const Coeffs& coeffs, std::size_t cell_number_in_stencil, unsigned int field_i, unsigned int field_j) const
+            inline double cell_coeff(const Coeffs& coeffs,
+                                     std::size_t cell_number_in_stencil,
+                                     [[maybe_unused]] unsigned int field_i,
+                                     [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_size == 1 && output_field_size == 1)
                 {
@@ -243,6 +267,13 @@ namespace samurai
                 }
             }
 
+            template <class int_type>
+            inline void set_is_row_not_empty(int_type row_number)
+            {
+                assert(row_number - m_row_shift >= 0);
+                m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)] = false;
+            }
+
           protected:
 
             //-------------------------------------------------------------//
@@ -251,7 +282,7 @@ namespace samurai
 
             auto get_directional_stencil(const DirectionVector<dim>& direction) const
             {
-                auto dir_stencils = directional_stencils<dim, neighbourhood_width>();
+                auto dir_stencils = directional_stencils<dim, bdry_neighbourhood_width>();
                 for (std::size_t d = 0; d < 2 * dim; ++d)
                 {
                     if (direction == dir_stencils[d].direction)
@@ -270,7 +301,7 @@ namespace samurai
 
                 config.directional_stencil = get_directional_stencil(direction);
 
-                if constexpr (neighbourhood_width == 1)
+                if constexpr (bdry_neighbourhood_width == 1)
                 {
                     static constexpr std::size_t cell          = 0;
                     static constexpr std::size_t interior_cell = 1;
@@ -304,7 +335,7 @@ namespace samurai
 
                 config.directional_stencil = get_directional_stencil(direction);
 
-                if constexpr (neighbourhood_width == 1)
+                if constexpr (bdry_neighbourhood_width == 1)
                 {
                     static constexpr std::size_t cell          = 0;
                     static constexpr std::size_t interior_cell = 1;
@@ -339,6 +370,13 @@ namespace samurai
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
+                if (m_unknown.get_bc().empty())
+                {
+                    std::cerr << "Failure to assemble to boundary conditions in the operator '" << this->name()
+                              << "': no boundary condition attached to the field '" << m_unknown.name() << "'." << std::endl;
+                    assert(false);
+                    return;
+                }
                 // Iterate over the boundary conditions set by the user
                 for (auto& bc : m_unknown.get_bc())
                 {
@@ -403,11 +441,11 @@ namespace samurai
                     {
                         if constexpr (dirichlet_enfcmt == DirichletEnforcement::Elimination)
                         {
-                            nnz[row_index(ghost, field_i)] = 1;
+                            nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = 1;
                         }
                         else
                         {
-                            nnz[row_index(ghost, field_i)] = bdry_stencil_size;
+                            nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = bdry_stencil_size;
                         }
                     }
                 }
@@ -423,7 +461,7 @@ namespace samurai
                     const auto& ghost = cells[eq.ghost_index];
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        nnz[row_index(ghost, field_i)] = bdry_stencil_size;
+                        nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = bdry_stencil_size;
                     }
                 }
             }
@@ -434,6 +472,7 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
+                // std::cout << "assemble_boundary_conditions of " << this->name() << std::endl;
                 if (current_insert_mode() == ADD_VALUES)
                 {
                     // Must flush to use INSERT_VALUES instead of ADD_VALUES
@@ -503,8 +542,8 @@ namespace samurai
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                         {
-                            PetscInt equation_row = static_cast<PetscInt>(col_index(equation_ghost, field_i));
-                            PetscInt col          = static_cast<PetscInt>(col_index(cells[c], field_i));
+                            PetscInt equation_row = col_index(equation_ghost, field_i);
+                            PetscInt col          = col_index(cells[c], field_i);
 
                             double coeff = cell_coeff(eq.stencil_coeffs, c, field_i, field_i);
 
@@ -517,7 +556,7 @@ namespace samurai
                                 {
                                     MatSetValue(A, equation_row, col, coeff, INSERT_VALUES);
                                 }
-                                m_is_row_empty[static_cast<std::size_t>(equation_row)] = false;
+                                set_is_row_not_empty(equation_row);
                             }
                         }
                     }
@@ -532,6 +571,20 @@ namespace samurai
 
             virtual void enforce_bc(Vec& b) const
             {
+                // std::cout << "enforce_bc of " << this->name() << std::endl;
+                if (!this->is_block())
+                {
+                    PetscInt b_rows;
+                    VecGetSize(b, &b_rows);
+                    if (b_rows != this->matrix_cols())
+                    {
+                        std::cerr << "Operator '" << this->name() << "': the number of rows in vector (" << b_rows
+                                  << ") does not equal the number of columns of the matrix (" << this->matrix_cols() << ")" << std::endl;
+                        assert(false);
+                        return;
+                    }
+                }
+
                 // Iterate over the boundary conditions set by the user
                 for (auto& bc : m_unknown.get_bc())
                 {
@@ -598,7 +651,7 @@ namespace samurai
                     const auto& equation_ghost = cells[eq.ghost_index];
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        PetscInt equation_row = static_cast<PetscInt>(col_index(equation_ghost, field_i));
+                        PetscInt equation_row = row_index(equation_ghost, field_i);
 
                         double coeff = rhs_coeff(eq.rhs_coeffs, field_i, field_i);
                         assert(coeff != 0);
@@ -640,11 +693,20 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
                 }
+                // std::cout << "add_1_on_diag_for_useless_ghosts of " << this->name() << std::endl;
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
                     if (m_is_row_empty[i])
                     {
-                        MatSetValue(A, static_cast<PetscInt>(i), static_cast<PetscInt>(i), 1, INSERT_VALUES);
+                        auto error = MatSetValue(A,
+                                                 m_row_shift + static_cast<PetscInt>(i),
+                                                 m_col_shift + static_cast<PetscInt>(i),
+                                                 1,
+                                                 INSERT_VALUES);
+                        if (error)
+                        {
+                            assert(false);
+                        }
                         // m_is_row_empty[i] = false;
                     }
                 }
@@ -656,7 +718,7 @@ namespace samurai
                 {
                     if (m_is_row_empty[i])
                     {
-                        VecSetValue(b, static_cast<PetscInt>(i), 0, INSERT_VALUES);
+                        VecSetValue(b, m_row_shift + static_cast<PetscInt>(i), 0, INSERT_VALUES);
                     }
                 }
             }
@@ -677,7 +739,7 @@ namespace samurai
                                           {
                                               for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                               {
-                                                  nnz[row_index(ghost, field_i)] = proj_stencil_size;
+                                                  nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = proj_stencil_size;
                                               }
                                           });
             }
@@ -696,7 +758,7 @@ namespace samurai
                                           {
                                               for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                               {
-                                                  nnz[row_index(ghost, field_i)] = pred_stencil_size;
+                                                  nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = pred_stencil_size;
                                               }
                                           });
             }
@@ -709,7 +771,7 @@ namespace samurai
                                           {
                                               for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                                               {
-                                                  VecSetValue(b, static_cast<PetscInt>(col_index(ghost, field_i)), 0, INSERT_VALUES);
+                                                  VecSetValue(b, col_index(ghost, field_i), 0, INSERT_VALUES);
                                               }
                                           });
 
@@ -719,7 +781,7 @@ namespace samurai
                                           {
                                               for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                                               {
-                                                  VecSetValue(b, static_cast<PetscInt>(col_index(ghost, field_i)), 0, INSERT_VALUES);
+                                                  VecSetValue(b, col_index(ghost, field_i), 0, INSERT_VALUES);
                                               }
                                           });
             }
@@ -742,7 +804,7 @@ namespace samurai
                             {
                                 MatSetValue(A, ghost_index, col_index(children[i], field_i), -1. / number_of_children, INSERT_VALUES);
                             }
-                            m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                            set_is_row_not_empty(ghost_index);
                         }
                     });
             }
@@ -775,7 +837,7 @@ namespace samurai
                     {
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                         {
-                            PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
+                            PetscInt ghost_index = this->row_index(ghost, field_i);
                             MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
 
                             auto ii      = ghost.indices(0);
@@ -799,7 +861,7 @@ namespace samurai
                                     MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
                                 }
                             }
-                            this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                            set_is_row_not_empty(ghost_index);
                         }
                     });
             }
@@ -813,7 +875,7 @@ namespace samurai
                     {
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                         {
-                            PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
+                            PetscInt ghost_index = this->row_index(ghost, field_i);
                             MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
 
                             auto ii      = ghost.indices(0);
@@ -846,7 +908,7 @@ namespace samurai
                                     }
                                 }
                             }
-                            this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                            set_is_row_not_empty(ghost_index);
                         }
                     });
             }
@@ -860,7 +922,7 @@ namespace samurai
                     {
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                         {
-                            PetscInt ghost_index = static_cast<PetscInt>(this->row_index(ghost, field_i));
+                            PetscInt ghost_index = this->row_index(ghost, field_i);
                             MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
 
                             auto ii      = ghost.indices(0);
@@ -901,7 +963,7 @@ namespace samurai
                                     }
                                 }
                             }
-                            this->m_is_row_empty[static_cast<std::size_t>(ghost_index)] = false;
+                            set_is_row_not_empty(ghost_index);
                         }
                     });
             }
