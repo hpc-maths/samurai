@@ -92,6 +92,8 @@ namespace samurai
             template <std::size_t rows, std::size_t cols, class... Operators>
             friend class MonolithicBlockAssembly;
 
+          protected:
+
             using MatrixAssembly::m_col_shift;
             using MatrixAssembly::m_row_shift;
 
@@ -136,7 +138,8 @@ namespace samurai
                 m_mesh    = m_unknown.mesh();
                 m_n_cells = m_mesh.nb_cells();
                 // std::cout << "reset " << this->name() << ", rows = " << matrix_rows() << std::endl;
-                m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()), true);
+                m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
+                std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
             }
 
             auto& unknown() const

@@ -67,6 +67,12 @@ namespace samurai
                 }
             }
 
+            void set_is_block(bool is_block) override
+            {
+                base_class::set_is_block(is_block);
+                m_scheme.set_is_block(is_block);
+            }
+
             PetscInt matrix_rows() const override
             {
                 return m_scheme.matrix_rows();
@@ -366,6 +372,24 @@ namespace samurai
             auto& unknown() const
             {
                 return m_flux_scheme.unknown();
+            }
+
+            InsertMode current_insert_mode() const
+            {
+                return m_flux_scheme.current_insert_mode();
+            }
+
+            void set_current_insert_mode(InsertMode insert_mode)
+            {
+                m_flux_scheme.set_current_insert_mode(insert_mode);
+                m_cell_scheme.set_current_insert_mode(insert_mode);
+            }
+
+            void set_is_block(bool is_block) override
+            {
+                MatrixAssembly::set_is_block(is_block);
+                m_flux_scheme.set_is_block(is_block);
+                m_cell_scheme.set_is_block(is_block);
             }
 
             PetscInt matrix_rows() const override

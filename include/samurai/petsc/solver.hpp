@@ -43,11 +43,11 @@ namespace samurai
                     MatDestroy(&m_A);
                     m_A = nullptr;
                 }
-                /*if (m_ksp)
+                if (m_ksp)
                 {
                     KSPDestroy(&m_ksp);
                     m_ksp = nullptr;
-                }*/
+                }
             }
 
             KSP& Ksp()
@@ -72,6 +72,7 @@ namespace samurai
 
             virtual void configure_solver()
             {
+                configure_default_solver();
             }
 
           public:
@@ -90,7 +91,13 @@ namespace samurai
                 // MatIsSymmetric(m_A, 0, &is_symmetric);
 
                 KSPSetOperators(m_ksp, m_A, m_A);
-                KSPSetUp(m_ksp);
+                PetscInt err = KSPSetUp(m_ksp);
+                if (err != 0)
+                {
+                    std::cerr << "The setup of the solver failed!" << std::endl;
+                    assert(false && "Failed solver setup");
+                    exit(EXIT_FAILURE);
+                }
                 m_is_set_up = true;
             }
 
@@ -123,6 +130,7 @@ namespace samurai
                     KSPGetConvergedReasonString(m_ksp, &reason_text);
                     std::cerr << "Divergence of the solver ("s + reason_text + ")" << std::endl;
                     // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                    // assert(check_nan_or_inf(b));
                     assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
@@ -275,6 +283,8 @@ namespace samurai
 
           public:
 
+            static constexpr bool is_monolithic = false;
+
             explicit NestedBlockSolver(Dsctzr& discretizer)
                 : base_class(discretizer)
             {
@@ -367,6 +377,8 @@ namespace samurai
             static constexpr std::size_t cols = Dsctzr::n_cols;
 
           public:
+
+            static constexpr bool is_monolithic = true;
 
             explicit MonolithicBlockSolver(Dsctzr& discretizer)
                 : base_class(discretizer)

@@ -13,6 +13,9 @@ namespace samurai
             template <class Scheme>
             friend class Scalar_x_FluxBasedScheme;
 
+            template <std::size_t rows, std::size_t cols, class... Operators>
+            friend class MonolithicBlockAssembly;
+
           private:
 
             bool m_is_deleted  = false;
@@ -70,7 +73,7 @@ namespace samurai
                 m_add_1_on_diag_for_useless_ghosts = value;
             }
 
-            void set_is_block(bool is_block)
+            virtual void set_is_block(bool is_block)
             {
                 m_is_block = is_block;
             }

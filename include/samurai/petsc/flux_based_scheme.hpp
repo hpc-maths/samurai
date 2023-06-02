@@ -269,14 +269,16 @@ namespace samurai
                                         auto comput_cell_col = col_index(comput_cells[c], field_j);
                                         double cell1_coeff   = cell_coeff(cell1_coeffs, c, field_i, field_j);
                                         double cell2_coeff   = cell_coeff(cell2_coeffs, c, field_i, field_j);
-                                        if (cell1_coeff != 0)
-                                        {
-                                            MatSetValue(A, interface_cell1_row, comput_cell_col, cell1_coeff, ADD_VALUES);
-                                        }
-                                        if (cell2_coeff != 0)
-                                        {
-                                            MatSetValue(A, interface_cell2_row, comput_cell_col, cell2_coeff, ADD_VALUES);
-                                        }
+                                        // if (cell1_coeff != 0)
+                                        // {
+                                        MatSetValue(A, interface_cell1_row, comput_cell_col, cell1_coeff, ADD_VALUES);
+                                        // }
+                                        // if (cell2_coeff != 0)
+                                        // {
+                                        MatSetValue(A, interface_cell2_row, comput_cell_col, cell2_coeff, ADD_VALUES);
+                                        // }
+                                        // MatSetValue(A, interface_cell1_row, interface_cell1_row, 0, ADD_VALUES);
+                                        // MatSetValue(A, interface_cell2_row, interface_cell2_row, 0, ADD_VALUES);
                                     }
                                 }
                                 set_is_row_not_empty(interface_cell1_row);
