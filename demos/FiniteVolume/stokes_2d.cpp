@@ -105,46 +105,6 @@ void configure_solver(Solver& solver)
     }
 }
 
-template <class... Operators>
-struct MyBlockAssembly
-{
-    std::tuple<Operators...> m_operators;
-
-    MyBlockAssembly(Operators... operators)
-        : m_operators(operators...)
-    {
-    }
-};
-
-template <class Field>
-struct MyIdentity
-{
-    Field& m_f;
-
-    MyIdentity(Field& f)
-        : m_f(f)
-    {
-    }
-
-    /*MyIdentity(const MyIdentity& other)
-        : m_f(other.m_f)
-    {
-    }*/
-    MyIdentity(const MyIdentity& other) = default;
-
-    MyIdentity& operator=(const MyIdentity& other)
-    {
-        this->m_f = other.m_f;
-        return (*this);
-    }
-};
-
-template <class Field>
-auto make_my_identity(Field& f)
-{
-    return MyIdentity<Field>(f);
-}
-
 int main(int argc, char* argv[])
 {
     constexpr std::size_t dim = 2;
