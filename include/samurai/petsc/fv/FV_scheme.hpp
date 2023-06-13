@@ -846,7 +846,7 @@ namespace samurai
 
                             auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
 
-                            auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig)), field_i);
+                            auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig)), field_i);
                             MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
 
                             for (std::size_t ci = 0; ci < interpx.size(); ++ci)
@@ -856,7 +856,7 @@ namespace samurai
                                     double value           = -interpx[ci];
                                     auto coarse_cell_index = this->col_index(
                                         static_cast<PetscInt>(
-                                            this->m_mesh.get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order))),
+                                            this->mesh().get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order))),
                                         field_i);
                                     MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
                                 }
