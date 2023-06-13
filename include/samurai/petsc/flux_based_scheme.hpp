@@ -126,8 +126,7 @@ namespace samurai
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
-            using base_class::m_mesh;
-            using base_class::m_unknown;
+            using base_class::mesh;
             using base_class::row_index;
             using base_class::set_current_insert_mode;
             using base_class::set_is_row_not_empty;
@@ -179,7 +178,7 @@ namespace samurai
                 {
                     auto scheme_coeffs_dir = m_scheme_coefficients[d];
                     for_each_interior_interface(
-                        m_mesh,
+                        mesh(),
                         scheme_coeffs_dir.flux.direction,
                         scheme_coeffs_dir.flux.stencil,
                         [&](auto& interface_cells, auto&)
@@ -195,7 +194,7 @@ namespace samurai
                         });
 
                     for_each_boundary_interface(
-                        m_mesh,
+                        mesh(),
                         scheme_coeffs_dir.flux.direction,
                         scheme_coeffs_dir.flux.stencil,
                         [&](auto& interface_cells, auto&)
@@ -212,7 +211,7 @@ namespace samurai
                     auto opposite_direction = xt::eval(-scheme_coeffs_dir.flux.direction);
                     auto opposite_stencil   = xt::eval(-scheme_coeffs_dir.flux.stencil);
                     for_each_boundary_interface(
-                        m_mesh,
+                        mesh(),
                         opposite_direction,
                         opposite_stencil,
                         [&](auto& interface_cells, auto&)
@@ -250,7 +249,7 @@ namespace samurai
                 {
                     auto scheme_coeffs_dir = m_scheme_coefficients[d];
                     for_each_interior_interface(
-                        m_mesh,
+                        mesh(),
                         scheme_coeffs_dir.flux.direction,
                         scheme_coeffs_dir.flux.stencil,
                         scheme_coeffs_dir.flux.get_flux_coeffs,
@@ -286,7 +285,7 @@ namespace samurai
                             }
                         });
 
-                    for_each_boundary_interface(m_mesh,
+                    for_each_boundary_interface(mesh(),
                                                 scheme_coeffs_dir.flux.direction,
                                                 scheme_coeffs_dir.flux.stencil,
                                                 scheme_coeffs_dir.flux.get_flux_coeffs,
@@ -315,7 +314,7 @@ namespace samurai
                     auto opposite_direction             = xt::eval(-scheme_coeffs_dir.flux.direction);
                     Stencil<stencil_size, dim> reversed = xt::eval(xt::flip(scheme_coeffs_dir.flux.stencil, 0));
                     auto opposite_stencil               = xt::eval(-reversed);
-                    for_each_boundary_interface(m_mesh,
+                    for_each_boundary_interface(mesh(),
                                                 opposite_direction,
                                                 opposite_stencil,
                                                 scheme_coeffs_dir.flux.get_flux_coeffs,

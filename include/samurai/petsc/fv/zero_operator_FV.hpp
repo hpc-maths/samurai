@@ -30,6 +30,22 @@ namespace samurai
             {
                 return is_uniform(this->mesh());
             }
+
+            /*void assemble_scheme(Mat& A) override
+            {
+                if (this->current_insert_mode() == ADD_VALUES)
+                {
+                    // Must flush to use INSERT_VALUES instead of ADD_VALUES
+                    MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
+                    MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
+                    this->set_current_insert_mode(INSERT_VALUES);
+                }
+                for (PetscInt row = 0; row < this->matrix_rows(); ++row)
+                {
+                    MatSetValue(A, this->m_row_shift + row, this->m_col_shift + row, 1, INSERT_VALUES);
+                }
+                base_class::assemble_scheme(A);
+            }*/
         };
 
         // For some reason this version with an empty stencil is slower...

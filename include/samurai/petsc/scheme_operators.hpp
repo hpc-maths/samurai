@@ -29,7 +29,7 @@ namespace samurai
           private:
 
             Scheme m_scheme;
-            const double m_scalar;
+            double m_scalar;
 
           public:
 

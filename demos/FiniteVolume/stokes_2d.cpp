@@ -105,6 +105,46 @@ void configure_solver(Solver& solver)
     }
 }
 
+template <class... Operators>
+struct MyBlockAssembly
+{
+    std::tuple<Operators...> m_operators;
+
+    MyBlockAssembly(Operators... operators)
+        : m_operators(operators...)
+    {
+    }
+};
+
+template <class Field>
+struct MyIdentity
+{
+    Field& m_f;
+
+    MyIdentity(Field& f)
+        : m_f(f)
+    {
+    }
+
+    /*MyIdentity(const MyIdentity& other)
+        : m_f(other.m_f)
+    {
+    }*/
+    MyIdentity(const MyIdentity& other) = default;
+
+    MyIdentity& operator=(const MyIdentity& other)
+    {
+        this->m_f = other.m_f;
+        return (*this);
+    }
+};
+
+template <class Field>
+auto make_my_identity(Field& f)
+{
+    return MyIdentity<Field>(f);
+}
+
 int main(int argc, char* argv[])
 {
     constexpr std::size_t dim = 2;
@@ -114,7 +154,7 @@ int main(int argc, char* argv[])
     using Mesh                       = samurai::MRMesh<Config>;
     using mesh_id_t                  = typename Mesh::mesh_id_t;
     static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = true;
+    static constexpr bool monolithic = false;
 
     //----------------//
     //   Parameters   //
@@ -412,9 +452,9 @@ int main(int argc, char* argv[])
             }
             std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt);
 
+            // Mesh adaptation
             if (min_level != max_level)
             {
-                // Mesh adaptation
                 MRadaptation(mr_epsilon, mr_regularity);
                 min_level_np1    = mesh[mesh_id_t::cells].min_level();
                 max_level_np1    = mesh[mesh_id_t::cells].max_level();
@@ -430,12 +470,6 @@ int main(int argc, char* argv[])
             }
             std::cout.flush();
 
-            if (mesh_has_changed || dt_has_changed)
-            {
-                stokes_solver.reset();
-                configure_solver(stokes_solver);
-            }
-
             // Boundary conditions
             velocity_np1.get_bc().clear();
             samurai::make_bc<samurai::Dirichlet>(velocity_np1,
@@ -449,6 +483,17 @@ int main(int argc, char* argv[])
                                                {
                                                    return exact_normal_grad_pressure(t_np1, coord);
                                                });
+
+            // Update solver
+            if (mesh_has_changed || dt_has_changed)
+            {
+                if (dt_has_changed)
+                {
+                    stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                }
+                stokes_solver = samurai::petsc::make_solver(stokes);
+                configure_solver(stokes_solver);
+            }
 
             // Solve the linear equation
             //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n + dt*f
@@ -593,9 +638,9 @@ int main(int argc, char* argv[])
             }
             std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
 
+            // Mesh adaptation
             if (min_level != max_level)
             {
-                // Mesh adaptation
                 MRadaptation(mr_epsilon, mr_regularity);
                 min_level_np1    = mesh[mesh_id_t::cells].min_level();
                 max_level_np1    = mesh[mesh_id_t::cells].max_level();
@@ -610,13 +655,18 @@ int main(int argc, char* argv[])
             }
             std::cout << std::endl;
 
-            // Solve system
+            // Update solver
             if (mesh_has_changed || dt_has_changed)
             {
-                stokes_solver.reset();
+                if (dt_has_changed)
+                {
+                    stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                }
+                stokes_solver = samurai::petsc::make_solver(stokes);
                 configure_solver(stokes_solver);
             }
 
+            // Solve system
             zero.fill(0);
             stokes_solver.solve(velocity, zero);
 

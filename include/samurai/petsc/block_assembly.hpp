@@ -23,7 +23,7 @@ namespace samurai
 
           public:
 
-            BlockAssembly(Operators&... operators)
+            BlockAssembly(const Operators&... operators)
                 : m_operators(operators...)
             {
                 static constexpr std::size_t n_operators = sizeof...(operators);
@@ -110,7 +110,7 @@ namespace samurai
 
           public:
 
-            explicit NestedBlockAssembly(Operators&... operators)
+            explicit NestedBlockAssembly(const Operators&... operators)
                 : block_assembly(operators...)
             {
                 for_each_operator(
@@ -250,7 +250,7 @@ namespace samurai
 
           public:
 
-            explicit MonolithicBlockAssembly(Operators&... operators)
+            explicit MonolithicBlockAssembly(const Operators&... operators)
                 : block_assembly(operators...)
             {
                 this->set_name("(unnamed monolithic block operator)");
@@ -524,7 +524,7 @@ namespace samurai
         };
 
         template <std::size_t rows, std::size_t cols, bool monolithic = false, class... Operators>
-        auto make_block_operator(Operators... operators)
+        auto make_block_operator(const Operators&... operators)
         {
             if constexpr (monolithic)
             {

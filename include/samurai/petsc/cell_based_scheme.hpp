@@ -69,7 +69,7 @@ namespace samurai
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
-            using base_class::m_mesh;
+            using base_class::mesh;
             using base_class::row_index;
             using base_class::set_current_insert_mode;
             using base_class::set_is_row_not_empty;
@@ -202,7 +202,7 @@ namespace samurai
                             }
                         }
                     }
-                    for_each_cell(m_mesh,
+                    for_each_cell(mesh(),
                                   [&](auto& cell)
                                   {
                                       nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += scheme_nnz_i;
@@ -215,14 +215,14 @@ namespace samurai
             template <class Func>
             void for_each_stencil_and_coeffs(Func&& f)
             {
-                auto stencil_it = make_stencil_iterator(m_mesh, m_stencil);
+                auto stencil_it = make_stencil_iterator(mesh(), m_stencil);
 
-                for_each_level(m_mesh,
+                for_each_level(mesh(),
                                [&](std::size_t level)
                                {
                                    auto coeffs = m_get_coefficients(cell_length(level));
 
-                                   for_each_stencil(m_mesh,
+                                   for_each_stencil(mesh(),
                                                     level,
                                                     stencil_it,
                                                     [&](auto& cells)
