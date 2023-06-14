@@ -70,8 +70,7 @@ namespace samurai
                 this->m_ksp         = other.m_ksp;
                 this->m_A           = other.m_A;
                 this->m_is_set_up   = other.m_is_set_up;
-                discretizer().reset();
-                // Prevent KSP destruction when 'other' object is destroyed
+                //  Prevent KSP destruction when 'other' object is destroyed
                 other.m_ksp = nullptr;
                 other.m_A   = nullptr;
                 return *this;
@@ -141,7 +140,8 @@ namespace samurai
                 discretizer().enforce_bc(b);
                 // Set to zero the right-hand side of the ghost equations
                 discretizer().enforce_projection_prediction(b);
-                // discretizer().add_0_for_useless_ghosts(b);
+                // Set to zero the right-hand side of the useless ghosts' equations
+                discretizer().add_0_for_useless_ghosts(b);
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
 
@@ -161,8 +161,9 @@ namespace samurai
                     const char* reason_text;
                     KSPGetConvergedReasonString(m_ksp, &reason_text);
                     std::cerr << "Divergence of the solver ("s + reason_text + ")" << std::endl;
-                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
-                    // assert(check_nan_or_inf(b));
+                    VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                    std::cout << std::endl;
+                    assert(check_nan_or_inf(b));
                     assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
@@ -183,7 +184,6 @@ namespace samurai
                 destroy_petsc_objects();
                 m_is_set_up = false;
                 configure_solver();
-                discretizer().reset();
             }
         };
 

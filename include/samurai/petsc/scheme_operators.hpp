@@ -116,7 +116,7 @@ namespace samurai
                 m_scheme.enforce_bc(b);
             }
 
-            void add_0_for_useless_ghosts(Vec& b)
+            void add_0_for_useless_ghosts(Vec& b) const
             {
                 m_scheme.add_0_for_useless_ghosts(b);
             }
@@ -298,7 +298,7 @@ namespace samurai
                 m_scheme1.enforce_bc(b);
             }
 
-            void add_0_for_useless_ghosts(Vec& b)
+            void add_0_for_useless_ghosts(Vec& b) const
             {
                 m_scheme1.add_0_for_useless_ghosts(b);
             }
@@ -483,7 +483,7 @@ namespace samurai
                 m_flux_scheme.enforce_bc(b);
             }
 
-            void add_0_for_useless_ghosts(Vec& b)
+            void add_0_for_useless_ghosts(Vec& b) const
             {
                 m_flux_scheme.add_0_for_useless_ghosts(b);
             }

@@ -111,6 +111,7 @@ namespace samurai
              */
             virtual void create_matrix(Mat& A)
             {
+                reset();
                 auto m = matrix_rows();
                 auto n = matrix_cols();
 
