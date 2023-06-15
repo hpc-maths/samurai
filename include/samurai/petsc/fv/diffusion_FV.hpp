@@ -66,57 +66,26 @@ namespace samurai
             {
                 std::array<coefficients_t, dim> coeffs_by_fluxes;
                 auto directions = positive_cartesian_directions<dim>();
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    auto& coeffs                   = coeffs_by_fluxes[d];
-                    DirectionVector<dim> direction = xt::view(directions, d);
-                    coeffs.flux                    = normal_grad_order2<Field>(direction);
-                    if (d == 0)
+
+                static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+                    [&](auto integral_constant_d)
                     {
-                        coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
+                        static constexpr int d = decltype(integral_constant_d)::value;
+
+                        auto& coeffs                   = coeffs_by_fluxes[d];
+                        DirectionVector<dim> direction = xt::view(directions, d);
+                        coeffs.flux                    = normal_grad_order2<Field>(direction);
+                        coeffs.get_cell1_coeffs        = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                         {
-                            auto cell_coeffs = get_laplacian_coeffs_cell1<0>(flux_coeffs, h_face, h_cell);
+                            auto cell_coeffs = get_laplacian_coeffs_cell1<d>(flux_coeffs, h_face, h_cell);
                             for (auto& coeff : cell_coeffs)
                             {
                                 coeff *= -1;
                             }
                             return cell_coeffs;
                         };
-                        coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<0>;
-                    }
-                    if constexpr (dim >= 2)
-                    {
-                        if (d == 1)
-                        {
-                            coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
-                            {
-                                auto cell_coeffs = get_laplacian_coeffs_cell1<1>(flux_coeffs, h_face, h_cell);
-                                for (auto& coeff : cell_coeffs)
-                                {
-                                    coeff *= -1;
-                                }
-                                return cell_coeffs;
-                            };
-                            coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<1>;
-                        }
-                    }
-                    if constexpr (dim >= 3)
-                    {
-                        if (d == 2)
-                        {
-                            coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
-                            {
-                                auto cell_coeffs = get_laplacian_coeffs_cell1<2>(flux_coeffs, h_face, h_cell);
-                                for (auto& coeff : cell_coeffs)
-                                {
-                                    coeff *= -1;
-                                }
-                                return cell_coeffs;
-                            };
-                            coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<2>;
-                        }
-                    }
-                }
+                        coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<d>;
+                    });
                 return coeffs_by_fluxes;
             }
 
