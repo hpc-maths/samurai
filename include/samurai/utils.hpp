@@ -169,4 +169,30 @@ namespace samurai
             }
         }
     }
+
+    /**
+     * Static for loop
+     */
+    template <int Begin, int End>
+    struct static_for
+    {
+        template <typename Lambda>
+        static inline constexpr void apply(Lambda&& f)
+        {
+            if (Begin < End)
+            {
+                f(std::integral_constant<int, Begin>{});
+                static_for<Begin + 1, End>::apply(f);
+            }
+        }
+    };
+
+    template <int N>
+    struct static_for<N, N>
+    {
+        template <typename Lambda>
+        static inline constexpr void apply(Lambda&&)
+        {
+        }
+    };
 } // namespace samurai

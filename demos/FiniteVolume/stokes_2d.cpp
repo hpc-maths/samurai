@@ -107,9 +107,7 @@ void configure_solver(Solver& solver)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
-    // using Config = samurai::amr::Config<dim>;
-    // using Mesh = samurai::amr::Mesh<Config>;
+    constexpr std::size_t dim        = 2;
     using Config                     = samurai::MRConfig<dim, 1>;
     using Mesh                       = samurai::MRMesh<Config>;
     using mesh_id_t                  = typename Mesh::mesh_id_t;
@@ -174,8 +172,12 @@ int main(int argc, char* argv[])
     // Stationary problem //
     //--------------------//
 
+    std::cout << "Problem solved: ";
+
     if (test_case == "s")
     {
+        std::cout << "stationary" << std::endl;
+
         // 2 equations: -Lap(v) + Grad(p) = f
         //              -Div(v)           = 0
         // where v = velocity
@@ -301,6 +303,8 @@ int main(int argc, char* argv[])
 
     else if (test_case == "ns")
     {
+        std::cout << "non stationary" << std::endl;
+
         // Equations:
         //              v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = dt*f_n + v_n
         //                                        Div(v_np1)                = 0
@@ -514,6 +518,8 @@ int main(int argc, char* argv[])
 
     else if (test_case == "ldc")
     {
+        std::cout << "lid-driven cavity" << std::endl;
+
         // 2 equations: v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = v_n
         //                                        Div(v_np1)                = 0
         // where v = velocity

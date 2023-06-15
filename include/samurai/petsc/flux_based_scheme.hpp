@@ -149,7 +149,7 @@ namespace samurai
 
           public:
 
-            FluxBasedScheme(Field& unknown, std::array<coefficients_t, dim> scheme_coefficients)
+            FluxBasedScheme(Field& unknown, const std::array<coefficients_t, dim>& scheme_coefficients)
                 : base_class(unknown)
                 , m_scheme_coefficients(scheme_coefficients)
             {

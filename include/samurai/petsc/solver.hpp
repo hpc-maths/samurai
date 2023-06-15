@@ -65,14 +65,18 @@ namespace samurai
 
             SolverBase& operator=(SolverBase&& other)
             {
-                this->destroy_petsc_objects();
-                this->m_discretizer = other.m_discretizer;
-                this->m_ksp         = other.m_ksp;
-                this->m_A           = other.m_A;
-                this->m_is_set_up   = other.m_is_set_up;
-                //  Prevent KSP destruction when 'other' object is destroyed
-                other.m_ksp = nullptr;
-                other.m_A   = nullptr;
+                if (this != &other)
+                {
+                    this->destroy_petsc_objects();
+                    this->m_discretizer = other.m_discretizer;
+                    this->m_ksp         = other.m_ksp;
+                    this->m_A           = other.m_A;
+                    this->m_is_set_up   = other.m_is_set_up;
+                    other.m_discretizer = nullptr;
+                    other.m_ksp         = nullptr; // Prevent KSP destruction when 'other' object is destroyed
+                    other.m_A           = nullptr;
+                    other.m_is_set_up   = false;
+                }
                 return *this;
             }
 
@@ -161,9 +165,9 @@ namespace samurai
                     const char* reason_text;
                     KSPGetConvergedReasonString(m_ksp, &reason_text);
                     std::cerr << "Divergence of the solver ("s + reason_text + ")" << std::endl;
-                    VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    std::cout << std::endl;
-                    assert(check_nan_or_inf(b));
+                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                    // std::cout << std::endl;
+                    // assert(check_nan_or_inf(b));
                     assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
