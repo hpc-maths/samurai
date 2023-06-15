@@ -34,6 +34,80 @@ bool check_nan_or_inf(const Field& f)
     return !is_nan_or_inf;
 }
 
+template <class Solver>
+void configure_LU_solver(Solver& solver)
+{
+    KSP ksp = solver.Ksp();
+    PC pc;
+    KSPGetPC(ksp, &pc);
+    KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
+    PCSetType(pc, PCLU);         // (equiv. '-pc_type lu')
+    PetscBool use_superlu = PETSC_FALSE;
+#if defined(PETSC_HAVE_SUPERLU)
+    use_superlu = PETSC_TRUE;
+#endif
+    PetscBool use_mumps        = PETSC_FALSE;
+    PetscBool lu_solver_is_set = PETSC_FALSE;
+    std::string pc_factor_mat_solver_type_str(100, '\0');
+    PetscOptionsGetString(NULL,
+                          NULL,
+                          "-pc_factor_mat_solver_type",
+                          pc_factor_mat_solver_type_str.data(),
+                          pc_factor_mat_solver_type_str.size(),
+                          &lu_solver_is_set);
+    if (lu_solver_is_set)
+    {
+        pc_factor_mat_solver_type_str = pc_factor_mat_solver_type_str.substr(0, pc_factor_mat_solver_type_str.find('\0'));
+    }
+#if defined(PETSC_HAVE_MUMPS)
+    if (!use_superlu || pc_factor_mat_solver_type_str == MATSOLVERMUMPS)
+    {
+        use_mumps   = PETSC_TRUE;
+        use_superlu = PETSC_FALSE;
+    }
+#endif
+    if (use_superlu)
+    {
+#if defined(PETSC_HAVE_SUPERLU)
+        PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
+        // Configure the following options:
+        // -mat_superlu_rowperm LargeDiag -mat_superlu_colperm NATURAL -mat_superlu_diagpivotthresh 0.5 -mat_superlu_iterrefine SINGLE
+        PetscBool set = PETSC_FALSE;
+        PetscOptionsHasName(NULL, NULL, "-mat_superlu_rowperm", &set);
+        if (!set)
+        {
+            PetscOptionsSetValue(NULL, "-mat_superlu_rowperm", "LargeDiag");
+        }
+
+        PetscOptionsHasName(NULL, NULL, "-mat_superlu_colperm", &set);
+        if (!set)
+        {
+            PetscOptionsSetValue(NULL, "-mat_superlu_colperm", "NATURAL");
+        }
+
+        PetscOptionsHasName(NULL, NULL, "-mat_superlu_diagpivotthresh", &set);
+        if (!set)
+        {
+            PetscOptionsSetValue(NULL, "-mat_superlu_diagpivotthresh", "0.5");
+        }
+
+        PetscOptionsHasName(NULL, NULL, "-mat_superlu_iterrefine", &set);
+        if (!set)
+        {
+            PetscOptionsSetValue(NULL, "-mat_superlu_iterrefine", "SINGLE");
+        }
+#endif
+    }
+    else if (use_mumps)
+    {
+#if defined(PETSC_HAVE_MUMPS)
+        PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
+#endif
+    }
+    KSPSetFromOptions(ksp); // KSP and PC overwritten by user value if needed
+                            // If SuperLU is not installed, you can use: -ksp_type gmres -pc_type ilu
+}
+
 //
 // Configuration of the PETSc solver for the Stokes problem
 //
@@ -90,14 +164,7 @@ void configure_solver(Solver& solver)
 {
     if constexpr (Solver::is_monolithic)
     {
-        KSP ksp = solver.Ksp();
-        PC pc;
-        KSPGetPC(ksp, &pc);
-        KSPSetType(ksp, KSPPREONLY);                    // (equiv. '-ksp_type preonly')
-        PCSetType(pc, PCLU);                            // (equiv. '-pc_type lu')
-        PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
-        KSPSetFromOptions(ksp);                         // KSP and PC overwritten by user value if needed
-        // If SuperLU is not installed, you can use: -ksp_type gmres -pc_type ilu
+        configure_LU_solver(solver);
     }
     else
     {
