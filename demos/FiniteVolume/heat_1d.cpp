@@ -124,7 +124,6 @@ int main(int argc, char* argv[])
 
     auto diff_unp1 = samurai::petsc::make_diffusion_FV(unp1); // diff_unp1  = -Lap(unp1)
     auto id_unp1   = samurai::petsc::make_identity_FV(unp1);
-    // auto back_euler = id_unp1 + dt * diff_unp1; // back_euler = [Id - dt*Lap](unp1)
 
     //--------------------//
     //   Time iteration   //

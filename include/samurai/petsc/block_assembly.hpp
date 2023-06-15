@@ -523,7 +523,7 @@ namespace samurai
             }
         };
 
-        template <std::size_t rows, std::size_t cols, bool monolithic = false, class... Operators>
+        template <std::size_t rows, std::size_t cols, bool monolithic = true, class... Operators>
         auto make_block_operator(const Operators&... operators)
         {
             if constexpr (monolithic)

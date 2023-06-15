@@ -231,9 +231,8 @@ int main(int argc, char* argv[])
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
     PetscOptionsSetValue(NULL, "-options_left", "off"); // disable warning for unused options
 
-    auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
-    // auto mesh = Mesh(box, start_level, min_level, max_level); // amr::Mesh
-    auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level)); // MRMesh
+    auto box  = samurai::Box<double, dim>({0, 0}, {1, 1});
+    auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level));
 
     //--------------------//
     // Stationary problem //
