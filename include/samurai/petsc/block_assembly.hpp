@@ -128,7 +128,7 @@ namespace samurai
                         // std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;
                         op.create_matrix(block(row, col));
                     });
-                MatCreateNest(PETSC_COMM_SELF, rows, PETSC_NULL, cols, PETSC_NULL, m_blocks.data(), &A);
+                MatCreateNest(PETSC_COMM_SELF, rows, PETSC_IGNORE, cols, PETSC_IGNORE, m_blocks.data(), &A);
             }
 
             void assemble_matrix(Mat& A)
