@@ -3,6 +3,8 @@
 // #define ENABLE_MG
 
 #include "block_assembly.hpp"
+#include "fv/cell_based_scheme_assembly.hpp"
+#include "fv/flux_based_scheme_assembly.hpp"
 #ifdef ENABLE_MG
 #include "multigrid/petsc/GeometricMultigrid.hpp"
 #else
@@ -13,20 +15,22 @@ namespace samurai
 {
     namespace petsc
     {
-        template <class Dsctzr>
+        template <class Assembly>
         class SolverBase
         {
+            using scheme_t = typename Assembly::scheme_t;
+
           protected:
 
-            Dsctzr* m_discretizer = nullptr;
-            KSP m_ksp             = nullptr;
-            Mat m_A               = nullptr;
-            bool m_is_set_up      = false;
+            Assembly m_assembly;
+            KSP m_ksp        = nullptr;
+            Mat m_A          = nullptr;
+            bool m_is_set_up = false;
 
           public:
 
-            explicit SolverBase(Dsctzr& discretizer)
-                : m_discretizer(&discretizer)
+            explicit SolverBase(scheme_t& scheme)
+                : m_assembly(scheme)
             {
                 configure_default_solver();
             }
@@ -55,10 +59,10 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
-                    this->m_discretizer = other.m_discretizer;
-                    this->m_ksp         = other.m_ksp;
-                    this->m_A           = other.m_A;
-                    this->m_is_set_up   = other.m_is_set_up;
+                    this->m_scheme    = other.m_scheme;
+                    this->m_ksp       = other.m_ksp;
+                    this->m_A         = other.m_A;
+                    this->m_is_set_up = other.m_is_set_up;
                 }
                 return *this;
             }
@@ -68,14 +72,14 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
-                    this->m_discretizer = other.m_discretizer;
-                    this->m_ksp         = other.m_ksp;
-                    this->m_A           = other.m_A;
-                    this->m_is_set_up   = other.m_is_set_up;
-                    other.m_discretizer = nullptr;
-                    other.m_ksp         = nullptr; // Prevent KSP destruction when 'other' object is destroyed
-                    other.m_A           = nullptr;
-                    other.m_is_set_up   = false;
+                    this->m_scheme    = other.m_scheme;
+                    this->m_ksp       = other.m_ksp;
+                    this->m_A         = other.m_A;
+                    this->m_is_set_up = other.m_is_set_up;
+                    other.m_scheme    = nullptr;
+                    other.m_ksp       = nullptr; // Prevent KSP destruction when 'other' object is destroyed
+                    other.m_A         = nullptr;
+                    other.m_is_set_up = false;
                 }
                 return *this;
             }
@@ -90,9 +94,9 @@ namespace samurai
                 return m_is_set_up;
             }
 
-            Dsctzr& discretizer()
+            auto& discretizer()
             {
-                return *m_discretizer;
+                return m_assembly;
             }
 
           private:
@@ -191,12 +195,13 @@ namespace samurai
             }
         };
 
-        template <class Dsctzr>
-        class SingleFieldSolver : public SolverBase<Dsctzr>
+        template <class Assembly>
+        class SingleFieldSolver : public SolverBase<Assembly>
         {
-            using base_class = SolverBase<Dsctzr>;
-            using Mesh       = typename Dsctzr::Mesh;
-            using Field      = typename Dsctzr::field_t;
+            using base_class = SolverBase<Assembly>;
+            using scheme_t   = typename Assembly::scheme_t;
+            using Mesh       = typename scheme_t::Mesh;
+            using Field      = typename scheme_t::field_t;
 
             using base_class::discretizer;
             using base_class::m_A;
@@ -207,12 +212,12 @@ namespace samurai
 
             bool m_use_samurai_mg = false;
 #ifdef ENABLE_MG
-            GeometricMultigrid<Dsctzr> _samurai_mg;
+            GeometricMultigrid<Assembly> _samurai_mg;
 #endif
 
           public:
 
-            explicit SingleFieldSolver(Dsctzr& discretizer)
+            explicit SingleFieldSolver(scheme_t& discretizer)
                 : base_class(discretizer)
             {
                 configure_solver();
@@ -453,10 +458,18 @@ namespace samurai
 
         // Helper functions
 
-        template <class Dsctzr>
-        auto make_solver(Dsctzr& discretizer)
+        template <class Scheme>
+        auto make_solver(Scheme& scheme)
         {
-            return SingleFieldSolver<Dsctzr>(discretizer);
+            // static_assert(Scheme::is_flux_based);
+            if constexpr (Scheme::is_flux_based)
+            {
+                return SingleFieldSolver<FluxBasedSchemeAssembly<Scheme>>(scheme);
+            }
+            else
+            {
+                return SingleFieldSolver<CellBasedSchemeAssembly<Scheme>>(scheme);
+            }
         }
 
         template <class Dsctzr>

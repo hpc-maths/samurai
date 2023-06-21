@@ -1,96 +1,31 @@
 #pragma once
 #include "../../boundary.hpp"
+#include "../../schemes/fv/FV_scheme.hpp"
 #include "../matrix_assembly.hpp"
 
 namespace samurai
 {
     namespace petsc
     {
-        template <PetscInt neighbourhood_width_, DirichletEnforcement dirichlet_enfcmt_ = Equation>
-        struct BoundaryConfigFV
-        {
-            static constexpr PetscInt neighbourhood_width          = neighbourhood_width_;
-            static constexpr PetscInt stencil_size                 = 1 + 2 * neighbourhood_width;
-            static constexpr PetscInt nb_ghosts                    = neighbourhood_width;
-            static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
-        };
-
-        /**
-         * Definition of one ghost equation to enforce the boundary condition.
-         */
-        template <class Field, std::size_t output_field_size, std::size_t bdry_stencil_size>
-        struct BoundaryEquationCoeffs
-        {
-            static constexpr std::size_t field_size = Field::size;
-            using field_value_type                  = typename Field::value_type; // double
-            using coeffs_t                          = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
-
-            using stencil_coeffs_t = std::array<coeffs_t, bdry_stencil_size>;
-            using rhs_coeffs_t     = coeffs_t;
-
-            // Index of the ghost in the boundary stencil. The equation coefficients will be added on its row.
-            std::size_t ghost_index;
-            // Coefficients of the equation
-            stencil_coeffs_t stencil_coeffs;
-            // Coefficients of the right-hand side
-            rhs_coeffs_t rhs_coeffs;
-        };
-
-        /**
-         * Definition of one ghost equation to enforce the boundary condition.
-         * It contains functions depending on h to get the equation coefficients.
-         */
-        template <class Field, std::size_t output_field_size, std::size_t bdry_stencil_size>
-        struct BoundaryEquationConfig
-        {
-            using equation_coeffs_t         = BoundaryEquationCoeffs<Field, output_field_size, bdry_stencil_size>;
-            using stencil_coeffs_t          = typename equation_coeffs_t::stencil_coeffs_t;
-            using rhs_coeffs_t              = typename equation_coeffs_t::rhs_coeffs_t;
-            using get_stencil_coeffs_func_t = std::function<stencil_coeffs_t(double)>;
-            using get_rhs_coeffs_func_t     = std::function<rhs_coeffs_t(double)>;
-
-            // Index of the ghost in the boundary stencil. The equation coefficients will be added on its row.
-            std::size_t ghost_index;
-            // Function to get the coefficients of the equation
-            get_stencil_coeffs_func_t get_stencil_coeffs;
-            // Function to get the coefficients of the right-hand side
-            get_rhs_coeffs_func_t get_rhs_coeffs;
-        };
-
-        /**
-         * For a boundary direction, defines one equation per boundary ghost.
-         */
-        template <class Field, std::size_t output_field_size, std::size_t bdry_stencil_size, std::size_t nb_bdry_ghosts>
-        struct DirectionalBoundaryConfig
-        {
-            static constexpr std::size_t dim = Field::dim;
-            using bdry_equation_config_t     = BoundaryEquationConfig<Field, output_field_size, bdry_stencil_size>;
-
-            // Direction of the boundary and stencil for the computation of the boundary condition
-            DirectionalStencil<bdry_stencil_size, dim> directional_stencil;
-            // One equation per boundary ghost
-            std::array<bdry_equation_config_t, nb_bdry_ghosts> equations;
-        };
-
         /**
          * Finite Volume scheme.
-         * This is the base class of CellBasedScheme and FluxBasedScheme.
+         * This is the base class of CellBasedSchemeAssembly and FluxBasedSchemeAssembly.
          * It contains the management of
          *     - the boundary conditions
          *     - the projection/prediction ghosts
          *     - the unused ghosts
          */
-        template <class Field, std::size_t output_field_size, class bdry_cfg>
-        class FVScheme : public MatrixAssembly
+        template <class Scheme>
+        class FVSchemeAssembly : public MatrixAssembly
         {
-            template <class Scheme1, class Scheme2>
-            friend class FluxBasedScheme_Sum_CellBasedScheme;
+            // template <class Scheme1, class Scheme2>
+            // friend class FluxBasedScheme_Sum_CellBasedScheme;
 
-            template <class Scheme>
-            friend class Scalar_x_FluxBasedScheme;
+            // template <class Scheme>
+            // friend class Scalar_x_FluxBasedScheme;
 
-            template <std::size_t rows, std::size_t cols, class... Operators>
-            friend class MonolithicBlockAssembly;
+            // template <std::size_t rows, std::size_t cols, class... Operators>
+            // friend class MonolithicBlockAssembly;
 
           protected:
 
@@ -99,36 +34,45 @@ namespace samurai
 
           public:
 
-            using Mesh                                             = typename Field::mesh_t;
-            using mesh_id_t                                        = typename Mesh::mesh_id_t;
-            using interval_t                                       = typename Mesh::interval_t;
-            using field_value_type                                 = typename Field::value_type; // double
-            static constexpr std::size_t dim                       = Field::dim;
-            static constexpr std::size_t field_size                = Field::size;
-            static constexpr std::size_t prediction_order          = Mesh::config::prediction_order;
-            static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg::neighbourhood_width;
-            static constexpr std::size_t bdry_stencil_size         = bdry_cfg::stencil_size;
-            static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg::nb_ghosts;
-            static constexpr DirichletEnforcement dirichlet_enfcmt = bdry_cfg::dirichlet_enfcmt;
+            using cfg_t                                            = typename Scheme::cfg_t;
+            using bdry_cfg_t                                       = typename Scheme::bdry_cfg;
+            using field_t                                          = typename Scheme::field_t;
+            using mesh_t                                           = typename field_t::mesh_t;
+            using mesh_id_t                                        = typename mesh_t::mesh_id_t;
+            using interval_t                                       = typename mesh_t::interval_t;
+            using field_value_type                                 = typename field_t::value_type; // double
+            static constexpr std::size_t dim                       = field_t::dim;
+            static constexpr std::size_t field_size                = field_t::size;
+            static constexpr std::size_t output_field_size         = cfg_t::output_field_size;
+            static constexpr std::size_t prediction_order          = mesh_t::config::prediction_order;
+            static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg_t::neighbourhood_width;
+            static constexpr std::size_t bdry_stencil_size         = bdry_cfg_t::stencil_size;
+            static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg_t::nb_ghosts;
+            static constexpr DirichletEnforcement dirichlet_enfcmt = bdry_cfg_t::dirichlet_enfcmt;
 
             using dirichlet_t = Dirichlet<dim, interval_t, field_value_type, field_size>;
             using neumann_t   = Neumann<dim, interval_t, field_value_type, field_size>;
 
-            using directional_bdry_config_t = DirectionalBoundaryConfig<Field, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
+            using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
 
           protected:
 
-            Field* m_unknown;
+            const Scheme* m_scheme;
             std::size_t m_n_cells;
             InsertMode m_current_insert_mode = INSERT_VALUES;
             std::vector<bool> m_is_row_empty;
 
           public:
 
-            explicit FVScheme(Field& unknown)
-                : m_unknown(&unknown)
+            explicit FVSchemeAssembly(const Scheme& scheme)
+                : m_scheme(&scheme)
             {
                 reset();
+            }
+
+            auto& scheme() const
+            {
+                return *m_scheme;
             }
 
             void reset() override
@@ -141,7 +85,8 @@ namespace samurai
 
             auto& unknown() const
             {
-                return *m_unknown;
+                // return *m_unknown;
+                return scheme().unknown();
             }
 
             auto& mesh() const
@@ -178,7 +123,7 @@ namespace samurai
                 {
                     return m_col_shift + cell_index;
                 }
-                else if constexpr (Field::is_soa)
+                else if constexpr (field_t::is_soa)
                 {
                     return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
                 }
@@ -194,7 +139,7 @@ namespace samurai
                 {
                     return m_row_shift + cell_index;
                 }
-                else if constexpr (Field::is_soa)
+                else if constexpr (field_t::is_soa)
                 {
                     return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
                 }
@@ -211,7 +156,7 @@ namespace samurai
                 {
                     return m_col_shift + static_cast<PetscInt>(cell.index);
                 }
-                else if constexpr (Field::is_soa)
+                else if constexpr (field_t::is_soa)
                 {
                     return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells + cell.index);
                 }
@@ -228,7 +173,7 @@ namespace samurai
                 {
                     return m_row_shift + static_cast<PetscInt>(cell.index);
                 }
-                else if constexpr (Field::is_soa)
+                else if constexpr (field_t::is_soa)
                 {
                     return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells + cell.index);
                 }
@@ -274,94 +219,6 @@ namespace samurai
                 m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)] = false;
             }
 
-          protected:
-
-            //-------------------------------------------------------------//
-            //      Configuration of the BC stencils and equations         //
-            //-------------------------------------------------------------//
-
-            auto get_directional_stencil(const DirectionVector<dim>& direction) const
-            {
-                auto dir_stencils = directional_stencils<dim, bdry_neighbourhood_width>();
-                for (std::size_t d = 0; d < 2 * dim; ++d)
-                {
-                    if (direction == dir_stencils[d].direction)
-                    {
-                        return dir_stencils[d];
-                    }
-                }
-                assert(false);
-                return dir_stencils[0];
-            }
-
-            virtual directional_bdry_config_t dirichlet_config(const DirectionVector<dim>& direction) const
-            {
-                using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
-                directional_bdry_config_t config;
-
-                config.directional_stencil = get_directional_stencil(direction);
-
-                if constexpr (bdry_neighbourhood_width == 1)
-                {
-                    static constexpr std::size_t cell          = 0;
-                    static constexpr std::size_t interior_cell = 1;
-                    static constexpr std::size_t ghost         = 2;
-
-                    // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is
-                    //                        [  1/2    1/2 ] = dirichlet_value
-                    config.equations[0].ghost_index        = ghost;
-                    config.equations[0].get_stencil_coeffs = [&](double)
-                    {
-                        std::array<coeffs_t, bdry_stencil_size> coeffs;
-                        coeffs[cell]          = 0.5 * eye<coeffs_t>();
-                        coeffs[ghost]         = 0.5 * eye<coeffs_t>();
-                        coeffs[interior_cell] = zeros<coeffs_t>();
-                        return coeffs;
-                    };
-                    config.equations[0].get_rhs_coeffs = [&](double)
-                    {
-                        coeffs_t coeffs = eye<coeffs_t>();
-                        return coeffs;
-                    };
-                }
-
-                return config;
-            }
-
-            virtual directional_bdry_config_t neumann_config(const DirectionVector<dim>& direction) const
-            {
-                using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
-                directional_bdry_config_t config;
-
-                config.directional_stencil = get_directional_stencil(direction);
-
-                if constexpr (bdry_neighbourhood_width == 1)
-                {
-                    static constexpr std::size_t cell          = 0;
-                    static constexpr std::size_t interior_cell = 1;
-                    static constexpr std::size_t ghost         = 2;
-
-                    // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is
-                    //                    [ 1/h  -1/h ] = neumann_value
-                    config.equations[0].ghost_index        = ghost;
-                    config.equations[0].get_stencil_coeffs = [&](double)
-                    {
-                        std::array<coeffs_t, bdry_stencil_size> coeffs;
-                        coeffs[cell]          = -eye<coeffs_t>();
-                        coeffs[ghost]         = eye<coeffs_t>();
-                        coeffs[interior_cell] = zeros<coeffs_t>();
-                        return coeffs;
-                    };
-                    config.equations[0].get_rhs_coeffs = [&](double h)
-                    {
-                        coeffs_t coeffs = h * eye<coeffs_t>();
-                        return coeffs;
-                    };
-                }
-
-                return config;
-            }
-
           public:
 
             //-------------------------------------------------------------//
@@ -396,7 +253,7 @@ namespace samurai
                             neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
                             if (dirichlet)
                             {
-                                auto config = dirichlet_config(towards_out);
+                                auto config = scheme().dirichlet_config(towards_out);
                                 for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
@@ -408,7 +265,7 @@ namespace samurai
                             }
                             else if (neumann)
                             {
-                                auto config = neumann_config(towards_out);
+                                auto config = scheme().neumann_config(towards_out);
                                 for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
@@ -500,7 +357,7 @@ namespace samurai
                             neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
                             if (dirichlet)
                             {
-                                auto config = dirichlet_config(towards_out);
+                                auto config = scheme().dirichlet_config(towards_out);
                                 for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
@@ -512,7 +369,7 @@ namespace samurai
                             }
                             else if (neumann)
                             {
-                                auto config = neumann_config(towards_out);
+                                auto config = scheme().neumann_config(towards_out);
                                 for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
@@ -604,7 +461,7 @@ namespace samurai
                             neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
                             if (dirichlet)
                             {
-                                auto config = dirichlet_config(towards_out);
+                                auto config = scheme().dirichlet_config(towards_out);
                                 for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
@@ -616,7 +473,7 @@ namespace samurai
                             }
                             else if (neumann)
                             {
-                                auto config = neumann_config(towards_out);
+                                auto config = scheme().neumann_config(towards_out);
                                 for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
@@ -966,6 +823,16 @@ namespace samurai
                             set_is_row_not_empty(ghost_index);
                         }
                     });
+            }
+
+            bool matrix_is_symmetric() const override
+            {
+                return scheme().matrix_is_symmetric();
+            }
+
+            bool matrix_is_spd() const override
+            {
+                return scheme().matrix_is_spd();
             }
         };
 

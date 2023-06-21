@@ -1,111 +1,67 @@
 #pragma once
-#include "fv/FV_scheme.hpp"
+#include "FV_scheme_assembly.hpp"
 
 namespace samurai
 {
     namespace petsc
     {
-        /**
-         * Useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
-         */
-        template <PetscInt output_field_size_,
-                  PetscInt neighbourhood_width_,
-                  PetscInt scheme_stencil_size_,
-                  PetscInt center_index_,
-                  PetscInt contiguous_indices_start_ = 0,
-                  PetscInt contiguous_indices_size_  = 0>
-        struct CellBasedAssemblyConfig
+        template <class Scheme>
+        class CellBasedSchemeAssembly : public FVSchemeAssembly<Scheme>
         {
-            static constexpr PetscInt output_field_size        = output_field_size_;
-            static constexpr PetscInt neighbourhood_width      = neighbourhood_width_;
-            static constexpr PetscInt scheme_stencil_size      = scheme_stencil_size_;
-            static constexpr PetscInt center_index             = center_index_;
-            static constexpr PetscInt contiguous_indices_start = contiguous_indices_start_;
-            static constexpr PetscInt contiguous_indices_size  = contiguous_indices_size_;
-        };
+            // template <class Scheme1, class Scheme2>
+            // friend class FluxBasedScheme_Sum_CellBasedScheme;
 
-        template <std::size_t dim, std::size_t output_field_size, std::size_t neighbourhood_width = 1>
-        using StarStencilFV = CellBasedAssemblyConfig<output_field_size,
-                                                      neighbourhood_width,
-                                                      // ---- Stencil size
-                                                      // Cell-centered Finite Volume scheme:
-                                                      // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim
-                                                      // directions) --> 1+2=3 in 1D
-                                                      //                 1+4=5 in 2D
-                                                      1 + 2 * dim * neighbourhood_width,
-                                                      // ---- Index of the stencil center
-                                                      // (as defined in star_stencil())
-                                                      neighbourhood_width,
-                                                      // ---- Start index and size of contiguous cell indices
-                                                      // (as defined in star_stencil())
-                                                      0,
-                                                      1 + 2 * neighbourhood_width>;
-
-        template <std::size_t output_field_size>
-        using OneCellStencilFV = CellBasedAssemblyConfig<output_field_size,
-                                                         0,  // Neighbourhood width
-                                                         1,  // Stencil size
-                                                         0>; // Index of the stencil center
-
-        template <std::size_t output_field_size>
-        using EmptyStencilFV = CellBasedAssemblyConfig<output_field_size,
-                                                       0,  // Neighbourhood width
-                                                       0,  // Stencil size
-                                                       0>; // Index of the stencil center
-
-        template <class cfg, class bdry_cfg, class Field>
-        class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
-        {
-            template <class Scheme1, class Scheme2>
-            friend class FluxBasedScheme_Sum_CellBasedScheme;
-
-            template <std::size_t rows, std::size_t cols, class... Operators>
-            friend class MonolithicBlockAssembly;
+            // template <std::size_t rows, std::size_t cols, class... Operators>
+            // friend class MonolithicBlockAssembly;
 
           protected:
 
-            using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
+            using base_class = FVSchemeAssembly<Scheme>;
             using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
             using base_class::mesh;
             using base_class::row_index;
+            using base_class::scheme;
             using base_class::set_current_insert_mode;
             using base_class::set_is_row_not_empty;
 
           public:
 
-            using cfg_t                                    = cfg;
-            using field_t                                  = Field;
-            using field_value_type                         = typename Field::value_type; // double
-            static constexpr std::size_t output_field_size = cfg::output_field_size;
-            using local_matrix_t                           = typename detail::LocalMatrix<field_value_type,
+            using scheme_t                                   = Scheme;
+            using cfg_t                                      = typename Scheme::cfg_t;
+            using bdry_cfg_t                                 = typename Scheme::bdry_cfg;
+            using field_t                                    = typename Scheme::field_t;
+            using field_value_type                           = typename field_t::value_type; // double
+            static constexpr std::size_t output_field_size   = cfg_t::output_field_size;
+            static constexpr std::size_t scheme_stencil_size = cfg_t::scheme_stencil_size;
+            using local_matrix_t                             = typename detail::LocalMatrix<field_value_type,
                                                                 output_field_size,
                                                                 field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a
-                                                                                                             // matrix otherwise
+                                                                                                               // matrix otherwise
 
-            using stencil_t         = Stencil<cfg::scheme_stencil_size, dim>;
-            using get_coeffs_func_t = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
+            using stencil_t         = Stencil<scheme_stencil_size, dim>;
+            using get_coeffs_func_t = std::function<std::array<local_matrix_t, scheme_stencil_size>(double)>;
 
-          protected:
+            // protected:
 
-            stencil_t m_stencil;
-            get_coeffs_func_t m_get_coefficients;
+            // stencil_t m_stencil;
+            // get_coeffs_func_t m_get_coefficients;
 
           public:
 
-            CellBasedScheme(Field& unknown, stencil_t s, get_coeffs_func_t get_coeffs)
-                : base_class(unknown)
-                , m_stencil(s)
-                , m_get_coefficients(get_coeffs)
+            CellBasedSchemeAssembly(const Scheme& scheme) //, stencil_t s, get_coeffs_func_t get_coeffs)
+                : base_class(scheme)
+            //, m_stencil(s)
+            //, m_get_coefficients(get_coeffs)
             {
             }
 
-            auto& stencil() const
-            {
-                return m_stencil;
-            }
+            // auto& stencil() const
+            // {
+            //     return m_stencil;
+            // }
 
           protected:
 
@@ -116,9 +72,9 @@ namespace samurai
                 {
                     return cell_local_index;
                 }
-                else if constexpr (Field::is_soa)
+                else if constexpr (field_t::is_soa)
                 {
-                    return field_j * cfg::scheme_stencil_size + cell_local_index;
+                    return field_j * scheme_stencil_size + cell_local_index;
                 }
                 else
                 {
@@ -132,9 +88,9 @@ namespace samurai
                 {
                     return cell_local_index;
                 }
-                else if constexpr (Field::is_soa)
+                else if constexpr (field_t::is_soa)
                 {
-                    return field_i * cfg::scheme_stencil_size + cell_local_index;
+                    return field_i * scheme_stencil_size + cell_local_index;
                 }
                 else
                 {
@@ -150,23 +106,23 @@ namespace samurai
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
-                if constexpr (cfg::scheme_stencil_size == 0)
+                if constexpr (scheme_stencil_size == 0)
                 {
                     return;
                 }
 
-                auto coeffs = m_get_coefficients(cell_length(0));
+                auto coeffs = scheme().coefficients(cell_length(0));
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
-                    PetscInt scheme_nnz_i = cfg::scheme_stencil_size * field_size;
-                    if constexpr (Field::is_soa)
+                    PetscInt scheme_nnz_i = scheme_stencil_size * field_size;
+                    if constexpr (field_t::is_soa)
                     {
                         scheme_nnz_i = 0;
                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                         {
-                            if constexpr (cfg::contiguous_indices_start > 0)
+                            if constexpr (cfg_t::contiguous_indices_start > 0)
                             {
-                                for (unsigned int c = 0; c < cfg::contiguous_indices_start; ++c)
+                                for (unsigned int c = 0; c < cfg_t::contiguous_indices_start; ++c)
                                 {
                                     double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
@@ -175,22 +131,22 @@ namespace samurai
                                     }
                                 }
                             }
-                            if constexpr (cfg::contiguous_indices_size > 0)
+                            if constexpr (cfg_t::contiguous_indices_size > 0)
                             {
-                                for (unsigned int c = 0; c < cfg::contiguous_indices_size; ++c)
+                                for (unsigned int c = 0; c < cfg_t::contiguous_indices_size; ++c)
                                 {
                                     double coeff = cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
-                                        scheme_nnz_i += cfg::contiguous_indices_size;
+                                        scheme_nnz_i += cfg_t::contiguous_indices_size;
                                         break;
                                     }
                                 }
                             }
-                            if constexpr (cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
+                            if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size < cfg_t::scheme_stencil_size)
                             {
-                                for (unsigned int c = cfg::contiguous_indices_start + cfg::contiguous_indices_size;
-                                     c < cfg::scheme_stencil_size;
+                                for (unsigned int c = cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size;
+                                     c < scheme_stencil_size;
                                      ++c)
                                 {
                                     double coeff = cell_coeff(coeffs, c, field_i, field_j);
@@ -215,12 +171,13 @@ namespace samurai
             template <class Func>
             void for_each_stencil_and_coeffs(Func&& f)
             {
-                auto stencil_it = make_stencil_iterator(mesh(), m_stencil);
+                auto stencil    = scheme().stencil();
+                auto stencil_it = make_stencil_iterator(mesh(), stencil);
 
                 for_each_level(mesh(),
                                [&](std::size_t level)
                                {
-                                   auto coeffs = m_get_coefficients(cell_length(level));
+                                   auto coeffs = scheme().coefficients(cell_length(level));
 
                                    for_each_stencil(mesh(),
                                                     level,
@@ -253,20 +210,20 @@ namespace samurai
                     [&](const auto& cells, const auto& coeffs)
                     {
                         // std::cout << "coeffs: " << std::endl;
-                        // for (std::size_t i=0; i<cfg::scheme_stencil_size; i++)
+                        // for (std::size_t i=0; i<scheme_stencil_size; i++)
                         //     std::cout << i << ": " << coeffs[i] << std::endl;
 
                         // Global rows and columns
-                        std::array<PetscInt, cfg::scheme_stencil_size * output_field_size> rows;
-                        for (unsigned int c = 0; c < cfg::scheme_stencil_size; ++c)
+                        std::array<PetscInt, cfg_t::scheme_stencil_size * output_field_size> rows;
+                        for (unsigned int c = 0; c < cfg_t::scheme_stencil_size; ++c)
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
                                 rows[local_row_index(c, field_i)] = static_cast<PetscInt>(row_index(cells[c], field_i));
                             }
                         }
-                        std::array<PetscInt, cfg::scheme_stencil_size * field_size> cols;
-                        for (unsigned int c = 0; c < cfg::scheme_stencil_size; ++c)
+                        std::array<PetscInt, cfg_t::scheme_stencil_size * field_size> cols;
+                        for (unsigned int c = 0; c < cfg_t::scheme_stencil_size; ++c)
                         {
                             for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                             {
@@ -288,7 +245,7 @@ namespace samurai
                         //     field_j (Grad_y) |  |  |  |-1| 1|
 
                         // Coefficient insertion
-                        if constexpr (field_size == 1 || Field::is_soa)
+                        if constexpr (field_size == 1 || field_t::is_soa)
                         {
                             // In SOA, the indices are ordered in field_i for
                             // all cells, then field_j for all cells:
@@ -312,12 +269,12 @@ namespace samurai
                             //
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
-                                auto stencil_center_row = static_cast<PetscInt>(row_index(cells[cfg::center_index], field_i));
+                                auto stencil_center_row = static_cast<PetscInt>(row_index(cells[cfg_t::center_index], field_i));
                                 for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                 {
-                                    if constexpr (cfg::contiguous_indices_start > 0)
+                                    if constexpr (cfg_t::contiguous_indices_start > 0)
                                     {
-                                        for (unsigned int c = 0; c < cfg::contiguous_indices_start; ++c)
+                                        for (unsigned int c = 0; c < cfg_t::contiguous_indices_start; ++c)
                                         {
                                             double coeff;
                                             if constexpr (field_size == 1 && output_field_size == 1)
@@ -334,18 +291,18 @@ namespace samurai
                                             }
                                         }
                                     }
-                                    if constexpr (cfg::contiguous_indices_size > 0)
+                                    if constexpr (cfg_t::contiguous_indices_size > 0)
                                     {
-                                        std::array<double, cfg::contiguous_indices_size> contiguous_coeffs;
-                                        for (unsigned int c = 0; c < cfg::contiguous_indices_size; ++c)
+                                        std::array<double, cfg_t::contiguous_indices_size> contiguous_coeffs;
+                                        for (unsigned int c = 0; c < cfg_t::contiguous_indices_size; ++c)
                                         {
                                             if constexpr (field_size == 1 && output_field_size == 1)
                                             {
-                                                contiguous_coeffs[c] = coeffs[cfg::contiguous_indices_start + c];
+                                                contiguous_coeffs[c] = coeffs[cfg_t::contiguous_indices_start + c];
                                             }
                                             else
                                             {
-                                                contiguous_coeffs[c] = coeffs[cfg::contiguous_indices_start + c](field_i, field_j);
+                                                contiguous_coeffs[c] = coeffs[cfg_t::contiguous_indices_start + c](field_i, field_j);
                                             }
                                         }
                                         // if (std::any_of(contiguous_coeffs.begin(),
@@ -358,16 +315,17 @@ namespace samurai
                                         MatSetValues(A,
                                                      1,
                                                      &stencil_center_row,
-                                                     static_cast<PetscInt>(cfg::contiguous_indices_size),
-                                                     &cols[local_col_index(cfg::contiguous_indices_start, field_j)],
+                                                     static_cast<PetscInt>(cfg_t::contiguous_indices_size),
+                                                     &cols[local_col_index(cfg_t::contiguous_indices_start, field_j)],
                                                      contiguous_coeffs.data(),
                                                      INSERT_VALUES);
                                         // }
                                     }
-                                    if constexpr (cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
+                                    if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size
+                                                  < cfg_t::scheme_stencil_size)
                                     {
-                                        for (unsigned int c = cfg::contiguous_indices_start + cfg::contiguous_indices_size;
-                                             c < cfg::scheme_stencil_size;
+                                        for (unsigned int c = cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size;
+                                             c < cfg_t::scheme_stencil_size;
                                              ++c)
                                         {
                                             double coeff;
@@ -399,7 +357,7 @@ namespace samurai
                             // row (c*2)+i   --> [-1  0|-1  0| 4  0|-1  0|-1  0]
                             // row (c*2)+i+1 --> [ 0 -1| 0 -1| 0  4| 0 -1| 0 -1]
 
-                            for (unsigned int c = 0; c < cfg::scheme_stencil_size; ++c)
+                            for (unsigned int c = 0; c < scheme_stencil_size; ++c)
                             {
                                 // Insert a coefficient block of size <output_field_size x field_size>:
                                 // - in 'rows', for each cell, <output_field_size> rows are contiguous.
@@ -407,7 +365,7 @@ namespace samurai
                                 // - coeffs[c] is a row-major matrix (xtensor), as requested by PETSc.
                                 MatSetValues(A,
                                              static_cast<PetscInt>(output_field_size),
-                                             &rows[local_row_index(cfg::center_index, 0)],
+                                             &rows[local_row_index(cfg_t::center_index, 0)],
                                              static_cast<PetscInt>(field_size),
                                              &cols[local_col_index(c, 0)],
                                              coeffs[c].data(),
@@ -416,7 +374,7 @@ namespace samurai
 
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
-                                auto row = rows[local_row_index(cfg::center_index, field_i)];
+                                auto row = rows[local_row_index(cfg_t::center_index, field_i)];
                                 set_is_row_not_empty(row);
                             }
                         }

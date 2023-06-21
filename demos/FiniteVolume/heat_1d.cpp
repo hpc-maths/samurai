@@ -122,8 +122,8 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
-    auto diff_unp1 = samurai::petsc::make_diffusion_FV(unp1); // diff_unp1  = -Lap(unp1)
-    auto id_unp1   = samurai::petsc::make_identity_FV(unp1);
+    auto diff_unp1 = samurai::make_diffusion_FV(unp1); // diff_unp1  = -Lap(unp1)
+    auto id_unp1   = samurai::make_identity_FV(unp1);
 
     //--------------------//
     //   Time iteration   //
