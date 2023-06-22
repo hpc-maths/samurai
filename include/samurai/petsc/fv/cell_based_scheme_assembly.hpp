@@ -44,13 +44,6 @@ namespace samurai
             using stencil_t         = Stencil<scheme_stencil_size, dim>;
             using get_coeffs_func_t = std::function<std::array<local_matrix_t, scheme_stencil_size>(double)>;
 
-            // protected:
-
-            // stencil_t m_stencil;
-            // get_coeffs_func_t m_get_coefficients;
-
-          public:
-
             CellBasedSchemeAssembly(const Scheme& scheme) //, stencil_t s, get_coeffs_func_t get_coeffs)
                 : base_class(scheme)
             //, m_stencil(s)
@@ -192,6 +185,8 @@ namespace samurai
             //-------------------------------------------------------------//
             //             Assemble scheme in the interior                 //
             //-------------------------------------------------------------//
+
+          public:
 
             void assemble_scheme(Mat& A) override
             {

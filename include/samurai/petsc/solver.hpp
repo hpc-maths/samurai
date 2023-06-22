@@ -5,6 +5,7 @@
 #include "block_assembly.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
+#include "fv/scheme_operators_assembly.hpp"
 #ifdef ENABLE_MG
 #include "multigrid/petsc/GeometricMultigrid.hpp"
 #else
@@ -200,8 +201,8 @@ namespace samurai
         {
             using base_class = SolverBase<Assembly>;
             using scheme_t   = typename Assembly::scheme_t;
-            using Mesh       = typename scheme_t::Mesh;
             using Field      = typename scheme_t::field_t;
+            using Mesh       = typename Field::mesh_t;
 
             using base_class::discretizer;
             using base_class::m_A;
@@ -470,6 +471,12 @@ namespace samurai
             {
                 return SingleFieldSolver<CellBasedSchemeAssembly<Scheme>>(scheme);
             }
+        }
+
+        template <typename FluxScheme, typename CellScheme>
+        auto make_solver(FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>& scheme)
+        {
+            return SingleFieldSolver<FluxBasedScheme_Sum_CellBasedScheme_Assembly<FluxScheme, CellScheme>>(scheme);
         }
 
         template <class Dsctzr>

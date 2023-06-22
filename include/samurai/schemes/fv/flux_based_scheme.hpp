@@ -139,10 +139,12 @@ namespace samurai
         }
     };
 
-    template <typename, typename = void>
-    constexpr bool is_FluxBasedScheme{};
+    // template <typename, typename = void>
+    // constexpr bool is_FluxBasedScheme{};
 
-    template <typename T>
-    constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().scheme_coefficients())>> = true;
+    // template <typename T>
+    // constexpr bool is_FluxBasedScheme<T, std::void_t<typename T::is_flux_based>> = true;
+    // //constexpr bool is_FluxBasedScheme = T::is_flux_based;
+    // //constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().scheme_coefficients())>> = true;
 
 } // end namespace samurai

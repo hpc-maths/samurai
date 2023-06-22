@@ -112,7 +112,7 @@ namespace samurai
                 }
             }
 
-          protected:
+          public:
 
             //-------------------------------------------------------------//
             //             Assemble scheme in the interior                 //

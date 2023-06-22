@@ -67,6 +67,7 @@ namespace samurai
             explicit FVSchemeAssembly(const Scheme& scheme)
                 : m_scheme(&scheme)
             {
+                this->set_name(scheme.name());
                 reset();
             }
 
@@ -326,6 +327,8 @@ namespace samurai
             //-------------------------------------------------------------//
             //             Assemble the boundary conditions                //
             //-------------------------------------------------------------//
+
+          public:
 
             void assemble_boundary_conditions(Mat& A) override
             {
@@ -643,7 +646,7 @@ namespace samurai
                                           });
             }
 
-          private:
+          public:
 
             void assemble_projection(Mat& A) override
             {
@@ -684,6 +687,8 @@ namespace samurai
                     assemble_prediction_3D(A);
                 }
             }
+
+          private:
 
             void assemble_prediction_1D(Mat& A)
             {
@@ -824,6 +829,8 @@ namespace samurai
                         }
                     });
             }
+
+          public:
 
             bool matrix_is_symmetric() const override
             {
