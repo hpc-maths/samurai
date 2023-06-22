@@ -148,8 +148,8 @@ namespace samurai
     template <class TValue, class TIndex>
     inline auto Interval<TValue, TIndex>::operator/=(value_t i) -> Interval&
     {
-        start = std::floor(start / static_cast<double>(i));
-        end   = std::floor(end / static_cast<double>(i));
+        start = static_cast<value_t>(std::floor(start / static_cast<double>(i)));
+        end   = static_cast<value_t>(std::floor(end / static_cast<double>(i)));
         if (start == end)
         {
             ++end;

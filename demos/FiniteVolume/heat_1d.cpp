@@ -122,6 +122,9 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
+    auto diff_unp1 = samurai::petsc::make_diffusion_FV(unp1); // diff_unp1  = -Lap(unp1)
+    auto id_unp1   = samurai::petsc::make_identity_FV(unp1);
+
     //--------------------//
     //   Time iteration   //
     //--------------------//
@@ -143,20 +146,16 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::endl;
+        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
 
         // Mesh adaptation
         MRadaptation(mr_epsilon, mr_regularity);
         samurai::update_ghost_mr(u);
         unp1.resize();
 
-        // Solve the linear equation:
-        //            unp1 - dt*Lap(unp1) = u
-        auto diff_unp1  = samurai::petsc::make_diffusion_FV(unp1); // diff_unp1  = -Lap(unp1)
-        auto id_v       = samurai::petsc::make_identity_FV(unp1);
-        auto back_euler = id_v + dt * diff_unp1; // back_euler = [Id - dt*Lap](unp1)
-
-        samurai::petsc::solve(back_euler, u); // solves the linear equation   [Id - dt*Lap](unp1) = u
+        // Solve system
+        auto back_euler = id_unp1 + dt * diff_unp1; // back_euler = [Id - dt*Lap](unp1)
+        samurai::petsc::solve(back_euler, u);       // solves the linear equation   [Id - dt*Lap](unp1) = u
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
@@ -176,7 +175,7 @@ int main(int argc, char* argv[])
                                     return exact_solution(x, t);
                                 });
         std::cout.precision(2);
-        std::cout << "L2-error: " << std::scientific << error << std::endl;
+        std::cout << ", L2-error: " << std::scientific << error << std::endl;
     }
 
     std::cout << std::endl;

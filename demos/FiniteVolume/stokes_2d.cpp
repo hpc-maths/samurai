@@ -34,6 +34,80 @@ bool check_nan_or_inf(const Field& f)
     return !is_nan_or_inf;
 }
 
+template <class Solver>
+void configure_LU_solver(Solver& solver)
+{
+    KSP ksp = solver.Ksp();
+    PC pc;
+    KSPGetPC(ksp, &pc);
+    KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
+    PCSetType(pc, PCLU);         // (equiv. '-pc_type lu')
+    PetscBool use_superlu = PETSC_FALSE;
+#if defined(PETSC_HAVE_SUPERLU)
+    use_superlu = PETSC_TRUE;
+#endif
+    PetscBool use_mumps        = PETSC_FALSE;
+    PetscBool lu_solver_is_set = PETSC_FALSE;
+    std::string pc_factor_mat_solver_type_str(100, '\0');
+    PetscOptionsGetString(NULL,
+                          NULL,
+                          "-pc_factor_mat_solver_type",
+                          pc_factor_mat_solver_type_str.data(),
+                          pc_factor_mat_solver_type_str.size(),
+                          &lu_solver_is_set);
+    if (lu_solver_is_set)
+    {
+        pc_factor_mat_solver_type_str = pc_factor_mat_solver_type_str.substr(0, pc_factor_mat_solver_type_str.find('\0'));
+    }
+#if defined(PETSC_HAVE_MUMPS)
+    if (!use_superlu || pc_factor_mat_solver_type_str == MATSOLVERMUMPS)
+    {
+        use_mumps   = PETSC_TRUE;
+        use_superlu = PETSC_FALSE;
+    }
+#endif
+    if (use_superlu)
+    {
+#if defined(PETSC_HAVE_SUPERLU)
+        PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
+        // Configure the following options:
+        // -mat_superlu_rowperm LargeDiag -mat_superlu_colperm NATURAL -mat_superlu_diagpivotthresh 0.5 -mat_superlu_iterrefine SINGLE
+        PetscBool set = PETSC_FALSE;
+        PetscOptionsHasName(NULL, NULL, "-mat_superlu_rowperm", &set);
+        if (!set)
+        {
+            PetscOptionsSetValue(NULL, "-mat_superlu_rowperm", "LargeDiag");
+        }
+
+        PetscOptionsHasName(NULL, NULL, "-mat_superlu_colperm", &set);
+        if (!set)
+        {
+            PetscOptionsSetValue(NULL, "-mat_superlu_colperm", "NATURAL");
+        }
+
+        PetscOptionsHasName(NULL, NULL, "-mat_superlu_diagpivotthresh", &set);
+        if (!set)
+        {
+            PetscOptionsSetValue(NULL, "-mat_superlu_diagpivotthresh", "0.5");
+        }
+
+        PetscOptionsHasName(NULL, NULL, "-mat_superlu_iterrefine", &set);
+        if (!set)
+        {
+            PetscOptionsSetValue(NULL, "-mat_superlu_iterrefine", "SINGLE");
+        }
+#endif
+    }
+    else if (use_mumps)
+    {
+#if defined(PETSC_HAVE_MUMPS)
+        PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
+#endif
+    }
+    KSPSetFromOptions(ksp); // KSP and PC overwritten by user value if needed
+                            // If SuperLU is not installed, you can use: -ksp_type gmres -pc_type ilu
+}
+
 //
 // Configuration of the PETSc solver for the Stokes problem
 //
@@ -55,8 +129,8 @@ void configure_saddle_point_solver(Solver& block_solver)
     KSPGetPC(ksp, &pc);
     PCSetType(pc, PCFIELDSPLIT);                 // (equiv. '-pc_type fieldsplit')
     PCFieldSplitSetType(pc, PC_COMPOSITE_SCHUR); // Schur complement preconditioner (equiv. '-pc_fieldsplit_type schur')
-    PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP, PETSC_NULL); // (equiv. '-pc_fieldsplit_schur_precondition selfp')
-    PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL);        // (equiv. '-pc_fieldsplit_schur_fact_type full')
+    PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP, PETSC_NULLPTR); // (equiv. '-pc_fieldsplit_schur_precondition selfp')
+    PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL);           // (equiv. '-pc_fieldsplit_schur_fact_type full')
 
     // Configure the sub-solvers
     block_solver.setup(); // must be called before using PCFieldSplitSchurGetSubKSP(), because the matrices are needed.
@@ -80,20 +154,32 @@ void configure_saddle_point_solver(Solver& block_solver)
     // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
     // tolerance to all the sub-solvers
     PetscReal ksp_rtol;
-    KSPGetTolerances(ksp, &ksp_rtol, PETSC_NULL, PETSC_NULL, PETSC_NULL);
+    KSPGetTolerances(ksp, &ksp_rtol, PETSC_IGNORE, PETSC_IGNORE, PETSC_IGNORE);
     KSPSetTolerances(A_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);     // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
     KSPSetTolerances(schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
 }
 
+template <class Solver>
+void configure_solver(Solver& solver)
+{
+    if constexpr (Solver::is_monolithic)
+    {
+        configure_LU_solver(solver);
+    }
+    else
+    {
+        configure_saddle_point_solver(solver);
+    }
+}
+
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
-    // using Config = samurai::amr::Config<dim>;
-    // using Mesh = samurai::amr::Mesh<Config>;
-    using Config          = samurai::MRConfig<dim, 1>;
-    using Mesh            = samurai::MRMesh<Config>;
-    using mesh_id_t       = typename Mesh::mesh_id_t;
-    constexpr bool is_soa = false;
+    constexpr std::size_t dim        = 2;
+    using Config                     = samurai::MRConfig<dim, 1>;
+    using Mesh                       = samurai::MRMesh<Config>;
+    using mesh_id_t                  = typename Mesh::mesh_id_t;
+    static constexpr bool is_soa     = false;
+    static constexpr bool monolithic = true;
 
     //----------------//
     //   Parameters   //
@@ -145,16 +231,19 @@ int main(int argc, char* argv[])
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
     PetscOptionsSetValue(NULL, "-options_left", "off"); // disable warning for unused options
 
-    auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
-    // auto mesh = Mesh(box, start_level, min_level, max_level); // amr::Mesh
-    auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level)); // MRMesh
+    auto box  = samurai::Box<double, dim>({0, 0}, {1, 1});
+    auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level));
 
     //--------------------//
     // Stationary problem //
     //--------------------//
 
+    std::cout << "Problem solved: ";
+
     if (test_case == "s")
     {
+        std::cout << "stationary" << std::endl;
+
         // 2 equations: -Lap(v) + Grad(p) = f
         //              -Div(v)           = 0
         // where v = velocity
@@ -194,7 +283,6 @@ int main(int argc, char* argv[])
         auto div_v  = samurai::petsc::make_divergence_FV(velocity);
         auto zero_p = samurai::petsc::make_zero_operator_FV<1>(pressure);
 
-        static constexpr bool monolithic = true;
         auto stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(diff_v, grad_p,
                                                                             -div_v, zero_p);
 
@@ -217,17 +305,8 @@ int main(int argc, char* argv[])
         // Linear solver
         std::cout << "Solving Stokes system..." << std::endl;
         auto stokes_solver = samurai::petsc::make_solver(stokes);
-        if constexpr (monolithic)
-        {
-            KSP ksp = stokes_solver.Ksp();
-            PC pc;
-            KSPGetPC(ksp, &pc);
-            PCSetType(pc, PCILU);
-        }
-        else
-        {
-            configure_saddle_point_solver(stokes_solver);
-        }
+        configure_solver(stokes_solver);
+
         stokes_solver.solve(f, zero);
         std::cout << stokes_solver.iterations() << " iterations" << std::endl << std::endl;
 
@@ -290,6 +369,8 @@ int main(int argc, char* argv[])
 
     else if (test_case == "ns")
     {
+        std::cout << "non stationary" << std::endl;
+
         // Equations:
         //              v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = dt*f_n + v_n
         //                                        Div(v_np1)                = 0
@@ -359,13 +440,13 @@ int main(int argc, char* argv[])
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
         //             |       -Div        0    |
-        auto stokes = samurai::petsc::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
-                                                                            -div_v,      zero_p);
+        auto stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p,
+                                                                                        -div_v,      zero_p);
         // clang-format on
 
         // Linear solver
         auto stokes_solver = samurai::petsc::make_solver(stokes);
-        configure_saddle_point_solver(stokes_solver);
+        configure_solver(stokes_solver);
 
         // Initial condition
         velocity.fill(0);
@@ -382,6 +463,11 @@ int main(int argc, char* argv[])
         bool mesh_has_changed = false;
         bool dt_has_changed   = false;
 
+        std::size_t min_level_n   = mesh[mesh_id_t::cells].min_level();
+        std::size_t max_level_n   = mesh[mesh_id_t::cells].max_level();
+        std::size_t min_level_np1 = min_level_n;
+        std::size_t max_level_np1 = max_level_n;
+
         double t_n   = 0;
         double t_np1 = 0;
         while (t_np1 != Tf)
@@ -396,25 +482,23 @@ int main(int argc, char* argv[])
             }
             std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt);
 
+            // Mesh adaptation
             if (min_level != max_level)
             {
-                // Mesh adaptation
                 MRadaptation(mr_epsilon, mr_regularity);
-                mesh_has_changed = true;
-
-                velocity_np1.resize();
-                pressure_np1.resize();
-                rhs.resize();
-                zero.resize();
-                std::cout << ", levels " << mesh[mesh_id_t::cells].min_level() << "-" << mesh[mesh_id_t::cells].max_level();
+                min_level_np1    = mesh[mesh_id_t::cells].min_level();
+                max_level_np1    = mesh[mesh_id_t::cells].max_level();
+                mesh_has_changed = !(samurai::is_uniform(mesh) && min_level_n == min_level_np1 && max_level_n == max_level_np1);
+                if (mesh_has_changed)
+                {
+                    velocity_np1.resize();
+                    pressure_np1.resize();
+                    rhs.resize();
+                    zero.resize();
+                }
+                std::cout << ", levels " << min_level_np1 << "-" << max_level_np1;
             }
             std::cout.flush();
-
-            if (mesh_has_changed || dt_has_changed)
-            {
-                stokes_solver.reset();
-                configure_saddle_point_solver(stokes_solver);
-            }
 
             // Boundary conditions
             velocity_np1.get_bc().clear();
@@ -429,6 +513,17 @@ int main(int argc, char* argv[])
                                                {
                                                    return exact_normal_grad_pressure(t_np1, coord);
                                                });
+
+            // Update solver
+            if (mesh_has_changed || dt_has_changed)
+            {
+                if (dt_has_changed)
+                {
+                    stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                }
+                stokes_solver = samurai::petsc::make_solver(stokes);
+                configure_solver(stokes_solver);
+            }
 
             // Solve the linear equation
             //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n + dt*f
@@ -446,7 +541,9 @@ int main(int argc, char* argv[])
 
             // Prepare next step
             std::swap(velocity.array(), velocity_np1.array());
-            t_n = t_np1;
+            t_n         = t_np1;
+            min_level_n = min_level_np1;
+            max_level_n = max_level_np1;
 
             // Error
             double error = L2_error(velocity,
@@ -487,6 +584,8 @@ int main(int argc, char* argv[])
 
     else if (test_case == "ldc")
     {
+        std::cout << "lid-driven cavity" << std::endl;
+
         // 2 equations: v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = v_n
         //                                        Div(v_np1)                = 0
         // where v = velocity
@@ -535,15 +634,15 @@ int main(int argc, char* argv[])
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
         //             |       -Div        0    |
-        auto stokes = samurai::petsc::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
-                                                                            -div_v,      zero_p);
+        auto stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p,
+                                                                                        -div_v,      zero_p);
         // clang-format on
 
         auto MRadaptation = samurai::make_MRAdapt(velocity);
 
         // Linear solver
         auto stokes_solver = samurai::petsc::make_solver(stokes);
-        configure_saddle_point_solver(stokes_solver);
+        configure_solver(stokes_solver);
 
         // Time iteration
         samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
@@ -552,7 +651,13 @@ int main(int argc, char* argv[])
 
         bool mesh_has_changed = false;
         bool dt_has_changed   = false;
-        double t              = 0;
+
+        std::size_t min_level_n   = mesh[mesh_id_t::cells].min_level();
+        std::size_t max_level_n   = mesh[mesh_id_t::cells].max_level();
+        std::size_t min_level_np1 = min_level_n;
+        std::size_t max_level_np1 = max_level_n;
+
+        double t = 0;
         while (t != Tf)
         {
             // Move to next timestep
@@ -565,30 +670,42 @@ int main(int argc, char* argv[])
             }
             std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
 
+            // Mesh adaptation
             if (min_level != max_level)
             {
-                // Mesh adaptation
                 MRadaptation(mr_epsilon, mr_regularity);
-                velocity_np1.resize();
-                pressure_np1.resize();
-                zero.resize();
-                mesh_has_changed = true;
-                std::cout << ", levels " << mesh[mesh_id_t::cells].min_level() << "-" << mesh[mesh_id_t::cells].max_level();
+                min_level_np1    = mesh[mesh_id_t::cells].min_level();
+                max_level_np1    = mesh[mesh_id_t::cells].max_level();
+                mesh_has_changed = !(samurai::is_uniform(mesh) && min_level_n == min_level_np1 && max_level_n == max_level_np1);
+                if (mesh_has_changed)
+                {
+                    velocity_np1.resize();
+                    pressure_np1.resize();
+                    zero.resize();
+                }
+                std::cout << ", levels " << min_level_np1 << "-" << max_level_np1;
             }
             std::cout << std::endl;
 
-            // Solve system
+            // Update solver
             if (mesh_has_changed || dt_has_changed)
             {
-                stokes_solver.reset();
-                configure_saddle_point_solver(stokes_solver);
+                if (dt_has_changed)
+                {
+                    stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                }
+                stokes_solver = samurai::petsc::make_solver(stokes);
+                configure_solver(stokes_solver);
             }
 
+            // Solve system
             zero.fill(0);
             stokes_solver.solve(velocity, zero);
 
             // Prepare next step
             std::swap(velocity.array(), velocity_np1.array());
+            min_level_n = min_level_np1;
+            max_level_n = max_level_np1;
 
             // Save the result
             if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)

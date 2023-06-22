@@ -24,14 +24,23 @@ namespace samurai
             using base_class                 = FluxBasedScheme<cfg_t, bdry_cfg_t, field_t>;
             using Mesh                       = typename field_t::mesh_t;
             using coefficients_t             = typename base_class::coefficients_t;
+            using flux_coeffs_t              = typename coefficients_t::flux_coeffs_t;
             static constexpr std::size_t dim = field_t::dim;
 
           private:
 
             Scheme m_scheme;
-            const double m_scalar;
+            double m_scalar;
 
           public:
+
+            Scalar_x_FluxBasedScheme(Scheme&& scheme, double scalar)
+                : base_class(scheme.unknown(), scheme.scheme_coefficients())
+                , m_scheme(std::move(scheme))
+                , m_scalar(scalar)
+            {
+                this->set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
+            }
 
             Scalar_x_FluxBasedScheme(const Scheme& scheme, double scalar)
                 : base_class(scheme.unknown(), scheme.scheme_coefficients())
@@ -39,32 +48,56 @@ namespace samurai
                 , m_scalar(scalar)
             {
                 this->set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
+            }
 
-                const std::array<coefficients_t, dim>& scheme_coeffs = m_scheme.scheme_coefficients();
-                std::array<coefficients_t, dim>& scalar_x_fluxes     = this->scheme_coefficients();
-                for (std::size_t d = 0; d < dim; ++d)
+          private:
+
+            void multiply_coefficients()
+            {
+                std::array<coefficients_t, dim>& scalar_x_fluxes = this->scheme_coefficients();
+                static_for<0, dim>::apply(
+                    [&](auto integral_constant_d)
+                    {
+                        static constexpr int d              = decltype(integral_constant_d)::value;
+                        scalar_x_fluxes[d].get_cell1_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+                        {
+                            return this->scalar_x_get_cell1_coeffs<d>(flux_coeffs, h_face, h_cell);
+                        };
+                        scalar_x_fluxes[d].get_cell2_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+                        {
+                            return this->scalar_x_get_cell2_coeffs<d>(flux_coeffs, h_face, h_cell);
+                        };
+                    });
+            }
+
+            template <std::size_t d>
+            auto scalar_x_get_cell1_coeffs(flux_coeffs_t& flux_coeffs, double h_face, double h_cell)
+            {
+                auto coeffs = m_scheme.scheme_coefficients()[d].get_cell1_coeffs(flux_coeffs, h_face, h_cell);
+                for (auto& coeff : coeffs)
                 {
-                    auto& coeffs_dir                     = scheme_coeffs[d];
-                    auto& scalar_x_coeffs_dir            = scalar_x_fluxes[d];
-                    scalar_x_coeffs_dir.get_cell1_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
-                    {
-                        auto coeffs = coeffs_dir.get_cell1_coeffs(flux_coeffs, h_face, h_cell);
-                        for (auto& coeff : coeffs)
-                        {
-                            coeff *= m_scalar;
-                        }
-                        return coeffs;
-                    };
-                    scalar_x_coeffs_dir.get_cell2_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
-                    {
-                        auto coeffs = coeffs_dir.get_cell2_coeffs(flux_coeffs, h_face, h_cell);
-                        for (auto& coeff : coeffs)
-                        {
-                            coeff *= m_scalar;
-                        }
-                        return coeffs;
-                    };
+                    coeff *= m_scalar;
                 }
+                return coeffs;
+            }
+
+            template <std::size_t d>
+            auto scalar_x_get_cell2_coeffs(flux_coeffs_t& flux_coeffs, double h_face, double h_cell)
+            {
+                auto coeffs = m_scheme.scheme_coefficients()[d].get_cell2_coeffs(flux_coeffs, h_face, h_cell);
+                for (auto& coeff : coeffs)
+                {
+                    coeff *= m_scalar;
+                }
+                return coeffs;
+            }
+
+          public:
+
+            void set_is_block(bool is_block) override
+            {
+                base_class::set_is_block(is_block);
+                m_scheme.set_is_block(is_block);
             }
 
             PetscInt matrix_rows() const override
@@ -79,6 +112,7 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
+                multiply_coefficients();
                 base_class::assemble_scheme(A);
                 m_scheme.m_is_row_empty = std::move(this->m_is_row_empty);
                 m_scheme.set_current_insert_mode(this->current_insert_mode());
@@ -110,7 +144,7 @@ namespace samurai
                 m_scheme.enforce_bc(b);
             }
 
-            void add_0_for_useless_ghosts(Vec& b)
+            void add_0_for_useless_ghosts(Vec& b) const
             {
                 m_scheme.add_0_for_useless_ghosts(b);
             }
@@ -145,17 +179,47 @@ namespace samurai
         template <class Scheme>
         auto operator*(double scalar, const Scheme& scheme)
         {
-            return Scalar_x_FluxBasedScheme<Scheme>(scheme, scalar);
+            return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scheme, scalar);
+        }
+
+        template <class Scheme>
+        auto operator*(double scalar, Scheme& scheme)
+        {
+            return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scheme, scalar);
+        }
+
+        template <class Scheme>
+        auto operator*(double scalar, Scheme&& scheme)
+        {
+            return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(std::forward<Scheme>(scheme), scalar);
         }
 
         template <class Scheme>
         auto operator*(double scalar, Scalar_x_FluxBasedScheme<Scheme>& scalar_x_scheme)
         {
-            return Scalar_x_FluxBasedScheme<Scheme>(scalar_x_scheme.m_scheme, scalar * scalar_x_scheme.m_scalar);
+            return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scalar_x_scheme.m_scheme, scalar * scalar_x_scheme.m_scalar);
+        }
+
+        template <class Scheme>
+        auto operator*(double scalar, Scalar_x_FluxBasedScheme<Scheme>&& scalar_x_scheme)
+        {
+            return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scalar_x_scheme.m_scheme, scalar * scalar_x_scheme.m_scalar);
         }
 
         template <class Scheme>
         auto operator-(const Scheme& scheme)
+        {
+            return (-1) * scheme;
+        }
+
+        template <class Scheme>
+        auto operator-(Scheme& scheme)
+        {
+            return (-1) * scheme;
+        }
+
+        template <class Scheme>
+        auto operator-(Scheme&& scheme)
         {
             return (-1) * scheme;
         }
@@ -292,7 +356,7 @@ namespace samurai
                 m_scheme1.enforce_bc(b);
             }
 
-            void add_0_for_useless_ghosts(Vec& b)
+            void add_0_for_useless_ghosts(Vec& b) const
             {
                 m_scheme1.add_0_for_useless_ghosts(b);
             }
@@ -366,6 +430,24 @@ namespace samurai
             auto& unknown() const
             {
                 return m_flux_scheme.unknown();
+            }
+
+            InsertMode current_insert_mode() const
+            {
+                return m_flux_scheme.current_insert_mode();
+            }
+
+            void set_current_insert_mode(InsertMode insert_mode)
+            {
+                m_flux_scheme.set_current_insert_mode(insert_mode);
+                m_cell_scheme.set_current_insert_mode(insert_mode);
+            }
+
+            void set_is_block(bool is_block) override
+            {
+                MatrixAssembly::set_is_block(is_block);
+                m_flux_scheme.set_is_block(is_block);
+                m_cell_scheme.set_is_block(is_block);
             }
 
             PetscInt matrix_rows() const override
@@ -459,7 +541,7 @@ namespace samurai
                 m_flux_scheme.enforce_bc(b);
             }
 
-            void add_0_for_useless_ghosts(Vec& b)
+            void add_0_for_useless_ghosts(Vec& b) const
             {
                 m_flux_scheme.add_0_for_useless_ghosts(b);
             }

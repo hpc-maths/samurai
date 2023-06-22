@@ -92,6 +92,8 @@ namespace samurai
             template <std::size_t rows, std::size_t cols, class... Operators>
             friend class MonolithicBlockAssembly;
 
+          protected:
+
             using MatrixAssembly::m_col_shift;
             using MatrixAssembly::m_row_shift;
 
@@ -116,8 +118,7 @@ namespace samurai
 
           protected:
 
-            Field& m_unknown;
-            Mesh& m_mesh;
+            Field* m_unknown;
             std::size_t m_n_cells;
             InsertMode m_current_insert_mode = INSERT_VALUES;
             std::vector<bool> m_is_row_empty;
@@ -125,28 +126,27 @@ namespace samurai
           public:
 
             explicit FVScheme(Field& unknown)
-                : m_unknown(unknown)
-                , m_mesh(unknown.mesh())
+                : m_unknown(&unknown)
             {
                 reset();
             }
 
             void reset() override
             {
-                m_mesh    = m_unknown.mesh();
-                m_n_cells = m_mesh.nb_cells();
+                m_n_cells = mesh().nb_cells();
                 // std::cout << "reset " << this->name() << ", rows = " << matrix_rows() << std::endl;
-                m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()), true);
+                m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
+                std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
             }
 
             auto& unknown() const
             {
-                return m_unknown;
+                return *m_unknown;
             }
 
             auto& mesh() const
             {
-                return m_mesh;
+                return unknown().mesh();
             }
 
             PetscInt matrix_rows() const override
@@ -370,15 +370,15 @@ namespace samurai
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
-                if (m_unknown.get_bc().empty())
+                if (unknown().get_bc().empty())
                 {
                     std::cerr << "Failure to assemble to boundary conditions in the operator '" << this->name()
-                              << "': no boundary condition attached to the field '" << m_unknown.name() << "'." << std::endl;
+                              << "': no boundary condition attached to the field '" << unknown().name() << "'." << std::endl;
                     assert(false);
                     return;
                 }
                 // Iterate over the boundary conditions set by the user
-                for (auto& bc : m_unknown.get_bc())
+                for (auto& bc : unknown().get_bc())
                 {
                     auto bc_region                  = bc->get_region(); // get the region
                     auto& directions                = bc_region.first;
@@ -397,7 +397,7 @@ namespace samurai
                             if (dirichlet)
                             {
                                 auto config = dirichlet_config(towards_out);
-                                for_each_stencil_on_boundary(m_mesh,
+                                for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
                                                              config.equations,
@@ -409,7 +409,7 @@ namespace samurai
                             else if (neumann)
                             {
                                 auto config = neumann_config(towards_out);
-                                for_each_stencil_on_boundary(m_mesh,
+                                for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
                                                              config.equations,
@@ -482,7 +482,7 @@ namespace samurai
                 }
 
                 // Iterate over the boundary conditions set by the user
-                for (auto& bc : m_unknown.get_bc())
+                for (auto& bc : unknown().get_bc())
                 {
                     auto bc_region                  = bc->get_region(); // get the region
                     auto& directions                = bc_region.first;
@@ -501,7 +501,7 @@ namespace samurai
                             if (dirichlet)
                             {
                                 auto config = dirichlet_config(towards_out);
-                                for_each_stencil_on_boundary(m_mesh,
+                                for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
                                                              config.equations,
@@ -513,7 +513,7 @@ namespace samurai
                             else if (neumann)
                             {
                                 auto config = neumann_config(towards_out);
-                                for_each_stencil_on_boundary(m_mesh,
+                                for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
                                                              config.equations,
@@ -586,7 +586,7 @@ namespace samurai
                 }
 
                 // Iterate over the boundary conditions set by the user
-                for (auto& bc : m_unknown.get_bc())
+                for (auto& bc : unknown().get_bc())
                 {
                     auto bc_region                  = bc->get_region(); // get the region
                     auto& directions                = bc_region.first;
@@ -605,7 +605,7 @@ namespace samurai
                             if (dirichlet)
                             {
                                 auto config = dirichlet_config(towards_out);
-                                for_each_stencil_on_boundary(m_mesh,
+                                for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
                                                              config.equations,
@@ -617,7 +617,7 @@ namespace samurai
                             else if (neumann)
                             {
                                 auto config = neumann_config(towards_out);
-                                for_each_stencil_on_boundary(m_mesh,
+                                for_each_stencil_on_boundary(mesh(),
                                                              boundary_cells,
                                                              config.directional_stencil.stencil,
                                                              config.equations,
@@ -734,7 +734,7 @@ namespace samurai
                 //                           1+4=5 in 2D
                 static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
 
-                for_each_projection_ghost(m_mesh,
+                for_each_projection_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
                                               for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -753,7 +753,7 @@ namespace samurai
                 //                                                  1 +25=21 in 2D
                 static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_order + 1, dim);
 
-                for_each_prediction_ghost(m_mesh,
+                for_each_prediction_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
                                               for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -766,7 +766,7 @@ namespace samurai
             virtual void enforce_projection_prediction(Vec& b) const
             {
                 // Projection
-                for_each_projection_ghost(m_mesh,
+                for_each_projection_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
                                               for (unsigned int field_i = 0; field_i < field_size; ++field_i)
@@ -776,7 +776,7 @@ namespace samurai
                                           });
 
                 // Prediction
-                for_each_prediction_ghost(m_mesh,
+                for_each_prediction_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
                                               for (unsigned int field_i = 0; field_i < field_size; ++field_i)
@@ -793,7 +793,7 @@ namespace samurai
                 static constexpr PetscInt number_of_children = (1 << dim);
 
                 for_each_projection_ghost_and_children_cells<PetscInt>(
-                    m_mesh,
+                    mesh(),
                     [&](PetscInt ghost, const std::array<PetscInt, number_of_children>& children)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -832,7 +832,7 @@ namespace samurai
             {
                 using index_t = int;
                 samurai::for_each_prediction_ghost(
-                    m_mesh,
+                    mesh(),
                     [&](auto& ghost)
                     {
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
@@ -846,7 +846,7 @@ namespace samurai
 
                             auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
 
-                            auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig)), field_i);
+                            auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig)), field_i);
                             MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
 
                             for (std::size_t ci = 0; ci < interpx.size(); ++ci)
@@ -856,7 +856,7 @@ namespace samurai
                                     double value           = -interpx[ci];
                                     auto coarse_cell_index = this->col_index(
                                         static_cast<PetscInt>(
-                                            this->m_mesh.get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order))),
+                                            this->mesh().get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order))),
                                         field_i);
                                     MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
                                 }
@@ -870,7 +870,7 @@ namespace samurai
             {
                 using index_t = int;
                 samurai::for_each_prediction_ghost(
-                    m_mesh,
+                    mesh(),
                     [&](auto& ghost)
                     {
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
@@ -888,7 +888,7 @@ namespace samurai
                             auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
                             auto interpy = samurai::interp_coeffs<2 * prediction_order + 1>(jsign);
 
-                            auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig, jg)),
+                            auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg)),
                                                                 field_i);
                             MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
 
@@ -900,7 +900,7 @@ namespace samurai
                                     {
                                         double value           = -interpx[ci] * interpy[cj];
                                         auto coarse_cell_index = this->col_index(
-                                            static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1,
+                                            static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1,
                                                                                          ig + static_cast<index_t>(ci - prediction_order),
                                                                                          jg + static_cast<index_t>(cj - prediction_order))),
                                             field_i);
@@ -917,7 +917,7 @@ namespace samurai
             {
                 using index_t = int;
                 samurai::for_each_prediction_ghost(
-                    m_mesh,
+                    mesh(),
                     [&](auto& ghost)
                     {
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
@@ -939,7 +939,7 @@ namespace samurai
                             auto interpy = samurai::interp_coeffs<2 * prediction_order + 1>(jsign);
                             auto interpz = samurai::interp_coeffs<2 * prediction_order + 1>(ksign);
 
-                            auto parent_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(ghost.level - 1, ig, jg, kg)),
+                            auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg, kg)),
                                                                 field_i);
                             MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
 
@@ -952,7 +952,7 @@ namespace samurai
                                         if (ci != prediction_order || cj != prediction_order || ck != prediction_order)
                                         {
                                             double value           = -interpx[ci] * interpy[cj] * interpz[ck];
-                                            auto coarse_cell_index = this->col_index(static_cast<PetscInt>(this->m_mesh.get_index(
+                                            auto coarse_cell_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(
                                                                                          ghost.level - 1,
                                                                                          ig + static_cast<index_t>(ci - prediction_order),
                                                                                          jg + static_cast<index_t>(cj - prediction_order),

@@ -69,7 +69,7 @@ namespace samurai
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
-            using base_class::m_mesh;
+            using base_class::mesh;
             using base_class::row_index;
             using base_class::set_current_insert_mode;
             using base_class::set_is_row_not_empty;
@@ -202,7 +202,7 @@ namespace samurai
                             }
                         }
                     }
-                    for_each_cell(m_mesh,
+                    for_each_cell(mesh(),
                                   [&](auto& cell)
                                   {
                                       nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += scheme_nnz_i;
@@ -215,14 +215,14 @@ namespace samurai
             template <class Func>
             void for_each_stencil_and_coeffs(Func&& f)
             {
-                auto stencil_it = make_stencil_iterator(m_mesh, m_stencil);
+                auto stencil_it = make_stencil_iterator(mesh(), m_stencil);
 
-                for_each_level(m_mesh,
+                for_each_level(mesh(),
                                [&](std::size_t level)
                                {
                                    auto coeffs = m_get_coefficients(cell_length(level));
 
-                                   for_each_stencil(m_mesh,
+                                   for_each_stencil(mesh(),
                                                     level,
                                                     stencil_it,
                                                     [&](auto& cells)
@@ -328,7 +328,7 @@ namespace samurai
                                             {
                                                 coeff = coeffs[c](field_i, field_j);
                                             }
-                                            if (coeff != 0)
+                                            if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
                                                 MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, INSERT_VALUES);
                                             }
@@ -348,21 +348,21 @@ namespace samurai
                                                 contiguous_coeffs[c] = coeffs[cfg::contiguous_indices_start + c](field_i, field_j);
                                             }
                                         }
-                                        if (std::any_of(contiguous_coeffs.begin(),
-                                                        contiguous_coeffs.end(),
-                                                        [](auto coeff)
-                                                        {
-                                                            return coeff != 0;
-                                                        }))
-                                        {
-                                            MatSetValues(A,
-                                                         1,
-                                                         &stencil_center_row,
-                                                         static_cast<PetscInt>(cfg::contiguous_indices_size),
-                                                         &cols[local_col_index(cfg::contiguous_indices_start, field_j)],
-                                                         contiguous_coeffs.data(),
-                                                         INSERT_VALUES);
-                                        }
+                                        // if (std::any_of(contiguous_coeffs.begin(),
+                                        //                 contiguous_coeffs.end(),
+                                        //                 [](auto coeff)
+                                        //                 {
+                                        //                     return coeff != 0;
+                                        //                 }))
+                                        // {
+                                        MatSetValues(A,
+                                                     1,
+                                                     &stencil_center_row,
+                                                     static_cast<PetscInt>(cfg::contiguous_indices_size),
+                                                     &cols[local_col_index(cfg::contiguous_indices_start, field_j)],
+                                                     contiguous_coeffs.data(),
+                                                     INSERT_VALUES);
+                                        // }
                                     }
                                     if constexpr (cfg::contiguous_indices_start + cfg::contiguous_indices_size < cfg::scheme_stencil_size)
                                     {
