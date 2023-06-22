@@ -27,6 +27,9 @@ target_link_libraries(tutorial-reconstruction-2d PRIVATE samurai CLI11::CLI11)
 add_executable(tutorial-reconstruction-3d reconstruction_3d.cpp)
 target_link_libraries(tutorial-reconstruction-3d PRIVATE samurai CLI11::CLI11)
 
+add_executable(tutorial-proj-on-mesh proj_on_mesh.cpp)
+target_link_libraries(tutorial-proj-on-mesh PRIVATE samurai CLI11::CLI11)
+
 if(MSVC)
     target_compile_options(tutorial-reconstruction-3d PUBLIC /bigobj)
 endif()

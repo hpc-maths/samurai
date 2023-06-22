@@ -651,4 +651,152 @@ namespace samurai
     {
         return detail::portion_impl<prediction_order>(f, level, i, j, k, delta_l, ii, jj, kk);
     }
+
+    template <class Field_src, class Field_dst>
+    void transfer(Field_src& field_src, Field_dst& field_dst)
+    {
+        static constexpr std::size_t dim = Field_src::dim;
+        using mesh_id_t                  = typename Field_src::mesh_t::mesh_id_t;
+        using interval_t                 = typename Field_src::interval_t;
+        using value_t                    = typename interval_t::value_t;
+        auto& mesh_src                   = field_src.mesh();
+        auto& mesh_dst                   = field_dst.mesh();
+
+        field_dst.fill(0.);
+
+        for (std::size_t level_dst = mesh_dst.min_level(); level_dst <= mesh_dst.max_level(); ++level_dst)
+        {
+            auto same_cell = intersection(mesh_dst[mesh_id_t::cells][level_dst], mesh_src[mesh_id_t::cells][level_dst]);
+            same_cell(
+                [&](const auto& i, const auto& index)
+                {
+                    if constexpr (dim == 1)
+                    {
+                        field_dst(level_dst, i) = field_src(level_dst, i);
+                    }
+                    else if constexpr (dim == 2)
+                    {
+                        auto j                     = index[0];
+                        field_dst(level_dst, i, j) = field_src(level_dst, i, j);
+                    }
+                    else if constexpr (dim == 3)
+                    {
+                        auto j                        = index[0];
+                        auto k                        = index[1];
+                        field_dst(level_dst, i, j, k) = field_src(level_dst, i, j, k);
+                    }
+                });
+
+            for (std::size_t level_src = level_dst + 1; level_src <= mesh_src.max_level(); ++level_src)
+            {
+                auto proj_cell = intersection(mesh_dst[mesh_id_t::cells][level_dst], mesh_src[mesh_id_t::cells][level_src]).on(level_src);
+
+                proj_cell(
+                    [&](const auto& i, const auto& index)
+                    {
+                        std::size_t shift = level_src - level_dst;
+
+                        if constexpr (dim == 1)
+                        {
+                            auto src = field_src(level_src, i);
+                            auto dst = field_dst(level_dst, i >> shift);
+                            for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
+                            {
+                                auto i_dst = static_cast<std::size_t>(((i.start + ii) >> static_cast<value_t>(shift))
+                                                                      - (i.start >> static_cast<value_t>(shift)));
+                                dst(i_dst) += src(ii) / (1 << shift);
+                            }
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j   = index[0];
+                            auto src = field_src(level_src, i, j);
+                            auto dst = field_dst(level_dst, i >> shift, j >> shift);
+                            for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
+                            {
+                                auto i_dst = static_cast<std::size_t>(((i.start + ii) >> static_cast<value_t>(shift))
+                                                                      - (i.start >> static_cast<value_t>(shift)));
+                                dst(i_dst) += src(ii) / (1 << (shift * dim));
+                            }
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j   = index[0];
+                            auto k   = index[1];
+                            auto src = field_src(level_src, i, j, k);
+                            auto dst = field_dst(level_dst, i >> shift, j >> shift, k >> shift);
+                            for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
+                            {
+                                auto i_dst = static_cast<std::size_t>(((i.start + ii) >> static_cast<value_t>(shift))
+                                                                      - (i.start >> static_cast<value_t>(shift)));
+                                dst(i_dst) += src(ii) / (1 << (shift * dim));
+                            }
+                        }
+                    });
+            }
+
+            for (std::size_t level_src = mesh_src.min_level(); level_src < level_dst; ++level_src)
+            {
+                auto pred_cell = intersection(mesh_dst[mesh_id_t::cells][level_dst], mesh_src[mesh_id_t::cells][level_src]).on(level_dst);
+
+                pred_cell(
+                    [&](const auto& i, const auto& index)
+                    {
+                        auto shift = level_dst - level_src;
+                        if constexpr (dim == 1)
+                        {
+                            auto dst = field_dst(level_dst, i);
+                            for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
+                            {
+                                auto i_src = (i.start + static_cast<typename interval_t::value_t>(ii)) >> shift;
+                                dst(ii)    = portion(field_src,
+                                                  level_src,
+                                                  interval_t{i_src, i_src + 1},
+                                                  shift,
+                                                  i.start + ii - (i_src << static_cast<value_t>(shift)))[0];
+                            }
+                        }
+                        else if constexpr (dim == 2)
+                        {
+                            auto j   = index[0];
+                            auto dst = field_dst(level_dst, i, j);
+                            for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
+                            {
+                                auto i_src = (i.start + static_cast<typename interval_t::value_t>(ii)) >> shift;
+                                auto j_src = j >> shift;
+                                dst(ii)    = portion(field_src,
+                                                  level_src,
+                                                  interval_t{i_src, i_src + 1},
+                                                  j_src,
+                                                  shift,
+                                                  i.start + ii - (i_src << static_cast<value_t>(shift)),
+                                                  j - (j_src << shift))[0];
+                            }
+                        }
+                        else if constexpr (dim == 3)
+                        {
+                            auto j   = index[0];
+                            auto k   = index[1];
+                            auto dst = field_dst(level_dst, i, j, k);
+                            for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
+                            {
+                                auto i_src = (i.start + static_cast<typename interval_t::value_t>(ii)) >> shift;
+                                auto j_src = j >> shift;
+                                auto k_src = k >> shift;
+                                dst(ii)    = portion(field_src,
+                                                  level_src,
+                                                  interval_t{i_src, i_src + 1},
+                                                  j_src,
+                                                  k_src,
+                                                  shift,
+                                                  i.start + ii - (i_src << static_cast<value_t>(shift)),
+                                                  j - (j_src << shift),
+                                                  k - (k_src << shift))[0];
+                            }
+                        }
+                    });
+            }
+        }
+    }
+
 }
