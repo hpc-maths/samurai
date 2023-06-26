@@ -217,7 +217,7 @@ namespace samurai
 
           public:
 
-            explicit SingleFieldSolver(scheme_t& scheme)
+            explicit SingleFieldSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
                 configure_solver();
@@ -308,11 +308,18 @@ namespace samurai
         };
 
         /**
-         * PETSc block solver
+         * Block solver
          */
-        // template <class Assembly>
+        template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
+        class BlockSolver
+        {
+        };
+
+        /**
+         * Nested block solver
+         */
         template <std::size_t rows_, std::size_t cols_, class... Operators>
-        class NestedBlockSolver : public SolverBase<NestedBlockAssembly<rows_, cols_, Operators...>>
+        class BlockSolver<false, rows_, cols_, Operators...> : public SolverBase<NestedBlockAssembly<rows_, cols_, Operators...>>
         {
             using assembly_t = NestedBlockAssembly<rows_, cols_, Operators...>;
             using base_class = SolverBase<assembly_t>;
@@ -329,7 +336,7 @@ namespace samurai
 
             static constexpr bool is_monolithic = false;
 
-            explicit NestedBlockSolver(const block_operator_t& block_op)
+            explicit BlockSolver(const block_operator_t& block_op)
                 : base_class(block_op)
             {
                 configure_solver();
@@ -406,11 +413,10 @@ namespace samurai
         };
 
         /**
-         * PETSc monolithic block solver
+         * Monolithic block solver
          */
-        // template <class Assembly>
         template <std::size_t rows_, std::size_t cols_, class... Operators>
-        class MonolithicBlockSolver : public SolverBase<MonolithicBlockAssembly<rows_, cols_, Operators...>>
+        class BlockSolver<true, rows_, cols_, Operators...> : public SolverBase<MonolithicBlockAssembly<rows_, cols_, Operators...>>
         {
             using assembly_t = MonolithicBlockAssembly<rows_, cols_, Operators...>;
             using base_class = SolverBase<assembly_t>;
@@ -428,7 +434,7 @@ namespace samurai
 
             static constexpr bool is_monolithic = true;
 
-            explicit MonolithicBlockSolver(const block_operator_t& block_op)
+            explicit BlockSolver(const block_operator_t& block_op)
                 : base_class(block_op)
             {
             }
@@ -463,7 +469,9 @@ namespace samurai
             }
         };
 
-        // Helper functions
+        /**
+         * Helper functions
+         */
 
         template <class Scheme>
         auto make_solver(const Scheme& scheme)
@@ -472,7 +480,7 @@ namespace samurai
         }
 
         template <class Scheme>
-        void solve(Scheme& scheme, const typename Scheme::field_t& rhs)
+        void solve(const Scheme& scheme, const typename Scheme::field_t& rhs)
         {
             auto solver = make_solver(scheme);
             solver.solve(rhs);
@@ -481,21 +489,14 @@ namespace samurai
         template <bool monolithic, std::size_t rows, std::size_t cols, class... Operators>
         auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
-            if constexpr (monolithic)
-            {
-                return MonolithicBlockSolver<rows, cols, Operators...>(block_operator);
-            }
-            else
-            {
-                return NestedBlockSolver<rows, cols, Operators...>(block_operator);
-            }
+            return BlockSolver<monolithic, rows, cols, Operators...>(block_operator);
         }
 
         template <std::size_t rows, std::size_t cols, class... Operators>
         auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
-            static constexpr bool monolithic = true;
-            return make_solver<monolithic, rows, cols, Operators...>(block_operator);
+            static constexpr bool default_monolithic = true;
+            return make_solver<default_monolithic, rows, cols, Operators...>(block_operator);
         }
 
     } // end namespace petsc

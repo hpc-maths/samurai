@@ -281,7 +281,7 @@ int main(int argc, char* argv[])
         auto diff_v = samurai::make_diffusion_FV(velocity);
         auto grad_p = samurai::make_gradient_FV(pressure);
         auto div_v  = samurai::make_divergence_FV(velocity);
-        auto zero_p = samurai::make_zero_operator_FV<1>(pressure);
+        auto zero_p = samurai::make_zero_operator_FV(pressure);
 
         auto stokes = samurai::make_block_operator<2, 2>(diff_v, grad_p,
                                                          -div_v, zero_p);
@@ -434,7 +434,7 @@ int main(int argc, char* argv[])
         auto diff_v = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
         auto grad_p =              samurai::make_gradient_FV(pressure_np1);
         auto div_v  =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_p =              samurai::make_zero_operator_FV<1>(pressure_np1);
+        auto zero_p =              samurai::make_zero_operator_FV(pressure_np1);
         auto id_v   =              samurai::make_identity_FV(velocity_np1);
 
         // Stokes with backward Euler
@@ -628,14 +628,14 @@ int main(int argc, char* argv[])
         auto diff_v = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
         auto grad_p =              samurai::make_gradient_FV(pressure_np1);
         auto div_v  =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_p =              samurai::make_zero_operator_FV<1>(pressure_np1);
+        auto zero_p =              samurai::make_zero_operator_FV(pressure_np1);
         auto id_v   =              samurai::make_identity_FV(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
         //             |       -Div        0    |
         auto stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
-                                                                                        -div_v,      zero_p);
+                                                                     -div_v,      zero_p);
         // clang-format on
 
         auto MRadaptation = samurai::make_MRAdapt(velocity);

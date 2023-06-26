@@ -156,7 +156,7 @@ namespace samurai
     }
 
     template <class Scheme>
-    auto operator-(Scheme&& scheme) //-> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
+    auto operator-(Scheme&& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return (-1) * scheme;
     }
@@ -167,7 +167,7 @@ namespace samurai
      * The boundary conditions are taken from the flux-based scheme.
      */
     template <class FluxScheme, class CellScheme>
-    class FluxBasedScheme_Sum_CellBasedScheme //: public MatrixAssembly
+    class FluxBasedScheme_Sum_CellBasedScheme
     {
       public:
 

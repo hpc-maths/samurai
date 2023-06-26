@@ -14,11 +14,11 @@ namespace fs = std::filesystem;
 
 template <class Field,
           std::size_t neighbourhood_width = 2,
-          class cfg                       = samurai::petsc::StarStencilFV<Field::dim, Field::size, neighbourhood_width>,
-          class bdry_cfg                  = samurai::petsc::BoundaryConfigFV<neighbourhood_width>>
-class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, bdry_cfg, Field>
+          class cfg                       = samurai::StarStencilFV<Field::dim, Field::size, neighbourhood_width>,
+          class bdry_cfg                  = samurai::BoundaryConfigFV<neighbourhood_width>>
+class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg, Field>
 {
-    using base_class = samurai::petsc::CellBasedScheme<cfg, bdry_cfg, Field>;
+    using base_class = samurai::CellBasedScheme<cfg, bdry_cfg, Field>;
 
   public:
 
@@ -27,7 +27,7 @@ class HighOrderDiffusion : public samurai::petsc::CellBasedScheme<cfg, bdry_cfg,
     using directional_bdry_config_t  = typename base_class::directional_bdry_config_t;
 
     HighOrderDiffusion(Field& unknown)
-        : base_class(unknown, stencil(), coefficients)
+        : base_class(unknown)
     {
     }
 
@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
     // Multiresolution parameters
     std::size_t min_level  = 4;
     std::size_t max_level  = 4;
-    std::size_t refinement = 0;
+    std::size_t refinement = 5;
     double mr_epsilon      = 2.e-4; // Threshold used by multiresolution
     double mr_regularity   = 1.;    // Regularity guess for multiresolution
     bool correction        = false;
@@ -278,6 +278,11 @@ int main(int argc, char* argv[])
         auto diff = make_high_order_diffusion(u);
 
         auto solver = samurai::petsc::make_solver(diff);
+        KSP ksp     = solver.Ksp();
+        PC pc;
+        KSPGetPC(ksp, &pc);
+        KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
+        PCSetType(pc, PCLU);         // (equiv. '-pc_type lu')
         solver.solve(f);
 
         auto exact_func = [](const auto& coord)
