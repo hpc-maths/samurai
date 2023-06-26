@@ -1,4 +1,5 @@
 #pragma once
+#include "../../schemes/fv/cell_based_scheme.hpp"
 #include "FV_scheme_assembly.hpp"
 
 namespace samurai
@@ -6,14 +7,11 @@ namespace samurai
     namespace petsc
     {
         template <class Scheme>
-        class CellBasedSchemeAssembly : public FVSchemeAssembly<Scheme>
+        class Assembly<
+            Scheme,
+            std::enable_if_t<std::is_base_of_v<CellBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
+            : public FVSchemeAssembly<Scheme>
         {
-            // template <class Scheme1, class Scheme2>
-            // friend class FluxBasedScheme_Sum_CellBasedScheme;
-
-            // template <std::size_t rows, std::size_t cols, class... Operators>
-            // friend class MonolithicBlockAssembly;
-
           protected:
 
             using base_class = FVSchemeAssembly<Scheme>;
@@ -24,8 +22,11 @@ namespace samurai
             using base_class::mesh;
             using base_class::row_index;
             using base_class::scheme;
-            using base_class::set_current_insert_mode;
             using base_class::set_is_row_not_empty;
+
+          public:
+
+            using base_class::set_current_insert_mode;
 
           public:
 
@@ -44,17 +45,10 @@ namespace samurai
             using stencil_t         = Stencil<scheme_stencil_size, dim>;
             using get_coeffs_func_t = std::function<std::array<local_matrix_t, scheme_stencil_size>(double)>;
 
-            CellBasedSchemeAssembly(const Scheme& scheme) //, stencil_t s, get_coeffs_func_t get_coeffs)
+            Assembly(const Scheme& scheme)
                 : base_class(scheme)
-            //, m_stencil(s)
-            //, m_get_coefficients(get_coeffs)
             {
             }
-
-            // auto& stencil() const
-            // {
-            //     return m_stencil;
-            // }
 
           protected:
 
@@ -376,12 +370,6 @@ namespace samurai
                     });
             }
         };
-
-        template <typename, typename = void>
-        constexpr bool is_CellBasedScheme{};
-
-        template <typename T>
-        constexpr bool is_CellBasedScheme<T, std::void_t<decltype(std::declval<T>().stencil())>> = true;
 
     } // end namespace petsc
 } // end namespace samurai

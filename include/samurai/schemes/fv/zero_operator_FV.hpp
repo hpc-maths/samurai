@@ -13,9 +13,14 @@ namespace samurai
       public:
 
         explicit ZeroOperatorFV(Field& unknown)
-            : base_class(unknown, center_only_stencil<dim>(), coefficients)
+            : base_class(unknown)
         {
             this->set_name("Zero");
+        }
+
+        static constexpr auto stencil()
+        {
+            return center_only_stencil<dim>();
         }
 
         static std::array<local_matrix_t, 1> coefficients(double)
@@ -25,7 +30,7 @@ namespace samurai
 
         bool matrix_is_symmetric() const override
         {
-            return is_uniform(this->mesh());
+            return is_uniform(this->unknown().mesh());
         }
 
         /*void assemble_scheme(Mat& A) override

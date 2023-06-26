@@ -30,7 +30,7 @@ namespace samurai
 
           public:
 
-            explicit SolverBase(scheme_t& scheme)
+            explicit SolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
                 configure_default_solver();
@@ -60,7 +60,7 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
-                    this->m_scheme    = other.m_scheme;
+                    this->m_assembly  = other.m_assembly;
                     this->m_ksp       = other.m_ksp;
                     this->m_A         = other.m_A;
                     this->m_is_set_up = other.m_is_set_up;
@@ -73,11 +73,10 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
-                    this->m_scheme    = other.m_scheme;
+                    this->m_assembly  = other.m_assembly;
                     this->m_ksp       = other.m_ksp;
                     this->m_A         = other.m_A;
                     this->m_is_set_up = other.m_is_set_up;
-                    other.m_scheme    = nullptr;
                     other.m_ksp       = nullptr; // Prevent KSP destruction when 'other' object is destroyed
                     other.m_A         = nullptr;
                     other.m_is_set_up = false;
@@ -95,7 +94,7 @@ namespace samurai
                 return m_is_set_up;
             }
 
-            auto& discretizer()
+            auto& assembly()
             {
                 return m_assembly;
             }
@@ -123,8 +122,8 @@ namespace samurai
                 {
                     return;
                 }
-                discretizer().create_matrix(m_A);
-                discretizer().assemble_matrix(m_A);
+                assembly().create_matrix(m_A);
+                assembly().assemble_matrix(m_A);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
 
                 // PetscBool is_symmetric;
@@ -146,11 +145,11 @@ namespace samurai
             void prepare_rhs_and_solve(Vec& b, Vec& x)
             {
                 // Update the right-hand side with the boundary conditions stored in the solution field
-                discretizer().enforce_bc(b);
+                assembly().enforce_bc(b);
                 // Set to zero the right-hand side of the ghost equations
-                discretizer().enforce_projection_prediction(b);
+                assembly().enforce_projection_prediction(b);
                 // Set to zero the right-hand side of the useless ghosts' equations
-                discretizer().add_0_for_useless_ghosts(b);
+                assembly().add_0_for_useless_ghosts(b);
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
 
@@ -204,7 +203,7 @@ namespace samurai
             using Field      = typename scheme_t::field_t;
             using Mesh       = typename Field::mesh_t;
 
-            using base_class::discretizer;
+            using base_class::assembly;
             using base_class::m_A;
             using base_class::m_is_set_up;
             using base_class::m_ksp;
@@ -218,8 +217,8 @@ namespace samurai
 
           public:
 
-            explicit SingleFieldSolver(scheme_t& discretizer)
-                : base_class(discretizer)
+            explicit SingleFieldSolver(scheme_t& scheme)
+                : base_class(scheme)
             {
                 configure_solver();
             }
@@ -261,7 +260,7 @@ namespace samurai
                         assert(false);
                         exit(EXIT_FAILURE);
                     }
-                    _samurai_mg = GeometricMultigrid(discretizer(), discretizer().mesh());
+                    _samurai_mg = GeometricMultigrid(assembly(), assembly().mesh());
                     _samurai_mg.apply_as_pc(m_ksp);
                 }
 #endif
@@ -278,8 +277,8 @@ namespace samurai
                 }
                 if (!m_use_samurai_mg)
                 {
-                    discretizer().create_matrix(m_A);
-                    discretizer().assemble_matrix(m_A);
+                    assembly().create_matrix(m_A);
+                    assembly().assemble_matrix(m_A);
                     PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
 
                     // PetscBool is_symmetric;
@@ -300,7 +299,7 @@ namespace samurai
 
                 Vec b = create_petsc_vector_from(source);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
-                Vec x = create_petsc_vector_from(discretizer().unknown());
+                Vec x = create_petsc_vector_from(assembly().unknown());
                 this->prepare_rhs_and_solve(b, x);
 
                 VecDestroy(&b);
@@ -311,24 +310,27 @@ namespace samurai
         /**
          * PETSc block solver
          */
-        template <class Dsctzr>
-        class NestedBlockSolver : public SolverBase<Dsctzr>
+        // template <class Assembly>
+        template <std::size_t rows_, std::size_t cols_, class... Operators>
+        class NestedBlockSolver : public SolverBase<NestedBlockAssembly<rows_, cols_, Operators...>>
         {
-            using base_class = SolverBase<Dsctzr>;
-            using base_class::discretizer;
+            using assembly_t = NestedBlockAssembly<rows_, cols_, Operators...>;
+            using base_class = SolverBase<assembly_t>;
+            using base_class::assembly;
             using base_class::m_A;
             using base_class::m_is_set_up;
             using base_class::m_ksp;
 
-            static constexpr std::size_t rows = Dsctzr::n_rows;
-            static constexpr std::size_t cols = Dsctzr::n_cols;
+            using block_operator_t            = typename assembly_t::scheme_t;
+            static constexpr std::size_t rows = assembly_t::rows;
+            static constexpr std::size_t cols = assembly_t::cols;
 
           public:
 
             static constexpr bool is_monolithic = false;
 
-            explicit NestedBlockSolver(Dsctzr& discretizer)
-                : base_class(discretizer)
+            explicit NestedBlockSolver(const block_operator_t& block_op)
+                : base_class(block_op)
             {
                 configure_solver();
             }
@@ -350,9 +352,9 @@ namespace samurai
                     return;
                 }
 
-                // discretizer().reset();
-                discretizer().create_matrix(m_A);
-                discretizer().assemble_matrix(m_A);
+                // assembly().reset();
+                assembly().create_matrix(m_A);
+                assembly().assemble_matrix(m_A);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
                 // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 KSPSetOperators(m_ksp, m_A, m_A);
@@ -362,7 +364,7 @@ namespace samurai
                 KSPGetPC(m_ksp, &pc);
                 IS is_fields[cols];
                 MatNestGetISs(m_A, is_fields, NULL);
-                auto field_names = discretizer().field_names();
+                auto field_names = assembly().block_operator().field_names();
                 for (std::size_t i = 0; i < cols; ++i)
                 {
                     PCFieldSplitSetIS(pc, field_names[i].c_str(), is_fields[i]);
@@ -378,7 +380,7 @@ namespace samurai
             template <class... Fields>
             void solve(const Fields&... sources)
             {
-                auto tuple_sources = discretizer().tie(sources...);
+                auto tuple_sources = assembly().tie(sources...);
                 solve(tuple_sources);
             }
 
@@ -394,8 +396,8 @@ namespace samurai
                     setup();
                 }
 
-                Vec b = discretizer().create_rhs_vector(sources);
-                Vec x = discretizer().create_solution_vector();
+                Vec b = assembly().create_rhs_vector(sources);
+                Vec x = assembly().create_solution_vector();
                 this->prepare_rhs_and_solve(b, x);
 
                 VecDestroy(&b);
@@ -406,31 +408,35 @@ namespace samurai
         /**
          * PETSc monolithic block solver
          */
-        template <class Dsctzr>
-        class MonolithicBlockSolver : public SolverBase<Dsctzr>
+        // template <class Assembly>
+        template <std::size_t rows_, std::size_t cols_, class... Operators>
+        class MonolithicBlockSolver : public SolverBase<MonolithicBlockAssembly<rows_, cols_, Operators...>>
         {
-            using base_class = SolverBase<Dsctzr>;
-            using base_class::discretizer;
+            using assembly_t = MonolithicBlockAssembly<rows_, cols_, Operators...>;
+            using base_class = SolverBase<assembly_t>;
+            using base_class::assembly;
             using base_class::m_A;
             using base_class::m_is_set_up;
             using base_class::m_ksp;
 
-            static constexpr std::size_t rows = Dsctzr::n_rows;
-            static constexpr std::size_t cols = Dsctzr::n_cols;
+            using block_operator_t = typename assembly_t::scheme_t;
+
+            static constexpr std::size_t rows = assembly_t::rows;
+            static constexpr std::size_t cols = assembly_t::cols;
 
           public:
 
             static constexpr bool is_monolithic = true;
 
-            explicit MonolithicBlockSolver(Dsctzr& discretizer)
-                : base_class(discretizer)
+            explicit MonolithicBlockSolver(const block_operator_t& block_op)
+                : base_class(block_op)
             {
             }
 
             template <class... Fields>
             void solve(const Fields&... sources)
             {
-                auto tuple_sources = discretizer().tie(sources...);
+                auto tuple_sources = assembly().tie(sources...);
                 solve(tuple_sources);
             }
 
@@ -446,11 +452,11 @@ namespace samurai
                     this->setup();
                 }
 
-                Vec b = discretizer().create_rhs_vector(sources);
-                Vec x = discretizer().create_solution_vector();
+                Vec b = assembly().create_rhs_vector(sources);
+                Vec x = assembly().create_solution_vector();
                 this->prepare_rhs_and_solve(b, x);
 
-                discretizer().update_unknowns(x);
+                assembly().update_unknowns(x);
 
                 VecDestroy(&b);
                 VecDestroy(&x);
@@ -460,42 +466,36 @@ namespace samurai
         // Helper functions
 
         template <class Scheme>
-        auto make_solver(Scheme& scheme)
+        auto make_solver(const Scheme& scheme)
         {
-            // static_assert(Scheme::is_flux_based);
-            if constexpr (Scheme::is_flux_based)
-            {
-                return SingleFieldSolver<FluxBasedSchemeAssembly<Scheme>>(scheme);
-            }
-            else
-            {
-                return SingleFieldSolver<CellBasedSchemeAssembly<Scheme>>(scheme);
-            }
+            return SingleFieldSolver<Assembly<Scheme>>(scheme);
         }
 
-        template <typename FluxScheme, typename CellScheme>
-        auto make_solver(FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>& scheme)
+        template <class Scheme>
+        void solve(Scheme& scheme, const typename Scheme::field_t& rhs)
         {
-            return SingleFieldSolver<FluxBasedScheme_Sum_CellBasedScheme_Assembly<FluxScheme, CellScheme>>(scheme);
-        }
-
-        template <class Dsctzr>
-        void solve(Dsctzr& discretizer, const typename Dsctzr::field_t& rhs)
-        {
-            auto solver = make_solver(discretizer);
+            auto solver = make_solver(scheme);
             solver.solve(rhs);
         }
 
-        template <std::size_t rows, std::size_t cols, class... Operators>
-        auto make_solver(NestedBlockAssembly<rows, cols, Operators...>& discretizer)
+        template <bool monolithic, std::size_t rows, std::size_t cols, class... Operators>
+        auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
-            return NestedBlockSolver<NestedBlockAssembly<rows, cols, Operators...>>(discretizer);
+            if constexpr (monolithic)
+            {
+                return MonolithicBlockSolver<rows, cols, Operators...>(block_operator);
+            }
+            else
+            {
+                return NestedBlockSolver<rows, cols, Operators...>(block_operator);
+            }
         }
 
         template <std::size_t rows, std::size_t cols, class... Operators>
-        auto make_solver(MonolithicBlockAssembly<rows, cols, Operators...>& discretizer)
+        auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
-            return MonolithicBlockSolver<MonolithicBlockAssembly<rows, cols, Operators...>>(discretizer);
+            static constexpr bool monolithic = true;
+            return make_solver<monolithic, rows, cols, Operators...>(block_operator);
         }
 
     } // end namespace petsc

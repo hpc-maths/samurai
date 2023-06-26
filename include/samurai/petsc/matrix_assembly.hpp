@@ -7,15 +7,6 @@ namespace samurai
     {
         class MatrixAssembly
         {
-            template <class Scheme1, class Scheme2>
-            friend class FluxBasedScheme_Sum_CellBasedScheme;
-
-            template <class Scheme>
-            friend class Scalar_x_FluxBasedScheme;
-
-            template <std::size_t rows, std::size_t cols, class... Operators>
-            friend class MonolithicBlockAssembly;
-
           private:
 
             bool m_is_deleted  = false;
@@ -189,8 +180,6 @@ namespace samurai
                 m_is_deleted = true;
             }
 
-          protected:
-
             /**
              * @brief Returns the number of matrix rows.
              */
@@ -259,8 +248,6 @@ namespace samurai
                 }
             }
 
-          public:
-
             /**
              * @brief Is the matrix symmetric?
              */
@@ -281,6 +268,17 @@ namespace samurai
             {
             }
         };
+
+        template <class Scheme, class check = void>
+        class Assembly : public MatrixAssembly
+        {
+        };
+
+        template <class Scheme>
+        auto make_assembly(const Scheme& s)
+        {
+            return Assembly<Scheme>(s);
+        }
 
     } // end namespace petsc
 } // end namespace samurai

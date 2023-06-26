@@ -21,8 +21,8 @@ namespace samurai_new
             using Mesh  = typename Dsctzr::Mesh;
             using Field = typename Dsctzr::field_t;
 
-            SamuraiDM(MPI_Comm comm, Dsctzr& discretizer, Mesh& mesh, TransferOperators to, int prediction_order)
-                : _ctx(discretizer, mesh, to, prediction_order)
+            SamuraiDM(MPI_Comm comm, Dsctzr& assembly, Mesh& mesh, TransferOperators to, int prediction_order)
+                : _ctx(assembly, mesh, to, prediction_order)
             {
                 DMShellCreate(comm, &_dm);
                 DefineShellFunctions(_dm, _ctx);
@@ -96,7 +96,7 @@ namespace samurai_new
                 LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
 
-                ctx->discretizer().create_matrix(*A);
+                ctx->assembly().create_matrix(*A);
                 // std::cout << "CreateMatrix - level " << ctx->level <<
                 // std::endl;
 
@@ -113,7 +113,7 @@ namespace samurai_new
                 LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
 
-                ctx->discretizer().assemble_matrix(jac);
+                ctx->assembly().assemble_matrix(jac);
 
                 // MatView(jac, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
                 // std::cout << std::endl;

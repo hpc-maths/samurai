@@ -60,7 +60,6 @@ namespace samurai
             return coeffs;
         }
 
-        // static auto diffusion_coefficients()
         static auto coefficients()
         {
             std::array<coefficients_t, dim> coeffs_by_fluxes;

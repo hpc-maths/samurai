@@ -7,19 +7,15 @@ namespace samurai
     /**
      * Multiplication by a scalar value of the flux-based scheme
      */
-    template <class Scheme>
+    template <class Scheme> //, std::enable_if_t<Scheme::is_flux_based>>
     class Scalar_x_FluxBasedScheme : public FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>
     {
-        template <class Scheme_>
-        friend auto operator*(double scalar, Scalar_x_FluxBasedScheme<Scheme_>& scalar_x_scheme);
-
       public:
 
-        using cfg_t      = typename Scheme::cfg_t;
-        using bdry_cfg_t = typename Scheme::bdry_cfg_t;
-        using field_t    = typename Scheme::field_t;
-        using base_class = FluxBasedScheme<cfg_t, bdry_cfg_t, field_t>;
-        // using Mesh                       = typename field_t::mesh_t;
+        using cfg_t                      = typename Scheme::cfg_t;
+        using bdry_cfg_t                 = typename Scheme::bdry_cfg_t;
+        using field_t                    = typename Scheme::field_t;
+        using base_class                 = FluxBasedScheme<cfg_t, bdry_cfg_t, field_t>;
         using coefficients_t             = typename base_class::coefficients_t;
         using flux_coeffs_t              = typename coefficients_t::flux_coeffs_t;
         static constexpr std::size_t dim = field_t::dim;
@@ -45,6 +41,16 @@ namespace samurai
             , m_scalar(scalar)
         {
             this->set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
+        }
+
+        auto scalar() const
+        {
+            return m_scalar;
+        }
+
+        auto& scheme()
+        {
+            return m_scheme;
         }
 
         auto coefficients() const
@@ -106,221 +112,54 @@ namespace samurai
 
     template <class Scheme>
     auto operator*(double scalar, const Scheme& scheme)
+        -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scheme, scalar);
     }
 
     template <class Scheme>
-    auto operator*(double scalar, Scheme& scheme)
+    auto operator*(double scalar, Scheme& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scheme, scalar);
     }
 
     template <class Scheme>
-    auto operator*(double scalar, Scheme&& scheme)
+    auto operator*(double scalar, Scheme&& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(std::forward<Scheme>(scheme), scalar);
     }
 
     template <class Scheme>
     auto operator*(double scalar, Scalar_x_FluxBasedScheme<Scheme>& scalar_x_scheme)
+        -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
-        return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scalar_x_scheme.m_scheme, scalar * scalar_x_scheme.m_scalar);
+        return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scalar_x_scheme.scheme(), scalar * scalar_x_scheme.scalar());
     }
 
     template <class Scheme>
     auto operator*(double scalar, Scalar_x_FluxBasedScheme<Scheme>&& scalar_x_scheme)
+        -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
-        return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scalar_x_scheme.m_scheme, scalar * scalar_x_scheme.m_scalar);
+        return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scalar_x_scheme.scheme(), scalar * scalar_x_scheme.scalar());
     }
 
     template <class Scheme>
-    auto operator-(const Scheme& scheme)
+    auto operator-(const Scheme& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return (-1) * scheme;
     }
 
     template <class Scheme>
-    auto operator-(Scheme& scheme)
+    auto operator-(Scheme& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return (-1) * scheme;
     }
 
     template <class Scheme>
-    auto operator-(Scheme&& scheme)
+    auto operator-(Scheme&& scheme) //-> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return (-1) * scheme;
     }
-
-    /**
-     * Addition of two flux-based schemes
-     */
-    /*template <class Scheme1, class Scheme2>
-    class Sum_FluxBasedScheme : public FluxBasedScheme<typename Scheme1::cfg_t, typename Scheme1::bdry_cfg_t, typename Scheme1::field_t>
-    {
-      public:
-
-        using cfg_t                      = typename Scheme1::cfg_t;
-        using bdy_cfg_t                  = typename Scheme1::bdy_cfg_t;
-        using field_t                    = typename Scheme1::field_t;
-        using Mesh                       = typename field_t::mesh_t;
-        using coefficients_t             = typename FluxBasedScheme<cfg_t, bdy_cfg_t, field_t>::coefficients_t;
-        static constexpr std::size_t dim = field_t::dim;
-
-      private:
-
-        Scheme1 m_scheme1;
-        Scheme2 m_scheme2;
-
-      public:
-
-        Sum_FluxBasedScheme(const Scheme1& scheme1, const Scheme2& scheme2)
-            : FluxBasedScheme<cfg_t, bdy_cfg_t, field_t>(scheme1.unknown(), sum_coefficients(scheme1, scheme2))
-            , m_scheme1(scheme1)
-            , m_scheme2(scheme2)
-        {
-            static_assert(std::is_same<typename Scheme1::field_t, typename Scheme2::field_t>::value,
-                          "Invalid '+' operation: incompatible field types.");
-            static_assert(Scheme1::cfg_t::comput_stencil_size == Scheme2::cfg_t::comput_stencil_size,
-                          "Invalid '+' operation: incompatible stencil sizes.");
-
-            this->set_name(m_scheme1.name() + " + " + m_scheme2.name());
-            if (&scheme1.unknown() != &scheme2.unknown())
-            {
-                std::cerr << "Invalid '+' operation: both schemes must be associated to the same unknown." << std::endl;
-                assert(&scheme1.unknown() == &scheme2.unknown());
-            }
-        }
-
-      private:*/
-
-    /**
-     * BEWARE! This code is not used. There might be a problem with the references in Release mode...
-     */
-    /*auto sum_coefficients(const Scheme1& scheme1, const Scheme2& scheme2)
-    {
-        auto& scheme1_coeffs                       = scheme1.scheme_coefficients();
-        auto& scheme2_coeffs                       = scheme2.scheme_coefficients();
-        std::array<coefficients_t, dim> sum_fluxes = scheme1_coeffs;
-
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            const auto& scheme1_flux  = scheme1_coeffs[d];
-            const auto& scheme2_flux  = scheme2_coeffs[d];
-            auto& sum_flux            = sum_fluxes[d];
-            sum_flux.flux             = scheme2_flux.flux;
-            sum_flux.get_cell1_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
-            {
-                auto coeffs1 = scheme1_flux.get_cell1_coeffs(flux_coeffs, h_face, h_cell);
-                auto coeffs2 = scheme2_flux.get_cell1_coeffs(flux_coeffs, h_face, h_cell);
-                decltype(coeffs1) coeffs;
-                for (std::size_t i = 0; i < cfg_t::comput_stencil_size; ++i)
-                {
-                    coeffs[i] = coeffs1[i] + coeffs2[i];
-                }
-                return coeffs;
-            };
-            sum_flux.get_cell2_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
-            {
-                auto coeffs1 = scheme1_flux.get_cell2_coeffs(flux_coeffs, h_face, h_cell);
-                auto coeffs2 = scheme2_flux.get_cell2_coeffs(flux_coeffs, h_face, h_cell);
-                decltype(coeffs1) coeffs;
-                for (std::size_t i = 0; i < cfg_t::comput_stencil_size; ++i)
-                {
-                    coeffs[i] = coeffs1[i] + coeffs2[i];
-                }
-                return coeffs;
-            };
-        }
-        return sum_fluxes;
-    }
-
-    PetscInt matrix_rows() const override
-    {
-        if (m_scheme1.matrix_rows() != m_scheme2.matrix_rows())
-        {
-            std::cerr << "Invalid '+' operation: both schemes must generate the same number of matrix rows." << std::endl;
-            std::cerr << "                       '" << m_scheme1.name() << "': " << m_scheme1.matrix_rows() << ", " << m_scheme2.name()
-                      << ": " << m_scheme2.matrix_rows() << std::endl;
-            assert(false);
-        }
-        return m_scheme1.matrix_rows();
-    }
-
-    PetscInt matrix_cols() const override
-    {
-        if (m_scheme1.matrix_cols() != m_scheme2.matrix_cols())
-        {
-            std::cerr << "Invalid '+' operation: both schemes must generate the same number of matrix cols." << std::endl;
-            std::cerr << "                       '" << m_scheme1.name() << "': " << m_scheme1.matrix_cols() << ", " << m_scheme2.name()
-                      << ": " << m_scheme2.matrix_cols() << std::endl;
-            assert(false);
-        }
-        return m_scheme1.matrix_cols();
-    }
-
-    void assemble_boundary_conditions(Mat& A) override
-    {
-        m_scheme1.assemble_boundary_conditions(A);
-    }
-
-    void assemble_projection(Mat& A) override
-    {
-        m_scheme1.assemble_projection(A);
-    }
-
-    void assemble_prediction(Mat& A) override
-    {
-        m_scheme1.assemble_prediction(A);
-    }
-
-    void add_1_on_diag_for_useless_ghosts(Mat& A) override
-    {
-        m_scheme1.add_1_on_diag_for_useless_ghosts(A);
-    }
-
-    void enforce_bc(Vec& b) const
-    {
-        m_scheme1.enforce_bc(b);
-    }
-
-    void add_0_for_useless_ghosts(Vec& b) const
-    {
-        m_scheme1.add_0_for_useless_ghosts(b);
-    }
-
-    void enforce_projection_prediction(Vec& b) const
-    {
-        m_scheme1.enforce_projection_prediction(b);
-    }
-
-  public:
-
-    bool matrix_is_symmetric() const override
-    {
-        return m_scheme1.matrix_is_symmetric() && m_scheme2.matrix_is_symmetric();
-    }
-
-    bool matrix_is_spd() const override
-    {
-        return m_scheme1.matrix_is_spd() && m_scheme2.matrix_is_spd();
-    }
-
-    void reset() override
-    {
-        m_scheme1.reset();
-        m_scheme2.reset();
-    }
-};
-
-template <typename Scheme1,
-          typename Scheme2,
-          std::enable_if_t<is_FluxBasedScheme<Scheme1>, bool> = true,
-          std::enable_if_t<is_FluxBasedScheme<Scheme2>, bool> = true>
-auto operator+(const Scheme1& s1, const Scheme2& s2)
-{
-    return Sum_FluxBasedScheme<Scheme1, Scheme2>(s1, s2);
-}*/
 
     /**
      * Addition of a flux-based scheme and a cell-based scheme.

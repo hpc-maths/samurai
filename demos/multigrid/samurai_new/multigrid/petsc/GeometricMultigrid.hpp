@@ -31,9 +31,9 @@ namespace samurai_new
             {
             }
 
-            GeometricMultigrid(Dsctzr& discretizer, Mesh& mesh)
+            GeometricMultigrid(Dsctzr& assembly, Mesh& mesh)
             {
-                _discretizer = &discretizer;
+                _discretizer = &assembly;
                 _mesh        = &mesh;
             }
 

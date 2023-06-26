@@ -105,8 +105,6 @@ namespace samurai
                 return static_cast<PetscInt>(m_n_cells * field_size);
             }
 
-          protected:
-
             InsertMode current_insert_mode() const
             {
                 return m_current_insert_mode;

@@ -179,7 +179,7 @@ int main(int argc, char* argv[])
     using Mesh                       = samurai::MRMesh<Config>;
     using mesh_id_t                  = typename Mesh::mesh_id_t;
     static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = true;
+    static constexpr bool monolithic = false;
 
     //----------------//
     //   Parameters   //
@@ -187,8 +187,8 @@ int main(int argc, char* argv[])
 
     std::string test_case = "ns";
 
-    std::size_t min_level = 2;
-    std::size_t max_level = 2;
+    std::size_t min_level = 5;
+    std::size_t max_level = 5;
     double Tf             = 1.;
     double dt             = Tf / 100;
 
@@ -278,13 +278,13 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff_v = samurai::petsc::make_diffusion_FV(velocity);
-        auto grad_p = samurai::petsc::make_gradient_FV(pressure);
-        auto div_v  = samurai::petsc::make_divergence_FV(velocity);
-        auto zero_p = samurai::petsc::make_zero_operator_FV<1>(pressure);
+        auto diff_v = samurai::make_diffusion_FV(velocity);
+        auto grad_p = samurai::make_gradient_FV(pressure);
+        auto div_v  = samurai::make_divergence_FV(velocity);
+        auto zero_p = samurai::make_zero_operator_FV<1>(pressure);
 
-        auto stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(diff_v, grad_p,
-                                                                            -div_v, zero_p);
+        auto stokes = samurai::make_block_operator<2, 2>(diff_v, grad_p,
+                                                         -div_v, zero_p);
 
         // clang-format on
 
@@ -304,7 +304,7 @@ int main(int argc, char* argv[])
 
         // Linear solver
         std::cout << "Solving Stokes system..." << std::endl;
-        auto stokes_solver = samurai::petsc::make_solver(stokes);
+        auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
         configure_solver(stokes_solver);
 
         stokes_solver.solve(f, zero);
@@ -431,21 +431,21 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff_v = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
-        auto grad_p =              samurai::petsc::make_gradient_FV(pressure_np1);
-        auto div_v  =              samurai::petsc::make_divergence_FV(velocity_np1);
-        auto zero_p =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
-        auto id_v   =              samurai::petsc::make_identity_FV(velocity_np1);
+        auto diff_v = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
+        auto grad_p =              samurai::make_gradient_FV(pressure_np1);
+        auto div_v  =              samurai::make_divergence_FV(velocity_np1);
+        auto zero_p =              samurai::make_zero_operator_FV<1>(pressure_np1);
+        auto id_v   =              samurai::make_identity_FV(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
         //             |       -Div        0    |
-        auto stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p,
-                                                                                        -div_v,      zero_p);
+        auto stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
+                                                                     -div_v,      zero_p);
         // clang-format on
 
         // Linear solver
-        auto stokes_solver = samurai::petsc::make_solver(stokes);
+        auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
         configure_solver(stokes_solver);
 
         // Initial condition
@@ -519,9 +519,9 @@ int main(int argc, char* argv[])
             {
                 if (dt_has_changed)
                 {
-                    stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                    stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
                 }
-                stokes_solver = samurai::petsc::make_solver(stokes);
+                stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
                 configure_solver(stokes_solver);
             }
 
@@ -625,23 +625,23 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff_v = diff_coeff * samurai::petsc::make_diffusion_FV(velocity_np1);
-        auto grad_p =              samurai::petsc::make_gradient_FV(pressure_np1);
-        auto div_v  =              samurai::petsc::make_divergence_FV(velocity_np1);
-        auto zero_p =              samurai::petsc::make_zero_operator_FV<1>(pressure_np1);
-        auto id_v   =              samurai::petsc::make_identity_FV(velocity_np1);
+        auto diff_v = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
+        auto grad_p =              samurai::make_gradient_FV(pressure_np1);
+        auto div_v  =              samurai::make_divergence_FV(velocity_np1);
+        auto zero_p =              samurai::make_zero_operator_FV<1>(pressure_np1);
+        auto id_v   =              samurai::make_identity_FV(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
         //             |       -Div        0    |
-        auto stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p,
+        auto stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
                                                                                         -div_v,      zero_p);
         // clang-format on
 
         auto MRadaptation = samurai::make_MRAdapt(velocity);
 
         // Linear solver
-        auto stokes_solver = samurai::petsc::make_solver(stokes);
+        auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
         configure_solver(stokes_solver);
 
         // Time iteration
@@ -692,9 +692,9 @@ int main(int argc, char* argv[])
             {
                 if (dt_has_changed)
                 {
-                    stokes = samurai::petsc::make_block_operator<2, 2, monolithic>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                    stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
                 }
-                stokes_solver = samurai::petsc::make_solver(stokes);
+                stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
                 configure_solver(stokes_solver);
             }
 

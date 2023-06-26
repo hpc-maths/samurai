@@ -108,12 +108,6 @@ namespace samurai
     template <class cfg, class bdry_cfg, class Field>
     class FluxBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
     {
-        // template <class Scheme1, class Scheme2>
-        // friend class FluxBasedScheme_Sum_CellBasedScheme;
-
-        // template <class Scheme>
-        // friend class Scalar_x_FluxBasedScheme;
-
       protected:
 
         using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
@@ -143,8 +137,11 @@ namespace samurai
     // constexpr bool is_FluxBasedScheme{};
 
     // template <typename T>
-    // constexpr bool is_FluxBasedScheme<T, std::void_t<typename T::is_flux_based>> = true;
+    // constexpr bool is_FluxBasedScheme<T::is_flux_based> = true;
     // //constexpr bool is_FluxBasedScheme = T::is_flux_based;
     // //constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().scheme_coefficients())>> = true;
+
+    // template <typename T>
+    // constexpr bool is_FluxBasedScheme = T::is_flux_based;
 
 } // end namespace samurai

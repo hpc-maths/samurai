@@ -54,9 +54,6 @@ namespace samurai
     template <class cfg, class bdry_cfg, class Field>
     class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
     {
-        // template <class Scheme1, class Scheme2>
-        // friend class FluxBasedScheme_Sum_CellBasedScheme;
-
       protected:
 
         using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
@@ -66,6 +63,7 @@ namespace samurai
       public:
 
         using cfg_t                                    = cfg;
+        using bdry_cfg_t                               = bdry_cfg;
         using field_t                                  = Field;
         using field_value_type                         = typename Field::value_type; // double
         static constexpr bool is_flux_based            = false;
@@ -74,9 +72,6 @@ namespace samurai
                                                             output_field_size,
                                                             field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a
                                                                                                          // matrix otherwise
-
-        // using stencil_t         = Stencil<cfg::scheme_stencil_size, dim>;
-        // using get_coeffs_func_t = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
 
         CellBasedScheme(Field& unknown)
             : base_class(unknown)

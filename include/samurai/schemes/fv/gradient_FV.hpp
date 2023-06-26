@@ -55,7 +55,7 @@ namespace samurai
         using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
 
         explicit GradientFV(Field& u)
-            : base_class(u, grad_coefficients())
+            : base_class(u)
         {
             this->set_name("Gradient");
             static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
@@ -75,7 +75,7 @@ namespace samurai
 
         // Grad_x(u) = 1/2 * [ Fx(L) + Fx(R) ]
         // Grad_y(u) = 1/2 * [ Fx(B) + Fx(T) ]
-        static auto grad_coefficients()
+        static auto coefficients()
         {
             static_assert(dim <= 3, "GradientFV.grad_coefficients() not implemented for dim > 3.");
             std::array<coefficients_t, dim> coeffs_by_fluxes;

@@ -1,5 +1,6 @@
 #pragma once
 #include "../../interface.hpp"
+#include "../../schemes/fv/flux_based_scheme.hpp"
 #include "FV_scheme_assembly.hpp"
 
 namespace samurai
@@ -7,17 +8,11 @@ namespace samurai
     namespace petsc
     {
         template <class Scheme>
-        class FluxBasedSchemeAssembly : public FVSchemeAssembly<Scheme>
+        class Assembly<
+            Scheme,
+            std::enable_if_t<std::is_base_of_v<FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
+            : public FVSchemeAssembly<Scheme>
         {
-            // template <class Scheme1, class Scheme2>
-            // friend class FluxBasedScheme_Sum_CellBasedScheme;
-
-            // template <class Scheme>
-            // friend class Scalar_x_FluxBasedScheme;
-
-            // template <std::size_t rows, std::size_t cols, class... Operators>
-            // friend class MonolithicBlockAssembly;
-
           protected:
 
             using base_class = FVSchemeAssembly<Scheme>;
@@ -28,8 +23,11 @@ namespace samurai
             using base_class::mesh;
             using base_class::row_index;
             using base_class::scheme;
-            using base_class::set_current_insert_mode;
             using base_class::set_is_row_not_empty;
+
+          public:
+
+            using base_class::set_current_insert_mode;
 
           public:
 
@@ -40,7 +38,7 @@ namespace samurai
             static constexpr std::size_t output_field_size = cfg_t::output_field_size;
             static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
 
-            FluxBasedSchemeAssembly(const Scheme& scheme)
+            Assembly(const Scheme& scheme)
                 : base_class(scheme)
             {
                 set_current_insert_mode(ADD_VALUES);
@@ -227,12 +225,6 @@ namespace samurai
                 }
             }
         };
-
-        template <typename, typename = void>
-        constexpr bool is_FluxBasedScheme{};
-
-        template <typename T>
-        constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().scheme_coefficients())>> = true;
 
     } // end namespace petsc
 } // end namespace samurai

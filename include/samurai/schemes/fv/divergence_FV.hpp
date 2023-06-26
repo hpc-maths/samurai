@@ -54,7 +54,7 @@ namespace samurai
         static constexpr std::size_t field_size = Field::size;
 
         explicit DivergenceFV(Field& u)
-            : base_class(u, div_coefficients())
+            : base_class(u)
         {
             this->set_name("Divergence");
             static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");
@@ -92,7 +92,7 @@ namespace samurai
         }
 
         // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
-        static auto div_coefficients()
+        static auto coefficients()
         {
             static_assert(dim <= 3, "DivergenceFV.div_coefficients() not implemented for dim > 3.");
             std::array<coefficients_t, dim> coeffs_by_fluxes;
