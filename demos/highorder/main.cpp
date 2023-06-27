@@ -283,7 +283,7 @@ int main(int argc, char* argv[])
         KSPGetPC(ksp, &pc);
         KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
         PCSetType(pc, PCLU);         // (equiv. '-pc_type lu')
-        solver.solve(f);
+        solver.solve(u, f);
 
         auto exact_func = [](const auto& coord)
         {
