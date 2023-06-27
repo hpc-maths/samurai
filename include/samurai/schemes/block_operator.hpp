@@ -17,7 +17,7 @@ namespace samurai
 
       public:
 
-        BlockOperator(const Operators&... operators)
+        explicit BlockOperator(const Operators&... operators)
             : m_operators(operators...)
         {
             static constexpr std::size_t n_operators = sizeof...(operators);
@@ -59,22 +59,38 @@ namespace samurai
 
       public:
 
-        std::array<std::string, cols> field_names() const
+        template <class... Fields>
+        auto tie_unknowns(Fields&... fields) const
         {
-            std::array<std::string, cols> names;
+            static constexpr std::size_t n_fields = sizeof...(fields);
+            static_assert(n_fields == cols, "The number of fields must correspond to the number of columns of the block operator.");
+
+            auto unknown_tuple = std::tuple<Fields&...>(fields...);
             for_each_operator(
                 [&](auto& op, auto row, auto col)
                 {
-                    if (row == col)
-                    {
-                        names[col] = op.unknown().name();
-                    }
+                    std::size_t i = 0;
+                    for_each(unknown_tuple,
+                             [&](auto& u)
+                             {
+                                 if (col == i)
+                                 {
+                                     if constexpr (!std::is_same_v<std::decay_t<decltype(u)>, typename std::decay_t<decltype(op)>::field_t>)
+                                     {
+                                         std::cerr << "unknown " << i << " (named '" << u.name() << "') is not compatible with the scheme ("
+                                                   << row << ", " << col << ") (named '" << op.name() << "')" << std::endl;
+                                         assert(false);
+                                         exit(EXIT_FAILURE);
+                                     }
+                                 }
+                                 i++;
+                             });
                 });
-            return names;
+            return unknown_tuple;
         }
 
         template <class... Fields>
-        auto tie(Fields&... fields) const
+        auto tie_rhs(Fields&... fields) const
         {
             static constexpr std::size_t n_fields = sizeof...(fields);
             static_assert(n_fields == rows, "The number of fields must correspond to the number of rows of the block operator.");

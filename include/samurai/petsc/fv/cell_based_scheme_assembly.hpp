@@ -19,13 +19,13 @@ namespace samurai
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
-            using base_class::mesh;
             using base_class::row_index;
-            using base_class::scheme;
             using base_class::set_is_row_not_empty;
 
           public:
 
+            using base_class::mesh;
+            using base_class::scheme;
             using base_class::set_current_insert_mode;
 
           public:
@@ -45,7 +45,7 @@ namespace samurai
             using stencil_t         = Stencil<scheme_stencil_size, dim>;
             using get_coeffs_func_t = std::function<std::array<local_matrix_t, scheme_stencil_size>(double)>;
 
-            Assembly(const Scheme& scheme)
+            explicit Assembly(const Scheme& scheme)
                 : base_class(scheme)
             {
             }

@@ -28,9 +28,9 @@ namespace samurai
             return {zeros<local_matrix_t>()};
         }
 
-        bool matrix_is_symmetric() const override
+        bool matrix_is_symmetric(const Field& unknown) const override
         {
-            return is_uniform(this->unknown().mesh());
+            return is_uniform(unknown.mesh());
         }
     };
 

@@ -124,14 +124,14 @@ namespace samurai
             return {eye<local_matrix_t>()};
         }
 
-        bool matrix_is_symmetric() const override
+        bool matrix_is_symmetric(const Field& unknown) const override
         {
-            return is_uniform(this->unknown().mesh());
+            return is_uniform(unknown.mesh());
         }
 
-        bool matrix_is_spd() const override
+        bool matrix_is_spd(const Field& unknown) const override
         {
-            return matrix_is_symmetric();
+            return matrix_is_symmetric(unknown);
         }
     };
 

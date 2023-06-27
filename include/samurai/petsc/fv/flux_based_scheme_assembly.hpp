@@ -20,13 +20,13 @@ namespace samurai
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
-            using base_class::mesh;
             using base_class::row_index;
-            using base_class::scheme;
             using base_class::set_is_row_not_empty;
 
           public:
 
+            using base_class::mesh;
+            using base_class::scheme;
             using base_class::set_current_insert_mode;
 
           public:
@@ -38,7 +38,7 @@ namespace samurai
             static constexpr std::size_t output_field_size = cfg_t::output_field_size;
             static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
 
-            Assembly(const Scheme& scheme)
+            explicit Assembly(const Scheme& scheme)
                 : base_class(scheme)
             {
                 set_current_insert_mode(ADD_VALUES);

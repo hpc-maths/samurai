@@ -94,13 +94,13 @@ namespace samurai
             return coeffs;
         }
 
-        bool matrix_is_symmetric() const override
+        bool matrix_is_symmetric(const field_t&) const override
         {
             // return m_scheme.matrix_is_symmetric();
             return false;
         }
 
-        bool matrix_is_spd() const override
+        bool matrix_is_spd(const field_t&) const override
         {
             // if (m_scheme.matrix_is_spd())
             // {

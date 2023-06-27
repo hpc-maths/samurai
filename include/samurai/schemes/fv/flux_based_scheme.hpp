@@ -127,7 +127,7 @@ namespace samurai
 
       public:
 
-        FluxBasedScheme(Field& unknown)
+        explicit FluxBasedScheme(Field& unknown)
             : base_class(unknown)
         {
         }

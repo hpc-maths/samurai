@@ -1,7 +1,6 @@
 #pragma once
 
 // #define ENABLE_MG
-
 #include "block_assembly.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
@@ -290,14 +289,14 @@ namespace samurai
                 m_is_set_up = true;
             }
 
-            void solve(const Field& source)
+            void solve(Field& unknown, const Field& rhs)
             {
+                assembly().set_unknown(unknown);
                 if (!m_is_set_up)
                 {
                     setup();
                 }
-
-                Vec b = create_petsc_vector_from(source);
+                Vec b = create_petsc_vector_from(rhs);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
                 Vec x = create_petsc_vector_from(assembly().unknown());
                 this->prepare_rhs_and_solve(b, x);
@@ -371,7 +370,7 @@ namespace samurai
                 KSPGetPC(m_ksp, &pc);
                 IS is_fields[cols];
                 MatNestGetISs(m_A, is_fields, NULL);
-                auto field_names = assembly().block_operator().field_names();
+                auto field_names = assembly().field_names();
                 for (std::size_t i = 0; i < cols; ++i)
                 {
                     PCFieldSplitSetIS(pc, field_names[i].c_str(), is_fields[i]);
@@ -384,26 +383,22 @@ namespace samurai
                 m_is_set_up = true;
             }
 
-            template <class... Fields>
-            void solve(const Fields&... sources)
+            template <class UnknownTuple, class RHSTuple>
+            void solve(UnknownTuple& unknowns, const RHSTuple& rhs)
             {
-                auto tuple_sources = assembly().tie(sources...);
-                solve(tuple_sources);
-            }
-
-            template <class... Fields>
-            void solve(const std::tuple<Fields&...>& sources)
-            {
-                static_assert(sizeof...(Fields) == rows,
+                static_assert(std::tuple_size_v<UnknownTuple> == cols,
+                              "The number of unknown fields passed to solve() must equal "
+                              "the number of columns of the block operator.");
+                static_assert(std::tuple_size_v<RHSTuple> == rows,
                               "The number of source fields passed to solve() must equal "
                               "the number of rows of the block operator.");
 
+                assembly().set_unknown(unknowns);
                 if (!m_is_set_up)
                 {
                     setup();
                 }
-
-                Vec b = assembly().create_rhs_vector(sources);
+                Vec b = assembly().create_rhs_vector(rhs);
                 Vec x = assembly().create_solution_vector();
                 this->prepare_rhs_and_solve(b, x);
 
@@ -439,26 +434,23 @@ namespace samurai
             {
             }
 
-            template <class... Fields>
-            void solve(const Fields&... sources)
+            template <class UnknownTuple, class RHSTuple>
+            void solve(UnknownTuple& unknowns, const RHSTuple& rhs)
             {
-                auto tuple_sources = assembly().tie(sources...);
-                solve(tuple_sources);
-            }
-
-            template <class... Fields>
-            void solve(const std::tuple<Fields&...>& sources)
-            {
-                static_assert(sizeof...(Fields) == rows,
+                static_assert(std::tuple_size_v<UnknownTuple> == cols,
+                              "The number of unknown fields passed to solve() must equal "
+                              "the number of columns of the block operator.");
+                static_assert(std::tuple_size_v<RHSTuple> == rows,
                               "The number of source fields passed to solve() must equal "
                               "the number of rows of the block operator.");
 
+                assembly().set_unknown(unknowns);
                 if (!m_is_set_up)
                 {
                     this->setup();
                 }
 
-                Vec b = assembly().create_rhs_vector(sources);
+                Vec b = assembly().create_rhs_vector(rhs);
                 Vec x = assembly().create_solution_vector();
                 this->prepare_rhs_and_solve(b, x);
 
@@ -480,10 +472,10 @@ namespace samurai
         }
 
         template <class Scheme>
-        void solve(const Scheme& scheme, const typename Scheme::field_t& rhs)
+        void solve(const Scheme& scheme, typename Scheme::field_t& unknown, const typename Scheme::field_t& rhs)
         {
             auto solver = make_solver(scheme);
-            solver.solve(rhs);
+            solver.solve(unknown, rhs);
         }
 
         template <bool monolithic, std::size_t rows, std::size_t cols, class... Operators>

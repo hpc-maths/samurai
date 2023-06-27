@@ -120,12 +120,12 @@ namespace samurai
             return config;
         }
 
-        bool matrix_is_symmetric() const override
+        bool matrix_is_symmetric(const field_t& unknown) const override
         {
             // if constexpr (cfg::dirichlet_enfcmt == DirichletEnforcement::Elimination)
             //  {
             //  The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
-            return is_uniform(this->unknown().mesh());
+            return is_uniform(unknown.mesh());
             // }
             // else
             // {
@@ -133,9 +133,9 @@ namespace samurai
             // }
         }
 
-        bool matrix_is_spd() const override
+        bool matrix_is_spd(const field_t& unknown) const override
         {
-            return matrix_is_symmetric();
+            return matrix_is_symmetric(unknown);
         }
     };
 

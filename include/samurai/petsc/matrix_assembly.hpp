@@ -29,7 +29,7 @@ namespace samurai
                 return m_name;
             }
 
-            void set_name(std::string name)
+            void set_name(const std::string& name)
             {
                 m_name = name;
             }

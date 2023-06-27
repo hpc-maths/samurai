@@ -39,8 +39,9 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    constexpr size_t dim = 1;
-    using Config         = samurai::MRConfig<dim>;
+    static constexpr std::size_t dim = 1;
+    using Config                     = samurai::MRConfig<dim>;
+    static constexpr bool implicit   = true;
 
     std::cout << "------------------------- Heat -------------------------" << std::endl;
 
@@ -122,8 +123,8 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
-    auto diff_unp1 = samurai::make_diffusion_FV(unp1); // diff_unp1  = -Lap(unp1)
-    auto id_unp1   = samurai::make_identity_FV(unp1);
+    auto diff = samurai::make_diffusion_FV(u); // diff(u) = -Lap(u)
+    auto id   = samurai::make_identity_FV(u);
 
     //--------------------//
     //   Time iteration   //
@@ -153,9 +154,17 @@ int main(int argc, char* argv[])
         samurai::update_ghost_mr(u);
         unp1.resize();
 
-        // Solve system
-        auto back_euler = id_unp1 + dt * diff_unp1; // back_euler = [Id - dt*Lap](unp1)
-        samurai::petsc::solve(back_euler, u);       // solves the linear equation   [Id - dt*Lap](unp1) = u
+        if constexpr (implicit)
+        {
+            // Solve system
+            auto back_euler = id + dt * diff;
+            samurai::petsc::solve(back_euler, unp1, u); // solves the linear equation   [Id - dt*Lap](unp1) = u
+        }
+        else
+        {
+            // TODO
+            // unp1 = u - dt * diff(u);
+        }
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());

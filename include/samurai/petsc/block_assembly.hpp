@@ -87,9 +87,47 @@ namespace samurai
             }
 
             template <class... Fields>
-            auto tie(Fields&... fields) const
+            void set_unknown(std::tuple<Fields...>& unknowns)
             {
-                return block_operator().tie(fields...);
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        std::size_t i = 0;
+                        for_each(
+                            unknowns,
+                            [&](auto& u)
+                            {
+                                if (col == i)
+                                {
+                                    if constexpr (std::is_same_v<std::decay_t<decltype(u)>, typename std::decay_t<decltype(op)>::scheme_t::field_t>)
+                                    {
+                                        op.set_unknown(u);
+                                    }
+                                    else
+                                    {
+                                        std::cerr << "unknown " << i << " (named '" << u.name() << "') is not compatible with the scheme ("
+                                                  << row << ", " << col << ") (named '" << op.name() << "')" << std::endl;
+                                        assert(false);
+                                        exit(EXIT_FAILURE);
+                                    }
+                                }
+                                i++;
+                            });
+                    });
+            }
+
+            std::array<std::string, cols> field_names() const
+            {
+                std::array<std::string, cols> names;
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == col)
+                        {
+                            names[col] = op.unknown().name();
+                        }
+                    });
+                return names;
             }
         };
 

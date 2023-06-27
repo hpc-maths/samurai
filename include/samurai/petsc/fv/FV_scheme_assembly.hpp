@@ -18,15 +18,6 @@ namespace samurai
         template <class Scheme>
         class FVSchemeAssembly : public MatrixAssembly
         {
-            // template <class Scheme1, class Scheme2>
-            // friend class FluxBasedScheme_Sum_CellBasedScheme;
-
-            // template <class Scheme>
-            // friend class Scalar_x_FluxBasedScheme;
-
-            // template <std::size_t rows, std::size_t cols, class... Operators>
-            // friend class MonolithicBlockAssembly;
-
           protected:
 
             using MatrixAssembly::m_col_shift;
@@ -58,6 +49,7 @@ namespace samurai
           protected:
 
             const Scheme* m_scheme;
+            field_t* m_unknown = nullptr;
             std::size_t m_n_cells;
             InsertMode m_current_insert_mode = INSERT_VALUES;
             std::vector<bool> m_is_row_empty;
@@ -66,6 +58,7 @@ namespace samurai
 
             explicit FVSchemeAssembly(const Scheme& scheme)
                 : m_scheme(&scheme)
+                , m_unknown(&scheme.unknown())
             {
                 this->set_name(scheme.name());
                 reset();
@@ -84,10 +77,15 @@ namespace samurai
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
             }
 
+            void set_unknown(field_t& unknown)
+            {
+                m_unknown = &unknown;
+            }
+
             auto& unknown() const
             {
-                // return *m_unknown;
-                return scheme().unknown();
+                assert(m_unknown);
+                return *m_unknown;
             }
 
             auto& mesh() const
@@ -832,12 +830,12 @@ namespace samurai
 
             bool matrix_is_symmetric() const override
             {
-                return scheme().matrix_is_symmetric();
+                return scheme().matrix_is_symmetric(unknown());
             }
 
             bool matrix_is_spd() const override
             {
-                return scheme().matrix_is_spd();
+                return scheme().matrix_is_spd(unknown());
             }
         };
 

@@ -250,7 +250,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Solving..." << std::endl;
     solve_timer.Start();
-    solver.solve(source);
+    solver.solve(solution, source);
     solve_timer.Stop();
 
     total_timer.Stop();

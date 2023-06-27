@@ -23,6 +23,7 @@ namespace samurai
           private:
 
             const scheme_t* m_sum_scheme;
+            field_t* m_unknown = nullptr;
 
             Assembly<FluxScheme> m_flux_assembly;
             Assembly<CellScheme> m_cell_assembly;
@@ -31,6 +32,7 @@ namespace samurai
 
             explicit Assembly(const scheme_t& sum_scheme)
                 : m_sum_scheme(&sum_scheme)
+                , m_unknown(&sum_scheme.unknown())
                 , m_flux_assembly(sum_scheme.flux_scheme())
                 , m_cell_assembly(sum_scheme.cell_scheme())
             {
@@ -39,7 +41,18 @@ namespace samurai
 
             auto& unknown() const
             {
-                return m_sum_scheme->unknown();
+                assert(m_unknown);
+                return *m_unknown;
+            }
+
+            void set_unknown(field_t& unknown)
+            {
+                m_unknown = &unknown;
+            }
+
+            auto& scheme() const
+            {
+                return *m_sum_scheme;
             }
 
             InsertMode current_insert_mode() const

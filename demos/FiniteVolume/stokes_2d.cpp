@@ -307,7 +307,9 @@ int main(int argc, char* argv[])
         auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
         configure_solver(stokes_solver);
 
-        stokes_solver.solve(f, zero);
+        auto unknowns = stokes.tie_unknowns(velocity, pressure);
+        auto rhs      = stokes.tie_rhs(f, zero);
+        stokes_solver.solve(unknowns, rhs);
         std::cout << stokes_solver.iterations() << " iterations" << std::endl << std::endl;
 
         // Error
@@ -537,7 +539,9 @@ int main(int argc, char* argv[])
             rhs.fill(0);
             rhs = velocity + dt * f;
             zero.fill(0);
-            stokes_solver.solve(rhs, zero);
+            auto unknowns = stokes.tie_unknowns(velocity_np1, pressure_np1);
+            auto tied_rhs = stokes.tie_rhs(rhs, zero);
+            stokes_solver.solve(unknowns, tied_rhs);
 
             // Prepare next step
             std::swap(velocity.array(), velocity_np1.array());
@@ -700,7 +704,9 @@ int main(int argc, char* argv[])
 
             // Solve system
             zero.fill(0);
-            stokes_solver.solve(velocity, zero);
+            auto unknowns = stokes.tie_unknowns(velocity_np1, pressure_np1);
+            auto rhs      = stokes.tie_rhs(velocity, zero);
+            stokes_solver.solve(unknowns, rhs);
 
             // Prepare next step
             std::swap(velocity.array(), velocity_np1.array());

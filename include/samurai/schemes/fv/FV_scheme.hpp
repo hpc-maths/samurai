@@ -180,7 +180,7 @@ namespace samurai
             return m_name;
         }
 
-        void set_name(std::string name)
+        void set_name(const std::string& name)
         {
             m_name = name;
         }
@@ -283,7 +283,7 @@ namespace samurai
         /**
          * @brief Is the matrix symmetric?
          */
-        virtual bool matrix_is_symmetric() const
+        virtual bool matrix_is_symmetric(const Field&) const
         {
             return false;
         }
@@ -291,7 +291,7 @@ namespace samurai
         /**
          * @brief Is the matrix symmetric positive-definite?
          */
-        virtual bool matrix_is_spd() const
+        virtual bool matrix_is_spd(const Field&) const
         {
             return false;
         }
