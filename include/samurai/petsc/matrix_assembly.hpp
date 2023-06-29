@@ -7,15 +7,6 @@ namespace samurai
     {
         class MatrixAssembly
         {
-            template <class Scheme1, class Scheme2>
-            friend class FluxBasedScheme_Sum_CellBasedScheme;
-
-            template <class Scheme>
-            friend class Scalar_x_FluxBasedScheme;
-
-            template <std::size_t rows, std::size_t cols, class... Operators>
-            friend class MonolithicBlockAssembly;
-
           private:
 
             bool m_is_deleted  = false;
@@ -38,7 +29,7 @@ namespace samurai
                 return m_name;
             }
 
-            void set_name(std::string name)
+            void set_name(const std::string& name)
             {
                 m_name = name;
             }
@@ -189,8 +180,6 @@ namespace samurai
                 m_is_deleted = true;
             }
 
-          protected:
-
             /**
              * @brief Returns the number of matrix rows.
              */
@@ -259,8 +248,6 @@ namespace samurai
                 }
             }
 
-          public:
-
             /**
              * @brief Is the matrix symmetric?
              */
@@ -282,58 +269,15 @@ namespace samurai
             }
         };
 
-        enum DirichletEnforcement : int
+        template <class Scheme, class check = void>
+        class Assembly : public MatrixAssembly
         {
-            Equation,
-            Elimination
         };
 
-        namespace detail
+        template <class Scheme>
+        auto make_assembly(const Scheme& s)
         {
-            /**
-             * Local square matrix to store the coefficients of a vectorial field.
-             */
-            template <class value_type, std::size_t rows, std::size_t cols = rows>
-            struct LocalMatrix
-            {
-                using Type = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;
-            };
-
-            /**
-             * Template specialization: if rows=cols=1, then just a scalar coefficient
-             */
-            template <class value_type>
-            struct LocalMatrix<value_type, 1, 1>
-            {
-                using Type = value_type;
-            };
-        }
-
-        template <class matrix_type>
-        matrix_type eye()
-        {
-            static constexpr auto s = typename matrix_type::shape_type();
-            return xt::eye(s[0]);
-        }
-
-        template <>
-        double eye<double>()
-        {
-            return 1;
-        }
-
-        template <class matrix_type>
-        matrix_type zeros()
-        {
-            matrix_type mat;
-            mat.fill(0);
-            return mat;
-        }
-
-        template <>
-        double zeros<double>()
-        {
-            return 0;
+            return Assembly<Scheme>(s);
         }
 
     } // end namespace petsc

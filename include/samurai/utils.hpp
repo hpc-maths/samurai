@@ -171,6 +171,21 @@ namespace samurai
     }
 
     /**
+     * Transform tuple
+     */
+    template <typename... Ts, typename Func, size_t... Is>
+    auto transform_impl(const std::tuple<Ts...>& t, Func&& f, std::index_sequence<Is...>)
+    {
+        return std::tuple<std::invoke_result_t<Func, Ts>...>{f(std::get<Is>(t))...};
+    }
+
+    template <typename... Ts, typename Func>
+    auto transform(const std::tuple<Ts...>& t, Func&& f)
+    {
+        return transform_impl(t, std::forward<Func>(f), std::make_index_sequence<sizeof...(Ts)>{});
+    }
+
+    /**
      * Static for loop
      */
     template <int Begin, int End>

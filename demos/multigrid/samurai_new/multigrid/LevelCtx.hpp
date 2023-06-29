@@ -46,7 +46,7 @@ namespace samurai_new
 
         LevelContext(LevelContext& fine_ctx)
             : _mesh(samurai_new::coarsen(fine_ctx.mesh()))
-            , _discretizer(Dsctzr::create_coarse(fine_ctx.discretizer(), _mesh))
+            , _discretizer(Dsctzr::create_coarse(fine_ctx.assembly(), _mesh))
         {
             level            = fine_ctx.level + 1;
             transfer_ops     = fine_ctx.transfer_ops;
@@ -61,7 +61,7 @@ namespace samurai_new
             return _mesh;
         }
 
-        Dsctzr& discretizer()
+        Dsctzr& assembly()
         {
             return _discretizer;
         }

@@ -1,4 +1,5 @@
 #pragma once
+#include "../schemes/block_operator.hpp"
 #include "matrix_assembly.hpp"
 #include "utils.hpp"
 
@@ -6,30 +7,32 @@ namespace samurai
 {
     namespace petsc
     {
-        /**
-         * Base class to assemble a block matrix.
-         */
-        template <std::size_t rows, std::size_t cols, class... Operators>
+        template <std::size_t rows_, std::size_t cols_, class... Operators>
         class BlockAssembly
         {
           public:
 
-            static constexpr std::size_t n_rows = rows;
-            static constexpr std::size_t n_cols = cols;
+            using block_operator_t            = BlockOperator<rows_, cols_, Operators...>;
+            static constexpr std::size_t rows = block_operator_t::rows;
+            static constexpr std::size_t cols = block_operator_t::cols;
+            using scheme_t                    = block_operator_t;
 
-          protected:
+          private:
 
-            std::tuple<Operators...> m_operators;
+            const block_operator_t* m_block_operator;
+            std::tuple<Assembly<Operators>...> m_assembly_ops;
 
           public:
 
-            BlockAssembly(const Operators&... operators)
-                : m_operators(operators...)
+            explicit BlockAssembly(const block_operator_t& block_op)
+                : m_block_operator(&block_op)
+                , m_assembly_ops(transform(block_op.operators(),
+                                           [](const auto& op)
+                                           {
+                                               return make_assembly(op);
+                                           }))
             {
-                static constexpr std::size_t n_operators = sizeof...(operators);
-                static_assert(n_operators == rows * cols, "The number of operators must correspond to rows*cols.");
-
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         bool diagonal_block = (row == col);
@@ -39,11 +42,27 @@ namespace samurai
                     });
             }
 
+            template <class OperatorType>
+            static Assembly<OperatorType> to_assembly(OperatorType& op)
+            {
+                return Assembly<OperatorType>(op);
+            }
+
+            auto& block_operator()
+            {
+                return *m_block_operator;
+            }
+
+            auto& block_operator() const
+            {
+                return *m_block_operator;
+            }
+
             template <class Func>
-            void for_each_operator(Func&& f)
+            void for_each_assembly_op(Func&& f)
             {
                 std::size_t i = 0;
-                for_each(m_operators,
+                for_each(m_assembly_ops,
                          [&](auto& op)
                          {
                              auto row = i / cols;
@@ -54,10 +73,10 @@ namespace samurai
             }
 
             template <class Func>
-            void for_each_operator(Func&& f) const
+            void for_each_assembly_op(Func&& f) const
             {
                 std::size_t i = 0;
-                for_each(m_operators,
+                for_each(m_assembly_ops,
                          [&](const auto& op)
                          {
                              auto row = i / cols;
@@ -67,12 +86,40 @@ namespace samurai
                          });
             }
 
-          public:
+            template <class... Fields>
+            void set_unknown(std::tuple<Fields...>& unknowns)
+            {
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        std::size_t i = 0;
+                        for_each(
+                            unknowns,
+                            [&](auto& u)
+                            {
+                                if (col == i)
+                                {
+                                    if constexpr (std::is_same_v<std::decay_t<decltype(u)>, typename std::decay_t<decltype(op)>::scheme_t::field_t>)
+                                    {
+                                        op.set_unknown(u);
+                                    }
+                                    else
+                                    {
+                                        std::cerr << "unknown " << i << " (named '" << u.name() << "') is not compatible with the scheme ("
+                                                  << row << ", " << col << ") (named '" << op.name() << "')" << std::endl;
+                                        assert(false);
+                                        exit(EXIT_FAILURE);
+                                    }
+                                }
+                                i++;
+                            });
+                    });
+            }
 
             std::array<std::string, cols> field_names() const
             {
                 std::array<std::string, cols> names;
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         if (row == col)
@@ -82,27 +129,23 @@ namespace samurai
                     });
                 return names;
             }
-
-            template <class... Fields>
-            auto tie(Fields&... fields) const
-            {
-                static constexpr std::size_t n_fields = sizeof...(fields);
-                static_assert(n_fields == rows,
-                              "The number of fields must correspond to the "
-                              "number of rows of the block operator.");
-
-                return std::tuple<Fields&...>(fields...);
-            }
         };
 
         /**
          * Assemble block matrix using PETSc nested matrices.
          */
-        template <std::size_t rows, std::size_t cols, class... Operators>
-        class NestedBlockAssembly : public BlockAssembly<rows, cols, Operators...>
+        template <std::size_t rows_, std::size_t cols_, class... Operators>
+        class NestedBlockAssembly : public BlockAssembly<rows_, cols_, Operators...>
         {
-            using block_assembly = BlockAssembly<rows, cols, Operators...>;
-            using block_assembly::for_each_operator;
+            using base_class = BlockAssembly<rows_, cols_, Operators...>;
+
+          public:
+
+            using base_class::block_operator;
+            using block_operator_t = typename base_class::block_operator_t;
+            using base_class::cols;
+            using base_class::for_each_assembly_op;
+            using base_class::rows;
 
           private:
 
@@ -110,10 +153,10 @@ namespace samurai
 
           public:
 
-            explicit NestedBlockAssembly(const Operators&... operators)
-                : block_assembly(operators...)
+            explicit NestedBlockAssembly(const block_operator_t& block_op)
+                : base_class(block_op)
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto&, auto row, auto col)
                     {
                         block(row, col) = nullptr;
@@ -122,7 +165,7 @@ namespace samurai
 
             void create_matrix(Mat& A)
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         // std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;
@@ -133,7 +176,7 @@ namespace samurai
 
             void assemble_matrix(Mat& A)
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         // std::cout << "assemble_matrix (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;
@@ -145,7 +188,7 @@ namespace samurai
 
             void reset()
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         op.reset();
@@ -178,7 +221,7 @@ namespace samurai
 
             void enforce_bc(Vec& b) const
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto)
                     {
                         if (op.include_bc())
@@ -193,7 +236,7 @@ namespace samurai
 
             void enforce_projection_prediction(Vec& b) const
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto)
                     {
                         if (op.assemble_proj_pred())
@@ -207,7 +250,7 @@ namespace samurai
 
             void add_0_for_useless_ghosts(Vec& b) const
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto)
                     {
                         if (op.must_add_1_on_diag_for_useless_ghosts())
@@ -222,7 +265,7 @@ namespace samurai
             Vec create_solution_vector() const
             {
                 std::array<Vec, cols> x_blocks;
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         if (row == 0)
@@ -241,21 +284,26 @@ namespace samurai
         /**
          * Assemble block matrix as a monolithic matrix.
          */
-        template <std::size_t rows, std::size_t cols, class... Operators>
-        class MonolithicBlockAssembly : public BlockAssembly<rows, cols, Operators...>,
+        template <std::size_t rows_, std::size_t cols_, class... Operators>
+        class MonolithicBlockAssembly : public BlockAssembly<rows_, cols_, Operators...>,
                                         public MatrixAssembly
         {
-            using block_assembly = BlockAssembly<rows, cols, Operators...>;
-            using block_assembly::for_each_operator;
+            using base_class = BlockAssembly<rows_, cols_, Operators...>;
 
           public:
 
-            explicit MonolithicBlockAssembly(const Operators&... operators)
-                : block_assembly(operators...)
+            using base_class::block_operator;
+            using block_operator_t = typename base_class::block_operator_t;
+            using base_class::cols;
+            using base_class::for_each_assembly_op;
+            using base_class::rows;
+
+            explicit MonolithicBlockAssembly(const block_operator_t& block_op)
+                : base_class(block_op)
             {
                 this->set_name("(unnamed monolithic block operator)");
 
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         op.set_is_block(true);
@@ -267,7 +315,7 @@ namespace samurai
             {
                 PetscInt row_shift = 0;
                 PetscInt col_shift = 0;
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto col)
                     {
                         op.reset();
@@ -287,7 +335,7 @@ namespace samurai
             PetscInt matrix_rows() const override
             {
                 PetscInt total_rows = 0;
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         if (row == col)
@@ -301,7 +349,7 @@ namespace samurai
             PetscInt matrix_cols() const override
             {
                 PetscInt total_cols = 0;
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         if (row == col)
@@ -314,7 +362,7 @@ namespace samurai
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         op.sparsity_pattern_scheme(nnz);
@@ -323,7 +371,7 @@ namespace samurai
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.include_bc())
@@ -335,7 +383,7 @@ namespace samurai
 
             void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.assemble_proj_pred())
@@ -347,7 +395,7 @@ namespace samurai
 
             void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.assemble_proj_pred())
@@ -359,7 +407,7 @@ namespace samurai
 
             void sparsity_pattern_useless_ghosts(std::vector<PetscInt>& nnz) override
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.must_add_1_on_diag_for_useless_ghosts())
@@ -372,7 +420,7 @@ namespace samurai
             void assemble_scheme(Mat& A) override
             {
                 InsertMode insert_mode;
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         if (row > 0 || col > 0)
@@ -386,7 +434,7 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.include_bc())
@@ -398,7 +446,7 @@ namespace samurai
 
             void assemble_projection(Mat& A) override
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.assemble_proj_pred())
@@ -410,7 +458,7 @@ namespace samurai
 
             void assemble_prediction(Mat& A) override
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.assemble_proj_pred())
@@ -422,7 +470,7 @@ namespace samurai
 
             void add_1_on_diag_for_useless_ghosts(Mat& A) override
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.must_add_1_on_diag_for_useless_ghosts())
@@ -441,7 +489,7 @@ namespace samurai
                 for_each(sources,
                          [&](auto& s)
                          {
-                             this->for_each_operator(
+                             for_each_assembly_op(
                                  [&](auto& op, auto row, auto col)
                                  {
                                      if (col == 0 && row == i)
@@ -457,14 +505,12 @@ namespace samurai
 
             void enforce_bc(Vec& b) const
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.include_bc())
                         {
-                            // std::cout << "enforce_bc (" << row << ", "
-                            // << col << ") on b[" << row << "]" <<
-                            // std::endl;
+                            // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
                             op.enforce_bc(b);
                         }
                     });
@@ -472,7 +518,7 @@ namespace samurai
 
             void enforce_projection_prediction(Vec& b) const
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.assemble_proj_pred())
@@ -484,7 +530,7 @@ namespace samurai
 
             void add_0_for_useless_ghosts(Vec& b) const
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.must_add_1_on_diag_for_useless_ghosts())
@@ -512,7 +558,7 @@ namespace samurai
 
             void update_unknowns(Vec& x) const
             {
-                for_each_operator(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto)
                     {
                         if (row == 0)
@@ -522,19 +568,6 @@ namespace samurai
                     });
             }
         };
-
-        template <std::size_t rows, std::size_t cols, bool monolithic = true, class... Operators>
-        auto make_block_operator(const Operators&... operators)
-        {
-            if constexpr (monolithic)
-            {
-                return MonolithicBlockAssembly<rows, cols, Operators...>(operators...);
-            }
-            else
-            {
-                return NestedBlockAssembly<rows, cols, Operators...>(operators...);
-            }
-        }
 
     } // end namespace petsc
 } // end namespace samurai

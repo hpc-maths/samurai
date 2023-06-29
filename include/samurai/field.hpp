@@ -644,6 +644,13 @@ namespace samurai
         return field_t(name, mesh);
     }
 
+    template <std::size_t size, bool SOA = false, class mesh_t>
+    auto make_field(std::string name, mesh_t& mesh)
+    {
+        using default_value_t = double;
+        return make_field<default_value_t, size, SOA>(name, mesh);
+    }
+
     /**
      * @brief Creates a field.
      * @param name Name of the returned Field.
@@ -665,6 +672,13 @@ namespace samurai
         return field;
     }
 
+    template <std::size_t size, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
+    auto make_field(std::string name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
+    {
+        using default_value_t = double;
+        return make_field<default_value_t, size, SOA>(name, mesh, std::forward<Func>(f), gl);
+    }
+
     /**
      * @brief Creates a field.
      * @param name Name of the returned Field.
@@ -682,6 +696,13 @@ namespace samurai
                           field[cell] = f(cell.center());
                       });
         return field;
+    }
+
+    template <std::size_t size, bool SOA = false, class mesh_t, class Func>
+    auto make_field(std::string name, mesh_t& mesh, Func&& f)
+    {
+        using default_value_t = double;
+        return make_field<default_value_t, size, SOA>(name, mesh, std::forward<Func>(f));
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
