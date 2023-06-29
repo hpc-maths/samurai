@@ -134,15 +134,6 @@ namespace samurai
     template <class Field, std::size_t output_field_size, class bdry_cfg_>
     class FVScheme
     {
-        // template <class Scheme1, class Scheme2>
-        // friend class FluxBasedScheme_Sum_CellBasedScheme;
-
-        // template <class Scheme>
-        // friend class Scalar_x_FluxBasedScheme;
-
-        // template <std::size_t rows, std::size_t cols, class... Operators>
-        // friend class MonolithicBlockAssembly;
-
       public:
 
         using Mesh                                             = typename Field::mesh_t;

@@ -650,15 +650,17 @@ namespace samurai
 
                 for_each_projection_ghost_and_children_cells<PetscInt>(
                     mesh(),
-                    [&](PetscInt ghost, const std::array<PetscInt, number_of_children>& children)
+                    [&](auto level, PetscInt ghost, const std::array<PetscInt, number_of_children>& children)
                     {
+                        double h       = cell_length(level);
+                        double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                         {
                             PetscInt ghost_index = row_index(ghost, field_i);
-                            MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, ghost_index, scaling, INSERT_VALUES);
                             for (unsigned int i = 0; i < number_of_children; ++i)
                             {
-                                MatSetValue(A, ghost_index, col_index(children[i], field_i), -1. / number_of_children, INSERT_VALUES);
+                                MatSetValue(A, ghost_index, col_index(children[i], field_i), -scaling / number_of_children, INSERT_VALUES);
                             }
                             set_is_row_not_empty(ghost_index);
                         }
@@ -693,10 +695,12 @@ namespace samurai
                     mesh(),
                     [&](auto& ghost)
                     {
+                        double h       = cell_length(ghost.level);
+                        double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
-                            MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, ghost_index, scaling, INSERT_VALUES);
 
                             auto ii      = ghost.indices(0);
                             auto ig      = ii / 2;
@@ -705,7 +709,7 @@ namespace samurai
                             auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
 
                             auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig)), field_i);
-                            MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, parent_index, -scaling, INSERT_VALUES);
 
                             for (std::size_t ci = 0; ci < interpx.size(); ++ci)
                             {
@@ -716,7 +720,7 @@ namespace samurai
                                         static_cast<PetscInt>(
                                             this->mesh().get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order))),
                                         field_i);
-                                    MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
+                                    MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, INSERT_VALUES);
                                 }
                             }
                             set_is_row_not_empty(ghost_index);
@@ -731,10 +735,12 @@ namespace samurai
                     mesh(),
                     [&](auto& ghost)
                     {
+                        double h       = cell_length(ghost.level);
+                        double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
-                            MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, ghost_index, scaling, INSERT_VALUES);
 
                             auto ii      = ghost.indices(0);
                             auto ig      = ii / 2;
@@ -748,7 +754,7 @@ namespace samurai
 
                             auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg)),
                                                                 field_i);
-                            MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, parent_index, -scaling, INSERT_VALUES);
 
                             for (std::size_t ci = 0; ci < interpx.size(); ++ci)
                             {
@@ -762,7 +768,7 @@ namespace samurai
                                                                                          ig + static_cast<index_t>(ci - prediction_order),
                                                                                          jg + static_cast<index_t>(cj - prediction_order))),
                                             field_i);
-                                        MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
+                                        MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, INSERT_VALUES);
                                     }
                                 }
                             }
@@ -778,10 +784,12 @@ namespace samurai
                     mesh(),
                     [&](auto& ghost)
                     {
+                        double h       = cell_length(ghost.level);
+                        double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
-                            MatSetValue(A, ghost_index, ghost_index, 1, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, ghost_index, scaling, INSERT_VALUES);
 
                             auto ii      = ghost.indices(0);
                             auto ig      = ii / 2;
@@ -799,7 +807,7 @@ namespace samurai
 
                             auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg, kg)),
                                                                 field_i);
-                            MatSetValue(A, ghost_index, parent_index, -1, INSERT_VALUES);
+                            MatSetValue(A, ghost_index, parent_index, -scaling, INSERT_VALUES);
 
                             for (std::size_t ci = 0; ci < interpx.size(); ++ci)
                             {
@@ -816,7 +824,7 @@ namespace samurai
                                                                                          jg + static_cast<index_t>(cj - prediction_order),
                                                                                          kg + static_cast<index_t>(ck - prediction_order))),
                                                                                      field_i);
-                                            MatSetValue(A, ghost_index, coarse_cell_index, value, INSERT_VALUES);
+                                            MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, INSERT_VALUES);
                                         }
                                     }
                                 }

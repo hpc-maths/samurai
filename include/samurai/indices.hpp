@@ -55,6 +55,7 @@ namespace samurai
     inline void for_each_projection_ghost_and_children_cells(const Mesh& mesh, Func&& f)
     {
         using mesh_id_t                                 = typename Mesh::mesh_id_t;
+        using mesh_interval_t                           = typename Mesh::mesh_interval_t;
         static constexpr std::size_t dim                = Mesh::dim;
         static constexpr std::size_t number_of_children = (1 << dim);
 
@@ -67,14 +68,12 @@ namespace samurai
 
         for (std::size_t level = min_level; level < max_level; ++level)
         {
-            auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells][level + 1]).on(level);
-            typename Mesh::mesh_interval_t mesh_interval(level);
-
-            set(
-                [&](const auto& i, const auto& index)
+            auto projection_ghosts = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells][level + 1]).on(level);
+            for_each_meshinterval<mesh_interval_t>(
+                projection_ghosts,
+                [&](auto mesh_interval)
                 {
-                    mesh_interval.i     = i;
-                    mesh_interval.index = index;
+                    auto& i = mesh_interval.i;
 
                     auto cell_start = static_cast<DesiredIndexType>(get_index_start(mesh, mesh_interval));
                     std::array<DesiredIndexType, number_of_children> children;
@@ -87,7 +86,7 @@ namespace samurai
                             auto cell   = cell_start + ii;
                             children[0] = child_start + 2 * ii;     // left:  (2i  )
                             children[1] = child_start + 2 * ii + 1; // right: (2i+1)
-                            f(cell, children);
+                            f(level, cell, children);
                         }
                     }
                     else if constexpr (dim == 2)
@@ -103,7 +102,7 @@ namespace samurai
                             children[1] = children_row_2j_start + 2 * ii + 1;   // bottom-right: (2i+1, 2j  )
                             children[2] = children_row_2jp1_start + 2 * ii;     // top-left:     (2i  , 2j+1)
                             children[3] = children_row_2jp1_start + 2 * ii + 1; // top-right:    (2i+1, 2j+1)
-                            f(cell, children);
+                            f(level, cell, children);
                         }
                     }
                     else if constexpr (dim == 3)
@@ -127,7 +126,7 @@ namespace samurai
                             children[5] = children_2jp1_2kp1_start + 2 * ii + 1; // (2i+1, 2j+1, 2k+1)
                             children[6] = children_2j_2kp1_start + 2 * ii;       // (2i  , 2j  , 2k+1)
                             children[7] = children_2j_2kp1_start + 2 * ii + 1;   // (2i+1, 2j  , 2k+1)
-                            f(cell, children);
+                            f(level, cell, children);
                         }
                     }
                 });

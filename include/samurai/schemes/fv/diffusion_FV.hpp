@@ -37,10 +37,24 @@ namespace samurai
             this->set_name("Diffusion");
         }
 
+        /**
+         * To compute Lap(u) in a cell T, we compute the average value 1/|T| * Int_T[ Lap(u) ].
+         * By the divergence theorem, we have
+         *               1/|T| * Int_T[ Lap(u) ] = 1/|T| * sum_F Int_F[ Grad(u).n ].
+         * Here, Grad(u).n is the normal flux, which we denote 'flux' and which we get as a parameter.
+         * The contribution of one face F is then
+         *               1/|T| * Int_F[ flux ].
+         * As the flux is considered constant through the whole face, we finally have the contribution
+         *             |F|/|T| * flux.
+         * Conclusion: the contribution of the face is just the flux received as a parameter, multiplied by |F|/|T|.
+         */
         template <std::size_t d>
         static auto get_laplacian_coeffs_cell1(std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
         {
-            double h_factor = pow(h_face, dim - 1) / pow(h_cell, dim);
+            double face_measure = pow(h_face, dim - 1);
+            double cell_measure = pow(h_cell, dim);
+            double h_factor     = face_measure / cell_measure;
+
             std::array<coeff_matrix_t, 2> coeffs;
             if constexpr (field_size == 1)
             {
@@ -65,23 +79,38 @@ namespace samurai
             std::array<coefficients_t, dim> coeffs_by_fluxes;
             auto directions = positive_cartesian_directions<dim>();
 
+            // For each positive direction (i.e., in 2D, only right and top)
             static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
                 [&](auto integral_constant_d)
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
-
-                    auto& coeffs                   = coeffs_by_fluxes[d];
+                    // Direction of the normal flux (e.g. right)
                     DirectionVector<dim> direction = xt::view(directions, d);
-                    coeffs.flux                    = normal_grad_order2<Field>(direction);
-                    coeffs.get_cell1_coeffs        = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
+
+                    auto& coeffs = coeffs_by_fluxes[d];
+
+                    /**
+                     *   |-------|-------|
+                     *   | cell1 | cell2 |
+                     *   |-------|-------|
+                     *        ------->
+                     *       normal flux
+                     */
+
+                    // How the flux is computed in this direction: here, Grad.n = (u2-u1)/h
+                    coeffs.flux = normal_grad_order2<Field>(direction);
+                    // Coefficients of the scheme for cell1, in function of the flux
+                    coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                     {
                         auto cell_coeffs = get_laplacian_coeffs_cell1<d>(flux_coeffs, h_face, h_cell);
+                        // We multiply by -1 because we implement the operator -Lap
                         for (auto& coeff : cell_coeffs)
                         {
                             coeff *= -1;
                         }
                         return cell_coeffs;
                     };
+                    // Coefficients of the scheme for cell2, in function of the flux
                     coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<d>;
                 });
             return coeffs_by_fluxes;
