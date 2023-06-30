@@ -565,6 +565,6 @@ namespace samurai
         constexpr std::size_t dim = arg_t::dim;
         xt::xtensor_fixed<int, xt::xshape<dim>> e;
         e.fill(size);
-        return detail::expand_impl(std::forward<arg_t>(arg), e);
+        return detail::expand_impl(arg, e);
     }
 } // namespace samurai
