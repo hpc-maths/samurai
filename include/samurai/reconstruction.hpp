@@ -748,7 +748,7 @@ namespace samurai
                             auto dst = field_dst(level_dst, i);
                             for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
                             {
-                                auto i_src = (i.start + static_cast<typename interval_t::value_t>(ii)) >> shift;
+                                auto i_src = (i.start + static_cast<value_t>(ii)) >> shift;
                                 dst(ii)    = portion(field_src,
                                                   level_src,
                                                   interval_t{i_src, i_src + 1},
@@ -762,7 +762,7 @@ namespace samurai
                             auto dst = field_dst(level_dst, i, j);
                             for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
                             {
-                                auto i_src = (i.start + static_cast<typename interval_t::value_t>(ii)) >> shift;
+                                auto i_src = (i.start + static_cast<value_t>(ii)) >> shift;
                                 auto j_src = j >> shift;
                                 dst(ii)    = portion(field_src,
                                                   level_src,
@@ -780,7 +780,7 @@ namespace samurai
                             auto dst = field_dst(level_dst, i, j, k);
                             for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
                             {
-                                auto i_src = (i.start + static_cast<typename interval_t::value_t>(ii)) >> shift;
+                                auto i_src = (i.start + static_cast<value_t>(ii)) >> shift;
                                 auto j_src = j >> shift;
                                 auto k_src = k >> shift;
                                 dst(ii)    = portion(field_src,
