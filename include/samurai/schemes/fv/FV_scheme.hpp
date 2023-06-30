@@ -131,7 +131,7 @@ namespace samurai
      *     - the projection/prediction ghosts
      *     - the unused ghosts
      */
-    template <class Field, std::size_t output_field_size, class bdry_cfg_>
+    template <class DerivedScheme, class Field, std::size_t output_field_size, class bdry_cfg_>
     class FVScheme
     {
       public:
@@ -179,6 +179,21 @@ namespace samurai
         auto& unknown() const
         {
             return *m_unknown;
+        }
+
+        inline DerivedScheme& derived_cast() & noexcept
+        {
+            return *static_cast<DerivedScheme*>(this);
+        }
+
+        inline const DerivedScheme& derived_cast() const& noexcept
+        {
+            return *static_cast<const DerivedScheme*>(this);
+        }
+
+        inline DerivedScheme derived_cast() && noexcept
+        {
+            return *static_cast<DerivedScheme*>(this);
         }
 
         virtual ~FVScheme()

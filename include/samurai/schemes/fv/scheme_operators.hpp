@@ -8,14 +8,15 @@ namespace samurai
      * Multiplication by a scalar value of the flux-based scheme
      */
     template <class Scheme> //, std::enable_if_t<Scheme::is_flux_based>>
-    class Scalar_x_FluxBasedScheme : public FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>
+    class Scalar_x_FluxBasedScheme
+        : public FluxBasedScheme<Scalar_x_FluxBasedScheme<Scheme>, typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>
     {
       public:
 
         using cfg_t                      = typename Scheme::cfg_t;
         using bdry_cfg_t                 = typename Scheme::bdry_cfg_t;
         using field_t                    = typename Scheme::field_t;
-        using base_class                 = FluxBasedScheme<cfg_t, bdry_cfg_t, field_t>;
+        using base_class                 = FluxBasedScheme<Scalar_x_FluxBasedScheme<Scheme>, cfg_t, bdry_cfg_t, field_t>;
         using coefficients_t             = typename base_class::coefficients_t;
         using flux_coeffs_t              = typename coefficients_t::flux_coeffs_t;
         static constexpr std::size_t dim = field_t::dim;
@@ -112,51 +113,54 @@ namespace samurai
 
     template <class Scheme>
     auto operator*(double scalar, const Scheme& scheme)
-        -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
+        -> std::enable_if_t<is_FluxBasedScheme<Scheme>::value, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scheme, scalar);
     }
 
     template <class Scheme>
-    auto operator*(double scalar, Scheme& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
+    auto operator*(double scalar, Scheme& scheme)
+        -> std::enable_if_t<is_FluxBasedScheme<Scheme>::value, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scheme, scalar);
     }
 
     template <class Scheme>
-    auto operator*(double scalar, Scheme&& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
+    auto operator*(double scalar, Scheme&& scheme)
+        -> std::enable_if_t<is_FluxBasedScheme<Scheme>::value, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(std::forward<Scheme>(scheme), scalar);
     }
 
     template <class Scheme>
     auto operator*(double scalar, Scalar_x_FluxBasedScheme<Scheme>& scalar_x_scheme)
-        -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
+        -> std::enable_if_t<is_FluxBasedScheme<Scheme>::value, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scalar_x_scheme.scheme(), scalar * scalar_x_scheme.scalar());
     }
 
     template <class Scheme>
     auto operator*(double scalar, Scalar_x_FluxBasedScheme<Scheme>&& scalar_x_scheme)
-        -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
+        -> std::enable_if_t<is_FluxBasedScheme<Scheme>::value, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>(scalar_x_scheme.scheme(), scalar * scalar_x_scheme.scalar());
     }
 
     template <class Scheme>
-    auto operator-(const Scheme& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
+    auto operator-(const Scheme& scheme)
+        -> std::enable_if_t<is_FluxBasedScheme<Scheme>::value, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return (-1) * scheme;
     }
 
     template <class Scheme>
-    auto operator-(Scheme& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
+    auto operator-(Scheme& scheme) -> std::enable_if_t<is_FluxBasedScheme<Scheme>::value, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return (-1) * scheme;
     }
 
     template <class Scheme>
-    auto operator-(Scheme&& scheme) -> std::enable_if_t<Scheme::is_flux_based, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
+    auto operator-(Scheme&& scheme) -> std::enable_if_t<is_FluxBasedScheme<Scheme>::value, Scalar_x_FluxBasedScheme<std::decay_t<Scheme>>>
     {
         return (-1) * scheme;
     }
@@ -172,7 +176,6 @@ namespace samurai
       public:
 
         using field_t = typename FluxScheme::field_t;
-        // using Mesh    = typename field_t::mesh_t;
 
       private:
 
@@ -228,11 +231,9 @@ namespace samurai
     // Operator +
     template <typename FluxScheme,
               typename CellScheme,
-              // std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true,
-              std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true>
+              std::enable_if_t<is_CellBasedScheme_v<CellScheme> && is_FluxBasedScheme_v<FluxScheme>, bool> = true>
     auto operator+(const FluxScheme& flux_scheme, const CellScheme& cell_scheme)
     {
-        static_assert(FluxScheme::is_flux_based);
         return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
     }
 
@@ -246,11 +247,11 @@ namespace samurai
     }*/
 
     // Operator + in the reverse order
-    template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true> //,
-    // std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true>
+    template <typename CellScheme,
+              typename FluxScheme,
+              std::enable_if_t<is_CellBasedScheme_v<CellScheme> && is_FluxBasedScheme_v<FluxScheme>, bool> = true>
     auto operator+(const CellScheme& cell_scheme, const FluxScheme& flux_scheme)
     {
-        static_assert(FluxScheme::is_flux_based);
         return flux_scheme + cell_scheme;
     }
 

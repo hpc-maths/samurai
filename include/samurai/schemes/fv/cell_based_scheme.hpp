@@ -51,12 +51,12 @@ namespace samurai
                                                    0,  // Stencil size
                                                    0>; // Index of the stencil center
 
-    template <class cfg, class bdry_cfg, class Field>
-    class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
+    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
+    class CellBasedScheme : public FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>
     {
       protected:
 
-        using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>;
         using base_class::dim;
         using base_class::field_size;
 
@@ -66,7 +66,6 @@ namespace samurai
         using bdry_cfg_t                               = bdry_cfg;
         using field_t                                  = Field;
         using field_value_type                         = typename Field::value_type; // double
-        static constexpr bool is_flux_based            = false;
         static constexpr std::size_t output_field_size = cfg::output_field_size;
         using local_matrix_t                           = typename detail::LocalMatrix<field_value_type,
                                                             output_field_size,
@@ -79,10 +78,21 @@ namespace samurai
         }
     };
 
-    template <typename, typename = void>
-    constexpr bool is_CellBasedScheme{};
+    template <class Scheme, typename = void>
+    struct is_CellBasedScheme : std::false_type
+    {
+    };
 
-    template <typename T>
-    constexpr bool is_CellBasedScheme<T, std::void_t<decltype(std::declval<T>().stencil())>> = true;
+    template <class Scheme>
+    struct is_CellBasedScheme<
+        Scheme,
+        std::enable_if_t<
+            std::is_base_of_v<CellBasedScheme<Scheme, typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
+        : std::true_type
+    {
+    };
+
+    template <class Scheme>
+    inline constexpr bool is_CellBasedScheme_v = is_CellBasedScheme<Scheme>::value;
 
 } // end namespace samurai

@@ -105,12 +105,12 @@ namespace samurai
         static constexpr std::size_t stencil_size      = stencil_size_;
     };
 
-    template <class cfg, class bdry_cfg, class Field>
-    class FluxBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
+    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
+    class FluxBasedScheme : public FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>
     {
       protected:
 
-        using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>;
         using base_class::dim;
         using base_class::field_size;
 
@@ -119,29 +119,145 @@ namespace samurai
         using cfg_t                                    = cfg;
         using bdry_cfg_t                               = bdry_cfg;
         using field_t                                  = Field;
-        static constexpr bool is_flux_based            = true;
         static constexpr std::size_t output_field_size = cfg::output_field_size;
         static constexpr std::size_t stencil_size      = cfg::stencil_size;
 
         using coefficients_t = FluxBasedCoefficients<Field, output_field_size, stencil_size>;
 
-      public:
-
         explicit FluxBasedScheme(Field& unknown)
             : base_class(unknown)
         {
         }
+
+        template <class FieldType, class Cell>
+        auto& value(FieldType& f, Cell& cell, [[maybe_unused]] std::size_t field_i)
+        {
+            if constexpr (FieldType::size == 1)
+            {
+                return f[cell];
+            }
+            else
+            {
+                return f[cell][field_i];
+            }
+        }
+
+        template <class Coeffs>
+        inline double cell_coeff(const Coeffs& coeffs,
+                                 std::size_t cell_number_in_stencil,
+                                 [[maybe_unused]] unsigned int field_i,
+                                 [[maybe_unused]] unsigned int field_j) const
+        {
+            if constexpr (field_size == 1 && output_field_size == 1)
+            {
+                return coeffs[cell_number_in_stencil];
+            }
+            else
+            {
+                return coeffs[cell_number_in_stencil](field_i, field_j);
+            }
+        }
+
+        auto operator()(Field& f)
+        {
+            auto result = make_field<double, output_field_size, Field::is_soa>(this->name() + "(" + f.name() + ")", f.mesh());
+            result.fill(0);
+
+            update_bc(f);
+
+            auto& mesh = f.mesh();
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                auto scheme_coeffs_dir = this->derived_cast().coefficients()[d];
+                for_each_interior_interface(
+                    mesh,
+                    scheme_coeffs_dir.flux.direction,
+                    scheme_coeffs_dir.flux.stencil,
+                    scheme_coeffs_dir.flux.get_flux_coeffs,
+                    scheme_coeffs_dir.get_cell1_coeffs,
+                    scheme_coeffs_dir.get_cell2_coeffs,
+                    [&](auto& interface_cells, auto& comput_cells, auto& cell1_coeffs, auto& cell2_coeffs)
+                    {
+                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                        {
+                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                            {
+                                for (std::size_t c = 0; c < stencil_size; ++c)
+                                {
+                                    double cell1_coeff = cell_coeff(cell1_coeffs, c, field_i, field_j);
+                                    double cell2_coeff = cell_coeff(cell2_coeffs, c, field_i, field_j);
+                                    value(result, interface_cells[0], field_i) += cell1_coeff * value(f, comput_cells[c], field_j);
+                                    value(result, interface_cells[1], field_i) += cell2_coeff * value(f, comput_cells[c], field_j);
+                                }
+                            }
+                        }
+                    });
+
+                for_each_boundary_interface(
+                    mesh,
+                    scheme_coeffs_dir.flux.direction,
+                    scheme_coeffs_dir.flux.stencil,
+                    scheme_coeffs_dir.flux.get_flux_coeffs,
+                    scheme_coeffs_dir.get_cell1_coeffs,
+                    [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
+                    {
+                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                        {
+                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                            {
+                                for (std::size_t c = 0; c < stencil_size; ++c)
+                                {
+                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                    value(result, interface_cells[0], field_i) += coeff * value(f, comput_cells[c], field_j);
+                                }
+                            }
+                        }
+                    });
+
+                auto opposite_direction             = xt::eval(-scheme_coeffs_dir.flux.direction);
+                Stencil<stencil_size, dim> reversed = xt::eval(xt::flip(scheme_coeffs_dir.flux.stencil, 0));
+                auto opposite_stencil               = xt::eval(-reversed);
+                for_each_boundary_interface(
+                    mesh,
+                    opposite_direction,
+                    opposite_stencil,
+                    scheme_coeffs_dir.flux.get_flux_coeffs,
+                    scheme_coeffs_dir.get_cell2_coeffs,
+                    [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
+                    {
+                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                        {
+                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                            {
+                                for (std::size_t c = 0; c < stencil_size; ++c)
+                                {
+                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                    value(result, interface_cells[0], field_i) += coeff * value(f, comput_cells[c], field_j);
+                                }
+                            }
+                        }
+                    });
+            }
+
+            return result;
+        }
     };
 
-    // template <typename, typename = void>
-    // constexpr bool is_FluxBasedScheme{};
+    template <class Scheme, typename = void>
+    struct is_FluxBasedScheme : std::false_type
+    {
+    };
 
-    // template <typename T>
-    // constexpr bool is_FluxBasedScheme<T::is_flux_based> = true;
-    // //constexpr bool is_FluxBasedScheme = T::is_flux_based;
-    // //constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().scheme_coefficients())>> = true;
+    template <class Scheme>
+    struct is_FluxBasedScheme<
+        Scheme,
+        std::enable_if_t<
+            std::is_base_of_v<FluxBasedScheme<Scheme, typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
+        : std::true_type
+    {
+    };
 
-    // template <typename T>
-    // constexpr bool is_FluxBasedScheme = T::is_flux_based;
+    template <class Scheme>
+    inline constexpr bool is_FluxBasedScheme_v = is_FluxBasedScheme<Scheme>::value;
 
 } // end namespace samurai

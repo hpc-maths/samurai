@@ -8,10 +8,7 @@ namespace samurai
     namespace petsc
     {
         template <class Scheme>
-        class Assembly<
-            Scheme,
-            std::enable_if_t<std::is_base_of_v<FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
-            : public FVSchemeAssembly<Scheme>
+        class Assembly<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme>>> : public FVSchemeAssembly<Scheme>
         {
           protected:
 
