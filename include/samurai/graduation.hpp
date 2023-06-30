@@ -43,7 +43,6 @@ namespace samurai
     {
         static constexpr std::size_t dim = Mesh::dim;
         using cl_type                    = typename Mesh::cl_type;
-        auto stencil                     = star_stencil<Mesh::dim>();
 
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();

@@ -1,7 +1,7 @@
 find_package(CGAL)
 
-if (CGAL_FOUND)
-    find_package(Eigen3 3.1.0 REQUIRED) #(3.1.0 or greater)
+if(CGAL_FOUND)
+    find_package(Eigen3 3.1.0 REQUIRED) # (3.1.0 or greater)
     include(CGAL_Eigen3_support)
 
     add_executable(mesh-from-obj main.cpp)
