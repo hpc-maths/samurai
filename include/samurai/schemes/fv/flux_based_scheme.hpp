@@ -113,6 +113,7 @@ namespace samurai
         using base_class = FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>;
         using base_class::dim;
         using base_class::field_size;
+        using field_value_type = typename base_class::field_value_type;
 
       public:
 
@@ -129,24 +130,11 @@ namespace samurai
         {
         }
 
-        template <class FieldType, class Cell>
-        auto& value(FieldType& f, Cell& cell, [[maybe_unused]] std::size_t field_i)
-        {
-            if constexpr (FieldType::size == 1)
-            {
-                return f[cell];
-            }
-            else
-            {
-                return f[cell][field_i];
-            }
-        }
-
         template <class Coeffs>
         inline double cell_coeff(const Coeffs& coeffs,
                                  std::size_t cell_number_in_stencil,
-                                 [[maybe_unused]] unsigned int field_i,
-                                 [[maybe_unused]] unsigned int field_j) const
+                                 [[maybe_unused]] std::size_t field_i,
+                                 [[maybe_unused]] std::size_t field_j) const
         {
             if constexpr (field_size == 1 && output_field_size == 1)
             {
@@ -160,7 +148,7 @@ namespace samurai
 
         auto operator()(Field& f)
         {
-            auto result = make_field<double, output_field_size, Field::is_soa>(this->name() + "(" + f.name() + ")", f.mesh());
+            auto result = make_field<field_value_type, output_field_size, Field::is_soa>(this->name() + "(" + f.name() + ")", f.mesh());
             result.fill(0);
 
             update_bc(f);
