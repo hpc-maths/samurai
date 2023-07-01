@@ -3,8 +3,6 @@
 // license that can be found in the LICENSE file.
 #include "CLI/CLI.hpp"
 
-#define _HAS_AUTO_PTR_ETC false
-
 #include <filesystem>
 namespace fs = std::filesystem;
 

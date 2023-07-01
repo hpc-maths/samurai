@@ -1,4 +1,3 @@
-#define _HAS_AUTO_PTR_ETC false
 #include <iostream>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
@@ -26,8 +25,8 @@ auto init_field(Mesh& mesh, double dec)
             }
             else if constexpr (dim == 2)
             {
-                auto y        = cell.center(1);
-                double radius = .2;
+                auto y              = cell.center(1);
+                const double radius = .2;
                 if ((x - dec - .5) * (x - dec - .5) + (y - dec - .5) * (y - dec - .5) < radius * radius)
                 {
                     f[cell] = 1;
@@ -35,9 +34,9 @@ auto init_field(Mesh& mesh, double dec)
             }
             else if constexpr (dim == 3)
             {
-                auto y        = cell.center(1);
-                auto z        = cell.center(2);
-                double radius = .2;
+                auto y              = cell.center(1);
+                auto z              = cell.center(2);
+                const double radius = .2;
                 if ((x - dec - .5) * (x - dec - .5) + (y - dec - .5) * (y - dec - .5) + (z - dec - .5) * (z - dec - .5) < radius * radius)
                 {
                     f[cell] = 1;
@@ -53,9 +52,10 @@ int main()
     using Config              = samurai::MRConfig<dim>;
     auto box                  = samurai::Box<double, dim>({0., 0., 0.}, {1., 1., 1.});
 
-    std::size_t min_level = 2, max_level = 8;
-    auto mesh1 = samurai::MRMesh<Config>(box, min_level, max_level);
-    auto f1    = init_field(mesh1, 0);
+    const std::size_t min_level = 2;
+    const std::size_t max_level = 8;
+    auto mesh1                  = samurai::MRMesh<Config>(box, min_level, max_level);
+    auto f1                     = init_field(mesh1, 0);
 
     auto mesh2 = samurai::MRMesh<Config>(box, min_level, max_level);
     auto f2    = init_field(mesh2, 0.1);
