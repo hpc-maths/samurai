@@ -351,8 +351,8 @@ namespace samurai
 
         inner_mesh_type() = default;
 
-        inner_mesh_type(mesh_t& mesh)
-            : p_mesh(&mesh)
+        inner_mesh_type(const mesh_t& mesh)
+            : p_mesh(&(const_cast<mesh_t&>(mesh)))
         {
         }
 
@@ -395,6 +395,11 @@ namespace samurai
         {
         }
 
+        inner_mesh_type(const Mesh& mesh)
+            : m_mesh(mesh)
+        {
+        }
+
         const mesh_t& mesh() const
         {
             return m_mesh;
@@ -419,6 +424,14 @@ namespace samurai
 
         mesh_t m_mesh;
     };
+
+    namespace detail
+    {
+        // template <class Mesh>
+        // auto get_inner_mesh(mesh& mesh);
+        // template <class mesh>
+        // get_inner_mesh()
+    }
 
     template <class mesh_t_, class value_t = double, std::size_t size_ = 1, bool SOA = false>
     class Field : public field_expression<Field<mesh_t_, value_t, size_, SOA>>,
@@ -446,7 +459,7 @@ namespace samurai
 
         Field(std::string name, mesh_t& mesh);
 
-        Field(Field&);
+        Field(const Field&);
         Field& operator=(const Field&) = default;
 
         Field(Field&&) noexcept            = default;
@@ -511,7 +524,8 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline Field<mesh_t, value_t, size_, SOA>::Field(Field& field)
+    inline Field<mesh_t, value_t, size_, SOA>::Field(const Field& field)
+        // : inner_mesh_t(const_cast<mesh_t&>(field.mesh()))
         : inner_mesh_t(field.mesh())
         , m_name(field.m_name)
         , m_data(field.m_data)

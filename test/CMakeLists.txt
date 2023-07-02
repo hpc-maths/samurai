@@ -15,6 +15,7 @@ set(SAMURAI_TESTS
     test_box.cpp
     test_cell.cpp
     test_cell_list.cpp
+    test_field.cpp
     test_for_each.cpp
     test_graduation.cpp
     test_interval.cpp
