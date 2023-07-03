@@ -1,5 +1,5 @@
 #pragma once
-#include "cell_based_scheme.hpp"
+#include "../cell_based_scheme.hpp"
 
 namespace samurai
 {
