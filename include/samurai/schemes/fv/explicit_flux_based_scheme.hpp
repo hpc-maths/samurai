@@ -71,8 +71,10 @@ namespace samurai
                                 {
                                     double cell1_coeff = scheme().cell_coeff(cell1_coeffs, c, field_i, field_j);
                                     double cell2_coeff = scheme().cell_coeff(cell2_coeffs, c, field_i, field_j);
-                                    value(result, interface_cells[0], field_i) += cell1_coeff * value(f, comput_cells[c], field_j);
-                                    value(result, interface_cells[1], field_i) += cell2_coeff * value(f, comput_cells[c], field_j);
+                                    field_value(result, interface_cells[0], field_i) += cell1_coeff
+                                                                                      * field_value(f, comput_cells[c], field_j);
+                                    field_value(result, interface_cells[1], field_i) += cell2_coeff
+                                                                                      * field_value(f, comput_cells[c], field_j);
                                 }
                             }
                         }
@@ -93,7 +95,7 @@ namespace samurai
                                 for (std::size_t c = 0; c < stencil_size; ++c)
                                 {
                                     double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    value(result, interface_cells[0], field_i) += coeff * value(f, comput_cells[c], field_j);
+                                    field_value(result, interface_cells[0], field_i) += coeff * field_value(f, comput_cells[c], field_j);
                                 }
                             }
                         }
@@ -117,7 +119,7 @@ namespace samurai
                                 for (std::size_t c = 0; c < stencil_size; ++c)
                                 {
                                     double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    value(result, interface_cells[0], field_i) += coeff * value(f, comput_cells[c], field_j);
+                                    field_value(result, interface_cells[0], field_i) += coeff * field_value(f, comput_cells[c], field_j);
                                 }
                             }
                         }
