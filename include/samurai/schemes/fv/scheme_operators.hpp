@@ -20,6 +20,7 @@ namespace samurai
         using coefficients_t             = typename base_class::coefficients_t;
         using flux_coeffs_t              = typename coefficients_t::flux_coeffs_t;
         static constexpr std::size_t dim = field_t::dim;
+        using base_class::name;
 
       private:
 

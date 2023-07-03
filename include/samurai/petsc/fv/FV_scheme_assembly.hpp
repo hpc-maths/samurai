@@ -1,6 +1,7 @@
 #pragma once
 #include "../../boundary.hpp"
 #include "../../schemes/fv/FV_scheme.hpp"
+#include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
 
 namespace samurai
@@ -177,22 +178,6 @@ namespace samurai
                 else
                 {
                     return m_row_shift + static_cast<PetscInt>(cell.index * output_field_size + field_i);
-                }
-            }
-
-            template <class Coeffs>
-            inline double cell_coeff(const Coeffs& coeffs,
-                                     std::size_t cell_number_in_stencil,
-                                     [[maybe_unused]] unsigned int field_i,
-                                     [[maybe_unused]] unsigned int field_j) const
-            {
-                if constexpr (field_size == 1 && output_field_size == 1)
-                {
-                    return coeffs[cell_number_in_stencil];
-                }
-                else
-                {
-                    return coeffs[cell_number_in_stencil](field_i, field_j);
                 }
             }
 
@@ -401,7 +386,7 @@ namespace samurai
                             PetscInt equation_row = col_index(equation_ghost, field_i);
                             PetscInt col          = col_index(cells[c], field_i);
 
-                            double coeff = cell_coeff(eq.stencil_coeffs, c, field_i, field_i);
+                            double coeff = scheme().cell_coeff(eq.stencil_coeffs, c, field_i, field_i);
 
                             if (coeff != 0)
                             {
@@ -648,6 +633,12 @@ namespace samurai
             {
                 static constexpr PetscInt number_of_children = (1 << dim);
 
+                // double scalar = 1;
+                //  if constexpr (is_FluxBasedScheme_v<Scheme>)
+                //  {
+                //      scalar = scheme().scalar();
+                //  }
+
                 for_each_projection_ghost_and_children_cells<PetscInt>(
                     mesh(),
                     [&](auto level, PetscInt ghost, const std::array<PetscInt, number_of_children>& children)
@@ -691,6 +682,13 @@ namespace samurai
             void assemble_prediction_1D(Mat& A)
             {
                 using index_t = int;
+
+                // double scalar = 1;
+                //  if constexpr (is_FluxBasedScheme_v<Scheme>)
+                //  {
+                //      scalar = scheme().scalar();
+                //  }
+
                 samurai::for_each_prediction_ghost(
                     mesh(),
                     [&](auto& ghost)

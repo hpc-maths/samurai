@@ -8,6 +8,7 @@
 #include "schemes/fv/diffusion_FV.hpp"
 #include "schemes/fv/diffusion_FV_old.hpp"
 #include "schemes/fv/divergence_FV.hpp"
+#include "schemes/fv/explicit_flux_based_scheme.hpp"
 #include "schemes/fv/gradient_FV.hpp"
 #include "schemes/fv/identity_FV.hpp"
 #include "schemes/fv/scheme_operators.hpp"

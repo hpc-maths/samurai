@@ -170,8 +170,8 @@ int main(int argc, char* argv[])
         }
         else
         {
-            auto tmp = diff(u);
-            unp1     = u - dt * tmp;
+            auto diff_u = diff(u);
+            unp1        = u - dt * diff_u;
         }
 
         // u <-- unp1

@@ -13,7 +13,6 @@ namespace samurai
           protected:
 
             using base_class = FVSchemeAssembly<Scheme>;
-            using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
@@ -146,8 +145,8 @@ namespace samurai
                                     for (std::size_t c = 0; c < stencil_size; ++c)
                                     {
                                         auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                        double cell1_coeff   = cell_coeff(cell1_coeffs, c, field_i, field_j);
-                                        double cell2_coeff   = cell_coeff(cell2_coeffs, c, field_i, field_j);
+                                        double cell1_coeff   = scheme().cell_coeff(cell1_coeffs, c, field_i, field_j);
+                                        double cell2_coeff   = scheme().cell_coeff(cell2_coeffs, c, field_i, field_j);
                                         // if (cell1_coeff != 0)
                                         // {
                                         MatSetValue(A, interface_cell1_row, comput_cell_col, cell1_coeff, ADD_VALUES);
@@ -179,7 +178,7 @@ namespace samurai
                                                         {
                                                             for (std::size_t c = 0; c < stencil_size; ++c)
                                                             {
-                                                                double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                                                double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                                                 if (coeff != 0)
                                                                 {
                                                                     auto comput_cell_col = col_index(comput_cells[c], field_j);
@@ -208,7 +207,7 @@ namespace samurai
                                                         {
                                                             for (std::size_t c = 0; c < stencil_size; ++c)
                                                             {
-                                                                double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                                                double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                                                 if (coeff != 0)
                                                                 {
                                                                     auto comput_cell_col = col_index(comput_cells[c], field_j);

@@ -124,12 +124,8 @@ namespace samurai
             {
                 // First the cell-based scheme because it uses INSERT_VALUES
                 m_cell_assembly.assemble_scheme(A);
-
-                // Flush to use ADD_VALUES instead of INSERT_VALUES
-                MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
-                MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
-
                 // Then the flux-based scheme
+                m_flux_assembly.set_current_insert_mode(m_cell_assembly.current_insert_mode());
                 m_flux_assembly.assemble_scheme(A);
             }
 

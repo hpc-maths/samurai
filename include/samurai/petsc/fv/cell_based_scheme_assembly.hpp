@@ -12,7 +12,6 @@ namespace samurai
           protected:
 
             using base_class = FVSchemeAssembly<Scheme>;
-            using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
