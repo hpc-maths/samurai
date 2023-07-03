@@ -14,6 +14,7 @@
 #include <xtensor/xnoalias.hpp>
 #include <xtensor/xview.hpp>
 
+#include "dispatch.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 
@@ -947,6 +948,29 @@ namespace samurai
         }
     }
 
+    template <std::size_t dim, class TInterval, class T, std::size_t size>
+    struct select_bc_functor
+    {
+        template <class BC, class Field>
+        void run(BC& bc, std::size_t level, Field& field) const
+        {
+            return apply_bc_impl(bc, level, field);
+        }
+
+        template <class Field>
+        void on_error(Bc<dim, TInterval, T, size>&, std::size_t, Field&) const
+        {
+            std::cerr << "BC not known" << std::endl;
+        }
+    };
+
+#ifndef BC_TYPES
+#define BC_TYPES mpl::vector<Dirichlet<dim, TInterval, T, size>, Neumann<dim, TInterval, T, size>>
+#endif
+
+    template <std::size_t dim, class TInterval, class T, std::size_t size>
+    using select_bc_dispatcher = unit_static_dispatcher<select_bc_functor<dim, TInterval, T, size>, Bc<dim, TInterval, T, size>, BC_TYPES>;
+
     template <class BCType, class Field>
     void apply_bc_impl(BCType& bc, Field& field)
     {
@@ -959,25 +983,15 @@ namespace samurai
         }
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size, class Field>
-    void apply_bc(std::unique_ptr<Bc<dim, TInterval, T, size>>& bc, std::size_t level, Field& field)
-    {
-        if (dynamic_cast<Dirichlet<dim, TInterval, T, size>*>(bc.get()))
-        {
-            apply_bc_impl(*dynamic_cast<Dirichlet<dim, TInterval, T, size>*>(bc.get()), level, field);
-        }
-        else if (dynamic_cast<Neumann<dim, TInterval, T, size>*>(bc.get()))
-        {
-            apply_bc_impl(*dynamic_cast<Neumann<dim, TInterval, T, size>*>(bc.get()), level, field);
-        }
-    }
-
     template <class mesh_t, class value_t, std::size_t size, bool SOA>
     void update_bc(std::size_t level, Field<mesh_t, value_t, size, SOA>& field)
     {
+        static constexpr std::size_t dim = mesh_t::dim;
+        using interval_t                 = typename mesh_t::interval_t;
+
         for (auto& bc : field.get_bc())
         {
-            apply_bc(bc, level, field);
+            select_bc_dispatcher<dim, interval_t, value_t, size>::dispatch(*bc.get(), level, field);
         }
     }
 

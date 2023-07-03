@@ -6,6 +6,13 @@
 
 #include <xtensor/xfixed.hpp>
 
+// #include <samurai/samurai_config.hpp>
+
+template <std::size_t dim, class TInterval, class T, std::size_t size>
+struct Robin;
+
+#define BC_TYPES mpl::vector<Dirichlet<dim, TInterval, T, size>, Neumann<dim, TInterval, T, size>, Robin<dim, TInterval, T, size>>
+
 #include <samurai/algorithm.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/field.hpp>
@@ -17,6 +24,104 @@
 
 #include <filesystem>
 namespace fs = std::filesystem;
+
+template <std::size_t dim, class TInterval, class T, std::size_t size>
+struct Robin : public samurai::Bc<dim, TInterval, T, size>
+{
+    using base_t = samurai::Bc<dim, TInterval, T, size>;
+    using samurai::Bc<dim, TInterval, T, size>::Bc;
+
+    std::unique_ptr<base_t> clone() const override
+    {
+        return std::make_unique<Robin>(*this);
+    }
+};
+
+template <std::size_t dim, class TInterval, class T, std::size_t size, class Field>
+void apply_bc_impl(Robin<dim, TInterval, T, size>& bc, std::size_t level, Field& field)
+{
+    constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
+                                         static_cast<int>(Field::mesh_t::config::prediction_order));
+
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+    auto& mesh      = field.mesh()[mesh_id_t::reference];
+
+    auto region     = bc.get_region();
+    auto& direction = region.first;
+    auto& lca       = region.second;
+    for (std::size_t d = 0; d < direction.size(); ++d)
+    {
+        bool is_periodic = false;
+        for (std::size_t i = 0; i < dim; ++i)
+        {
+            if (direction[d](i) != 0 && field.mesh().is_periodic(i))
+            {
+                is_periodic = true;
+                break;
+            }
+        }
+        if (!is_periodic)
+        {
+            std::size_t delta_l = lca[d].level() - level;
+            for (int ig = 0; ig < ghost_width; ++ig)
+            {
+                auto first_layer_ghosts = intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))).on(level);
+                first_layer_ghosts(
+                    [&](const auto& i, const auto& index)
+                    {
+                        if (bc.get_value_type() == samurai::BCVType::constant)
+                        {
+                            if constexpr (dim == 1)
+                            {
+                                field(level, i) = 2 * bc.constant_value() - field(level, i - (2 * ig + 1) * direction[d][0]);
+                            }
+                            else if constexpr (dim == 2)
+                            {
+                                auto j             = index[0];
+                                field(level, i, j) = 2 * bc.constant_value()
+                                                   - field(level, i - (2 * ig + 1) * direction[d][0], j - (2 * ig + 1) * direction[d][1]);
+                            }
+                            else if constexpr (dim == 3)
+                            {
+                                auto j                = index[0];
+                                auto k                = index[1];
+                                field(level, i, j, k) = 2 * bc.constant_value()
+                                                      - field(level,
+                                                              i - (2 * ig + 1) * direction[d][0],
+                                                              j - (2 * ig + 1) * direction[d][1],
+                                                              k - (2 * ig + 1) * direction[d][2]);
+                            }
+                        }
+                        else if (bc.get_value_type() == samurai::BCVType::function)
+                        {
+                            bc.update_values(direction[d], level, i, index);
+
+                            if constexpr (dim == 1)
+                            {
+                                field(level, i) = 2 * bc.value() - field(level, i - (2 * ig + 1) * direction[d][0]);
+                            }
+                            else if constexpr (dim == 2)
+                            {
+                                auto j             = index[0];
+                                field(level, i, j) = 2 * bc.value()
+                                                   - field(level, i - (2 * ig + 1) * direction[d][0], j - (2 * ig + 1) * direction[d][1]);
+                            }
+                            else if constexpr (dim == 3)
+                            {
+                                auto j                = index[0];
+                                auto k                = index[1];
+                                field(level, i, j, k) = 2 * bc.value()
+                                                      - field(level,
+                                                              i - (2 * ig + 1) * direction[d][0],
+                                                              j - (2 * ig + 1) * direction[d][1],
+                                                              k - (2 * ig + 1) * direction[d][2]);
+                            }
+                        }
+                    });
+            }
+        }
+    }
+}
 
 template <class Mesh>
 auto init(Mesh& mesh)
@@ -223,7 +328,8 @@ int main(int argc, char* argv[])
     double t             = 0.;
 
     auto u = init(mesh);
-    samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    // samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    samurai::make_bc<Robin>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
