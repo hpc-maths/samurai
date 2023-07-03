@@ -107,7 +107,7 @@ namespace samurai
                             {
                                 for (unsigned int c = 0; c < cfg_t::contiguous_indices_start; ++c)
                                 {
-                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         scheme_nnz_i++;
@@ -118,7 +118,7 @@ namespace samurai
                             {
                                 for (unsigned int c = 0; c < cfg_t::contiguous_indices_size; ++c)
                                 {
-                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         scheme_nnz_i += cfg_t::contiguous_indices_size;
@@ -132,7 +132,7 @@ namespace samurai
                                      c < scheme_stencil_size;
                                      ++c)
                                 {
-                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         scheme_nnz_i++;
