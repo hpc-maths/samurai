@@ -544,7 +544,10 @@ namespace samurai
         auto get_region() const;
 
         template <class Direction>
-        void update_values(const Direction& d, std::size_t level, const interval_t& i, xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index);
+        void update_values(const Direction& d,
+                           std::size_t level,
+                           const interval_t& i,
+                           xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>> index);
 
         value_t constant_value();
         value_t value(const coords_t& coords) const;
@@ -556,7 +559,7 @@ namespace samurai
         bcvalue_impl p_bcvalue;
         const lca_t& m_domain; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         region_t m_region;
-        xt::xtensor<value_t, detail::return_type<value_t, size>::dim> m_value;
+        xt::xtensor<typename Field::value_type, detail::return_type<typename Field::value_type, size>::dim> m_value;
     };
 
     ///////////////////
@@ -624,8 +627,10 @@ namespace samurai
 
     template <class Field>
     template <class Direction>
-    void
-    Bc<Field>::update_values(const Direction& dir, std::size_t level, const interval_t& i, xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index)
+    void Bc<Field>::update_values(const Direction& dir,
+                                  std::size_t level,
+                                  const interval_t& i,
+                                  xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>> index)
     {
         if (p_bcvalue->type() == BCVType::function)
         {
@@ -707,7 +712,7 @@ namespace samurai
     template <template <class> class bc_type, class Field>
     auto make_bc(Field& field,
                  const std::function<detail::return_type_t<typename Field::value_type, Field::size>(
-                     const xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::dim>>&)>& func)
+                     const xt::xtensor_fixed<typename Field::mesh_t::interval_t::value_t, xt::xshape<Field::dim>>&)>& func)
     {
         using value_t              = typename Field::value_type;
         constexpr std::size_t dim  = Field::dim;
@@ -955,8 +960,20 @@ namespace samurai
             return apply_bc_impl(bc, level, field);
         }
 
+        template <class BC, class Field>
+        void run(BC& bc, Field& field) const
+        {
+            return apply_bc_impl(bc, field);
+        }
+
         template <class Field>
         void on_error(Bc<Field>&, std::size_t, Field&) const
+        {
+            std::cerr << "BC not known" << std::endl;
+        }
+
+        template <class Field>
+        void on_error(Bc<Field>&, Field&) const
         {
             std::cerr << "BC not known" << std::endl;
         }
@@ -993,25 +1010,12 @@ namespace samurai
         update_bc(level, fields...);
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size, class Field>
-    void apply_bc(std::unique_ptr<Bc<Field>>& bc, Field& field)
-    {
-        if (dynamic_cast<Dirichlet<Field>*>(bc.get()))
-        {
-            apply_bc_impl(*dynamic_cast<Dirichlet<Field>*>(bc.get()), field);
-        }
-        else if (dynamic_cast<Neumann<Field>*>(bc.get()))
-        {
-            apply_bc_impl(*dynamic_cast<Neumann<Field>*>(bc.get()), field);
-        }
-    }
-
     template <class Field>
     void update_bc(Field& field)
     {
         for (auto& bc : field.get_bc())
         {
-            apply_bc(bc, field);
+            select_bc_dispatcher<Field>::dispatch(*bc.get(), field);
         }
     }
 
@@ -1021,11 +1025,5 @@ namespace samurai
         update_bc(field);
         update_bc(fields...);
     }
-
-    // template<std::size_t dim, class TInterval, class T, std::size_t size>
-    // struct Robin: public Bc<dim, TInterval, T, size>
-    // {
-    //     using Bc<dim, TInterval, T, size>::Bc;
-    // };
 
 } // namespace samurai
