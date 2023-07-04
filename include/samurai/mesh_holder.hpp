@@ -6,6 +6,7 @@
 
 namespace samurai
 {
+
     template <class Mesh>
     class hold
     {
@@ -44,8 +45,8 @@ namespace samurai
 
         inner_mesh_type() = default;
 
-        inner_mesh_type(mesh_t& mesh)
-            : p_mesh(&mesh)
+        inner_mesh_type(const mesh_t& mesh)
+            : p_mesh(&(const_cast<mesh_t&>(mesh)))
         {
         }
 
@@ -85,6 +86,11 @@ namespace samurai
 
         inner_mesh_type(hold<Mesh>& mesh)
             : m_mesh(mesh.get())
+        {
+        }
+
+        inner_mesh_type(const Mesh& mesh)
+            : m_mesh(mesh)
         {
         }
 

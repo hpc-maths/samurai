@@ -347,7 +347,6 @@ namespace samurai
         using self_type    = Field<mesh_t_, value_t, size_, SOA>;
         using inner_mesh_t = inner_mesh_type<mesh_t_>;
         using mesh_t       = mesh_t_;
-        using ca_type      = typename mesh_t::ca_type;
 
         using value_type  = value_t;
         using inner_types = detail::inner_field_types<Field<mesh_t, value_t, size, SOA>>;
