@@ -491,7 +491,7 @@ namespace samurai
         std::string m_name;
         data_type m_data;
 
-        std::vector<std::unique_ptr<Bc<dim, interval_t, value_t, size_>>> p_bc;
+        std::vector<std::unique_ptr<Bc<Field>>> p_bc;
 
         friend struct detail::inner_field_types<Field<mesh_t, value_t, size_, SOA>>;
     };

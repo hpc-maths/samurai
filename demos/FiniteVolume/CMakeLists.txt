@@ -31,6 +31,9 @@ target_link_libraries(finite-volume-advection-1d samurai CLI11::CLI11)
 add_executable(finite-volume-advection-2d advection_2d.cpp)
 target_link_libraries(finite-volume-advection-2d samurai CLI11::CLI11)
 
+add_executable(finite-volume-advection-2d-user-bc advection_2d_user_bc.cpp)
+target_link_libraries(finite-volume-advection-2d-user-bc samurai CLI11::CLI11)
+
 add_executable(finite-volume-scalar-burgers-2d scalar_burgers_2d.cpp)
 target_link_libraries(finite-volume-scalar-burgers-2d samurai CLI11::CLI11)
 
