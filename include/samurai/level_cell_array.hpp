@@ -40,10 +40,16 @@ namespace samurai
         {
         }
 
-        const coord_type& index() const
+        const coord_type index() const
         {
             iterator it = this->base();
             return (--it).index();
+        }
+
+        std::size_t level() const
+        {
+            iterator it = this->base();
+            return (--it).level();
         }
     };
 
@@ -81,11 +87,18 @@ namespace samurai
         iterator begin();
         iterator end();
 
+        const_iterator begin() const;
+        const_iterator end() const;
         const_iterator cbegin() const;
         const_iterator cend() const;
 
-        const_reverse_iterator rcend() const;
+        reverse_iterator rbegin();
+        reverse_iterator rend();
+
+        const_reverse_iterator rbegin() const;
+        const_reverse_iterator rend() const;
         const_reverse_iterator rcbegin() const;
+        const_reverse_iterator rcend() const;
 
         /// Display to the given stream
         void to_stream(std::ostream& os) const;
@@ -173,15 +186,15 @@ namespace samurai
 
         static constexpr std::size_t dim = LCA::dim;
         using self_type                  = LevelCellArray_iterator<LCA, is_const>;
-        using iterator_types             = detail::LevelCellArray_iterator_types<LCA, is_const>;
-        using value_type                 = typename iterator_types::value_type;
-        using index_type                 = typename iterator_types::index_type;
-        using index_type_iterator        = typename iterator_types::index_type_iterator;
-        using const_index_type_iterator  = typename iterator_types::const_index_type_iterator;
+        using iterator_type              = detail::LevelCellArray_iterator_types<LCA, is_const>;
+        using value_type                 = typename iterator_type::value_type;
+        using index_type                 = typename iterator_type::index_type;
+        using index_type_iterator        = typename iterator_type::index_type_iterator;
+        using const_index_type_iterator  = typename iterator_type::const_index_type_iterator;
         using iterator_container         = std::array<index_type_iterator, dim>;
-        using reference                  = typename iterator_types::reference;
-        using pointer                    = typename iterator_types::pointer;
-        using difference_type            = typename iterator_types::difference_type;
+        using reference                  = typename iterator_type::reference;
+        using pointer                    = typename iterator_type::pointer;
+        using difference_type            = typename iterator_type::difference_type;
         using iterator_category          = std::random_access_iterator_tag;
 
         using offset_type          = std::vector<std::size_t>;
@@ -202,6 +215,7 @@ namespace samurai
         reference operator*() const;
         pointer operator->() const;
         const coord_type& index() const;
+        std::size_t level() const;
 
         bool equal(const self_type& rhs) const;
         bool less_than(const self_type& rhs) const;
@@ -370,7 +384,37 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::rcend() const -> const_reverse_iterator
+    inline auto LevelCellArray<Dim, TInterval>::begin() const -> const_iterator
+    {
+        return const_iterator(cbegin());
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::end() const -> const_iterator
+    {
+        return const_iterator(cend());
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::rbegin() -> reverse_iterator
+    {
+        return reverse_iterator(end());
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::rend() -> reverse_iterator
+    {
+        return reverse_iterator(begin());
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::rbegin() const -> const_reverse_iterator
+    {
+        return const_reverse_iterator(cend());
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::rend() const -> const_reverse_iterator
     {
         return const_reverse_iterator(cbegin());
     }
@@ -379,6 +423,12 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::rcbegin() const -> const_reverse_iterator
     {
         return const_reverse_iterator(cend());
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::rcend() const -> const_reverse_iterator
+    {
+        return const_reverse_iterator(cbegin());
     }
 
     /**
@@ -872,6 +922,12 @@ namespace samurai
     inline auto LevelCellArray_iterator<LCA, is_const>::index() const -> const coord_type&
     {
         return m_index;
+    }
+
+    template <class LCA, bool is_const>
+    inline std::size_t LevelCellArray_iterator<LCA, is_const>::level() const
+    {
+        return p_lca->level();
     }
 
     template <class LCA, bool is_const>

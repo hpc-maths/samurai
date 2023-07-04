@@ -17,6 +17,7 @@
 #include "algorithm.hpp"
 #include "bc.hpp"
 #include "cell.hpp"
+#include "cell_array.hpp"
 #include "field_expression.hpp"
 #include "mesh_holder.hpp"
 #include "mr/operators.hpp"
@@ -26,6 +27,22 @@ namespace samurai
 {
     template <class mesh_t, class value_t, std::size_t size, bool SOA>
     class Field;
+
+    template <class Field, bool is_const>
+    class Field_iterator;
+
+    template <class iterator>
+    class Field_reverse_iterator : public std::reverse_iterator<iterator>
+    {
+      public:
+
+        using base_type = std::reverse_iterator<iterator>;
+
+        Field_reverse_iterator(iterator&& it)
+            : base_type(std::move(it))
+        {
+        }
+    };
 
     namespace detail
     {
@@ -314,6 +331,9 @@ namespace samurai
 
     } // namespace detail
 
+    template <class Field, bool is_const>
+    class Field_iterator;
+
     template <class mesh_t_, class value_t = double, std::size_t size_ = 1, bool SOA = false>
     class Field : public field_expression<Field<mesh_t_, value_t, size_, SOA>>,
                   public detail::inner_field_types<Field<mesh_t_, value_t, size_, SOA>>,
@@ -324,8 +344,10 @@ namespace samurai
         static constexpr std::size_t size = size_;
         static constexpr bool is_soa      = SOA;
 
+        using self_type    = Field<mesh_t_, value_t, size_, SOA>;
         using inner_mesh_t = inner_mesh_type<mesh_t_>;
         using mesh_t       = mesh_t_;
+        using ca_type      = typename mesh_t::ca_type;
 
         using value_type  = value_t;
         using inner_types = detail::inner_field_types<Field<mesh_t, value_t, size, SOA>>;
@@ -335,6 +357,11 @@ namespace samurai
         using inner_types::dim;
         using interval_t = typename mesh_t::interval_t;
         using cell_t     = Cell<typename interval_t::coord_index_t, dim>;
+
+        using iterator               = Field_iterator<self_type, false>;
+        using const_iterator         = Field_iterator<const self_type, true>;
+        using reverse_iterator       = Field_reverse_iterator<iterator>;
+        using const_reverse_iterator = Field_reverse_iterator<const_iterator>;
 
         Field() = default;
 
@@ -368,9 +395,17 @@ namespace samurai
         const_iterator begin() const;
         const_iterator cbegin() const;
 
+        reverse_iterator rbegin();
+        const_reverse_iterator rbegin() const;
+        const_reverse_iterator rcbegin() const;
+
         iterator end();
         const_iterator end() const;
         const_iterator cend() const;
+
+        reverse_iterator rend();
+        const_reverse_iterator rend() const;
+        const_reverse_iterator rcend() const;
 
       private:
 
@@ -390,27 +425,18 @@ namespace samurai
         friend struct detail::inner_field_types<Field<mesh_t, value_t, size_, SOA>>;
     };
 
-    namespace detail
-    {
-        template <class Field>
-        struct field_iterator_types
-        {
-            using value_type          = typename Field::value_type;
-            using index_type          = std::vector<value_type>;
-            using index_type_iterator = std::conditional_t<is_const, typename index_type::const_iterator, typename index_type::iterator>;
-            using const_index_type_iterator = typename index_type::const_iterator;
-            using reference                 = typename index_type_iterator::reference;
-            using pointer                   = typename index_type_iterator::pointer;
-            using difference_type           = typename index_type_iterator::difference_type;
-        };
-    } // namespace detail
-
-    template <class Mesh, class Field>
-    class field_iterator
+    template <class Field, bool is_const>
+    class Field_iterator : public xtl::xrandom_access_iterator_base3<Field_iterator<Field, is_const>,
+                                                                     CellArray_iterator<const typename Field::mesh_t::ca_type, true>>
     {
       public:
 
-        field_iterator(const Mesh& mesh, Field* field, std::size_t offset);
+        using self_type       = Field_iterator<Field, is_const>;
+        using ca_iterator     = CellArray_iterator<const typename Field::mesh_t::ca_type, true>;
+        using reference       = xt::xview<typename Field::data_type&, xt::xstepped_range<long>>;
+        using difference_type = typename ca_iterator::difference_type;
+
+        Field_iterator(Field* field, const ca_iterator& ca_it);
 
         self_type& operator++();
         self_type& operator--();
@@ -418,11 +444,7 @@ namespace samurai
         self_type& operator+=(difference_type n);
         self_type& operator-=(difference_type n);
 
-        difference_type operator-(const self_type& rhs) const;
-
-        reference operator*() const;
-        pointer operator->() const;
-        const coord_type& index() const;
+        auto operator*() const;
 
         bool equal(const self_type& rhs) const;
         bool less_than(const self_type& rhs) const;
@@ -430,15 +452,74 @@ namespace samurai
       private:
 
         Field* p_field;
-        const Mesh* p_mesh;
-        std::size_t m_offset;
+        ca_iterator m_ca_it;
     };
 
-    template <class Mesh, class Field>
-    field_iterator(const Mesh& mesh, Field* field, std::size_t offset)
-        : p_field(&field)
-        , p_mesh(&mesh)
+    template <class Field, bool is_const>
+    Field_iterator<Field, is_const>::Field_iterator(Field* field, const ca_iterator& ca_it)
+        : p_field(field)
+        , m_ca_it(ca_it)
     {
+    }
+
+    template <class Field, bool is_const>
+    inline auto Field_iterator<Field, is_const>::operator++() -> self_type&
+    {
+        ++m_ca_it;
+        return *this;
+    }
+
+    template <class Field, bool is_const>
+    inline auto Field_iterator<Field, is_const>::operator--() -> self_type&
+    {
+        --m_ca_it;
+        return *this;
+    }
+
+    template <class Field, bool is_const>
+    inline auto Field_iterator<Field, is_const>::operator+=(difference_type n) -> self_type&
+    {
+        m_ca_it += n;
+        return *this;
+    }
+
+    template <class Field, bool is_const>
+    inline auto Field_iterator<Field, is_const>::operator-=(difference_type n) -> self_type&
+    {
+        m_ca_it -= n;
+        return *this;
+    }
+
+    template <class Field, bool is_const>
+    inline auto Field_iterator<Field, is_const>::operator*() const
+    {
+        std::size_t level = m_ca_it.level();
+        auto& index       = m_ca_it.index();
+        return (*p_field)(level, *m_ca_it, index);
+    }
+
+    template <class Field, bool is_const>
+    inline bool Field_iterator<Field, is_const>::equal(const self_type& rhs) const
+    {
+        return m_ca_it.equal(rhs.m_ca_it);
+    }
+
+    template <class Field, bool is_const>
+    inline bool Field_iterator<Field, is_const>::less_than(const self_type& rhs) const
+    {
+        return m_ca_it.less_than(rhs.m_ca_it);
+    }
+
+    template <class Field, bool is_const>
+    inline bool operator==(const Field_iterator<Field, is_const>& it1, const Field_iterator<Field, is_const>& it2)
+    {
+        return it1.equal(it2);
+    }
+
+    template <class Field, bool is_const>
+    inline bool operator<(const Field_iterator<Field, is_const>& it1, const Field_iterator<Field, is_const>& it2)
+    {
+        return it1.less_than(it2);
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
@@ -604,6 +685,84 @@ namespace samurai
     inline auto& Field<mesh_t, value_t, size_, SOA>::get_bc()
     {
         return p_bc;
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::begin() -> iterator
+    {
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+        return iterator(this, this->mesh()[mesh_id_t::cells].begin());
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::end() -> iterator
+    {
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+        return iterator(this, this->mesh()[mesh_id_t::cells].end());
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::begin() const -> const_iterator
+    {
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+        return const_iterator(this, this->mesh()[mesh_id_t::cells].cbegin());
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::end() const -> const_iterator
+    {
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+        return const_iterator(this, this->mesh()[mesh_id_t::cells].cend());
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::cbegin() const -> const_iterator
+    {
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+        return const_iterator(this, this->mesh()[mesh_id_t::cells].cbegin());
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::cend() const -> const_iterator
+    {
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+        return const_iterator(this, this->mesh()[mesh_id_t::cells].cend());
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::rbegin() -> reverse_iterator
+    {
+        return end();
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::rend() -> reverse_iterator
+    {
+        return begin();
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::rbegin() const -> const_reverse_iterator
+    {
+        return cend();
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::rend() const -> const_reverse_iterator
+    {
+        return cbegin();
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::rcbegin() const -> const_reverse_iterator
+    {
+        return cend();
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline auto Field<mesh_t, value_t, size_, SOA>::rcend() const -> const_reverse_iterator
+    {
+        return cbegin();
     }
 
     template <class value_t, std::size_t size, bool SOA = false, class mesh_t>
