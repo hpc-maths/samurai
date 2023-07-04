@@ -1,5 +1,5 @@
 #pragma once
-#include "flux_based_scheme.hpp"
+#include "../flux_based_scheme.hpp"
 
 namespace samurai
 {
@@ -37,14 +37,15 @@ namespace samurai
      * direction. So the contribution of a flux F (R or T) computed on cell 1 is for cell 1: 1/2 F for cell 2: 1/2 F
      */
     template <class Field,
+              // scheme config
               std::size_t dim               = Field::dim,
               std::size_t output_field_size = 1,
               std::size_t stencil_size      = 2,
               class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
               class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
-    class DivergenceFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
+    class DivergenceFV : public FluxBasedScheme<DivergenceFV<Field>, cfg, bdry_cfg, Field>
     {
-        using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
+        using base_class = FluxBasedScheme<DivergenceFV<Field>, cfg, bdry_cfg, Field>;
 
       public:
 

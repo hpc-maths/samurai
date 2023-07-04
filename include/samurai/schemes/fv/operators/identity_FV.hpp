@@ -1,6 +1,6 @@
 #pragma once
-// #include "flux_based_scheme.hpp"
-#include "cell_based_scheme.hpp"
+// #include "../flux_based_scheme.hpp"
+#include "../cell_based_scheme.hpp"
 
 namespace samurai
 {
@@ -100,9 +100,9 @@ namespace samurai
     };*/
 
     template <class Field, class cfg = OneCellStencilFV<Field::size>, class bdry_cfg = BoundaryConfigFV<1>>
-    class IdentityFV : public CellBasedScheme<cfg, bdry_cfg, Field>
+    class IdentityFV : public CellBasedScheme<IdentityFV<Field>, cfg, bdry_cfg, Field>
     {
-        using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
+        using base_class = CellBasedScheme<IdentityFV<Field>, cfg, bdry_cfg, Field>;
         using base_class::dim;
         using local_matrix_t = typename base_class::local_matrix_t;
 

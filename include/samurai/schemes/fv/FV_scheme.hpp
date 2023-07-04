@@ -131,7 +131,7 @@ namespace samurai
      *     - the projection/prediction ghosts
      *     - the unused ghosts
      */
-    template <class Field, std::size_t output_field_size, class bdry_cfg_>
+    template <class DerivedScheme, class Field, std::size_t output_field_size_, class bdry_cfg_>
     class FVScheme
     {
       public:
@@ -143,6 +143,7 @@ namespace samurai
         using bdry_cfg                                         = bdry_cfg_;
         static constexpr std::size_t dim                       = Field::dim;
         static constexpr std::size_t field_size                = Field::size;
+        static constexpr std::size_t output_field_size         = output_field_size_;
         static constexpr std::size_t prediction_order          = Mesh::config::prediction_order;
         static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg::neighbourhood_width;
         static constexpr std::size_t bdry_stencil_size         = bdry_cfg::stencil_size;
@@ -181,8 +182,39 @@ namespace samurai
             return *m_unknown;
         }
 
+        inline DerivedScheme& derived_cast() & noexcept
+        {
+            return *static_cast<DerivedScheme*>(this);
+        }
+
+        inline const DerivedScheme& derived_cast() const& noexcept
+        {
+            return *static_cast<const DerivedScheme*>(this);
+        }
+
+        inline DerivedScheme derived_cast() && noexcept
+        {
+            return *static_cast<DerivedScheme*>(this);
+        }
+
         virtual ~FVScheme()
         {
+        }
+
+        template <class Coeffs>
+        inline static double cell_coeff(const Coeffs& coeffs,
+                                        std::size_t cell_number_in_stencil,
+                                        [[maybe_unused]] std::size_t field_i,
+                                        [[maybe_unused]] std::size_t field_j)
+        {
+            if constexpr (field_size == 1 && output_field_size == 1)
+            {
+                return coeffs[cell_number_in_stencil];
+            }
+            else
+            {
+                return coeffs[cell_number_in_stencil](field_i, field_j);
+            }
         }
 
         //-------------------------------------------------------------//

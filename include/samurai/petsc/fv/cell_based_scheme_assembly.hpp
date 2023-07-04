@@ -7,15 +7,11 @@ namespace samurai
     namespace petsc
     {
         template <class Scheme>
-        class Assembly<
-            Scheme,
-            std::enable_if_t<std::is_base_of_v<CellBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
-            : public FVSchemeAssembly<Scheme>
+        class Assembly<Scheme, std::enable_if_t<is_CellBasedScheme_v<Scheme>>> : public FVSchemeAssembly<Scheme>
         {
           protected:
 
             using base_class = FVSchemeAssembly<Scheme>;
-            using base_class::cell_coeff;
             using base_class::col_index;
             using base_class::dim;
             using base_class::field_size;
@@ -111,7 +107,7 @@ namespace samurai
                             {
                                 for (unsigned int c = 0; c < cfg_t::contiguous_indices_start; ++c)
                                 {
-                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         scheme_nnz_i++;
@@ -122,7 +118,7 @@ namespace samurai
                             {
                                 for (unsigned int c = 0; c < cfg_t::contiguous_indices_size; ++c)
                                 {
-                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         scheme_nnz_i += cfg_t::contiguous_indices_size;
@@ -136,7 +132,7 @@ namespace samurai
                                      c < scheme_stencil_size;
                                      ++c)
                                 {
-                                    double coeff = cell_coeff(coeffs, c, field_i, field_j);
+                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
                                     {
                                         scheme_nnz_i++;

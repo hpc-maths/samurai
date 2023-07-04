@@ -1,5 +1,5 @@
 #pragma once
-#include "flux_based_scheme.hpp"
+#include "../flux_based_scheme.hpp"
 
 namespace samurai
 {
@@ -8,16 +8,19 @@ namespace samurai
      * Assemble the matrix for the problem -Lap(u)=f.
      * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
      */
-    template <class Field,
-              DirichletEnforcement dirichlet_enfcmt = Equation,
-              std::size_t dim                       = Field::dim,
-              std::size_t output_field_size         = Field::size,
-              std::size_t stencil_size              = 2,
-              class cfg                             = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
-              class bdry_cfg                        = BoundaryConfigFV<stencil_size / 2, dirichlet_enfcmt>>
-    class DiffusionFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
+    template <
+        // template parameters
+        class Field,
+        DirichletEnforcement dirichlet_enfcmt = Equation,
+        // scheme config
+        std::size_t dim               = Field::dim,
+        std::size_t output_field_size = Field::size,
+        std::size_t stencil_size      = 2,
+        class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
+        class bdry_cfg                = BoundaryConfigFV<stencil_size / 2, dirichlet_enfcmt>>
+    class DiffusionFV : public FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt>, cfg, bdry_cfg, Field>
     {
-        using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
+        using base_class = FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt>, cfg, bdry_cfg, Field>;
         using base_class::bdry_stencil_size;
         using base_class::field_size;
 

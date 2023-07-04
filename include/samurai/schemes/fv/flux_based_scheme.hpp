@@ -1,5 +1,6 @@
 #pragma once
 #include "../../interface.hpp"
+#include "../explicit_scheme.hpp"
 #include "FV_scheme.hpp"
 
 namespace samurai
@@ -105,43 +106,53 @@ namespace samurai
         static constexpr std::size_t stencil_size      = stencil_size_;
     };
 
-    template <class cfg, class bdry_cfg, class Field>
-    class FluxBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
+    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
+    class FluxBasedScheme : public FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>
     {
       protected:
 
-        using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>;
         using base_class::dim;
         using base_class::field_size;
+        using field_value_type = typename base_class::field_value_type;
 
       public:
 
         using cfg_t                                    = cfg;
         using bdry_cfg_t                               = bdry_cfg;
         using field_t                                  = Field;
-        static constexpr bool is_flux_based            = true;
         static constexpr std::size_t output_field_size = cfg::output_field_size;
         static constexpr std::size_t stencil_size      = cfg::stencil_size;
 
         using coefficients_t = FluxBasedCoefficients<Field, output_field_size, stencil_size>;
 
-      public:
-
         explicit FluxBasedScheme(Field& unknown)
             : base_class(unknown)
         {
         }
+
+        auto operator()(Field& f)
+        {
+            auto explicit_scheme = make_explicit(this->derived_cast());
+            return explicit_scheme.apply_to(f);
+        }
     };
 
-    // template <typename, typename = void>
-    // constexpr bool is_FluxBasedScheme{};
+    template <class Scheme, typename = void>
+    struct is_FluxBasedScheme : std::false_type
+    {
+    };
 
-    // template <typename T>
-    // constexpr bool is_FluxBasedScheme<T::is_flux_based> = true;
-    // //constexpr bool is_FluxBasedScheme = T::is_flux_based;
-    // //constexpr bool is_FluxBasedScheme<T, std::void_t<decltype(std::declval<T>().scheme_coefficients())>> = true;
+    template <class Scheme>
+    struct is_FluxBasedScheme<
+        Scheme,
+        std::enable_if_t<
+            std::is_base_of_v<FluxBasedScheme<Scheme, typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
+        : std::true_type
+    {
+    };
 
-    // template <typename T>
-    // constexpr bool is_FluxBasedScheme = T::is_flux_based;
+    template <class Scheme>
+    inline constexpr bool is_FluxBasedScheme_v = is_FluxBasedScheme<Scheme>::value;
 
 } // end namespace samurai

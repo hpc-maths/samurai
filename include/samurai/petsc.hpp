@@ -3,12 +3,5 @@
 // license that can be found in the LICENSE file.
 
 #pragma once
-#include "numeric/error.hpp"
 #include "petsc/solver.hpp"
-#include "schemes/fv/diffusion_FV.hpp"
-#include "schemes/fv/diffusion_FV_old.hpp"
-#include "schemes/fv/divergence_FV.hpp"
-#include "schemes/fv/gradient_FV.hpp"
-#include "schemes/fv/identity_FV.hpp"
-#include "schemes/fv/scheme_operators.hpp"
-#include "schemes/fv/zero_operator_FV.hpp"
+#include "schemes/fv.hpp"

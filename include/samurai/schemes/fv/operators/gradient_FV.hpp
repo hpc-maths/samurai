@@ -1,5 +1,5 @@
 #pragma once
-#include "flux_based_scheme.hpp"
+#include "../flux_based_scheme.hpp"
 
 namespace samurai
 {
@@ -40,14 +40,15 @@ namespace samurai
      *                     [    0]            [1/2 F]
      */
     template <class Field,
+              // scheme config
               std::size_t dim               = Field::dim,
               std::size_t output_field_size = dim,
               std::size_t stencil_size      = 2,
               class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
               class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
-    class GradientFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
+    class GradientFV : public FluxBasedScheme<GradientFV<Field>, cfg, bdry_cfg, Field>
     {
-        using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
+        using base_class = FluxBasedScheme<GradientFV<Field>, cfg, bdry_cfg, Field>;
 
       public:
 

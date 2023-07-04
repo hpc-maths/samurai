@@ -41,7 +41,6 @@ int main(int argc, char* argv[])
 {
     static constexpr std::size_t dim = 1;
     using Config                     = samurai::MRConfig<dim>;
-    static constexpr bool implicit   = true;
 
     std::cout << "------------------------- Heat -------------------------" << std::endl;
 
@@ -51,8 +50,13 @@ int main(int argc, char* argv[])
 
     // Simulation parameters
     double left_box = -20, right_box = 20;
-    double Tf = 1.;
-    double dt = Tf / 100;
+    double diff_coeff = 1.;
+
+    // Time integration
+    double Tf     = 1.;
+    double dt     = Tf / 100;
+    bool implicit = false;
+    double cfl    = 0.95;
 
     // Multiresolution parameters
     std::size_t min_level = 0, max_level = 5;
@@ -64,12 +68,14 @@ int main(int argc, char* argv[])
     std::string filename = "FV_heat_1d";
     std::size_t nfiles   = 50;
 
-    CLI::App app{"Finite volume example for the heat equation in 1d using "
-                 "backward Euler multiresolution"};
+    CLI::App app{"Finite volume example for the heat equation in 1d"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--diff-coeff", diff_coeff, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
+    app.add_flag("--implicit", implicit, "Implicit scheme instead of explicit")->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
@@ -96,10 +102,8 @@ int main(int argc, char* argv[])
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
-    PetscOptionsSetValue(NULL,
-                         "-options_left",
-                         "off"); // If on, Petsc will issue warnings saying that
-                                 // the options managed by CLI are unused
+    PetscOptionsSetValue(NULL, "-options_left", "off"); // If on, Petsc will issue warnings saying that
+                                                        // the options managed by CLI are unused
 
     //--------------------//
     // Problem definition //
@@ -108,27 +112,32 @@ int main(int argc, char* argv[])
     samurai::Box<double, dim> box({left_box}, {right_box});
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    auto u = samurai::make_field<double, 1>("u", mesh);
+    auto u = samurai::make_field<1>("u", mesh);
 
-    double t0 = 1e-2; // in this particular case, the exact solution is not
-                      // defined for t=0
+    double t0 = 1e-2; // in this particular case, the exact solution is not defined for t=0
     samurai::for_each_cell(mesh,
                            [&](auto& cell)
                            {
                                u[cell] = exact_solution(cell.center(0), t0);
                            });
 
-    auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
+    auto unp1 = samurai::make_field<1>("unp1", mesh);
 
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
-    auto diff = samurai::make_diffusion_FV(u); // diff(u) = -Lap(u)
+    auto diff = diff_coeff * samurai::make_diffusion_FV(u); // diffusion = -Laplacian
     auto id   = samurai::make_identity_FV(u);
 
     //--------------------//
     //   Time iteration   //
     //--------------------//
+
+    if (!implicit)
+    {
+        double dx = samurai::cell_length(max_level);
+        dt        = cfl * (dx * dx) / (2 * diff_coeff);
+    }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
@@ -154,16 +163,15 @@ int main(int argc, char* argv[])
         samurai::update_ghost_mr(u);
         unp1.resize();
 
-        if constexpr (implicit)
+        if (implicit)
         {
-            // Solve system
             auto back_euler = id + dt * diff;
             samurai::petsc::solve(back_euler, unp1, u); // solves the linear equation   [Id - dt*Lap](unp1) = u
         }
         else
         {
-            // TODO
-            // unp1 = u - dt * diff(u);
+            auto diff_u = diff(u);
+            unp1        = u - dt * diff_u;
         }
 
         // u <-- unp1
@@ -177,14 +185,18 @@ int main(int argc, char* argv[])
         }
 
         // Compute the error at instant t with respect to the exact solution
-        double error = L2_error(u,
-                                [&](auto& coord)
-                                {
-                                    double x = coord[0];
-                                    return exact_solution(x, t);
-                                });
-        std::cout.precision(2);
-        std::cout << ", L2-error: " << std::scientific << error << std::endl;
+        if (diff_coeff == 1)
+        {
+            double error = L2_error(u,
+                                    [&](auto& coord)
+                                    {
+                                        double x = coord[0];
+                                        return exact_solution(x, t);
+                                    });
+            std::cout.precision(2);
+            std::cout << ", L2-error: " << std::scientific << error;
+        }
+        std::cout << std::endl;
     }
 
     std::cout << std::endl;
