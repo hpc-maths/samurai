@@ -15,6 +15,7 @@
 #include <xtensor/xview.hpp>
 
 #include "dispatch.hpp"
+#include "samurai_config.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 
@@ -511,10 +512,10 @@ namespace samurai
         static constexpr std::size_t dim  = Field::dim;
         static constexpr std::size_t size = Field::size;
         using interval_t                  = typename Field::interval_t;
-        using value_t                     = typename Field::value_type;
 
-        using bcvalue_t    = BcValue<dim, value_t, size>;
+        using bcvalue_t    = BcValue<dim, typename Field::value_type, size>;
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
+        using value_t      = typename bcvalue_t::value_t;
         using coords_t     = typename bcvalue_t::coords_t;
 
         using bcregion_t = BcRegion<dim, interval_t>;
