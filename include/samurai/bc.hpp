@@ -503,17 +503,21 @@ namespace samurai
     ///////////////////
     // Bc definition //
     ///////////////////
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
+    template <class Field>
     class Bc
     {
       public:
 
-        using bcvalue_t    = BcValue<dim, T, size>;
+        static constexpr std::size_t dim  = Field::dim;
+        static constexpr std::size_t size = Field::size;
+        using interval_t                  = typename Field::interval_t;
+        using value_t                     = typename Field::value_type;
+
+        using bcvalue_t    = BcValue<dim, value_t, size>;
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
-        using value_t      = typename bcvalue_t::value_t;
         using coords_t     = typename bcvalue_t::coords_t;
 
-        using bcregion_t = BcRegion<dim, TInterval>;
+        using bcregion_t = BcRegion<dim, interval_t>;
         using lca_t      = typename bcregion_t::lca_t;
         using region_t   = typename bcregion_t::region_t;
 
@@ -539,10 +543,7 @@ namespace samurai
         auto get_region() const;
 
         template <class Direction>
-        void update_values(const Direction& d,
-                           std::size_t level,
-                           const TInterval& i,
-                           xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>> index);
+        void update_values(const Direction& d, std::size_t level, const interval_t& i, xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index);
 
         value_t constant_value();
         value_t value(const coords_t& coords) const;
@@ -554,38 +555,38 @@ namespace samurai
         bcvalue_impl p_bcvalue;
         const lca_t& m_domain; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         region_t m_region;
-        xt::xtensor<T, detail::return_type<T, size>::dim> m_value;
+        xt::xtensor<value_t, detail::return_type<value_t, size>::dim> m_value;
     };
 
     ///////////////////
     // Bc definition //
     ///////////////////
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    Bc<dim, TInterval, T, size>::Bc(const lca_t& domain, const bcvalue_t& bcv, const bcregion_t& bcr)
+    template <class Field>
+    Bc<Field>::Bc(const lca_t& domain, const bcvalue_t& bcv, const bcregion_t& bcr)
         : p_bcvalue(bcv.clone())
         , m_domain(domain)
         , m_region(bcr.get_region(domain))
     {
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    Bc<dim, TInterval, T, size>::Bc(const lca_t& domain, const bcvalue_t& bcv)
+    template <class Field>
+    Bc<Field>::Bc(const lca_t& domain, const bcvalue_t& bcv)
         : p_bcvalue(bcv.clone())
         , m_domain(domain)
-        , m_region(Everywhere<dim, TInterval>().get_region(domain))
+        , m_region(Everywhere<dim, interval_t>().get_region(domain))
     {
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    Bc<dim, TInterval, T, size>::Bc(const Bc& bc)
+    template <class Field>
+    Bc<Field>::Bc(const Bc& bc)
         : p_bcvalue(bc.p_bcvalue->clone())
         , m_domain(bc.m_domain)
         , m_region(bc.m_region)
     {
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    Bc<dim, TInterval, T, size>& Bc<dim, TInterval, T, size>::operator=(const Bc& bc)
+    template <class Field>
+    Bc<Field>& Bc<Field>::operator=(const Bc& bc)
     {
         if (this == &bc)
         {
@@ -598,34 +599,32 @@ namespace samurai
         return *this;
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
+    template <class Field>
     template <class Region>
-    inline auto Bc<dim, TInterval, T, size>::on(const Region& region)
+    inline auto Bc<Field>::on(const Region& region)
     {
-        m_region = make_region<dim, TInterval>(region).get_region(m_domain);
+        m_region = make_region<dim, interval_t>(region).get_region(m_domain);
         return this;
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
+    template <class Field>
     template <class... Regions>
-    inline auto Bc<dim, TInterval, T, size>::on(const Regions&... regions)
+    inline auto Bc<Field>::on(const Regions&... regions)
     {
-        m_region = make_region<dim, TInterval>(regions...).get_region(m_domain);
+        m_region = make_region<dim, interval_t>(regions...).get_region(m_domain);
         return this;
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    inline auto Bc<dim, TInterval, T, size>::get_region() const
+    template <class Field>
+    inline auto Bc<Field>::get_region() const
     {
         return m_region;
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
+    template <class Field>
     template <class Direction>
-    void Bc<dim, TInterval, T, size>::update_values(const Direction& dir,
-                                                    std::size_t level,
-                                                    const TInterval& i,
-                                                    xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>> index)
+    void
+    Bc<Field>::update_values(const Direction& dir, std::size_t level, const interval_t& i, xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index)
     {
         if (p_bcvalue->type() == BCVType::function)
         {
@@ -655,26 +654,26 @@ namespace samurai
         }
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    inline auto Bc<dim, TInterval, T, size>::constant_value() -> value_t
+    template <class Field>
+    inline auto Bc<Field>::constant_value() -> value_t
     {
         return p_bcvalue->get_value({});
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    inline const auto& Bc<dim, TInterval, T, size>::value() const
+    template <class Field>
+    inline const auto& Bc<Field>::value() const
     {
         return m_value;
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    inline auto Bc<dim, TInterval, T, size>::value(const coords_t& coords) const -> value_t
+    template <class Field>
+    inline auto Bc<Field>::value(const coords_t& coords) const -> value_t
     {
         return p_bcvalue->get_value(coords);
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    inline BCVType Bc<dim, TInterval, T, size>::get_value_type() const
+    template <class Field>
+    inline BCVType Bc<Field>::get_value_type() const
     {
         return p_bcvalue->type();
     }
@@ -704,37 +703,34 @@ namespace samurai
         }
     }
 
-    template <template <std::size_t, class, class, std::size_t> class bc_type, class Field>
+    template <template <class> class bc_type, class Field>
     auto make_bc(Field& field,
                  const std::function<detail::return_type_t<typename Field::value_type, Field::size>(
                      const xt::xtensor_fixed<typename Field::value_type, xt::xshape<Field::dim>>&)>& func)
     {
         using value_t              = typename Field::value_type;
-        using interval_t           = typename Field::interval_t;
         constexpr std::size_t dim  = Field::dim;
         constexpr std::size_t size = Field::size;
 
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach_bc(bc_type<dim, interval_t, value_t, size>(mesh, FunctionBc<dim, value_t, size>(func)));
+        return field.attach_bc(bc_type<Field>(mesh, FunctionBc<dim, value_t, size>(func)));
     }
 
-    template <template <std::size_t, class, class, std::size_t> class bc_type, class Field>
+    template <template <class> class bc_type, class Field>
     auto make_bc(Field& field)
     {
         using value_t              = typename Field::value_type;
-        using interval_t           = typename Field::interval_t;
         constexpr std::size_t dim  = Field::dim;
         constexpr std::size_t size = Field::size;
 
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach_bc(bc_type<dim, interval_t, value_t, size>(mesh, ConstantBc<dim, value_t, size>()));
+        return field.attach_bc(bc_type<Field>(mesh, ConstantBc<dim, value_t, size>()));
     }
 
-    template <template <std::size_t, class, class, std::size_t> class bc_type, class Field, class... T>
+    template <template <class> class bc_type, class Field, class... T>
     auto make_bc(Field& field, typename Field::value_type v1, T... v)
     {
         using value_t              = typename Field::value_type;
-        using interval_t           = typename Field::interval_t;
         constexpr std::size_t dim  = Field::dim;
         constexpr std::size_t size = Field::size;
 
@@ -745,17 +741,17 @@ namespace samurai
                       "number of element in the field");
 
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach_bc(bc_type<dim, interval_t, value_t, size>(mesh, ConstantBc<dim, value_t, size>(v1, v...)));
+        return field.attach_bc(bc_type<Field>(mesh, ConstantBc<dim, value_t, size>(v1, v...)));
     }
 
     //////////////
     // BC Types //
     //////////////
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    struct Dirichlet : public Bc<dim, TInterval, T, size>
+    template <class Field>
+    struct Dirichlet : public Bc<Field>
     {
-        using base_t = Bc<dim, TInterval, T, size>;
-        using Bc<dim, TInterval, T, size>::Bc;
+        using base_t = Bc<Field>;
+        using Bc<Field>::Bc;
 
         std::unique_ptr<base_t> clone() const override
         {
@@ -763,11 +759,11 @@ namespace samurai
         }
     };
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    struct Neumann : public Bc<dim, TInterval, T, size>
+    template <class Field>
+    struct Neumann : public Bc<Field>
     {
-        using base_t = Bc<dim, TInterval, T, size>;
-        using Bc<dim, TInterval, T, size>::Bc;
+        using base_t = Bc<Field>;
+        using Bc<Field>::Bc;
 
         std::unique_ptr<base_t> clone() const override
         {
@@ -775,10 +771,11 @@ namespace samurai
         }
     };
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size, class Field>
-    void apply_bc_impl(Dirichlet<dim, TInterval, T, size>& bc, std::size_t level, Field& field)
+    template <class Field>
+    void apply_bc_impl(Dirichlet<Field>& bc, std::size_t level, Field& field)
     {
-        constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
+        static constexpr std::size_t dim = Field::dim;
+        constexpr int ghost_width        = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
                                              static_cast<int>(Field::mesh_t::config::prediction_order));
 
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -861,10 +858,11 @@ namespace samurai
         }
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size, class Field>
-    void apply_bc_impl(Neumann<dim, TInterval, T, size>& bc, std::size_t level, Field& field)
+    template <class Field>
+    void apply_bc_impl(Neumann<Field>& bc, std::size_t level, Field& field)
     {
-        constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
+        static constexpr std::size_t dim = Field::dim;
+        constexpr int ghost_width        = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
                                              static_cast<int>(Field::mesh_t::config::prediction_order));
 
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -948,7 +946,6 @@ namespace samurai
         }
     }
 
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
     struct select_bc_functor
     {
         template <class BC, class Field>
@@ -958,18 +955,14 @@ namespace samurai
         }
 
         template <class Field>
-        void on_error(Bc<dim, TInterval, T, size>&, std::size_t, Field&) const
+        void on_error(Bc<Field>&, std::size_t, Field&) const
         {
             std::cerr << "BC not known" << std::endl;
         }
     };
 
-#ifndef BC_TYPES
-#define BC_TYPES mpl::vector<Dirichlet<dim, TInterval, T, size>, Neumann<dim, TInterval, T, size>>
-#endif
-
-    template <std::size_t dim, class TInterval, class T, std::size_t size>
-    using select_bc_dispatcher = unit_static_dispatcher<select_bc_functor<dim, TInterval, T, size>, Bc<dim, TInterval, T, size>, BC_TYPES>;
+    template <class Field>
+    using select_bc_dispatcher = unit_static_dispatcher<select_bc_functor, Bc<Field>, BC_TYPES::types<Field>>;
 
     template <class BCType, class Field>
     void apply_bc_impl(BCType& bc, Field& field)
@@ -983,15 +976,12 @@ namespace samurai
         }
     }
 
-    template <class mesh_t, class value_t, std::size_t size, bool SOA>
-    void update_bc(std::size_t level, Field<mesh_t, value_t, size, SOA>& field)
+    template <class Field>
+    void update_bc(std::size_t level, Field& field)
     {
-        static constexpr std::size_t dim = mesh_t::dim;
-        using interval_t                 = typename mesh_t::interval_t;
-
         for (auto& bc : field.get_bc())
         {
-            select_bc_dispatcher<dim, interval_t, value_t, size>::dispatch(*bc.get(), level, field);
+            select_bc_dispatcher<Field>::dispatch(*bc.get(), level, field);
         }
     }
 
@@ -1003,15 +993,15 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, class T, std::size_t size, class Field>
-    void apply_bc(std::unique_ptr<Bc<dim, TInterval, T, size>>& bc, Field& field)
+    void apply_bc(std::unique_ptr<Bc<Field>>& bc, Field& field)
     {
-        if (dynamic_cast<Dirichlet<dim, TInterval, T, size>*>(bc.get()))
+        if (dynamic_cast<Dirichlet<Field>*>(bc.get()))
         {
-            apply_bc_impl(*dynamic_cast<Dirichlet<dim, TInterval, T, size>*>(bc.get()), field);
+            apply_bc_impl(*dynamic_cast<Dirichlet<Field>*>(bc.get()), field);
         }
-        else if (dynamic_cast<Neumann<dim, TInterval, T, size>*>(bc.get()))
+        else if (dynamic_cast<Neumann<Field>*>(bc.get()))
         {
-            apply_bc_impl(*dynamic_cast<Neumann<dim, TInterval, T, size>*>(bc.get()), field);
+            apply_bc_impl(*dynamic_cast<Neumann<Field>*>(bc.get()), field);
         }
     }
 
