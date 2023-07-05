@@ -32,10 +32,11 @@ jobs:
           key: cppcheck
 
       - name: Mamba and samurai env installation
-        uses: mamba-org/provision-with-micromamba@main
+        uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: conda/environment.yml
           environment-name: samurai-env
+          cache-environment: true
 
       - name: cppcheck installation
         shell: bash -l {0}
@@ -135,10 +136,11 @@ jobs:
       #     ccache -s -v
 
       - name: Mamba and samurai env installation
-        uses: mamba-org/provision-with-micromamba@main
+        uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: conda/environment.yml
           environment-name: samurai-env
+          cache-environment: true
 
       - name: Petsc installation
         shell: bash -l {0}
@@ -188,10 +190,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Mamba and samurai env installation
-        uses: mamba-org/provision-with-micromamba@main
+        uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: conda/environment.yml
           environment-name: samurai-env
+          cache-environment: true
 
       # - name: Petsc installation
       #   shell: bash -l {0}

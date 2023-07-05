@@ -109,6 +109,7 @@ target_link_system_libraries(
 
 target_compile_features(samurai INTERFACE cxx_std_17)
 
+# target_compile_definitions(samurai INTERFACE _HAS_AUTO_PTR_ETC=0)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)

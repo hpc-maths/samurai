@@ -42,8 +42,8 @@ namespace samurai
             static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg_t::nb_ghosts;
             static constexpr DirichletEnforcement dirichlet_enfcmt = bdry_cfg_t::dirichlet_enfcmt;
 
-            using dirichlet_t = Dirichlet<dim, interval_t, field_value_type, field_size>;
-            using neumann_t   = Neumann<dim, interval_t, field_value_type, field_size>;
+            using dirichlet_t = Dirichlet<field_t>;
+            using neumann_t   = Neumann<field_t>;
 
             using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
 
