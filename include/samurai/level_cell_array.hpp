@@ -35,7 +35,7 @@ namespace samurai
         using base_type  = std::reverse_iterator<iterator>;
         using coord_type = typename iterator::coord_type;
 
-        LevelCellArray_reverse_iterator(iterator&& it)
+        explicit LevelCellArray_reverse_iterator(iterator&& it)
             : base_type(std::move(it))
         {
         }
