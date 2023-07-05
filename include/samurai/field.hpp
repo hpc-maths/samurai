@@ -38,7 +38,7 @@ namespace samurai
 
         using base_type = std::reverse_iterator<iterator>;
 
-        Field_reverse_iterator(iterator&& it)
+        explicit Field_reverse_iterator(iterator&& it)
             : base_type(std::move(it))
         {
         }
@@ -538,7 +538,6 @@ namespace samurai
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline Field<mesh_t, value_t, size_, SOA>::Field(const Field& field)
-        // : inner_mesh_t(const_cast<mesh_t&>(field.mesh()))
         : inner_mesh_t(field.mesh())
         , m_name(field.m_name)
         , m_data(field.m_data)
@@ -605,36 +604,6 @@ namespace samurai
 
         return interval_tmp;
     }
-
-    // template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    // template<class... T>
-    // inline auto Field<mesh_t, value_t, size_, SOA>::operator()(const
-    // std::size_t level,
-    //                                                       const interval_t
-    //                                                       &interval, const
-    //                                                       T... index)
-    // {
-    //     auto interval_tmp = get_interval("READ OR WRITE", level, interval,
-    //     index...); return xt::view(m_data,
-    //                     xt::range(interval_tmp.index + interval.start,
-    //                                 interval_tmp.index + interval.end,
-    //                                 interval.step));
-    // }
-
-    // template<class mesh_t, class value_t, std::size_t size_, bool SOA>
-    // template<class... T>
-    // inline auto Field<mesh_t, value_t, size_, SOA>::operator()(const
-    // std::size_t level,
-    //                                                       const interval_t
-    //                                                       &interval, const
-    //                                                       T... index) const
-    // {
-    //     auto interval_tmp = get_interval("READ", level, interval, index...);
-    //     return xt::view(m_data,
-    //                     xt::range(interval_tmp.index + interval.start,
-    //                                 interval_tmp.index + interval.end,
-    //                                 interval.step));
-    // }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::array() const -> const data_type&
@@ -703,15 +672,13 @@ namespace samurai
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::begin() const -> const_iterator
     {
-        using mesh_id_t = typename mesh_t::mesh_id_t;
-        return const_iterator(this, this->mesh()[mesh_id_t::cells].cbegin());
+        return cbegin();
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::end() const -> const_iterator
     {
-        using mesh_id_t = typename mesh_t::mesh_id_t;
-        return const_iterator(this, this->mesh()[mesh_id_t::cells].cend());
+        return cend();
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
@@ -731,37 +698,37 @@ namespace samurai
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::rbegin() -> reverse_iterator
     {
-        return end();
+        return reverse_iterator(end());
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::rend() -> reverse_iterator
     {
-        return begin();
+        return reverse_iterator(begin());
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::rbegin() const -> const_reverse_iterator
     {
-        return cend();
+        return rcbegin();
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::rend() const -> const_reverse_iterator
     {
-        return cbegin();
+        return rcend();
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::rcbegin() const -> const_reverse_iterator
     {
-        return cend();
+        return const_reverse_iterator(cend());
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::rcend() const -> const_reverse_iterator
     {
-        return cbegin();
+        return const_reverse_iterator(cbegin());
     }
 
     template <class value_t, std::size_t size, bool SOA = false, class mesh_t>

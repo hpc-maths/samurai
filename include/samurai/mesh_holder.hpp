@@ -15,7 +15,7 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using interval_t                 = typename Mesh::interval_t;
 
-        hold(Mesh& mesh)
+        explicit hold(Mesh& mesh)
             : m_mesh(mesh)
         {
         }
@@ -45,7 +45,7 @@ namespace samurai
 
         inner_mesh_type() = default;
 
-        inner_mesh_type(const mesh_t& mesh)
+        explicit inner_mesh_type(const mesh_t& mesh)
             : p_mesh(&(const_cast<mesh_t&>(mesh)))
         {
         }
@@ -84,12 +84,12 @@ namespace samurai
 
         inner_mesh_type() = default;
 
-        inner_mesh_type(hold<Mesh>& mesh)
+        explicit inner_mesh_type(hold<Mesh>& mesh)
             : m_mesh(mesh.get())
         {
         }
 
-        inner_mesh_type(const Mesh& mesh)
+        explicit inner_mesh_type(const Mesh& mesh)
             : m_mesh(mesh)
         {
         }

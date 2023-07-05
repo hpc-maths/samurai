@@ -386,13 +386,13 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     inline auto LevelCellArray<Dim, TInterval>::begin() const -> const_iterator
     {
-        return const_iterator(cbegin());
+        return cbegin();
     }
 
     template <std::size_t Dim, class TInterval>
     inline auto LevelCellArray<Dim, TInterval>::end() const -> const_iterator
     {
-        return const_iterator(cend());
+        return cend();
     }
 
     template <std::size_t Dim, class TInterval>
@@ -410,13 +410,13 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     inline auto LevelCellArray<Dim, TInterval>::rbegin() const -> const_reverse_iterator
     {
-        return const_reverse_iterator(cend());
+        return rcbegin();
     }
 
     template <std::size_t Dim, class TInterval>
     inline auto LevelCellArray<Dim, TInterval>::rend() const -> const_reverse_iterator
     {
-        return const_reverse_iterator(cbegin());
+        return rcend();
     }
 
     template <std::size_t Dim, class TInterval>

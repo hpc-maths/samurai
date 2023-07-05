@@ -172,7 +172,7 @@ namespace samurai
 
         using coord_type = typename iterator_type::coord_type;
 
-        CellArray_iterator(CA* ca, const iterator_type& lca_it);
+        explicit CellArray_iterator(CA* ca, const iterator_type& lca_it);
 
         self_type& operator++();
         self_type& operator--();
@@ -402,13 +402,13 @@ namespace samurai
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline auto CellArray<dim_, TInterval, max_size_>::begin() const -> const_iterator
     {
-        return const_iterator(this, m_cells[min_level()].cbegin());
+        return cbegin();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline auto CellArray<dim_, TInterval, max_size_>::end() const -> const_iterator
     {
-        return const_iterator(this, m_cells[max_level()].cend());
+        return cend();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
@@ -438,13 +438,13 @@ namespace samurai
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline auto CellArray<dim_, TInterval, max_size_>::rbegin() const -> const_reverse_iterator
     {
-        return const_reverse_iterator(cend());
+        return rcbegin();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline auto CellArray<dim_, TInterval, max_size_>::rend() const -> const_reverse_iterator
     {
-        return const_reverse_iterator(cbegin());
+        return rcend();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
