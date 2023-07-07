@@ -59,6 +59,22 @@ namespace samurai
     template <class E>
     using xview_type_t = typename xview_type<E>::type;
 
+    namespace detail
+    {
+        template <class Head, class... Tail>
+        auto& extract_mesh(Head&& h, Tail&&... t)
+        {
+            if constexpr (has_mesh_t<std::decay_t<Head>>::value)
+            {
+                return h.mesh();
+            }
+            else
+            {
+                return extract_mesh(std::forward<Tail>(t)...);
+            }
+        }
+    }
+
     template <class F, class... CT>
     class field_function : public field_expression<field_function<F, CT...>>
     {
@@ -66,8 +82,7 @@ namespace samurai
 
         using self_type    = field_function<F, CT...>;
         using functor_type = std::remove_reference_t<F>;
-
-        static constexpr std::size_t dim = detail::compute_dim<CT...>();
+        using mesh_t       = typename detail::compute_mesh_t<CT...>::type;
 
         using interval_t = default_config::interval_t; // TO BE FIX: Check the
                                                        // interval_t of each CT
@@ -84,6 +99,15 @@ namespace samurai
             return expr;
         }
 
+        template <std::size_t dim>
+        inline auto operator()(const std::size_t& level,
+                               const interval_t& interval,
+                               const xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>>& index) const
+        {
+            auto expr = evaluate(std::make_index_sequence<sizeof...(CT)>(), level, interval, index);
+            return expr;
+        }
+
         template <class coord_index_t, std::size_t dim>
         inline auto operator()(const Cell<coord_index_t, dim>& cell) const
         {
@@ -93,12 +117,18 @@ namespace samurai
         template <std::size_t... I, class... T>
         inline auto evaluate(std::index_sequence<I...>, T&&... t) const
         {
-            return m_f(std::get<I>(m_e).operator()(std::forward<T>(t)...)...);
+            return xt::eval(m_f(std::get<I>(m_e).operator()(std::forward<T>(t)...)...));
+        }
+
+        mesh_t& mesh() const
+        {
+            return m_mesh;
         }
 
       private:
 
         std::tuple<CT...> m_e;
+        mesh_t& m_mesh;
         functor_type m_f;
     };
 
@@ -106,6 +136,7 @@ namespace samurai
     template <class Func, class... CTA, class>
     inline field_function<F, CT...>::field_function(Func&& f, CTA&&... e) noexcept
         : m_e(std::forward<CTA>(e)...)
+        , m_mesh(detail::extract_mesh(std::forward<CTA>(e)...))
         , m_f(std::forward<Func>(f))
     {
     }

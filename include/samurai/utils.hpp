@@ -89,6 +89,55 @@ namespace samurai
             return compute_dim_impl<-1, std::decay_t<CT>...>::dim;
         }
 
+        template <class T, class = void>
+        struct has_mesh_t : std::false_type
+        {
+        };
+
+        template <class T>
+        struct has_mesh_t<T, std::void_t<typename T::mesh_t>> : std::true_type
+        {
+        };
+
+        template <class S, class T, bool>
+        struct get_mesh_t;
+
+        template <class S, class T>
+        struct get_mesh_t<S, T, false>
+        {
+            using type = S;
+        };
+
+        template <class S, class T>
+        struct get_mesh_t<S, T, true>
+        {
+            using type = typename T::mesh_t;
+        };
+
+        template <class S, class... CT>
+        struct compute_mesh_impl
+        {
+            using type = S;
+        };
+
+        template <class M>
+        struct compute_mesh_impl<M>
+        {
+            using type = M;
+        };
+
+        template <class M, class C0, class... CT>
+        struct compute_mesh_impl<M, C0, CT...>
+        {
+            using type = typename compute_mesh_impl<typename get_mesh_t<M, C0, has_mesh_t<C0>::value>::type, CT...>::type;
+        };
+
+        template <class... CT>
+        struct compute_mesh_t
+        {
+            using type = typename compute_mesh_impl<void, std::decay_t<CT>...>::type;
+        };
+
         template <class T>
         constexpr T do_max(const T& v)
         {

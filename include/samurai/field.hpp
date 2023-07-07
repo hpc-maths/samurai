@@ -367,6 +367,9 @@ namespace samurai
 
         Field(std::string name, mesh_t& mesh);
 
+        template <class E>
+        Field(const field_expression<E>& e);
+
         Field(const Field&);
         Field& operator=(const Field&);
 
@@ -538,6 +541,15 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    template <class E>
+    inline Field<mesh_t, value_t, size_, SOA>::Field(const field_expression<E>& e)
+        : inner_mesh_t(e.derived_cast().mesh())
+    {
+        this->resize();
+        *this = e;
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline Field<mesh_t, value_t, size_, SOA>::Field(const Field& field)
         : inner_mesh_t(field.mesh())
         , m_name(field.m_name)
@@ -575,20 +587,11 @@ namespace samurai
     template <class E>
     inline auto Field<mesh_t, value_t, size_, SOA>::operator=(const field_expression<E>& e) -> Field&
     {
-        // FIX: this works only when the mesh_t is a derived class of Mesh_base.
-        //      CellArray has no type mesh_id_t.
-        //
-        using mesh_id_t = typename mesh_t::mesh_id_t;
-
-        auto min_level = this->mesh()[mesh_id_t::cells].min_level();
-        auto max_level = this->mesh()[mesh_id_t::cells].max_level();
-
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            auto subset = intersection(this->mesh()[mesh_id_t::cells][level], this->mesh()[mesh_id_t::cells][level]);
-
-            subset.apply_op(apply_expr(*this, e));
-        }
+        for_each_interval(this->mesh(),
+                          [&](std::size_t level, const auto& i, const auto& index)
+                          {
+                              (*this)(level, i, index) = e.derived_cast()(level, i, index);
+                          });
         return *this;
     }
 
