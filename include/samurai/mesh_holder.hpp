@@ -50,6 +50,12 @@ namespace samurai
         {
         }
 
+        inner_mesh_type& operator=(const mesh_t& mesh)
+        {
+            p_mesh = &(const_cast<mesh_t&>(mesh));
+            return *this;
+        }
+
         const mesh_t& mesh() const
         {
             return *p_mesh;
@@ -92,6 +98,12 @@ namespace samurai
         explicit inner_mesh_type(const Mesh& mesh)
             : m_mesh(mesh)
         {
+        }
+
+        inner_mesh_type& operator=(const Mesh& mesh)
+        {
+            m_mesh = mesh;
+            return *this;
         }
 
         const mesh_t& mesh() const

@@ -18,10 +18,42 @@ namespace samurai
         const auto u_const = samurai::make_field<double, 1>("uc", mesh);
 
         auto u = u_const;
+        EXPECT_EQ(u.name(), u_const.name());
+        EXPECT_EQ(u.array(), u_const.array());
+        EXPECT_EQ(u.mesh(), u_const.mesh());
+        EXPECT_EQ(u.mesh_ptr(), u_const.mesh_ptr());
 
         auto m              = samurai::holder(mesh);
         const auto u_const1 = samurai::make_field<double, 1>("uc", m);
         auto u1             = u_const1;
+        EXPECT_EQ(u1.name(), u_const1.name());
+        EXPECT_EQ(u1.array(), u_const1.array());
+        EXPECT_EQ(u1.mesh(), u_const1.mesh());
+    }
+
+    TEST(field, copy_assignment)
+    {
+        samurai::Box<double, 1> box{{0}, {1}};
+        using Config       = samurai::UniformConfig<1>;
+        auto mesh1         = samurai::UniformMesh<Config>(box, 5);
+        auto mesh2         = samurai::UniformMesh<Config>(box, 3);
+        const auto u_const = samurai::make_field<double, 1>("uc", mesh1);
+        auto u             = samurai::make_field<double, 1>("u", mesh2);
+
+        u = u_const;
+        EXPECT_EQ(u.name(), u_const.name());
+        EXPECT_EQ(u.array(), u_const.array());
+        EXPECT_EQ(u.mesh(), u_const.mesh());
+        EXPECT_EQ(u.mesh_ptr(), u_const.mesh_ptr());
+
+        auto m1             = samurai::holder(mesh1);
+        auto m2             = samurai::holder(mesh2);
+        const auto u_const1 = samurai::make_field<double, 1>("uc", m1);
+        auto u1             = samurai::make_field<double, 1>("u", m2);
+        u1                  = u_const1;
+        EXPECT_EQ(u1.name(), u_const1.name());
+        EXPECT_EQ(u1.array(), u_const1.array());
+        EXPECT_EQ(u1.mesh(), u_const1.mesh());
     }
 
     TEST(field, iterator)
