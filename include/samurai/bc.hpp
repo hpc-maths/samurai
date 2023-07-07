@@ -897,8 +897,8 @@ namespace samurai
                 for (int ig = 0; ig < ghost_width; ++ig)
                 {
                     auto first_layer_ghosts = intersection(intersection(mesh[mesh_id_t::reference][level],
-                                                                        translate(lca[d], (ig + 1) * (direction[d] << delta_l)))
-                                                               translate(mesh[mesh_id_t::cells][level], (2 * ig + 1) * direction[d]))
+                                                                        translate(lca[d], (ig + 1) * (direction[d] << delta_l))),
+                                                           translate(mesh[mesh_id_t::cells][level], (2 * ig + 1) * direction[d]))
                                                   .on(level);
                     first_layer_ghosts(
                         [&](const auto& i, const auto& index)
