@@ -21,7 +21,7 @@ namespace samurai
         using mesh_id_t                  = typename Mesh::mesh_id_t;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
         using coord_index_t              = typename Mesh::config::interval_t::coord_index_t;
-        using Cell                       = typename samurai::Cell<coord_index_t, dim>;
+        using cell_t                     = typename samurai::Cell<coord_index_t, dim>;
 
         Stencil<2, dim> interface_stencil = in_out_stencil<dim>(direction);
         auto interface_it                 = make_stencil_iterator(mesh, interface_stencil);
@@ -56,12 +56,12 @@ namespace samurai
         int direction_index_int     = find(comput_stencil, direction);
         std::size_t direction_index = static_cast<std::size_t>(direction_index_int);
 
-        Stencil<comput_stencil_size, Mesh::dim> reversed = xt::eval(xt::flip(comput_stencil, 0));
-        auto minus_comput_stencil                        = xt::eval(-reversed);
-        auto minus_direction                             = xt::eval(-direction);
-        int minus_direction_index_int                    = find(minus_comput_stencil, minus_direction);
-        std::size_t minus_direction_index                = static_cast<std::size_t>(minus_direction_index_int);
-        auto minus_comput_stencil_it                     = make_stencil_iterator(mesh, minus_comput_stencil);
+        Stencil<comput_stencil_size, dim> reversed = xt::eval(xt::flip(comput_stencil, 0));
+        auto minus_comput_stencil                  = xt::eval(-reversed);
+        auto minus_direction                       = xt::eval(-direction);
+        int minus_direction_index_int              = find(minus_comput_stencil, minus_direction);
+        std::size_t minus_direction_index          = static_cast<std::size_t>(minus_direction_index_int);
+        auto minus_comput_stencil_it               = make_stencil_iterator(mesh, minus_comput_stencil);
 
         for_each_level(
             mesh,
@@ -88,10 +88,10 @@ namespace samurai
 
                                 for (std::size_t ii = 0; ii < fine_mesh_interval.i.size(); ++ii)
                                 {
-                                    std::array<Cell, 2> interface_cells;
+                                    std::array<cell_t, 2> interface_cells;
                                     interface_cells[0] = coarse_it.cells()[0];
-
                                     interface_cells[1] = comput_stencil_it.cells()[direction_index];
+
                                     f(interface_cells, comput_stencil_it.cells());
                                     comput_stencil_it.move_next();
 
@@ -118,7 +118,7 @@ namespace samurai
 
                                 for (std::size_t ii = 0; ii < fine_mesh_interval.i.size(); ++ii)
                                 {
-                                    std::array<Cell, 2> interface_cells;
+                                    std::array<cell_t, 2> interface_cells;
                                     interface_cells[0] = minus_comput_stencil_it.cells()[minus_direction_index];
                                     interface_cells[1] = coarse_it.cells()[0];
 
@@ -149,7 +149,7 @@ namespace samurai
         using mesh_id_t                  = typename Mesh::mesh_id_t;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
         using coord_index_t              = typename Mesh::config::interval_t::coord_index_t;
-        using Cell                       = typename samurai::Cell<coord_index_t, dim>;
+        using cell_t                     = typename samurai::Cell<coord_index_t, dim>;
 
         Stencil<2, dim> interface_stencil = in_out_stencil<dim>(direction);
         auto interface_it                 = make_stencil_iterator(mesh, interface_stencil);
@@ -190,12 +190,12 @@ namespace samurai
         int direction_index_int     = find(comput_stencil, direction);
         std::size_t direction_index = static_cast<std::size_t>(direction_index_int);
 
-        Stencil<comput_stencil_size, Mesh::dim> reversed = xt::eval(xt::flip(comput_stencil, 0));
-        auto minus_comput_stencil                        = xt::eval(-reversed);
-        auto minus_direction                             = xt::eval(-direction);
-        int minus_direction_index_int                    = find(minus_comput_stencil, minus_direction);
-        std::size_t minus_direction_index                = static_cast<std::size_t>(minus_direction_index_int);
-        auto minus_comput_stencil_it                     = make_stencil_iterator(mesh, minus_comput_stencil);
+        Stencil<comput_stencil_size, dim> reversed = xt::eval(xt::flip(comput_stencil, 0));
+        auto minus_comput_stencil                  = xt::eval(-reversed);
+        auto minus_direction                       = xt::eval(-direction);
+        int minus_direction_index_int              = find(minus_comput_stencil, minus_direction);
+        std::size_t minus_direction_index          = static_cast<std::size_t>(minus_direction_index_int);
+        auto minus_comput_stencil_it               = make_stencil_iterator(mesh, minus_comput_stencil);
 
         for_each_level(
             mesh,
@@ -229,10 +229,10 @@ namespace samurai
 
                                 for (std::size_t ii = 0; ii < fine_mesh_interval.i.size(); ++ii)
                                 {
-                                    std::array<Cell, 2> interface_cells;
+                                    std::array<cell_t, 2> interface_cells;
                                     interface_cells[0] = coarse_it.cells()[0];
-
                                     interface_cells[1] = comput_stencil_it.cells()[direction_index];
+
                                     f(interface_cells, comput_stencil_it.cells(), cell1_coeffs, cell2_coeffs);
                                     comput_stencil_it.move_next();
 
@@ -262,7 +262,7 @@ namespace samurai
 
                                 for (std::size_t ii = 0; ii < fine_mesh_interval.i.size(); ++ii)
                                 {
-                                    std::array<Cell, 2> interface_cells;
+                                    std::array<cell_t, 2> interface_cells;
                                     interface_cells[0] = minus_comput_stencil_it.cells()[minus_direction_index];
                                     interface_cells[1] = coarse_it.cells()[0];
 
