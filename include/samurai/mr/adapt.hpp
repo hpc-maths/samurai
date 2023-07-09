@@ -265,6 +265,28 @@ namespace samurai
             update_tag_periodic(level, m_tag);
         }
 
+        // Prevents the coarsening of child cells where the parent intersects the boundary.
+        //
+        //   outside           |   inside
+        //   =======           |   ======
+        //   tag this cell to  |
+        //   keep to avoid     |
+        //   coarsening        |
+        //                     |
+        //   level l+1   |-----|-----|
+        //                     |
+        //   level l     |-----------|
+        //
+        for (std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
+        {
+            auto set = difference(mesh[mesh_id_t::reference][level], mesh.domain()).on(level);
+            set(
+                [&](const auto& i, const auto& index)
+                {
+                    m_tag(level, i, index) = static_cast<int>(CellFlag::keep);
+                });
+        }
+
         for (std::size_t level = max_level; level > 0; --level)
         {
             auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
