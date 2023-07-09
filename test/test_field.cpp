@@ -9,19 +9,71 @@
 
 namespace samurai
 {
+    TEST(field, from_expr)
+    {
+        Box<double, 1> box{{0}, {1}};
+        // using Config = MRConfig<1>;
+        // auto mesh    = MRMesh<Config>(box, 3, 3);
+
+        using Config = UniformConfig<1>;
+        auto mesh    = UniformMesh<Config>(box, 3);
+
+        auto u = make_field<double, 1>("u", mesh);
+        u.fill(1.);
+        using field_t = decltype(u);
+        field_t ue    = 5 + u;
+
+        for_each_cell(mesh,
+                      [&](auto cell)
+                      {
+                          EXPECT_EQ(ue[cell], 6);
+                      });
+    }
 
     TEST(field, copy_from_const)
     {
-        samurai::Box<double, 1> box{{0}, {1}};
-        using Config       = samurai::UniformConfig<1>;
-        auto mesh          = samurai::UniformMesh<Config>(box, 3);
-        const auto u_const = samurai::make_field<double, 1>("uc", mesh);
+        Box<double, 1> box{{0}, {1}};
+        using Config       = UniformConfig<1>;
+        auto mesh          = UniformMesh<Config>(box, 3);
+        const auto u_const = make_field<double, 1>("uc", mesh);
 
         auto u = u_const;
+        EXPECT_EQ(u.name(), u_const.name());
+        EXPECT_EQ(u.array(), u_const.array());
+        EXPECT_EQ(u.mesh(), u_const.mesh());
+        EXPECT_EQ(u.mesh_ptr(), u_const.mesh_ptr());
 
-        auto m              = samurai::holder(mesh);
-        const auto u_const1 = samurai::make_field<double, 1>("uc", m);
+        auto m              = holder(mesh);
+        const auto u_const1 = make_field<double, 1>("uc", m);
         auto u1             = u_const1;
+        EXPECT_EQ(u1.name(), u_const1.name());
+        EXPECT_EQ(u1.array(), u_const1.array());
+        EXPECT_EQ(u1.mesh(), u_const1.mesh());
+    }
+
+    TEST(field, copy_assignment)
+    {
+        Box<double, 1> box{{0}, {1}};
+        using Config       = UniformConfig<1>;
+        auto mesh1         = UniformMesh<Config>(box, 5);
+        auto mesh2         = UniformMesh<Config>(box, 3);
+        const auto u_const = make_field<double, 1>("uc", mesh1);
+        auto u             = make_field<double, 1>("u", mesh2);
+
+        u = u_const;
+        EXPECT_EQ(u.name(), u_const.name());
+        EXPECT_EQ(u.array(), u_const.array());
+        EXPECT_EQ(u.mesh(), u_const.mesh());
+        EXPECT_EQ(u.mesh_ptr(), u_const.mesh_ptr());
+
+        auto m1             = holder(mesh1);
+        auto m2             = holder(mesh2);
+        const auto u_const1 = make_field<double, 1>("uc", m1);
+        auto u1             = make_field<double, 1>("u", m2);
+        u1                  = u_const1;
+        EXPECT_EQ(u1.name(), u_const1.name());
+        EXPECT_EQ(u1.array(), u_const1.array());
+        EXPECT_EQ(u1.mesh(), u_const1.mesh());
     }
 
     TEST(field, iterator)

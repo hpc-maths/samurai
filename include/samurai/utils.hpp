@@ -20,6 +20,9 @@ namespace samurai
     template <class... T>
     using void_t = void;
 
+    template <class F, class... CT>
+    class field_function;
+
     namespace detail
     {
 
@@ -87,6 +90,94 @@ namespace samurai
         constexpr std::size_t compute_dim()
         {
             return compute_dim_impl<-1, std::decay_t<CT>...>::dim;
+        }
+
+        template <class T, class = void>
+        struct has_mesh_t : std::false_type
+        {
+        };
+
+        template <class T>
+        struct has_mesh_t<T, std::void_t<typename T::mesh_t>> : std::true_type
+        {
+        };
+
+        template <class S, class T, bool>
+        struct get_mesh_t;
+
+        template <class S, class T>
+        struct get_mesh_t<S, T, false>
+        {
+            using type = S;
+        };
+
+        template <class S, class T>
+        struct get_mesh_t<S, T, true>
+        {
+            using type = typename T::mesh_t;
+        };
+
+        template <class S, class... CT>
+        struct compute_mesh_impl
+        {
+            using type = S;
+        };
+
+        template <class M>
+        struct compute_mesh_impl<M>
+        {
+            using type = M;
+        };
+
+        template <class M, class C0, class... CT>
+        struct compute_mesh_impl<M, C0, CT...>
+        {
+            using type = typename compute_mesh_impl<typename get_mesh_t<M, C0, has_mesh_t<C0>::value>::type, CT...>::type;
+        };
+
+        template <class... CT>
+        struct compute_mesh_t
+        {
+            using type = typename compute_mesh_impl<void, std::decay_t<CT>...>::type;
+        };
+
+        template <class E>
+        struct is_field_function : std::false_type
+        {
+        };
+
+        template <class F, class... CT>
+        struct is_field_function<field_function<F, CT...>> : std::true_type
+        {
+        };
+
+        template <class... T>
+        auto& extract_mesh(const std::tuple<T...>& t)
+        {
+            return extract_mesh(t, std::index_sequence_for<T...>());
+        }
+
+        template <class... T, std::size_t... Is>
+        auto& extract_mesh(const std::tuple<T...>& t, std::index_sequence<Is...>)
+        {
+            return extract_mesh(std::get<Is>(t)...);
+        }
+
+        template <class Head, class... Tail>
+        auto& extract_mesh(Head&& h, Tail&&... t)
+        {
+            if constexpr (is_field_function<std::decay_t<Head>>::value)
+            {
+                return extract_mesh(h.arguments());
+            }
+            else if constexpr (has_mesh_t<std::decay_t<Head>>::value)
+            {
+                return h.mesh();
+            }
+            else
+            {
+                return extract_mesh(std::forward<Tail>(t)...);
+            }
         }
 
         template <class T>

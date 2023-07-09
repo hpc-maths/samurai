@@ -67,8 +67,6 @@ namespace samurai
         using self_type    = field_function<F, CT...>;
         using functor_type = std::remove_reference_t<F>;
 
-        static constexpr std::size_t dim = detail::compute_dim<CT...>();
-
         using interval_t = default_config::interval_t; // TO BE FIX: Check the
                                                        // interval_t of each CT
 
@@ -84,6 +82,15 @@ namespace samurai
             return expr;
         }
 
+        template <std::size_t dim>
+        inline auto operator()(const std::size_t& level,
+                               const interval_t& interval,
+                               const xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>>& index) const
+        {
+            auto expr = evaluate(std::make_index_sequence<sizeof...(CT)>(), level, interval, index);
+            return expr;
+        }
+
         template <class coord_index_t, std::size_t dim>
         inline auto operator()(const Cell<coord_index_t, dim>& cell) const
         {
@@ -93,7 +100,12 @@ namespace samurai
         template <std::size_t... I, class... T>
         inline auto evaluate(std::index_sequence<I...>, T&&... t) const
         {
-            return m_f(std::get<I>(m_e).operator()(std::forward<T>(t)...)...);
+            return xt::eval(m_f(std::get<I>(m_e).operator()(std::forward<T>(t)...)...));
+        }
+
+        const auto& arguments() const
+        {
+            return m_e;
         }
 
       private:

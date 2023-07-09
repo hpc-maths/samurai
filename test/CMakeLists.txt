@@ -24,6 +24,7 @@ set(SAMURAI_TESTS
     test_list_of_intervals.cpp
     test_periodic.cpp
     test_portion.cpp
+    test_utils.cpp
 )
 
 if(rapidcheck_FOUND)

@@ -37,6 +37,11 @@ namespace samurai
             return apply(op);
         }
 
+        const auto& arguments() const
+        {
+            return m_e;
+        }
+
       private:
 
         template <class interval_t>
