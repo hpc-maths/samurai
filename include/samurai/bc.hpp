@@ -806,7 +806,9 @@ namespace samurai
                 std::size_t delta_l = lca[d].level() - level;
                 for (int ig = 0; ig < ghost_width; ++ig)
                 {
-                    auto first_layer_ghosts = intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))).on(level);
+                    auto first_layer_ghosts = intersection(intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))),
+                                                           translate(mesh[level], (2 * ig + 1) * direction[d]))
+                                                  .on(level);
                     first_layer_ghosts(
                         [&](const auto& i, const auto& index)
                         {
@@ -893,7 +895,9 @@ namespace samurai
                 std::size_t delta_l = lca[d].level() - level;
                 for (int ig = 0; ig < ghost_width; ++ig)
                 {
-                    auto first_layer_ghosts = intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))).on(level);
+                    auto first_layer_ghosts = intersection(intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))),
+                                                           translate(mesh[level], (2 * ig + 1) * direction[d]))
+                                                  .on(level);
                     first_layer_ghosts(
                         [&](const auto& i, const auto& index)
                         {
