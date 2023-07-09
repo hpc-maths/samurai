@@ -59,22 +59,6 @@ namespace samurai
     template <class E>
     using xview_type_t = typename xview_type<E>::type;
 
-    namespace detail
-    {
-        template <class Head, class... Tail>
-        auto& extract_mesh(Head&& h, Tail&&... t)
-        {
-            if constexpr (has_mesh_t<std::decay_t<Head>>::value)
-            {
-                return h.mesh();
-            }
-            else
-            {
-                return extract_mesh(std::forward<Tail>(t)...);
-            }
-        }
-    }
-
     template <class F, class... CT>
     class field_function : public field_expression<field_function<F, CT...>>
     {
@@ -82,7 +66,6 @@ namespace samurai
 
         using self_type    = field_function<F, CT...>;
         using functor_type = std::remove_reference_t<F>;
-        using mesh_t       = typename detail::compute_mesh_t<CT...>::type;
 
         using interval_t = default_config::interval_t; // TO BE FIX: Check the
                                                        // interval_t of each CT
@@ -120,15 +103,14 @@ namespace samurai
             return xt::eval(m_f(std::get<I>(m_e).operator()(std::forward<T>(t)...)...));
         }
 
-        mesh_t& mesh() const
+        const auto& arguments() const
         {
-            return m_mesh;
+            return m_e;
         }
 
       private:
 
         std::tuple<CT...> m_e;
-        mesh_t& m_mesh;
         functor_type m_f;
     };
 
@@ -136,7 +118,6 @@ namespace samurai
     template <class Func, class... CTA, class>
     inline field_function<F, CT...>::field_function(Func&& f, CTA&&... e) noexcept
         : m_e(std::forward<CTA>(e)...)
-        , m_mesh(detail::extract_mesh(std::forward<CTA>(e)...))
         , m_f(std::forward<Func>(f))
     {
     }

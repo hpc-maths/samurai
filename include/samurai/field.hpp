@@ -543,7 +543,7 @@ namespace samurai
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     template <class E>
     inline Field<mesh_t, value_t, size_, SOA>::Field(const field_expression<E>& e)
-        : inner_mesh_t(e.derived_cast().mesh())
+        : inner_mesh_t(detail::extract_mesh(e.derived_cast()))
     {
         this->resize();
         *this = e;

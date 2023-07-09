@@ -20,6 +20,9 @@ namespace samurai
     template <class... T>
     using void_t = void;
 
+    template <class F, class... CT>
+    class field_function;
+
     namespace detail
     {
 
@@ -137,6 +140,45 @@ namespace samurai
         {
             using type = typename compute_mesh_impl<void, std::decay_t<CT>...>::type;
         };
+
+        template <class E>
+        struct is_field_function : std::false_type
+        {
+        };
+
+        template <class F, class... CT>
+        struct is_field_function<field_function<F, CT...>> : std::true_type
+        {
+        };
+
+        template <class... T>
+        auto& extract_mesh(const std::tuple<T...>& t)
+        {
+            return extract_mesh(t, std::index_sequence_for<T...>());
+        }
+
+        template <class... T, std::size_t... Is>
+        auto& extract_mesh(const std::tuple<T...>& t, std::index_sequence<Is...>)
+        {
+            return extract_mesh(std::get<Is>(t)...);
+        }
+
+        template <class Head, class... Tail>
+        auto& extract_mesh(Head&& h, Tail&&... t)
+        {
+            if constexpr (is_field_function<std::decay_t<Head>>::value)
+            {
+                return extract_mesh(h.arguments());
+            }
+            else if constexpr (has_mesh_t<std::decay_t<Head>>::value)
+            {
+                return h.mesh();
+            }
+            else
+            {
+                return extract_mesh(std::forward<Tail>(t)...);
+            }
+        }
 
         template <class T>
         constexpr T do_max(const T& v)
