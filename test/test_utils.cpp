@@ -4,6 +4,7 @@
 
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
+#include <samurai/stencil_field.hpp>
 #include <samurai/uniform_mesh.hpp>
 #include <samurai/utils.hpp>
 
@@ -18,5 +19,6 @@ namespace samurai
         auto u = make_field<double, 1>("u", mesh);
 
         static_assert(detail::is_field_function<decltype(5 + u)>::value);
+        static_assert(detail::is_field_function<decltype(upwind(1, u))>::value);
     }
 }
