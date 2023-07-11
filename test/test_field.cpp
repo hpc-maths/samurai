@@ -108,4 +108,16 @@ namespace samurai
         ++itr;
         EXPECT_EQ(itr, field.rend());
     }
+
+    TEST(field, name)
+    {
+        Box<double, 1> box{{0}, {1}};
+        using Config = UniformConfig<1>;
+        auto mesh    = UniformMesh<Config>(box, 5);
+        auto u       = make_field<double, 1>("u", mesh);
+
+        EXPECT_EQ(u.name(), "u");
+        u.name() = "new_name";
+        EXPECT_EQ(u.name(), "new_name");
+    }
 }

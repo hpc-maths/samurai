@@ -386,7 +386,8 @@ namespace samurai
         const data_type& array() const;
         data_type& array();
 
-        std::string name() const;
+        const std::string& name() const;
+        std::string& name();
 
         void to_stream(std::ostream& os) const;
 
@@ -641,7 +642,13 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline std::string Field<mesh_t, value_t, size_, SOA>::name() const
+    inline const std::string& Field<mesh_t, value_t, size_, SOA>::name() const
+    {
+        return m_name;
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline std::string& Field<mesh_t, value_t, size_, SOA>::name()
     {
         return m_name;
     }
