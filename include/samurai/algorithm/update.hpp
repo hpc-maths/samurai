@@ -179,7 +179,7 @@ namespace samurai
             if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
                 std::vector<value_t> to_recv;
-                std::size_t count = 0;
+                std::ptrdiff_t count = 0;
 
                 world.recv(neighbour.rank, world.rank(), to_recv);
                 auto in_interface = intersection(neighbour.mesh[mesh_id_t::reference][level],
@@ -189,7 +189,9 @@ namespace samurai
                 in_interface(
                     [&](const auto& i, const auto& index)
                     {
-                        std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i, index).begin());
+                        std::copy(to_recv.begin() + count,
+                                  to_recv.begin() + count + static_cast<ptrdiff_t>(i.size()),
+                                  field(level, i, index).begin());
                         count += i.size();
                     });
             }
@@ -257,7 +259,7 @@ namespace samurai
             if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
                 std::vector<value_t> to_recv;
-                std::size_t count = 0;
+                std::ptrdiff_t count = 0;
 
                 world.recv(neighbour.rank, world.rank(), to_recv);
 
@@ -269,9 +271,7 @@ namespace samurai
                     [&](const auto& i, const auto& index)
                     {
                         xt::xtensor<value_t, 1> neigh_tag = xt::empty_like(tag(level, i, index));
-                        std::copy(to_recv.begin() + static_cast<std::ptrdiff_t>(count),
-                                  to_recv.begin() + static_cast<std::ptrdiff_t>(count + i.size()),
-                                  neigh_tag.begin());
+                        std::copy(to_recv.begin() + count, to_recv.begin() + count + static_cast<std::ptrdiff_t>(i.size()), neigh_tag.begin());
                         tag(level, i, index) |= neigh_tag;
                         count += i.size();
                     });
@@ -303,7 +303,7 @@ namespace samurai
             if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
                 std::vector<value_t> to_recv;
-                std::size_t count = 0;
+                std::ptrdiff_t count = 0;
 
                 world.recv(neighbour.rank, world.rank(), to_recv);
 
@@ -315,9 +315,7 @@ namespace samurai
                     [&](const auto& i, const auto& index)
                     {
                         xt::xtensor<value_t, 1> neigh_tag = xt::empty_like(tag(level, i, index));
-                        std::copy(to_recv.begin() + static_cast<std::ptrdiff_t>(count),
-                                  to_recv.begin() + static_cast<std::ptrdiff_t>(count + i.size()),
-                                  neigh_tag.begin());
+                        std::copy(to_recv.begin() + count, to_recv.begin() + count + static_cast<std::ptrdiff_t>(i.size()), neigh_tag.begin());
                         tag(level, i, index) |= neigh_tag;
                         count += i.size();
                     });

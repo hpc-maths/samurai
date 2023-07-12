@@ -100,8 +100,7 @@ int main(int argc, char* argv[])
         };
     }
 
-    using Config    = samurai::MRConfig<dim>;
-    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
+    using Config = samurai::MRConfig<dim>;
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
     auto u = init(mesh);

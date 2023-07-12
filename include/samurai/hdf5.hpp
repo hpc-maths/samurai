@@ -531,34 +531,37 @@ namespace samurai
         static constexpr std::size_t dim = derived_type_save::dim;
         mpi::communicator world;
 
+        auto rank = static_cast<std::size_t>(world.rank());
+        auto size = static_cast<std::size_t>(world.size());
+
         std::tie(local_coords, local_connectivity) = extract_coords_and_connectivity(submesh);
 
-        xt::xtensor<std::size_t, 1> connectivity_sizes = xt::empty<std::size_t>({world.size()});
+        xt::xtensor<std::size_t, 1> connectivity_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, local_connectivity.shape(0), connectivity_sizes.begin());
-        xt::xtensor<std::size_t, 1> coords_sizes = xt::empty<std::size_t>({world.size()});
+        xt::xtensor<std::size_t, 1> coords_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, local_coords.shape(0), coords_sizes.begin());
 
-        std::vector<std::size_t> connectivity_cumsum(static_cast<std::size_t>(world.size() + 1), 0);
-        std::vector<std::size_t> coords_cumsum(static_cast<std::size_t>(world.size() + 1), 0);
-        for (std::size_t i = 0; i < static_cast<std::size_t>(world.size()); ++i)
+        std::vector<std::size_t> connectivity_cumsum(size + 1, 0);
+        std::vector<std::size_t> coords_cumsum(size + 1, 0);
+        for (std::size_t i = 0; i < size; ++i)
         {
             connectivity_cumsum[i + 1] += connectivity_cumsum[i] + connectivity_sizes[i];
         }
 
-        for (std::size_t i = 0; i < static_cast<std::size_t>(world.size()); ++i)
+        for (std::size_t i = 0; i < size; ++i)
         {
             coords_cumsum[i + 1] += coords_cumsum[i] + coords_sizes[i];
         }
 
         if (coords_cumsum.back() != 0)
         {
-            std::size_t connectivity_dataset_size = (world.size() == 1) ? connectivity_sizes.back() : connectivity_sizes[world.rank()];
-            std::size_t coords_dataset_size       = (world.size() == 1) ? coords_cumsum.back() : coords_sizes[world.rank()];
+            std::size_t connectivity_dataset_size = (size == 1) ? connectivity_sizes.back() : connectivity_sizes[rank];
+            std::size_t coords_dataset_size       = (size == 1) ? coords_cumsum.back() : coords_sizes[rank];
 
             auto xfer_props = HighFive::DataTransferProps{};
             xfer_props.add(HighFive::UseCollectiveIO{});
 
-            if (world.size() == 1)
+            if (size == 1)
             {
                 auto connectivity = h5_file.createDataSet<std::size_t>(
                     prefix + "/connectivity",
@@ -566,18 +569,16 @@ namespace samurai
                 auto coords = h5_file.createDataSet<double>(prefix + "/points",
                                                             HighFive::DataSpace(std::vector<std::size_t>{coords_dataset_size, 3}));
 
-                auto connectivity_slice = connectivity.select({connectivity_cumsum[static_cast<std::size_t>(world.rank())], 0},
-                                                              {connectivity_sizes[static_cast<std::size_t>(world.rank())], 1 << dim});
-                local_connectivity += coords_cumsum[static_cast<std::size_t>(world.rank())];
+                auto connectivity_slice = connectivity.select({connectivity_cumsum[rank], 0}, {connectivity_sizes[rank], 1 << dim});
+                local_connectivity += coords_cumsum[rank];
                 connectivity_slice.write_raw(local_connectivity.data(), HighFive::AtomicType<std::size_t>{}, xfer_props);
 
-                auto coords_slice = coords.select({coords_cumsum[static_cast<std::size_t>(world.rank())], 0},
-                                                  {coords_sizes[static_cast<std::size_t>(world.rank())], 3});
+                auto coords_slice = coords.select({coords_cumsum[rank], 0}, {coords_sizes[rank], 3});
                 coords_slice.write_raw(local_coords.data(), HighFive::AtomicType<double>{}, xfer_props);
             }
             else
             {
-                for (std::size_t r = 0; r < world.size(); ++r)
+                for (std::size_t r = 0; r < size; ++r)
                 {
                     if (coords_sizes[r] != 0)
                     {
@@ -585,11 +586,11 @@ namespace samurai
                             prefix + fmt::format("/rank_{}/connectivity", r),
                             HighFive::DataSpace(std::vector<std::size_t>{connectivity_sizes[r], 1 << dim}));
                         std::vector<std::size_t> conn_size(2, 0);
-                        if (world.rank() == r && connectivity_sizes[r] != 0)
+                        if (rank == r && connectivity_sizes[r] != 0)
                         {
                             conn_size = {connectivity_sizes[r], 1 << dim};
                         }
-                        std::size_t* conn_ptr = (world.rank() == r && connectivity_sizes[r] != 0) ? local_connectivity.data() : nullptr;
+                        std::size_t* conn_ptr = (rank == r && connectivity_sizes[r] != 0) ? local_connectivity.data() : nullptr;
 
                         auto connectivity_slice = connectivity.select({0, 0}, conn_size);
                         connectivity_slice.write_raw(conn_ptr, HighFive::AtomicType<std::size_t>{}, xfer_props);
@@ -599,7 +600,7 @@ namespace samurai
 
                         std::vector<std::size_t> coord_size(2, 0);
                         double* coord_ptr = nullptr;
-                        if (world.rank() == r && coords_sizes[r] != 0)
+                        if (rank == r && coords_sizes[r] != 0)
                         {
                             coord_size = {coords_sizes[r], 3};
                             coord_ptr  = local_coords.data();
@@ -611,9 +612,9 @@ namespace samurai
             }
 
             auto grid = grid_parent.append_child("Grid");
-            if (world.rank() == 0)
+            if (rank == 0)
             {
-                if (world.size() == 1)
+                if (size == 1)
                 {
                     grid.append_attribute("Name") = mesh_name.data();
 
@@ -638,30 +639,30 @@ namespace samurai
                 {
                     grid.append_attribute("GridType")       = "Collection";
                     grid.append_attribute("CollectionType") = "Spatial";
-                    for (std::size_t rank = 0; rank < world.size(); ++rank)
+                    for (std::size_t irank = 0; irank < size; ++irank)
                     {
-                        if (coords_sizes[rank] != 0)
+                        if (coords_sizes[irank] != 0)
                         {
                             auto subgrid                     = grid.append_child("Grid");
-                            subgrid.append_attribute("Name") = fmt::format("{}_rank_{}", mesh_name, rank).data();
-                            subgrid.append_attribute("Rank") = rank;
+                            subgrid.append_attribute("Name") = fmt::format("{}_rank_{}", mesh_name, irank).data();
+                            subgrid.append_attribute("Rank") = irank;
 
                             auto topo                                 = subgrid.append_child("Topology");
                             topo.append_attribute("TopologyType")     = element_type(derived_type_save::dim).c_str();
-                            topo.append_attribute("NumberOfElements") = connectivity_sizes[rank];
+                            topo.append_attribute("NumberOfElements") = connectivity_sizes[irank];
 
                             auto topo_data                           = topo.append_child("DataItem");
-                            topo_data.append_attribute("Dimensions") = connectivity_sizes[rank] * (1 << dim);
+                            topo_data.append_attribute("Dimensions") = connectivity_sizes[irank] * (1 << dim);
                             topo_data.append_attribute("Format")     = "HDF";
-                            topo_data.text() = fmt::format("{}.h5:{}/rank_{}/connectivity", m_filename, prefix, rank).data();
+                            topo_data.text() = fmt::format("{}.h5:{}/rank_{}/connectivity", m_filename, prefix, irank).data();
 
                             auto geom                             = subgrid.append_child("Geometry");
                             geom.append_attribute("GeometryType") = "XYZ";
 
                             auto geom_data                           = geom.append_child("DataItem");
-                            geom_data.append_attribute("Dimensions") = coords_sizes[rank] * 3;
+                            geom_data.append_attribute("Dimensions") = coords_sizes[irank] * 3;
                             geom_data.append_attribute("Format")     = "HDF";
-                            geom_data.text() = fmt::format("{}.h5:{}/rank_{}/points", m_filename, prefix, rank).data();
+                            geom_data.text() = fmt::format("{}.h5:{}/rank_{}/points", m_filename, prefix, irank).data();
                         }
                     }
                 }
@@ -676,14 +677,18 @@ namespace samurai
     inline void Hdf5<D>::save_field(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, const Field& field)
     {
         mpi::communicator world;
+
+        auto rank = static_cast<std::size_t>(world.rank());
+        auto size = static_cast<std::size_t>(world.size());
+
         auto xfer_props = HighFive::DataTransferProps{};
         xfer_props.add(HighFive::UseCollectiveIO{});
 
-        xt::xtensor<std::size_t, 1> field_sizes = xt::empty<std::size_t>({world.size()});
+        xt::xtensor<std::size_t, 1> field_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, submesh.nb_cells(), field_sizes.begin());
 
-        std::vector<std::size_t> field_cumsum(static_cast<std::size_t>(world.size() + 1), 0);
-        for (std::size_t i = 0; i < static_cast<std::size_t>(world.size()); ++i)
+        std::vector<std::size_t> field_cumsum(size + 1, 0);
+        for (std::size_t i = 0; i < size; ++i)
         {
             field_cumsum[i + 1] += field_cumsum[i] + field_sizes[i];
         }
@@ -700,7 +705,7 @@ namespace samurai
                 field_name = fmt::format("{}_{}", field.name(), i);
             }
 
-            if (world.size() == 1)
+            if (size == 1)
             {
                 auto local_data  = extract_data(field, submesh);
                 std::string path = fmt::format("{}/fields/{}", prefix, field_name);
@@ -709,8 +714,7 @@ namespace samurai
                     path,
                     HighFive::DataSpace(std::vector<std::size_t>{field_cumsum.back()}));
 
-                auto data_slice = data.select({field_cumsum[static_cast<std::size_t>(world.rank())]},
-                                              {field_sizes[static_cast<std::size_t>(world.rank())]});
+                auto data_slice = data.select({field_cumsum[rank]}, {field_sizes[rank]});
                 data_slice.write_raw(xt::eval(xt::view(local_data, xt::all(), i)).data(),
                                      HighFive::AtomicType<typename Field::value_type>{},
                                      xfer_props);
@@ -728,41 +732,41 @@ namespace samurai
             {
                 auto local_data = extract_data(field, submesh);
                 xt::xtensor<typename Field::value_type, 1> data_tmp;
-                for (std::size_t rank = 0; rank < world.size(); ++rank)
+                for (std::size_t irank = 0; irank < size; ++irank)
                 {
-                    if (field_sizes[rank] != 0)
+                    if (field_sizes[irank] != 0)
                     {
-                        std::string path = fmt::format("{}/rank_{}/fields/{}", prefix, rank, field_name);
+                        std::string path = fmt::format("{}/rank_{}/fields/{}", prefix, irank, field_name);
                         auto data        = h5_file.createDataSet<typename Field::value_type>(
                             path,
-                            HighFive::DataSpace(std::vector<std::size_t>{field_sizes[rank]}));
+                            HighFive::DataSpace(std::vector<std::size_t>{field_sizes[irank]}));
 
                         std::vector<std::size_t> data_size(1, 0);
                         typename Field::value_type* data_ptr = nullptr;
 
-                        if (world.rank() == rank)
+                        if (rank == irank)
                         {
                             data_tmp     = xt::eval(xt::view(local_data, xt::all(), i));
                             data_ptr     = data_tmp.data();
-                            data_size[0] = field_sizes[rank];
+                            data_size[0] = field_sizes[irank];
                         }
                         auto data_slice = data.select({0}, data_size);
                         data_slice.write_raw(data_ptr, HighFive::AtomicType<typename Field::value_type>{}, xfer_props);
                     }
                 }
-                if (world.rank() == 0)
+                if (rank == 0)
                 {
                     for (pugi::xml_node subgrid : grid.children("Grid"))
                     {
-                        std::size_t rank = subgrid.attribute("Rank").as_uint();
-                        std::string path = fmt::format("{}/rank_{}/fields/{}", prefix, rank, field_name);
+                        std::size_t irank = subgrid.attribute("Rank").as_uint();
+                        std::string path  = fmt::format("{}/rank_{}/fields/{}", prefix, irank, field_name);
 
                         auto attribute                       = subgrid.append_child("Attribute");
                         attribute.append_attribute("Name")   = field_name.data();
                         attribute.append_attribute("Center") = "Cell";
 
                         auto dataitem                           = attribute.append_child("DataItem");
-                        dataitem.append_attribute("Dimensions") = field_sizes[rank];
+                        dataitem.append_attribute("Dimensions") = field_sizes[irank];
                         dataitem.append_attribute("Format")     = "HDF";
                         dataitem.text()                         = fmt::format("{}.h5:{}", m_filename, path).data();
                     }
