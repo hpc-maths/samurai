@@ -808,7 +808,7 @@ namespace samurai
                             MatSetValue(A, ghost_index, ghost_index, scaling, INSERT_VALUES);
 
                             auto ii      = ghost.indices(0);
-                            auto ig      = ii / 2;
+                            auto ig      = ii >> 1;
                             double isign = (ii & 1) ? -1 : 1;
 
                             auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
@@ -841,7 +841,7 @@ namespace samurai
                 std::vector<cell_coeff_pair_t> linear_comb;
 
                 auto ii      = ghost.indices(0);
-                auto ig      = ii / 2;
+                auto ig      = ii >> 1;
                 double isign = (ii & 1) ? -1 : 1;
 
                 auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
@@ -875,9 +875,9 @@ namespace samurai
                             MatSetValue(A, ghost_index, ghost_index, scaling, INSERT_VALUES);
 
                             auto ii      = ghost.indices(0);
-                            auto ig      = ii / 2;
+                            auto ig      = ii >> 1;
                             auto j       = ghost.indices(1);
-                            auto jg      = j / 2;
+                            auto jg      = j >> 1;
                             double isign = (ii & 1) ? -1 : 1;
                             double jsign = (j & 1) ? -1 : 1;
 
@@ -917,9 +917,9 @@ namespace samurai
                 std::vector<cell_coeff_pair_t> linear_comb;
 
                 auto ii      = ghost.indices(0);
-                auto ig      = ii / 2;
+                auto ig      = ii >> 1;
                 auto j       = ghost.indices(1);
-                auto jg      = j / 2;
+                auto jg      = j >> 1;
                 double isign = (ii & 1) ? -1 : 1;
                 double jsign = (j & 1) ? -1 : 1;
 
@@ -960,11 +960,11 @@ namespace samurai
                             MatSetValue(A, ghost_index, ghost_index, scaling, INSERT_VALUES);
 
                             auto ii      = ghost.indices(0);
-                            auto ig      = ii / 2;
+                            auto ig      = ii >> 1;
                             auto j       = ghost.indices(1);
-                            auto jg      = j / 2;
+                            auto jg      = j >> 1;
                             auto k       = ghost.indices(2);
-                            auto kg      = k / 2;
+                            auto kg      = k >> 1;
                             double isign = (ii & 1) ? -1 : 1;
                             double jsign = (j & 1) ? -1 : 1;
                             double ksign = (k & 1) ? -1 : 1;
@@ -1010,11 +1010,11 @@ namespace samurai
                 std::vector<cell_coeff_pair_t> linear_comb;
 
                 auto ii      = ghost.indices(0);
-                auto ig      = ii / 2;
+                auto ig      = ii >> 1;
                 auto j       = ghost.indices(1);
-                auto jg      = j / 2;
+                auto jg      = j >> 1;
                 auto k       = ghost.indices(2);
-                auto kg      = k / 2;
+                auto kg      = k >> 1;
                 double isign = (ii & 1) ? -1 : 1;
                 double jsign = (j & 1) ? -1 : 1;
                 double ksign = (k & 1) ? -1 : 1;

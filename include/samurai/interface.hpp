@@ -81,7 +81,7 @@ namespace samurai
                             fine_intersect,
                             [&](auto fine_mesh_interval)
                             {
-                                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i / 2, fine_mesh_interval.index / 2);
+                                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i >> 1, fine_mesh_interval.index >> 1);
 
                                 comput_stencil_it.init(fine_mesh_interval);
                                 coarse_it.init(coarse_mesh_interval);
@@ -111,7 +111,7 @@ namespace samurai
                             fine_intersect,
                             [&](auto fine_mesh_interval)
                             {
-                                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i / 2, fine_mesh_interval.index / 2);
+                                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i >> 1, fine_mesh_interval.index >> 1);
 
                                 minus_comput_stencil_it.init(fine_mesh_interval);
                                 coarse_it.init(coarse_mesh_interval);
@@ -222,7 +222,7 @@ namespace samurai
                             fine_intersect,
                             [&](auto fine_mesh_interval)
                             {
-                                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i / 2, fine_mesh_interval.index / 2);
+                                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i >> 1, fine_mesh_interval.index >> 1);
 
                                 comput_stencil_it.init(fine_mesh_interval);
                                 coarse_it.init(coarse_mesh_interval);
@@ -255,7 +255,7 @@ namespace samurai
                             fine_intersect,
                             [&](auto fine_mesh_interval)
                             {
-                                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i / 2, fine_mesh_interval.index / 2);
+                                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i >> 1, fine_mesh_interval.index >> 1);
 
                                 minus_comput_stencil_it.init(fine_mesh_interval);
                                 coarse_it.init(coarse_mesh_interval);
