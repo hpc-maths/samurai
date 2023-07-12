@@ -102,7 +102,7 @@ namespace samurai
                      */
 
                     // How the flux is computed in this direction: here, Grad.n = (uR-uL)/h
-                    coeffs.flux = normal_grad_order2<Field>(direction);
+                    coeffs.flux = normal_grad_order1<Field>(direction);
                     // Coefficients of the scheme for the left cell, in function of the flux
                     coeffs.get_left_cell_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                     {

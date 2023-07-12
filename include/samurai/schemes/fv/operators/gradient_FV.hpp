@@ -89,7 +89,7 @@ namespace samurai
 
                     auto& coeffs                   = coeffs_by_fluxes[d];
                     DirectionVector<dim> direction = xt::view(directions, d);
-                    coeffs.flux                    = normal_grad_order2<Field>(direction);
+                    coeffs.flux                    = normal_grad_order1<Field>(direction);
                     coeffs.get_left_cell_coeffs    = half_flux_in_direction<d>;
                     coeffs.get_right_cell_coeffs   = half_flux_in_direction<d>;
                 });
