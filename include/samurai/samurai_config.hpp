@@ -40,10 +40,13 @@ namespace samurai
     template <class Field>
     struct Flat;
 
+    template <class Field>
+    struct LinearExtrapolation;
+
     struct bc_types
     {
         template <class Field>
-        using types = xtl::mpl::vector<Dirichlet<Field>, Neumann<Field>, Flat<Field>>;
+        using types = xtl::mpl::vector<Dirichlet<Field>, Neumann<Field>, Flat<Field>, LinearExtrapolation<Field>>;
     };
 
 #ifndef BC_TYPES

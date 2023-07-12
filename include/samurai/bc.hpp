@@ -789,6 +789,19 @@ namespace samurai
         }
     };
 
+    template <class Field>
+    struct LinearExtrapolation : public Bc<Field>
+    {
+        using base_t = Bc<Field>;
+        using Bc<Field>::Bc;
+
+        std::unique_ptr<base_t> clone() const override
+        {
+            return std::make_unique<LinearExtrapolation>(*this);
+        }
+    };
+
+    template <class Field>
     void apply_bc_impl(Dirichlet<Field>& bc, std::size_t level, Field& field)
     {
         static constexpr std::size_t dim = Field::dim;
@@ -1045,6 +1058,105 @@ namespace samurai
                                                                   i - (ig + 1) * direction[d][0],
                                                                   j - (ig + 1) * direction[d][1],
                                                                   k - (ig + 1) * direction[d][2]);
+                                }
+                            }
+                        });
+                }
+            }
+        }
+    }
+
+    template <class Field>
+    void apply_bc_impl(LinearExtrapolation<Field>& bc, std::size_t level, Field& field)
+    {
+        static constexpr std::size_t dim = Field::dim;
+        constexpr int ghost_width        = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
+                                             static_cast<int>(Field::mesh_t::config::prediction_order));
+
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh      = field.mesh()[mesh_id_t::reference];
+
+        auto region     = bc.get_region();
+        auto& direction = region.first;
+        auto& lca       = region.second;
+        for (std::size_t d = 0; d < direction.size(); ++d)
+        {
+            bool is_periodic = false;
+            for (std::size_t i = 0; i < dim; ++i)
+            {
+                if (direction[d](i) != 0 && field.mesh().is_periodic(i))
+                {
+                    is_periodic = true;
+                    break;
+                }
+            }
+            if (!is_periodic)
+            {
+                std::size_t delta_l = lca[d].level() - level;
+                for (int ig = 0; ig < ghost_width; ++ig)
+                {
+                    auto first_layer_ghosts = intersection(intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))),
+                                                           translate(mesh[level], (2 * ig + 1) * direction[d]))
+                                                  .on(level);
+                    first_layer_ghosts(
+                        [&](const auto& i, const auto& index)
+                        {
+                            const double dx = 1. / (1 << level);
+                            if (bc.get_value_type() == BCVType::constant)
+                            {
+                                if constexpr (dim == 1)
+                                {
+                                    field(level, i) = (ig+2) * field(level, i - (ig + 1) * direction[d][0]) 
+                                                    - (ig+1) * field(level, i - (ig + 2) * direction[d][0]);
+                                }
+                                else if constexpr (dim == 2)
+                                {
+                                    auto j             = index[0];
+                                    field(level, i, j) = (ig+2) * field(level, i - (ig + 1) * direction[d][0], j - (ig + 1) * direction[d][1])
+                                                       - (ig+1) * field(level, i - (ig + 2) * direction[d][0], j - (ig + 2) * direction[d][1]);
+                                }
+                                else if constexpr (dim == 3)
+                                {
+                                    auto j                = index[0];
+                                    auto k                = index[1];
+                                    field(level, i, j, k) = (ig+2) * field(level,
+                                                                           i - (ig + 1) * direction[d][0],
+                                                                           j - (ig + 1) * direction[d][1],
+                                                                           k - (ig + 1) * direction[d][2])
+                                                          - (ig+1) * field(level,
+                                                                           i - (ig + 2) * direction[d][0],
+                                                                           j - (ig + 2) * direction[d][1],
+                                                                           k - (ig + 2) * direction[d][2]);
+                                }
+                            }
+                            else if (bc.get_value_type() == BCVType::function)
+                            {
+                                bc.update_values(direction[d], level, i, index);
+
+                                if constexpr (dim == 1)
+                                {
+                                    field(level, i) = (ig+2) * field(level, i - (ig + 1) * direction[d][0])
+                                                    - (ig+1) * field(level, i - (ig + 2) * direction[d][0]);
+                                }
+                                else if constexpr (dim == 2)
+                                {
+                                    std::cout << "linear 2 func" << std::endl;
+                                    auto j             = index[0];
+                                    field(level, i, j) = (ig+2) * field(level, i - (ig + 1) * direction[d][0], j - (ig + 1) * direction[d][1])
+                                                       - (ig+1) * field(level, i - (ig + 2) * direction[d][0], j - (ig + 2) * direction[d][1]);
+                                }
+                                else if constexpr (dim == 3)
+                                {
+                                    auto j                = index[0];
+                                    auto k                = index[1];
+                                    field(level, i, j, k) = (ig+2) * field(level,
+                                                                           i - (ig + 1) * direction[d][0],
+                                                                           j - (ig + 1) * direction[d][1],
+                                                                           k - (ig + 1) * direction[d][2])
+                                                          - (ig+1) * field(level,
+                                                                           i - (ig + 2) * direction[d][0],
+                                                                           j - (ig + 2) * direction[d][1],
+                                                                           k - (ig + 2) * direction[d][2]);
                                 }
                             }
                         });
