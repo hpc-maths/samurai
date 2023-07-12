@@ -1106,27 +1106,31 @@ namespace samurai
                             {
                                 if constexpr (dim == 1)
                                 {
-                                    field(level, i) = (ig+2) * field(level, i - (ig + 1) * direction[d][0]) 
-                                                    - (ig+1) * field(level, i - (ig + 2) * direction[d][0]);
+                                    field(level, i) = (ig + 2) * field(level, i - (ig + 1) * direction[d][0])
+                                                    - (ig + 1) * field(level, i - (ig + 2) * direction[d][0]);
                                 }
                                 else if constexpr (dim == 2)
                                 {
-                                    auto j             = index[0];
-                                    field(level, i, j) = (ig+2) * field(level, i - (ig + 1) * direction[d][0], j - (ig + 1) * direction[d][1])
-                                                       - (ig+1) * field(level, i - (ig + 2) * direction[d][0], j - (ig + 2) * direction[d][1]);
+                                    auto j   = index[0];
+                                    field(level,
+                                          i,
+                                          j) = (ig + 2) * field(level, i - (ig + 1) * direction[d][0], j - (ig + 1) * direction[d][1])
+                                             - (ig + 1) * field(level, i - (ig + 2) * direction[d][0], j - (ig + 2) * direction[d][1]);
                                 }
                                 else if constexpr (dim == 3)
                                 {
                                     auto j                = index[0];
                                     auto k                = index[1];
-                                    field(level, i, j, k) = (ig+2) * field(level,
-                                                                           i - (ig + 1) * direction[d][0],
-                                                                           j - (ig + 1) * direction[d][1],
-                                                                           k - (ig + 1) * direction[d][2])
-                                                          - (ig+1) * field(level,
-                                                                           i - (ig + 2) * direction[d][0],
-                                                                           j - (ig + 2) * direction[d][1],
-                                                                           k - (ig + 2) * direction[d][2]);
+                                    field(level, i, j, k) = (ig + 2)
+                                                              * field(level,
+                                                                      i - (ig + 1) * direction[d][0],
+                                                                      j - (ig + 1) * direction[d][1],
+                                                                      k - (ig + 1) * direction[d][2])
+                                                          - (ig + 1)
+                                                                * field(level,
+                                                                        i - (ig + 2) * direction[d][0],
+                                                                        j - (ig + 2) * direction[d][1],
+                                                                        k - (ig + 2) * direction[d][2]);
                                 }
                             }
                             else if (bc.get_value_type() == BCVType::function)
@@ -1135,28 +1139,31 @@ namespace samurai
 
                                 if constexpr (dim == 1)
                                 {
-                                    field(level, i) = (ig+2) * field(level, i - (ig + 1) * direction[d][0])
-                                                    - (ig+1) * field(level, i - (ig + 2) * direction[d][0]);
+                                    field(level, i) = (ig + 2) * field(level, i - (ig + 1) * direction[d][0])
+                                                    - (ig + 1) * field(level, i - (ig + 2) * direction[d][0]);
                                 }
                                 else if constexpr (dim == 2)
                                 {
-                                    std::cout << "linear 2 func" << std::endl;
-                                    auto j             = index[0];
-                                    field(level, i, j) = (ig+2) * field(level, i - (ig + 1) * direction[d][0], j - (ig + 1) * direction[d][1])
-                                                       - (ig+1) * field(level, i - (ig + 2) * direction[d][0], j - (ig + 2) * direction[d][1]);
+                                    auto j   = index[0];
+                                    field(level,
+                                          i,
+                                          j) = (ig + 2) * field(level, i - (ig + 1) * direction[d][0], j - (ig + 1) * direction[d][1])
+                                             - (ig + 1) * field(level, i - (ig + 2) * direction[d][0], j - (ig + 2) * direction[d][1]);
                                 }
                                 else if constexpr (dim == 3)
                                 {
                                     auto j                = index[0];
                                     auto k                = index[1];
-                                    field(level, i, j, k) = (ig+2) * field(level,
-                                                                           i - (ig + 1) * direction[d][0],
-                                                                           j - (ig + 1) * direction[d][1],
-                                                                           k - (ig + 1) * direction[d][2])
-                                                          - (ig+1) * field(level,
-                                                                           i - (ig + 2) * direction[d][0],
-                                                                           j - (ig + 2) * direction[d][1],
-                                                                           k - (ig + 2) * direction[d][2]);
+                                    field(level, i, j, k) = (ig + 2)
+                                                              * field(level,
+                                                                      i - (ig + 1) * direction[d][0],
+                                                                      j - (ig + 1) * direction[d][1],
+                                                                      k - (ig + 1) * direction[d][2])
+                                                          - (ig + 1)
+                                                                * field(level,
+                                                                        i - (ig + 2) * direction[d][0],
+                                                                        j - (ig + 2) * direction[d][1],
+                                                                        k - (ig + 2) * direction[d][2]);
                                 }
                             }
                         });
