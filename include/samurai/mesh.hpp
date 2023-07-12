@@ -108,6 +108,7 @@ namespace samurai
         index_t get_index(std::size_t level, value_t i, T... index) const;
         index_t get_index(std::size_t level, value_t i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& others) const;
         index_t get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
+        void update_mesh_neighbour();
 
         template <typename... T>
         cell_t get_cell(std::size_t level, value_t i, T... index) const;
@@ -125,12 +126,12 @@ namespace samurai
                   std::size_t min_level,
                   std::size_t max_level,
                   const lca_type& domain,
-                  const std::vector<int>& neighbouring_ranks);
+                  const std::vector<mpi_subdomain_t>& mpi_neighbourhood);
         Mesh_base(const cl_type& cl,
                   std::size_t min_level,
                   std::size_t max_level,
                   const lca_type& domain,
-                  const std::vector<int>& neighbouring_ranks,
+                  const std::vector<mpi_subdomain_t>& mpi_neighbourhood,
                   const std::array<bool, dim>& periodic);
         Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b,
@@ -219,17 +220,7 @@ namespace samurai
         construct_union();
         update_sub_mesh();
         renumbering();
-
-        // send/recv the meshes of the neighbouring subdomains
-        mpi::communicator world;
-        for (auto& neighbour : m_mpi_neighbourhood)
-        {
-            world.isend(neighbour.rank, neighbour.rank, derived_cast());
-        }
-        for (auto& neighbour : m_mpi_neighbourhood)
-        {
-            world.recv(neighbour.rank, world.rank(), neighbour.mesh);
-        }
+        update_mesh_neighbour();
     }
 
     template <class D, class Config>
@@ -258,11 +249,11 @@ namespace samurai
                                            std::size_t min_level,
                                            std::size_t max_level,
                                            const lca_type& domain,
-                                           const std::vector<int>& neighbouring_ranks)
+                                           const std::vector<mpi_subdomain_t>& mpi_neighbourhood)
         : m_domain(domain)
         , m_min_level{min_level}
         , m_max_level{max_level}
-        , m_neighbouring_ranks(neighbouring_ranks)
+        , m_mpi_neighbourhood(mpi_neighbourhood)
 
     {
         assert(min_level <= max_level);
@@ -281,13 +272,13 @@ namespace samurai
                                            std::size_t min_level,
                                            std::size_t max_level,
                                            const lca_type& domain,
-                                           const std::vector<int>& neighbouring_ranks,
+                                           const std::vector<mpi_subdomain_t>& mpi_neighbourhood,
                                            const std::array<bool, dim>& periodic)
         : m_domain(domain)
         , m_min_level{min_level}
         , m_max_level{max_level}
         , m_periodic{periodic}
-        , m_neighbouring_ranks(neighbouring_ranks)
+        , m_mpi_neighbourhood(mpi_neighbourhood)
     {
         assert(min_level <= max_level);
         m_cells[mesh_id_t::cells] = {cl, false};
@@ -440,9 +431,15 @@ namespace samurai
     template <class D, class Config>
     inline void Mesh_base<D, Config>::swap(Mesh_base<D, Config>& mesh) noexcept
     {
+        mpi::communicator world;
         using std::swap;
         swap(m_cells, mesh.m_cells);
         swap(m_domain, mesh.m_domain);
+        swap(m_subdomain, mesh.m_subdomain);
+        if (world.size() != 1)
+        {
+            swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
+        }
         swap(m_union, mesh.m_union);
         swap(m_max_level, mesh.m_max_level);
         swap(m_min_level, mesh.m_min_level);
@@ -479,6 +476,24 @@ namespace samurai
                 }
             }
         }
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_mesh_neighbour()
+    {
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            req.push_back(world.isend(neighbour.rank, neighbour.rank, derived_cast()));
+        }
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh);
+        }
+        mpi::wait_all(req.begin(), req.end());
     }
 
     template <class D, class Config>

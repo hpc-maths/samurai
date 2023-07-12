@@ -34,7 +34,7 @@ namespace samurai
         }
 
         update_bc(0, field, fields...);
-        for (std::size_t level = 1; level <= max_level; ++level)
+        for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
         {
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level);
             set_at_level.apply_op(variadic_prediction<pred_order, false>(field, fields...));
@@ -58,7 +58,7 @@ namespace samurai
         }
 
         update_bc(0, field);
-        for (std::size_t level = 1; level <= max_level; ++level)
+        for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
         {
             // We eliminate the overleaves from the computation since they
             // are done separately
@@ -87,29 +87,37 @@ namespace samurai
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
-        auto& mesh            = field.mesh();
-        std::size_t max_level = mesh.max_level();
+        mpi::communicator world;
 
-        for (std::size_t level = max_level; level >= 1; --level)
+        auto& mesh = field.mesh();
+
+        auto min_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].min_level(), mpi::minimum<std::size_t>());
+        auto max_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].max_level(), mpi::maximum<std::size_t>());
+
+        for (std::size_t level = max_level - 1; level >= min_level; --level)
         {
-            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
+            update_ghost_subdomains(level + 1, field, other_fields...);
+
+            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level + 1], mesh[mesh_id_t::proj_cells][level]).on(level);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
         }
+        update_ghost_subdomains(field);
 
-        update_bc(0, field, other_fields...);
-        update_ghost_periodic(0, field, other_fields...);
-        update_ghost_subdomains(0, field, other_fields...);
-        for (std::size_t level = 1; level <= max_level; ++level)
+        update_bc(min_level, field, other_fields...);
+        update_ghost_periodic(min_level, field, other_fields...);
+
+        for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
             auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
                                                 union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
-                                     mesh.subdomain())
+                                     mesh.domain(),
+                                     mesh[mesh_id_t::all_cells][level - 1])
                             .on(level);
 
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
-            update_bc(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
+            update_bc(level, field, other_fields...);
         }
     }
 
@@ -141,66 +149,48 @@ namespace samurai
         using mesh_t    = typename Field::mesh_t;
         using value_t   = typename Field::value_type;
         using mesh_id_t = typename mesh_t::mesh_id_t;
+        std::vector<mpi::request> req;
 
         auto& mesh = field.mesh();
         mpi::communicator world;
-        std::vector<mpi::request> req;
+        std::vector<std::vector<value_t>> to_send(mesh.mpi_neighbourhood().size());
 
-        std::vector<mesh_t> neighbour_meshes(mesh.neighbouring_ranks().size());
-
-        for (int neighbour_rank : mesh.neighbouring_ranks())
+        std::size_t i_neigh = 0;
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            req.push_back(world.isend(neighbour_rank, neighbour_rank, mesh));
-        }
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-
-            world.recv(neighbour_rank, world.rank(), neighbour_meshes[i_rank]);
-        }
-
-        mpi::wait_all(req.begin(), req.end());
-        req.clear();
-
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            std::vector<value_t> to_send;
-            // for (std::size_t level = min_level; level <= max_level; ++level)
+            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
                 auto out_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                  neighbour_meshes[i_rank][mesh_id_t::reference][level],
+                                                  neighbour.mesh[mesh_id_t::reference][level],
                                                   mesh.subdomain())
                                          .on(level);
                 out_interface(
                     [&](const auto& i, const auto& index)
                     {
-                        std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send));
+                        std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
                     });
+
+                req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh++]));
             }
-            req.push_back(world.isend(neighbour_rank, neighbour_rank, to_send));
         }
 
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            std::vector<value_t> to_recv;
-            std::size_t count = 0;
-
-            world.recv(neighbour_rank, world.rank(), to_recv);
-            // for (std::size_t level = min_level; level <= max_level; ++level)
+            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
-                auto in_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                 neighbour_meshes[i_rank][mesh_id_t::reference][level],
-                                                 neighbour_meshes[i_rank].subdomain())
+                std::vector<value_t> to_recv;
+                std::size_t count = 0;
+
+                world.recv(neighbour.rank, world.rank(), to_recv);
+                auto in_interface = intersection(neighbour.mesh[mesh_id_t::reference][level],
+                                                 mesh[mesh_id_t::reference][level],
+                                                 neighbour.mesh.subdomain())
                                         .on(level);
                 in_interface(
                     [&](const auto& i, const auto& index)
                     {
-                        std::copy(to_recv.begin() + static_cast<std::ptrdiff_t>(count),
-                                  to_recv.begin() + static_cast<std::ptrdiff_t>(count + i.size() * field.size),
-                                  field(level, i, index).begin());
-                        count += i.size() * field.size;
+                        std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i, index).begin());
+                        count += i.size();
                     });
             }
         }
@@ -217,50 +207,18 @@ namespace samurai
     template <class Field>
     void update_ghost_subdomains(Field& field)
     {
-        // static constexpr std::size_t dim = Field::dim;
         using mesh_t    = typename Field::mesh_t;
-        using value_t   = typename Field::value_type;
         using mesh_id_t = typename mesh_t::mesh_id_t;
-        std::vector<mpi::request> req;
-
-        auto& mesh            = field.mesh();
-        std::size_t min_level = mesh.min_level();
-        std::size_t max_level = mesh.max_level();
         mpi::communicator world;
 
-        for (auto& neighbour : mesh.mpi_neighbourhood())
-        {
-            std::vector<value_t> to_send;
-            for (std::size_t level = min_level; level <= max_level; ++level)
-            {
-                auto out_interface = intersection(mesh[mesh_id_t::cells][level], neighbour.mesh[mesh_id_t::reference][level]);
-                out_interface(
-                    [&](const auto& i, const auto& index)
-                    {
-                        std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send));
-                    });
-            }
-            world.isend(neighbour.rank, neighbour.rank, to_send);
-        }
+        auto& mesh     = field.mesh();
+        auto min_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].min_level(), mpi::minimum<std::size_t>());
+        auto max_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].max_level(), mpi::maximum<std::size_t>());
 
-        for (auto& neighbour : mesh.mpi_neighbourhood())
+        for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            std::vector<value_t> to_recv;
-            std::size_t count = 0;
-
-            world.recv(neighbour.rank, world.rank(), to_recv);
-            for (std::size_t level = min_level; level <= max_level; ++level)
-            {
-                auto in_interface = intersection(mesh[mesh_id_t::reference][level], neighbour.mesh[mesh_id_t::cells][level]);
-                in_interface(
-                    [&](const auto& i, const auto& index)
-                    {
-                        std::copy(to_recv.begin() + count, to_recv.begin() + count + i.size(), field(level, i, index).begin());
-                        count += i.size();
-                    });
-            }
+            update_ghost_subdomains(level, field);
         }
-        mpi::wait_all(req.begin(), req.end());
     }
 
     template <class Field>
@@ -274,52 +232,38 @@ namespace samurai
 
         auto& mesh = tag.mesh();
         mpi::communicator world;
+        std::vector<std::vector<value_t>> to_send(mesh.mpi_neighbourhood().size());
 
-        std::vector<mesh_t> neighbour_meshes(mesh.neighbouring_ranks().size());
-        for (int neighbour_rank : mesh.neighbouring_ranks())
+        std::size_t i_neigh = 0;
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            req.push_back(world.isend(neighbour_rank, neighbour_rank, mesh));
-        }
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            world.recv(neighbour_rank, world.rank(), neighbour_meshes[i_rank]);
-        }
-
-        mpi::wait_all(req.begin(), req.end());
-        req.clear();
-
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            std::vector<value_t> to_send;
-            // for (std::size_t level = min_level; level <= max_level; ++level)
+            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
                 auto out_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                  neighbour_meshes[i_rank][mesh_id_t::reference][level],
+                                                  neighbour.mesh[mesh_id_t::reference][level],
                                                   mesh.subdomain())
                                          .on(level);
                 out_interface(
                     [&](const auto& i, const auto& index)
                     {
-                        std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(to_send));
+                        std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
                     });
+                req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh++]));
             }
-            req.push_back(world.isend(neighbour_rank, neighbour_rank, to_send));
         }
 
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            std::vector<value_t> to_recv;
-            std::size_t count = 0;
-
-            world.recv(neighbour_rank, world.rank(), to_recv);
-            // for (std::size_t level = min_level; level <= max_level; ++level)
+            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
+                std::vector<value_t> to_recv;
+                std::size_t count = 0;
+
+                world.recv(neighbour.rank, world.rank(), to_recv);
+
                 auto in_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                 neighbour_meshes[i_rank][mesh_id_t::reference][level],
-                                                 neighbour_meshes[i_rank].subdomain())
+                                                 neighbour.mesh[mesh_id_t::reference][level],
+                                                 neighbour.mesh.subdomain())
                                         .on(level);
                 in_interface(
                     [&](const auto& i, const auto& index)
@@ -335,36 +279,36 @@ namespace samurai
         }
         mpi::wait_all(req.begin(), req.end());
 
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
+        i_neigh = 0;
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            std::vector<value_t> to_send;
-            // for (std::size_t level = min_level; level <= max_level; ++level)
+            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
+                to_send[i_neigh].clear();
                 auto out_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                  neighbour_meshes[i_rank][mesh_id_t::reference][level],
-                                                  neighbour_meshes[i_rank].subdomain())
+                                                  neighbour.mesh[mesh_id_t::reference][level],
+                                                  neighbour.mesh.subdomain())
                                          .on(level);
                 out_interface(
                     [&](const auto& i, const auto& index)
                     {
-                        std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(to_send));
+                        std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
                     });
+                req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh++]));
             }
-            req.push_back(world.isend(neighbour_rank, neighbour_rank, to_send));
         }
 
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            std::vector<value_t> to_recv;
-            std::size_t count = 0;
-
-            world.recv(neighbour_rank, world.rank(), to_recv);
-            // for (std::size_t level = min_level; level <= max_level; ++level)
+            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
+                std::vector<value_t> to_recv;
+                std::size_t count = 0;
+
+                world.recv(neighbour.rank, world.rank(), to_recv);
+
                 auto in_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                 neighbour_meshes[i_rank][mesh_id_t::reference][level],
+                                                 neighbour.mesh[mesh_id_t::reference][level],
                                                  mesh.subdomain())
                                         .on(level);
                 in_interface(
@@ -387,7 +331,6 @@ namespace samurai
     {
         // static constexpr std::size_t dim = Field::dim;
         using mesh_t    = typename Field::mesh_t;
-        using value_t   = typename Field::value_type;
         using mesh_id_t = typename mesh_t::mesh_id_t;
         std::vector<mpi::request> req;
 
@@ -396,33 +339,18 @@ namespace samurai
         std::size_t max_level = mesh[mesh_id_t::cells].max_level();
         mpi::communicator world;
 
-        std::vector<mesh_t> neighbour_meshes(mesh.neighbouring_ranks().size());
-        for (int neighbour_rank : mesh.neighbouring_ranks())
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            req.push_back(world.isend(neighbour_rank, neighbour_rank, mesh));
-        }
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            world.recv(neighbour_rank, world.rank(), neighbour_meshes[i_rank]);
-        }
-
-        mpi::wait_all(req.begin(), req.end());
-        req.clear();
-
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            if (world.rank() > neighbour_rank)
+            if (world.rank() > neighbour.rank)
             {
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    auto out_interface = intersection(mesh[mesh_id_t::cells][level], neighbour_meshes[i_rank][mesh_id_t::cells][level]);
+                    auto out_interface = intersection(mesh[mesh_id_t::cells][level], neighbour.mesh[mesh_id_t::cells][level]);
                     out_interface(
                         [&](const auto& i, const auto& index)
                         {
                             // delete cell
-                            std::cout << fmt::format("fall intersection between {} {} in {} {}", world.rank(), neighbour_rank, i, index[0])
+                            std::cout << fmt::format("fall intersection between {} {} in {} {}", world.rank(), neighbour.rank, i, index[0])
                                       << std::endl;
                         });
                 }
@@ -435,7 +363,6 @@ namespace samurai
     {
         //  constexpr std::size_t dim = Field::dim;
         using mesh_t    = typename Field::mesh_t;
-        using value_t   = typename Field::value_type;
         using mesh_id_t = typename mesh_t::mesh_id_t;
         std::vector<mpi::request> req;
 
@@ -443,28 +370,13 @@ namespace samurai
         std::size_t max_level = mesh[mesh_id_t::cells].max_level();
         mpi::communicator world;
 
-        std::vector<mesh_t> neighbour_meshes(mesh.neighbouring_ranks().size());
-        for (int neighbour_rank : mesh.neighbouring_ranks())
+        for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            req.push_back(world.isend(neighbour_rank, neighbour_rank, mesh));
-        }
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            world.recv(neighbour_rank, world.rank(), neighbour_meshes[i_rank]);
-        }
-
-        mpi::wait_all(req.begin(), req.end());
-        req.clear();
-
-        for (std::size_t i_rank = 0; i_rank < mesh.neighbouring_ranks().size(); ++i_rank)
-        {
-            int neighbour_rank = mesh.neighbouring_ranks()[i_rank];
-            if (world.rank() > neighbour_rank)
+            if (world.rank() > neighbour.rank)
             {
-                for (std::size_t level = 1; level <= max_level; ++level)
+                for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
                 {
-                    auto out_interface = intersection(mesh[mesh_id_t::cells][level], neighbour_meshes[i_rank].subdomain()).on(level - 1);
+                    auto out_interface = intersection(mesh[mesh_id_t::cells][level], neighbour.mesh.subdomain()).on(level - 1);
                     out_interface(
                         [&](const auto& i, const auto& index)
                         {
@@ -884,7 +796,7 @@ namespace samurai
                                   {
                                       cl[level][index].add_point(i);
                                   }
-                                  else
+                                  else if (tag[itag] & static_cast<int>(CellFlag::coarsen))
                                   {
                                       if (level > mesh.min_level())
                                       {
@@ -967,13 +879,14 @@ namespace samurai
                               }
                           });
 
-        mesh_t new_mesh = {cl, mesh.min_level(), mesh.max_level(), mesh.domain(), mesh.neighbouring_ranks(), mesh.periodicity()};
+        mesh_t new_mesh = {cl, mesh.min_level(), mesh.max_level(), mesh.domain(), mesh.mpi_neighbourhood(), mesh.periodicity()};
 
         if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
         {
             return true;
         }
 
+        new_mesh.update_mesh_neighbour();
         detail::update_fields(new_mesh, other_fields...);
         detail::update_fields_with_old(new_mesh, old_field, field);
 

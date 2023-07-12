@@ -58,8 +58,8 @@ namespace samurai
     {
       public:
 
-        using base_type = samurai::Mesh_base<MRMesh<Config>, Config>;
-
+        using base_type                  = samurai::Mesh_base<MRMesh<Config>, Config>;
+        using mpi_subdomain_t            = typename base_type::mpi_subdomain_t;
         using config                     = typename base_type::config;
         static constexpr std::size_t dim = config::dim;
 
@@ -76,12 +76,12 @@ namespace samurai
                std::size_t min_level,
                std::size_t max_level,
                const lca_type& domain,
-               const std::vector<int>& neighbouring_ranks);
+               const std::vector<mpi_subdomain_t>& mpi_neighbourhood);
         MRMesh(const cl_type& cl,
                std::size_t min_level,
                std::size_t max_level,
                const lca_type& domain,
-               const std::vector<int>& neighbouring_ranks,
+               const std::vector<mpi_subdomain_t>& mpi_neighbourhood,
                const std::array<bool, dim>& periodic);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
@@ -97,8 +97,8 @@ namespace samurai
                                   std::size_t min_level,
                                   std::size_t max_level,
                                   const lca_type& domain,
-                                  const std::vector<int>& neighbouring_ranks)
-        : base_type(cl, min_level, max_level, domain, neighbouring_ranks)
+                                  const std::vector<mpi_subdomain_t>& mpi_neighbourhood)
+        : base_type(cl, min_level, max_level, domain, mpi_neighbourhood)
     {
     }
 
@@ -107,9 +107,9 @@ namespace samurai
                                   std::size_t min_level,
                                   std::size_t max_level,
                                   const lca_type& domain,
-                                  const std::vector<int>& neighbouring_ranks,
+                                  const std::vector<mpi_subdomain_t>& mpi_neighbourhood,
                                   const std::array<bool, dim>& periodic)
-        : base_type(cl, min_level, max_level, domain, neighbouring_ranks, periodic)
+        : base_type(cl, min_level, max_level, domain, mpi_neighbourhood, periodic)
     {
     }
 
@@ -377,6 +377,27 @@ namespace samurai
                         });
                 }
                 this->cells()[mesh_id_t::all_cells][level] = {lcl};
+            }
+        }
+
+        for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
+        {
+            if (!this->cells()[mesh_id_t::cells][level].empty())
+            {
+                auto expr = intersection(difference(this->cells()[mesh_id_t::all_cells][level], this->subdomain()), this->domain()).on(level - 1);
+
+                lcl_type& lcl = cell_list[level - 1];
+                expr(
+                    [&](const auto& interval, const auto& index_yz)
+                    {
+                        static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
+                            [&](auto stencil)
+                            {
+                                lcl[index_yz + stencil].add_interval(
+                                    {interval.start - config::ghost_width, interval.end + config::ghost_width});
+                            });
+                    });
+                this->cells()[mesh_id_t::all_cells][level - 1] = {lcl};
             }
         }
 

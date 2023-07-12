@@ -186,6 +186,7 @@ namespace samurai
         {
             // std::cout << "MR mesh adaptation " << i << std::endl;
             m_detail.resize();
+            m_detail.fill(0);
             m_tag.resize();
             m_tag.fill(0);
             if (harten(i, eps, regularity, old_fields, other_fields...))
@@ -243,12 +244,7 @@ namespace samurai
                                                           old_fields_t& old_fields,
                                                           Fields&... other_fields)
     {
-        mpi::communicator world;
-
         auto& mesh = m_field.mesh();
-
-        auto rank = make_field<int, 1>("rank", mesh);
-        rank.fill(world.rank());
 
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
@@ -260,8 +256,6 @@ namespace samurai
                       });
 
         update_ghost_mr(m_fields);
-
-        save(fmt::format("field_{}_{}", world.size(), ite), mesh, m_field, rank);
 
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
@@ -283,9 +277,8 @@ namespace samurai
                                            m_tag,
                                            (pow(2.0, regularity_to_use)) * eps_l,
                                            max_level)); // Refinement according to Harten
+            update_tag_subdomains(level, m_tag);
         }
-
-        save(fmt::format("tag_{}_0_{}", world.size(), ite), mesh, m_tag);
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
@@ -299,7 +292,6 @@ namespace samurai
             update_tag_subdomains(level, m_tag);
         }
 
-        save(fmt::format("tag_{}_1_{}", world.size(), ite), mesh, m_tag);
         // FIXME: this graduation doesn't make the same that the lines below:
         // why? graduation(m_tag,
         // stencil_graduation::call(samurai::Dim<dim>{}));
@@ -324,7 +316,6 @@ namespace samurai
             update_tag_periodic(level, m_tag);
             update_tag_subdomains(level, m_tag);
         }
-        save(fmt::format("tag_{}_2_{}", world.size(), ite), mesh, m_tag);
 
         // REFINEMENT GRADUATION
         for (std::size_t level = max_level; level > min_level; --level)
@@ -372,7 +363,6 @@ namespace samurai
                     m_tag(level, i, index) = static_cast<int>(CellFlag::keep);
                 });
         }
-        save(fmt::format("tag_{}_3_{}", world.size(), ite), mesh, m_tag);
 
         for (std::size_t level = max_level; level > 0; --level)
         {
@@ -384,6 +374,7 @@ namespace samurai
         }
 
         update_ghost_mr(other_fields...);
+        keep_only_one_coarse_tag(m_tag);
 
         if constexpr (keep_previous)
         {

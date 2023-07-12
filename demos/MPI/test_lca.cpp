@@ -5,6 +5,8 @@
 
 namespace fs = std::filesystem;
 
+#include "CLI/CLI.hpp"
+
 #include <samurai/algorithm/update.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/box.hpp>
@@ -51,17 +53,25 @@ auto init(Mesh& mesh)
     return u;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim       = 2;
-    constexpr std::size_t min_level = 2;
-    constexpr std::size_t max_level = 8;
+    constexpr std::size_t dim = 2;
+    std::size_t min_level     = 4;
+    std::size_t max_level     = 6;
 
     double a             = 1.;
     double Tf            = 1.;
     double cfl           = 0.45;
     double mr_epsilon    = 1e-4; // Threshold used by multiresolution
     double mr_regularity = 1.;   // Regularity guess for multiresolution
+
+    std::size_t nite = 0;
+    CLI::App app{};
+    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--nite", nite, "number of iterations");
+
+    CLI11_PARSE(app, argc, argv);
 
     mpi::environment env;
     mpi::communicator world;
@@ -90,20 +100,23 @@ int main()
         };
     }
 
-    using Config = samurai::MRConfig<dim>;
+    using Config    = samurai::MRConfig<dim>;
+    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
     auto u = init(mesh);
     samurai::make_bc<samurai::Dirichlet>(u, 0.);
 
-    auto rank = samurai::make_field<double, size>("rank", mesh);
-    rank.fill(world.rank());
-
-    samurai::save(fmt::format("advection_{}d_init", dim), mesh, u, rank);
-
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
-    samurai::check_duplicate_cells(u);
+    // MRadaptation(mr_epsilon, mr_regularity);
+
+    auto rank = samurai::make_field<double, size>("rank", mesh);
+    rank.fill(world.rank());
+    samurai::save(fmt::format("advection_{}d_{}_init", dim, world.size()), mesh, u, rank);
+
+    // samurai::check_duplicate_cells(u);
+    // return 0;
 
     auto unp1 = samurai::make_field<double, size>("unp1", mesh);
     rank.resize();
@@ -113,8 +126,11 @@ int main()
     double t       = 0.;
     std::size_t nt = 0;
 
-    samurai::save(fmt::format("advection_{}d_{}_adapt", dim, world.size()), mesh, u, rank);
-    while (t != Tf)
+    // samurai::save(std::filesystem::current_path(), fmt::format("advection_{}d_{}_adapt", dim, world.size()), {true, true}, mesh, u);
+    // samurai::save(fmt::format("advection_{}d_{}_adapt", dim, world.size()), mesh, u, rank);
+
+    // while (t != Tf)
+    for (std::size_t ite = 0; ite < nite; ++ite)
     {
         t += dt;
         if (t > Tf)
@@ -129,7 +145,9 @@ int main()
         }
 
         MRadaptation(mr_epsilon, mr_regularity);
+
         samurai::update_ghost_mr(u);
+
         samurai::check_duplicate_cells(u);
         unp1.resize();
         unp1.fill(0);
@@ -148,7 +166,7 @@ int main()
         }
 
         std::swap(u.array(), unp1.array());
-        samurai::save(fmt::format("advection_{}d_{}_ite_{}", dim, world.size(), nt), mesh, u, rank);
+        samurai::save(fmt::format("advection_{}d_{}_ite_{}", dim, world.size(), nt), mesh, rank, u);
 
         nt++;
     }

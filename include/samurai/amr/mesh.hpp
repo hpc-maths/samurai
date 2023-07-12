@@ -55,6 +55,7 @@ namespace samurai::amr
       public:
 
         using base_type                  = Mesh_base<Mesh<Config>, Config>;
+        using mpi_subdomain_t            = typename base_type::mpi_subdomain_t;
         using config                     = typename base_type::config;
         static constexpr std::size_t dim = config::dim;
 
@@ -64,7 +65,11 @@ namespace samurai::amr
 
         using ca_type = typename base_type::ca_type;
 
-        Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level, const lca_type& domain, const std::vector<int>& neighbouring_ranks);
+        Mesh(const cl_type& cl,
+             std::size_t min_level,
+             std::size_t max_level,
+             const lca_type& domain,
+             const std::vector<mpi_subdomain_t>& mpi_neighbourhood);
         Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
 
         void update_sub_mesh_impl();
