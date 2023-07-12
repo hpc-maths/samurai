@@ -37,10 +37,13 @@ namespace samurai
     template <class Field>
     struct Neumann;
 
+    template <class Field>
+    struct Flat;
+
     struct bc_types
     {
         template <class Field>
-        using types = xtl::mpl::vector<Dirichlet<Field>, Neumann<Field>>;
+        using types = xtl::mpl::vector<Dirichlet<Field>, Neumann<Field>, Flat<Field>>;
     };
 
 #ifndef BC_TYPES
