@@ -90,10 +90,11 @@ namespace samurai
         using coeff_matrix_t     = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
         using cell_coeffs_t      = std::array<coeff_matrix_t, stencil_size>;
         using flux_coeffs_t      = typename flux_computation_t::flux_coeffs_t; // std::array<flux_matrix_t, stencil_size>;
+        using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&, double, double)>;
 
         flux_computation_t flux;
-        std::function<cell_coeffs_t(flux_coeffs_t&, double, double)> get_cell1_coeffs;
-        std::function<cell_coeffs_t(flux_coeffs_t&, double, double)> get_cell2_coeffs;
+        cell_coeffs_func_t get_cell1_coeffs;
+        cell_coeffs_func_t get_cell2_coeffs;
     };
 
     /**

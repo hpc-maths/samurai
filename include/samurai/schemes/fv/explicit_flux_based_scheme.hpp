@@ -1,4 +1,5 @@
 #pragma once
+// #include "../../petsc/fv/flux_based_scheme_assembly.hpp"
 #include "../explicit_scheme.hpp"
 #include "flux_based_scheme.hpp"
 
@@ -42,11 +43,11 @@ namespace samurai
              * Implementation by matrix-vector multiplication
              */
             // Mat A;
-            // auto assembly = make_assembly(scheme());
+            // auto assembly = petsc::make_assembly(scheme());
             // assembly.create_matrix(A);
             // assembly.assemble_matrix(A);
-            // Vec vec_f   = create_petsc_vector_from(f);
-            // Vec vec_res = create_petsc_vector_from(result);
+            // Vec vec_f   = petsc::create_petsc_vector_from(f);
+            // Vec vec_res = petsc::create_petsc_vector_from(result);
             // MatMult(A, vec_f, vec_res);
             // return result;
 
