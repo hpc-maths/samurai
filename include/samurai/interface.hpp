@@ -141,8 +141,8 @@ namespace samurai
                                             Vector direction,
                                             const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
                                             GetFluxCoeffsFunc get_flux_coeffs,
-                                            GetCell1CoeffsFunc get_cell1_coeffs,
-                                            GetCell2CoeffsFunc get_cell2_coeffs,
+                                            GetCell1CoeffsFunc get_left_cell_coeffs,
+                                            GetCell2CoeffsFunc get_right_cell_coeffs,
                                             Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
@@ -163,10 +163,10 @@ namespace samurai
                            auto shifted_cells = translate(cells, -direction);
                            auto intersect     = intersection(cells, shifted_cells);
 
-                           auto h            = cell_length(level);
-                           auto flux_coeffs  = get_flux_coeffs(h);
-                           auto cell1_coeffs = get_cell1_coeffs(flux_coeffs, h, h);
-                           auto cell2_coeffs = get_cell2_coeffs(flux_coeffs, h, h);
+                           auto h                 = cell_length(level);
+                           auto flux_coeffs       = get_flux_coeffs(h);
+                           auto left_cell_coeffs  = get_left_cell_coeffs(flux_coeffs, h, h);
+                           auto right_cell_coeffs = get_right_cell_coeffs(flux_coeffs, h, h);
 
                            for_each_meshinterval<mesh_interval_t>(
                                intersect,
@@ -176,7 +176,7 @@ namespace samurai
                                    comput_stencil_it.init(mesh_interval);
                                    for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
                                    {
-                                       f(interface_it.cells(), comput_stencil_it.cells(), cell1_coeffs, cell2_coeffs);
+                                       f(interface_it.cells(), comput_stencil_it.cells(), left_cell_coeffs, right_cell_coeffs);
                                        interface_it.move_next();
                                        comput_stencil_it.move_next();
                                    }
@@ -215,8 +215,8 @@ namespace samurai
                         auto shifted_fine_cells = translate(fine_cells, -direction);
                         auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
 
-                        auto cell1_coeffs = get_cell1_coeffs(flux_coeffs, h_lp1, h_l);
-                        auto cell2_coeffs = get_cell2_coeffs(flux_coeffs, h_lp1, h_lp1);
+                        auto left_cell_coeffs  = get_left_cell_coeffs(flux_coeffs, h_lp1, h_l);
+                        auto right_cell_coeffs = get_right_cell_coeffs(flux_coeffs, h_lp1, h_lp1);
 
                         for_each_meshinterval<mesh_interval_t>(
                             fine_intersect,
@@ -233,7 +233,7 @@ namespace samurai
                                     interface_cells[0] = coarse_it.cells()[0];
                                     interface_cells[1] = comput_stencil_it.cells()[direction_index];
 
-                                    f(interface_cells, comput_stencil_it.cells(), cell1_coeffs, cell2_coeffs);
+                                    f(interface_cells, comput_stencil_it.cells(), left_cell_coeffs, right_cell_coeffs);
                                     comput_stencil_it.move_next();
 
                                     if (ii % 2 == 1)
@@ -248,8 +248,8 @@ namespace samurai
                         auto shifted_fine_cells = translate(fine_cells, direction);
                         auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
 
-                        auto cell1_coeffs = get_cell1_coeffs(flux_coeffs, h_lp1, h_lp1);
-                        auto cell2_coeffs = get_cell2_coeffs(flux_coeffs, h_lp1, h_l);
+                        auto left_cell_coeffs  = get_left_cell_coeffs(flux_coeffs, h_lp1, h_lp1);
+                        auto right_cell_coeffs = get_right_cell_coeffs(flux_coeffs, h_lp1, h_l);
 
                         for_each_meshinterval<mesh_interval_t>(
                             fine_intersect,
@@ -266,7 +266,7 @@ namespace samurai
                                     interface_cells[0] = minus_comput_stencil_it.cells()[minus_direction_index];
                                     interface_cells[1] = coarse_it.cells()[0];
 
-                                    f(interface_cells, minus_comput_stencil_it.cells(), cell1_coeffs, cell2_coeffs);
+                                    f(interface_cells, minus_comput_stencil_it.cells(), left_cell_coeffs, right_cell_coeffs);
                                     minus_comput_stencil_it.move_next();
 
                                     if (ii % 2 == 1)

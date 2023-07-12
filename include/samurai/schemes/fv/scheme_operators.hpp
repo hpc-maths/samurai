@@ -61,12 +61,12 @@ namespace samurai
             static_for<0, dim>::apply(
                 [&](auto integral_constant_d)
                 {
-                    static constexpr int d              = decltype(integral_constant_d)::value;
-                    scalar_x_fluxes[d].get_cell1_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+                    static constexpr int d                  = decltype(integral_constant_d)::value;
+                    scalar_x_fluxes[d].get_left_cell_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
                     {
                         return this->scalar_x_get_cell1_coeffs<d>(flux_coeffs, h_face, h_cell);
                     };
-                    scalar_x_fluxes[d].get_cell2_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+                    scalar_x_fluxes[d].get_right_cell_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
                     {
                         return this->scalar_x_get_cell2_coeffs<d>(flux_coeffs, h_face, h_cell);
                     };
@@ -77,7 +77,7 @@ namespace samurai
         template <std::size_t d>
         auto scalar_x_get_cell1_coeffs(flux_coeffs_t& flux_coeffs, double h_face, double h_cell) const
         {
-            auto coeffs = m_scheme.coefficients()[d].get_cell1_coeffs(flux_coeffs, h_face, h_cell);
+            auto coeffs = m_scheme.coefficients()[d].get_left_cell_coeffs(flux_coeffs, h_face, h_cell);
             for (auto& coeff : coeffs)
             {
                 coeff *= m_scalar;
@@ -88,7 +88,7 @@ namespace samurai
         template <std::size_t d>
         auto scalar_x_get_cell2_coeffs(flux_coeffs_t& flux_coeffs, double h_face, double h_cell) const
         {
-            auto coeffs = m_scheme.coefficients()[d].get_cell2_coeffs(flux_coeffs, h_face, h_cell);
+            auto coeffs = m_scheme.coefficients()[d].get_right_cell_coeffs(flux_coeffs, h_face, h_cell);
             for (auto& coeff : coeffs)
             {
                 coeff *= m_scalar;

@@ -93,8 +93,8 @@ namespace samurai
         using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&, double, double)>;
 
         flux_computation_t flux;
-        cell_coeffs_func_t get_cell1_coeffs;
-        cell_coeffs_func_t get_cell2_coeffs;
+        cell_coeffs_func_t get_left_cell_coeffs;
+        cell_coeffs_func_t get_right_cell_coeffs;
     };
 
     /**

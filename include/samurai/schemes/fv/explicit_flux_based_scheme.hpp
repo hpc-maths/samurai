@@ -60,9 +60,9 @@ namespace samurai
                     scheme_coeffs_dir.flux.direction,
                     scheme_coeffs_dir.flux.stencil,
                     scheme_coeffs_dir.flux.get_flux_coeffs,
-                    scheme_coeffs_dir.get_cell1_coeffs,
-                    scheme_coeffs_dir.get_cell2_coeffs,
-                    [&](auto& interface_cells, auto& comput_cells, auto& cell1_coeffs, auto& cell2_coeffs)
+                    scheme_coeffs_dir.get_left_cell_coeffs,
+                    scheme_coeffs_dir.get_right_cell_coeffs,
+                    [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                     {
                         for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                         {
@@ -70,11 +70,11 @@ namespace samurai
                             {
                                 for (std::size_t c = 0; c < stencil_size; ++c)
                                 {
-                                    double cell1_coeff = scheme().cell_coeff(cell1_coeffs, c, field_i, field_j);
-                                    double cell2_coeff = scheme().cell_coeff(cell2_coeffs, c, field_i, field_j);
-                                    field_value(result, interface_cells[0], field_i) += cell1_coeff
+                                    double left_cell_coeff  = scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
+                                    double right_cell_coeff = scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
+                                    field_value(result, interface_cells[0], field_i) += left_cell_coeff
                                                                                       * field_value(f, comput_cells[c], field_j);
-                                    field_value(result, interface_cells[1], field_i) += cell2_coeff
+                                    field_value(result, interface_cells[1], field_i) += right_cell_coeff
                                                                                       * field_value(f, comput_cells[c], field_j);
                                 }
                             }
@@ -86,7 +86,7 @@ namespace samurai
                     scheme_coeffs_dir.flux.direction,
                     scheme_coeffs_dir.flux.stencil,
                     scheme_coeffs_dir.flux.get_flux_coeffs,
-                    scheme_coeffs_dir.get_cell1_coeffs,
+                    scheme_coeffs_dir.get_left_cell_coeffs,
                     [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                     {
                         for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
@@ -110,7 +110,7 @@ namespace samurai
                     opposite_direction,
                     opposite_stencil,
                     scheme_coeffs_dir.flux.get_flux_coeffs,
-                    scheme_coeffs_dir.get_cell2_coeffs,
+                    scheme_coeffs_dir.get_right_cell_coeffs,
                     [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                     {
                         for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
