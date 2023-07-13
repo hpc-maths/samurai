@@ -912,7 +912,7 @@ namespace samurai
                                 {
                                     auto j             = index[0];
                                     field(level, i, j) = dx * bc.constant_value()
-                                                       + field(level, i - (ig + 1) * direction[d][0], j - (2 * ig + 1) * direction[d][1]);
+                                                       + field(level, i - (2 * ig + 1) * direction[d][0], j - (2 * ig + 1) * direction[d][1]);
                                 }
                                 else if constexpr (dim == 3)
                                 {
