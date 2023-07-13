@@ -52,7 +52,7 @@ namespace samurai
          * Conclusion: the contribution of the face is just the flux received as a parameter, multiplied by |F|/|T|.
          */
         template <std::size_t d>
-        static auto get_laplacian_coeffs_cell1(std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
+        static auto get_laplacian_coeffs_left_cell(std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
         {
             double face_measure = pow(h_face, dim - 1);
             double cell_measure = pow(h_cell, dim);
@@ -94,18 +94,19 @@ namespace samurai
 
                     /**
                      *   |-------|-------|
-                     *   | cell1 | cell2 |
+                     *   | left  | right |
+                     *   | cell  | cell  |
                      *   |-------|-------|
                      *        ------->
                      *       normal flux
                      */
 
-                    // How the flux is computed in this direction: here, Grad.n = (u2-u1)/h
-                    coeffs.flux = normal_grad_order2<Field>(direction);
-                    // Coefficients of the scheme for cell1, in function of the flux
-                    coeffs.get_cell1_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
+                    // How the flux is computed in this direction: here, Grad.n = (uR-uL)/h
+                    coeffs.flux = normal_grad_order1<Field>(direction);
+                    // Coefficients of the scheme for the left cell, in function of the flux
+                    coeffs.get_left_cell_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
                     {
-                        auto cell_coeffs = get_laplacian_coeffs_cell1<d>(flux_coeffs, h_face, h_cell);
+                        auto cell_coeffs = get_laplacian_coeffs_left_cell<d>(flux_coeffs, h_face, h_cell);
                         // We multiply by -1 because we implement the operator -Lap
                         for (auto& coeff : cell_coeffs)
                         {
@@ -113,8 +114,8 @@ namespace samurai
                         }
                         return cell_coeffs;
                     };
-                    // Coefficients of the scheme for cell2, in function of the flux
-                    coeffs.get_cell2_coeffs = get_laplacian_coeffs_cell1<d>;
+                    // Coefficients of the scheme for the right, in function of the flux
+                    coeffs.get_right_cell_coeffs = get_laplacian_coeffs_left_cell<d>;
                 });
             return coeffs_by_fluxes;
         }

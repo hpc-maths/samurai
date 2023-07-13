@@ -36,7 +36,7 @@ namespace samurai
     };
 
     template <class Field, class Vector>
-    auto normal_grad_order2(Vector& direction)
+    auto normal_grad_order1(Vector& direction)
     {
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
@@ -65,7 +65,7 @@ namespace samurai
     }
 
     template <class Field>
-    auto normal_grad_order2()
+    auto normal_grad_order1()
     {
         static constexpr std::size_t dim = Field::dim;
         using flux_computation_t         = NormalFluxComputation<Field, 2>;
@@ -74,7 +74,7 @@ namespace samurai
         std::array<flux_computation_t, dim> normal_fluxes;
         for (std::size_t d = 0; d < dim; ++d)
         {
-            normal_fluxes[d] = normal_grad_order2<Field>(xt::view(directions, d));
+            normal_fluxes[d] = normal_grad_order1<Field>(xt::view(directions, d));
         }
         return normal_fluxes;
     }
@@ -90,10 +90,11 @@ namespace samurai
         using coeff_matrix_t     = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
         using cell_coeffs_t      = std::array<coeff_matrix_t, stencil_size>;
         using flux_coeffs_t      = typename flux_computation_t::flux_coeffs_t; // std::array<flux_matrix_t, stencil_size>;
+        using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&, double, double)>;
 
         flux_computation_t flux;
-        std::function<cell_coeffs_t(flux_coeffs_t&, double, double)> get_cell1_coeffs;
-        std::function<cell_coeffs_t(flux_coeffs_t&, double, double)> get_cell2_coeffs;
+        cell_coeffs_func_t get_left_cell_coeffs;
+        cell_coeffs_func_t get_right_cell_coeffs;
     };
 
     /**

@@ -67,22 +67,22 @@ namespace samurai
                 if (d == 0)
                 {
                     flux.get_flux_coeffs = flux_coefficients<0>;
-                    flux.get_cell1_coeffs = [&](auto&, double, double)
+                    flux.get_left_cell_coeffs = [&](auto&, double, double)
                     {
                         CellCoeffs coeffs;
                         coeffs[0] = eye<coeff_matrix_t>();
                         coeffs[1] = zeros<coeff_matrix_t>();
                         return coeffs;
                     };
-                    flux.get_cell2_coeffs = get_zero_coeffs;
+                    flux.get_right_cell_coeffs = get_zero_coeffs;
                 }
                 if constexpr (dim >= 2)
                 {
                     if (d == 1)
                     {
                         flux.get_flux_coeffs = flux_coefficients<1>;
-                        flux.get_cell1_coeffs = get_zero_coeffs;
-                        flux.get_cell2_coeffs = get_zero_coeffs;
+                        flux.get_left_cell_coeffs = get_zero_coeffs;
+                        flux.get_right_cell_coeffs = get_zero_coeffs;
                     }
                 }
                 if constexpr (dim >= 3)
@@ -90,8 +90,8 @@ namespace samurai
                     if (d == 2)
                     {
                         flux.get_flux_coeffs = flux_coefficients<2>;
-                        flux.get_cell1_coeffs = get_zero_coeffs;
-                        flux.get_cell2_coeffs = get_zero_coeffs;
+                        flux.get_left_cell_coeffs = get_zero_coeffs;
+                        flux.get_right_cell_coeffs = get_zero_coeffs;
                     }
                 }
             }

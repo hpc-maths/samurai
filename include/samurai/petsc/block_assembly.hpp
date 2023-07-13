@@ -42,11 +42,11 @@ namespace samurai
                     });
             }
 
-            template <class OperatorType>
-            static Assembly<OperatorType> to_assembly(OperatorType& op)
-            {
-                return Assembly<OperatorType>(op);
-            }
+            // template <class OperatorType>
+            // static Assembly<OperatorType> to_assembly(OperatorType& op)
+            // {
+            //     return Assembly<OperatorType>(op);
+            // }
 
             auto& block_operator()
             {

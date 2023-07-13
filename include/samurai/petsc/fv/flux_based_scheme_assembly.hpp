@@ -21,6 +21,7 @@ namespace samurai
 
           public:
 
+            using base_class::ghost_elimination_enabled;
             using base_class::mesh;
             using base_class::scheme;
             using base_class::set_current_insert_mode;
@@ -60,14 +61,39 @@ namespace samurai
                         mesh(),
                         scheme_coeffs_dir.flux.direction,
                         scheme_coeffs_dir.flux.stencil,
-                        [&](auto& interface_cells, auto&)
+                        [&](auto& interface_cells, auto& comput_cells)
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
                                 for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                 {
-                                    nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += stencil_size * field_size;
-                                    nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += stencil_size * field_size;
+                                    if constexpr (ghost_elimination_enabled)
+                                    {
+                                        for (std::size_t c = 0; c < stencil_size; ++c)
+                                        {
+                                            auto it_ghost = this->m_ghost_recursion.find(comput_cells[c].index);
+                                            if (it_ghost == this->m_ghost_recursion.end())
+                                            {
+                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += field_size;
+                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += field_size;
+                                            }
+                                            else
+                                            {
+                                                auto& linear_comb = it_ghost->second;
+                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += linear_comb.size()
+                                                                                                                             * field_size;
+                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += linear_comb.size()
+                                                                                                                             * field_size;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += stencil_size
+                                                                                                                     * field_size;
+                                        nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += stencil_size
+                                                                                                                     * field_size;
+                                    }
                                 }
                             }
                         });
@@ -132,35 +158,67 @@ namespace samurai
                         scheme_coeffs_dir.flux.direction,
                         scheme_coeffs_dir.flux.stencil,
                         scheme_coeffs_dir.flux.get_flux_coeffs,
-                        scheme_coeffs_dir.get_cell1_coeffs,
-                        scheme_coeffs_dir.get_cell2_coeffs,
-                        [&](auto& interface_cells, auto& comput_cells, auto& cell1_coeffs, auto& cell2_coeffs)
+                        scheme_coeffs_dir.get_left_cell_coeffs,
+                        scheme_coeffs_dir.get_right_cell_coeffs,
+                        [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
-                                auto interface_cell1_row = this->row_index(interface_cells[0], field_i);
-                                auto interface_cell2_row = this->row_index(interface_cells[1], field_i);
+                                auto left_cell_row  = this->row_index(interface_cells[0], field_i);
+                                auto right_cell_row = this->row_index(interface_cells[1], field_i);
                                 for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                 {
                                     for (std::size_t c = 0; c < stencil_size; ++c)
                                     {
-                                        auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                        double cell1_coeff   = scheme().cell_coeff(cell1_coeffs, c, field_i, field_j);
-                                        double cell2_coeff   = scheme().cell_coeff(cell2_coeffs, c, field_i, field_j);
-                                        // if (cell1_coeff != 0)
-                                        // {
-                                        MatSetValue(A, interface_cell1_row, comput_cell_col, cell1_coeff, ADD_VALUES);
-                                        // }
-                                        // if (cell2_coeff != 0)
-                                        // {
-                                        MatSetValue(A, interface_cell2_row, comput_cell_col, cell2_coeff, ADD_VALUES);
-                                        // }
-                                        // MatSetValue(A, interface_cell1_row, interface_cell1_row, 0, ADD_VALUES);
-                                        // MatSetValue(A, interface_cell2_row, interface_cell2_row, 0, ADD_VALUES);
+                                        double left_cell_coeff  = scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
+                                        double right_cell_coeff = scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
+
+                                        if constexpr (ghost_elimination_enabled)
+                                        {
+                                            auto it_ghost = this->m_ghost_recursion.find(comput_cells[c].index);
+                                            if (it_ghost == this->m_ghost_recursion.end())
+                                            {
+                                                auto comput_cell_col = col_index(comput_cells[c], field_j);
+                                                // if (left_cell_coeff != 0)
+                                                // {
+                                                MatSetValue(A, left_cell_row, comput_cell_col, left_cell_coeff, ADD_VALUES);
+                                                // }
+                                                // if (right_cell_coeff != 0)
+                                                // {
+                                                MatSetValue(A, right_cell_row, comput_cell_col, right_cell_coeff, ADD_VALUES);
+                                                // }
+                                                // MatSetValue(A, left_cell_row, left_cell_row, 0, ADD_VALUES);
+                                                // MatSetValue(A, right_cell_row, right_cell_row, 0, ADD_VALUES);
+                                            }
+                                            else
+                                            {
+                                                auto& linear_comb = it_ghost->second;
+                                                for (auto& [cell, coeff] : linear_comb)
+                                                {
+                                                    auto comput_cell_col = col_index(static_cast<PetscInt>(cell), field_j);
+                                                    MatSetValue(A, left_cell_row, comput_cell_col, left_cell_coeff * coeff, ADD_VALUES);
+                                                    MatSetValue(A, right_cell_row, comput_cell_col, right_cell_coeff * coeff, ADD_VALUES);
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            auto comput_cell_col = col_index(comput_cells[c], field_j);
+                                            // if (left_cell_coeff != 0)
+                                            // {
+                                            MatSetValue(A, left_cell_row, comput_cell_col, left_cell_coeff, ADD_VALUES);
+                                            // }
+                                            // if (right_cell_coeff != 0)
+                                            // {
+                                            MatSetValue(A, right_cell_row, comput_cell_col, right_cell_coeff, ADD_VALUES);
+                                            // }
+                                            // MatSetValue(A, left_cell_row, left_cell_row, 0, ADD_VALUES);
+                                            // MatSetValue(A, right_cell_row, right_cell_row, 0, ADD_VALUES);
+                                        }
                                     }
                                 }
-                                set_is_row_not_empty(interface_cell1_row);
-                                set_is_row_not_empty(interface_cell2_row);
+                                set_is_row_not_empty(left_cell_row);
+                                set_is_row_not_empty(right_cell_row);
                             }
                         });
 
@@ -168,7 +226,7 @@ namespace samurai
                                                 scheme_coeffs_dir.flux.direction,
                                                 scheme_coeffs_dir.flux.stencil,
                                                 scheme_coeffs_dir.flux.get_flux_coeffs,
-                                                scheme_coeffs_dir.get_cell1_coeffs,
+                                                scheme_coeffs_dir.get_left_cell_coeffs,
                                                 [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                                                 {
                                                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -197,7 +255,7 @@ namespace samurai
                                                 opposite_direction,
                                                 opposite_stencil,
                                                 scheme_coeffs_dir.flux.get_flux_coeffs,
-                                                scheme_coeffs_dir.get_cell2_coeffs,
+                                                scheme_coeffs_dir.get_right_cell_coeffs,
                                                 [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                                                 {
                                                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
