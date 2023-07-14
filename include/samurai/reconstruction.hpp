@@ -86,7 +86,7 @@ namespace samurai
             return *this;
         }
 
-        void remove_small_entries(double tol = 1e-13)
+        void remove_small_entries(double tol = 1e-15)
         {
             for (auto it = coeff.begin(); it != coeff.end();)
             {
