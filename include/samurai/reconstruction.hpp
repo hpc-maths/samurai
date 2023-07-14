@@ -86,6 +86,21 @@ namespace samurai
             return *this;
         }
 
+        void remove_small_entries(double tol = 1e-13)
+        {
+            for (auto it = coeff.begin(); it != coeff.end();)
+            {
+                if (std::abs(it->second) < tol)
+                {
+                    it = coeff.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+        }
+
         void to_stream(std::ostream& out) const
         {
             for (const auto& c : coeff)
