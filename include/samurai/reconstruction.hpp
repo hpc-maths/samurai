@@ -6,6 +6,7 @@
 #include "subset/subset_op.hpp"
 #include <array>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <tuple>
 
 namespace samurai
@@ -92,7 +93,7 @@ namespace samurai
                 for (const auto& i : c.first)
                 {
                 }
-                out << fmt::format("({}):  {}", c.first[0], c.second) << std::endl;
+                out << fmt::format("({}):  {}", c.first, c.second) << std::endl;
             }
         }
 
