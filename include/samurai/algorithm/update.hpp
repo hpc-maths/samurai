@@ -94,11 +94,11 @@ namespace samurai
         auto min_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].min_level(), mpi::minimum<std::size_t>());
         auto max_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].max_level(), mpi::maximum<std::size_t>());
 
-        for (std::size_t level = max_level - 1; level >= min_level; --level)
+        for (std::size_t level = max_level; level > min_level; --level)
         {
-            update_ghost_subdomains(level + 1, field, other_fields...);
+            update_ghost_subdomains(level, field, other_fields...);
 
-            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level + 1], mesh[mesh_id_t::proj_cells][level]).on(level);
+            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
         }
         update_ghost_subdomains(field);
