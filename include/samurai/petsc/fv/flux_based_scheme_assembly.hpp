@@ -100,37 +100,20 @@ namespace samurai
                             }
                         });
 
-                    for_each_boundary_interface(
-                        mesh(),
-                        scheme_coeffs_dir.flux.direction,
-                        scheme_coeffs_dir.flux.stencil,
-                        [&](auto& interface_cells, auto&)
-                        {
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                            {
-                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                {
-                                    nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += stencil_size * field_size;
-                                }
-                            }
-                        });
-
-                    auto opposite_direction = xt::eval(-scheme_coeffs_dir.flux.direction);
-                    auto opposite_stencil   = xt::eval(-scheme_coeffs_dir.flux.stencil);
-                    for_each_boundary_interface(
-                        mesh(),
-                        opposite_direction,
-                        opposite_stencil,
-                        [&](auto& interface_cells, auto&)
-                        {
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                            {
-                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                {
-                                    nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += stencil_size * field_size;
-                                }
-                            }
-                        });
+                    for_each_boundary_interface(mesh(),
+                                                scheme_coeffs_dir.flux.direction,
+                                                scheme_coeffs_dir.flux.stencil,
+                                                [&](auto& cell, auto&)
+                                                {
+                                                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                                    {
+                                                        for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                                                        {
+                                                            nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += stencil_size
+                                                                                                                           * field_size;
+                                                        }
+                                                    }
+                                                });
                 }
             }
 
@@ -155,6 +138,8 @@ namespace samurai
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     auto scheme_coeffs_dir = scheme_coefficients()[d];
+
+                    // Interior interfaces
                     for_each_interior_interface(
                         mesh(),
                         scheme_coeffs_dir.flux.direction,
@@ -224,17 +209,18 @@ namespace samurai
                             }
                         });
 
-                    // Boundary in direction
+                    // Boundary interfaces
                     for_each_boundary_interface(mesh(),
                                                 scheme_coeffs_dir.flux.direction,
                                                 scheme_coeffs_dir.flux.stencil,
                                                 scheme_coeffs_dir.flux.get_flux_coeffs,
                                                 scheme_coeffs_dir.get_coeffs,
-                                                [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
+                                                scheme_coeffs_dir.get_coeffs_opposite_direction,
+                                                [&](auto& cell, auto& comput_cells, auto& coeffs)
                                                 {
                                                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                                     {
-                                                        auto interface_cell0_row = this->row_index(interface_cells[0], field_i);
+                                                        auto cell_row = this->row_index(cell, field_i);
                                                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                                         {
                                                             for (std::size_t c = 0; c < stencil_size; ++c)
@@ -243,46 +229,11 @@ namespace samurai
                                                                 if (coeff != 0)
                                                                 {
                                                                     auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                                                    MatSetValue(A, interface_cell0_row, comput_cell_col, coeff, ADD_VALUES);
+                                                                    MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
                                                                 }
                                                             }
                                                         }
-                                                        set_is_row_not_empty(interface_cell0_row);
-                                                    }
-                                                });
-
-                    // Boundary in opposite direction
-                    auto opposite_direction             = xt::eval(-scheme_coeffs_dir.flux.direction);
-                    Stencil<stencil_size, dim> reversed = xt::eval(xt::flip(scheme_coeffs_dir.flux.stencil, 0));
-                    auto opposite_stencil               = xt::eval(-reversed);
-                    auto get_minus_flux                 = [&](double h)
-                    {
-                        flux_coeffs_t minus_flux = -scheme_coeffs_dir.flux.get_flux_coeffs(h);
-                        return minus_flux;
-                    };
-                    for_each_boundary_interface(mesh(),
-                                                opposite_direction,
-                                                opposite_stencil,
-                                                get_minus_flux,                                  // scheme_coeffs_dir.flux.get_flux_coeffs,
-                                                scheme_coeffs_dir.get_coeffs_opposite_direction, // scheme_coeffs_dir.get_right_cell_coeffs,
-                                                [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
-                                                {
-                                                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                                    {
-                                                        auto interface_cell0_row = this->row_index(interface_cells[0], field_i);
-                                                        for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                                        {
-                                                            for (std::size_t c = 0; c < stencil_size; ++c)
-                                                            {
-                                                                double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                                                if (coeff != 0)
-                                                                {
-                                                                    auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                                                    MatSetValue(A, interface_cell0_row, comput_cell_col, coeff, ADD_VALUES);
-                                                                }
-                                                            }
-                                                        }
-                                                        set_is_row_not_empty(interface_cell0_row);
+                                                        set_is_row_not_empty(cell_row);
                                                     }
                                                 });
                 }

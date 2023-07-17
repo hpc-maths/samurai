@@ -57,6 +57,8 @@ namespace samurai
             for (std::size_t d = 0; d < dim; ++d)
             {
                 auto scheme_coeffs_dir = scheme().coefficients()[d];
+
+                // Interior interfaces
                 for_each_interior_interface(
                     mesh,
                     scheme_coeffs_dir.flux.direction,
@@ -83,57 +85,28 @@ namespace samurai
                         }
                     });
 
-                // Boundary in direction
-                for_each_boundary_interface(
-                    mesh,
-                    scheme_coeffs_dir.flux.direction,
-                    scheme_coeffs_dir.flux.stencil,
-                    scheme_coeffs_dir.flux.get_flux_coeffs,
-                    scheme_coeffs_dir.get_coeffs,
-                    [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
-                    {
-                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
-                            {
-                                for (std::size_t c = 0; c < stencil_size; ++c)
-                                {
-                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    field_value(result, interface_cells[0], field_i) += coeff * field_value(f, comput_cells[c], field_j);
-                                }
-                            }
-                        }
-                    });
-
-                // Boundary in opposite direction
-                auto opposite_direction             = xt::eval(-scheme_coeffs_dir.flux.direction);
-                Stencil<stencil_size, dim> reversed = xt::eval(xt::flip(scheme_coeffs_dir.flux.stencil, 0));
-                auto opposite_stencil               = xt::eval(-reversed);
-                auto get_minus_flux                 = [&](double h)
-                {
-                    flux_coeffs_t minus_flux = -scheme_coeffs_dir.flux.get_flux_coeffs(h);
-                    return minus_flux;
-                };
-                for_each_boundary_interface(
-                    mesh,
-                    opposite_direction,
-                    opposite_stencil,
-                    get_minus_flux,
-                    scheme_coeffs_dir.get_coeffs_opposite_direction,
-                    [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
-                    {
-                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
-                        {
-                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
-                            {
-                                for (std::size_t c = 0; c < stencil_size; ++c)
-                                {
-                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    field_value(result, interface_cells[0], field_i) += coeff * field_value(f, comput_cells[c], field_j);
-                                }
-                            }
-                        }
-                    });
+                // Boundary interfaces
+                for_each_boundary_interface(mesh,
+                                            scheme_coeffs_dir.flux.direction,
+                                            scheme_coeffs_dir.flux.stencil,
+                                            scheme_coeffs_dir.flux.get_flux_coeffs,
+                                            scheme_coeffs_dir.get_coeffs,
+                                            scheme_coeffs_dir.get_coeffs_opposite_direction,
+                                            [&](auto& cell, auto& comput_cells, auto& coeffs)
+                                            {
+                                                for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                                                {
+                                                    for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                                                    {
+                                                        for (std::size_t c = 0; c < stencil_size; ++c)
+                                                        {
+                                                            double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
+                                                            field_value(result, cell, field_i) += coeff
+                                                                                                * field_value(f, comput_cells[c], field_j);
+                                                        }
+                                                    }
+                                                }
+                                            });
             }
 
             return result;
