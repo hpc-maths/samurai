@@ -19,6 +19,7 @@ namespace samurai
         using base_class                 = FluxBasedScheme<Scalar_x_FluxBasedScheme<Scheme>, cfg_t, bdry_cfg_t, field_t>;
         using coefficients_t             = typename base_class::coefficients_t;
         using flux_coeffs_t              = typename coefficients_t::flux_coeffs_t;
+        using cell_coeffs_t              = typename coefficients_t::cell_coeffs_t;
         static constexpr std::size_t dim = field_t::dim;
         using base_class::name;
 
@@ -61,39 +62,29 @@ namespace samurai
             static_for<0, dim>::apply(
                 [&](auto integral_constant_d)
                 {
-                    static constexpr int d                  = decltype(integral_constant_d)::value;
-                    scalar_x_fluxes[d].get_left_cell_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+                    static constexpr int d        = decltype(integral_constant_d)::value;
+                    scalar_x_fluxes[d].get_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
                     {
-                        return this->scalar_x_get_cell1_coeffs<d>(flux_coeffs, h_face, h_cell);
+                        return this->scalar_x_get_coeffs<d>(flux_coeffs, h_face, h_cell);
                     };
-                    scalar_x_fluxes[d].get_right_cell_coeffs = [&](auto& flux_coeffs, double h_face, double h_cell)
+                    scalar_x_fluxes[d].get_coeffs_opposite_direction = [&](auto& flux_coeffs, double h_face, double h_cell)
                     {
-                        return this->scalar_x_get_cell2_coeffs<d>(flux_coeffs, h_face, h_cell);
+                        return this->scalar_x_get_coeffs_opposite_direction<d>(flux_coeffs, h_face, h_cell);
                     };
                 });
             return scalar_x_fluxes;
         }
 
         template <std::size_t d>
-        auto scalar_x_get_cell1_coeffs(flux_coeffs_t& flux_coeffs, double h_face, double h_cell) const
+        cell_coeffs_t scalar_x_get_coeffs(flux_coeffs_t& flux_coeffs, double h_face, double h_cell) const
         {
-            auto coeffs = m_scheme.coefficients()[d].get_left_cell_coeffs(flux_coeffs, h_face, h_cell);
-            for (auto& coeff : coeffs)
-            {
-                coeff *= m_scalar;
-            }
-            return coeffs;
+            return m_scalar * m_scheme.coefficients()[d].get_coeffs(flux_coeffs, h_face, h_cell);
         }
 
         template <std::size_t d>
-        auto scalar_x_get_cell2_coeffs(flux_coeffs_t& flux_coeffs, double h_face, double h_cell) const
+        cell_coeffs_t scalar_x_get_coeffs_opposite_direction(flux_coeffs_t& flux_coeffs, double h_face, double h_cell) const
         {
-            auto coeffs = m_scheme.coefficients()[d].get_right_cell_coeffs(flux_coeffs, h_face, h_cell);
-            for (auto& coeff : coeffs)
-            {
-                coeff *= m_scalar;
-            }
-            return coeffs;
+            return m_scalar * m_scheme.coefficients()[d].get_coeffs_opposite_direction(flux_coeffs, h_face, h_cell);
         }
 
         bool matrix_is_symmetric(const field_t&) const override

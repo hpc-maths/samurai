@@ -32,6 +32,8 @@ namespace samurai
             using cfg_t                                    = typename Scheme::cfg_t;
             using bdry_cfg_t                               = typename Scheme::bdry_cfg;
             using field_t                                  = typename Scheme::field_t;
+            using coefficients_t                           = typename Scheme::coefficients_t;
+            using flux_coeffs_t                            = typename coefficients_t::flux_coeffs_t;
             static constexpr std::size_t output_field_size = cfg_t::output_field_size;
             static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
 
@@ -158,8 +160,8 @@ namespace samurai
                         scheme_coeffs_dir.flux.direction,
                         scheme_coeffs_dir.flux.stencil,
                         scheme_coeffs_dir.flux.get_flux_coeffs,
-                        scheme_coeffs_dir.get_left_cell_coeffs,
-                        scheme_coeffs_dir.get_right_cell_coeffs,
+                        scheme_coeffs_dir.get_coeffs,
+                        scheme_coeffs_dir.get_coeffs_opposite_direction,
                         [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -222,11 +224,12 @@ namespace samurai
                             }
                         });
 
+                    // Boundary in direction
                     for_each_boundary_interface(mesh(),
                                                 scheme_coeffs_dir.flux.direction,
                                                 scheme_coeffs_dir.flux.stencil,
                                                 scheme_coeffs_dir.flux.get_flux_coeffs,
-                                                scheme_coeffs_dir.get_left_cell_coeffs,
+                                                scheme_coeffs_dir.get_coeffs,
                                                 [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                                                 {
                                                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -248,14 +251,20 @@ namespace samurai
                                                     }
                                                 });
 
+                    // Boundary in opposite direction
                     auto opposite_direction             = xt::eval(-scheme_coeffs_dir.flux.direction);
                     Stencil<stencil_size, dim> reversed = xt::eval(xt::flip(scheme_coeffs_dir.flux.stencil, 0));
                     auto opposite_stencil               = xt::eval(-reversed);
+                    auto get_minus_flux                 = [&](double h)
+                    {
+                        flux_coeffs_t minus_flux = -scheme_coeffs_dir.flux.get_flux_coeffs(h);
+                        return minus_flux;
+                    };
                     for_each_boundary_interface(mesh(),
                                                 opposite_direction,
                                                 opposite_stencil,
-                                                scheme_coeffs_dir.flux.get_flux_coeffs,
-                                                scheme_coeffs_dir.get_right_cell_coeffs,
+                                                get_minus_flux,                                  // scheme_coeffs_dir.flux.get_flux_coeffs,
+                                                scheme_coeffs_dir.get_coeffs_opposite_direction, // scheme_coeffs_dir.get_right_cell_coeffs,
                                                 [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
                                                 {
                                                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)

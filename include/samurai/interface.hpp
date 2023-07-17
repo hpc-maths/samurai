@@ -136,13 +136,13 @@ namespace samurai
             });
     }
 
-    template <class Mesh, class Vector, std::size_t comput_stencil_size, class GetFluxCoeffsFunc, class GetCell1CoeffsFunc, class GetCell2CoeffsFunc, class Func>
+    template <class Mesh, class Vector, std::size_t comput_stencil_size, class GetFluxCoeffsFunc, class GetCellCoeffsFunc, class Func>
     inline void for_each_interior_interface(const Mesh& mesh,
                                             Vector direction,
                                             const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
                                             GetFluxCoeffsFunc get_flux_coeffs,
-                                            GetCell1CoeffsFunc get_left_cell_coeffs,
-                                            GetCell2CoeffsFunc get_right_cell_coeffs,
+                                            GetCellCoeffsFunc get_coeffs,
+                                            GetCellCoeffsFunc get_coeffs_opposite_direction,
                                             Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
@@ -163,10 +163,12 @@ namespace samurai
                            auto shifted_cells = translate(cells, -direction);
                            auto intersect     = intersection(cells, shifted_cells);
 
-                           auto h                 = cell_length(level);
-                           auto flux_coeffs       = get_flux_coeffs(h);
-                           auto left_cell_coeffs  = get_left_cell_coeffs(flux_coeffs, h, h);
-                           auto right_cell_coeffs = get_right_cell_coeffs(flux_coeffs, h, h);
+                           auto h                                  = cell_length(level);
+                           auto flux_coeffs                        = get_flux_coeffs(h);
+                           decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
+
+                           auto left_cell_coeffs  = get_coeffs(flux_coeffs, h, h);
+                           auto right_cell_coeffs = get_coeffs_opposite_direction(minus_flux_coeffs, h, h);
 
                            for_each_meshinterval<mesh_interval_t>(
                                intersect,
@@ -206,17 +208,18 @@ namespace samurai
                     auto& coarse_cells = mesh[mesh_id_t::cells][level];
                     auto& fine_cells   = mesh[mesh_id_t::cells][level + 1];
 
-                    auto h_l         = cell_length(level);
-                    auto h_lp1       = cell_length(level + 1);
-                    auto flux_coeffs = get_flux_coeffs(h_lp1);
+                    auto h_l                                = cell_length(level);
+                    auto h_lp1                              = cell_length(level + 1);
+                    auto flux_coeffs                        = get_flux_coeffs(h_lp1);
+                    decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
 
                     // Jumps level --> level+1
                     {
                         auto shifted_fine_cells = translate(fine_cells, -direction);
                         auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
 
-                        auto left_cell_coeffs  = get_left_cell_coeffs(flux_coeffs, h_lp1, h_l);
-                        auto right_cell_coeffs = get_right_cell_coeffs(flux_coeffs, h_lp1, h_lp1);
+                        auto left_cell_coeffs  = get_coeffs(flux_coeffs, h_lp1, h_l);
+                        auto right_cell_coeffs = get_coeffs_opposite_direction(minus_flux_coeffs, h_lp1, h_lp1);
 
                         for_each_meshinterval<mesh_interval_t>(
                             fine_intersect,
@@ -248,8 +251,8 @@ namespace samurai
                         auto shifted_fine_cells = translate(fine_cells, direction);
                         auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
 
-                        auto left_cell_coeffs  = get_left_cell_coeffs(flux_coeffs, h_lp1, h_lp1);
-                        auto right_cell_coeffs = get_right_cell_coeffs(flux_coeffs, h_lp1, h_l);
+                        auto left_cell_coeffs  = get_coeffs(flux_coeffs, h_lp1, h_lp1);
+                        auto right_cell_coeffs = get_coeffs_opposite_direction(minus_flux_coeffs, h_lp1, h_l);
 
                         for_each_meshinterval<mesh_interval_t>(
                             fine_intersect,

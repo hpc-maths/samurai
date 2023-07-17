@@ -24,11 +24,11 @@ namespace samurai
     {
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
-        using field_value_type                  = typename Field::value_type;                      // double
-        using flux_matrix_t = typename detail::LocalMatrix<field_value_type, 1, field_size>::Type; // 'double' if field_size = 1,
-                                                                                                   // 'xtensor' representing a matrix
-                                                                                                   // otherwise
-        using flux_coeffs_t = std::array<flux_matrix_t, stencil_size>;
+        using field_value_type                  = typename Field::value_type;                               // double
+        using flux_matrix_t = typename detail::LocalMatrix<field_value_type, field_size, field_size>::Type; // 'double' if field_size = 1,
+                                                                                                            // 'xtensor' representing a
+                                                                                                            // matrix otherwise
+        using flux_coeffs_t = xt::xtensor_fixed<flux_matrix_t, xt::xshape<stencil_size>>;
 
         DirectionVector<dim> direction;
         Stencil<stencil_size, dim> stencil;
@@ -41,14 +41,14 @@ namespace samurai
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
         using flux_computation_t                = NormalFluxComputation<Field, 2>;
-        using flux_matrix_t                     = typename flux_computation_t::flux_matrix_t;
+        using flux_coeffs_t                     = typename flux_computation_t::flux_coeffs_t;
 
         flux_computation_t normal_grad;
         normal_grad.direction       = direction;
         normal_grad.stencil         = in_out_stencil<dim>(direction);
         normal_grad.get_flux_coeffs = [](double h)
         {
-            std::array<flux_matrix_t, 2> coeffs;
+            flux_coeffs_t coeffs;
             if constexpr (field_size == 1)
             {
                 coeffs[0] = -1 / h;
@@ -56,8 +56,13 @@ namespace samurai
             }
             else
             {
-                coeffs[0].fill(-1 / h);
-                coeffs[1].fill(1 / h);
+                coeffs[0].fill(0);
+                coeffs[1].fill(0);
+                for (std::size_t i = 0; i < field_size; ++i)
+                {
+                    coeffs[0](i, i) = -1 / h;
+                    coeffs[1](i, i) = 1 / h;
+                }
             }
             return coeffs;
         };
@@ -88,13 +93,13 @@ namespace samurai
         using flux_computation_t = NormalFluxComputation<Field, stencil_size>;
         using field_value_type   = typename Field::value_type; // double
         using coeff_matrix_t     = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
-        using cell_coeffs_t      = std::array<coeff_matrix_t, stencil_size>;
+        using cell_coeffs_t      = xt::xtensor_fixed<coeff_matrix_t, xt::xshape<stencil_size>>;
         using flux_coeffs_t      = typename flux_computation_t::flux_coeffs_t; // std::array<flux_matrix_t, stencil_size>;
         using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&, double, double)>;
 
         flux_computation_t flux;
-        cell_coeffs_func_t get_left_cell_coeffs;
-        cell_coeffs_func_t get_right_cell_coeffs;
+        cell_coeffs_func_t get_coeffs;
+        cell_coeffs_func_t get_coeffs_opposite_direction = nullptr;
     };
 
     /**

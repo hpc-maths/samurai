@@ -50,8 +50,8 @@ namespace samurai
       public:
 
         using coefficients_t                    = typename base_class::coefficients_t;
-        using flux_matrix_t                     = typename coefficients_t::flux_computation_t::flux_matrix_t;
-        using coeff_matrix_t                    = typename coefficients_t::coeff_matrix_t;
+        using cell_coeffs_t                     = typename coefficients_t::cell_coeffs_t;
+        using flux_coeffs_t                     = typename coefficients_t::flux_coeffs_t;
         static constexpr std::size_t field_size = Field::size;
 
         explicit DivergenceFV(Field& u)
@@ -62,34 +62,34 @@ namespace samurai
         }
 
         template <std::size_t d>
-        static auto average(std::array<flux_matrix_t, 2>&, double h_face, double h_cell)
+        static cell_coeffs_t average(flux_coeffs_t& flux, double h_face, double h_cell)
         {
-            std::array<coeff_matrix_t, 2> coeffs;
-            double h_factor = pow(h_face, dim - 1) / pow(h_cell, dim);
-            if constexpr (field_size == 1)
+            double face_measure = pow(h_face, dim - 1);
+            double cell_measure = pow(h_cell, dim);
+            double h_factor     = face_measure / cell_measure;
+            cell_coeffs_t coeffs;
+            for (std::size_t i = 0; i < stencil_size; ++i)
             {
-                coeffs[0] = 0.5 * h_factor;
-                coeffs[1] = 0.5 * h_factor;
-            }
-            else
-            {
-                coeffs[0].fill(0);
-                coeffs[1].fill(0);
-                coeffs[0](d) = 0.5 * h_factor;
-                coeffs[1](d) = 0.5 * h_factor;
+                if constexpr (field_size == 1)
+                {
+                    coeffs[i] = 0.5 * flux[i] * h_factor;
+                }
+                else
+                {
+                    coeffs[i].fill(0);
+                    for (std::size_t d2 = 0; d2 < dim; ++d2)
+                    {
+                        xt::col(coeffs[i], d) += 0.5 * flux[i](d, d2) * h_factor;
+                    }
+                }
             }
             return coeffs;
         }
 
         template <std::size_t d>
-        static auto minus_average(std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
+        static cell_coeffs_t minus_average(flux_coeffs_t& flux, double h_face, double h_cell)
         {
-            auto coeffs = average<d>(flux_coeffs, h_face, h_cell);
-            for (auto& coeff : coeffs)
-            {
-                coeff *= -1;
-            }
-            return coeffs;
+            return -average<d>(flux, h_face, h_cell);
         }
 
         // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
@@ -104,11 +104,11 @@ namespace samurai
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
 
-                    auto& coeffs                   = coeffs_by_fluxes[d];
-                    DirectionVector<dim> direction = xt::view(directions, d);
-                    coeffs.flux                    = normal_grad_order1<Field>(direction);
-                    coeffs.get_left_cell_coeffs    = average<d>;
-                    coeffs.get_right_cell_coeffs   = minus_average<d>;
+                    auto& coeffs                         = coeffs_by_fluxes[d];
+                    DirectionVector<dim> direction       = xt::view(directions, d);
+                    coeffs.flux                          = normal_grad_order1<Field>(direction);
+                    coeffs.get_coeffs                    = average<d>;
+                    coeffs.get_coeffs_opposite_direction = minus_average<d>;
                 });
             return coeffs_by_fluxes;
         }

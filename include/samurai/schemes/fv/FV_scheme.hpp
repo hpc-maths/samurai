@@ -8,7 +8,7 @@ namespace samurai
         /**
          * Local square matrix to store the coefficients of a vectorial field.
          */
-        template <class value_type, std::size_t rows, std::size_t cols = rows>
+        template <class value_type, std::size_t rows, std::size_t cols>
         struct LocalMatrix
         {
             using Type = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;

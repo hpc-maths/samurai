@@ -54,6 +54,8 @@ namespace samurai
 
         using coefficients_t = typename base_class::coefficients_t;
         using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
+        using cell_coeffs_t  = typename coefficients_t::cell_coeffs_t;
+        using flux_coeffs_t  = typename coefficients_t::flux_coeffs_t;
 
         explicit GradientFV(Field& u)
             : base_class(u)
@@ -63,19 +65,43 @@ namespace samurai
         }
 
         template <std::size_t d>
-        static auto half_flux_in_direction(std::array<double, 2>& flux_coeffs, double h_face, double h_cell)
+        static cell_coeffs_t half_flux(flux_coeffs_t& flux, double h_face, double h_cell)
         {
-            std::array<coeff_matrix_t, 2> coeffs;
-            coeffs[0].fill(0);
-            coeffs[1].fill(0);
-            double h_factor        = pow(h_face, dim - 1) / pow(h_cell, dim);
-            xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0] * h_factor;
-            xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1] * h_factor;
+            // std::array<coeff_matrix_t, 2> coeffs;
+            // coeffs[0].fill(0);
+            // coeffs[1].fill(0);
+            // double h_factor        = pow(h_face, dim - 1) / pow(h_cell, dim);
+            // xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0] * h_factor;
+            // xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1] * h_factor;
+            // return coeffs;
+            double face_measure = pow(h_face, dim - 1);
+            double cell_measure = pow(h_cell, dim);
+            double h_factor     = face_measure / cell_measure;
+
+            cell_coeffs_t coeffs;
+            for (std::size_t i = 0; i < stencil_size; ++i)
+            {
+                if constexpr (dim == 1)
+                {
+                    coeffs[i] = 0.5 * flux[i] * h_factor;
+                }
+                else
+                {
+                    coeffs[i].fill(0);
+                    xt::row(coeffs[i], d) = 0.5 * flux[i] * h_factor;
+                }
+            }
             return coeffs;
         }
 
-        // Grad_x(u) = 1/2 * [ Fx(L) + Fx(R) ]
-        // Grad_y(u) = 1/2 * [ Fx(B) + Fx(T) ]
+        template <std::size_t d>
+        static cell_coeffs_t minus_half_flux(flux_coeffs_t& flux, double h_face, double h_cell)
+        {
+            return -half_flux<d>(flux, h_face, h_cell);
+        }
+
+        // Grad_x(u) = 1/2 * [-Fx(L) + Fx(R) ]
+        // Grad_y(u) = 1/2 * [-Fx(B) + Fx(T) ]
         static auto coefficients()
         {
             static_assert(dim <= 3, "GradientFV.grad_coefficients() not implemented for dim > 3.");
@@ -87,11 +113,11 @@ namespace samurai
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
 
-                    auto& coeffs                   = coeffs_by_fluxes[d];
-                    DirectionVector<dim> direction = xt::view(directions, d);
-                    coeffs.flux                    = normal_grad_order1<Field>(direction);
-                    coeffs.get_left_cell_coeffs    = half_flux_in_direction<d>;
-                    coeffs.get_right_cell_coeffs   = half_flux_in_direction<d>;
+                    auto& coeffs                         = coeffs_by_fluxes[d];
+                    DirectionVector<dim> direction       = xt::view(directions, d);
+                    coeffs.flux                          = normal_grad_order1<Field>(direction);
+                    coeffs.get_coeffs                    = half_flux<d>;
+                    coeffs.get_coeffs_opposite_direction = minus_half_flux<d>;
                 });
             return coeffs_by_fluxes;
         }

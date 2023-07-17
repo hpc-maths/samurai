@@ -70,32 +70,6 @@ void configure_LU_solver(Solver& solver)
     {
 #if defined(PETSC_HAVE_SUPERLU)
         PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
-        // Configure the following options:
-        // -mat_superlu_rowperm LargeDiag -mat_superlu_colperm NATURAL -mat_superlu_diagpivotthresh 0.5 -mat_superlu_iterrefine SINGLE
-        PetscBool set = PETSC_FALSE;
-        PetscOptionsHasName(NULL, NULL, "-mat_superlu_rowperm", &set);
-        if (!set)
-        {
-            PetscOptionsSetValue(NULL, "-mat_superlu_rowperm", "LargeDiag");
-        }
-
-        PetscOptionsHasName(NULL, NULL, "-mat_superlu_colperm", &set);
-        if (!set)
-        {
-            PetscOptionsSetValue(NULL, "-mat_superlu_colperm", "NATURAL");
-        }
-
-        PetscOptionsHasName(NULL, NULL, "-mat_superlu_diagpivotthresh", &set);
-        if (!set)
-        {
-            PetscOptionsSetValue(NULL, "-mat_superlu_diagpivotthresh", "0.5");
-        }
-
-        PetscOptionsHasName(NULL, NULL, "-mat_superlu_iterrefine", &set);
-        if (!set)
-        {
-            PetscOptionsSetValue(NULL, "-mat_superlu_iterrefine", "SINGLE");
-        }
 #endif
     }
     else if (use_mumps)
@@ -104,8 +78,9 @@ void configure_LU_solver(Solver& solver)
         PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
 #endif
     }
-    KSPSetFromOptions(ksp); // KSP and PC overwritten by user value if needed
-                            // If SuperLU is not installed, you can use: -ksp_type gmres -pc_type ilu
+    // KSP and PC overwritten by user value if needed
+    KSPSetFromOptions(ksp);
+    // If neither SuperLU nor MUMPS is installed, you can try: -ksp_type gmres -pc_type ilu
 }
 
 //
@@ -179,7 +154,7 @@ int main(int argc, char* argv[])
     using Mesh                       = samurai::MRMesh<Config>;
     using mesh_id_t                  = typename Mesh::mesh_id_t;
     static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = false;
+    static constexpr bool monolithic = true;
 
     //----------------//
     //   Parameters   //
