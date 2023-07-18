@@ -112,6 +112,23 @@ namespace samurai
     {
     }
 
+    template <class... T>
+    inline void update_ghost_mr(std::tuple<T...>& fields)
+    {
+        std::apply(
+            [](T&... tupleArgs)
+            {
+                update_ghost_mr(tupleArgs...);
+            },
+            fields);
+    }
+
+    template <class... T>
+    inline void update_ghost_mr(Field_tuple<T...>& fields)
+    {
+        update_ghost_mr(fields.elements());
+    }
+
     template <class Field>
     void update_ghost_periodic(std::size_t level, Field& field)
     {
@@ -374,6 +391,62 @@ namespace samurai
             std::swap(field.array(), new_field.array());
         }
 
+        template <class Mesh, class Field>
+        void update_fields_with_old(Mesh& new_mesh, Field& old_field, Field& field)
+        {
+            using mesh_id_t                  = typename Mesh::mesh_id_t;
+            constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+
+            Field new_field("new_f", new_mesh);
+            new_field.fill(0);
+
+            auto& mesh     = field.mesh();
+            auto& old_mesh = old_field.mesh();
+
+            auto min_level = mesh.min_level();
+            auto max_level = mesh.max_level();
+
+            for (std::size_t level = min_level; level <= max_level; ++level)
+            {
+                auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                set.apply_op(copy(new_field, field));
+            }
+
+            for (std::size_t level = min_level + 1; level <= max_level; ++level)
+            {
+                auto set_coarsen = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level - 1]).on(level - 1);
+                set_coarsen.apply_op(projection(new_field, field));
+
+                auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
+                set_refine.apply_op(prediction<pred_order, true>(new_field, field));
+            }
+
+            for (std::size_t level = 1; level <= max_level; ++level)
+            {
+                auto subset = intersection(intersection(old_mesh[mesh_id_t::cells][level],
+                                                        difference(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level])),
+                                           mesh[mesh_id_t::cells][level - 1])
+                                  .on(level);
+
+                subset.apply_op(copy(new_field, old_field));
+            }
+
+            std::swap(field.array(), new_field.array());
+            std::swap(old_field.array(), new_field.array());
+        }
+
+        template <class Mesh, class Old_fields, class Fields, std::size_t... Is>
+        void update_fields_with_old(Mesh& new_mesh, Old_fields& old_fields, Fields& fields, std::index_sequence<Is...>)
+        {
+            (update_fields_with_old(new_mesh, std::get<Is>(old_fields), std::get<Is>(fields)), ...);
+        }
+
+        template <class Mesh, class Old_fields, class... T>
+        void update_fields_with_old(Mesh& new_mesh, Old_fields& old_fields, Field_tuple<T...>& fields)
+        {
+            update_fields_with_old(new_mesh, old_fields, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
+        }
+
         template <class Mesh, class Field, class... Fields>
         void update_fields(Mesh& new_mesh, Field& field, Fields&... fields)
         {
@@ -384,6 +457,20 @@ namespace samurai
         template <class Mesh>
         void update_fields(Mesh&)
         {
+        }
+
+        template <class Mesh, class Field>
+        void swap_mesh(Mesh& new_mesh, Field& old_field, Field& field)
+        {
+            field.mesh().swap(new_mesh);
+            old_field.mesh().swap(new_mesh);
+        }
+
+        template <class Mesh, class Old_fields, class... T>
+        void swap_mesh(Mesh& new_mesh, Old_fields& old_fields, Field_tuple<T...>& fields)
+        {
+            fields.mesh().swap(new_mesh);
+            std::get<0>(old_fields).mesh().swap(new_mesh);
         }
     }
 
@@ -448,24 +535,21 @@ namespace samurai
         }
 
         detail::update_fields(new_mesh, fields...);
-        tag.mesh_ptr()->swap(new_mesh);
+        tag.mesh().swap(new_mesh);
         return false;
     }
 
-    template <class Tag, class Field, class... Fields>
-    bool update_field_mr(const Tag& tag, Field& field, Field& old_field, Fields&... other_fields)
+    template <class Tag, class Field, class Old_field, class... Fields>
+    bool update_field_mr(const Tag& tag, Field& field, Old_field& old_field, Fields&... other_fields)
     {
-        static constexpr std::size_t dim = Field::dim;
         using mesh_t                     = typename Field::mesh_t;
-        constexpr std::size_t pred_order = mesh_t::config::prediction_order;
+        static constexpr std::size_t dim = mesh_t::dim;
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         using interval_t                 = typename mesh_t::interval_t;
         using value_t                    = typename interval_t::value_t;
         using cl_type                    = typename Field::mesh_t::cl_type;
 
-        auto& mesh    = field.mesh();
-        auto old_mesh = old_field.mesh();
-
+        auto& mesh = field.mesh();
         cl_type cl;
 
         for_each_interval(mesh[mesh_id_t::cells],
@@ -516,51 +600,12 @@ namespace samurai
             return true;
         }
 
-        // if (new_mesh == old_mesh)
-        // {
-        //     field.mesh_ptr()->swap(old_mesh);
-        //     std::swap(field.array(), old_field.array());
-        //     return true;
-        // }
-
         detail::update_fields(new_mesh, other_fields...);
+        detail::update_fields_with_old(new_mesh, old_field, field);
 
-        Field new_field("new_f", new_mesh);
-        new_field.fill(0);
-
-        auto min_level = mesh.min_level();
-        auto max_level = mesh.max_level();
-
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
-            set.apply_op(copy(new_field, field));
-        }
-
-        for (std::size_t level = min_level + 1; level <= max_level; ++level)
-        {
-            auto set_coarsen = samurai::intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level - 1]).on(level - 1);
-            set_coarsen.apply_op(projection(new_field, field));
-
-            auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
-            set_refine.apply_op(prediction<pred_order, true>(new_field, field));
-        }
-
-        for (std::size_t level = 1; level <= max_level; ++level)
-        {
-            auto subset = intersection(intersection(old_mesh[mesh_id_t::cells][level],
-                                                    difference(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level])),
-                                       mesh[mesh_id_t::cells][level - 1])
-                              .on(level);
-
-            subset.apply_op(copy(new_field, old_field));
-        }
-
-        field.mesh_ptr()->swap(new_mesh);
-        old_field.mesh_ptr()->swap(new_mesh);
-
-        std::swap(field.array(), new_field.array());
-        std::swap(old_field.array(), new_field.array());
+        detail::swap_mesh(new_mesh, old_field, field);
+        // field.mesh().swap(new_mesh);
+        // std::get<0>(old_field).mesh().swap(new_mesh);
 
         return false;
     }

@@ -71,6 +71,6 @@ void update_field(Field& f, const Tag& tag, Mesh& new_mesh)
             });
     }
 
-    f.mesh_ptr()->swap(new_mesh);
+    f.mesh().swap(new_mesh);
     std::swap(f.array(), new_f.array());
 }

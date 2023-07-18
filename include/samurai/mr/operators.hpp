@@ -9,6 +9,7 @@
 #include <xtensor/xview.hpp>
 
 #include "../cell_flag.hpp"
+#include "../field.hpp"
 #include "../numeric/prediction.hpp"
 #include "../operators_base.hpp"
 
@@ -253,6 +254,101 @@ namespace samurai
     inline auto compute_detail(T&& detail, T&& field)
     {
         return make_field_operator_function<compute_detail_op>(std::forward<T>(detail), std::forward<T>(field));
+    }
+
+    template <class TInterval>
+    class compute_detail_on_tuple_op : public field_operator_base<TInterval>
+    {
+      public:
+
+        INIT_OPERATOR(compute_detail_on_tuple_op)
+
+        template <class T1, class T2>
+        inline void compute_detail_impl(Dim<1>, std::size_t index, T1& detail, const T2& field) const
+        {
+            static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
+            auto qs_i                          = xt::eval(Qs_i<order>(field, level, i));
+
+            detail(index, level + 1, 2 * i) = field(level + 1, 2 * i) - (field(level, i) + qs_i);
+
+            detail(index, level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
+        }
+
+        template <class T1, class T2>
+        inline void compute_detail_impl(Dim<2>, std::size_t index, T1& detail, const T2& field) const
+        {
+            static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
+            auto qs_i                          = Qs_i<order>(field, level, i, j);
+            auto qs_j                          = Qs_j<order>(field, level, i, j);
+            auto qs_ij                         = Qs_ij<order>(field, level, i, j);
+
+            detail(index, level + 1, 2 * i, 2 * j) = field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij);
+
+            detail(index, level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
+
+            detail(index, level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
+
+            detail(index, level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1)
+                                                           - (field(level, i, j) - qs_i - qs_j - qs_ij);
+        }
+
+        template <class T1, class T2>
+        inline void compute_detail_impl(Dim<3>, std::size_t index, T1& detail, const T2& field) const
+        {
+            static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
+            auto qs_i                          = Qs_i<order>(field, level, i, j, k);
+            auto qs_j                          = Qs_j<order>(field, level, i, j, k);
+            auto qs_k                          = Qs_k<order>(field, level, i, j, k);
+            auto qs_ij                         = Qs_ij<order>(field, level, i, j, k);
+            auto qs_ik                         = Qs_ik<order>(field, level, i, j, k);
+            auto qs_jk                         = Qs_jk<order>(field, level, i, j, k);
+            auto qs_ijk                        = Qs_ijk<order>(field, level, i, j, k);
+
+            detail(index, level + 1, 2 * i, 2 * j, 2 * k) = field(level + 1, 2 * i, 2 * j, 2 * k)
+                                                          - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk);
+
+            detail(index, level + 1, 2 * i + 1, 2 * j, 2 * k) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
+                                                              - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk);
+
+            detail(index, level + 1, 2 * i, 2 * j + 1, 2 * k) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
+                                                              - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk);
+
+            detail(index, level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
+                                                                  - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk
+                                                                     + qs_ijk);
+
+            detail(index, level + 1, 2 * i, 2 * j, 2 * k + 1) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
+                                                              - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk);
+
+            detail(index, level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
+                                                                  - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk
+                                                                     + qs_ijk);
+            detail(index, level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
+                                                                  - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk
+                                                                     + qs_ijk);
+
+            detail(index, level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
+                                                                      - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk
+                                                                         - qs_ijk);
+        }
+
+        template <std::size_t dim, class T1, class T2, std::size_t... Is>
+        inline void compute_detail_impl(Dim<dim>, T1& detail, const T2& fields, std::index_sequence<Is...>) const
+        {
+            (compute_detail_impl(Dim<dim>(), Is, detail, std::get<Is>(fields)), ...);
+        }
+
+        template <std::size_t dim, class T1, class T2>
+        inline void operator()(Dim<dim>, T1& detail, const T2& fields) const
+        {
+            compute_detail_impl(Dim<dim>(), detail, fields.elements(), std::make_index_sequence<std::tuple_size_v<typename T2::tuple_type>>{});
+        }
+    };
+
+    template <class Field, class... T>
+    inline auto compute_detail(Field& detail, const Field_tuple<T...>& fields)
+    {
+        return make_field_operator_function<compute_detail_on_tuple_op>(detail, fields);
     }
 
     /*******************************

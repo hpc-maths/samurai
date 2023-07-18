@@ -20,7 +20,6 @@
 #include "cell_array.hpp"
 #include "field_expression.hpp"
 #include "mesh_holder.hpp"
-#include "mr/operators.hpp"
 #include "numeric/gauss_legendre.hpp"
 
 namespace samurai
@@ -859,4 +858,46 @@ namespace samurai
     {
         return !(field1 == field2);
     }
+
+    template <class TField, class... TFields>
+    class Field_tuple
+    {
+      public:
+
+        using tuple_type                   = std::tuple<TField&, TFields&...>;
+        using tuple_type_without_ref       = std::tuple<TField, TFields...>;
+        static constexpr std::size_t nelem = detail::compute_size<TField, TFields...>();
+        using common_t                     = detail::common_type_t<TField, TFields...>;
+        using mesh_t                       = typename TField::mesh_t;
+        using mesh_id_t                    = typename mesh_t::mesh_id_t;
+
+        Field_tuple(TField& field, TFields&... fields)
+            : m_fields(field, fields...)
+        {
+        }
+
+        const auto& mesh() const
+        {
+            return std::get<0>(m_fields).mesh();
+        }
+
+        auto& mesh()
+        {
+            return std::get<0>(m_fields).mesh();
+        }
+
+        const auto& elements() const
+        {
+            return m_fields;
+        }
+
+        auto& elements()
+        {
+            return m_fields;
+        }
+
+      private:
+
+        tuple_type m_fields;
+    };
 } // namespace samurai

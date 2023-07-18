@@ -60,50 +60,111 @@ namespace samurai
         }
     };
 
-    template <class TField>
+    namespace detail
+    {
+        template <class... TFields>
+        struct get_fields_type
+        {
+            using fields_t                     = Field_tuple<TFields...>;
+            using old_fields_t                 = typename fields_t::tuple_type_without_ref;
+            using mesh_t                       = typename fields_t::mesh_t;
+            static constexpr std::size_t nelem = fields_t::nelem;
+            using common_t                     = typename fields_t::common_t;
+            using detail_t                     = Field<mesh_t, common_t, nelem, true>;
+        };
+
+        template <class TField>
+        struct get_fields_type<TField>
+        {
+            using fields_t     = TField&;
+            using old_fields_t = TField;
+            using mesh_t       = typename TField::mesh_t;
+            using detail_t     = Field<mesh_t, typename TField::value_type, TField::size>;
+        };
+
+        template <class Mesh, class T>
+        auto copy_fields(Mesh& mesh, const T& field_src)
+        {
+            T field_dst = field_src;
+            field_dst.change_mesh_ptr(mesh);
+            return field_dst;
+        }
+
+        template <class Mesh, class Field>
+        void affect_mesh(Mesh& mesh, Field& field)
+        {
+            field.change_mesh_ptr(mesh);
+        }
+
+        template <class Mesh, class... T, std::size_t... Is>
+        void set_mesh_impl(Mesh& mesh, std::tuple<T...>& t, std::index_sequence<Is...>)
+        {
+            (affect_mesh(mesh, std::get<Is>(t)), ...);
+        }
+
+        template <class Mesh, class... T>
+        void set_mesh(Mesh& mesh, std::tuple<T...>& t)
+        {
+            set_mesh_impl(mesh, t, std::make_index_sequence<sizeof...(T)>{});
+        }
+
+        template <class Mesh, class... T>
+        auto copy_fields(Mesh& mesh, const Field_tuple<T...>& fields_src)
+        {
+            using return_t      = typename Field_tuple<T...>::tuple_type_without_ref;
+            return_t fields_dst = fields_src.elements();
+            set_mesh(mesh, fields_dst);
+            return fields_dst;
+        }
+    }
+
+    template <class TField, class... TFields>
     class Adapt
     {
       public:
 
-        Adapt(TField& field);
+        Adapt(TField& field, TFields&... fields);
 
         template <class... Fields>
         void operator()(double eps, double regularity, Fields&... other_fields);
 
       private:
 
-        using field_type = TField;
-        using mesh_t     = typename field_type::mesh_t;
-        using mesh_id_t  = typename mesh_t::mesh_id_t;
-        using tag_type   = Field<mesh_t, int, 1>;
+        using inner_fields_type = detail::get_fields_type<TField, TFields...>;
+        using fields_t          = typename inner_fields_type::fields_t;
+        using old_fields_t      = typename inner_fields_type::old_fields_t;
+        using mesh_t            = typename inner_fields_type::mesh_t;
+        using mesh_id_t         = typename mesh_t::mesh_id_t;
+        using detail_t          = typename inner_fields_type::detail_t;
+        using tag_t             = Field<mesh_t, int, 1>;
 
-        static constexpr std::size_t dim = field_type::dim;
+        static constexpr std::size_t dim = mesh_t::dim;
 
         using interval_t    = typename mesh_t::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
         using cl_type       = typename mesh_t::cl_type;
 
         template <class... Fields>
-        bool harten(std::size_t ite, double eps, double regularity, field_type& field_old, Fields&... other_fields);
+        bool harten(std::size_t ite, double eps, double regularity, old_fields_t& old_fields, Fields&... other_fields);
 
-        field_type& m_field; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
-        field_type m_detail;
-        tag_type m_tag;
+        fields_t m_fields; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+        detail_t m_detail;
+        tag_t m_tag;
     };
 
-    template <class TField>
-    inline Adapt<TField>::Adapt(TField& field)
-        : m_field(field)
+    template <class TField, class... TFields>
+    inline Adapt<TField, TFields...>::Adapt(TField& field, TFields&... fields)
+        : m_fields(field, fields...)
         , m_detail("detail", field.mesh())
         , m_tag("tag", field.mesh())
     {
     }
 
-    template <class TField>
+    template <class TField, class... TFields>
     template <class... Fields>
-    void Adapt<TField>::operator()(double eps, double regularity, Fields&... other_fields)
+    void Adapt<TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
     {
-        auto& mesh            = m_field.mesh();
+        auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
@@ -111,18 +172,18 @@ namespace samurai
         {
             return;
         }
-        update_ghost_mr(m_field);
+        update_ghost_mr(m_fields);
 
-        mesh_t mesh_old = mesh;
-        field_type field_old(m_field.name(), mesh_old);
-        field_old.array() = m_field.array();
+        auto mesh_old           = mesh;
+        old_fields_t old_fields = detail::copy_fields(mesh_old, m_fields);
+
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
             // std::cout << "MR mesh adaptation " << i << std::endl;
             m_detail.resize();
             m_tag.resize();
             m_tag.fill(0);
-            if (harten(i, eps, regularity, field_old, other_fields...))
+            if (harten(i, eps, regularity, old_fields, other_fields...))
             {
                 break;
             }
@@ -169,11 +230,11 @@ namespace samurai
         }
     }
 
-    template <class TField>
+    template <class TField, class... TFields>
     template <class... Fields>
-    bool Adapt<TField>::harten(std::size_t ite, double eps, double regularity, field_type& field_old, Fields&... other_fields)
+    bool Adapt<TField, TFields...>::harten(std::size_t ite, double eps, double regularity, old_fields_t& old_fields, Fields&... other_fields)
     {
-        auto& mesh = m_field.mesh();
+        auto& mesh = m_fields.mesh();
 
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
@@ -184,12 +245,12 @@ namespace samurai
                           m_tag[cell] = static_cast<int>(CellFlag::keep);
                       });
 
-        update_ghost_mr(m_field);
+        update_ghost_mr(m_fields);
 
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
             auto subset = intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level + 1]).on(level);
-            subset.apply_op(compute_detail(m_detail, m_field));
+            subset.apply_op(compute_detail(m_detail, m_fields));
         }
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
@@ -295,14 +356,15 @@ namespace samurai
             update_tag_periodic(level, m_tag);
         }
 
-        update_ghost_mr(field_old);
+        update_ghost_mr(old_fields);
         update_ghost_mr(other_fields...);
-        return update_field_mr(m_tag, m_field, field_old, other_fields...);
+        return update_field_mr(m_tag, m_fields, old_fields, other_fields...);
+        return true;
     }
 
-    template <class TField>
-    auto make_MRAdapt(TField& field)
+    template <class... TFields>
+    auto make_MRAdapt(TFields&... fields)
     {
-        return Adapt<TField>(field);
+        return Adapt<TFields...>(fields...);
     }
 } // namespace samurai

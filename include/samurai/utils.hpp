@@ -171,6 +171,21 @@ namespace samurai
             return extract_mesh(std::get<Is>(t)...);
         }
 
+        template <class... T>
+        constexpr std::size_t compute_size()
+        {
+            return (0 + ... + T::size);
+        }
+
+        template <class... T>
+        struct common_type
+        {
+            using type = std::common_type_t<typename T::value_type...>;
+        };
+
+        template <class... T>
+        using common_type_t = typename common_type<T...>::type;
+
         template <class Head, class... Tail>
         auto& extract_mesh(Head&& h, Tail&&... t)
         {
