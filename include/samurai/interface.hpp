@@ -4,6 +4,20 @@
 
 namespace samurai
 {
+    /**
+     * Iterates over the interfaces of the mesh in the chosen direction.
+     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
+     *                   In 2D: {1,0} to browse vertical interfaces, {0,1} to browse horizontal interfaces.
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& interface_cells, auto& comput_cells)
+     * where
+     *       'interface_cells' is an array containing the two real cells on both sides of the interface,
+     *       'comput_cells'    is an array containing the two cells that must be used for the computation.
+     * If there is no level jump, then 'interface_cells' = 'comput_cells'.
+     * In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
+     * while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
+     */
     template <class Mesh, class Vector, class Func>
     void for_each_interior_interface(const Mesh& mesh, Vector direction, Func&& f)
     {
@@ -13,6 +27,18 @@ namespace samurai
         for_each_interior_interface(mesh, direction, comput_stencil, std::forward<Func>(f));
     }
 
+    /**
+     * This function does the same as the preceding one, but allows to define the computational stencil.
+     * @param comput_stencil defines the set of cells returned in the callback function.
+     * If no stencil is defined (--> preceding function), then the default is {{0,0}, direction},
+     * i.e. the current cell and its neighbour in the desired @param direction.
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& interface_cells, auto& comput_cells)
+     * where
+     *       'interface_cells' is an array containing the two real cells on both sides of the interface (might be of different levels),
+     *       'comput_cells'    is an array containing the set of cells/ghosts defined by @param comput_stencil (all of same level).
+     */
     template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void
     for_each_interior_interface(const Mesh& mesh, Vector direction, const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil, Func&& f)
@@ -24,6 +50,17 @@ namespace samurai
                        });
     }
 
+    /**
+     * This function does the same as the preceding one, but on one level only.
+     * @param level: the browsed interfaces will be defined by two cells of same level,
+     *               or one cell of that level and another one level higher.
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& interface_cells, auto& comput_cells)
+     * where
+     *       'interface_cells' is an array containing the two real cells on both sides of the interface (might be of different levels).
+     *       'comput_cells'    is an array containing the set of cells/ghosts defined by @param comput_stencil (all of same level).
+     */
     template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface(const Mesh& mesh,
                                      std::size_t level,
@@ -36,6 +73,10 @@ namespace samurai
         for_each_interior_interface___level_jump_opposite_direction(mesh, level, direction, comput_stencil, std::forward<Func>(f));
     }
 
+    /**
+     * Iterates over the interfaces of same level only (no level jump).
+     * Same parameters as the preceding function.
+     */
     template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface___same_level(const Mesh& mesh,
                                                   std::size_t level,
@@ -51,7 +92,6 @@ namespace samurai
         auto interface_it                 = make_stencil_iterator(mesh, interface_stencil);
         auto comput_stencil_it            = make_stencil_iterator(mesh, comput_stencil);
 
-        // Same level
         auto& cells        = mesh[mesh_id_t::cells][level];
         auto shifted_cells = translate(cells, -direction);
         auto intersect     = intersection(cells, shifted_cells);
@@ -70,12 +110,19 @@ namespace samurai
                                                });
     }
 
-    // Jumps level --> level+1
-    //
-    //         |__|   l+1
-    //    |____|      l
-    //    --------->
-    //    direction
+    /**
+     * Iterates over the level jumps (level --> level+1) that occur in the chosen direction.
+     *
+     *         |__|   l+1
+     *    |____|      l
+     *    --------->
+     *    direction
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& interface_cells, auto& comput_cells)
+     * where
+     *       'interface_cells' = [cell_{l}, cell_{l+1}].
+     */
     template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface___level_jump_direction(const Mesh& mesh,
                                                             std::size_t level,
@@ -134,12 +181,19 @@ namespace samurai
             });
     }
 
-    // Jumps level+1 --> level
-    //
-    //    |__|        l+1
-    //       |____|   l
-    //    --------->
-    //    direction
+    /**
+     * Iterates over the level jumps (level --> level+1) that occur in the OPPOSITE direction of @param direction.
+     *
+     *    |__|        l+1
+     *       |____|   l
+     *    --------->
+     *    direction
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& interface_cells, auto& comput_cells)
+     * where
+     *       'interface_cells' = [cell_{l+1}, cell_{l}].
+     */
     template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface___level_jump_opposite_direction(const Mesh& mesh,
                                                                      std::size_t level,
@@ -199,97 +253,16 @@ namespace samurai
             });
     }
 
-    template <class Mesh, class Vector, std::size_t comput_stencil_size, class GetFluxCoeffsFunc, class GetCellCoeffsFunc, class Func>
-    void for_each_interior_interface(const Mesh& mesh,
-                                     Vector direction,
-                                     const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
-                                     GetFluxCoeffsFunc get_flux_coeffs,
-                                     GetCellCoeffsFunc get_coeffs,
-                                     GetCellCoeffsFunc get_coeffs_opposite_direction,
-                                     Func&& f)
-    {
-        static constexpr std::size_t dim = Mesh::dim;
-
-        Stencil<2, dim> interface_stencil = in_out_stencil<dim>(direction);
-        auto interface_it                 = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it            = make_stencil_iterator(mesh, comput_stencil);
-
-        // Same level
-        for_each_level(mesh,
-                       [&](auto level)
-                       {
-                           auto h                                  = cell_length(level);
-                           auto flux_coeffs                        = get_flux_coeffs(h);
-                           decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
-
-                           auto left_cell_coeffs  = get_coeffs(flux_coeffs, h, h);
-                           auto right_cell_coeffs = get_coeffs_opposite_direction(minus_flux_coeffs, h, h);
-
-                           for_each_interior_interface___same_level(mesh,
-                                                                    level,
-                                                                    direction,
-                                                                    comput_stencil,
-                                                                    [&](auto& interface_cells, auto& comput_cells)
-                                                                    {
-                                                                        f(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
-                                                                    });
-                       });
-
-        // Level jumps
-        for_each_level(mesh,
-                       [&](auto level)
-                       {
-                           if (level < mesh.max_level())
-                           {
-                               auto h_l                                = cell_length(level);
-                               auto h_lp1                              = cell_length(level + 1);
-                               auto flux_coeffs                        = get_flux_coeffs(h_lp1); // flux computed at level l+1
-                               decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
-
-                               // Jumps level --> level+1
-                               //
-                               //         |__|   l+1
-                               //    |____|      l
-                               //    --------->
-                               //    direction
-                               {
-                                   auto left_cell_coeffs  = get_coeffs(flux_coeffs, h_lp1, h_l);
-                                   auto right_cell_coeffs = get_coeffs_opposite_direction(minus_flux_coeffs, h_lp1, h_lp1);
-
-                                   for_each_interior_interface___level_jump_direction(
-                                       mesh,
-                                       level,
-                                       direction,
-                                       comput_stencil,
-                                       [&](auto& interface_cells, auto& comput_cells)
-                                       {
-                                           f(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
-                                       });
-                               }
-                               // Jumps level+1 --> level
-                               //
-                               //    |__|        l+1
-                               //       |____|   l
-                               //    --------->
-                               //    direction
-                               {
-                                   auto left_cell_coeffs  = get_coeffs(flux_coeffs, h_lp1, h_lp1);
-                                   auto right_cell_coeffs = get_coeffs_opposite_direction(minus_flux_coeffs, h_lp1, h_l);
-
-                                   for_each_interior_interface___level_jump_opposite_direction(
-                                       mesh,
-                                       level,
-                                       direction,
-                                       comput_stencil,
-                                       [&](auto& interface_cells, auto& comput_cells)
-                                       {
-                                           f(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
-                                       });
-                               }
-                           }
-                       });
-    }
-
+    /**
+     * Iterates over the boundary interface in @param direction and its opposite direction.
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& cell, auto& comput_cells)
+     * where
+     *       'cell'         is the inner cell at the boundary.
+     *       'comput cells' is the set of cells/ghosts defined by @param comput_stencil
+     *                      (typically, the inner cell and the outside ghost).
+     */
     template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void
     for_each_boundary_interface(const Mesh& mesh, Vector direction, const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil, Func&& f)
@@ -301,6 +274,9 @@ namespace samurai
                        });
     }
 
+    /**
+     * Same as the preceding function, but for @param level only.
+     */
     template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void for_each_boundary_interface(const Mesh& mesh,
                                      std::size_t level,
@@ -351,6 +327,86 @@ namespace samurai
         Vector opposite_direction                        = -direction;
         decltype(comput_stencil) opposite_comput_stencil = -xt::flip(comput_stencil, 0);
         for_each_boundary_interface___direction(mesh, level, opposite_direction, opposite_comput_stencil, std::forward<Func>(f));
+    }
+
+    template <class Mesh, class Vector, std::size_t comput_stencil_size, class GetFluxCoeffsFunc, class GetCellCoeffsFunc, class Func>
+    void for_each_interior_interface(const Mesh& mesh,
+                                     Vector direction,
+                                     const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                     GetFluxCoeffsFunc get_flux_coeffs,
+                                     GetCellCoeffsFunc get_coeffs,
+                                     GetCellCoeffsFunc get_coeffs_opposite_direction,
+                                     Func&& f)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto min_level = mesh[mesh_id_t::cells].min_level();
+        auto max_level = mesh[mesh_id_t::cells].max_level();
+
+        // Same level
+        for (std::size_t level = min_level; level <= max_level; ++level)
+        {
+            auto h                                  = cell_length(level);
+            auto flux_coeffs                        = get_flux_coeffs(h);
+            decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
+
+            auto left_cell_coeffs  = get_coeffs(flux_coeffs, h, h);
+            auto right_cell_coeffs = get_coeffs_opposite_direction(minus_flux_coeffs, h, h);
+
+            for_each_interior_interface___same_level(mesh,
+                                                     level,
+                                                     direction,
+                                                     comput_stencil,
+                                                     [&](auto& interface_cells, auto& comput_cells)
+                                                     {
+                                                         f(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
+                                                     });
+        }
+
+        // Level jumps (level -- level+1)
+        for (std::size_t level = min_level; level < max_level; ++level)
+        {
+            auto h_l                                = cell_length(level);
+            auto h_lp1                              = cell_length(level + 1);
+            auto flux_coeffs                        = get_flux_coeffs(h_lp1); // flux computed at level l+1
+            decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
+
+            //         |__|   l+1
+            //    |____|      l
+            //    --------->
+            //    direction
+            {
+                auto left_cell_coeffs  = get_coeffs(flux_coeffs, h_lp1, h_l);
+                auto right_cell_coeffs = get_coeffs_opposite_direction(minus_flux_coeffs, h_lp1, h_lp1);
+
+                for_each_interior_interface___level_jump_direction(mesh,
+                                                                   level,
+                                                                   direction,
+                                                                   comput_stencil,
+                                                                   [&](auto& interface_cells, auto& comput_cells)
+                                                                   {
+                                                                       f(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
+                                                                   });
+            }
+            //    |__|        l+1
+            //       |____|   l
+            //    --------->
+            //    direction
+            {
+                auto left_cell_coeffs  = get_coeffs(flux_coeffs, h_lp1, h_lp1);
+                auto right_cell_coeffs = get_coeffs_opposite_direction(minus_flux_coeffs, h_lp1, h_l);
+
+                for_each_interior_interface___level_jump_opposite_direction(
+                    mesh,
+                    level,
+                    direction,
+                    comput_stencil,
+                    [&](auto& interface_cells, auto& comput_cells)
+                    {
+                        f(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
+                    });
+            }
+        }
     }
 
     template <class Mesh, class Vector, std::size_t comput_stencil_size, class GetFluxCoeffsFunc, class GetCellCoeffsFunc, class Func>

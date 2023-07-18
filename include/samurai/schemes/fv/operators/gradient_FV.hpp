@@ -67,13 +67,6 @@ namespace samurai
         template <std::size_t d>
         static cell_coeffs_t half_flux(flux_coeffs_t& flux, double h_face, double h_cell)
         {
-            // std::array<coeff_matrix_t, 2> coeffs;
-            // coeffs[0].fill(0);
-            // coeffs[1].fill(0);
-            // double h_factor        = pow(h_face, dim - 1) / pow(h_cell, dim);
-            // xt::view(coeffs[0], d) = 0.5 * flux_coeffs[0] * h_factor;
-            // xt::view(coeffs[1], d) = 0.5 * flux_coeffs[1] * h_factor;
-            // return coeffs;
             double face_measure = pow(h_face, dim - 1);
             double cell_measure = pow(h_cell, dim);
             double h_factor     = face_measure / cell_measure;

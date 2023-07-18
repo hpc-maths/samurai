@@ -6,18 +6,7 @@
 namespace samurai
 {
     /**
-     * Defines how to compute a normal flux: e.g., Grad(u).n
-     * - direction: e.g., right = {0, 1}
-     * - stencil: e.g., current cell and right neighbour = {{0, 0}, {0, 1}}
-     * - function returning the coefficients for the flux computation w.r.t. the stencil:
-     *            auto get_flux_coeffs(double h)
-     *            {
-     *                // Grad(u).n = (u_1 - u_0)/h
-     *                std::array<double, 2> flux_coeffs;
-     *                flux_coeffs[0] = -1/h; // current cell
-     *                flux_coeffs[1] =  1/h; // right neighbour
-     *                return flux_coeffs;
-     *            }
+     * Defines how to compute a normal flux
      */
     template <class Field, std::size_t stencil_size>
     struct NormalFluxComputation
@@ -30,8 +19,53 @@ namespace samurai
                                                                                                             // matrix otherwise
         using flux_coeffs_t = xt::xtensor_fixed<flux_matrix_t, xt::xshape<stencil_size>>;
 
+        /**
+         * Direction of the flux.
+         * In 2D, e.g., {1,0} for the flux on the right.
+         */
         DirectionVector<dim> direction;
+
+        /**
+         * Stencil for the flux computation of the flux in the direction defined above.
+         * E.g., if direction = {1,0}, the standard stencil is {{0,0}, {1,0}}.
+         * Here, {0,0} captures the current cell and {1,0} its right neighbour.
+         * The flux will be computed from {0,0} to {1,0}:
+         *
+         *                |-------|-------|
+         *                | {0,0} | {1,0} |
+         *                |-------|-------|
+         *                     ------->
+         *                    normal flux
+         *
+         * An enlarged stencil would be {{-1,0}, {0,0}, {1,0}, {1,0}}, i.e. two cells on each side of the interface.
+         *
+         *       |-------|-------|-------|-------|
+         *       |{-1,0} | {0,0} | {1,0} | {2,0} |
+         *       |-------|-------|-------|-------|
+         *                    ------->
+         *                   normal flux
+         *
+         */
         Stencil<stencil_size, dim> stencil;
+
+        /**
+         * Function returning the coefficients for the computation of the flux w.r.t. the defined stencil, in function of the meshsize h.
+         * Note that in this definition, the flux must be linear with respect to the cell values.
+         * For instance, considering a scalar field u, we configure the flux Grad(u).n through the function
+         *
+         *            // Grad(u).n = (u_1 - u_0)/h
+         *            auto get_flux_coeffs(double h)
+         *            {
+         *                std::array<double, 2> coeffs;
+         *                coeffs[0] = -1/h; // current cell    (because, stencil[0] = {0,0})
+         *                coeffs[1] =  1/h; // right neighbour (because, stencil[1] = {1,0})
+         *                return coeffs;
+         *            }
+         * If u is now a vectorial field of size S, then coeffs[0] and coeffs[1] become matrices of size SxS.
+         * If the field components are independent from each other, then
+         *                coeffs[0] = diag(-1/h),
+         *                coeffs[1] = diag( 1/h).
+         */
         std::function<flux_coeffs_t(double)> get_flux_coeffs;
     };
 
@@ -94,7 +128,7 @@ namespace samurai
         using field_value_type   = typename Field::value_type; // double
         using coeff_matrix_t     = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
         using cell_coeffs_t      = xt::xtensor_fixed<coeff_matrix_t, xt::xshape<stencil_size>>;
-        using flux_coeffs_t      = typename flux_computation_t::flux_coeffs_t; // std::array<flux_matrix_t, stencil_size>;
+        using flux_coeffs_t      = typename flux_computation_t::flux_coeffs_t;
         using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&, double, double)>;
 
         flux_computation_t flux;

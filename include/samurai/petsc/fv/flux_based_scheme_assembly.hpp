@@ -26,8 +26,6 @@ namespace samurai
             using base_class::scheme;
             using base_class::set_current_insert_mode;
 
-          public:
-
             using scheme_t                                 = Scheme;
             using cfg_t                                    = typename Scheme::cfg_t;
             using bdry_cfg_t                               = typename Scheme::bdry_cfg;
@@ -47,8 +45,6 @@ namespace samurai
             {
                 return scheme().coefficients();
             }
-
-          public:
 
             //-------------------------------------------------------------//
             //                     Sparsity pattern                        //
@@ -116,8 +112,6 @@ namespace samurai
                                                 });
                 }
             }
-
-          public:
 
             //-------------------------------------------------------------//
             //             Assemble scheme in the interior                 //
