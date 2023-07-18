@@ -41,7 +41,7 @@ namespace samurai
         EXPECT_EQ(u.name(), u_const.name());
         EXPECT_EQ(u.array(), u_const.array());
         EXPECT_EQ(u.mesh(), u_const.mesh());
-        EXPECT_EQ(u.mesh_ptr(), u_const.mesh_ptr());
+        EXPECT_EQ(&(u.mesh()), &(u_const.mesh()));
 
         auto m              = holder(mesh);
         const auto u_const1 = make_field<double, 1>("uc", m);
@@ -64,7 +64,7 @@ namespace samurai
         EXPECT_EQ(u.name(), u_const.name());
         EXPECT_EQ(u.array(), u_const.array());
         EXPECT_EQ(u.mesh(), u_const.mesh());
-        EXPECT_EQ(u.mesh_ptr(), u_const.mesh_ptr());
+        EXPECT_EQ(&(u.mesh()), &(u_const.mesh()));
 
         auto m1             = holder(mesh1);
         auto m2             = holder(mesh2);

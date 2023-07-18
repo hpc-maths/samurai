@@ -6,6 +6,7 @@
 
 #include "../algorithm.hpp"
 #include "../cell_array.hpp"
+#include "../cell_flag.hpp"
 #include "../cell_list.hpp"
 #include "../field.hpp"
 #include "../graduation.hpp"
