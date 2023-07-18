@@ -359,7 +359,6 @@ namespace samurai
         update_ghost_mr(old_fields);
         update_ghost_mr(other_fields...);
         return update_field_mr(m_tag, m_fields, old_fields, other_fields...);
-        return true;
     }
 
     template <class... TFields>
