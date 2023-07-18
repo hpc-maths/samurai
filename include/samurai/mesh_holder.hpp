@@ -66,17 +66,12 @@ namespace samurai
             return *p_mesh;
         }
 
-        const mesh_t* mesh_ptr() const
+        void change_mesh_ptr(mesh_t& mesh)
         {
-            return p_mesh;
+            p_mesh = &mesh;
         }
 
-        mesh_t* mesh_ptr()
-        {
-            return p_mesh;
-        }
-
-      private:
+      public:
 
         mesh_t* p_mesh = nullptr;
     };
@@ -114,16 +109,6 @@ namespace samurai
         mesh_t& mesh()
         {
             return m_mesh;
-        }
-
-        const mesh_t* mesh_ptr() const
-        {
-            return &m_mesh;
-        }
-
-        mesh_t* mesh_ptr()
-        {
-            return &m_mesh;
         }
 
       private:

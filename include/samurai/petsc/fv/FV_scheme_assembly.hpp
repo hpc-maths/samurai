@@ -1,5 +1,6 @@
 #pragma once
 #include "../../boundary.hpp"
+#include "../../numeric/prediction.hpp"
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"

@@ -367,7 +367,7 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
 
     samurai::update_field(tag, f, u);
 
-    tag.mesh_ptr()->swap(new_mesh);
+    tag.mesh().swap(new_mesh);
     return false;
 }
 
