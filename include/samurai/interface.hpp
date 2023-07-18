@@ -290,6 +290,69 @@ namespace samurai
                        });
     }
 
+    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    void
+    for_each_boundary_interface(const Mesh& mesh, Vector direction, const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil, Func&& f)
+    {
+        for_each_level(mesh,
+                       [&](auto level)
+                       {
+                           for_each_boundary_interface(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+                       });
+    }
+
+    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface(const Mesh& mesh,
+                                     std::size_t level,
+                                     Vector direction,
+                                     const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                     Func&& f)
+    {
+        for_each_boundary_interface___direction(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+        for_each_boundary_interface___opposite_direction(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+    }
+
+    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface___direction(const Mesh& mesh,
+                                                 std::size_t level,
+                                                 Vector direction,
+                                                 const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                 Func&& f)
+    {
+        static constexpr std::size_t dim = Mesh::dim;
+        using mesh_interval_t            = typename Mesh::mesh_interval_t;
+
+        Stencil<2, dim> interface_stencil = in_out_stencil<dim>(direction);
+        auto interface_it                 = make_stencil_iterator(mesh, interface_stencil);
+        auto comput_stencil_it            = make_stencil_iterator(mesh, comput_stencil);
+
+        auto bdry = boundary(mesh, level, direction);
+        for_each_meshinterval<mesh_interval_t>(bdry,
+                                               [&](auto mesh_interval)
+                                               {
+                                                   interface_it.init(mesh_interval);
+                                                   comput_stencil_it.init(mesh_interval);
+                                                   for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
+                                                   {
+                                                       f(interface_it.cells()[0], comput_stencil_it.cells());
+                                                       interface_it.move_next();
+                                                       comput_stencil_it.move_next();
+                                                   }
+                                               });
+    }
+
+    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface___opposite_direction(const Mesh& mesh,
+                                                          std::size_t level,
+                                                          Vector direction,
+                                                          const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                          Func&& f)
+    {
+        Vector opposite_direction                        = -direction;
+        decltype(comput_stencil) opposite_comput_stencil = -xt::flip(comput_stencil, 0);
+        for_each_boundary_interface___direction(mesh, level, opposite_direction, opposite_comput_stencil, std::forward<Func>(f));
+    }
+
     template <class Mesh, class Vector, std::size_t comput_stencil_size, class GetFluxCoeffsFunc, class GetCellCoeffsFunc, class Func>
     void for_each_boundary_interface(const Mesh& mesh,
                                      Vector direction,
@@ -299,21 +362,6 @@ namespace samurai
                                      GetCellCoeffsFunc get_coeffs_opposite_direction,
                                      Func&& f)
     {
-        static constexpr std::size_t dim = Mesh::dim;
-        using mesh_interval_t            = typename Mesh::mesh_interval_t;
-
-        // Direction
-        Stencil<2, dim> interface_stencil = in_out_stencil<dim>(direction);
-        auto interface_it                 = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it            = make_stencil_iterator(mesh, comput_stencil);
-
-        // Opposite direction
-        Vector opposite_direction                                 = -direction;
-        Stencil<2, dim> opposite_interface_stencil                = in_out_stencil<dim>(opposite_direction);
-        Stencil<comput_stencil_size, dim> opposite_comput_stencil = -xt::flip(comput_stencil, 0);
-        auto opposite_interface_it                                = make_stencil_iterator(mesh, opposite_interface_stencil);
-        auto opposite_comput_stencil_it                           = make_stencil_iterator(mesh, opposite_comput_stencil);
-
         for_each_level(mesh,
                        [&](auto level)
                        {
@@ -322,94 +370,26 @@ namespace samurai
                            // Boundary in direction
                            auto flux_coeffs = get_flux_coeffs(h);
                            auto cell_coeffs = get_cell_coeffs(flux_coeffs, h, h);
-
-                           auto bdry = boundary(mesh, level, direction);
-                           for_each_meshinterval<mesh_interval_t>(bdry,
-                                                                  [&](auto mesh_interval)
-                                                                  {
-                                                                      interface_it.init(mesh_interval);
-                                                                      comput_stencil_it.init(mesh_interval);
-                                                                      for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
-                                                                      {
-                                                                          f(interface_it.cells()[0], comput_stencil_it.cells(), cell_coeffs);
-                                                                          interface_it.move_next();
-                                                                          comput_stencil_it.move_next();
-                                                                      }
-                                                                  });
+                           for_each_boundary_interface___direction(mesh,
+                                                                   level,
+                                                                   direction,
+                                                                   comput_stencil,
+                                                                   [&](auto& cell, auto& comput_cells)
+                                                                   {
+                                                                       f(cell, comput_cells, cell_coeffs);
+                                                                   });
 
                            // Boundary in opposite direction
                            decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
                            cell_coeffs                             = get_coeffs_opposite_direction(minus_flux_coeffs, h, h);
-
-                           auto opposite_bdry = boundary(mesh, level, opposite_direction);
-                           for_each_meshinterval<mesh_interval_t>(
-                               opposite_bdry,
-                               [&](auto mesh_interval)
-                               {
-                                   opposite_interface_it.init(mesh_interval);
-                                   opposite_comput_stencil_it.init(mesh_interval);
-                                   for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
-                                   {
-                                       f(opposite_interface_it.cells()[0], opposite_comput_stencil_it.cells(), cell_coeffs);
-                                       opposite_interface_it.move_next();
-                                       opposite_comput_stencil_it.move_next();
-                                   }
-                               });
-                       });
-    }
-
-    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void
-    for_each_boundary_interface(const Mesh& mesh, Vector direction, const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil, Func&& f)
-    {
-        static constexpr std::size_t dim = Mesh::dim;
-        using mesh_interval_t            = typename Mesh::mesh_interval_t;
-
-        // Direction
-        Stencil<2, dim> interface_stencil = in_out_stencil<dim>(direction);
-        auto interface_it                 = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it            = make_stencil_iterator(mesh, comput_stencil);
-
-        // Opposite direction
-        Vector opposite_direction                                 = -direction;
-        Stencil<2, dim> opposite_interface_stencil                = in_out_stencil<dim>(opposite_direction);
-        Stencil<comput_stencil_size, dim> opposite_comput_stencil = -xt::flip(comput_stencil, 0);
-        auto opposite_interface_it                                = make_stencil_iterator(mesh, opposite_interface_stencil);
-        auto opposite_comput_stencil_it                           = make_stencil_iterator(mesh, opposite_comput_stencil);
-
-        for_each_level(mesh,
-                       [&](auto level)
-                       {
-                           // Boundary in direction
-                           auto bdry = boundary(mesh, level, direction);
-                           for_each_meshinterval<mesh_interval_t>(bdry,
-                                                                  [&](auto mesh_interval)
-                                                                  {
-                                                                      interface_it.init(mesh_interval);
-                                                                      comput_stencil_it.init(mesh_interval);
-                                                                      for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
-                                                                      {
-                                                                          f(interface_it.cells()[0], comput_stencil_it.cells());
-                                                                          interface_it.move_next();
-                                                                          comput_stencil_it.move_next();
-                                                                      }
-                                                                  });
-
-                           // Boundary in opposite direction
-                           auto opposite_bdry = boundary(mesh, level, opposite_direction);
-                           for_each_meshinterval<mesh_interval_t>(
-                               opposite_bdry,
-                               [&](auto mesh_interval)
-                               {
-                                   opposite_interface_it.init(mesh_interval);
-                                   opposite_comput_stencil_it.init(mesh_interval);
-                                   for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
-                                   {
-                                       f(opposite_interface_it.cells()[0], opposite_comput_stencil_it.cells());
-                                       opposite_interface_it.move_next();
-                                       opposite_comput_stencil_it.move_next();
-                                   }
-                               });
+                           for_each_boundary_interface___opposite_direction(mesh,
+                                                                            level,
+                                                                            direction,
+                                                                            comput_stencil,
+                                                                            [&](auto& cell, auto& comput_cells)
+                                                                            {
+                                                                                f(cell, comput_cells, cell_coeffs);
+                                                                            });
                        });
     }
 
