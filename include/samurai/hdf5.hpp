@@ -553,6 +553,7 @@ namespace samurai
             auto dataitem                           = attribute.append_child("DataItem");
             dataitem.append_attribute("Dimensions") = submesh.nb_cells();
             dataitem.append_attribute("Format")     = "HDF";
+            dataitem.append_attribute("Precision") = "8";
             dataitem.text()                         = fmt::format("{}.h5:{}", m_filename, path).data();
         }
     }
