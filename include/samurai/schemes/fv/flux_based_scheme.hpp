@@ -153,7 +153,7 @@ namespace samurai
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    struct FluxBasedCoefficients
+    struct FluxBasedSchemeDefinition
     {
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
@@ -166,15 +166,12 @@ namespace samurai
         using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&, double, double)>;
 
         flux_computation_t flux;
-        cell_coeffs_func_t get_coeffs;
-        cell_coeffs_func_t get_coeffs_opposite_direction = nullptr;
+        cell_coeffs_func_t contribution;
+        cell_coeffs_func_t contribution_opposite_direction = nullptr;
     };
 
-    /**
-     * Useful sizes to define the sparsity pattern of the matrix and perform the preallocation.
-     */
     template <std::size_t output_field_size_, std::size_t stencil_size_>
-    struct FluxBasedAssemblyConfig
+    struct FluxBasedSchemeConfig
     {
         static constexpr std::size_t output_field_size = output_field_size_;
         static constexpr std::size_t stencil_size      = stencil_size_;
@@ -198,7 +195,7 @@ namespace samurai
         static constexpr std::size_t output_field_size = cfg::output_field_size;
         static constexpr std::size_t stencil_size      = cfg::stencil_size;
 
-        using coefficients_t = FluxBasedCoefficients<Field, output_field_size, stencil_size>;
+        using scheme_definition_t = FluxBasedSchemeDefinition<Field, output_field_size, stencil_size>;
 
         explicit FluxBasedScheme(Field& unknown)
             : base_class(unknown)

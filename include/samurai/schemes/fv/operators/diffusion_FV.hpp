@@ -16,7 +16,7 @@ namespace samurai
         std::size_t dim               = Field::dim,
         std::size_t output_field_size = Field::size,
         std::size_t stencil_size      = 2,
-        class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
+        class cfg                     = FluxBasedSchemeConfig<output_field_size, stencil_size>,
         class bdry_cfg                = BoundaryConfigFV<stencil_size / 2, dirichlet_enfcmt>>
     class DiffusionFV : public FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt>, cfg, bdry_cfg, Field>
     {
@@ -29,9 +29,9 @@ namespace samurai
         using cfg_t                     = cfg;
         using field_t                   = Field;
         using Mesh                      = typename Field::mesh_t;
-        using coefficients_t            = typename base_class::coefficients_t;
-        using cell_coeffs_t             = typename coefficients_t::cell_coeffs_t;
-        using flux_coeffs_t             = typename coefficients_t::flux_coeffs_t;
+        using scheme_definition_t       = typename base_class::scheme_definition_t;
+        using cell_coeffs_t             = typename scheme_definition_t::cell_coeffs_t;
+        using flux_coeffs_t             = typename scheme_definition_t::flux_coeffs_t;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
         explicit DiffusionFV(Field& unknown)
@@ -60,9 +60,9 @@ namespace samurai
             return -flux * h_factor;
         }
 
-        static auto coefficients()
+        static auto definition()
         {
-            std::array<coefficients_t, dim> coeffs_by_fluxes;
+            std::array<scheme_definition_t, dim> def;
             auto directions = positive_cartesian_directions<dim>();
 
             // For each positive direction (i.e., in 2D, only right and top)
@@ -83,12 +83,12 @@ namespace samurai
                      */
 
                     // How the flux is computed in this direction: here, Grad.n = (uR-uL)/h
-                    coeffs_by_fluxes[d].flux = normal_grad_order1<Field>(direction);
+                    def[d].flux = normal_grad_order1<Field>(direction);
                     // Flux contribution to the scheme
-                    coeffs_by_fluxes[d].get_coeffs                    = minus_flux;
-                    coeffs_by_fluxes[d].get_coeffs_opposite_direction = minus_flux;
+                    def[d].contribution                    = minus_flux;
+                    def[d].contribution_opposite_direction = minus_flux;
                 });
-            return coeffs_by_fluxes;
+            return def;
         }
 
         directional_bdry_config_t dirichlet_config(const DirectionVector<dim>& direction) const override

@@ -49,7 +49,7 @@ namespace samurai
 
             using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
 
-            static constexpr bool ghost_elimination_enabled = false;
+            static constexpr bool ghost_elimination_enabled = true;
 
           protected:
 

@@ -44,7 +44,7 @@ namespace samurai
               std::size_t dim               = Field::dim,
               std::size_t output_field_size = dim,
               std::size_t stencil_size      = 2,
-              class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
+              class cfg                     = FluxBasedSchemeConfig<output_field_size, stencil_size>,
               class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
     class GradientFV : public FluxBasedScheme<GradientFV<Field>, cfg, bdry_cfg, Field>
     {
@@ -52,10 +52,10 @@ namespace samurai
 
       public:
 
-        using coefficients_t = typename base_class::coefficients_t;
-        using coeff_matrix_t = typename coefficients_t::coeff_matrix_t;
-        using cell_coeffs_t  = typename coefficients_t::cell_coeffs_t;
-        using flux_coeffs_t  = typename coefficients_t::flux_coeffs_t;
+        using scheme_definition_t = typename base_class::scheme_definition_t;
+        using coeff_matrix_t      = typename scheme_definition_t::coeff_matrix_t;
+        using cell_coeffs_t       = typename scheme_definition_t::cell_coeffs_t;
+        using flux_coeffs_t       = typename scheme_definition_t::flux_coeffs_t;
 
         explicit GradientFV(Field& u)
             : base_class(u)
@@ -87,9 +87,9 @@ namespace samurai
             return coeffs;
         }
 
-        static auto coefficients()
+        static auto definition()
         {
-            std::array<coefficients_t, dim> coeffs_by_fluxes;
+            std::array<scheme_definition_t, dim> def;
             auto directions = positive_cartesian_directions<dim>();
 
             static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
@@ -97,13 +97,12 @@ namespace samurai
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
 
-                    auto& coeffs                         = coeffs_by_fluxes[d];
-                    DirectionVector<dim> direction       = xt::view(directions, d);
-                    coeffs.flux                          = average_quantity<Field>(direction);
-                    coeffs.get_coeffs                    = add_flux_to_row<d>;
-                    coeffs.get_coeffs_opposite_direction = add_flux_to_row<d>;
+                    DirectionVector<dim> direction         = xt::view(directions, d);
+                    def[d].flux                            = average_quantity<Field>(direction);
+                    def[d].contribution                    = add_flux_to_row<d>;
+                    def[d].contribution_opposite_direction = add_flux_to_row<d>;
                 });
-            return coeffs_by_fluxes;
+            return def;
         }
     };
 
