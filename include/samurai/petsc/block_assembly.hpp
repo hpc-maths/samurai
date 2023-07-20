@@ -514,7 +514,7 @@ namespace samurai
                 for_each(sources,
                          [&](auto& s)
                          {
-                             for_each_assembly_op(
+                             this->for_each_assembly_op(
                                  [&](auto& op, auto row, auto col)
                                  {
                                      if (col == 0 && row == i)
