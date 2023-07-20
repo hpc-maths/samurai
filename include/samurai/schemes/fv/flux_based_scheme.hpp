@@ -118,6 +118,40 @@ namespace samurai
         return normal_fluxes;
     }
 
+    template <class Field, class Vector>
+    auto average_quantity(Vector& direction)
+    {
+        static constexpr std::size_t dim        = Field::dim;
+        static constexpr std::size_t field_size = Field::size;
+        using flux_computation_t                = NormalFluxComputation<Field, 2>;
+        using flux_coeffs_t                     = typename flux_computation_t::flux_coeffs_t;
+
+        flux_computation_t flux;
+        flux.direction       = direction;
+        flux.stencil         = in_out_stencil<dim>(direction);
+        flux.get_flux_coeffs = [](double)
+        {
+            flux_coeffs_t coeffs;
+            if constexpr (field_size == 1)
+            {
+                coeffs[0] = 0.5;
+                coeffs[1] = 0.5;
+            }
+            else
+            {
+                coeffs[0].fill(0);
+                coeffs[1].fill(0);
+                for (std::size_t i = 0; i < field_size; ++i)
+                {
+                    coeffs[0](i, i) = 0.5;
+                    coeffs[1](i, i) = 0.5;
+                }
+            }
+            return coeffs;
+        };
+        return flux;
+    }
+
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
     struct FluxBasedCoefficients
     {

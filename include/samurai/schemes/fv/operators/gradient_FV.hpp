@@ -65,7 +65,7 @@ namespace samurai
         }
 
         template <std::size_t d>
-        static cell_coeffs_t half_flux(flux_coeffs_t& flux, double h_face, double h_cell)
+        static cell_coeffs_t add_flux_to_row(flux_coeffs_t& flux, double h_face, double h_cell)
         {
             double face_measure = pow(h_face, dim - 1);
             double cell_measure = pow(h_cell, dim);
@@ -76,28 +76,19 @@ namespace samurai
             {
                 if constexpr (dim == 1)
                 {
-                    coeffs[i] = 0.5 * flux[i] * h_factor;
+                    coeffs[i] = flux[i] * h_factor;
                 }
                 else
                 {
                     coeffs[i].fill(0);
-                    xt::row(coeffs[i], d) = 0.5 * flux[i] * h_factor;
+                    xt::row(coeffs[i], d) = flux[i] * h_factor;
                 }
             }
             return coeffs;
         }
 
-        template <std::size_t d>
-        static cell_coeffs_t minus_half_flux(flux_coeffs_t& flux, double h_face, double h_cell)
-        {
-            return -half_flux<d>(flux, h_face, h_cell);
-        }
-
-        // Grad_x(u) = 1/2 * [-Fx(L) + Fx(R) ]
-        // Grad_y(u) = 1/2 * [-Fx(B) + Fx(T) ]
         static auto coefficients()
         {
-            static_assert(dim <= 3, "GradientFV.grad_coefficients() not implemented for dim > 3.");
             std::array<coefficients_t, dim> coeffs_by_fluxes;
             auto directions = positive_cartesian_directions<dim>();
 
@@ -108,9 +99,9 @@ namespace samurai
 
                     auto& coeffs                         = coeffs_by_fluxes[d];
                     DirectionVector<dim> direction       = xt::view(directions, d);
-                    coeffs.flux                          = normal_grad_order1<Field>(direction);
-                    coeffs.get_coeffs                    = half_flux<d>;
-                    coeffs.get_coeffs_opposite_direction = minus_half_flux<d>;
+                    coeffs.flux                          = average_quantity<Field>(direction);
+                    coeffs.get_coeffs                    = add_flux_to_row<d>;
+                    coeffs.get_coeffs_opposite_direction = add_flux_to_row<d>;
                 });
             return coeffs_by_fluxes;
         }
