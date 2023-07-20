@@ -253,13 +253,13 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff_v = samurai::make_diffusion_FV(velocity);
-        auto grad_p = samurai::make_gradient_FV(pressure);
-        auto div_v  = samurai::make_divergence_FV(velocity);
-        auto zero_p = samurai::make_zero_operator_FV(pressure);
+        auto diff    = samurai::make_diffusion_FV(velocity);
+        auto grad    = samurai::make_gradient_FV(pressure);
+        auto div     = samurai::make_divergence_FV(velocity);
+        auto zero_op = samurai::make_zero_operator_FV(pressure);
 
-        auto stokes = samurai::make_block_operator<2, 2>(diff_v, grad_p,
-                                                         -div_v, zero_p);
+        auto stokes = samurai::make_block_operator<2, 2>(diff, grad,
+                                                         -div, zero_op);
 
         // clang-format on
 
@@ -408,17 +408,17 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff_v = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
-        auto grad_p =              samurai::make_gradient_FV(pressure_np1);
-        auto div_v  =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_p =              samurai::make_zero_operator_FV(pressure_np1);
-        auto id_v   =              samurai::make_identity_FV(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
+        auto grad    =              samurai::make_gradient_FV(pressure_np1);
+        auto div     =              samurai::make_divergence_FV(velocity_np1);
+        auto zero_op =              samurai::make_zero_operator_FV(pressure_np1);
+        auto id      =              samurai::make_identity_FV(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
         //             |       -Div        0    |
-        auto stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
-                                                                     -div_v,      zero_p);
+        auto stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad,
+                                                                   -div,   zero_op);
         // clang-format on
 
         // Linear solver
@@ -496,7 +496,7 @@ int main(int argc, char* argv[])
             {
                 if (dt_has_changed)
                 {
-                    stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                    stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
                 }
                 stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
                 configure_solver(stokes_solver);
@@ -533,9 +533,12 @@ int main(int argc, char* argv[])
             std::cout.precision(2);
             std::cout << ", L2-error: " << std::scientific << error;
 
+            // Divergence
+            auto div_velocity = div(velocity);
+
             // Save the result
             std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity, div_velocity);
 
             if (min_level != max_level)
             {
@@ -543,15 +546,15 @@ int main(int argc, char* argv[])
                 samurai::update_ghost_mr(velocity);
                 auto velocity_recons = samurai::reconstruction(velocity);
                 // Error
-                double error_recons = L2_error(velocity_recons,
-                                               [&](auto& coord)
-                                               {
-                                                   return exact_velocity(t_n, coord);
-                                               });
+                double error_recons = samurai::L2_error(velocity_recons,
+                                                        [&](auto& coord)
+                                                        {
+                                                            return exact_velocity(t_n, coord);
+                                                        });
                 std::cout.precision(2);
                 std::cout << ", L2-error (recons): " << std::scientific << error_recons;
                 // Save
-                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
+                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons, div_velocity);
             }
             std::cout << std::endl;
         }
@@ -604,17 +607,17 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff_v = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
-        auto grad_p =              samurai::make_gradient_FV(pressure_np1);
-        auto div_v  =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_p =              samurai::make_zero_operator_FV(pressure_np1);
-        auto id_v   =              samurai::make_identity_FV(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
+        auto grad    =              samurai::make_gradient_FV(pressure_np1);
+        auto div     =              samurai::make_divergence_FV(velocity_np1);
+        auto zero_op =              samurai::make_zero_operator_FV(pressure_np1);
+        auto id      =              samurai::make_identity_FV(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
         //             |       -Div        0    |
-        auto stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
-                                                                     -div_v,      zero_p);
+        auto stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad,
+                                                                   -div,   zero_op);
         // clang-format on
 
         auto MRadaptation = samurai::make_MRAdapt(velocity);
@@ -671,7 +674,7 @@ int main(int argc, char* argv[])
             {
                 if (dt_has_changed)
                 {
-                    stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                    stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
                 }
                 stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
                 configure_solver(stokes_solver);
@@ -691,13 +694,12 @@ int main(int argc, char* argv[])
             // Save the result
             if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
             {
-                auto divergence = div_v(velocity);
-
                 samurai::update_ghost_mr(velocity);
                 auto velocity_recons = samurai::reconstruction(velocity);
+                auto div_velocity    = div(velocity);
 
                 std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-                samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity, divergence);
+                samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity, div_velocity);
                 samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
             }
 
