@@ -691,13 +691,66 @@ int main(int argc, char* argv[])
             // Save the result
             if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
             {
+                auto divergence = div_v(velocity);
+
                 samurai::update_ghost_mr(velocity);
                 auto velocity_recons = samurai::reconstruction(velocity);
 
                 std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-                samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+                samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity, divergence);
                 samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
             }
+
+            // srand(time(NULL));
+            // auto x_velocity = samurai::make_field<dim, is_soa>("x_velocity", mesh);
+            // auto x_pressure = samurai::make_field<1, is_soa>("x_pressure", mesh);
+            // samurai::for_each_cell(mesh[mesh_id_t::reference],
+            //                        [&](auto cell)
+            //                        {
+            //                            x_velocity[cell] = rand() % 10 + 1;
+            //                            x_pressure[cell] = rand() % 10 + 1;
+            //                        });
+            // auto x = stokes.tie_unknowns(x_velocity, x_pressure);
+
+            // auto monolithicAssembly = samurai::petsc::make_assembly<true>(stokes);
+            // Mat monolithicA;
+            // monolithicAssembly.create_matrix(monolithicA);
+            // monolithicAssembly.assemble_matrix(monolithicA);
+            // Vec mono_x                = monolithicAssembly.create_applicable_vector(x); // copy
+            // auto result_velocity_mono = samurai::make_field<dim, is_soa>("result_velocity", mesh);
+            // auto result_pressure_mono = samurai::make_field<1, is_soa>("result_pressure", mesh);
+            // auto result_mono          = stokes.tie_rhs(result_velocity_mono, result_pressure_mono);
+            // Vec mono_result           = monolithicAssembly.create_rhs_vector(result_mono); // copy
+            // MatMult(monolithicA, mono_x, mono_result);
+            // monolithicAssembly.update_result_fields(mono_result, result_mono); // copy
+
+            // auto nestedAssembly = samurai::petsc::make_assembly<false>(stokes);
+            // Mat nestedA;
+            // nestedAssembly.create_matrix(nestedA);
+            // nestedAssembly.assemble_matrix(nestedA);
+            // Vec nest_x                = nestedAssembly.create_applicable_vector(x);
+            // auto result_velocity_nest = samurai::make_field<dim, is_soa>("result_velocity", mesh);
+            // auto result_pressure_nest = samurai::make_field<1, is_soa>("result_pressure", mesh);
+            // auto result_nest          = stokes.tie_rhs(result_velocity_nest, result_pressure_nest);
+            // Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);
+            // MatMult(nestedA, nest_x, nest_result);
+
+            // std::cout << std::setprecision(15);
+            // std::cout << std::fixed;
+            // samurai::for_each_cell(
+            //     mesh[mesh_id_t::reference],
+            //     [&](auto cell)
+            //     {
+            //         std::cout << round(result_velocity_mono[cell][0] * 1.e8) / 1.e8 << std::endl;
+            //         if (round(result_velocity_mono[cell][0] * 1.e5) / 1.e5 != round(result_velocity_nest[cell][0] * 1.e5) / 1.e5)
+            //         {
+            //             std::cout << result_velocity_mono[cell][0] << " =? " << result_velocity_nest[cell][0] << std::endl;
+            //         }
+            //         if (result_pressure_mono[cell] != result_pressure_nest[cell])
+            //         {
+            //             std::cout << result_pressure_mono[cell] << " =? " << result_pressure_nest[cell] << std::endl;
+            //         }
+            //     });
         }
     }
     else
