@@ -11,10 +11,16 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-auto exact_solution(double x, double t)
+template <std::size_t dim>
+double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t, double diff_coeff)
 {
     assert(t > 0 && "t must be > 0");
-    return 1 / (2 * sqrt(M_PI * t)) * exp(-x * x / (4 * t));
+    double result = 1;
+    for (std::size_t d = 0; d < dim; ++d)
+    {
+        result *= 1 / (2 * sqrt(M_PI * diff_coeff * t)) * exp(-coords(d) * coords(d) / (4 * diff_coeff * t));
+    }
+    return result;
 }
 
 template <class Field>
@@ -39,8 +45,10 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    static constexpr std::size_t dim = 1;
+    static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim>;
+    using Box                        = samurai::Box<double, dim>;
+    using point_t                    = typename Box::point_t;
 
     std::cout << "------------------------- Heat -------------------------" << std::endl;
 
@@ -49,8 +57,20 @@ int main(int argc, char* argv[])
     //--------------------//
 
     // Simulation parameters
-    double left_box = -20, right_box = 20;
-    double diff_coeff = 1.;
+    double left_box  = -1;
+    double right_box = 1;
+    if constexpr (dim == 1)
+    {
+        left_box  = -20;
+        right_box = 20;
+    }
+    else if constexpr (dim == 2)
+    {
+        left_box  = -4;
+        right_box = 4;
+    }
+    std::string init_sol = "dirac";
+    double diff_coeff    = 1;
 
     // Time integration
     double Tf     = 1.;
@@ -59,18 +79,20 @@ int main(int argc, char* argv[])
     double cfl    = 0.95;
 
     // Multiresolution parameters
-    std::size_t min_level = 0, max_level = 5;
-    double mr_epsilon    = 1e-7; // Threshold used by multiresolution
-    double mr_regularity = 1.;   // Regularity guess for multiresolution
+    std::size_t min_level = 0;
+    std::size_t max_level = dim == 1 ? 5 : 3;
+    double mr_epsilon     = 1e-4; // Threshold used by multiresolution
+    double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
     fs::path path        = fs::current_path();
-    std::string filename = "FV_heat_1d";
+    std::string filename = "FV_heat";
     std::size_t nfiles   = 50;
 
     CLI::App app{"Finite volume example for the heat equation in 1d"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--init-sol", init_sol, "Initial solution: dirac/crenel")->capture_default_str()->group("Simulation parameters");
     app.add_option("--diff-coeff", diff_coeff, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
     app.add_flag("--implicit", implicit, "Implicit scheme instead of explicit")->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
@@ -109,17 +131,38 @@ int main(int argc, char* argv[])
     // Problem definition //
     //--------------------//
 
-    samurai::Box<double, dim> box({left_box}, {right_box});
+    point_t box_corner1, box_corner2;
+    box_corner1.fill(left_box);
+    box_corner2.fill(right_box);
+    Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
     auto u = samurai::make_field<1>("u", mesh);
 
-    double t0 = 1e-2; // in this particular case, the exact solution is not defined for t=0
-    samurai::for_each_cell(mesh,
-                           [&](auto& cell)
-                           {
-                               u[cell] = exact_solution(cell.center(0), t0);
-                           });
+    // Initial solution
+    double t0 = 0;
+    if (init_sol == "dirac")
+    {
+        t0 = 1e-2; // in this particular case, the exact solution is not defined for t=0
+        samurai::for_each_cell(mesh,
+                               [&](auto& cell)
+                               {
+                                   u[cell] = exact_solution(cell.center(), t0, diff_coeff);
+                               });
+    }
+    else // crenel
+    {
+        samurai::for_each_cell(mesh,
+                               [&](auto& cell)
+                               {
+                                   bool is_in_crenel = true;
+                                   for (std::size_t d = 0; d < dim; ++d)
+                                   {
+                                       is_in_crenel = is_in_crenel && (abs(cell.center(d)) < right_box / 3);
+                                   }
+                                   u[cell] = is_in_crenel ? 1 : 0;
+                               });
+    }
 
     auto unp1 = samurai::make_field<1>("unp1", mesh);
 
@@ -136,7 +179,7 @@ int main(int argc, char* argv[])
     if (!implicit)
     {
         double dx = samurai::cell_length(max_level);
-        dt        = cfl * (dx * dx) / (2 * diff_coeff);
+        dt        = cfl * (dx * dx) / (pow(2, dim) * diff_coeff);
     }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
@@ -185,23 +228,26 @@ int main(int argc, char* argv[])
         }
 
         // Compute the error at instant t with respect to the exact solution
-        if (diff_coeff == 1)
+        if (init_sol == "dirac")
         {
-            double error = L2_error(u,
-                                    [&](auto& coord)
-                                    {
-                                        double x = coord[0];
-                                        return exact_solution(x, t);
-                                    });
+            double error = samurai::L2_error(u,
+                                             [&](auto& coord)
+                                             {
+                                                 return exact_solution(coord, t, diff_coeff);
+                                             });
             std::cout.precision(2);
             std::cout << ", L2-error: " << std::scientific << error;
         }
         std::cout << std::endl;
     }
 
-    std::cout << std::endl;
-    std::cout << "Run the following command to view the results:" << std::endl;
-    std::cout << "python <<path to samurai>>/python/read_mesh.py FV_heat_1d_ite_ --field u level --start 1 --end " << nsave << std::endl;
+    if constexpr (dim == 1)
+    {
+        std::cout << std::endl;
+        std::cout << "Run the following command to view the results:" << std::endl;
+        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 1 --end " << nsave
+                  << std::endl;
+    }
     PetscFinalize();
 
     return 0;
