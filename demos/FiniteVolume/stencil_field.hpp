@@ -181,7 +181,7 @@ namespace samurai
             auto vel_at_interface = xt::eval(3. / 8 * vel(0, level, i + 1, j) + 3. / 4 * vel(0, level, i, j)
                                              - 1. / 8 * vel(0, level, i - 1, j));
 
-            auto denom                   = xt::eval(u(level, i + 1, j) - u(level, i + 2, j));
+            auto denom                   = xt::eval(u(level, i + 1, j) - u(level, i, j));
             auto mask                    = xt::abs(denom) < 1.e-8;
             xt::masked_view(denom, mask) = 1.e-8;
 
