@@ -41,7 +41,7 @@ namespace samurai
               std::size_t dim               = Field::dim,
               std::size_t output_field_size = 1,
               std::size_t stencil_size      = 2,
-              class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
+              class cfg                     = FluxBasedSchemeConfig<output_field_size, stencil_size>,
               class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
     class DivergenceFV : public FluxBasedScheme<DivergenceFV<Field>, cfg, bdry_cfg, Field>
     {
@@ -49,9 +49,9 @@ namespace samurai
 
       public:
 
-        using coefficients_t                    = typename base_class::coefficients_t;
-        using flux_matrix_t                     = typename coefficients_t::flux_computation_t::flux_matrix_t;
-        using coeff_matrix_t                    = typename coefficients_t::coeff_matrix_t;
+        using scheme_definition_t               = typename base_class::scheme_definition_t;
+        using cell_coeffs_t                     = typename scheme_definition_t::cell_coeffs_t;
+        using flux_coeffs_t                     = typename scheme_definition_t::flux_coeffs_t;
         static constexpr std::size_t field_size = Field::size;
 
         explicit DivergenceFV(Field& u)
@@ -62,41 +62,34 @@ namespace samurai
         }
 
         template <std::size_t d>
-        static auto average(std::array<flux_matrix_t, 2>&, double h_face, double h_cell)
+        static cell_coeffs_t add_flux_to_col(flux_coeffs_t& flux, double h_face, double h_cell)
         {
-            std::array<coeff_matrix_t, 2> coeffs;
-            double h_factor = pow(h_face, dim - 1) / pow(h_cell, dim);
-            if constexpr (field_size == 1)
+            double face_measure = pow(h_face, dim - 1);
+            double cell_measure = pow(h_cell, dim);
+            double h_factor     = face_measure / cell_measure;
+
+            cell_coeffs_t coeffs;
+            for (std::size_t i = 0; i < stencil_size; ++i)
             {
-                coeffs[0] = 0.5 * h_factor;
-                coeffs[1] = 0.5 * h_factor;
-            }
-            else
-            {
-                coeffs[0].fill(0);
-                coeffs[1].fill(0);
-                coeffs[0](d) = 0.5 * h_factor;
-                coeffs[1](d) = 0.5 * h_factor;
+                if constexpr (field_size == 1)
+                {
+                    coeffs[i] = flux[i] * h_factor;
+                }
+                else
+                {
+                    coeffs[i].fill(0);
+                    for (std::size_t d2 = 0; d2 < dim; ++d2)
+                    {
+                        xt::col(coeffs[i], d) += flux[i](d, d2) * h_factor;
+                    }
+                }
             }
             return coeffs;
         }
 
-        template <std::size_t d>
-        static auto minus_average(std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
+        static auto definition()
         {
-            auto coeffs = average<d>(flux_coeffs, h_face, h_cell);
-            for (auto& coeff : coeffs)
-            {
-                coeff *= -1;
-            }
-            return coeffs;
-        }
-
-        // Div(F) =  (Fx_{L} + Fx_{R}) / 2  +  (Fy_{B} + Fy_{T}) / 2
-        static auto coefficients()
-        {
-            static_assert(dim <= 3, "DivergenceFV.div_coefficients() not implemented for dim > 3.");
-            std::array<coefficients_t, dim> coeffs_by_fluxes;
+            std::array<scheme_definition_t, dim> def;
             auto directions = positive_cartesian_directions<dim>();
 
             static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
@@ -104,13 +97,12 @@ namespace samurai
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
 
-                    auto& coeffs                   = coeffs_by_fluxes[d];
-                    DirectionVector<dim> direction = xt::view(directions, d);
-                    coeffs.flux                    = normal_grad_order1<Field>(direction);
-                    coeffs.get_left_cell_coeffs    = average<d>;
-                    coeffs.get_right_cell_coeffs   = minus_average<d>;
+                    DirectionVector<dim> direction         = xt::view(directions, d);
+                    def[d].flux                            = average_quantity<Field>(direction);
+                    def[d].contribution                    = add_flux_to_col<d>;
+                    def[d].contribution_opposite_direction = add_flux_to_col<d>;
                 });
-            return coeffs_by_fluxes;
+            return def;
         }
     };
 

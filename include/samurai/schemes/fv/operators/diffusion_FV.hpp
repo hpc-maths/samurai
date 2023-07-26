@@ -16,7 +16,7 @@ namespace samurai
         std::size_t dim               = Field::dim,
         std::size_t output_field_size = Field::size,
         std::size_t stencil_size      = 2,
-        class cfg                     = FluxBasedAssemblyConfig<output_field_size, stencil_size>,
+        class cfg                     = FluxBasedSchemeConfig<output_field_size, stencil_size>,
         class bdry_cfg                = BoundaryConfigFV<stencil_size / 2, dirichlet_enfcmt>>
     class DiffusionFV : public FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt>, cfg, bdry_cfg, Field>
     {
@@ -29,9 +29,9 @@ namespace samurai
         using cfg_t                     = cfg;
         using field_t                   = Field;
         using Mesh                      = typename Field::mesh_t;
-        using coefficients_t            = typename base_class::coefficients_t;
-        using flux_matrix_t             = typename coefficients_t::flux_computation_t::flux_matrix_t;
-        using coeff_matrix_t            = typename coefficients_t::coeff_matrix_t;
+        using scheme_definition_t       = typename base_class::scheme_definition_t;
+        using cell_coeffs_t             = typename scheme_definition_t::cell_coeffs_t;
+        using flux_coeffs_t             = typename scheme_definition_t::flux_coeffs_t;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
         explicit DiffusionFV(Field& unknown)
@@ -50,36 +50,19 @@ namespace samurai
          * As the flux is considered constant through the whole face, we finally have the contribution
          *             |F|/|T| * flux.
          * Conclusion: the contribution of the face is just the flux received as a parameter, multiplied by |F|/|T|.
+         * Here, we add a minus sign because we define Diffusion as -Lap.
          */
-        template <std::size_t d>
-        static auto get_laplacian_coeffs_left_cell(std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
+        static cell_coeffs_t minus_flux(flux_coeffs_t& flux, double h_face, double h_cell)
         {
             double face_measure = pow(h_face, dim - 1);
             double cell_measure = pow(h_cell, dim);
             double h_factor     = face_measure / cell_measure;
-
-            std::array<coeff_matrix_t, 2> coeffs;
-            if constexpr (field_size == 1)
-            {
-                coeffs[0] = flux_coeffs[0] * h_factor;
-                coeffs[1] = flux_coeffs[1] * h_factor;
-            }
-            else
-            {
-                coeffs[0].fill(0);
-                coeffs[1].fill(0);
-                for (std::size_t field_j = 0; field_j < field_size; ++field_j)
-                {
-                    coeffs[0](field_j, field_j) = flux_coeffs[0](field_j) * h_factor;
-                    coeffs[1](field_j, field_j) = flux_coeffs[1](field_j) * h_factor;
-                }
-            }
-            return coeffs;
+            return -flux * h_factor;
         }
 
-        static auto coefficients()
+        static auto definition()
         {
-            std::array<coefficients_t, dim> coeffs_by_fluxes;
+            std::array<scheme_definition_t, dim> def;
             auto directions = positive_cartesian_directions<dim>();
 
             // For each positive direction (i.e., in 2D, only right and top)
@@ -89,8 +72,6 @@ namespace samurai
                     static constexpr int d = decltype(integral_constant_d)::value;
                     // Direction of the normal flux (e.g. right)
                     DirectionVector<dim> direction = xt::view(directions, d);
-
-                    auto& coeffs = coeffs_by_fluxes[d];
 
                     /**
                      *   |-------|-------|
@@ -102,22 +83,12 @@ namespace samurai
                      */
 
                     // How the flux is computed in this direction: here, Grad.n = (uR-uL)/h
-                    coeffs.flux = normal_grad_order1<Field>(direction);
-                    // Coefficients of the scheme for the left cell, in function of the flux
-                    coeffs.get_left_cell_coeffs = [](std::array<flux_matrix_t, 2>& flux_coeffs, double h_face, double h_cell)
-                    {
-                        auto cell_coeffs = get_laplacian_coeffs_left_cell<d>(flux_coeffs, h_face, h_cell);
-                        // We multiply by -1 because we implement the operator -Lap
-                        for (auto& coeff : cell_coeffs)
-                        {
-                            coeff *= -1;
-                        }
-                        return cell_coeffs;
-                    };
-                    // Coefficients of the scheme for the right, in function of the flux
-                    coeffs.get_right_cell_coeffs = get_laplacian_coeffs_left_cell<d>;
+                    def[d].flux = normal_grad_order1<Field>(direction);
+                    // Flux contribution to the scheme
+                    def[d].contribution                    = minus_flux;
+                    def[d].contribution_opposite_direction = minus_flux;
                 });
-            return coeffs_by_fluxes;
+            return def;
         }
 
         directional_bdry_config_t dirichlet_config(const DirectionVector<dim>& direction) const override

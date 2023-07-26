@@ -279,6 +279,31 @@ namespace samurai
                 PetscObjectSetName(reinterpret_cast<PetscObject>(x), "solution");
                 return x;
             }
+
+            template <class... Fields>
+            Vec create_applicable_vector(const std::tuple<Fields&...>& fields) const
+            {
+                std::array<Vec, cols> x_blocks;
+                std::size_t i = 0;
+                for_each(fields,
+                         [&](auto& f)
+                         {
+                             for_each_assembly_op(
+                                 [&](auto&, auto row, auto col)
+                                 {
+                                     if (row == 0 && col == i)
+                                     {
+                                         x_blocks[col] = create_petsc_vector_from(f);
+                                         PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), f.name().c_str());
+                                     }
+                                 });
+                             i++;
+                         });
+                Vec x;
+                VecCreateNest(PETSC_COMM_SELF, cols, NULL, x_blocks.data(), &x);
+                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "applicable fields");
+                return x;
+            }
         };
 
         /**
@@ -489,7 +514,7 @@ namespace samurai
                 for_each(sources,
                          [&](auto& s)
                          {
-                             for_each_assembly_op(
+                             this->for_each_assembly_op(
                                  [&](auto& op, auto row, auto col)
                                  {
                                      if (col == 0 && row == i)
@@ -501,6 +526,29 @@ namespace samurai
                          });
                 PetscObjectSetName(reinterpret_cast<PetscObject>(b), "right-hand side");
                 return b;
+            }
+
+            template <class... Fields>
+            Vec create_applicable_vector(const std::tuple<Fields&...>& fields) const
+            {
+                Vec x;
+                VecCreateSeq(MPI_COMM_SELF, matrix_cols(), &x);
+                std::size_t i = 0;
+                for_each(fields,
+                         [&](auto& f)
+                         {
+                             for_each_assembly_op(
+                                 [&](auto& op, auto row, auto col)
+                                 {
+                                     if (row == 0 && col == i)
+                                     {
+                                         copy(f, x, op.col_shift());
+                                     }
+                                 });
+                             i++;
+                         });
+                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "applied fields");
+                return x;
             }
 
             void enforce_bc(Vec& b) const
@@ -567,7 +615,69 @@ namespace samurai
                         }
                     });
             }
+
+            template <class... Fields>
+            void update_result_fields(Vec& b, std::tuple<Fields&...>& result_fields) const
+            {
+                std::size_t i = 0;
+                for_each(result_fields,
+                         [&](auto& result_field)
+                         {
+                             for_each_assembly_op(
+                                 [&](auto& op, auto row, auto col)
+                                 {
+                                     if (col == 0 && row == i)
+                                     {
+                                         // copy(s, b, op.row_shift());
+                                         copy(op.row_shift(), b, result_field);
+                                     }
+                                 });
+                             i++;
+                         });
+            }
         };
+
+        template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
+        auto make_assembly(const BlockOperator<rows_, cols_, Operators...>& block_op)
+        {
+            if constexpr (monolithic)
+            {
+                return MonolithicBlockAssembly<rows_, cols_, Operators...>(block_op);
+            }
+            else
+            {
+                return NestedBlockAssembly<rows_, cols_, Operators...>(block_op);
+            }
+        }
+
+        /**
+         * How to apply a block matrix to a vector:
+         *
+         * // Monolithic assembly
+         * auto monolithicAssembly = samurai::petsc::make_assembly<true>(stokes);
+         * Mat monolithicA;
+         * monolithicAssembly.create_matrix(monolithicA);
+         * monolithicAssembly.assemble_matrix(monolithicA);
+         * Vec mono_x                = monolithicAssembly.create_applicable_vector(x); // copy
+         * auto result_velocity_mono = samurai::make_field<dim, is_soa>("result_velocity", mesh);
+         * auto result_pressure_mono = samurai::make_field<1, is_soa>("result_pressure", mesh);
+         * auto result_mono          = stokes.tie_rhs(result_velocity_mono, result_pressure_mono);
+         * Vec mono_result           = monolithicAssembly.create_rhs_vector(result_mono); // copy
+         * MatMult(monolithicA, mono_x, mono_result);
+         * monolithicAssembly.update_result_fields(mono_result, result_mono); // copy
+         *
+         * // Nested assembly
+         * auto nestedAssembly = samurai::petsc::make_assembly<false>(stokes);
+         * Mat nestedA;
+         * nestedAssembly.create_matrix(nestedA);
+         * nestedAssembly.assemble_matrix(nestedA);
+         * Vec nest_x                = nestedAssembly.create_applicable_vector(x);
+         * auto result_velocity_nest = samurai::make_field<dim, is_soa>("result_velocity", mesh);
+         * auto result_pressure_nest = samurai::make_field<1, is_soa>("result_pressure", mesh);
+         * auto result_nest          = stokes.tie_rhs(result_velocity_nest, result_pressure_nest);
+         * Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);
+         * MatMult(nestedA, nest_x, nest_result);
+         */
 
     } // end namespace petsc
 } // end namespace samurai

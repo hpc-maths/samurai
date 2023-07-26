@@ -710,9 +710,7 @@ namespace samurai
     }
 
     template <template <class> class bc_type, class Field>
-    auto make_bc(Field& field,
-                 const std::function<detail::return_type_t<typename Field::value_type, Field::size>(
-                     const xt::xtensor_fixed<typename Field::mesh_t::interval_t::value_t, xt::xshape<Field::dim>>&)>& func)
+    auto make_bc(Field& field, typename FunctionBc<Field::dim, typename Field::value_type, Field::size>::function_t func)
     {
         using value_t              = typename Field::value_type;
         constexpr std::size_t dim  = Field::dim;

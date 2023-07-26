@@ -26,12 +26,12 @@ namespace samurai
             using base_class::scheme;
             using base_class::set_current_insert_mode;
 
-          public:
-
             using scheme_t                                 = Scheme;
             using cfg_t                                    = typename Scheme::cfg_t;
             using bdry_cfg_t                               = typename Scheme::bdry_cfg;
             using field_t                                  = typename Scheme::field_t;
+            using scheme_definition_t                      = typename Scheme::scheme_definition_t;
+            using flux_coeffs_t                            = typename scheme_definition_t::flux_coeffs_t;
             static constexpr std::size_t output_field_size = cfg_t::output_field_size;
             static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
 
@@ -41,12 +41,10 @@ namespace samurai
                 set_current_insert_mode(ADD_VALUES);
             }
 
-            auto scheme_coefficients() const
+            auto scheme_definition() const
             {
-                return scheme().coefficients();
+                return scheme().definition();
             }
-
-          public:
 
             //-------------------------------------------------------------//
             //                     Sparsity pattern                        //
@@ -54,13 +52,13 @@ namespace samurai
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
+                auto definition = scheme_definition();
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    auto scheme_coeffs_dir = scheme_coefficients()[d];
                     for_each_interior_interface(
                         mesh(),
-                        scheme_coeffs_dir.flux.direction,
-                        scheme_coeffs_dir.flux.stencil,
+                        definition[d].flux.direction,
+                        definition[d].flux.stencil,
                         [&](auto& interface_cells, auto& comput_cells)
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -98,41 +96,22 @@ namespace samurai
                             }
                         });
 
-                    for_each_boundary_interface(
-                        mesh(),
-                        scheme_coeffs_dir.flux.direction,
-                        scheme_coeffs_dir.flux.stencil,
-                        [&](auto& interface_cells, auto&)
-                        {
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                            {
-                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                {
-                                    nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += stencil_size * field_size;
-                                }
-                            }
-                        });
-
-                    auto opposite_direction = xt::eval(-scheme_coeffs_dir.flux.direction);
-                    auto opposite_stencil   = xt::eval(-scheme_coeffs_dir.flux.stencil);
-                    for_each_boundary_interface(
-                        mesh(),
-                        opposite_direction,
-                        opposite_stencil,
-                        [&](auto& interface_cells, auto&)
-                        {
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                            {
-                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                {
-                                    nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += stencil_size * field_size;
-                                }
-                            }
-                        });
+                    for_each_boundary_interface(mesh(),
+                                                definition[d].flux.direction,
+                                                definition[d].flux.stencil,
+                                                [&](auto& cell, auto&)
+                                                {
+                                                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                                    {
+                                                        for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                                                        {
+                                                            nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += stencil_size
+                                                                                                                           * field_size;
+                                                        }
+                                                    }
+                                                });
                 }
             }
-
-          public:
 
             //-------------------------------------------------------------//
             //             Assemble scheme in the interior                 //
@@ -150,16 +129,17 @@ namespace samurai
                     set_current_insert_mode(ADD_VALUES);
                 }
 
+                auto definition = scheme_definition();
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    auto scheme_coeffs_dir = scheme_coefficients()[d];
+                    // Interior interfaces
                     for_each_interior_interface(
                         mesh(),
-                        scheme_coeffs_dir.flux.direction,
-                        scheme_coeffs_dir.flux.stencil,
-                        scheme_coeffs_dir.flux.get_flux_coeffs,
-                        scheme_coeffs_dir.get_left_cell_coeffs,
-                        scheme_coeffs_dir.get_right_cell_coeffs,
+                        definition[d].flux.direction,
+                        definition[d].flux.stencil,
+                        definition[d].flux.get_flux_coeffs,
+                        definition[d].contribution,
+                        definition[d].contribution_opposite_direction,
                         [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -222,16 +202,18 @@ namespace samurai
                             }
                         });
 
+                    // Boundary interfaces
                     for_each_boundary_interface(mesh(),
-                                                scheme_coeffs_dir.flux.direction,
-                                                scheme_coeffs_dir.flux.stencil,
-                                                scheme_coeffs_dir.flux.get_flux_coeffs,
-                                                scheme_coeffs_dir.get_left_cell_coeffs,
-                                                [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
+                                                definition[d].flux.direction,
+                                                definition[d].flux.stencil,
+                                                definition[d].flux.get_flux_coeffs,
+                                                definition[d].contribution,
+                                                definition[d].contribution_opposite_direction,
+                                                [&](auto& cell, auto& comput_cells, auto& coeffs)
                                                 {
                                                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                                     {
-                                                        auto interface_cell0_row = this->row_index(interface_cells[0], field_i);
+                                                        auto cell_row = this->row_index(cell, field_i);
                                                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                                         {
                                                             for (std::size_t c = 0; c < stencil_size; ++c)
@@ -240,40 +222,11 @@ namespace samurai
                                                                 if (coeff != 0)
                                                                 {
                                                                     auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                                                    MatSetValue(A, interface_cell0_row, comput_cell_col, coeff, ADD_VALUES);
+                                                                    MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
                                                                 }
                                                             }
                                                         }
-                                                        set_is_row_not_empty(interface_cell0_row);
-                                                    }
-                                                });
-
-                    auto opposite_direction             = xt::eval(-scheme_coeffs_dir.flux.direction);
-                    Stencil<stencil_size, dim> reversed = xt::eval(xt::flip(scheme_coeffs_dir.flux.stencil, 0));
-                    auto opposite_stencil               = xt::eval(-reversed);
-                    for_each_boundary_interface(mesh(),
-                                                opposite_direction,
-                                                opposite_stencil,
-                                                scheme_coeffs_dir.flux.get_flux_coeffs,
-                                                scheme_coeffs_dir.get_right_cell_coeffs,
-                                                [&](auto& interface_cells, auto& comput_cells, auto& coeffs)
-                                                {
-                                                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                                    {
-                                                        auto interface_cell0_row = this->row_index(interface_cells[0], field_i);
-                                                        for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                                        {
-                                                            for (std::size_t c = 0; c < stencil_size; ++c)
-                                                            {
-                                                                double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                                                if (coeff != 0)
-                                                                {
-                                                                    auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                                                    MatSetValue(A, interface_cell0_row, comput_cell_col, coeff, ADD_VALUES);
-                                                                }
-                                                            }
-                                                        }
-                                                        set_is_row_not_empty(interface_cell0_row);
+                                                        set_is_row_not_empty(cell_row);
                                                     }
                                                 });
                 }

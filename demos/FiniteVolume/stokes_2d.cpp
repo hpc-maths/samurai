@@ -70,32 +70,6 @@ void configure_LU_solver(Solver& solver)
     {
 #if defined(PETSC_HAVE_SUPERLU)
         PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
-        // Configure the following options:
-        // -mat_superlu_rowperm LargeDiag -mat_superlu_colperm NATURAL -mat_superlu_diagpivotthresh 0.5 -mat_superlu_iterrefine SINGLE
-        PetscBool set = PETSC_FALSE;
-        PetscOptionsHasName(NULL, NULL, "-mat_superlu_rowperm", &set);
-        if (!set)
-        {
-            PetscOptionsSetValue(NULL, "-mat_superlu_rowperm", "LargeDiag");
-        }
-
-        PetscOptionsHasName(NULL, NULL, "-mat_superlu_colperm", &set);
-        if (!set)
-        {
-            PetscOptionsSetValue(NULL, "-mat_superlu_colperm", "NATURAL");
-        }
-
-        PetscOptionsHasName(NULL, NULL, "-mat_superlu_diagpivotthresh", &set);
-        if (!set)
-        {
-            PetscOptionsSetValue(NULL, "-mat_superlu_diagpivotthresh", "0.5");
-        }
-
-        PetscOptionsHasName(NULL, NULL, "-mat_superlu_iterrefine", &set);
-        if (!set)
-        {
-            PetscOptionsSetValue(NULL, "-mat_superlu_iterrefine", "SINGLE");
-        }
 #endif
     }
     else if (use_mumps)
@@ -104,8 +78,9 @@ void configure_LU_solver(Solver& solver)
         PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
 #endif
     }
-    KSPSetFromOptions(ksp); // KSP and PC overwritten by user value if needed
-                            // If SuperLU is not installed, you can use: -ksp_type gmres -pc_type ilu
+    // KSP and PC overwritten by user value if needed
+    KSPSetFromOptions(ksp);
+    // If neither SuperLU nor MUMPS is installed, you can try: -ksp_type gmres -pc_type ilu
 }
 
 //
@@ -179,7 +154,7 @@ int main(int argc, char* argv[])
     using Mesh                       = samurai::MRMesh<Config>;
     using mesh_id_t                  = typename Mesh::mesh_id_t;
     static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = false;
+    static constexpr bool monolithic = true;
 
     //----------------//
     //   Parameters   //
@@ -278,13 +253,13 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff_v = samurai::make_diffusion_FV(velocity);
-        auto grad_p = samurai::make_gradient_FV(pressure);
-        auto div_v  = samurai::make_divergence_FV(velocity);
-        auto zero_p = samurai::make_zero_operator_FV(pressure);
+        auto diff    = samurai::make_diffusion_FV(velocity);
+        auto grad    = samurai::make_gradient_FV(pressure);
+        auto div     = samurai::make_divergence_FV(velocity);
+        auto zero_op = samurai::make_zero_operator_FV(pressure);
 
-        auto stokes = samurai::make_block_operator<2, 2>(diff_v, grad_p,
-                                                         -div_v, zero_p);
+        auto stokes = samurai::make_block_operator<2, 2>(diff, grad,
+                                                         -div, zero_op);
 
         // clang-format on
 
@@ -433,17 +408,17 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff_v = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
-        auto grad_p =              samurai::make_gradient_FV(pressure_np1);
-        auto div_v  =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_p =              samurai::make_zero_operator_FV(pressure_np1);
-        auto id_v   =              samurai::make_identity_FV(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
+        auto grad    =              samurai::make_gradient_FV(pressure_np1);
+        auto div     =              samurai::make_divergence_FV(velocity_np1);
+        auto zero_op =              samurai::make_zero_operator_FV(pressure_np1);
+        auto id      =              samurai::make_identity_FV(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
         //             |       -Div        0    |
-        auto stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
-                                                                     -div_v,      zero_p);
+        auto stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad,
+                                                                   -div,   zero_op);
         // clang-format on
 
         // Linear solver
@@ -521,7 +496,7 @@ int main(int argc, char* argv[])
             {
                 if (dt_has_changed)
                 {
-                    stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                    stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
                 }
                 stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
                 configure_solver(stokes_solver);
@@ -558,9 +533,12 @@ int main(int argc, char* argv[])
             std::cout.precision(2);
             std::cout << ", L2-error: " << std::scientific << error;
 
+            // Divergence
+            auto div_velocity = div(velocity);
+
             // Save the result
             std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity, div_velocity);
 
             if (min_level != max_level)
             {
@@ -568,15 +546,15 @@ int main(int argc, char* argv[])
                 samurai::update_ghost_mr(velocity);
                 auto velocity_recons = samurai::reconstruction(velocity);
                 // Error
-                double error_recons = L2_error(velocity_recons,
-                                               [&](auto& coord)
-                                               {
-                                                   return exact_velocity(t_n, coord);
-                                               });
+                double error_recons = samurai::L2_error(velocity_recons,
+                                                        [&](auto& coord)
+                                                        {
+                                                            return exact_velocity(t_n, coord);
+                                                        });
                 std::cout.precision(2);
                 std::cout << ", L2-error (recons): " << std::scientific << error_recons;
                 // Save
-                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
+                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons, div_velocity);
             }
             std::cout << std::endl;
         }
@@ -629,17 +607,17 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff_v = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
-        auto grad_p =              samurai::make_gradient_FV(pressure_np1);
-        auto div_v  =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_p =              samurai::make_zero_operator_FV(pressure_np1);
-        auto id_v   =              samurai::make_identity_FV(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
+        auto grad    =              samurai::make_gradient_FV(pressure_np1);
+        auto div     =              samurai::make_divergence_FV(velocity_np1);
+        auto zero_op =              samurai::make_zero_operator_FV(pressure_np1);
+        auto id      =              samurai::make_identity_FV(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
         //             |       -Div        0    |
-        auto stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p,
-                                                                     -div_v,      zero_p);
+        auto stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad,
+                                                                   -div,   zero_op);
         // clang-format on
 
         auto MRadaptation = samurai::make_MRAdapt(velocity);
@@ -696,7 +674,7 @@ int main(int argc, char* argv[])
             {
                 if (dt_has_changed)
                 {
-                    stokes = samurai::make_block_operator<2, 2>(id_v + dt * diff_v, dt * grad_p, -div_v, zero_p);
+                    stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
                 }
                 stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
                 configure_solver(stokes_solver);
@@ -718,11 +696,63 @@ int main(int argc, char* argv[])
             {
                 samurai::update_ghost_mr(velocity);
                 auto velocity_recons = samurai::reconstruction(velocity);
+                auto div_velocity    = div(velocity);
 
                 std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-                samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+                samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity, div_velocity);
                 samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
             }
+
+            // srand(time(NULL));
+            // auto x_velocity = samurai::make_field<dim, is_soa>("x_velocity", mesh);
+            // auto x_pressure = samurai::make_field<1, is_soa>("x_pressure", mesh);
+            // samurai::for_each_cell(mesh[mesh_id_t::reference],
+            //                        [&](auto cell)
+            //                        {
+            //                            x_velocity[cell] = rand() % 10 + 1;
+            //                            x_pressure[cell] = rand() % 10 + 1;
+            //                        });
+            // auto x = stokes.tie_unknowns(x_velocity, x_pressure);
+
+            // auto monolithicAssembly = samurai::petsc::make_assembly<true>(stokes);
+            // Mat monolithicA;
+            // monolithicAssembly.create_matrix(monolithicA);
+            // monolithicAssembly.assemble_matrix(monolithicA);
+            // Vec mono_x                = monolithicAssembly.create_applicable_vector(x); // copy
+            // auto result_velocity_mono = samurai::make_field<dim, is_soa>("result_velocity", mesh);
+            // auto result_pressure_mono = samurai::make_field<1, is_soa>("result_pressure", mesh);
+            // auto result_mono          = stokes.tie_rhs(result_velocity_mono, result_pressure_mono);
+            // Vec mono_result           = monolithicAssembly.create_rhs_vector(result_mono); // copy
+            // MatMult(monolithicA, mono_x, mono_result);
+            // monolithicAssembly.update_result_fields(mono_result, result_mono); // copy
+
+            // auto nestedAssembly = samurai::petsc::make_assembly<false>(stokes);
+            // Mat nestedA;
+            // nestedAssembly.create_matrix(nestedA);
+            // nestedAssembly.assemble_matrix(nestedA);
+            // Vec nest_x                = nestedAssembly.create_applicable_vector(x);
+            // auto result_velocity_nest = samurai::make_field<dim, is_soa>("result_velocity", mesh);
+            // auto result_pressure_nest = samurai::make_field<1, is_soa>("result_pressure", mesh);
+            // auto result_nest          = stokes.tie_rhs(result_velocity_nest, result_pressure_nest);
+            // Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);
+            // MatMult(nestedA, nest_x, nest_result);
+
+            // std::cout << std::setprecision(15);
+            // std::cout << std::fixed;
+            // samurai::for_each_cell(
+            //     mesh[mesh_id_t::reference],
+            //     [&](auto cell)
+            //     {
+            //         std::cout << round(result_velocity_mono[cell][0] * 1.e8) / 1.e8 << std::endl;
+            //         if (round(result_velocity_mono[cell][0] * 1.e5) / 1.e5 != round(result_velocity_nest[cell][0] * 1.e5) / 1.e5)
+            //         {
+            //             std::cout << result_velocity_mono[cell][0] << " =? " << result_velocity_nest[cell][0] << std::endl;
+            //         }
+            //         if (result_pressure_mono[cell] != result_pressure_nest[cell])
+            //         {
+            //             std::cout << result_pressure_mono[cell] << " =? " << result_pressure_nest[cell] << std::endl;
+            //         }
+            //     });
         }
     }
     else
