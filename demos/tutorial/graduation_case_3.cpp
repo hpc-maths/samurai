@@ -139,7 +139,7 @@ int main(int argc, char* argv[])
                                    [&](std::size_t level, const auto& interval, const auto& index)
                                    {
                                        auto j    = index[0];
-                                       auto itag = static_cast<std::size_t>(interval.start + interval.index);
+                                       auto itag = interval.start + interval.index;
                                        for (int i = interval.start; i < interval.end; ++i)
                                        {
                                            if (tag[itag] && level < max_level)

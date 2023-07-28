@@ -44,8 +44,8 @@ namespace samurai
 
         using Mesh = CellArray<3>;
         Mesh mesh;
-        using cell_t     = Cell<typename Mesh::value_t, 3>;
         using interval_t = typename Mesh::interval_t;
+        using cell_t     = Cell<3, interval_t>;
         double scale;
         std::tie(scale, mesh) = cgal::init_mesh<3>(start_level, cgal_mesh);
 
@@ -128,7 +128,7 @@ namespace samurai
                                   }
                                   else
                                   {
-                                      std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
+                                      auto itag = interval.start + interval.index;
                                       for (typename interval_t::value_t i = interval.start; i < interval.end; ++i, ++itag)
                                       {
                                           if ((tag[itag] & static_cast<int>(CellFlag::refine)) && level < max_level)

@@ -159,8 +159,9 @@ namespace samurai
     template <std::size_t dim, class TInterval, class Func>
     inline void for_each_cell(const LevelCellArray<dim, TInterval>& lca, Func&& f)
     {
-        using coord_index_t = typename TInterval::coord_index_t;
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index;
+        using cell_t        = Cell<dim, TInterval>;
+        using index_value_t = typename cell_t::value_t;
+        typename cell_t::indices_t index;
 
         for (auto it = lca.cbegin(); it != lca.cend(); ++it)
         {
@@ -169,10 +170,10 @@ namespace samurai
                 index[d + 1] = it.index()[d];
             }
 
-            for (coord_index_t i = it->start; i < it->end; ++i)
+            for (index_value_t i = it->start; i < it->end; ++i)
             {
                 index[0] = i;
-                Cell<coord_index_t, dim> cell{lca.level(), index, static_cast<std::size_t>(it->index + i)};
+                cell_t cell{lca.level(), index, it->index + i};
                 f(cell);
             }
         }
@@ -181,10 +182,9 @@ namespace samurai
     template <std::size_t dim, class TInterval, class Func, class F, class... CT>
     inline void for_each_cell(const LevelCellArray<dim, TInterval>& lca, subset_operator<F, CT...> set, Func&& f)
     {
-        using set_t         = subset_operator<F, CT...>;
-        using coord_index_t = typename set_t::coord_index_t;
-
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> index;
+        using cell_t        = Cell<dim, TInterval>;
+        using index_value_t = typename cell_t::value_t;
+        typename cell_t::indices_t index;
 
         set(
             [&](const auto& interval, const auto& index_yz)
@@ -192,10 +192,10 @@ namespace samurai
                 index[0]                         = interval.start;
                 auto cell_index                  = lca.get_index(index);
                 xt::view(index, xt::range(1, _)) = index_yz;
-                for (coord_index_t i = interval.start; i < interval.end; ++i)
+                for (index_value_t i = interval.start; i < interval.end; ++i)
                 {
                     index[0] = i;
-                    Cell<coord_index_t, dim> cell{set.level(), index, cell_index++};
+                    cell_t cell{set.level(), index, cell_index++};
                     f(cell);
                 }
             });
@@ -223,18 +223,19 @@ namespace samurai
     template <class Mesh, class coord_type, class Func>
     inline void for_each_cell(const Mesh& mesh, std::size_t level, const typename Mesh::interval_t& i, const coord_type& index, Func&& f)
     {
-        using coord_index_t              = typename Mesh::interval_t::coord_index_t;
         static constexpr std::size_t dim = Mesh::dim;
+        using cell_t                     = Cell<dim, typename Mesh::interval_t>;
+        using index_value_t              = typename cell_t::value_t;
+        typename cell_t::indices_t coord;
 
-        xt::xtensor_fixed<coord_index_t, xt::xshape<dim>> coord;
         coord[0] = i.start;
         for (std::size_t d = 0; d < dim - 1; ++d)
         {
             coord[d + 1] = index[d];
         }
         auto cell_index = mesh.get_index(level, coord);
-        Cell<coord_index_t, dim> cell{level, coord, cell_index};
-        for (coord_index_t ii = 0; ii < static_cast<coord_index_t>(i.size()); ++ii)
+        cell_t cell{level, coord, cell_index};
+        for (index_value_t ii = 0; ii < static_cast<index_value_t>(i.size()); ++ii)
         {
             f(cell);
             cell.indices[0]++; // increment x coordinate

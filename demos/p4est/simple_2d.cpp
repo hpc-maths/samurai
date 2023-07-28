@@ -65,7 +65,7 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
         samurai::for_each_interval(mesh,
                                    [&](std::size_t level, const auto& interval, const auto& index_yz)
                                    {
-                                       auto itag = static_cast<std::size_t>(interval.start + interval.index);
+                                       auto itag = interval.start + interval.index;
                                        for (coord_index_t i = interval.start; i < interval.end; ++i)
                                        {
                                            if (cell_tag[itag])
@@ -165,7 +165,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
         samurai::for_each_interval(mesh[mesh_id_t::cells],
                                    [&](std::size_t level, const auto& interval, const auto& index_yz)
                                    {
-                                       auto itag = static_cast<std::size_t>(interval.start + interval.index);
+                                       auto itag = interval.start + interval.index;
                                        for (coord_index_t i = interval.start; i < interval.end; ++i)
                                        {
                                            if (cell_tag[itag])

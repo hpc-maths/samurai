@@ -80,11 +80,13 @@ namespace samurai
     ////////////////////////
     // BcValue definition //
     ////////////////////////
-    template <std::size_t dim, class T, std::size_t size>
+    template <class Field>
     struct BcValue
     {
-        using value_t  = detail::return_type_t<T, size>;
-        using coords_t = xt::xtensor_fixed<T, xt::xshape<dim>>;
+        static constexpr std::size_t dim = Field::dim;
+        using value_t                    = detail::return_type_t<typename Field::value_type, Field::size>;
+        using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;
+        using cell_t                     = typename Field::cell_t;
 
         virtual ~BcValue()                 = default;
         BcValue(const BcValue&)            = delete;
@@ -92,30 +94,31 @@ namespace samurai
         BcValue(BcValue&&)                 = delete;
         BcValue& operator=(BcValue&&)      = delete;
 
-        virtual value_t get_value(const coords_t&) const = 0;
-        virtual std::unique_ptr<BcValue> clone() const   = 0;
-        virtual BCVType type() const                     = 0;
+        virtual value_t get_value(const cell_t&, const coords_t&) const = 0;
+        virtual std::unique_ptr<BcValue> clone() const                  = 0;
+        virtual BCVType type() const                                    = 0;
 
       protected:
 
         BcValue() = default;
     };
 
-    template <std::size_t dim, class T, std::size_t size>
-    class ConstantBc : public BcValue<dim, T, size>
+    template <class Field>
+    class ConstantBc : public BcValue<Field>
     {
       public:
 
-        using base_t   = BcValue<dim, T, size>;
+        using base_t   = BcValue<Field>;
         using value_t  = typename base_t::value_t;
         using coords_t = typename base_t::coords_t;
+        using cell_t   = typename base_t::cell_t;
 
         template <class... CT>
         ConstantBc(const CT... v);
 
         ConstantBc();
 
-        value_t get_value(const coords_t&) const override;
+        value_t get_value(const cell_t&, const coords_t&) const override;
         std::unique_ptr<base_t> clone() const override;
         BCVType type() const override;
 
@@ -124,19 +127,20 @@ namespace samurai
         value_t m_v;
     };
 
-    template <std::size_t dim, class T, std::size_t size>
-    class FunctionBc : public BcValue<dim, T, size>
+    template <class Field>
+    class FunctionBc : public BcValue<Field>
     {
       public:
 
-        using base_t     = BcValue<dim, T, size>;
+        using base_t     = BcValue<Field>;
         using value_t    = typename base_t::value_t;
         using coords_t   = typename base_t::coords_t;
-        using function_t = std::function<value_t(const coords_t&)>;
+        using cell_t     = typename base_t::cell_t;
+        using function_t = std::function<value_t(const cell_t&, const coords_t&)>;
 
         FunctionBc(const function_t& f);
 
-        value_t get_value(const coords_t& coords) const override;
+        value_t get_value(const cell_t& cell_in, const coords_t& coords) const override;
         std::unique_ptr<base_t> clone() const override;
         BCVType type() const override;
 
@@ -149,57 +153,57 @@ namespace samurai
     // BcValue implementation //
     ////////////////////////////
 
-    template <std::size_t dim, class T, std::size_t size>
+    template <class Field>
     template <class... CT>
-    ConstantBc<dim, T, size>::ConstantBc(const CT... v)
+    ConstantBc<Field>::ConstantBc(const CT... v)
         : m_v{v...}
     {
     }
 
-    template <std::size_t dim, class T, std::size_t size>
-    ConstantBc<dim, T, size>::ConstantBc()
+    template <class Field>
+    ConstantBc<Field>::ConstantBc()
     {
-        detail::fill(m_v, T{0});
+        detail::fill(m_v, typename Field::value_type{0});
     }
 
-    template <std::size_t dim, class T, std::size_t size>
-    inline auto ConstantBc<dim, T, size>::get_value(const coords_t&) const -> value_t
+    template <class Field>
+    inline auto ConstantBc<Field>::get_value(const cell_t&, const coords_t&) const -> value_t
     {
         return m_v;
     }
 
-    template <std::size_t dim, class T, std::size_t size>
-    auto ConstantBc<dim, T, size>::clone() const -> std::unique_ptr<base_t>
+    template <class Field>
+    auto ConstantBc<Field>::clone() const -> std::unique_ptr<base_t>
     {
         return std::make_unique<ConstantBc>(m_v);
     }
 
-    template <std::size_t dim, class T, std::size_t size>
-    inline BCVType ConstantBc<dim, T, size>::type() const
+    template <class Field>
+    inline BCVType ConstantBc<Field>::type() const
     {
         return BCVType::constant;
     }
 
-    template <std::size_t dim, class T, std::size_t size>
-    FunctionBc<dim, T, size>::FunctionBc(const function_t& f)
+    template <class Field>
+    FunctionBc<Field>::FunctionBc(const function_t& f)
         : m_func(f)
     {
     }
 
-    template <std::size_t dim, class T, std::size_t size>
-    inline auto FunctionBc<dim, T, size>::get_value(const coords_t& coords) const -> value_t
+    template <class Field>
+    inline auto FunctionBc<Field>::get_value(const cell_t& cell_in, const coords_t& coords) const -> value_t
     {
-        return m_func(coords);
+        return m_func(cell_in, coords);
     }
 
-    template <std::size_t dim, class T, std::size_t size>
-    auto FunctionBc<dim, T, size>::clone() const -> std::unique_ptr<base_t>
+    template <class Field>
+    auto FunctionBc<Field>::clone() const -> std::unique_ptr<base_t>
     {
         return std::make_unique<FunctionBc>(m_func);
     }
 
-    template <std::size_t dim, class T, std::size_t size>
-    inline BCVType FunctionBc<dim, T, size>::type() const
+    template <class Field>
+    inline BCVType FunctionBc<Field>::type() const
     {
         return BCVType::function;
     }
@@ -513,10 +517,11 @@ namespace samurai
         static constexpr std::size_t size = Field::size;
         using interval_t                  = typename Field::interval_t;
 
-        using bcvalue_t    = BcValue<dim, typename Field::value_type, size>;
+        using bcvalue_t    = BcValue<Field>;
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
         using value_t      = typename bcvalue_t::value_t;
         using coords_t     = typename bcvalue_t::coords_t;
+        using cell_t       = typename bcvalue_t::cell_t;
 
         using bcregion_t = BcRegion<dim, interval_t>;
         using lca_t      = typename bcregion_t::lca_t;
@@ -550,7 +555,7 @@ namespace samurai
                            xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>> index);
 
         value_t constant_value();
-        value_t value(const coords_t& coords) const;
+        value_t value(const cell_t& cell_in, const coords_t& coords) const;
         const auto& value() const;
         BCVType get_value_type() const;
 
@@ -635,12 +640,16 @@ namespace samurai
         if (p_bcvalue->type() == BCVType::function)
         {
             coords_t coords;
+            cell_t cell_in;
+
             const double dx = 1. / (1 << level);
 
-            coords[0] = dx * i.start + 0.5 * (1 + dir[0]) * dx;
+            cell_in.level = level;
+            coords[0]     = dx * i.start + 0.5 * (1 + dir[0]) * dx;
             for (std::size_t d = 1; d < dim; ++d)
             {
-                coords[d] = dx * index[d - 1] + 0.5 * (1 + dir[d]) * dx;
+                coords[d]          = dx * index[d - 1] + 0.5 * (1 + dir[d]) * dx;
+                cell_in.indices[d] = index[d - 1] + dir[d];
             }
 
             if constexpr (size == 1)
@@ -652,10 +661,14 @@ namespace samurai
                 m_value.resize({i.size(), size});
             }
 
+            cell_in.indices[0] = i.start + dir[0];
+            cell_in.index      = i.index;
             for (std::size_t ii = 0; ii < i.size(); ++ii)
             {
-                xt::view(m_value, ii) = p_bcvalue->get_value(coords);
+                xt::view(m_value, ii) = p_bcvalue->get_value(cell_in, coords);
                 coords[0] += dx;
+                ++cell_in.indices[0];
+                ++cell_in.index;
             }
         }
     }
@@ -663,7 +676,7 @@ namespace samurai
     template <class Field>
     inline auto Bc<Field>::constant_value() -> value_t
     {
-        return p_bcvalue->get_value({});
+        return p_bcvalue->get_value({}, {});
     }
 
     template <class Field>
@@ -673,9 +686,9 @@ namespace samurai
     }
 
     template <class Field>
-    inline auto Bc<Field>::value(const coords_t& coords) const -> value_t
+    inline auto Bc<Field>::value(const cell_t& cell_in, const coords_t& coords) const -> value_t
     {
-        return p_bcvalue->get_value(coords);
+        return p_bcvalue->get_value(cell_in, coords);
     }
 
     template <class Field>
@@ -710,34 +723,22 @@ namespace samurai
     }
 
     template <template <class> class bc_type, class Field>
-    auto make_bc(Field& field, typename FunctionBc<Field::dim, typename Field::value_type, Field::size>::function_t func)
+    auto make_bc(Field& field, typename FunctionBc<Field>::function_t func)
     {
-        using value_t              = typename Field::value_type;
-        constexpr std::size_t dim  = Field::dim;
-        constexpr std::size_t size = Field::size;
-
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach_bc(bc_type<Field>(mesh, FunctionBc<dim, value_t, size>(func)));
+        return field.attach_bc(bc_type<Field>(mesh, FunctionBc<Field>(func)));
     }
 
     template <template <class> class bc_type, class Field>
     auto make_bc(Field& field)
     {
-        using value_t              = typename Field::value_type;
-        constexpr std::size_t dim  = Field::dim;
-        constexpr std::size_t size = Field::size;
-
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach_bc(bc_type<Field>(mesh, ConstantBc<dim, value_t, size>()));
+        return field.attach_bc(bc_type<Field>(mesh, ConstantBc<Field>()));
     }
 
     template <template <class> class bc_type, class Field, class... T>
     auto make_bc(Field& field, typename Field::value_type v1, T... v)
     {
-        using value_t              = typename Field::value_type;
-        constexpr std::size_t dim  = Field::dim;
-        constexpr std::size_t size = Field::size;
-
         static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<typename Field::value_type, T...>>,
                       "The constant value type must be the same as the field value_type");
         static_assert(Field::size == sizeof...(T) + 1,
@@ -745,7 +746,7 @@ namespace samurai
                       "number of element in the field");
 
         auto& mesh = detail::get_mesh(field.mesh());
-        return field.attach_bc(bc_type<Field>(mesh, ConstantBc<dim, value_t, size>(v1, v...)));
+        return field.attach_bc(bc_type<Field>(mesh, ConstantBc<Field>(v1, v...)));
     }
 
     //////////////

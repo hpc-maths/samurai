@@ -75,7 +75,7 @@ namespace samurai
             for_each_interval(mesh,
                               [&](std::size_t level, const auto& interval, const auto& index_yz)
                               {
-                                  std::size_t itag = static_cast<std::size_t>(interval.start + interval.index);
+                                  auto itag = interval.start + interval.index;
                                   for (auto i = interval.start; i < interval.end; ++i, ++itag)
                                   {
                                       if (tag[itag])

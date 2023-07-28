@@ -8,11 +8,12 @@ class TestCase
   public:
 
     static constexpr std::size_t dim = Field::dim;
-    using coords                     = xt::xtensor_fixed<double, xt::xshape<dim>>;
+    using cell_t                     = typename Field::cell_t;
+    using coords_t                   = typename cell_t::coords_t;
 
-    using field_value_t    = typename samurai::detail::return_type<double, Field::size>::type;
-    using field_function_t = typename samurai::FunctionBc<dim, double, Field::size>::function_t;
-    using boundary_cond_t  = field_function_t;
+    using boundary_cond_t  = typename samurai::FunctionBc<Field>::function_t;
+    using field_value_t    = typename samurai::FunctionBc<Field>::value_t;
+    using field_function_t = std::function<field_value_t(const coords_t&)>;
 
     virtual bool solution_is_known()
     {
@@ -41,9 +42,12 @@ class TestCase
     {
         if (solution_is_known())
         {
-            return solution();
+            return [&](const auto&, const auto& coords)
+            {
+                return solution()(coords);
+            };
         }
-        return [](const coords&)
+        return [](const cell_t&, const coords_t&)
         {
             if constexpr (Field::size == 1)
             {
@@ -80,7 +84,8 @@ class PolynomialTestCase : public TestCase<Field>
     using field_value_t              = typename TestCase<Field>::field_value_t;
     using field_function_t           = typename TestCase<Field>::field_function_t;
     using boundary_cond_t            = typename TestCase<Field>::boundary_cond_t;
-    using coords                     = typename TestCase<Field>::coords;
+    using coords_t                   = typename TestCase<Field>::coords_t;
+    using cell_t                     = typename TestCase<Field>::cell_t;
 
     bool solution_is_known() override
     {
@@ -145,7 +150,7 @@ class PolynomialTestCase : public TestCase<Field>
 
     boundary_cond_t dirichlet() override
     {
-        return [](const coords&)
+        return [](const cell_t&, const coords_t&)
         {
             if constexpr (Field::size == 1)
             {
@@ -164,7 +169,7 @@ class PolynomialTestCase : public TestCase<Field>
     {
         if constexpr (dim == 1)
         {
-            return [](const coords& coord)
+            return [](const auto&, const coords_t& coord)
             {
                 const auto& x = coord[0];
                 if (x == 0 || x == 1)
@@ -180,11 +185,11 @@ class PolynomialTestCase : public TestCase<Field>
         }
         else if constexpr (dim == 2)
         {
-            return [](const auto& coord)
+            return [](const auto&, const auto& coord)
             {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
-                double value;
+                double value  = 0.;
                 if (x == 0 || x == 1)
                 {
                     value = y * (y - 1);
