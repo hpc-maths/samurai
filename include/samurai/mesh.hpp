@@ -48,6 +48,7 @@ namespace samurai
         using mesh_id_t  = typename config::mesh_id_t;
         using interval_t = typename config::interval_t;
         using value_t    = typename interval_t::value_t;
+        using index_t    = typename interval_t::index_t;
 
         using cl_type  = CellList<dim, interval_t, max_refinement_level>;
         using lcl_type = typename cl_type::lcl_type;
@@ -80,8 +81,8 @@ namespace samurai
         const interval_t& get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
         template <typename... T>
-        std::size_t get_index(std::size_t level, value_t i, T... index) const;
-        std::size_t get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
+        index_t get_index(std::size_t level, value_t i, T... index) const;
+        index_t get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
         void to_stream(std::ostream& os) const;
 
@@ -279,13 +280,13 @@ namespace samurai
 
     template <class D, class Config>
     template <typename... T>
-    inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, value_t i, T... index) const
+    inline auto Mesh_base<D, Config>::get_index(std::size_t level, value_t i, T... index) const -> index_t
     {
         return m_cells[mesh_id_t::reference].get_index(level, i, index...);
     }
 
     template <class D, class Config>
-    inline std::size_t Mesh_base<D, Config>::get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const
+    inline auto Mesh_base<D, Config>::get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const -> index_t
     {
         return m_cells[mesh_id_t::reference].get_index(level, coord);
     }

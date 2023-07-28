@@ -85,7 +85,7 @@ void update_mesh(Mesh& mesh,
     samurai::for_each_interval(mesh,
                                [&](std::size_t level, const auto& interval, const auto& index_yz)
                                {
-                                   auto itag = static_cast<std::size_t>(interval.start + interval.index);
+                                   auto itag = interval.start + interval.index;
                                    for (int i = interval.start; i < interval.end; ++i)
                                    {
                                        if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))

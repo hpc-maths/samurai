@@ -70,7 +70,7 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
         using coord_index_t              = typename Mesh::config::interval_t::coord_index_t;
-        using Cell                       = typename samurai::Cell<coord_index_t, dim>;
+        using Cell                       = Cell<dim, typename Mesh::interval_t>;
 
       private:
 
@@ -137,14 +137,7 @@ namespace samurai
                 if (same_row) // same row as the stencil origin
                 {
                     // translation on the row
-                    if (d[0] >= 0)
-                    {
-                        cell.index = origin_cell.index + static_cast<std::size_t>(d[0]);
-                    }
-                    else
-                    {
-                        cell.index = origin_cell.index - static_cast<std::size_t>(-d[0]);
-                    }
+                    cell.index = origin_cell.index + d[0];
                 }
                 else
                 {

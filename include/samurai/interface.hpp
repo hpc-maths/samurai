@@ -133,8 +133,7 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t                  = typename Mesh::mesh_id_t;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
-        using coord_index_t              = typename Mesh::config::interval_t::coord_index_t;
-        using cell_t                     = typename samurai::Cell<coord_index_t, dim>;
+        using cell_t                     = Cell<dim, typename Mesh::interval_t>;
 
         if (level >= mesh.max_level())
         {
@@ -204,8 +203,7 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t                  = typename Mesh::mesh_id_t;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
-        using coord_index_t              = typename Mesh::config::interval_t::coord_index_t;
-        using cell_t                     = typename samurai::Cell<coord_index_t, dim>;
+        using cell_t                     = Cell<dim, typename Mesh::interval_t>;
 
         if (level >= mesh.max_level())
         {

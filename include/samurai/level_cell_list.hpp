@@ -86,7 +86,7 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
-        void add_cell(const Cell<coord_index_t, dim>& cell);
+        void add_cell(const Cell<dim, interval_t>& cell);
 
       private:
 
@@ -152,7 +152,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellList<Dim, TInterval>::add_cell(const Cell<coord_index_t, dim>& cell)
+    inline void LevelCellList<Dim, TInterval>::add_cell(const Cell<dim, interval_t>& cell)
     {
         using namespace xt::placeholders;
 

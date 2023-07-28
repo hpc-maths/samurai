@@ -267,7 +267,7 @@ int main(int argc, char* argv[])
 
         auto u = samurai::make_field<double, 1>("u", mesh);
         samurai::make_bc<samurai::Dirichlet>(u,
-                                             [](const auto& coord)
+                                             [](const auto&, const auto& coord)
                                              {
                                                  const auto& x = coord[0];
                                                  const auto& y = coord[1];

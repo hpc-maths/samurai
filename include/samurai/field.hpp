@@ -74,27 +74,28 @@ namespace samurai
         {
             static constexpr std::size_t dim = mesh_t::dim;
             using interval_t                 = typename mesh_t::interval_t;
-            using cell_t                     = Cell<typename interval_t::coord_index_t, dim>;
+            using index_t                    = typename interval_t::index_t;
+            using cell_t                     = Cell<dim, interval_t>;
             using data_type                  = xt::xtensor<value_t, 1>;
 
-            inline const value_t& operator[](std::size_t i) const
+            inline const value_t& operator[](index_t i) const
             {
-                return this->derived_cast().m_data[i];
+                return this->derived_cast().m_data[static_cast<std::size_t>(i)];
             }
 
-            inline value_t& operator[](std::size_t i)
+            inline value_t& operator[](index_t i)
             {
-                return this->derived_cast().m_data[i];
+                return this->derived_cast().m_data[static_cast<std::size_t>(i)];
             }
 
             inline const value_t& operator[](const cell_t& cell) const
             {
-                return this->derived_cast().m_data[cell.index];
+                return this->derived_cast().m_data[static_cast<std::size_t>(cell.index)];
             }
 
             inline value_t& operator[](const cell_t& cell)
             {
-                return this->derived_cast().m_data[cell.index];
+                return this->derived_cast().m_data[static_cast<std::size_t>(cell.index)];
             }
 
             inline const value_t& operator()(std::size_t i) const
@@ -139,17 +140,18 @@ namespace samurai
         {
             static constexpr std::size_t dim = mesh_t::dim;
             using interval_t                 = typename mesh_t::interval_t;
-            using cell_t                     = Cell<typename interval_t::coord_index_t, dim>;
+            using index_t                    = typename interval_t::index_t;
+            using cell_t                     = Cell<dim, interval_t>;
             using data_type                  = xt::xtensor<value_t, 2>;
 
-            inline auto operator[](std::size_t i) const
+            inline auto operator[](index_t i) const
             {
-                return xt::view(this->derived_cast().m_data, i);
+                return xt::view(this->derived_cast().m_data, static_cast<std::size_t>(i));
             }
 
-            inline auto operator[](std::size_t i)
+            inline auto operator[](index_t i)
             {
-                return xt::view(this->derived_cast().m_data, i);
+                return xt::view(this->derived_cast().m_data, static_cast<std::size_t>(i));
             }
 
             inline auto operator[](const cell_t& cell) const
@@ -235,7 +237,7 @@ namespace samurai
         {
             static constexpr std::size_t dim = mesh_t::dim;
             using interval_t                 = typename mesh_t::interval_t;
-            using cell_t                     = Cell<typename interval_t::coord_index_t, dim>;
+            using cell_t                     = Cell<dim, interval_t>;
             using data_type                  = xt::xtensor<value_t, 2>;
 
             inline auto operator[](std::size_t i) const
@@ -355,7 +357,7 @@ namespace samurai
 
         using inner_types::dim;
         using interval_t = typename mesh_t::interval_t;
-        using cell_t     = Cell<typename interval_t::coord_index_t, dim>;
+        using cell_t     = typename inner_types::cell_t;
 
         using iterator               = Field_iterator<self_type, false>;
         using const_iterator         = Field_iterator<const self_type, true>;

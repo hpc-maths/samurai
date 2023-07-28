@@ -35,6 +35,7 @@ namespace samurai
             using interval_t                                       = typename mesh_t::interval_t;
             using field_value_type                                 = typename field_t::value_type; // double
             using coord_index_t                                    = typename interval_t::coord_index_t;
+            using index_t                                          = typename interval_t::index_t;
             static constexpr std::size_t dim                       = field_t::dim;
             static constexpr std::size_t field_size                = field_t::size;
             static constexpr std::size_t output_field_size         = cfg_t::output_field_size;
@@ -43,7 +44,7 @@ namespace samurai
             static constexpr std::size_t bdry_stencil_size         = bdry_cfg_t::stencil_size;
             static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg_t::nb_ghosts;
             static constexpr DirichletEnforcement dirichlet_enfcmt = bdry_cfg_t::dirichlet_enfcmt;
-            using cell_t                                           = samurai::Cell<coord_index_t, dim>;
+            using cell_t                                           = Cell<dim, interval_t>;
 
             using dirichlet_t = Dirichlet<field_t>;
             using neumann_t   = Neumann<field_t>;
@@ -61,9 +62,10 @@ namespace samurai
             std::vector<bool> m_is_row_empty;
 
             // Ghost recursion
-            using cell_coeff_pair_t     = std::pair<std::size_t, double>;
+            using cell_coeff_pair_t     = std::pair<index_t, double>;
             using CellLinearCombination = std::vector<cell_coeff_pair_t>;
-            std::map<std::size_t, CellLinearCombination> m_ghost_recursion;
+            using recursion_t           = std::map<index_t, CellLinearCombination>;
+            recursion_t m_ghost_recursion;
 
           public:
 
@@ -97,7 +99,7 @@ namespace samurai
             {
                 static constexpr PetscInt number_of_children = (1 << dim);
 
-                std::map<std::size_t, CellLinearCombination> recursion;
+                recursion_t recursion;
 
                 for_each_projection_ghost_and_children_cells<std::size_t>(
                     mesh(),
@@ -236,7 +238,7 @@ namespace samurai
                 }
                 else
                 {
-                    return m_col_shift + static_cast<PetscInt>(cell.index * field_size + field_j);
+                    return m_col_shift + static_cast<PetscInt>(cell.index * static_cast<index_t>(field_size) + field_j);
                 }
             }
 
@@ -253,7 +255,7 @@ namespace samurai
                 }
                 else
                 {
-                    return m_row_shift + static_cast<PetscInt>(cell.index * output_field_size + field_i);
+                    return m_row_shift + static_cast<PetscInt>(cell.index * static_cast<index_t>(output_field_size) + field_i);
                 }
             }
 
@@ -576,12 +578,12 @@ namespace samurai
                         double bc_value;
                         if constexpr (field_size == 1)
                         {
-                            bc_value = bc->value(boundary_point);
+                            bc_value = bc->value({}, boundary_point);
                         }
                         else
                         {
-                            bc_value = bc->value(boundary_point)(field_i); // TODO: call get_value() only once instead of
-                                                                           // once per field_i
+                            bc_value = bc->value({}, boundary_point)(field_i); // TODO: call get_value() only once instead of
+                                                                               // once per field_i
                         }
 
                         if constexpr (dirichlet_enfcmt == DirichletEnforcement::Elimination)
@@ -789,8 +791,6 @@ namespace samurai
 
             void assemble_prediction_1D(Mat& A)
             {
-                using index_t = int;
-
                 // double scalar = 1;
                 //  if constexpr (is_FluxBasedScheme_v<Scheme>)
                 //  {
@@ -824,7 +824,7 @@ namespace samurai
                                     double value           = -interpx[ci];
                                     auto coarse_cell_index = this->col_index(
                                         static_cast<PetscInt>(
-                                            this->mesh().get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order))),
+                                            this->mesh().get_index(ghost.level - 1, ig + static_cast<coord_index_t>(ci - prediction_order))),
                                         field_i);
                                     MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, INSERT_VALUES);
                                 }
@@ -837,8 +837,6 @@ namespace samurai
             template <class Cell>
             auto prediction_linear_combination_1D(const Cell& ghost)
             {
-                using index_t = int;
-
                 std::vector<cell_coeff_pair_t> linear_comb;
 
                 auto ii      = ghost.indices(0);
@@ -854,7 +852,8 @@ namespace samurai
                 {
                     if (ci != prediction_order)
                     {
-                        auto coarse_cell_index = this->mesh().get_index(ghost.level - 1, ig + static_cast<index_t>(ci - prediction_order));
+                        auto coarse_cell_index = this->mesh().get_index(ghost.level - 1,
+                                                                        ig + static_cast<coord_index_t>(ci - prediction_order));
                         linear_comb.emplace_back(coarse_cell_index, interpx[ci]);
                     }
                 }
@@ -863,7 +862,6 @@ namespace samurai
 
             void assemble_prediction_2D(Mat& A)
             {
-                using index_t = int;
                 samurai::for_each_prediction_ghost(
                     mesh(),
                     [&](auto& ghost)
@@ -896,11 +894,11 @@ namespace samurai
                                     if (ci != prediction_order || cj != prediction_order)
                                     {
                                         double value           = -interpx[ci] * interpy[cj];
-                                        auto coarse_cell_index = this->col_index(
-                                            static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1,
-                                                                                         ig + static_cast<index_t>(ci - prediction_order),
-                                                                                         jg + static_cast<index_t>(cj - prediction_order))),
-                                            field_i);
+                                        auto coarse_cell_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(
+                                                                                     ghost.level - 1,
+                                                                                     ig + static_cast<coord_index_t>(ci - prediction_order),
+                                                                                     jg + static_cast<coord_index_t>(cj - prediction_order))),
+                                                                                 field_i);
                                         MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, INSERT_VALUES);
                                     }
                                 }
@@ -913,8 +911,6 @@ namespace samurai
             template <class Cell>
             auto prediction_linear_combination_2D(const Cell& ghost)
             {
-                using index_t = int;
-
                 std::vector<cell_coeff_pair_t> linear_comb;
 
                 auto ii      = ghost.indices(0);
@@ -937,8 +933,8 @@ namespace samurai
                         if (ci != prediction_order || cj != prediction_order)
                         {
                             auto coarse_cell_index = this->mesh().get_index(ghost.level - 1,
-                                                                            ig + static_cast<index_t>(ci - prediction_order),
-                                                                            jg + static_cast<index_t>(cj - prediction_order));
+                                                                            ig + static_cast<coord_index_t>(ci - prediction_order),
+                                                                            jg + static_cast<coord_index_t>(cj - prediction_order));
                             linear_comb.emplace_back(coarse_cell_index, interpx[ci] * interpy[cj]);
                         }
                     }
@@ -948,7 +944,6 @@ namespace samurai
 
             void assemble_prediction_3D(Mat& A)
             {
-                using index_t = int;
                 samurai::for_each_prediction_ghost(
                     mesh(),
                     [&](auto& ghost)
@@ -987,12 +982,13 @@ namespace samurai
                                         if (ci != prediction_order || cj != prediction_order || ck != prediction_order)
                                         {
                                             double value           = -interpx[ci] * interpy[cj] * interpz[ck];
-                                            auto coarse_cell_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(
-                                                                                         ghost.level - 1,
-                                                                                         ig + static_cast<index_t>(ci - prediction_order),
-                                                                                         jg + static_cast<index_t>(cj - prediction_order),
-                                                                                         kg + static_cast<index_t>(ck - prediction_order))),
-                                                                                     field_i);
+                                            auto coarse_cell_index = this->col_index(
+                                                static_cast<PetscInt>(
+                                                    this->mesh().get_index(ghost.level - 1,
+                                                                           ig + static_cast<coord_index_t>(ci - prediction_order),
+                                                                           jg + static_cast<coord_index_t>(cj - prediction_order),
+                                                                           kg + static_cast<coord_index_t>(ck - prediction_order))),
+                                                field_i);
                                             MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, INSERT_VALUES);
                                         }
                                     }
@@ -1006,8 +1002,6 @@ namespace samurai
             template <class Cell>
             auto prediction_linear_combination_3D(const Cell& ghost)
             {
-                using index_t = int;
-
                 std::vector<cell_coeff_pair_t> linear_comb;
 
                 auto ii      = ghost.indices(0);
@@ -1036,9 +1030,9 @@ namespace samurai
                             if (ci != prediction_order || cj != prediction_order || ck != prediction_order)
                             {
                                 auto coarse_cell_index = this->mesh().get_index(ghost.level - 1,
-                                                                                ig + static_cast<index_t>(ci - prediction_order),
-                                                                                jg + static_cast<index_t>(cj - prediction_order),
-                                                                                kg + static_cast<index_t>(ck - prediction_order));
+                                                                                ig + static_cast<coord_index_t>(ci - prediction_order),
+                                                                                jg + static_cast<coord_index_t>(cj - prediction_order),
+                                                                                kg + static_cast<coord_index_t>(ck - prediction_order));
                                 linear_comb.emplace_back(coarse_cell_index, interpx[ci] * interpy[cj] * interpz[ck]);
                             }
                         }
