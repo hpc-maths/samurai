@@ -70,13 +70,13 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
         using coord_index_t              = typename Mesh::config::interval_t::coord_index_t;
-        using Cell                       = Cell<dim, typename Mesh::interval_t>;
+        using cell_t                     = Cell<dim, typename Mesh::interval_t>;
 
       private:
 
         const Mesh& m_mesh;                         // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         const Stencil<stencil_size, dim> m_stencil; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
-        std::array<Cell, stencil_size> m_cells;
+        std::array<cell_t, stencil_size> m_cells;
         unsigned int m_origin_cell;
 
       public:
@@ -93,14 +93,14 @@ namespace samurai
         void init(const mesh_interval_t& mesh_interval)
         {
             double length = cell_length(mesh_interval.level);
-            for (Cell& cell : m_cells)
+            for (cell_t& cell : m_cells)
             {
                 cell.level  = mesh_interval.level;
                 cell.length = length;
             }
 
             // origin of the stencil
-            Cell& origin_cell      = m_cells[m_origin_cell];
+            cell_t& origin_cell    = m_cells[m_origin_cell];
             origin_cell.indices[0] = mesh_interval.i.start;
             for (unsigned int d = 0; d < dim - 1; ++d)
             {
@@ -118,7 +118,7 @@ namespace samurai
                 auto d = xt::view(m_stencil, id);
 
                 // Translate the coordinates according the direction d
-                Cell& cell = m_cells[id];
+                cell_t& cell = m_cells[id];
                 for (unsigned int k = 0; k < dim; ++k)
                 {
                     cell.indices[k] = origin_cell.indices[k] + d[k];
@@ -148,14 +148,14 @@ namespace samurai
 
         void move_next()
         {
-            for (Cell& cell : m_cells)
+            for (cell_t& cell : m_cells)
             {
                 cell.index++;      // increment cell index
                 cell.indices[0]++; // increment x-coordinate
             }
         }
 
-        std::array<Cell, stencil_size>& cells()
+        std::array<cell_t, stencil_size>& cells()
         {
             return m_cells;
         }
