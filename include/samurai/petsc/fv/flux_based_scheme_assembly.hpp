@@ -7,8 +7,12 @@ namespace samurai
 {
     namespace petsc
     {
+        /**
+         * Assembly for linear and homogeneous schemes
+         */
         template <class Scheme>
-        class Assembly<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme>>> : public FVSchemeAssembly<Scheme>
+        class Assembly<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && is_LinearScheme_v<Scheme> && !is_HeterogeneousScheme_v<Scheme>>>
+            : public FVSchemeAssembly<Scheme>
         {
           protected:
 
@@ -231,6 +235,15 @@ namespace samurai
                                                 });
                 }
             }
+        };
+
+        /**
+         * Assembly for linear and heterogeneous schemes
+         */
+        template <class Scheme>
+        class Assembly<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && is_LinearScheme_v<Scheme> && is_HeterogeneousScheme_v<Scheme>>>
+            : public FVSchemeAssembly<Scheme>
+        {
         };
 
     } // end namespace petsc

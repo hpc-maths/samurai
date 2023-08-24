@@ -5,8 +5,11 @@
 
 namespace samurai
 {
+    /**
+     * Linear and homogeneous explicit schemes
+     */
     template <class Scheme>
-    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme>>>
+    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && is_LinearScheme_v<Scheme> && !is_HeterogeneousScheme_v<Scheme>>>
     {
         using field_t                                  = typename Scheme::field_t;
         using scheme_definition_t                      = typename Scheme::scheme_definition_t;

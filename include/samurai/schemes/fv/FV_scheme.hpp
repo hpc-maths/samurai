@@ -320,4 +320,36 @@ namespace samurai
         }
     };
 
+    /**
+     * is_LinearScheme
+     */
+    template <class Scheme, typename = void>
+    struct is_LinearScheme : std::false_type
+    {
+    };
+
+    template <class Scheme>
+    struct is_LinearScheme<Scheme, std::enable_if_t<Scheme::cfg_t::is_linear>> : std::true_type
+    {
+    };
+
+    template <class Scheme>
+    inline constexpr bool is_LinearScheme_v = is_LinearScheme<Scheme>::value;
+
+    /**
+     * is_HeterogeneousScheme
+     */
+    template <class Scheme, typename = void>
+    struct is_HeterogeneousScheme : std::false_type
+    {
+    };
+
+    template <class Scheme>
+    struct is_HeterogeneousScheme<Scheme, std::enable_if_t<Scheme::cfg_t::is_heterogeneous>> : std::true_type
+    {
+    };
+
+    template <class Scheme>
+    inline constexpr bool is_HeterogeneousScheme_v = is_HeterogeneousScheme<Scheme>::value;
+
 } // end namespace samurai
