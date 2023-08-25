@@ -52,12 +52,9 @@ namespace samurai
          * Conclusion: the contribution of the face is just the flux received as a parameter, multiplied by |F|/|T|.
          * Here, we add a minus sign because we define Diffusion as -Lap.
          */
-        static cell_coeffs_t minus_flux(flux_coeffs_t& flux, double h_face, double h_cell)
+        static cell_coeffs_t minus_flux(flux_coeffs_t& flux)
         {
-            double face_measure = pow(h_face, dim - 1);
-            double cell_measure = pow(h_cell, dim);
-            double h_factor     = face_measure / cell_measure;
-            return -flux * h_factor;
+            return -flux;
         }
 
         static auto definition()

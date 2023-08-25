@@ -65,23 +65,19 @@ namespace samurai
         }
 
         template <std::size_t d>
-        static cell_coeffs_t add_flux_to_row(flux_coeffs_t& flux, double h_face, double h_cell)
+        static cell_coeffs_t add_flux_to_row(flux_coeffs_t& flux)
         {
-            double face_measure = pow(h_face, dim - 1);
-            double cell_measure = pow(h_cell, dim);
-            double h_factor     = face_measure / cell_measure;
-
             cell_coeffs_t coeffs;
             for (std::size_t i = 0; i < stencil_size; ++i)
             {
                 if constexpr (dim == 1)
                 {
-                    coeffs[i] = flux[i] * h_factor;
+                    coeffs[i] = flux[i];
                 }
                 else
                 {
                     coeffs[i].fill(0);
-                    xt::row(coeffs[i], d) = flux[i] * h_factor;
+                    xt::row(coeffs[i], d) = flux[i];
                 }
             }
             return coeffs;

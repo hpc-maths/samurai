@@ -24,7 +24,7 @@ namespace samurai
         using coeff_matrix_t     = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
         using cell_coeffs_t      = xt::xtensor_fixed<coeff_matrix_t, xt::xshape<stencil_size>>;
         using flux_coeffs_t      = typename flux_computation_t::flux_coeffs_t;
-        using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&, double, double)>;
+        using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&)>;
 
       private:
 
@@ -73,12 +73,16 @@ namespace samurai
          */
         cell_coeffs_t contribution(flux_coeffs_t& flux, double h_face, double h_cell) const
         {
-            return m_contribution_func(flux, h_face, h_cell);
+            double face_measure = pow(h_face, dim - 1);
+            double cell_measure = pow(h_cell, dim);
+            return (face_measure / cell_measure) * m_contribution_func(flux);
         }
 
         cell_coeffs_t contribution_opposite_direction(flux_coeffs_t& flux, double h_face, double h_cell) const
         {
-            return m_contribution_opposite_direction_func(flux, h_face, h_cell);
+            double face_measure = pow(h_face, dim - 1);
+            double cell_measure = pow(h_cell, dim);
+            return (face_measure / cell_measure) * m_contribution_opposite_direction_func(flux);
         }
     };
 

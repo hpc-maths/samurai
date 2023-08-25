@@ -64,29 +64,29 @@ namespace samurai
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
                     def[d].set_contribution(
-                        [&](auto& flux_coeffs, double h_face, double h_cell)
+                        [&](auto& flux_coeffs)
                         {
-                            return this->scalar_x_contribution<d>(flux_coeffs, h_face, h_cell);
+                            return this->scalar_x_contribution<d>(flux_coeffs);
                         });
                     def[d].set_contribution_opposite_direction(
-                        [&](auto& flux_coeffs, double h_face, double h_cell)
+                        [&](auto& flux_coeffs)
                         {
-                            return this->scalar_x_contribution_opposite_direction<d>(flux_coeffs, h_face, h_cell);
+                            return this->scalar_x_contribution_opposite_direction<d>(flux_coeffs);
                         });
                 });
             return def;
         }
 
         template <std::size_t d>
-        cell_coeffs_t scalar_x_contribution(flux_coeffs_t& flux_coeffs, double h_face, double h_cell) const
+        cell_coeffs_t scalar_x_contribution(flux_coeffs_t& flux_coeffs) const
         {
-            return m_scalar * m_scheme.definition()[d].contribution(flux_coeffs, h_face, h_cell);
+            return m_scalar * m_scheme.definition()[d].contribution_func()(flux_coeffs);
         }
 
         template <std::size_t d>
-        cell_coeffs_t scalar_x_contribution_opposite_direction(flux_coeffs_t& flux_coeffs, double h_face, double h_cell) const
+        cell_coeffs_t scalar_x_contribution_opposite_direction(flux_coeffs_t& flux_coeffs) const
         {
-            return m_scalar * m_scheme.definition()[d].contribution_opposite_direction(flux_coeffs, h_face, h_cell);
+            return m_scalar * m_scheme.definition()[d].contribution_opposite_direction_func()(flux_coeffs);
         }
 
         bool matrix_is_symmetric(const field_t&) const override
