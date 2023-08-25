@@ -18,8 +18,8 @@ namespace samurai
         using field_t                    = typename Scheme::field_t;
         using base_class                 = FluxBasedScheme<Scalar_x_FluxBasedScheme<Scheme>, cfg_t, bdry_cfg_t, field_t>;
         using scheme_definition_t        = typename base_class::scheme_definition_t;
-        using flux_coeffs_t              = typename scheme_definition_t::flux_coeffs_t;
-        using cell_coeffs_t              = typename scheme_definition_t::cell_coeffs_t;
+        using flux_stencil_coeffs_t      = typename scheme_definition_t::flux_stencil_coeffs_t;
+        using scheme_stencil_coeffs_t    = typename scheme_definition_t::scheme_stencil_coeffs_t;
         static constexpr std::size_t dim = field_t::dim;
         using base_class::name;
 
@@ -78,13 +78,13 @@ namespace samurai
         }
 
         template <std::size_t d>
-        cell_coeffs_t scalar_x_contribution(flux_coeffs_t& flux_coeffs) const
+        scheme_stencil_coeffs_t scalar_x_contribution(flux_stencil_coeffs_t& flux_coeffs) const
         {
             return m_scalar * m_scheme.definition()[d].contribution_func()(flux_coeffs);
         }
 
         template <std::size_t d>
-        cell_coeffs_t scalar_x_contribution_opposite_direction(flux_coeffs_t& flux_coeffs) const
+        scheme_stencil_coeffs_t scalar_x_contribution_opposite_direction(flux_stencil_coeffs_t& flux_coeffs) const
         {
             return m_scalar * m_scheme.definition()[d].contribution_opposite_direction_func()(flux_coeffs);
         }

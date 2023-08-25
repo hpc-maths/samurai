@@ -13,7 +13,7 @@ namespace samurai
     {
         using field_t                                  = typename Scheme::field_t;
         using scheme_definition_t                      = typename Scheme::scheme_definition_t;
-        using flux_coeffs_t                            = typename scheme_definition_t::flux_coeffs_t;
+        using flux_stencil_coeffs_t                    = typename scheme_definition_t::flux_stencil_coeffs_t;
         static constexpr std::size_t dim               = field_t::dim;
         static constexpr std::size_t field_size        = field_t::size;
         static constexpr std::size_t output_field_size = Scheme::output_field_size;

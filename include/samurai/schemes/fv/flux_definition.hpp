@@ -11,11 +11,12 @@ namespace samurai
     {
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
-        using field_value_type                  = typename Field::value_type;                               // double
-        using flux_matrix_t = typename detail::LocalMatrix<field_value_type, field_size, field_size>::Type; // 'double' if field_size = 1,
-                                                                                                            // 'xtensor' representing a
-                                                                                                            // matrix otherwise
-        using flux_coeffs_t = xt::xtensor_fixed<flux_matrix_t, xt::xshape<stencil_size>>;
+        using field_value_type                  = typename Field::value_type;                                     // double
+        using flux_coeff_matrix_t = typename detail::LocalMatrix<field_value_type, field_size, field_size>::Type; // 'double' if field_size
+                                                                                                                  // = 1, 'xtensor'
+                                                                                                                  // representing a matrix
+                                                                                                                  // otherwise
+        using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<stencil_size>>;
 
         /**
          * Direction of the flux.
@@ -64,7 +65,7 @@ namespace samurai
          *                coeffs[0] = diag(-1/h),
          *                coeffs[1] = diag( 1/h).
          */
-        std::function<flux_coeffs_t(double)> get_flux_coeffs;
+        std::function<flux_stencil_coeffs_t(double)> get_flux_coeffs;
     };
 
     template <class Field, class Vector>
@@ -73,14 +74,14 @@ namespace samurai
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
         using flux_computation_t                = LinearNormalFluxDefinition<Field, 2>;
-        using flux_coeffs_t                     = typename flux_computation_t::flux_coeffs_t;
+        using flux_stencil_coeffs_t             = typename flux_computation_t::flux_stencil_coeffs_t;
 
         flux_computation_t normal_grad;
         normal_grad.direction       = direction;
         normal_grad.stencil         = in_out_stencil<dim>(direction);
         normal_grad.get_flux_coeffs = [](double h)
         {
-            flux_coeffs_t coeffs;
+            flux_stencil_coeffs_t coeffs;
             if constexpr (field_size == 1)
             {
                 coeffs[0] = -1 / h;
@@ -122,14 +123,14 @@ namespace samurai
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
         using flux_computation_t                = LinearNormalFluxDefinition<Field, 2>;
-        using flux_coeffs_t                     = typename flux_computation_t::flux_coeffs_t;
+        using flux_stencil_coeffs_t             = typename flux_computation_t::flux_stencil_coeffs_t;
 
         flux_computation_t flux;
         flux.direction       = direction;
         flux.stencil         = in_out_stencil<dim>(direction);
         flux.get_flux_coeffs = [](double)
         {
-            flux_coeffs_t coeffs;
+            flux_stencil_coeffs_t coeffs;
             if constexpr (field_size == 1)
             {
                 coeffs[0] = 0.5;

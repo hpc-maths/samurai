@@ -19,18 +19,18 @@ namespace samurai
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
 
-        using flux_computation_t = LinearNormalFluxDefinition<Field, stencil_size>;
-        using field_value_type   = typename Field::value_type; // double
-        using coeff_matrix_t     = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
-        using cell_coeffs_t      = xt::xtensor_fixed<coeff_matrix_t, xt::xshape<stencil_size>>;
-        using flux_coeffs_t      = typename flux_computation_t::flux_coeffs_t;
-        using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&)>;
+        using flux_computation_t      = LinearNormalFluxDefinition<Field, stencil_size>;
+        using field_value_type        = typename Field::value_type; // double
+        using scheme_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
+        using scheme_stencil_coeffs_t = xt::xtensor_fixed<scheme_coeff_matrix_t, xt::xshape<stencil_size>>;
+        using flux_stencil_coeffs_t   = typename flux_computation_t::flux_stencil_coeffs_t;
+        using flux_to_scheme_func_t   = std::function<scheme_stencil_coeffs_t(flux_stencil_coeffs_t&)>;
 
       private:
 
         flux_computation_t m_flux;
-        cell_coeffs_func_t m_contribution_func;
-        cell_coeffs_func_t m_contribution_opposite_direction_func = nullptr;
+        flux_to_scheme_func_t m_contribution_func;
+        flux_to_scheme_func_t m_contribution_opposite_direction_func = nullptr;
 
       public:
 
@@ -54,7 +54,7 @@ namespace samurai
             m_flux = flux;
         }
 
-        void set_contribution(cell_coeffs_func_t contribution_func)
+        void set_contribution(flux_to_scheme_func_t contribution_func)
         {
             m_contribution_func = contribution_func;
             if (!m_contribution_opposite_direction_func)
@@ -63,7 +63,7 @@ namespace samurai
             }
         }
 
-        void set_contribution_opposite_direction(cell_coeffs_func_t contribution_func)
+        void set_contribution_opposite_direction(flux_to_scheme_func_t contribution_func)
         {
             m_contribution_opposite_direction_func = contribution_func;
         }
@@ -71,14 +71,14 @@ namespace samurai
         /**
          * Computes and returns the contribution coefficients
          */
-        cell_coeffs_t contribution(flux_coeffs_t& flux, double h_face, double h_cell) const
+        scheme_stencil_coeffs_t contribution(flux_stencil_coeffs_t& flux, double h_face, double h_cell) const
         {
             double face_measure = pow(h_face, dim - 1);
             double cell_measure = pow(h_cell, dim);
             return (face_measure / cell_measure) * m_contribution_func(flux);
         }
 
-        cell_coeffs_t contribution_opposite_direction(flux_coeffs_t& flux, double h_face, double h_cell) const
+        scheme_stencil_coeffs_t contribution_opposite_direction(flux_stencil_coeffs_t& flux, double h_face, double h_cell) const
         {
             double face_measure = pow(h_face, dim - 1);
             double cell_measure = pow(h_cell, dim);

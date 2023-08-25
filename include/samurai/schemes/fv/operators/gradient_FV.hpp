@@ -52,10 +52,9 @@ namespace samurai
 
       public:
 
-        using scheme_definition_t = typename base_class::scheme_definition_t;
-        using coeff_matrix_t      = typename scheme_definition_t::coeff_matrix_t;
-        using cell_coeffs_t       = typename scheme_definition_t::cell_coeffs_t;
-        using flux_coeffs_t       = typename scheme_definition_t::flux_coeffs_t;
+        using scheme_definition_t     = typename base_class::scheme_definition_t;
+        using scheme_stencil_coeffs_t = typename scheme_definition_t::scheme_stencil_coeffs_t;
+        using flux_stencil_coeffs_t   = typename scheme_definition_t::flux_stencil_coeffs_t;
 
         explicit GradientFV(Field& u)
             : base_class(u)
@@ -65,9 +64,9 @@ namespace samurai
         }
 
         template <std::size_t d>
-        static cell_coeffs_t add_flux_to_row(flux_coeffs_t& flux)
+        static scheme_stencil_coeffs_t add_flux_to_row(flux_stencil_coeffs_t& flux)
         {
-            cell_coeffs_t coeffs;
+            scheme_stencil_coeffs_t coeffs;
             for (std::size_t i = 0; i < stencil_size; ++i)
             {
                 if constexpr (dim == 1)

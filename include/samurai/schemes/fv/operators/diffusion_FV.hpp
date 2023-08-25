@@ -30,8 +30,8 @@ namespace samurai
         using field_t                   = Field;
         using Mesh                      = typename Field::mesh_t;
         using scheme_definition_t       = typename base_class::scheme_definition_t;
-        using cell_coeffs_t             = typename scheme_definition_t::cell_coeffs_t;
-        using flux_coeffs_t             = typename scheme_definition_t::flux_coeffs_t;
+        using scheme_stencil_coeffs_t   = typename scheme_definition_t::scheme_stencil_coeffs_t;
+        using flux_stencil_coeffs_t     = typename scheme_definition_t::flux_stencil_coeffs_t;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
         explicit DiffusionFV(Field& unknown)
@@ -52,7 +52,7 @@ namespace samurai
          * Conclusion: the contribution of the face is just the flux received as a parameter, multiplied by |F|/|T|.
          * Here, we add a minus sign because we define Diffusion as -Lap.
          */
-        static cell_coeffs_t minus_flux(flux_coeffs_t& flux)
+        static scheme_stencil_coeffs_t minus_flux(flux_stencil_coeffs_t& flux)
         {
             return -flux;
         }
