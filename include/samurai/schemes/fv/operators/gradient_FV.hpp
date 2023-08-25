@@ -97,10 +97,9 @@ namespace samurai
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
 
-                    DirectionVector<dim> direction         = xt::view(directions, d);
-                    def[d].flux                            = average_quantity<Field>(direction);
-                    def[d].contribution                    = add_flux_to_row<d>;
-                    def[d].contribution_opposite_direction = add_flux_to_row<d>;
+                    DirectionVector<dim> direction = xt::view(directions, d);
+                    def[d].set_flux(average_quantity<Field>(direction));
+                    def[d].set_contribution(add_flux_to_row<d>);
                 });
             return def;
         }

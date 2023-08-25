@@ -63,14 +63,16 @@ namespace samurai
                 [&](auto integral_constant_d)
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
-                    def[d].contribution    = [&](auto& flux_coeffs, double h_face, double h_cell)
-                    {
-                        return this->scalar_x_contribution<d>(flux_coeffs, h_face, h_cell);
-                    };
-                    def[d].contribution_opposite_direction = [&](auto& flux_coeffs, double h_face, double h_cell)
-                    {
-                        return this->scalar_x_contribution_opposite_direction<d>(flux_coeffs, h_face, h_cell);
-                    };
+                    def[d].set_contribution(
+                        [&](auto& flux_coeffs, double h_face, double h_cell)
+                        {
+                            return this->scalar_x_contribution<d>(flux_coeffs, h_face, h_cell);
+                        });
+                    def[d].set_contribution_opposite_direction(
+                        [&](auto& flux_coeffs, double h_face, double h_cell)
+                        {
+                            return this->scalar_x_contribution_opposite_direction<d>(flux_coeffs, h_face, h_cell);
+                        });
                 });
             return def;
         }

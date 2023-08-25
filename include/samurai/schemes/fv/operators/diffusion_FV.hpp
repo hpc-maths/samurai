@@ -83,10 +83,9 @@ namespace samurai
                      */
 
                     // How the flux is computed in this direction: here, Grad.n = (uR-uL)/h
-                    def[d].flux = normal_grad_order1<Field>(direction);
+                    def[d].set_flux(normal_grad_order1<Field>(direction));
                     // Flux contribution to the scheme
-                    def[d].contribution                    = minus_flux;
-                    def[d].contribution_opposite_direction = minus_flux;
+                    def[d].set_contribution(minus_flux);
                 });
             return def;
         }

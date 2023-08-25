@@ -5,9 +5,17 @@
 
 namespace samurai
 {
+    /**
+     * @class FluxBasedSchemeDefinition
+     * Contains:
+     * - how the flux of the field is computed
+     * - how the flux contributes to the scheme
+     */
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    struct FluxBasedSchemeDefinition
+    class FluxBasedSchemeDefinition
     {
+      public:
+
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
 
@@ -18,9 +26,60 @@ namespace samurai
         using flux_coeffs_t      = typename flux_computation_t::flux_coeffs_t;
         using cell_coeffs_func_t = std::function<cell_coeffs_t(flux_coeffs_t&, double, double)>;
 
-        flux_computation_t flux;
-        cell_coeffs_func_t contribution;
-        cell_coeffs_func_t contribution_opposite_direction = nullptr;
+      private:
+
+        flux_computation_t m_flux;
+        cell_coeffs_func_t m_contribution_func;
+        cell_coeffs_func_t m_contribution_opposite_direction_func = nullptr;
+
+      public:
+
+        auto& flux()
+        {
+            return m_flux;
+        }
+
+        auto& contribution_func()
+        {
+            return m_contribution_func;
+        }
+
+        auto& contribution_opposite_direction_func()
+        {
+            return m_contribution_opposite_direction_func;
+        }
+
+        void set_flux(const flux_computation_t& flux)
+        {
+            m_flux = flux;
+        }
+
+        void set_contribution(cell_coeffs_func_t contribution_func)
+        {
+            m_contribution_func = contribution_func;
+            if (!m_contribution_opposite_direction_func)
+            {
+                m_contribution_opposite_direction_func = contribution_func;
+            }
+        }
+
+        void set_contribution_opposite_direction(cell_coeffs_func_t contribution_func)
+        {
+            m_contribution_opposite_direction_func = contribution_func;
+        }
+
+        /**
+         * Computes and returns the contribution coefficients
+         */
+        cell_coeffs_t contribution(flux_coeffs_t& flux, double h_face, double h_cell)
+        {
+            return m_contribution_func(flux, h_face, h_cell);
+        }
+
+        cell_coeffs_t contribution_opposite_direction(flux_coeffs_t& flux, double h_face, double h_cell)
+        {
+            return m_contribution_opposite_direction_func(flux, h_face, h_cell);
+        }
     };
 
     template <std::size_t output_field_size_, std::size_t stencil_size_, bool is_linear_ = true, bool is_heterogeneous_ = false>

@@ -63,11 +63,11 @@ namespace samurai
                 // Interior interfaces
                 for_each_interior_interface(
                     mesh,
-                    definition[d].flux.direction,
-                    definition[d].flux.stencil,
-                    definition[d].flux.get_flux_coeffs,
-                    definition[d].contribution,
-                    definition[d].contribution_opposite_direction,
+                    definition[d].flux().direction,
+                    definition[d].flux().stencil,
+                    definition[d].flux().get_flux_coeffs,
+                    definition[d].contribution_func(),
+                    definition[d].contribution_opposite_direction_func(),
                     [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                     {
                         for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
@@ -89,11 +89,11 @@ namespace samurai
 
                 // Boundary interfaces
                 for_each_boundary_interface(mesh,
-                                            definition[d].flux.direction,
-                                            definition[d].flux.stencil,
-                                            definition[d].flux.get_flux_coeffs,
-                                            definition[d].contribution,
-                                            definition[d].contribution_opposite_direction,
+                                            definition[d].flux().direction,
+                                            definition[d].flux().stencil,
+                                            definition[d].flux().get_flux_coeffs,
+                                            definition[d].contribution_func(),
+                                            definition[d].contribution_opposite_direction_func(),
                                             [&](auto& cell, auto& comput_cells, auto& coeffs)
                                             {
                                                 for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
