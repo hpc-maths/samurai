@@ -40,27 +40,55 @@ namespace samurai
      *                     [    0]            [1/2 F]
      */
     template <class Field,
+              std::size_t stencil_size = 2,
               // scheme config
               std::size_t dim               = Field::dim,
               std::size_t output_field_size = dim,
-              std::size_t stencil_size      = 2,
               class cfg                     = FluxBasedSchemeConfig<output_field_size, stencil_size>,
               class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
-    class GradientFV : public FluxBasedScheme<GradientFV<Field>, cfg, bdry_cfg, Field>
+    class GradientFV : public FluxBasedScheme<GradientFV<Field, stencil_size>, cfg, bdry_cfg, Field>
     {
-        using base_class = FluxBasedScheme<GradientFV<Field>, cfg, bdry_cfg, Field>;
+        using base_class = FluxBasedScheme<GradientFV<Field, stencil_size>, cfg, bdry_cfg, Field>;
 
       public:
 
         using scheme_definition_t     = typename base_class::scheme_definition_t;
+        using flux_definition_t       = typename scheme_definition_t::flux_definition_t;
         using scheme_stencil_coeffs_t = typename scheme_definition_t::scheme_stencil_coeffs_t;
         using flux_stencil_coeffs_t   = typename scheme_definition_t::flux_stencil_coeffs_t;
 
-        explicit GradientFV(Field& u)
+      private:
+
+        std::array<scheme_definition_t, dim> m_scheme_definition;
+
+      public:
+
+        explicit GradientFV(const flux_definition_t& flux_definition, Field& u)
             : base_class(u)
         {
             this->set_name("Gradient");
             static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
+            build_scheme_definition(flux_definition);
+        }
+
+      private:
+
+        void build_scheme_definition(const flux_definition_t& flux_definition)
+        {
+            auto directions = positive_cartesian_directions<dim>();
+
+            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+                [&](auto integral_constant_d)
+                {
+                    static constexpr int d = decltype(integral_constant_d)::value;
+
+                    DirectionVector<dim> direction = xt::view(directions, d);
+                    assert(direction == flux_definition[d].direction
+                           && "The flux definitions must be added in the right order (1: x-direction, 2: y-direction, 3: z-direction)");
+
+                    m_scheme_definition[d].set_flux(flux_definition[d]);
+                    m_scheme_definition[d].set_contribution(add_flux_to_row<d>);
+                });
         }
 
         template <std::size_t d>
@@ -82,28 +110,26 @@ namespace samurai
             return coeffs;
         }
 
-        static auto definition()
+      public:
+
+        auto& definition() const
         {
-            std::array<scheme_definition_t, dim> def;
-            auto directions = positive_cartesian_directions<dim>();
-
-            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-                [&](auto integral_constant_d)
-                {
-                    static constexpr int d = decltype(integral_constant_d)::value;
-
-                    DirectionVector<dim> direction = xt::view(directions, d);
-                    def[d].set_flux(average_quantity<Field>(direction));
-                    def[d].set_contribution(add_flux_to_row<d>);
-                });
-            return def;
+            return m_scheme_definition;
         }
     };
 
     template <class Field>
     auto make_gradient_FV(Field& f)
     {
-        return GradientFV<Field>(f);
+        static constexpr std::size_t stencil_size = 2;
+        LinearFluxDefinition<Field, stencil_size> flux_definition(get_average_coeffs<Field>);
+        return make_gradient_FV(flux_definition, f);
+    }
+
+    template <class Field, std::size_t stencil_size>
+    auto make_gradient_FV(const LinearFluxDefinition<Field, stencil_size>& flux_definition, Field& f)
+    {
+        return GradientFV<Field, stencil_size>(flux_definition, f);
     }
 
 } // end namespace samurai

@@ -19,8 +19,9 @@ namespace samurai
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
 
-        using flux_computation_t      = LinearNormalFluxDefinition<Field, stencil_size>;
-        using field_value_type        = typename Field::value_type; // double
+        using flux_definition_t       = LinearFluxDefinition<Field, stencil_size>;
+        using flux_computation_t      = typename flux_definition_t::flux_computation_t; // LinearNormalFluxDefinition<Field, stencil_size>;
+        using field_value_type        = typename Field::value_type;                     // double
         using scheme_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
         using scheme_stencil_coeffs_t = xt::xtensor_fixed<scheme_coeff_matrix_t, xt::xshape<stencil_size>>;
         using flux_stencil_coeffs_t   = typename flux_computation_t::flux_stencil_coeffs_t;
@@ -39,12 +40,12 @@ namespace samurai
             return m_flux;
         }
 
-        auto& contribution_func()
+        auto& contribution_func() const
         {
             return m_contribution_func;
         }
 
-        auto& contribution_opposite_direction_func()
+        auto& contribution_opposite_direction_func() const
         {
             return m_contribution_opposite_direction_func;
         }

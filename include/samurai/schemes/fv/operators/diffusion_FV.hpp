@@ -1,5 +1,6 @@
 #pragma once
 #include "../flux_based_scheme.hpp"
+#include "divergence_FV.hpp"
 
 namespace samurai
 {
@@ -12,15 +13,15 @@ namespace samurai
         // template parameters
         class Field,
         DirichletEnforcement dirichlet_enfcmt = Equation,
+        std::size_t stencil_size              = 2,
         // scheme config
         std::size_t dim               = Field::dim,
         std::size_t output_field_size = Field::size,
-        std::size_t stencil_size      = 2,
         class cfg                     = FluxBasedSchemeConfig<output_field_size, stencil_size>,
         class bdry_cfg                = BoundaryConfigFV<stencil_size / 2, dirichlet_enfcmt>>
-    class DiffusionFV : public FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt>, cfg, bdry_cfg, Field>
+    class DiffusionFV : public FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt, stencil_size>, cfg, bdry_cfg, Field>
     {
-        using base_class = FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt>, cfg, bdry_cfg, Field>;
+        using base_class = FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt, stencil_size>, cfg, bdry_cfg, Field>;
         using base_class::bdry_stencil_size;
         using base_class::field_size;
 
@@ -30,14 +31,42 @@ namespace samurai
         using field_t                   = Field;
         using Mesh                      = typename Field::mesh_t;
         using scheme_definition_t       = typename base_class::scheme_definition_t;
+        using flux_definition_t         = typename scheme_definition_t::flux_definition_t;
         using scheme_stencil_coeffs_t   = typename scheme_definition_t::scheme_stencil_coeffs_t;
         using flux_stencil_coeffs_t     = typename scheme_definition_t::flux_stencil_coeffs_t;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
-        explicit DiffusionFV(Field& unknown)
+      private:
+
+        std::array<scheme_definition_t, dim> m_scheme_definition;
+
+      public:
+
+        explicit DiffusionFV(const flux_definition_t& flux_definition, Field& unknown)
             : base_class(unknown)
         {
             this->set_name("Diffusion");
+            build_scheme_definition(flux_definition);
+        }
+
+      private:
+
+        void build_scheme_definition(const flux_definition_t& flux_definition)
+        {
+            auto directions = positive_cartesian_directions<dim>();
+
+            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+                [&](auto integral_constant_d)
+                {
+                    static constexpr int d = decltype(integral_constant_d)::value;
+
+                    DirectionVector<dim> direction = xt::view(directions, d);
+                    assert(direction == flux_definition[d].direction
+                           && "The flux definitions must be added in the right order (1: x-direction, 2: y-direction, 3: z-direction)");
+
+                    m_scheme_definition[d].set_flux(flux_definition[d]);
+                    m_scheme_definition[d].set_contribution(minus_flux);
+                });
         }
 
         /**
@@ -57,35 +86,16 @@ namespace samurai
             return -flux;
         }
 
-        static auto definition()
+      public:
+
+        auto& definition() const
         {
-            std::array<scheme_definition_t, dim> def;
-            auto directions = positive_cartesian_directions<dim>();
-
-            // For each positive direction (i.e., in 2D, only right and top)
-            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-                [&](auto integral_constant_d)
-                {
-                    static constexpr int d = decltype(integral_constant_d)::value;
-                    // Direction of the normal flux (e.g. right)
-                    DirectionVector<dim> direction = xt::view(directions, d);
-
-                    /**
-                     *   |-------|-------|
-                     *   | left  | right |
-                     *   | cell  | cell  |
-                     *   |-------|-------|
-                     *        ------->
-                     *       normal flux
-                     */
-
-                    // How the flux is computed in this direction: here, Grad.n = (uR-uL)/h
-                    def[d].set_flux(normal_grad_order1<Field>(direction));
-                    // Flux contribution to the scheme
-                    def[d].set_contribution(minus_flux);
-                });
-            return def;
+            return m_scheme_definition;
         }
+
+        //---------------------------------//
+        //       Boundary conditions       //
+        //---------------------------------//
 
         directional_bdry_config_t dirichlet_config(const DirectionVector<dim>& direction) const override
         {
@@ -173,7 +183,16 @@ namespace samurai
     template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
     auto make_diffusion_FV(Field& f)
     {
-        return DiffusionFV<Field, dirichlet_enfcmt>(f);
+        static constexpr std::size_t stencil_size = 2;
+        LinearFluxDefinition<Field, stencil_size> flux_definition(get_normal_grad_order1_coeffs<Field>);
+        return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition, f);
+        // return make_divergence_FV(flux_definition, f);
+    }
+
+    template <class Field, std::size_t stencil_size, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_diffusion_FV(const LinearFluxDefinition<Field, stencil_size>& flux_definition, Field& f)
+    {
+        return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition, f);
     }
 
 } // end namespace samurai
