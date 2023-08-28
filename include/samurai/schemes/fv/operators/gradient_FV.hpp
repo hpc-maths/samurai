@@ -57,37 +57,23 @@ namespace samurai
         using scheme_stencil_coeffs_t = typename scheme_definition_t::scheme_stencil_coeffs_t;
         using flux_stencil_coeffs_t   = typename scheme_definition_t::flux_stencil_coeffs_t;
 
-      private:
-
-        std::array<scheme_definition_t, dim> m_scheme_definition;
-
-      public:
-
         explicit GradientFV(const flux_definition_t& flux_definition, Field& u)
-            : base_class(u)
+            : base_class(flux_definition, u)
         {
             this->set_name("Gradient");
             static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
-            build_scheme_definition(flux_definition);
+            add_contribution_to_scheme_definition();
         }
 
       private:
 
-        void build_scheme_definition(const flux_definition_t& flux_definition)
+        void add_contribution_to_scheme_definition()
         {
-            auto directions = positive_cartesian_directions<dim>();
-
             static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
                 [&](auto integral_constant_d)
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
-
-                    DirectionVector<dim> direction = xt::view(directions, d);
-                    assert(direction == flux_definition[d].direction
-                           && "The flux definitions must be added in the right order (1: x-direction, 2: y-direction, 3: z-direction)");
-
-                    m_scheme_definition[d].set_flux(flux_definition[d]);
-                    m_scheme_definition[d].set_contribution(add_flux_to_row<d>);
+                    this->definition()[d].set_contribution(add_flux_to_row<d>);
                 });
         }
 
@@ -108,13 +94,6 @@ namespace samurai
                 }
             }
             return coeffs;
-        }
-
-      public:
-
-        auto& definition() const
-        {
-            return m_scheme_definition;
         }
     };
 

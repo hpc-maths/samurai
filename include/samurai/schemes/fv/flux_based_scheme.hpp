@@ -35,6 +35,12 @@ namespace samurai
 
       public:
 
+        ~FluxBasedSchemeDefinition()
+        {
+            m_contribution_func                    = nullptr;
+            m_contribution_opposite_direction_func = nullptr;
+        }
+
         auto& flux() const
         {
             return m_flux;
@@ -116,10 +122,44 @@ namespace samurai
         static constexpr std::size_t stencil_size      = cfg::stencil_size;
 
         using scheme_definition_t = FluxBasedSchemeDefinition<Field, output_field_size, stencil_size>;
+        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
-        explicit FluxBasedScheme(Field& unknown)
+      protected:
+
+        std::array<scheme_definition_t, dim> m_scheme_definition;
+
+      public:
+
+        explicit FluxBasedScheme(const flux_definition_t& flux_definition, Field& unknown)
             : base_class(unknown)
         {
+            add_flux_to_scheme_definition(flux_definition);
+        }
+
+      private:
+
+        void add_flux_to_scheme_definition(const flux_definition_t& flux_definition)
+        {
+            auto directions = positive_cartesian_directions<dim>();
+            for (std::size_t d = 0; d < dim; d++)
+            {
+                DirectionVector<dim> direction = xt::view(directions, d);
+                assert(direction == flux_definition[d].direction
+                       && "The flux definitions must be added in the following order: 1) x-direction, 2) y-direction, 3) z-direction.");
+                m_scheme_definition[d].set_flux(flux_definition[d]);
+            }
+        }
+
+      public:
+
+        auto& definition() const
+        {
+            return m_scheme_definition;
+        }
+
+        auto& definition()
+        {
+            return m_scheme_definition;
         }
 
         auto operator()(Field& f)
@@ -128,6 +168,9 @@ namespace samurai
             return explicit_scheme.apply_to(f);
         }
 
+        /**
+         * Iterates for each interior interface and returns (in lambda parameters) the scheme coefficients.
+         */
         template <class Func>
         void for_each_interior_interface(const mesh_t& mesh, Func&& apply_coeffs) const
         {
@@ -136,11 +179,9 @@ namespace samurai
             auto min_level = mesh[mesh_id_t::cells].min_level();
             auto max_level = mesh[mesh_id_t::cells].max_level();
 
-            auto definition = this->derived_cast().definition();
-
             for (std::size_t d = 0; d < dim; ++d)
             {
-                auto scheme_def = definition[d];
+                auto& scheme_def = definition()[d];
 
                 // Same level
                 for (std::size_t level = min_level; level <= max_level; ++level)
@@ -211,14 +252,15 @@ namespace samurai
             }
         }
 
+        /**
+         * Iterates for each boundary interface and returns (in lambda parameters) the scheme coefficients.
+         */
         template <class Func>
         void for_each_boundary_interface(const mesh_t& mesh, Func&& apply_coeffs) const
         {
-            auto definition = this->derived_cast().definition();
-
             for (std::size_t d = 0; d < dim; ++d)
             {
-                auto scheme_def = definition[d];
+                auto& scheme_def = definition()[d];
 
                 for_each_level(mesh,
                                [&](auto level)

@@ -18,6 +18,7 @@ namespace samurai
         using field_t                    = typename Scheme::field_t;
         using base_class                 = FluxBasedScheme<Scalar_x_FluxBasedScheme<Scheme>, cfg_t, bdry_cfg_t, field_t>;
         using scheme_definition_t        = typename base_class::scheme_definition_t;
+        using flux_definition_t          = typename scheme_definition_t::flux_definition_t;
         using flux_stencil_coeffs_t      = typename scheme_definition_t::flux_stencil_coeffs_t;
         using scheme_stencil_coeffs_t    = typename scheme_definition_t::scheme_stencil_coeffs_t;
         static constexpr std::size_t dim = field_t::dim;
@@ -31,19 +32,68 @@ namespace samurai
       public:
 
         Scalar_x_FluxBasedScheme(Scheme&& scheme, double scalar)
-            : base_class(scheme.unknown())
+            : base_class(flux_definition_t(), scheme.unknown())
             , m_scheme(std::move(scheme))
             , m_scalar(scalar)
         {
-            this->set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
+            set_name();
+            build_scheme_definition();
         }
 
         Scalar_x_FluxBasedScheme(const Scheme& scheme, double scalar)
-            : base_class(scheme.unknown())
+            : base_class(flux_definition_t(), scheme.unknown())
             , m_scheme(scheme)
             , m_scalar(scalar)
         {
-            this->set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
+            set_name();
+            build_scheme_definition();
+        }
+
+        Scalar_x_FluxBasedScheme(const Scalar_x_FluxBasedScheme<Scheme>& other)
+            : base_class(flux_definition_t(), other.unknown())
+            , m_scheme(other.scheme())
+            , m_scalar(other.scalar())
+        {
+            set_name();
+            build_scheme_definition();
+        }
+
+        Scalar_x_FluxBasedScheme(Scalar_x_FluxBasedScheme<Scheme>&& other)
+            : base_class(flux_definition_t(), other.unknown())
+            , m_scheme(other.scheme())
+            , m_scalar(other.scalar())
+        {
+            set_name();
+            build_scheme_definition();
+        }
+
+        Scalar_x_FluxBasedScheme& operator=(const Scalar_x_FluxBasedScheme& other)
+        {
+            if (this != &other)
+            {
+                this->m_scheme = other.m_scheme;
+                this->m_scalar = other.m_scalar;
+                this->set_name();
+                this->build_scheme_definition();
+            }
+            return *this;
+        }
+
+        Scalar_x_FluxBasedScheme& operator=(Scalar_x_FluxBasedScheme&& other)
+        {
+            if (this != &other)
+            {
+                this->m_scheme = other.m_scheme;
+                this->m_scalar = other.m_scalar;
+                this->set_name();
+                this->build_scheme_definition();
+            }
+            return *this;
+        }
+
+        void set_name()
+        {
+            base_class::set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
         }
 
         auto scalar() const
@@ -56,25 +106,31 @@ namespace samurai
             return m_scheme;
         }
 
-        auto definition() const
+        auto& scheme() const
         {
-            std::array<scheme_definition_t, dim> def = m_scheme.definition();
+            return m_scheme;
+        }
+
+        void build_scheme_definition()
+        {
             static_for<0, dim>::apply(
                 [&](auto integral_constant_d)
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
-                    def[d].set_contribution(
+                    // Keep the same flux
+                    this->definition()[d].set_flux(m_scheme.definition()[d].flux());
+                    // Multiply contribution by scalar
+                    this->definition()[d].set_contribution(
                         [&](auto& flux_coeffs)
                         {
                             return this->scalar_x_contribution<d>(flux_coeffs);
                         });
-                    def[d].set_contribution_opposite_direction(
+                    this->definition()[d].set_contribution_opposite_direction(
                         [&](auto& flux_coeffs)
                         {
                             return this->scalar_x_contribution_opposite_direction<d>(flux_coeffs);
                         });
                 });
-            return def;
         }
 
         template <std::size_t d>
@@ -89,18 +145,17 @@ namespace samurai
             return m_scalar * m_scheme.definition()[d].contribution_opposite_direction_func()(flux_coeffs);
         }
 
-        bool matrix_is_symmetric(const field_t&) const override
+        bool matrix_is_symmetric(const field_t& f) const override
         {
-            // return m_scheme.matrix_is_symmetric();
-            return false;
+            return m_scheme.matrix_is_symmetric(f);
         }
 
-        bool matrix_is_spd(const field_t&) const override
+        bool matrix_is_spd(const field_t& f) const override
         {
-            // if (m_scheme.matrix_is_spd())
-            // {
-            //     return m_scalar > 0;
-            // }
+            if (m_scheme.matrix_is_spd(f))
+            {
+                return m_scalar != 0;
+            }
             return false;
         }
     };

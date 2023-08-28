@@ -67,13 +67,18 @@ namespace samurai
          *                coeffs[1] = diag( 1/h).
          */
         flux_func get_flux_coeffs;
+
+        ~LinearNormalFluxDefinition()
+        {
+            get_flux_coeffs = nullptr;
+        }
     };
 
     /**
      * @class LinearFluxDefinition
      * Stores one object of @class LinearNormalFluxDefinition for each positive Cartesian direction.
      */
-    template <class Field, std::size_t stencil_size>
+    template <class Field, std::size_t stencil_size = 2>
     class LinearFluxDefinition
     {
       public:
