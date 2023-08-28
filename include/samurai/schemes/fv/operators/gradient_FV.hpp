@@ -1,5 +1,5 @@
 #pragma once
-#include "../flux_based_scheme.hpp"
+#include "../flux_based_scheme__lin_hom.hpp"
 
 namespace samurai
 {
@@ -101,12 +101,13 @@ namespace samurai
     auto make_gradient_FV(Field& f)
     {
         static constexpr std::size_t stencil_size = 2;
-        LinearFluxDefinition<Field, stencil_size> flux_definition(get_average_coeffs<Field>);
+
+        auto flux_definition = make_flux_definition<Field, stencil_size>(get_average_coeffs<Field>);
         return make_gradient_FV(flux_definition, f);
     }
 
-    template <class Field, std::size_t stencil_size>
-    auto make_gradient_FV(const LinearFluxDefinition<Field, stencil_size>& flux_definition, Field& f)
+    template <class Field, std::size_t stencil_size, bool is_linear, bool is_heterogeneous>
+    auto make_gradient_FV(const FluxDefinition<Field, stencil_size, is_linear, is_heterogeneous>& flux_definition, Field& f)
     {
         return GradientFV<Field, stencil_size>(flux_definition, f);
     }

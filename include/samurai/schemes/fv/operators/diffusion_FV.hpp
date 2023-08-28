@@ -1,5 +1,5 @@
 #pragma once
-#include "../flux_based_scheme.hpp"
+#include "../flux_based_scheme__lin_hom.hpp"
 #include "divergence_FV.hpp"
 
 namespace samurai
@@ -165,13 +165,14 @@ namespace samurai
     auto make_diffusion_FV(Field& f)
     {
         static constexpr std::size_t stencil_size = 2;
-        LinearFluxDefinition<Field, stencil_size> flux_definition(get_normal_grad_order1_coeffs<Field>);
+
+        auto flux_definition = make_flux_definition<Field, stencil_size>(get_normal_grad_order1_coeffs<Field>);
         return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition, f);
         // return make_divergence_FV(flux_definition, f);
     }
 
-    template <class Field, std::size_t stencil_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion_FV(const LinearFluxDefinition<Field, stencil_size>& flux_definition, Field& f)
+    template <class Field, std::size_t stencil_size, bool is_linear, bool is_heterogeneous, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_diffusion_FV(const FluxDefinition<Field, stencil_size, is_linear, is_heterogeneous>& flux_definition, Field& f)
     {
         return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition, f);
     }

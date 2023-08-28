@@ -1,13 +1,20 @@
 #pragma once
-#include "FV_scheme.hpp"
 
 namespace samurai
 {
     /**
      * Defines how to compute a normal flux
      */
+    template <class Field, std::size_t stencil_size, bool is_linear, bool is_heterogeneous>
+    struct NormalFluxDefinition
+    {
+    };
+
+    /**
+     * Defines how to compute a LINEAR and HOMOGENEOUS normal flux
+     */
     template <class Field, std::size_t stencil_size>
-    struct LinearNormalFluxDefinition
+    struct NormalFluxDefinition<Field, stencil_size, true, false>
     {
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
@@ -54,7 +61,7 @@ namespace samurai
          * For instance, considering a scalar field u, we configure the flux Grad(u).n through the function
          *
          *            // Grad(u).n = (u_1 - u_0)/h
-         *            auto get_flux_coeffs(double h)
+         *            auto flux_function(double h)
          *            {
          *                std::array<double, 2> coeffs;
          *                coeffs[0] = -1/h; // current cell    (because, stencil[0] = {0,0})
@@ -66,25 +73,26 @@ namespace samurai
          *                coeffs[0] = diag(-1/h),
          *                coeffs[1] = diag( 1/h).
          */
-        flux_func get_flux_coeffs;
+        flux_func flux_function;
 
-        ~LinearNormalFluxDefinition()
+        ~NormalFluxDefinition()
         {
-            get_flux_coeffs = nullptr;
+            flux_function = nullptr;
         }
     };
 
     /**
-     * @class LinearFluxDefinition
-     * Stores one object of @class LinearNormalFluxDefinition for each positive Cartesian direction.
+     * @class FluxDefinition
+     * Stores one object of @class NormalFluxDefinition for each positive Cartesian direction.
      */
-    template <class Field, std::size_t stencil_size = 2>
-    class LinearFluxDefinition
+    template <class Field, std::size_t stencil_size, bool is_linear, bool is_heterogeneous>
+    class FluxDefinition
     {
       public:
 
-        static constexpr std::size_t dim = Field::dim;
-        using flux_computation_t         = LinearNormalFluxDefinition<Field, stencil_size>;
+        static constexpr std::size_t dim  = Field::dim;
+        using flux_computation_t          = NormalFluxDefinition<Field, stencil_size, is_linear, is_heterogeneous>;
+        using flux_computation_stencil2_t = NormalFluxDefinition<Field, 2, is_linear, is_heterogeneous>;
 
       private:
 
@@ -92,7 +100,7 @@ namespace samurai
 
       public:
 
-        LinearFluxDefinition()
+        FluxDefinition()
         {
             auto directions = positive_cartesian_directions<dim>();
             for (std::size_t d = 0; d < dim; ++d)
@@ -103,24 +111,24 @@ namespace samurai
                 {
                     m_normal_fluxes[d].stencil = in_out_stencil<dim>(direction); // TODO: stencil for any stencil size
                 }
-                m_normal_fluxes[d].get_flux_coeffs = nullptr; // to be set by the user
+                m_normal_fluxes[d].flux_function = nullptr; // to be set by the user
             }
         }
 
         /**
          * This constructor sets the same flux function for all directions
          */
-        LinearFluxDefinition(typename LinearNormalFluxDefinition<Field, 2>::flux_func flux_implem)
+        FluxDefinition(typename flux_computation_stencil2_t::flux_func flux_implem)
         {
             static_assert(stencil_size == 2, "stencil_size = 2 required to use this constructor.");
 
             auto directions = positive_cartesian_directions<dim>();
             for (std::size_t d = 0; d < dim; ++d)
             {
-                DirectionVector<dim> direction     = xt::view(directions, d);
-                m_normal_fluxes[d].direction       = direction;
-                m_normal_fluxes[d].stencil         = in_out_stencil<dim>(direction);
-                m_normal_fluxes[d].get_flux_coeffs = flux_implem;
+                DirectionVector<dim> direction   = xt::view(directions, d);
+                m_normal_fluxes[d].direction     = direction;
+                m_normal_fluxes[d].stencil       = in_out_stencil<dim>(direction);
+                m_normal_fluxes[d].flux_function = flux_implem;
             }
         }
 
@@ -137,96 +145,10 @@ namespace samurai
         }
     };
 
-    //-----------------------------------------//
-    //          Useful flux functions          //
-    //-----------------------------------------//
-
-    /**
-     *   |---------|--------|
-     *   |         |        |
-     *   | cell 0  | cell 1 |
-     *   |         |        |
-     *   |---------|--------|
-     *          ------->
-     *        normal flux
-     */
-
-    template <class Field>
-    auto get_normal_grad_order1_coeffs(double h)
+    template <class Field, std::size_t stencil_size = 2>
+    auto make_flux_definition(typename NormalFluxDefinition<Field, stencil_size, true, false>::flux_func flux_impl)
     {
-        static constexpr std::size_t field_size = Field::size;
-        using flux_computation_t                = LinearNormalFluxDefinition<Field, 2>;
-        using flux_stencil_coeffs_t             = typename flux_computation_t::flux_stencil_coeffs_t;
-
-        flux_stencil_coeffs_t coeffs;
-        if constexpr (field_size == 1)
-        {
-            coeffs[0] = -1 / h;
-            coeffs[1] = 1 / h;
-        }
-        else
-        {
-            coeffs[0].fill(0);
-            coeffs[1].fill(0);
-            for (std::size_t i = 0; i < field_size; ++i)
-            {
-                coeffs[0](i, i) = -1 / h;
-                coeffs[1](i, i) = 1 / h;
-            }
-        }
-        return coeffs;
+        return FluxDefinition<Field, stencil_size, true, false>(flux_impl);
     }
-
-    // template <class Field, class Vector>
-    // auto normal_grad_order1(Vector& direction)
-    // {
-    //     static constexpr std::size_t dim = Field::dim;
-    //     using flux_computation_t         = LinearNormalFluxDefinition<Field, 2>;
-
-    //     flux_computation_t normal_grad;
-    //     normal_grad.direction       = direction;
-    //     normal_grad.stencil         = in_out_stencil<dim>(direction);
-    //     normal_grad.get_flux_coeffs = get_normal_grad_order1_coeffs<Field>;
-    //     return normal_grad;
-    // }
-
-    template <class Field>
-    auto get_average_coeffs(double)
-    {
-        static constexpr std::size_t field_size = Field::size;
-        using flux_computation_t                = LinearNormalFluxDefinition<Field, 2>;
-        using flux_stencil_coeffs_t             = typename flux_computation_t::flux_stencil_coeffs_t;
-
-        flux_stencil_coeffs_t coeffs;
-        if constexpr (field_size == 1)
-        {
-            coeffs[0] = 0.5;
-            coeffs[1] = 0.5;
-        }
-        else
-        {
-            coeffs[0].fill(0);
-            coeffs[1].fill(0);
-            for (std::size_t i = 0; i < field_size; ++i)
-            {
-                coeffs[0](i, i) = 0.5;
-                coeffs[1](i, i) = 0.5;
-            }
-        }
-        return coeffs;
-    }
-
-    // template <class Field, class Vector>
-    // auto average_quantity(Vector& direction)
-    // {
-    //     static constexpr std::size_t dim = Field::dim;
-    //     using flux_computation_t         = LinearNormalFluxDefinition<Field, 2>;
-
-    //     flux_computation_t flux;
-    //     flux.direction       = direction;
-    //     flux.stencil         = in_out_stencil<dim>(direction);
-    //     flux.get_flux_coeffs = get_average_coeffs<Field>;
-    //     return flux;
-    // }
 
 } // end namespace samurai
