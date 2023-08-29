@@ -82,6 +82,30 @@ namespace samurai
     };
 
     /**
+     * Defines how to compute a NON-LINEAR normal flux
+     */
+    template <class Field, std::size_t stencil_size>
+    struct NormalFluxDefinition<Field, stencil_size, false, true>
+    {
+        static constexpr std::size_t dim        = Field::dim;
+        static constexpr std::size_t field_size = Field::size;
+        using field_value_type                  = typename Field::value_type;
+        using cell_t                            = typename Field::cell_t;
+        using stencil_cells_t                   = std::array<cell_t, stencil_size>;
+        using flux_value_t                      = typename detail::LocalMatrix<field_value_type, field_size, 1>::Type;
+        using flux_func                         = std::function<flux_value_t(Field&, stencil_cells_t&)>;
+
+        DirectionVector<dim> direction;
+        Stencil<stencil_size, dim> stencil;
+        flux_func flux_function;
+
+        ~NormalFluxDefinition()
+        {
+            flux_function = nullptr;
+        }
+    };
+
+    /**
      * @class FluxDefinition
      * Stores one object of @class NormalFluxDefinition for each positive Cartesian direction.
      */
@@ -145,10 +169,31 @@ namespace samurai
         }
     };
 
+    /**
+     * Defines a LINEAR and HOMOGENEOUS flux
+     */
     template <class Field, std::size_t stencil_size = 2>
     auto make_flux_definition(typename NormalFluxDefinition<Field, stencil_size, true, false>::flux_func flux_impl)
     {
         return FluxDefinition<Field, stencil_size, true, false>(flux_impl);
+    }
+
+    /**
+     * Defines a LINEAR and HETEROGENEOUS flux
+     */
+    template <class Field, std::size_t stencil_size = 2>
+    auto make_flux_definition(typename NormalFluxDefinition<Field, stencil_size, true, true>::flux_func flux_impl)
+    {
+        return FluxDefinition<Field, stencil_size, true, true>(flux_impl);
+    }
+
+    /**
+     * Defines a NON-LINEAR flux
+     */
+    template <class Field, std::size_t stencil_size = 2>
+    auto make_flux_definition(typename NormalFluxDefinition<Field, stencil_size, false, true>::flux_func flux_impl)
+    {
+        return FluxDefinition<Field, stencil_size, false, true>(flux_impl);
     }
 
 } // end namespace samurai

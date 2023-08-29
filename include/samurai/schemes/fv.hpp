@@ -11,6 +11,7 @@
 #include "fv/operators/diffusion_FV.hpp"
 #include "fv/operators/diffusion_FV_old.hpp"
 #include "fv/operators/divergence_FV.hpp"
+#include "fv/operators/divergence_FV__nonlin.hpp"
 #include "fv/operators/gradient_FV.hpp"
 #include "fv/operators/identity_FV.hpp"
 #include "fv/operators/zero_operator_FV.hpp"

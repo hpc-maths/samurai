@@ -107,8 +107,8 @@ namespace samurai
         return make_divergence_FV(flux_definition, f);
     }
 
-    template <class Field, std::size_t stencil_size, bool is_linear, bool is_heterogeneous>
-    auto make_divergence_FV(const FluxDefinition<Field, stencil_size, is_linear, is_heterogeneous>& flux_definition, Field& f)
+    template <class Field, std::size_t stencil_size>
+    auto make_divergence_FV(const FluxDefinition<Field, stencil_size, true, false>& flux_definition, Field& f)
     {
         return DivergenceFV<Field, stencil_size>(flux_definition, f);
     }

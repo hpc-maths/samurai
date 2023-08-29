@@ -18,6 +18,10 @@ namespace samurai
      *        normal flux
      */
 
+    //---------------//
+    // Linear fluxes //
+    //---------------//
+
     template <class Field>
     auto get_normal_grad_order1_coeffs(double h)
     {
@@ -45,19 +49,6 @@ namespace samurai
         }
         return coeffs;
     }
-
-    // template <class Field, class Vector>
-    // auto normal_grad_order1(Vector& direction)
-    // {
-    //     static constexpr std::size_t dim = Field::dim;
-    //     using flux_computation_t         = NormalFluxDefinition_LinHom<Field, 2>;
-
-    //     flux_computation_t normal_grad;
-    //     normal_grad.direction       = direction;
-    //     normal_grad.stencil         = in_out_stencil<dim>(direction);
-    //     normal_grad.get_flux_coeffs = get_normal_grad_order1_coeffs<Field>;
-    //     return normal_grad;
-    // }
 
     template <class Field>
     auto get_average_coeffs(double)
@@ -87,17 +78,28 @@ namespace samurai
         return coeffs;
     }
 
-    // template <class Field, class Vector>
-    // auto average_quantity(Vector& direction)
-    // {
-    //     static constexpr std::size_t dim = Field::dim;
-    //     using flux_computation_t         = NormalFluxDefinition_LinHom<Field, 2>;
+    //-------------------//
+    // Non-linear fluxes //
+    //-------------------//
 
-    //     flux_computation_t flux;
-    //     flux.direction       = direction;
-    //     flux.stencil         = in_out_stencil<dim>(direction);
-    //     flux.get_flux_coeffs = get_average_coeffs<Field>;
-    //     return flux;
-    // }
+    template <class Field, class Cell = typename Field::cell_t>
+    auto get_average_value(const Field& f, std::array<Cell, 2>& cells)
+    {
+        static constexpr bool is_linear         = false;
+        static constexpr bool is_heterogeneous  = true;
+        static constexpr std::size_t field_size = Field::size;
+        using flux_computation_t                = NormalFluxDefinition<Field, 2, is_linear, is_heterogeneous>;
+        using flux_value_t                      = typename flux_computation_t::flux_value_t;
+
+        flux_value_t flux;
+        if constexpr (field_size == 1)
+        {
+            flux = 0.5 * (f[cells[0]] + f[cells[0]]);
+        }
+        else
+        {
+        }
+        return flux;
+    }
 
 } // end namespace samurai
