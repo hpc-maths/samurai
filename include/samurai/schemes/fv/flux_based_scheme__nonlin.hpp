@@ -196,17 +196,12 @@ namespace samurai
                 {
                     auto h_l   = cell_length(level);
                     auto h_lp1 = cell_length(level + 1);
-                    // auto flux_coeffs                        = scheme_def.flux().flux_function(h_lp1); // flux computed at level l+1
-                    // decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
 
                     //         |__|   l+1
                     //    |____|      l
                     //    --------->
                     //    direction
                     {
-                        // auto left_cell_coeffs  = scheme_def.contribution(flux_coeffs, h_lp1, h_l);
-                        // auto right_cell_coeffs = scheme_def.contribution_opposite_direction(minus_flux_coeffs, h_lp1, h_lp1);
-
                         for_each_interior_interface___level_jump_direction(
                             mesh,
                             level,
@@ -226,9 +221,6 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        // auto left_cell_coeffs  = scheme_def.contribution(flux_coeffs, h_lp1, h_lp1);
-                        // auto right_cell_coeffs = scheme_def.contribution_opposite_direction(minus_flux_coeffs, h_lp1, h_l);
-
                         for_each_interior_interface___level_jump_opposite_direction(
                             mesh,
                             level,
@@ -264,8 +256,6 @@ namespace samurai
                                    auto h = cell_length(level);
 
                                    // Boundary in direction
-                                   // auto flux_coeffs = scheme_def.flux().flux_function(h);
-                                   // auto cell_coeffs = scheme_def.contribution(flux_coeffs, h, h);
                                    for_each_boundary_interface___direction(
                                        mesh,
                                        level,
@@ -279,8 +269,6 @@ namespace samurai
                                        });
 
                                    // Boundary in opposite direction
-                                   // decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
-                                   // cell_coeffs = scheme_def.contribution_opposite_direction(minus_flux_coeffs, h, h);
                                    for_each_boundary_interface___opposite_direction(
                                        mesh,
                                        level,
@@ -291,7 +279,6 @@ namespace samurai
                                            auto flux_value                       = scheme_def.flux().flux_function(f, comput_cells);
                                            decltype(flux_value) minus_flux_value = -flux_value;
                                            auto cell_contrib                     = scheme_def.contribution(minus_flux_value, h, h);
-                                           // auto cell_contrib = scheme_def.contribution(flux_value, h, h);
                                            apply_contrib(cell, cell_contrib);
                                        });
                                });

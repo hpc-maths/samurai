@@ -6,6 +6,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/reconstruction.hpp>
 #include <samurai/schemes/fv.hpp>
 
 #include <filesystem>
@@ -108,8 +109,8 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    auto u = samurai::make_field<1>("u", mesh);
-    u.fill(0);
+    auto u    = samurai::make_field<1>("u", mesh);
+    auto unp1 = samurai::make_field<1>("unp1", mesh);
 
     // Initial solution
     if (init_sol == "linear")
@@ -125,14 +126,15 @@ int main(int argc, char* argv[])
         samurai::for_each_cell(mesh,
                                [&](auto& cell)
                                {
-                                   double x = cell.center(0);
+                                   double x   = cell.center(0);
+                                   double max = 2;
                                    if (x >= -0.5 && x <= 0)
                                    {
-                                       u[cell] = 2 * x + 1;
+                                       u[cell] = 2 * max * x + max;
                                    }
                                    else if (x >= 0 && x <= 0.5)
                                    {
-                                       u[cell] = -2 * x + 1;
+                                       u[cell] = -2 * max * x + max;
                                    }
                                    else
                                    {
@@ -140,16 +142,24 @@ int main(int argc, char* argv[])
                                    }
                                });
     }
-    std::cout << u << std::endl;
 
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
-
+    // Boundary conditions
     if (init_sol == "linear")
     {
         samurai::make_bc<samurai::Dirichlet>(u,
                                              [&](const auto& coord)
                                              {
-                                                 return exact_solution(coord, 0);
+                                                 auto corrected = coord;
+                                                 if (corrected(0) < -1)
+                                                 {
+                                                     corrected(0) = -1;
+                                                 }
+                                                 else if (corrected(0) > 1)
+                                                 {
+                                                     corrected(0) = 1;
+                                                 }
+                                                 return exact_solution(corrected, 0);
+                                                 // return exact_solution(coord, 0);
                                              });
     }
     else
@@ -157,24 +167,24 @@ int main(int argc, char* argv[])
         samurai::make_bc<samurai::Dirichlet>(u, 0.0);
     }
 
-    auto continuous_flux = [](auto x)
+    auto f = [](auto x)
     {
         return pow(x, 2) / 2;
     };
 
-    auto flux_definition = samurai::make_flux_definition<decltype(u)>(
-        [&](auto& f, auto& cells)
+    auto upwind_f = samurai::make_flux_definition<decltype(u)>(
+        [&](auto& v, auto& cells)
         {
-            using flux_computation_t = samurai::NormalFluxDefinition<std::decay_t<decltype(f)>, 2, false, true>;
+            using flux_computation_t = samurai::NormalFluxDefinition<std::decay_t<decltype(v)>>;
             using flux_value_t       = typename flux_computation_t::flux_value_t;
+            // static_assert(std::is_same_v<flux_value_t, double>);
 
-            static_assert(std::is_same_v<flux_value_t, double>);
-
-            flux_value_t flux;
-            flux = 0.5 * (continuous_flux(f[cells[0]]) + continuous_flux(f[cells[1]]));
+            // flux_value_t flux = (f(v[cells[0]]) + f(v[cells[1]])) / 2;
+            flux_value_t flux = v[cells[0]] >= 0 ? f(v[cells[0]]) : f(v[cells[1]]);
             return flux;
         });
-    auto div_flux = samurai::make_divergence_FV(flux_definition, u);
+
+    auto div_f = samurai::make_divergence_FV(upwind_f, u);
 
     //--------------------//
     //   Time iteration   //
@@ -187,7 +197,7 @@ int main(int argc, char* argv[])
     MRadaptation(mr_epsilon, mr_regularity);
 
     save(path, filename, u, "_init");
-    double dt_save    = Tf / static_cast<double>(nfiles);
+    // double dt_save    = Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
 
     {
@@ -219,12 +229,22 @@ int main(int argc, char* argv[])
             samurai::make_bc<samurai::Dirichlet>(u,
                                                  [&](const auto& coord)
                                                  {
-                                                     return exact_solution(coord, t);
+                                                     auto corrected = coord;
+                                                     if (corrected(0) < -1)
+                                                     {
+                                                         corrected(0) = -1;
+                                                     }
+                                                     else if (corrected(0) > 1)
+                                                     {
+                                                         corrected(0) = 1;
+                                                     }
+                                                     return exact_solution(corrected, t - dt);
+                                                     // return exact_solution(coord, t - dt);
                                                  });
         }
 
-        auto div_flux_u = div_flux(u);
-        unp1            = u - dt * div_flux_u;
+        auto div_f_u = div_f(u);
+        unp1         = u - dt * div_f_u;
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
@@ -244,8 +264,20 @@ int main(int argc, char* argv[])
                                              {
                                                  return exact_solution(coord, t);
                                              });
-            std::cout.precision(2);
-            std::cout << ", L2-error: " << std::scientific << error;
+            std::cout << ", L2-error: " << std::scientific << std::setprecision(2) << error;
+
+            if (mesh.min_level() != mesh.max_level())
+            {
+                // Reconstruction on the finest level
+                samurai::update_ghost_mr(u);
+                auto u_recons = samurai::reconstruction(u);
+                error         = samurai::L2_error(u_recons,
+                                          [&](auto& coord)
+                                          {
+                                              return exact_solution(coord, t);
+                                          });
+                std::cout << ", L2-error (recons): " << std::scientific << std::setprecision(2) << error;
+            }
         }
 
         std::cout << std::endl;

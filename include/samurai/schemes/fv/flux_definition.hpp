@@ -5,7 +5,7 @@ namespace samurai
     /**
      * Defines how to compute a normal flux
      */
-    template <class Field, std::size_t stencil_size, bool is_linear, bool is_heterogeneous>
+    template <class Field, std::size_t stencil_size = 2, bool is_linear = false, bool is_heterogeneous = true>
     struct NormalFluxDefinition
     {
     };
