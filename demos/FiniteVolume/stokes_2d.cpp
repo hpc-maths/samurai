@@ -41,43 +41,43 @@ void configure_LU_solver(Solver& solver)
     PC pc;
     KSPGetPC(ksp, &pc);
     KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
-    PCSetType(pc, PCLU);         // (equiv. '-pc_type lu')
-    PetscBool use_superlu = PETSC_FALSE;
-#if defined(PETSC_HAVE_SUPERLU)
-    use_superlu = PETSC_TRUE;
-#endif
-    PetscBool use_mumps        = PETSC_FALSE;
-    PetscBool lu_solver_is_set = PETSC_FALSE;
-    std::string pc_factor_mat_solver_type_str(100, '\0');
-    PetscOptionsGetString(NULL,
-                          NULL,
-                          "-pc_factor_mat_solver_type",
-                          pc_factor_mat_solver_type_str.data(),
-                          pc_factor_mat_solver_type_str.size(),
-                          &lu_solver_is_set);
-    if (lu_solver_is_set)
-    {
-        pc_factor_mat_solver_type_str = pc_factor_mat_solver_type_str.substr(0, pc_factor_mat_solver_type_str.find('\0'));
-    }
-#if defined(PETSC_HAVE_MUMPS)
-    if (!use_superlu || pc_factor_mat_solver_type_str == MATSOLVERMUMPS)
-    {
-        use_mumps   = PETSC_TRUE;
-        use_superlu = PETSC_FALSE;
-    }
-#endif
-    if (use_superlu)
-    {
-#if defined(PETSC_HAVE_SUPERLU)
-        PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
-#endif
-    }
-    else if (use_mumps)
-    {
-#if defined(PETSC_HAVE_MUMPS)
-        PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
-#endif
-    }
+    PCSetType(pc, PCQR);         // (equiv. '-pc_type qr')
+    // PetscBool use_superlu = PETSC_FALSE;
+    // #if defined(PETSC_HAVE_SUPERLU)
+    //     use_superlu = PETSC_TRUE;
+    // #endif
+    //     PetscBool use_mumps             = PETSC_FALSE;
+    //     PetscBool solver_package_is_set = PETSC_FALSE;
+    //     std::string pc_factor_mat_solver_type_str(100, '\0');
+    //     PetscOptionsGetString(NULL,
+    //                           NULL,
+    //                           "-pc_factor_mat_solver_type",
+    //                           pc_factor_mat_solver_type_str.data(),
+    //                           pc_factor_mat_solver_type_str.size(),
+    //                           &solver_package_is_set);
+    //     if (solver_package_is_set)
+    //     {
+    //         pc_factor_mat_solver_type_str = pc_factor_mat_solver_type_str.substr(0, pc_factor_mat_solver_type_str.find('\0'));
+    //     }
+    // #if defined(PETSC_HAVE_MUMPS)
+    //     if (!use_superlu || pc_factor_mat_solver_type_str == MATSOLVERMUMPS)
+    //     {
+    //         use_mumps   = PETSC_TRUE;
+    //         use_superlu = PETSC_FALSE;
+    //     }
+    // #endif
+    //     if (use_superlu)
+    //     {
+    // #if defined(PETSC_HAVE_SUPERLU)
+    //         PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
+    // #endif
+    //     }
+    //     else if (use_mumps)
+    //     {
+    // #if defined(PETSC_HAVE_MUMPS)
+    //         PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
+    // #endif
+    //     }
     // KSP and PC overwritten by user value if needed
     KSPSetFromOptions(ksp);
     // If neither SuperLU nor MUMPS is installed, you can try: -ksp_type gmres -pc_type ilu
@@ -118,13 +118,16 @@ void configure_saddle_point_solver(Solver& block_solver)
     // using the option '-fieldsplit_velocity_[np1]_pc_type hypre'.
     PC A_pc;
     KSPGetPC(A_ksp, &A_pc);
-    PCSetType(A_pc, PCLU);    // (equiv. '-fieldsplit_velocity_[np1]_pc_type lu')
-    KSPSetFromOptions(A_ksp); // KSP and PC overwritten by user value if needed
+    KSPSetType(A_ksp, KSPPREONLY); // (equiv. '-fieldsplit_velocity_[np1]_ksp_type preonly')
+    PCSetType(A_pc, PCLU);         // (equiv. '-fieldsplit_velocity_[np1]_pc_type lu')
+    KSPSetFromOptions(A_ksp);      // KSP and PC overwritten by user value if needed
 
     PC schur_pc;
     KSPGetPC(schur_ksp, &schur_pc);
-    PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
-    KSPSetFromOptions(schur_ksp);  // KSP and PC overwritten by user value if needed
+    KSPSetType(schur_ksp, KSPPREONLY); // (equiv. '-fieldsplit_pressure_[np1]_ksp_type preonly')
+    PCSetType(schur_pc, PCQR);         // (equiv. '-fieldsplit_pressure_[np1]_pc_type qr')
+    // PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
+    KSPSetFromOptions(schur_ksp); // KSP and PC overwritten by user value if needed
 
     // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
     // tolerance to all the sub-solvers
