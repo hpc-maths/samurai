@@ -164,15 +164,16 @@ namespace samurai
     template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
     auto make_diffusion_FV(Field& f)
     {
-        static constexpr std::size_t stencil_size = 2;
+        static constexpr std::size_t flux_output_field_size = Field::size;
+        static constexpr std::size_t stencil_size           = 2;
 
-        auto flux_definition = make_flux_definition<Field, stencil_size>(get_normal_grad_order1_coeffs<Field>);
+        auto flux_definition = make_flux_definition<Field, flux_output_field_size, stencil_size>(get_normal_grad_order1_coeffs<Field>);
         return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition, f);
         // return make_divergence_FV(flux_definition, f);
     }
 
-    template <class Field, std::size_t stencil_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion_FV(const FluxDefinition<Field, stencil_size, true, false>& flux_definition, Field& f)
+    template <class Field, std::size_t output_field_size, std::size_t stencil_size, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_diffusion_FV(const FluxDefinition<Field, output_field_size, stencil_size, true, false>& flux_definition, Field& f)
     {
         return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition, f);
     }

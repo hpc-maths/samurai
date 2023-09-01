@@ -41,12 +41,12 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
 }
 
-int main(int argc, char* argv[])
+template <std::size_t dim>
+int main_dim(int argc, char* argv[])
 {
-    static constexpr std::size_t dim = 1;
-    using Config                     = samurai::MRConfig<dim>;
-    using Box                        = samurai::Box<double, dim>;
-    using point_t                    = typename Box::point_t;
+    using Config  = samurai::MRConfig<dim>;
+    using Box     = samurai::Box<double, dim>;
+    using point_t = typename Box::point_t;
 
     std::cout << "------------------------- Burgers -------------------------" << std::endl;
 
@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
 
     // Output parameters
     fs::path path        = fs::current_path();
-    std::string filename = "burgers";
+    std::string filename = "burgers_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 50;
 
     CLI::App app{"Finite volume example for the heat equation in 1d"};
@@ -109,54 +109,83 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    auto u    = samurai::make_field<1>("u", mesh);
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto u    = samurai::make_field<dim>("u", mesh);
+    auto unp1 = samurai::make_field<dim>("unp1", mesh);
 
     // Initial solution
-    if (init_sol == "linear")
+    if constexpr (dim == 1)
     {
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   u[cell] = exact_solution(cell.center(), 0);
-                               });
+        if (init_sol == "linear")
+        {
+            samurai::for_each_cell(mesh,
+                                   [&](auto& cell)
+                                   {
+                                       u[cell] = exact_solution(cell.center(), 0);
+                                   });
+        }
+        else
+        {
+            samurai::for_each_cell(mesh,
+                                   [&](auto& cell)
+                                   {
+                                       double x   = cell.center(0);
+                                       double max = 2;
+                                       if (x >= -0.5 && x <= 0)
+                                       {
+                                           u[cell] = 2 * max * x + max;
+                                       }
+                                       else if (x >= 0 && x <= 0.5)
+                                       {
+                                           u[cell] = -2 * max * x + max;
+                                       }
+                                       else
+                                       {
+                                           u[cell] = 0;
+                                       }
+                                   });
+        }
     }
     else
     {
         samurai::for_each_cell(mesh,
                                [&](auto& cell)
                                {
-                                   double x   = cell.center(0);
                                    double max = 2;
-                                   if (x >= -0.5 && x <= 0)
+                                   for (std::size_t d = 0; d < dim; ++d)
                                    {
-                                       u[cell] = 2 * max * x + max;
-                                   }
-                                   else if (x >= 0 && x <= 0.5)
-                                   {
-                                       u[cell] = -2 * max * x + max;
-                                   }
-                                   else
-                                   {
-                                       u[cell] = 0;
+                                       if (cell.center(d) >= -0.5 && cell.center(d) <= 0)
+                                       {
+                                           u[cell][d] = 2 * max * cell.center(d) + max;
+                                       }
+                                       else if (cell.center(d) >= 0 && cell.center(d) <= 0.5)
+                                       {
+                                           u[cell][d] = -2 * max * cell.center(d) + max;
+                                       }
+                                       else
+                                       {
+                                           u[cell][d] = 0;
+                                       }
                                    }
                                });
     }
 
     // Boundary conditions
-    if (init_sol == "linear")
+    if (dim == 1 && init_sol == "linear")
     {
         samurai::make_bc<samurai::Dirichlet>(u,
                                              [&](const auto& coord)
                                              {
                                                  auto corrected = coord;
-                                                 if (corrected(0) < -1)
+                                                 for (std::size_t d = 0; d < dim; ++d)
                                                  {
-                                                     corrected(0) = -1;
-                                                 }
-                                                 else if (corrected(0) > 1)
-                                                 {
-                                                     corrected(0) = 1;
+                                                     if (corrected(d) < -1)
+                                                     {
+                                                         corrected(d) = -1;
+                                                     }
+                                                     else if (corrected(d) > 1)
+                                                     {
+                                                         corrected(d) = 1;
+                                                     }
                                                  }
                                                  return exact_solution(corrected, 0);
                                                  // return exact_solution(coord, 0);
@@ -164,27 +193,43 @@ int main(int argc, char* argv[])
     }
     else
     {
-        samurai::make_bc<samurai::Dirichlet>(u, 0.0);
+        if constexpr (dim == 1)
+        {
+            samurai::make_bc<samurai::Dirichlet>(u, 0.0);
+        }
+        else if constexpr (dim == 2)
+        {
+            samurai::make_bc<samurai::Dirichlet>(u, 0.0, 0.0);
+        }
+        else if constexpr (dim == 3)
+        {
+            samurai::make_bc<samurai::Dirichlet>(u, 0.0, 0.0, 0.0);
+        }
     }
 
-    auto f = [](auto x)
-    {
-        return pow(x, 2) / 2;
-    };
+    // if constexpr (dim == 1)
+    // {
+    //     auto f = [](double x)
+    //     {
+    //         return pow(x, 2) / 2;
+    //     };
 
-    auto upwind_f = samurai::make_flux_definition<decltype(u)>(
-        [&](auto& v, auto& cells)
-        {
-            using flux_computation_t = samurai::NormalFluxDefinition<std::decay_t<decltype(v)>>;
-            using flux_value_t       = typename flux_computation_t::flux_value_t;
-            // static_assert(std::is_same_v<flux_value_t, double>);
+    //     auto upwind_f = samurai::make_flux_definition<decltype(u)>(
+    //         [&](auto& v, auto& cells)
+    //         {
+    //             // static_assert(std::is_same_v<flux_value_t, void>);
+    //             auto flux   = samurai::make_flux_value<decltype(v), dim>();
+    //             auto& left  = cells[0];
+    //             auto& right = cells[1];
+    //             // flux = (f(v[left]) + f(v[right])) / 2;
+    //             // flux = v[left] >= 0 ? f(v[left]) : f(v[right]);
+    //             return v[left] >= 0 ? f(v[left]) : f(v[right]);
+    //             // return flux;
+    //         });
 
-            // flux_value_t flux = (f(v[cells[0]]) + f(v[cells[1]])) / 2;
-            flux_value_t flux = v[cells[0]] >= 0 ? f(v[cells[0]]) : f(v[cells[1]]);
-            return flux;
-        });
-
-    auto div_f = samurai::make_divergence_FV(upwind_f, u);
+    //     auto conv = samurai::make_divergence_FV(upwind_f, u);
+    // }
+    auto conv = samurai::make_compressible_convection(u);
 
     //--------------------//
     //   Time iteration   //
@@ -223,28 +268,31 @@ int main(int argc, char* argv[])
         unp1.resize();
 
         // Boundary conditions
-        if (init_sol == "linear")
+        if (dim == 1 && init_sol == "linear")
         {
             u.get_bc().clear();
             samurai::make_bc<samurai::Dirichlet>(u,
                                                  [&](const auto& coord)
                                                  {
                                                      auto corrected = coord;
-                                                     if (corrected(0) < -1)
+                                                     for (std::size_t d = 0; d < dim; ++d)
                                                      {
-                                                         corrected(0) = -1;
-                                                     }
-                                                     else if (corrected(0) > 1)
-                                                     {
-                                                         corrected(0) = 1;
+                                                         if (corrected(d) < -1)
+                                                         {
+                                                             corrected(d) = -1;
+                                                         }
+                                                         else if (corrected(d) > 1)
+                                                         {
+                                                             corrected(d) = 1;
+                                                         }
                                                      }
                                                      return exact_solution(corrected, t - dt);
                                                      // return exact_solution(coord, t - dt);
                                                  });
         }
 
-        auto div_f_u = div_f(u);
-        unp1         = u - dt * div_f_u;
+        auto conv_u = conv(u);
+        unp1        = u - dt * conv_u;
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
@@ -292,4 +340,10 @@ int main(int argc, char* argv[])
     }
 
     return 0;
+}
+
+int main(int argc, char* argv[])
+{
+    static constexpr std::size_t dim = 2;
+    return main_dim<dim>(argc, argv);
 }

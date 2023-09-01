@@ -8,6 +8,7 @@
 #include "fv/explicit_flux_based_scheme.hpp"
 #include "fv/scheme_operators.hpp"
 
+#include "fv/operators/convection_FV__nonlin.hpp"
 #include "fv/operators/diffusion_FV.hpp"
 #include "fv/operators/diffusion_FV_old.hpp"
 #include "fv/operators/divergence_FV.hpp"

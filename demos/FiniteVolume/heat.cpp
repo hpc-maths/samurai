@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 
     // Output parameters
     fs::path path        = fs::current_path();
-    std::string filename = "FV_heat";
+    std::string filename = "heat_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 50;
 
     CLI::App app{"Finite volume example for the heat equation in 1d"};

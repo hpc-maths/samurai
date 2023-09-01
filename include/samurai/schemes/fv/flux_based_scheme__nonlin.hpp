@@ -21,7 +21,7 @@ namespace samurai
         static constexpr bool is_linear        = false;
         static constexpr bool is_heterogeneous = true;
 
-        using flux_definition_t     = FluxDefinition<Field, stencil_size, is_linear, is_heterogeneous>;
+        using flux_definition_t     = FluxDefinition<Field, output_field_size, stencil_size, is_linear, is_heterogeneous>;
         using flux_computation_t    = typename flux_definition_t::flux_computation_t;
         using field_value_type      = typename Field::value_type;
         using scheme_contrib_t      = typename detail::LocalMatrix<field_value_type, output_field_size, 1>::Type;

@@ -37,15 +37,15 @@ namespace samurai
      * direction. So the contribution of a flux F (R or T) computed on cell 1 is for cell 1: 1/2 F for cell 2: 1/2 F
      */
     template <class Field,
-              std::size_t stencil_size = 2,
-              // scheme config
-              std::size_t dim               = Field::dim,
               std::size_t output_field_size = 1,
-              class cfg                     = FluxBasedSchemeConfig<output_field_size, stencil_size>,
-              class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
-    class DivergenceFV : public FluxBasedScheme<DivergenceFV<Field, stencil_size>, cfg, bdry_cfg, Field>
+              std::size_t stencil_size      = 2,
+              // scheme config
+              std::size_t dim = Field::dim,
+              class cfg       = FluxBasedSchemeConfig<output_field_size, stencil_size>,
+              class bdry_cfg  = BoundaryConfigFV<stencil_size / 2>>
+    class DivergenceFV : public FluxBasedScheme<DivergenceFV<Field, output_field_size, stencil_size>, cfg, bdry_cfg, Field>
     {
-        using base_class = FluxBasedScheme<DivergenceFV<Field, stencil_size>, cfg, bdry_cfg, Field>;
+        using base_class = FluxBasedScheme<DivergenceFV<Field, output_field_size, stencil_size>, cfg, bdry_cfg, Field>;
 
       public:
 
@@ -101,16 +101,17 @@ namespace samurai
     template <class Field>
     auto make_divergence_FV(Field& f)
     {
-        static constexpr std::size_t stencil_size = 2;
+        static constexpr std::size_t flux_output_field_size = Field::size;
+        static constexpr std::size_t stencil_size           = 2;
 
-        auto flux_definition = make_flux_definition<Field, stencil_size>(get_average_coeffs<Field>);
+        auto flux_definition = make_flux_definition<Field, flux_output_field_size, stencil_size>(get_average_coeffs<Field>);
         return make_divergence_FV(flux_definition, f);
     }
 
-    template <class Field, std::size_t stencil_size>
-    auto make_divergence_FV(const FluxDefinition<Field, stencil_size, true, false>& flux_definition, Field& f)
+    template <class Field, std::size_t output_field_size, std::size_t stencil_size>
+    auto make_divergence_FV(const FluxDefinition<Field, output_field_size, stencil_size, true, false>& flux_definition, Field& f)
     {
-        return DivergenceFV<Field, stencil_size>(flux_definition, f);
+        return DivergenceFV<Field, 1, stencil_size>(flux_definition, f);
     }
 
 } // end namespace samurai
