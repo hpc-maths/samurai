@@ -41,7 +41,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
 }
 
-template <std::size_t dim>
+template <std::size_t dim, std::size_t field_size>
 int main_dim(int argc, char* argv[])
 {
     using Config  = samurai::MRConfig<dim>;
@@ -78,7 +78,7 @@ int main_dim(int argc, char* argv[])
     CLI::App app{"Finite volume example for the heat equation in 1d"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--init-sol", init_sol, "Initial solution: hat/linear")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--init-sol", init_sol, "Initial solution: hat/linear/bands")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
@@ -109,43 +109,48 @@ int main_dim(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    auto u    = samurai::make_field<dim>("u", mesh);
-    auto unp1 = samurai::make_field<dim>("unp1", mesh);
+    auto u    = samurai::make_field<field_size>("u", mesh);
+    auto unp1 = samurai::make_field<field_size>("unp1", mesh);
 
     // Initial solution
-    if constexpr (dim == 1)
+    if (dim == 1 && init_sol == "linear")
     {
-        if (init_sol == "linear")
-        {
-            samurai::for_each_cell(mesh,
-                                   [&](auto& cell)
-                                   {
-                                       u[cell] = exact_solution(cell.center(), 0);
-                                   });
-        }
-        else
-        {
-            samurai::for_each_cell(mesh,
-                                   [&](auto& cell)
-                                   {
-                                       double x   = cell.center(0);
-                                       double max = 2;
-                                       if (x >= -0.5 && x <= 0)
-                                       {
-                                           u[cell] = 2 * max * x + max;
-                                       }
-                                       else if (x >= 0 && x <= 0.5)
-                                       {
-                                           u[cell] = -2 * max * x + max;
-                                       }
-                                       else
-                                       {
-                                           u[cell] = 0;
-                                       }
-                                   });
-        }
+        samurai::for_each_cell(mesh,
+                               [&](auto& cell)
+                               {
+                                   u[cell] = exact_solution(cell.center(), 0);
+                               });
     }
-    else
+    else if (init_sol == "hat")
+    {
+        samurai::for_each_cell(mesh,
+                               [&](auto& cell)
+                               {
+                                   const double max = 1;
+                                   const double r   = 0.5;
+
+                                   double dist = 0;
+                                   for (std::size_t d = 0; d < dim; ++d)
+                                   {
+                                       dist += pow(cell.center(d), 2);
+                                   }
+                                   dist = sqrt(dist);
+
+                                   double value = (dist <= r) ? (-max / r * dist + max) : 0;
+                                   if constexpr (field_size == 1)
+                                   {
+                                       u[cell] = value;
+                                   }
+                                   else
+                                   {
+                                       for (std::size_t field_i = 0; field_i < field_size; ++field_i)
+                                       {
+                                           u[cell][field_i] = value;
+                                       }
+                                   }
+                               });
+    }
+    else if (field_size > 1 && init_sol == "bands")
     {
         samurai::for_each_cell(mesh,
                                [&](auto& cell)
@@ -167,6 +172,11 @@ int main_dim(int argc, char* argv[])
                                        }
                                    }
                                });
+    }
+    else
+    {
+        std::cerr << "Unmanaged initial solution '" << init_sol << "'.";
+        return EXIT_FAILURE;
     }
 
     // Boundary conditions
@@ -193,20 +203,26 @@ int main_dim(int argc, char* argv[])
     }
     else
     {
-        if constexpr (dim == 1)
+        if constexpr (field_size == 1)
         {
             samurai::make_bc<samurai::Dirichlet>(u, 0.0);
         }
-        else if constexpr (dim == 2)
+        else if constexpr (field_size == 2)
         {
             samurai::make_bc<samurai::Dirichlet>(u, 0.0, 0.0);
         }
-        else if constexpr (dim == 3)
+        else if constexpr (field_size == 3)
         {
             samurai::make_bc<samurai::Dirichlet>(u, 0.0, 0.0, 0.0);
         }
     }
 
+    double cst = dim == 1 ? 0.5 : 1; // if dim == 1, we want f(u) = (1/2)*u^2
+    auto conv  = cst * samurai::make_convection(u);
+
+    /**
+     * The following is another implementation of the convection operator (here in 1D):
+     */
     // if constexpr (dim == 1)
     // {
     //     auto f = [](double x)
@@ -217,19 +233,14 @@ int main_dim(int argc, char* argv[])
     //     auto upwind_f = samurai::make_flux_definition<decltype(u)>(
     //         [&](auto& v, auto& cells)
     //         {
-    //             // static_assert(std::is_same_v<flux_value_t, void>);
-    //             auto flux   = samurai::make_flux_value<decltype(v), dim>();
     //             auto& left  = cells[0];
     //             auto& right = cells[1];
-    //             // flux = (f(v[left]) + f(v[right])) / 2;
-    //             // flux = v[left] >= 0 ? f(v[left]) : f(v[right]);
-    //             return v[left] >= 0 ? f(v[left]) : f(v[right]);
-    //             // return flux;
+    //             // return (f(v[left]) + f(v[right])) / 2;       // average
+    //             return v[left] >= 0 ? f(v[left]) : f(v[right]); // upwind
     //         });
 
-    //     auto conv = samurai::make_divergence_FV(upwind_f, u);
+    //     auto conv = samurai::make_divergence(upwind_f, u);
     // }
-    auto conv = samurai::make_convection(u);
 
     //--------------------//
     //   Time iteration   //
@@ -345,5 +356,9 @@ int main_dim(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
     static constexpr std::size_t dim = 2;
-    return main_dim<dim>(argc, argv);
+
+    // 1  : scalar equation
+    // dim: vector equation
+    static constexpr std::size_t field_size = 2;
+    return main_dim<dim, field_size>(argc, argv);
 }

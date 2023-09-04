@@ -169,8 +169,8 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
-    auto diff = diff_coeff * samurai::make_diffusion_FV(u); // diffusion = -Laplacian
-    auto id   = samurai::make_identity_FV(u);
+    auto diff = diff_coeff * samurai::make_diffusion(u); // diffusion = -Laplacian
+    auto id   = samurai::make_identity(u);
 
     //--------------------//
     //   Time iteration   //

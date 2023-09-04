@@ -27,7 +27,6 @@ namespace samurai
      */
     template <class DerivedScheme, class cfg, class bdry_cfg, class Field, class check = void>
     class FluxBasedScheme
-
     {
     };
 

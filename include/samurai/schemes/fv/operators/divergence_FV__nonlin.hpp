@@ -26,8 +26,6 @@ namespace samurai
             : base_class(flux_definition, u)
         {
             this->set_name("Divergence");
-            // static_assert(field_size == dim, "The field put into the divergence operator must have a size equal to the space
-            // dimension.");
             add_contribution_to_scheme_definition();
         }
 
@@ -62,7 +60,7 @@ namespace samurai
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    auto make_divergence_FV(const FluxDefinition<Field, output_field_size, stencil_size, false, true>& flux_definition, Field& f)
+    auto make_divergence(const FluxDefinition<Field, output_field_size, stencil_size, false, true>& flux_definition, Field& f)
     {
         return DivergenceFV_NonLin<Field, output_field_size, stencil_size>(flux_definition, f);
     }

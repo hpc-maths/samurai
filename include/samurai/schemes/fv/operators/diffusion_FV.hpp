@@ -184,4 +184,16 @@ namespace samurai
         return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition, f);
     }
 
+    template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
+    auto make_laplacian(Field& f)
+    {
+        return -make_diffusion<dirichlet_enfcmt>(f);
+    }
+
+    template <class Field>
+    auto make_laplacian(Field& f)
+    {
+        return -make_diffusion(f);
+    }
+
 } // end namespace samurai

@@ -21,20 +21,21 @@ namespace samurai
     template <class Field>
     auto make_convection(Field& u)
     {
-        static constexpr std::size_t dim          = Field::dim;
-        static constexpr std::size_t field_size   = Field::size;
-        static constexpr std::size_t stencil_size = 2;
+        static constexpr std::size_t dim               = Field::dim;
+        static constexpr std::size_t field_size        = Field::size;
+        static constexpr std::size_t output_field_size = field_size;
+        static constexpr std::size_t stencil_size      = 2;
 
-        if constexpr (dim == 1 && field_size == 1)
+        if constexpr (field_size == 1)
         {
             auto f = [](auto v)
             {
-                auto f_v = samurai::make_flux_value<Field, 1>();
-                f_v      = v * v; // usually, the 1D Burgers equation requires *1/2, but we don't do it for consitency with 2 and 3D.
+                auto f_v = samurai::make_flux_value<Field, output_field_size>();
+                f_v      = v * v;
                 return f_v;
             };
 
-            auto upwind_f = samurai::make_flux_definition<Field, 1>(
+            auto upwind_f = samurai::make_flux_definition<Field, output_field_size>(
                 [f](auto& v, auto& cells)
                 {
                     auto& left  = cells[0];
@@ -42,12 +43,10 @@ namespace samurai
                     return v[left] >= 0 ? f(v[left]) : f(v[right]);
                 });
 
-            return samurai::make_divergence_FV(upwind_f, u);
+            return samurai::make_divergence(upwind_f, u);
         }
         else if constexpr (field_size == dim)
         {
-            static constexpr std::size_t output_field_size = field_size;
-
             if constexpr (dim == 2)
             {
                 auto f_x = [](auto v)
@@ -84,22 +83,17 @@ namespace samurai
                     return v[bottom](y) >= 0 ? f_y(v[bottom]) : f_y(v[top]);
                 };
 
-                return make_divergence_FV(upwind_f, u);
+                return make_divergence(upwind_f, u);
             }
             else
             {
-                static_assert(dim < 3, "make_compressible_convection() is not implemented for dim > 2.");
+                static_assert(dim < 3, "make_convection() is not implemented for dim > 2.");
             }
-        }
-        else if constexpr (field_size == 1 && dim != field_size)
-        {
-            static_assert(!(field_size == 1 && dim != field_size),
-                          "make_compressible_convection() is not implemented for a scalar field in higher dimensions than 1 (TODO).");
         }
         else
         {
             static_assert(dim == field_size || field_size == 1,
-                          "make_compressible_convection() is not implemented for this field size and in this space dimension.");
+                          "make_convection() is not implemented for this field size in this space dimension.");
         }
     }
 

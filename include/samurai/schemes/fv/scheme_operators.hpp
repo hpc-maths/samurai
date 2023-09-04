@@ -117,20 +117,23 @@ namespace samurai
                     static constexpr int d = decltype(integral_constant_d)::value;
 
                     this->definition()[d] = m_scheme.definition()[d];
-                    // Multiply the flux function by the scalar
-                    if constexpr (cfg_t::is_linear)
+                    if (m_scalar != 1)
                     {
-                        this->definition()[d].flux().flux_function = [&](auto h)
+                        // Multiply the flux function by the scalar
+                        if constexpr (cfg_t::is_linear)
                         {
-                            return m_scalar * m_scheme.definition()[d].flux().flux_function(h);
-                        };
-                    }
-                    else
-                    {
-                        this->definition()[d].flux().flux_function = [&](auto& field, auto& cells)
+                            this->definition()[d].flux().flux_function = [&](auto h)
+                            {
+                                return m_scalar * m_scheme.definition()[d].flux().flux_function(h);
+                            };
+                        }
+                        else
                         {
-                            return m_scalar * m_scheme.definition()[d].flux().flux_function(field, cells);
-                        };
+                            this->definition()[d].flux().flux_function = [&](auto& field, auto& cells)
+                            {
+                                return m_scalar * m_scheme.definition()[d].flux().flux_function(field, cells);
+                            };
+                        }
                     }
                 });
         }
