@@ -256,10 +256,10 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = samurai::make_diffusion_FV(velocity);
-        auto grad    = samurai::make_gradient_FV(pressure);
-        auto div     = samurai::make_divergence_FV(velocity);
-        auto zero_op = samurai::make_zero_operator_FV(pressure);
+        auto diff    = samurai::make_diffusion(velocity);
+        auto grad    = samurai::make_gradient(pressure);
+        auto div     = samurai::make_divergence(velocity);
+        auto zero_op = samurai::make_zero_operator(pressure);
 
         auto stokes = samurai::make_block_operator<2, 2>(diff, grad,
                                                          -div, zero_op);
@@ -411,11 +411,11 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
-        auto grad    =              samurai::make_gradient_FV(pressure_np1);
-        auto div     =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_op =              samurai::make_zero_operator_FV(pressure_np1);
-        auto id      =              samurai::make_identity_FV(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion(velocity_np1);
+        auto grad    =              samurai::make_gradient(pressure_np1);
+        auto div     =              samurai::make_divergence(velocity_np1);
+        auto zero_op =              samurai::make_zero_operator(pressure_np1);
+        auto id      =              samurai::make_identity(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
@@ -582,7 +582,9 @@ int main(int argc, char* argv[])
         auto velocity     = samurai::make_field<dim, is_soa>("velocity", mesh);
         auto velocity_np1 = samurai::make_field<dim, is_soa>("velocity_np1", mesh);
         auto pressure_np1 = samurai::make_field<1, is_soa>("pressure_np1", mesh);
-        auto zero         = samurai::make_field<1, is_soa>("zero", mesh);
+        // Right-hand side
+        auto rhs  = samurai::make_field<dim, is_soa>("rhs", mesh);
+        auto zero = samurai::make_field<1, is_soa>("zero", mesh);
         zero.fill(0);
 
         // Boundary conditions (n)
@@ -610,11 +612,12 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
-        auto grad    =              samurai::make_gradient_FV(pressure_np1);
-        auto div     =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_op =              samurai::make_zero_operator_FV(pressure_np1);
-        auto id      =              samurai::make_identity_FV(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion(velocity_np1);
+        auto grad    =              samurai::make_gradient(pressure_np1);
+        auto conv    =              samurai::make_convection(velocity);
+        auto div     =              samurai::make_divergence(velocity_np1);
+        auto zero_op =              samurai::make_zero_operator(pressure_np1);
+        auto id      =              samurai::make_identity(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
@@ -667,6 +670,7 @@ int main(int argc, char* argv[])
                     velocity_np1.resize();
                     pressure_np1.resize();
                     zero.resize();
+                    rhs.resize();
                 }
                 std::cout << ", levels " << min_level_np1 << "-" << max_level_np1;
             }
@@ -684,10 +688,13 @@ int main(int argc, char* argv[])
             }
 
             // Solve system
+            rhs.fill(0);
+            auto conv_v = conv(velocity);
+            rhs         = velocity - dt * conv_v;
             zero.fill(0);
-            auto unknowns = stokes.tie_unknowns(velocity_np1, pressure_np1);
-            auto rhs      = stokes.tie_rhs(velocity, zero);
-            stokes_solver.solve(unknowns, rhs);
+            auto unknowns  = stokes.tie_unknowns(velocity_np1, pressure_np1);
+            auto block_rhs = stokes.tie_rhs(rhs, zero);
+            stokes_solver.solve(unknowns, block_rhs);
 
             // Prepare next step
             std::swap(velocity.array(), velocity_np1.array());

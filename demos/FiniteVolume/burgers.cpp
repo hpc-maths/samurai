@@ -229,7 +229,7 @@ int main_dim(int argc, char* argv[])
 
     //     auto conv = samurai::make_divergence_FV(upwind_f, u);
     // }
-    auto conv = samurai::make_compressible_convection(u);
+    auto conv = samurai::make_convection(u);
 
     //--------------------//
     //   Time iteration   //

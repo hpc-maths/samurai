@@ -98,18 +98,23 @@ namespace samurai
     };
 
     template <class Field>
-    auto make_gradient_FV(Field& f)
+    [[deprecated("Use make_gradient() instead.")]] auto make_gradient_FV(Field& f)
+    {
+        return make_gradient(f);
+    }
+
+    template <class Field>
+    auto make_gradient(Field& f)
     {
         static constexpr std::size_t flux_output_field_size = Field::size;
         static constexpr std::size_t stencil_size           = 2;
 
         auto flux_definition = make_flux_definition<Field, flux_output_field_size, stencil_size>(get_average_coeffs<Field>);
-        return make_gradient_FV(flux_definition, f);
+        return make_gradient(flux_definition, f);
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size, bool is_linear, bool is_heterogeneous>
-    auto
-    make_gradient_FV(const FluxDefinition<Field, output_field_size, stencil_size, is_linear, is_heterogeneous>& flux_definition, Field& f)
+    auto make_gradient(const FluxDefinition<Field, output_field_size, stencil_size, is_linear, is_heterogeneous>& flux_definition, Field& f)
     {
         return GradientFV<Field, stencil_size>(flux_definition, f);
     }

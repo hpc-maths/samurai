@@ -40,7 +40,13 @@ namespace samurai
     };
 
     template <class Field>
-    auto make_identity_FV(Field& f)
+    [[deprecated("Use make_identity() instead.")]] auto make_identity_FV(Field& f)
+    {
+        return make_identity(f);
+    }
+
+    template <class Field>
+    auto make_identity(Field& f)
     {
         return IdentityFV<Field>(f);
     }

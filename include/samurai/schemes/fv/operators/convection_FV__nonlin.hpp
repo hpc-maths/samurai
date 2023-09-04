@@ -19,7 +19,7 @@ namespace samurai
      *   | uv  |                    | v^2 |
      */
     template <class Field>
-    auto make_compressible_convection(Field& u)
+    auto make_convection(Field& u)
     {
         static constexpr std::size_t dim          = Field::dim;
         static constexpr std::size_t field_size   = Field::size;

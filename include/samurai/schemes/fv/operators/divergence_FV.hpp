@@ -99,17 +99,23 @@ namespace samurai
     };
 
     template <class Field>
-    auto make_divergence_FV(Field& f)
+    [[deprecated("Use make_divergence() instead.")]] auto make_divergence_FV(Field& f)
+    {
+        return make_divergence(f);
+    }
+
+    template <class Field>
+    auto make_divergence(Field& f)
     {
         static constexpr std::size_t flux_output_field_size = Field::size;
         static constexpr std::size_t stencil_size           = 2;
 
         auto flux_definition = make_flux_definition<Field, flux_output_field_size, stencil_size>(get_average_coeffs<Field>);
-        return make_divergence_FV(flux_definition, f);
+        return make_divergence(flux_definition, f);
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    auto make_divergence_FV(const FluxDefinition<Field, output_field_size, stencil_size, true, false>& flux_definition, Field& f)
+    auto make_divergence(const FluxDefinition<Field, output_field_size, stencil_size, true, false>& flux_definition, Field& f)
     {
         return DivergenceFV<Field, 1, stencil_size>(flux_definition, f);
     }

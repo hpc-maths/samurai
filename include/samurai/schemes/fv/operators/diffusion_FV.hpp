@@ -162,7 +162,13 @@ namespace samurai
     };
 
     template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
-    auto make_diffusion_FV(Field& f)
+    [[deprecated("Use make_diffusion() instead.")]] auto make_diffusion_FV(Field& f)
+    {
+        return make_diffusion(f);
+    }
+
+    template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
+    auto make_diffusion(Field& f)
     {
         static constexpr std::size_t flux_output_field_size = Field::size;
         static constexpr std::size_t stencil_size           = 2;
@@ -173,7 +179,7 @@ namespace samurai
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion_FV(const FluxDefinition<Field, output_field_size, stencil_size, true, false>& flux_definition, Field& f)
+    auto make_diffusion(const FluxDefinition<Field, output_field_size, stencil_size, true, false>& flux_definition, Field& f)
     {
         return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition, f);
     }
