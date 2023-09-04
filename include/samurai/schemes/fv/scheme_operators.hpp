@@ -19,8 +19,6 @@ namespace samurai
         using base_class                 = FluxBasedScheme<Scalar_x_FluxBasedScheme<Scheme>, cfg_t, bdry_cfg_t, field_t>;
         using scheme_definition_t        = typename base_class::scheme_definition_t;
         using flux_definition_t          = typename scheme_definition_t::flux_definition_t;
-        using flux_stencil_coeffs_t      = typename scheme_definition_t::flux_stencil_coeffs_t;
-        using scheme_stencil_coeffs_t    = typename scheme_definition_t::scheme_stencil_coeffs_t;
         static constexpr std::size_t dim = field_t::dim;
         using base_class::name;
 
@@ -117,32 +115,24 @@ namespace samurai
                 [&](auto integral_constant_d)
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
-                    // Keep the same flux
-                    this->definition()[d].set_flux(m_scheme.definition()[d].flux());
-                    // Multiply contribution by scalar
-                    this->definition()[d].set_contribution(
-                        [&](auto& flux_coeffs)
+
+                    this->definition()[d] = m_scheme.definition()[d];
+                    // Multiply the flux function by the scalar
+                    if constexpr (cfg_t::is_linear)
+                    {
+                        this->definition()[d].flux().flux_function = [&](auto h)
                         {
-                            return this->scalar_x_contribution<d>(flux_coeffs);
-                        });
-                    this->definition()[d].set_contribution_opposite_direction(
-                        [&](auto& flux_coeffs)
+                            return m_scalar * m_scheme.definition()[d].flux().flux_function(h);
+                        };
+                    }
+                    else
+                    {
+                        this->definition()[d].flux().flux_function = [&](auto& field, auto& cells)
                         {
-                            return this->scalar_x_contribution_opposite_direction<d>(flux_coeffs);
-                        });
+                            return m_scalar * m_scheme.definition()[d].flux().flux_function(field, cells);
+                        };
+                    }
                 });
-        }
-
-        template <std::size_t d>
-        scheme_stencil_coeffs_t scalar_x_contribution(flux_stencil_coeffs_t& flux_coeffs) const
-        {
-            return m_scalar * m_scheme.definition()[d].contribution_func()(flux_coeffs);
-        }
-
-        template <std::size_t d>
-        scheme_stencil_coeffs_t scalar_x_contribution_opposite_direction(flux_stencil_coeffs_t& flux_coeffs) const
-        {
-            return m_scalar * m_scheme.definition()[d].contribution_opposite_direction_func()(flux_coeffs);
         }
 
         bool matrix_is_symmetric(const field_t& f) const override

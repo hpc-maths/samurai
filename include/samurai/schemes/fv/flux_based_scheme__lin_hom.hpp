@@ -49,6 +49,11 @@ namespace samurai
             return m_flux;
         }
 
+        auto& flux()
+        {
+            return m_flux;
+        }
+
         auto& contribution_func() const
         {
             return m_contribution_func;
