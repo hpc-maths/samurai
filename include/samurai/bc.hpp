@@ -645,10 +645,12 @@ namespace samurai
             const double dx = 1. / (1 << level);
 
             cell_in.level = level;
-            coords[0]     = dx * i.start + 0.5 * (1 + dir[0]) * dx;
+            auto shift    = dir[0] < 0 ? -dir[0] : -dir[0] + 1;
+            coords[0]     = dx * (i.start + shift);
             for (std::size_t d = 1; d < dim; ++d)
             {
-                coords[d]          = dx * index[d - 1] + 0.5 * (1 + dir[d]) * dx;
+                shift              = dir[d] < 0 ? -dir[d] : -dir[d] + 1;
+                coords[d]          = dx * (index[d - 1] + shift);
                 cell_in.indices[d] = index[d - 1] + dir[d];
             }
 
