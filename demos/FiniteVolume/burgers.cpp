@@ -150,28 +150,31 @@ int main_dim(int argc, char* argv[])
                                    }
                                });
     }
-    else if (field_size > 1 && init_sol == "bands")
+    else if (dim > 1 && field_size > 1 && init_sol == "bands")
     {
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   double max = 2;
-                                   for (std::size_t d = 0; d < dim; ++d)
+        if constexpr (dim > 1 && field_size > 1)
+        {
+            samurai::for_each_cell(mesh,
+                                   [&](auto& cell)
                                    {
-                                       if (cell.center(d) >= -0.5 && cell.center(d) <= 0)
+                                       double max = 2;
+                                       for (std::size_t d = 0; d < dim; ++d)
                                        {
-                                           u[cell][d] = 2 * max * cell.center(d) + max;
+                                           if (cell.center(d) >= -0.5 && cell.center(d) <= 0)
+                                           {
+                                               u[cell][d] = 2 * max * cell.center(d) + max;
+                                           }
+                                           else if (cell.center(d) >= 0 && cell.center(d) <= 0.5)
+                                           {
+                                               u[cell][d] = -2 * max * cell.center(d) + max;
+                                           }
+                                           else
+                                           {
+                                               u[cell][d] = 0;
+                                           }
                                        }
-                                       else if (cell.center(d) >= 0 && cell.center(d) <= 0.5)
-                                       {
-                                           u[cell][d] = -2 * max * cell.center(d) + max;
-                                       }
-                                       else
-                                       {
-                                           u[cell][d] = 0;
-                                       }
-                                   }
-                               });
+                                   });
+        }
     }
     else
     {
