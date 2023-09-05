@@ -186,7 +186,7 @@ int main_dim(int argc, char* argv[])
     if (dim == 1 && init_sol == "linear")
     {
         samurai::make_bc<samurai::Dirichlet>(u,
-                                             [&](const auto& coord)
+                                             [&](const auto&, const auto& coord)
                                              {
                                                  auto corrected = coord;
                                                  for (std::size_t d = 0; d < dim; ++d)
@@ -286,7 +286,7 @@ int main_dim(int argc, char* argv[])
         {
             u.get_bc().clear();
             samurai::make_bc<samurai::Dirichlet>(u,
-                                                 [&](const auto& coord)
+                                                 [&](const auto&, const auto& coord)
                                                  {
                                                      auto corrected = coord;
                                                      for (std::size_t d = 0; d < dim; ++d)
