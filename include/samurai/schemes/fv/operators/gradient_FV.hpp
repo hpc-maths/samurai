@@ -107,9 +107,8 @@ namespace samurai
     auto make_gradient(Field& f)
     {
         static constexpr std::size_t flux_output_field_size = Field::size;
-        static constexpr std::size_t stencil_size           = 2;
 
-        auto flux_definition = make_flux_definition<Field, flux_output_field_size, stencil_size>(get_average_coeffs<Field>);
+        auto flux_definition = make_flux_definition<Field, flux_output_field_size>(get_average_coeffs<Field>);
         return make_gradient(flux_definition, f);
     }
 

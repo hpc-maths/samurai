@@ -29,7 +29,8 @@ namespace samurai
         static constexpr bool is_heterogeneous              = false;
         static constexpr std::size_t field_size             = Field::size;
         static constexpr std::size_t flux_output_field_size = field_size;
-        using flux_computation_t    = NormalFluxDefinition<Field, flux_output_field_size, 2, is_linear, is_heterogeneous>;
+        static constexpr std::size_t stencil_size           = 2;
+        using flux_computation_t    = NormalFluxDefinition<Field, flux_output_field_size, stencil_size, is_linear, is_heterogeneous>;
         using flux_stencil_coeffs_t = typename flux_computation_t::flux_stencil_coeffs_t;
 
         flux_stencil_coeffs_t coeffs;
@@ -58,7 +59,8 @@ namespace samurai
         static constexpr bool is_heterogeneous              = false;
         static constexpr std::size_t field_size             = Field::size;
         static constexpr std::size_t flux_output_field_size = field_size;
-        using flux_computation_t    = NormalFluxDefinition<Field, flux_output_field_size, 2, is_linear, is_heterogeneous>;
+        static constexpr std::size_t stencil_size           = 2;
+        using flux_computation_t    = NormalFluxDefinition<Field, flux_output_field_size, stencil_size, is_linear, is_heterogeneous>;
         using flux_stencil_coeffs_t = typename flux_computation_t::flux_stencil_coeffs_t;
 
         flux_stencil_coeffs_t coeffs;

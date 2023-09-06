@@ -225,8 +225,9 @@ int main_dim(int argc, char* argv[])
     //         {
     //             auto& left  = cells[0];
     //             auto& right = cells[1];
-    //             // return (f(v[left]) + f(v[right])) / 2;       // average
-    //             return v[left] >= 0 ? f(v[left]) : f(v[right]); // upwind
+    //             // return (f(v[left]) + f(v[right])) / 2;                              // average
+    //             // return (f(v[left]) + f(v[right] - lambda*(v[right] - v[left])) / 2; // rusanov
+    //             return v[left] >= 0 ? f(v[left]) : f(v[right]);                        // upwind
     //         });
 
     //     auto conv = samurai::make_divergence(upwind_f, u);
