@@ -188,20 +188,7 @@ int main_dim(int argc, char* argv[])
         samurai::make_bc<samurai::Dirichlet>(u,
                                              [&](const auto&, const auto& coord)
                                              {
-                                                 auto corrected = coord;
-                                                 for (std::size_t d = 0; d < dim; ++d)
-                                                 {
-                                                     if (corrected(d) < -1)
-                                                     {
-                                                         corrected(d) = -1;
-                                                     }
-                                                     else if (corrected(d) > 1)
-                                                     {
-                                                         corrected(d) = 1;
-                                                     }
-                                                 }
-                                                 return exact_solution(corrected, 0);
-                                                 // return exact_solution(coord, 0);
+                                                 return exact_solution(coord, 0);
                                              });
     }
     else
@@ -288,20 +275,7 @@ int main_dim(int argc, char* argv[])
             samurai::make_bc<samurai::Dirichlet>(u,
                                                  [&](const auto&, const auto& coord)
                                                  {
-                                                     auto corrected = coord;
-                                                     for (std::size_t d = 0; d < dim; ++d)
-                                                     {
-                                                         if (corrected(d) < -1)
-                                                         {
-                                                             corrected(d) = -1;
-                                                         }
-                                                         else if (corrected(d) > 1)
-                                                         {
-                                                             corrected(d) = 1;
-                                                         }
-                                                     }
-                                                     return exact_solution(corrected, t - dt);
-                                                     // return exact_solution(coord, t - dt);
+                                                     return exact_solution(coord, t - dt);
                                                  });
         }
 
