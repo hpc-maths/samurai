@@ -11,7 +11,7 @@ namespace samurai
      * - how the flux contributes to the scheme
      */
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    class FluxBasedSchemeDefinition<Field, output_field_size, stencil_size, true, false>
+    class FluxBasedSchemeDefinition<LinearHomogeneous, Field, output_field_size, stencil_size>
     {
       public:
 
@@ -19,10 +19,7 @@ namespace samurai
         static constexpr std::size_t field_size             = Field::size;
         static constexpr std::size_t flux_output_field_size = field_size;
 
-        static constexpr bool is_linear        = true;
-        static constexpr bool is_heterogeneous = false;
-
-        using flux_definition_t       = FluxDefinition<Field, flux_output_field_size, stencil_size, is_linear, is_heterogeneous>;
+        using flux_definition_t       = FluxDefinition<LinearHomogeneous, Field, flux_output_field_size, stencil_size>;
         using flux_computation_t      = typename flux_definition_t::flux_computation_t;
         using field_value_type        = typename Field::value_type;
         using scheme_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
@@ -103,10 +100,10 @@ namespace samurai
 
     /**
      * @class FluxBasedScheme
-     *    Implementation of linear && homogeneous schemes
+     *    Implementation of LINEAR and HOMOGENEOUS schemes
      */
     template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
-    class FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field, std::enable_if_t<cfg::is_linear && !cfg::is_heterogeneous>>
+    class FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field, std::enable_if_t<cfg::flux_type == LinearHomogeneous>>
         : public FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>
     {
       protected:
@@ -125,8 +122,8 @@ namespace samurai
         static constexpr std::size_t output_field_size = cfg::output_field_size;
         static constexpr std::size_t stencil_size      = cfg::stencil_size;
 
-        using scheme_definition_t = FluxBasedSchemeDefinition<Field, output_field_size, stencil_size, cfg::is_linear, cfg::is_heterogeneous>;
-        using flux_definition_t = typename scheme_definition_t::flux_definition_t;
+        using scheme_definition_t = FluxBasedSchemeDefinition<LinearHomogeneous, Field, output_field_size, stencil_size>;
+        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
       protected:
 

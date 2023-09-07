@@ -11,17 +11,14 @@ namespace samurai
      * - how the flux contributes to the scheme
      */
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    class FluxBasedSchemeDefinition<Field, output_field_size, stencil_size, false, true>
+    class FluxBasedSchemeDefinition<NonLinear, Field, output_field_size, stencil_size>
     {
       public:
 
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
 
-        static constexpr bool is_linear        = false;
-        static constexpr bool is_heterogeneous = true;
-
-        using flux_definition_t     = FluxDefinition<Field, output_field_size, stencil_size, is_linear, is_heterogeneous>;
+        using flux_definition_t     = FluxDefinition<NonLinear, Field, output_field_size, stencil_size>;
         using flux_computation_t    = typename flux_definition_t::flux_computation_t;
         using field_value_type      = typename Field::value_type;
         using scheme_contrib_t      = typename detail::LocalMatrix<field_value_type, output_field_size, 1>::Type;
@@ -81,7 +78,7 @@ namespace samurai
      *    Implementation of non-linear schemes
      */
     template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
-    class FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field, std::enable_if_t<!cfg::is_linear>>
+    class FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field, std::enable_if_t<cfg::flux_type == NonLinear>>
         : public FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>
     {
       protected:
@@ -100,8 +97,8 @@ namespace samurai
         static constexpr std::size_t output_field_size = cfg::output_field_size;
         static constexpr std::size_t stencil_size      = cfg::stencil_size;
 
-        using scheme_definition_t = FluxBasedSchemeDefinition<Field, output_field_size, stencil_size, cfg::is_linear, cfg::is_heterogeneous>;
-        using flux_definition_t = typename scheme_definition_t::flux_definition_t;
+        using scheme_definition_t = FluxBasedSchemeDefinition<NonLinear, Field, output_field_size, stencil_size>;
+        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
       protected:
 

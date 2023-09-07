@@ -120,7 +120,7 @@ namespace samurai
                     if (m_scalar != 1)
                     {
                         // Multiply the flux function by the scalar
-                        if constexpr (cfg_t::is_linear)
+                        if constexpr (cfg_t::flux_type == LinearHomogeneous)
                         {
                             this->definition()[d].flux().flux_function = [&](auto h)
                             {

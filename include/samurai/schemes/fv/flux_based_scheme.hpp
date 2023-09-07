@@ -1,23 +1,23 @@
 #pragma once
 #include "../../interface.hpp"
 #include "../explicit_scheme.hpp"
+#include "flux_definition.hpp"
 
 namespace samurai
 {
 
-    template <std::size_t output_field_size_, std::size_t stencil_size_, bool is_linear_ = true, bool is_heterogeneous_ = false>
+    template <FluxType flux_type_, std::size_t output_field_size_, std::size_t stencil_size_>
     struct FluxBasedSchemeConfig
     {
+        static constexpr FluxType flux_type            = flux_type_;
         static constexpr std::size_t output_field_size = output_field_size_;
         static constexpr std::size_t stencil_size      = stencil_size_;
-        static constexpr bool is_linear                = is_linear_;
-        static constexpr bool is_heterogeneous         = is_heterogeneous_;
     };
 
     /**
      * @class FluxBasedSchemeDefinition
      */
-    template <class Field, std::size_t output_field_size, std::size_t stencil_size, bool is_linear_ = true, bool is_heterogeneous_ = false>
+    template <FluxType flux_type, class Field, std::size_t output_field_size, std::size_t stencil_size>
     class FluxBasedSchemeDefinition
     {
     };

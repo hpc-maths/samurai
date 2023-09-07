@@ -1,6 +1,5 @@
 #pragma once
 #include "FV_scheme.hpp"
-#include "flux_definition.hpp"
 
 namespace samurai
 {
@@ -25,12 +24,10 @@ namespace samurai
     template <class Field>
     auto get_normal_grad_order1_coeffs(double h)
     {
-        static constexpr bool is_linear                     = true;
-        static constexpr bool is_heterogeneous              = false;
         static constexpr std::size_t field_size             = Field::size;
         static constexpr std::size_t flux_output_field_size = field_size;
         static constexpr std::size_t stencil_size           = 2;
-        using flux_computation_t    = NormalFluxDefinition<Field, flux_output_field_size, stencil_size, is_linear, is_heterogeneous>;
+        using flux_computation_t    = NormalFluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>;
         using flux_stencil_coeffs_t = typename flux_computation_t::flux_stencil_coeffs_t;
 
         flux_stencil_coeffs_t coeffs;
@@ -55,12 +52,10 @@ namespace samurai
     template <class Field>
     auto get_average_coeffs(double)
     {
-        static constexpr bool is_linear                     = true;
-        static constexpr bool is_heterogeneous              = false;
         static constexpr std::size_t field_size             = Field::size;
         static constexpr std::size_t flux_output_field_size = field_size;
         static constexpr std::size_t stencil_size           = 2;
-        using flux_computation_t    = NormalFluxDefinition<Field, flux_output_field_size, stencil_size, is_linear, is_heterogeneous>;
+        using flux_computation_t    = NormalFluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>;
         using flux_stencil_coeffs_t = typename flux_computation_t::flux_stencil_coeffs_t;
 
         flux_stencil_coeffs_t coeffs;
@@ -89,10 +84,8 @@ namespace samurai
     template <class Field, class Cell = typename Field::cell_t>
     auto get_average_value(const Field& f, std::array<Cell, 2>& cells)
     {
-        static constexpr bool is_linear         = false;
-        static constexpr bool is_heterogeneous  = true;
         static constexpr std::size_t field_size = Field::size;
-        using flux_computation_t                = NormalFluxDefinition<Field, 2, is_linear, is_heterogeneous>;
+        using flux_computation_t                = NormalFluxDefinition<NonLinear, Field, 2>;
         using flux_value_t                      = typename flux_computation_t::flux_value_t;
 
         flux_value_t flux;

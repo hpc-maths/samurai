@@ -8,7 +8,7 @@ namespace samurai
               std::size_t stencil_size = 2,
               // scheme config
               std::size_t dim = Field::dim,
-              class cfg       = FluxBasedSchemeConfig<output_field_size, stencil_size, false, true>,
+              class cfg       = FluxBasedSchemeConfig<NonLinear, output_field_size, stencil_size>,
               class bdry_cfg  = BoundaryConfigFV<stencil_size / 2>>
     class DivergenceFV_NonLin : public FluxBasedScheme<DivergenceFV_NonLin<Field, output_field_size, stencil_size>, cfg, bdry_cfg, Field>
     {
@@ -60,7 +60,7 @@ namespace samurai
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    auto make_divergence(const FluxDefinition<Field, output_field_size, stencil_size, false, true>& flux_definition, Field& f)
+    auto make_divergence(const FluxDefinition<NonLinear, Field, output_field_size, stencil_size>& flux_definition, Field& f)
     {
         return DivergenceFV_NonLin<Field, output_field_size, stencil_size>(flux_definition, f);
     }
