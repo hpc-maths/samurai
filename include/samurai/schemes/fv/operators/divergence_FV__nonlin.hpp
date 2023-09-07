@@ -16,16 +16,13 @@ namespace samurai
 
       public:
 
-        using scheme_definition_t               = typename base_class::scheme_definition_t;
-        using flux_definition_t                 = typename scheme_definition_t::flux_definition_t;
-        using flux_value_t                      = typename scheme_definition_t::flux_value_t;
-        using scheme_contrib_t                  = typename scheme_definition_t::scheme_contrib_t;
-        static constexpr std::size_t field_size = Field::size;
+        using scheme_definition_t = typename base_class::scheme_definition_t;
+        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
         explicit DivergenceFV_NonLin(const flux_definition_t& flux_definition, Field& u)
             : base_class(flux_definition, u)
         {
-            this->set_name("Divergence");
+            this->set_name("Flux divergence");
         }
     };
 

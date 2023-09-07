@@ -200,7 +200,7 @@ namespace samurai
         /**
          * This constructor sets the same flux function for all directions
          */
-        FluxDefinition(typename flux_computation_stencil2_t::flux_func flux_implem)
+        explicit FluxDefinition(typename flux_computation_stencil2_t::flux_func flux_implem)
         {
             static_assert(stencil_size == 2, "stencil_size = 2 required to use this constructor.");
 

@@ -67,7 +67,7 @@ namespace samurai
          * Conclusion: the contribution of the face is just the flux received as a parameter, multiplied by |F|/|T|.
          * Here, we add a minus sign because we define Diffusion as -Lap.
          */
-        static scheme_stencil_coeffs_t minus_flux(flux_stencil_coeffs_t& flux)
+        static scheme_stencil_coeffs_t minus_flux(const flux_stencil_coeffs_t& flux)
         {
             return -flux;
         }

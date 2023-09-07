@@ -109,18 +109,20 @@ namespace samurai
       protected:
 
         using base_class = FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>;
-        using base_class::dim;
-        using base_class::field_size;
-        using field_value_type = typename base_class::field_value_type;
-        using mesh_t           = typename Field::mesh_t;
 
       public:
 
-        using cfg_t                                    = cfg;
-        using bdry_cfg_t                               = bdry_cfg;
-        using field_t                                  = Field;
-        static constexpr std::size_t output_field_size = cfg::output_field_size;
-        static constexpr std::size_t stencil_size      = cfg::stencil_size;
+        using base_class::dim;
+        using base_class::field_size;
+        using base_class::output_field_size;
+        using field_value_type = typename base_class::field_value_type;
+        using mesh_t           = typename Field::mesh_t;
+
+        using cfg_t      = cfg;
+        using bdry_cfg_t = bdry_cfg;
+        using field_t    = Field;
+
+        static constexpr std::size_t stencil_size = cfg::stencil_size;
 
         using scheme_definition_t = FluxBasedSchemeDefinition<LinearHomogeneous, Field, output_field_size, stencil_size>;
         using flux_definition_t   = typename scheme_definition_t::flux_definition_t;

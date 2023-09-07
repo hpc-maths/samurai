@@ -33,7 +33,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     }
 
     samurai::for_each_cell(mesh,
-                           [&](auto& cell)
+                           [&](const auto& cell)
                            {
                                level_[cell] = cell.level;
                            });
@@ -296,7 +296,7 @@ int main_dim(int argc, char* argv[])
         if (init_sol == "linear")
         {
             double error = samurai::L2_error(u,
-                                             [&](auto& coord)
+                                             [&](const auto& coord)
                                              {
                                                  return exact_solution(coord, t);
                                              });
@@ -308,7 +308,7 @@ int main_dim(int argc, char* argv[])
                 samurai::update_ghost_mr(u);
                 auto u_recons = samurai::reconstruction(u);
                 error         = samurai::L2_error(u_recons,
-                                          [&](auto& coord)
+                                          [&](const auto& coord)
                                           {
                                               return exact_solution(coord, t);
                                           });
