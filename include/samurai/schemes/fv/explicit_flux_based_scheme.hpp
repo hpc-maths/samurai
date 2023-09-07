@@ -10,7 +10,7 @@ namespace samurai
      * LINEAR and HOMOGENEOUS explicit schemes
      */
     template <class Scheme>
-    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && is_LinearScheme_v<Scheme> && !is_HeterogeneousScheme_v<Scheme>>>
+    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && Scheme::cfg_t::flux_type == LinearHomogeneous>>
     {
         using field_t                                  = typename Scheme::field_t;
         using scheme_definition_t                      = typename Scheme::scheme_definition_t;
@@ -105,7 +105,7 @@ namespace samurai
      * NON-LINEAR explicit schemes
      */
     template <class Scheme>
-    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && !is_LinearScheme_v<Scheme>>>
+    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && Scheme::cfg_t::flux_type == NonLinear>>
     {
         using field_t                                  = typename Scheme::field_t;
         using scheme_definition_t                      = typename Scheme::scheme_definition_t;
@@ -146,23 +146,8 @@ namespace samurai
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        // for (std::size_t field_j = 0; field_j < field_size; ++field_j)
-                        //{
-                        // for (std::size_t c = 0; c < stencil_size; ++c)
-                        //{
-                        //  double left_cell_coeff  = scheme().cell_coeff(left_cell_coeffs, c, field_i,
-                        //  field_j); double right_cell_coeff = scheme().cell_coeff(right_cell_coeffs, c,
-                        //  field_i, field_j); field_value(result, interface_cells[0], field_i) +=
-                        //  left_cell_coeff
-                        //                                                    * field_value(f,
-                        //                                                    comput_cells[c], field_j);
-                        //  field_value(result, interface_cells[1], field_i) += right_cell_coeff
-                        //                                                    * field_value(f,
-                        //                                                    comput_cells[c], field_j);
                         field_value(result, interface_cells[0], field_i) += scheme().cell_coeff(left_cell_contrib, field_i);
                         field_value(result, interface_cells[1], field_i) += scheme().cell_coeff(right_cell_contrib, field_i);
-                        //}
-                        //}
                     }
                 });
 
@@ -172,16 +157,7 @@ namespace samurai
                                                  {
                                                      for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                                                      {
-                                                         // for (std::size_t field_j = 0; field_j < field_size; ++field_j)
-                                                         // {
-                                                         //     for (std::size_t c = 0; c < stencil_size; ++c)
-                                                         //     {
-                                                         //  double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                                         //  field_value(result, cell, field_i) += coeff
-                                                         //                                      * field_value(f, comput_cells[c], field_j);
                                                          field_value(result, cell, field_i) += scheme().cell_coeff(contrib, field_i);
-                                                         //     }
-                                                         // }
                                                      }
                                                  });
 
