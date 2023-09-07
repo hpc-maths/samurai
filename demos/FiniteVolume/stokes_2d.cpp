@@ -4,8 +4,6 @@
 
 #include "CLI/CLI.hpp"
 #include <iostream>
-#include <samurai/amr/mesh.hpp>
-#include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
@@ -175,7 +173,7 @@ int main(int argc, char* argv[])
     std::size_t nfiles   = 50;
 
     fs::path path        = fs::current_path();
-    std::string filename = "velocity";
+    std::string filename = "";
 
     CLI::App app{"Stokes problem"};
     app.add_option("--test-case", test_case, "Test case (s = stationary, ns = non-stationary, ldc = lid-driven cavity)")
@@ -221,6 +219,10 @@ int main(int argc, char* argv[])
     if (test_case == "s")
     {
         std::cout << "stationary" << std::endl;
+        if (filename.empty())
+        {
+            filename = "stokes";
+        }
 
         // 2 equations: -Lap(v) + Grad(p) = f
         //              -Div(v)           = 0
@@ -351,6 +353,11 @@ int main(int argc, char* argv[])
     {
         std::cout << "non stationary" << std::endl;
 
+        if (filename.empty())
+        {
+            filename = "stokes_ns_velocity";
+        }
+
         // Equations:
         //              v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = dt*f_n + v_n
         //                                        Div(v_np1)                = 0
@@ -437,8 +444,11 @@ int main(int argc, char* argv[])
         // Time iteration
         auto MRadaptation = samurai::make_MRAdapt(velocity);
 
-        samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
-        std::size_t nsave = 1, nt = 0;
+        std::size_t nsave = 0, nt = 0;
+        {
+            std::string suffix = fmt::format("_ite_{}", nsave++);
+            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+        }
 
         bool mesh_has_changed = false;
         bool dt_has_changed   = false;
@@ -557,7 +567,7 @@ int main(int argc, char* argv[])
                 std::cout.precision(2);
                 std::cout << ", L2-error (recons): " << std::scientific << error_recons;
                 // Save
-                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons, div_velocity);
+                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
             }
             std::cout << std::endl;
         }
@@ -570,6 +580,11 @@ int main(int argc, char* argv[])
     else if (test_case == "ldc")
     {
         std::cout << "lid-driven cavity" << std::endl;
+
+        if (filename.empty())
+        {
+            filename = "ldc_velocity";
+        }
 
         // 2 equations: v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = v_n
         //                                        Div(v_np1)                = 0
@@ -633,9 +648,12 @@ int main(int argc, char* argv[])
         configure_solver(stokes_solver);
 
         // Time iteration
-        samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
         double dt_save    = dt; // Tf/static_cast<double>(nfiles);
-        std::size_t nsave = 1, nt = 0;
+        std::size_t nsave = 0, nt = 0;
+        {
+            std::string suffix = fmt::format("_ite_{}", nsave++);
+            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+        }
 
         bool mesh_has_changed = false;
         bool dt_has_changed   = false;

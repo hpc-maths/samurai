@@ -243,7 +243,6 @@ int main_dim(int argc, char* argv[])
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
 
-    save(path, filename, u, "_init");
     // double dt_save    = Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
 

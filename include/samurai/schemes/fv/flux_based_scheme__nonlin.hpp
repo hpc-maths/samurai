@@ -28,9 +28,21 @@ namespace samurai
       private:
 
         flux_computation_t m_flux;
-        flux_to_scheme_func_t m_contribution_func;
+        flux_to_scheme_func_t m_contribution_func = nullptr;
 
       public:
+
+        FluxBasedSchemeDefinition()
+        {
+            if constexpr (std::is_same_v<scheme_contrib_t, flux_value_t>)
+            {
+                // By default, the contribution is the flux
+                m_contribution_func = [](flux_value_t& flux)
+                {
+                    return flux;
+                };
+            }
+        }
 
         ~FluxBasedSchemeDefinition()
         {
