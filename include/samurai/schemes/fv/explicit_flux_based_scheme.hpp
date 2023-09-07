@@ -22,7 +22,7 @@ namespace samurai
 
       protected:
 
-        const Scheme* m_scheme;
+        const Scheme* m_scheme = nullptr;
 
       public:
 
