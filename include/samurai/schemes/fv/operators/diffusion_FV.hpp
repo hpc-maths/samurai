@@ -36,8 +36,8 @@ namespace samurai
         using flux_stencil_coeffs_t     = typename scheme_definition_t::flux_stencil_coeffs_t;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
-        explicit DiffusionFV(const flux_definition_t& flux_definition, Field& unknown)
-            : base_class(flux_definition, unknown)
+        explicit DiffusionFV(const flux_definition_t& flux_definition)
+            : base_class(flux_definition)
         {
             this->set_name("Diffusion");
             add_contribution_to_scheme_definition();
@@ -161,39 +161,44 @@ namespace samurai
         }
     };
 
-    template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
-    [[deprecated("Use make_diffusion() instead.")]] auto make_diffusion_FV(Field& f)
-    {
-        return make_diffusion(f);
-    }
-
-    template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
-    auto make_diffusion(Field& f)
+    template <DirichletEnforcement dirichlet_enfcmt, class Field>
+    auto make_diffusion()
     {
         static constexpr std::size_t flux_output_field_size = Field::size;
 
         auto flux_definition = make_flux_definition<Field, flux_output_field_size>(get_normal_grad_order1_coeffs<Field>);
-        return DiffusionFV<Field, dirichlet_enfcmt>(flux_definition, f);
-        // return make_divergence_FV(flux_definition, f);
-    }
-
-    template <class Field, std::size_t flux_output_field_size, std::size_t stencil_size, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto
-    make_diffusion(const FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>& flux_definition, Field& f)
-    {
-        return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition, f);
-    }
-
-    template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
-    auto make_laplacian(Field& f)
-    {
-        return -make_diffusion<dirichlet_enfcmt>(f);
+        return DiffusionFV<Field, dirichlet_enfcmt>(flux_definition);
+        // return make_divergence_FV(flux_definition);
     }
 
     template <class Field>
-    auto make_laplacian(Field& f)
+    auto make_diffusion()
     {
-        return -make_diffusion(f);
+        return make_diffusion<DirichletEnforcement::Equation, Field>();
+    }
+
+    template <class Field>
+    [[deprecated("Use make_diffusion() instead.")]] auto make_diffusion_FV()
+    {
+        return make_diffusion<Field>();
+    }
+
+    template <class Field, std::size_t flux_output_field_size, std::size_t stencil_size, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_diffusion(const FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>& flux_definition)
+    {
+        return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition);
+    }
+
+    template <DirichletEnforcement dirichlet_enfcmt, class Field>
+    auto make_laplacian()
+    {
+        return -make_diffusion<dirichlet_enfcmt, Field>();
+    }
+
+    template <class Field>
+    auto make_laplacian()
+    {
+        return -make_diffusion<Field>();
     }
 
 } // end namespace samurai

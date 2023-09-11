@@ -16,8 +16,7 @@ namespace samurai
 
       public:
 
-        explicit ZeroOperatorFV(Field& unknown)
-            : base_class(unknown)
+        ZeroOperatorFV()
         {
             this->set_name("Zero");
         }
@@ -59,23 +58,23 @@ namespace samurai
         }
     };*/
 
-    template <class Field>
-    [[deprecated("Use make_zero_operator() instead.")]] auto make_zero_operator_FV(Field& f)
-    {
-        return make_zero_operator(f);
-    }
-
     template <std::size_t output_field_size, class Field>
-    auto make_zero_operator(Field& f)
+    auto make_zero_operator()
     {
-        return ZeroOperatorFV<Field, output_field_size>(f);
+        return ZeroOperatorFV<Field, output_field_size>();
     }
 
     template <class Field>
-    auto make_zero_operator(Field& f)
+    auto make_zero_operator()
     {
         static constexpr std::size_t default_output_field_size = Field::size;
-        return make_zero_operator<default_output_field_size>(f);
+        return make_zero_operator<default_output_field_size, Field>();
+    }
+
+    template <class Field>
+    [[deprecated("Use make_zero_operator() instead.")]] auto make_zero_operator_FV()
+    {
+        return make_zero_operator<Field>();
     }
 
 } // end namespace samurai

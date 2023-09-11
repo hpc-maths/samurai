@@ -208,7 +208,7 @@ int main_dim(int argc, char* argv[])
     }
 
     double cst = dim == 1 ? 0.5 : 1; // if dim == 1, we want f(u) = (1/2)*u^2
-    auto conv  = cst * samurai::make_convection(u);
+    auto conv  = cst * samurai::make_convection<decltype(u)>();
 
     /**
      * The following is another implementation of the convection operator (here in 1D):

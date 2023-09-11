@@ -71,10 +71,8 @@ namespace samurai
 
             explicit FVSchemeAssembly(const Scheme& scheme)
                 : m_scheme(&scheme)
-                , m_unknown(&scheme.unknown())
             {
                 this->set_name(scheme.name());
-                // reset();
             }
 
             auto& scheme() const
@@ -84,6 +82,12 @@ namespace samurai
 
             void reset() override
             {
+                if (!m_unknown)
+                {
+                    std::cerr << "Undefined unknown for operator " << scheme().name() << ". Assembly initialization failed!" << std::endl;
+                    assert(false);
+                    exit(EXIT_FAILURE);
+                }
                 m_n_cells = mesh().nb_cells();
                 // std::cout << "reset " << this->name() << ", rows = " << matrix_rows() << std::endl;
                 m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
@@ -163,8 +167,18 @@ namespace samurai
 
             auto& unknown() const
             {
-                assert(m_unknown);
+                assert(m_unknown && "undefined unknown");
                 return *m_unknown;
+            }
+
+            auto unknown_ptr() const
+            {
+                return m_unknown;
+            }
+
+            bool undefined_unknown() const
+            {
+                return !m_unknown;
             }
 
             auto& mesh() const

@@ -72,8 +72,7 @@ namespace samurai
                                                             field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a
                                                                                                          // matrix otherwise
 
-        explicit CellBasedScheme(Field& unknown)
-            : base_class(unknown)
+        explicit CellBasedScheme()
         {
         }
     };

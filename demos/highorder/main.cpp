@@ -27,8 +27,7 @@ class HighOrderDiffusion : public samurai::CellBasedScheme<HighOrderDiffusion<Fi
     using field_t                    = Field;
     using directional_bdry_config_t  = typename base_class::directional_bdry_config_t;
 
-    HighOrderDiffusion(Field& unknown)
-        : base_class(unknown)
+    HighOrderDiffusion()
     {
     }
 
@@ -116,9 +115,9 @@ class HighOrderDiffusion : public samurai::CellBasedScheme<HighOrderDiffusion<Fi
 };
 
 template <class Field>
-auto make_high_order_diffusion(Field& f)
+auto make_high_order_diffusion()
 {
-    return HighOrderDiffusion<Field>(f);
+    return HighOrderDiffusion<Field>();
 }
 
 int main(int argc, char* argv[])
@@ -276,7 +275,7 @@ int main(int argc, char* argv[])
                                              });
         u.fill(0);
 
-        auto diff = make_high_order_diffusion(u);
+        HighOrderDiffusion<decltype(u)> diff;
 
         auto solver = samurai::petsc::make_solver(diff);
         KSP ksp     = solver.Ksp();

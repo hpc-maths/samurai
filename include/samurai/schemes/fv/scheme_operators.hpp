@@ -30,7 +30,7 @@ namespace samurai
       public:
 
         Scalar_x_FluxBasedScheme(Scheme&& scheme, double scalar)
-            : base_class(flux_definition_t(), scheme.unknown())
+            : base_class(flux_definition_t())
             , m_scheme(std::move(scheme))
             , m_scalar(scalar)
         {
@@ -39,7 +39,7 @@ namespace samurai
         }
 
         Scalar_x_FluxBasedScheme(const Scheme& scheme, double scalar)
-            : base_class(flux_definition_t(), scheme.unknown())
+            : base_class(flux_definition_t())
             , m_scheme(scheme)
             , m_scalar(scalar)
         {
@@ -48,7 +48,7 @@ namespace samurai
         }
 
         Scalar_x_FluxBasedScheme(const Scalar_x_FluxBasedScheme<Scheme>& other)
-            : base_class(flux_definition_t(), other.unknown())
+            : base_class(flux_definition_t())
             , m_scheme(other.scheme())
             , m_scalar(other.scalar())
         {
@@ -57,7 +57,7 @@ namespace samurai
         }
 
         Scalar_x_FluxBasedScheme(Scalar_x_FluxBasedScheme<Scheme>&& other)
-            : base_class(flux_definition_t(), other.unknown())
+            : base_class(flux_definition_t())
             , m_scheme(other.scheme())
             , m_scalar(other.scalar())
         {
@@ -232,11 +232,6 @@ namespace samurai
             , m_cell_scheme(cell_scheme)
         {
             this->m_name = m_flux_scheme.name() + " + " + m_cell_scheme.name();
-            if (&flux_scheme.unknown() != &cell_scheme.unknown())
-            {
-                std::cerr << "Invalid '+' operation: both schemes must be associated to the same unknown." << std::endl;
-                assert(&flux_scheme.unknown() == &cell_scheme.unknown());
-            }
         }
 
         std::string name() const
@@ -252,11 +247,6 @@ namespace samurai
         auto& cell_scheme() const
         {
             return m_cell_scheme;
-        }
-
-        auto& unknown() const
-        {
-            return m_flux_scheme.unknown();
         }
 
         bool matrix_is_symmetric() const // override
