@@ -48,7 +48,7 @@ namespace samurai
                 return m_flux_assembly.unknown_ptr();
             }
 
-            bool undefined_unknowns() const
+            bool undefined_unknown() const
             {
                 return !m_flux_assembly.unknown_ptr();
             }
