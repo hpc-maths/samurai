@@ -44,7 +44,7 @@ namespace samurai
               // scheme config
               std::size_t dim               = Field::dim,
               std::size_t output_field_size = dim,
-              class cfg                     = FluxBasedSchemeConfig<LinearHomogeneous, output_field_size, stencil_size>,
+              class cfg                     = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size>,
               class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
     class GradientFV : public FluxBasedScheme<GradientFV<Field, stencil_size>, cfg, bdry_cfg, Field>
     {
@@ -113,7 +113,7 @@ namespace samurai
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    auto make_gradient(const FluxDefinition<LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition, Field& f)
+    auto make_gradient(const FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition, Field& f)
     {
         return GradientFV<Field, stencil_size>(flux_definition, f);
     }

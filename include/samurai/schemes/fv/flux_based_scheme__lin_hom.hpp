@@ -11,7 +11,7 @@ namespace samurai
      * - how the flux contributes to the scheme
      */
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    class FluxBasedSchemeDefinition<LinearHomogeneous, Field, output_field_size, stencil_size>
+    class FluxBasedSchemeDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>
     {
       public:
 
@@ -19,7 +19,7 @@ namespace samurai
         static constexpr std::size_t field_size             = Field::size;
         static constexpr std::size_t flux_output_field_size = field_size;
 
-        using flux_definition_t       = FluxDefinition<LinearHomogeneous, Field, flux_output_field_size, stencil_size>;
+        using flux_definition_t       = FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>;
         using flux_computation_t      = typename flux_definition_t::flux_computation_t;
         using field_value_type        = typename Field::value_type;
         using scheme_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
@@ -103,7 +103,7 @@ namespace samurai
      *    Implementation of LINEAR and HOMOGENEOUS schemes
      */
     template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
-    class FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field, std::enable_if_t<cfg::flux_type == LinearHomogeneous>>
+    class FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>>
         : public FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>
     {
       protected:
@@ -124,7 +124,7 @@ namespace samurai
 
         static constexpr std::size_t stencil_size = cfg::stencil_size;
 
-        using scheme_definition_t = FluxBasedSchemeDefinition<LinearHomogeneous, Field, output_field_size, stencil_size>;
+        using scheme_definition_t = FluxBasedSchemeDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>;
         using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
       protected:

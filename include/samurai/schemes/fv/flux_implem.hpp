@@ -85,7 +85,7 @@ namespace samurai
     auto get_average_value(const Field& f, std::array<Cell, 2>& cells)
     {
         static constexpr std::size_t field_size = Field::size;
-        using flux_computation_t                = NormalFluxDefinition<NonLinear, Field, 2>;
+        using flux_computation_t                = NormalFluxDefinition<FluxType::NonLinear, Field, 2>;
         using flux_value_t                      = typename flux_computation_t::flux_value_t;
 
         flux_value_t flux;

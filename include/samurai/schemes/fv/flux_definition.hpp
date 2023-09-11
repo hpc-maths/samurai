@@ -55,7 +55,7 @@ namespace samurai
 
     /*------------------------------------------------------------*/
 
-    enum FluxType : int
+    enum class FluxType
     {
         NonLinear,
         LinearHomogeneous,
@@ -74,7 +74,7 @@ namespace samurai
      * Defines how to compute a LINEAR and HOMOGENEOUS normal flux
      */
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    struct NormalFluxDefinition<LinearHomogeneous, Field, output_field_size, stencil_size>
+    struct NormalFluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>
     {
         static constexpr std::size_t dim                    = Field::dim;
         static constexpr std::size_t field_size             = Field::size;
@@ -143,7 +143,7 @@ namespace samurai
      * Defines how to compute a NON-LINEAR normal flux
      */
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    struct NormalFluxDefinition<NonLinear, Field, output_field_size, stencil_size>
+    struct NormalFluxDefinition<FluxType::NonLinear, Field, output_field_size, stencil_size>
     {
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
@@ -231,39 +231,41 @@ namespace samurai
      * Defines a LINEAR and HOMOGENEOUS flux
      */
     template <class Field, std::size_t output_field_size, std::size_t stencil_size = 2>
-    auto make_flux_definition(typename NormalFluxDefinition<LinearHomogeneous, Field, output_field_size, stencil_size>::flux_func flux_impl)
+    auto
+    make_flux_definition(typename NormalFluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>::flux_func flux_impl)
     {
-        return FluxDefinition<LinearHomogeneous, Field, output_field_size, stencil_size>(flux_impl);
+        return FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>(flux_impl);
     }
 
     /**
      * Defines a LINEAR and HETEROGENEOUS flux
      */
     template <class Field, std::size_t output_field_size, std::size_t stencil_size = 2>
-    auto make_flux_definition(typename NormalFluxDefinition<LinearHeterogeneous, Field, output_field_size, stencil_size>::flux_func flux_impl)
+    auto make_flux_definition(
+        typename NormalFluxDefinition<FluxType::LinearHeterogeneous, Field, output_field_size, stencil_size>::flux_func flux_impl)
     {
-        return FluxDefinition<LinearHeterogeneous, Field, output_field_size, stencil_size>(flux_impl);
+        return FluxDefinition<FluxType::LinearHeterogeneous, Field, output_field_size, stencil_size>(flux_impl);
     }
 
     /**
      * Defines a NON-LINEAR flux
      */
     template <class Field, std::size_t output_field_size, std::size_t stencil_size = 2>
-    auto make_flux_definition(typename NormalFluxDefinition<NonLinear, Field, output_field_size, stencil_size>::flux_func flux_impl)
+    auto make_flux_definition(typename NormalFluxDefinition<FluxType::NonLinear, Field, output_field_size, stencil_size>::flux_func flux_impl)
     {
-        return FluxDefinition<NonLinear, Field, output_field_size, stencil_size>(flux_impl);
+        return FluxDefinition<FluxType::NonLinear, Field, output_field_size, stencil_size>(flux_impl);
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size = 2>
     auto make_flux_definition()
     {
-        return FluxDefinition<NonLinear, Field, output_field_size, stencil_size>();
+        return FluxDefinition<FluxType::NonLinear, Field, output_field_size, stencil_size>();
     }
 
     template <class Field, std::size_t output_field_size>
     auto make_flux_value()
     {
-        using flux_computation_t = NormalFluxDefinition<NonLinear, std::decay_t<Field>, output_field_size, 2>;
+        using flux_computation_t = NormalFluxDefinition<FluxType::NonLinear, std::decay_t<Field>, output_field_size, 2>;
         using flux_value_t       = typename flux_computation_t::flux_value_t;
         return flux_value_t();
     }

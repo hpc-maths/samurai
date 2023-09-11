@@ -10,7 +10,7 @@ namespace samurai
      * LINEAR and HOMOGENEOUS explicit schemes
      */
     template <class Scheme>
-    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && Scheme::cfg_t::flux_type == LinearHomogeneous>>
+    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && Scheme::cfg_t::flux_type == FluxType::LinearHomogeneous>>
     {
         using field_t                                  = typename Scheme::field_t;
         using scheme_definition_t                      = typename Scheme::scheme_definition_t;
@@ -105,7 +105,7 @@ namespace samurai
      * NON-LINEAR explicit schemes
      */
     template <class Scheme>
-    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && Scheme::cfg_t::flux_type == NonLinear>>
+    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && Scheme::cfg_t::flux_type == FluxType::NonLinear>>
     {
         using field_t                                  = typename Scheme::field_t;
         using scheme_definition_t                      = typename Scheme::scheme_definition_t;
