@@ -4,8 +4,6 @@
 
 #include "CLI/CLI.hpp"
 #include <iostream>
-#include <samurai/amr/mesh.hpp>
-#include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
@@ -41,43 +39,43 @@ void configure_LU_solver(Solver& solver)
     PC pc;
     KSPGetPC(ksp, &pc);
     KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
-    PCSetType(pc, PCLU);         // (equiv. '-pc_type lu')
-    PetscBool use_superlu = PETSC_FALSE;
-#if defined(PETSC_HAVE_SUPERLU)
-    use_superlu = PETSC_TRUE;
-#endif
-    PetscBool use_mumps        = PETSC_FALSE;
-    PetscBool lu_solver_is_set = PETSC_FALSE;
-    std::string pc_factor_mat_solver_type_str(100, '\0');
-    PetscOptionsGetString(NULL,
-                          NULL,
-                          "-pc_factor_mat_solver_type",
-                          pc_factor_mat_solver_type_str.data(),
-                          pc_factor_mat_solver_type_str.size(),
-                          &lu_solver_is_set);
-    if (lu_solver_is_set)
-    {
-        pc_factor_mat_solver_type_str = pc_factor_mat_solver_type_str.substr(0, pc_factor_mat_solver_type_str.find('\0'));
-    }
-#if defined(PETSC_HAVE_MUMPS)
-    if (!use_superlu || pc_factor_mat_solver_type_str == MATSOLVERMUMPS)
-    {
-        use_mumps   = PETSC_TRUE;
-        use_superlu = PETSC_FALSE;
-    }
-#endif
-    if (use_superlu)
-    {
-#if defined(PETSC_HAVE_SUPERLU)
-        PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
-#endif
-    }
-    else if (use_mumps)
-    {
-#if defined(PETSC_HAVE_MUMPS)
-        PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
-#endif
-    }
+    PCSetType(pc, PCQR);         // (equiv. '-pc_type qr')
+    // PetscBool use_superlu = PETSC_FALSE;
+    // #if defined(PETSC_HAVE_SUPERLU)
+    //     use_superlu = PETSC_TRUE;
+    // #endif
+    //     PetscBool use_mumps             = PETSC_FALSE;
+    //     PetscBool solver_package_is_set = PETSC_FALSE;
+    //     std::string pc_factor_mat_solver_type_str(100, '\0');
+    //     PetscOptionsGetString(NULL,
+    //                           NULL,
+    //                           "-pc_factor_mat_solver_type",
+    //                           pc_factor_mat_solver_type_str.data(),
+    //                           pc_factor_mat_solver_type_str.size(),
+    //                           &solver_package_is_set);
+    //     if (solver_package_is_set)
+    //     {
+    //         pc_factor_mat_solver_type_str = pc_factor_mat_solver_type_str.substr(0, pc_factor_mat_solver_type_str.find('\0'));
+    //     }
+    // #if defined(PETSC_HAVE_MUMPS)
+    //     if (!use_superlu || pc_factor_mat_solver_type_str == MATSOLVERMUMPS)
+    //     {
+    //         use_mumps   = PETSC_TRUE;
+    //         use_superlu = PETSC_FALSE;
+    //     }
+    // #endif
+    //     if (use_superlu)
+    //     {
+    // #if defined(PETSC_HAVE_SUPERLU)
+    //         PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
+    // #endif
+    //     }
+    //     else if (use_mumps)
+    //     {
+    // #if defined(PETSC_HAVE_MUMPS)
+    //         PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
+    // #endif
+    //     }
     // KSP and PC overwritten by user value if needed
     KSPSetFromOptions(ksp);
     // If neither SuperLU nor MUMPS is installed, you can try: -ksp_type gmres -pc_type ilu
@@ -118,13 +116,16 @@ void configure_saddle_point_solver(Solver& block_solver)
     // using the option '-fieldsplit_velocity_[np1]_pc_type hypre'.
     PC A_pc;
     KSPGetPC(A_ksp, &A_pc);
-    PCSetType(A_pc, PCLU);    // (equiv. '-fieldsplit_velocity_[np1]_pc_type lu')
-    KSPSetFromOptions(A_ksp); // KSP and PC overwritten by user value if needed
+    KSPSetType(A_ksp, KSPPREONLY); // (equiv. '-fieldsplit_velocity_[np1]_ksp_type preonly')
+    PCSetType(A_pc, PCLU);         // (equiv. '-fieldsplit_velocity_[np1]_pc_type lu')
+    KSPSetFromOptions(A_ksp);      // KSP and PC overwritten by user value if needed
 
     PC schur_pc;
     KSPGetPC(schur_ksp, &schur_pc);
-    PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
-    KSPSetFromOptions(schur_ksp);  // KSP and PC overwritten by user value if needed
+    KSPSetType(schur_ksp, KSPPREONLY); // (equiv. '-fieldsplit_pressure_[np1]_ksp_type preonly')
+    PCSetType(schur_pc, PCQR);         // (equiv. '-fieldsplit_pressure_[np1]_pc_type qr')
+    // PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
+    KSPSetFromOptions(schur_ksp); // KSP and PC overwritten by user value if needed
 
     // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
     // tolerance to all the sub-solvers
@@ -172,7 +173,7 @@ int main(int argc, char* argv[])
     std::size_t nfiles   = 50;
 
     fs::path path        = fs::current_path();
-    std::string filename = "velocity";
+    std::string filename = "";
 
     CLI::App app{"Stokes problem"};
     app.add_option("--test-case", test_case, "Test case (s = stationary, ns = non-stationary, ldc = lid-driven cavity)")
@@ -218,6 +219,10 @@ int main(int argc, char* argv[])
     if (test_case == "s")
     {
         std::cout << "stationary" << std::endl;
+        if (filename.empty())
+        {
+            filename = "stokes";
+        }
 
         // 2 equations: -Lap(v) + Grad(p) = f
         //              -Div(v)           = 0
@@ -253,10 +258,10 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = samurai::make_diffusion_FV(velocity);
-        auto grad    = samurai::make_gradient_FV(pressure);
-        auto div     = samurai::make_divergence_FV(velocity);
-        auto zero_op = samurai::make_zero_operator_FV(pressure);
+        auto diff    = samurai::make_diffusion(velocity);
+        auto grad    = samurai::make_gradient(pressure);
+        auto div     = samurai::make_divergence(velocity);
+        auto zero_op = samurai::make_zero_operator(pressure);
 
         auto stokes = samurai::make_block_operator<2, 2>(diff, grad,
                                                          -div, zero_op);
@@ -348,6 +353,11 @@ int main(int argc, char* argv[])
     {
         std::cout << "non stationary" << std::endl;
 
+        if (filename.empty())
+        {
+            filename = "stokes_ns_velocity";
+        }
+
         // Equations:
         //              v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = dt*f_n + v_n
         //                                        Div(v_np1)                = 0
@@ -408,11 +418,11 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
-        auto grad    =              samurai::make_gradient_FV(pressure_np1);
-        auto div     =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_op =              samurai::make_zero_operator_FV(pressure_np1);
-        auto id      =              samurai::make_identity_FV(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion(velocity_np1);
+        auto grad    =              samurai::make_gradient(pressure_np1);
+        auto div     =              samurai::make_divergence(velocity_np1);
+        auto zero_op =              samurai::make_zero_operator(pressure_np1);
+        auto id      =              samurai::make_identity(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
@@ -434,8 +444,11 @@ int main(int argc, char* argv[])
         // Time iteration
         auto MRadaptation = samurai::make_MRAdapt(velocity);
 
-        samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
-        std::size_t nsave = 1, nt = 0;
+        std::size_t nsave = 0, nt = 0;
+        {
+            std::string suffix = fmt::format("_ite_{}", nsave++);
+            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+        }
 
         bool mesh_has_changed = false;
         bool dt_has_changed   = false;
@@ -554,7 +567,7 @@ int main(int argc, char* argv[])
                 std::cout.precision(2);
                 std::cout << ", L2-error (recons): " << std::scientific << error_recons;
                 // Save
-                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons, div_velocity);
+                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
             }
             std::cout << std::endl;
         }
@@ -568,6 +581,11 @@ int main(int argc, char* argv[])
     {
         std::cout << "lid-driven cavity" << std::endl;
 
+        if (filename.empty())
+        {
+            filename = "ldc_velocity";
+        }
+
         // 2 equations: v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = v_n
         //                                        Div(v_np1)                = 0
         // where v = velocity
@@ -579,7 +597,9 @@ int main(int argc, char* argv[])
         auto velocity     = samurai::make_field<dim, is_soa>("velocity", mesh);
         auto velocity_np1 = samurai::make_field<dim, is_soa>("velocity_np1", mesh);
         auto pressure_np1 = samurai::make_field<1, is_soa>("pressure_np1", mesh);
-        auto zero         = samurai::make_field<1, is_soa>("zero", mesh);
+        // Right-hand side
+        auto rhs  = samurai::make_field<dim, is_soa>("rhs", mesh);
+        auto zero = samurai::make_field<1, is_soa>("zero", mesh);
         zero.fill(0);
 
         // Boundary conditions (n)
@@ -607,11 +627,12 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = diff_coeff * samurai::make_diffusion_FV(velocity_np1);
-        auto grad    =              samurai::make_gradient_FV(pressure_np1);
-        auto div     =              samurai::make_divergence_FV(velocity_np1);
-        auto zero_op =              samurai::make_zero_operator_FV(pressure_np1);
-        auto id      =              samurai::make_identity_FV(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion(velocity_np1);
+        auto grad    =              samurai::make_gradient(pressure_np1);
+        auto conv    =              samurai::make_convection(velocity);
+        auto div     =              samurai::make_divergence(velocity_np1);
+        auto zero_op =              samurai::make_zero_operator(pressure_np1);
+        auto id      =              samurai::make_identity(velocity_np1);
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
@@ -627,9 +648,12 @@ int main(int argc, char* argv[])
         configure_solver(stokes_solver);
 
         // Time iteration
-        samurai::save(path, fmt::format("{}{}", filename, "_init"), mesh, velocity);
         double dt_save    = dt; // Tf/static_cast<double>(nfiles);
-        std::size_t nsave = 1, nt = 0;
+        std::size_t nsave = 0, nt = 0;
+        {
+            std::string suffix = fmt::format("_ite_{}", nsave++);
+            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
+        }
 
         bool mesh_has_changed = false;
         bool dt_has_changed   = false;
@@ -664,6 +688,7 @@ int main(int argc, char* argv[])
                     velocity_np1.resize();
                     pressure_np1.resize();
                     zero.resize();
+                    rhs.resize();
                 }
                 std::cout << ", levels " << min_level_np1 << "-" << max_level_np1;
             }
@@ -681,10 +706,13 @@ int main(int argc, char* argv[])
             }
 
             // Solve system
+            rhs.fill(0);
+            auto conv_v = conv(velocity);
+            rhs         = velocity - dt * conv_v;
             zero.fill(0);
-            auto unknowns = stokes.tie_unknowns(velocity_np1, pressure_np1);
-            auto rhs      = stokes.tie_rhs(velocity, zero);
-            stokes_solver.solve(unknowns, rhs);
+            auto unknowns  = stokes.tie_unknowns(velocity_np1, pressure_np1);
+            auto block_rhs = stokes.tie_rhs(rhs, zero);
+            stokes_solver.solve(unknowns, block_rhs);
 
             // Prepare next step
             std::swap(velocity.array(), velocity_np1.array());

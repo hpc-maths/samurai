@@ -1,5 +1,5 @@
 #pragma once
-#include "../flux_based_scheme.hpp"
+#include "../flux_based_scheme__lin_hom.hpp"
 
 namespace samurai
 {
@@ -37,79 +37,87 @@ namespace samurai
      * direction. So the contribution of a flux F (R or T) computed on cell 1 is for cell 1: 1/2 F for cell 2: 1/2 F
      */
     template <class Field,
+              std::size_t stencil_size = 2,
               // scheme config
               std::size_t dim               = Field::dim,
               std::size_t output_field_size = 1,
-              std::size_t stencil_size      = 2,
-              class cfg                     = FluxBasedSchemeConfig<output_field_size, stencil_size>,
+              class cfg                     = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size>,
               class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
-    class DivergenceFV : public FluxBasedScheme<DivergenceFV<Field>, cfg, bdry_cfg, Field>
+    class DivergenceFV : public FluxBasedScheme<DivergenceFV<Field, stencil_size>, cfg, bdry_cfg, Field>
     {
-        using base_class = FluxBasedScheme<DivergenceFV<Field>, cfg, bdry_cfg, Field>;
+        using base_class = FluxBasedScheme<DivergenceFV<Field, stencil_size>, cfg, bdry_cfg, Field>;
 
       public:
 
         using scheme_definition_t               = typename base_class::scheme_definition_t;
-        using cell_coeffs_t                     = typename scheme_definition_t::cell_coeffs_t;
-        using flux_coeffs_t                     = typename scheme_definition_t::flux_coeffs_t;
+        using flux_definition_t                 = typename scheme_definition_t::flux_definition_t;
+        using scheme_stencil_coeffs_t           = typename scheme_definition_t::scheme_stencil_coeffs_t;
+        using flux_stencil_coeffs_t             = typename scheme_definition_t::flux_stencil_coeffs_t;
         static constexpr std::size_t field_size = Field::size;
 
-        explicit DivergenceFV(Field& u)
-            : base_class(u)
+        explicit DivergenceFV(const flux_definition_t& flux_definition, Field& u)
+            : base_class(flux_definition, u)
         {
             this->set_name("Divergence");
-            static_assert(dim == field_size, "The field put into the divergence operator must have a size equal to the space dimension.");
+            static_assert(field_size == dim, "The field put into the divergence operator must have a size equal to the space dimension.");
+            add_contribution_to_scheme_definition();
+        }
+
+      private:
+
+        void add_contribution_to_scheme_definition()
+        {
+            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+                [&](auto integral_constant_d)
+                {
+                    static constexpr int d = decltype(integral_constant_d)::value;
+                    this->definition()[d].set_contribution(add_flux_to_col<d>);
+                });
         }
 
         template <std::size_t d>
-        static cell_coeffs_t add_flux_to_col(flux_coeffs_t& flux, double h_face, double h_cell)
+        static scheme_stencil_coeffs_t add_flux_to_col(flux_stencil_coeffs_t& flux)
         {
-            double face_measure = pow(h_face, dim - 1);
-            double cell_measure = pow(h_cell, dim);
-            double h_factor     = face_measure / cell_measure;
-
-            cell_coeffs_t coeffs;
+            scheme_stencil_coeffs_t coeffs;
             for (std::size_t i = 0; i < stencil_size; ++i)
             {
                 if constexpr (field_size == 1)
                 {
-                    coeffs[i] = flux[i] * h_factor;
+                    coeffs[i] = flux[i];
                 }
                 else
                 {
                     coeffs[i].fill(0);
                     for (std::size_t d2 = 0; d2 < dim; ++d2)
                     {
-                        xt::col(coeffs[i], d) += flux[i](d, d2) * h_factor;
+                        xt::col(coeffs[i], d) += flux[i](d, d2);
                     }
                 }
             }
             return coeffs;
         }
-
-        static auto definition()
-        {
-            std::array<scheme_definition_t, dim> def;
-            auto directions = positive_cartesian_directions<dim>();
-
-            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-                [&](auto integral_constant_d)
-                {
-                    static constexpr int d = decltype(integral_constant_d)::value;
-
-                    DirectionVector<dim> direction         = xt::view(directions, d);
-                    def[d].flux                            = average_quantity<Field>(direction);
-                    def[d].contribution                    = add_flux_to_col<d>;
-                    def[d].contribution_opposite_direction = add_flux_to_col<d>;
-                });
-            return def;
-        }
     };
 
     template <class Field>
-    auto make_divergence_FV(Field& f)
+    [[deprecated("Use make_divergence() instead.")]] auto make_divergence_FV(Field& f)
     {
-        return DivergenceFV<Field>(f);
+        return make_divergence(f);
+    }
+
+    template <class Field>
+    auto make_divergence(Field& f)
+    {
+        static constexpr std::size_t flux_output_field_size = Field::size;
+
+        auto flux_definition = make_flux_definition<Field, flux_output_field_size>(get_average_coeffs<Field>);
+        return make_divergence(flux_definition, f);
+    }
+
+    template <class Field, std::size_t flux_output_field_size, std::size_t stencil_size>
+    auto make_divergence(const FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>& flux_definition,
+                         Field& f)
+    {
+        return DivergenceFV<Field, stencil_size>(flux_definition, f);
     }
 
 } // end namespace samurai

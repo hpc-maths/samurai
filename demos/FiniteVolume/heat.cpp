@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 
     // Output parameters
     fs::path path        = fs::current_path();
-    std::string filename = "FV_heat";
+    std::string filename = "heat_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 50;
 
     CLI::App app{"Finite volume example for the heat equation in 1d"};
@@ -169,8 +169,8 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
-    auto diff = diff_coeff * samurai::make_diffusion_FV(u); // diffusion = -Laplacian
-    auto id   = samurai::make_identity_FV(u);
+    auto diff = diff_coeff * samurai::make_diffusion(u); // diffusion = -Laplacian
+    auto id   = samurai::make_identity(u);
 
     //--------------------//
     //   Time iteration   //

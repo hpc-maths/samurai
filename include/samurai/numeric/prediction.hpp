@@ -72,34 +72,34 @@ namespace samurai
     }
 
     template <std::size_t s>
-    inline std::array<double, s> coeffs();
+    inline std::array<double, s> prediction_coeffs();
 
     template <>
-    inline std::array<double, 1> coeffs<1>()
+    inline std::array<double, 1> prediction_coeffs<1>()
     {
         return {-1. / 8.};
     }
 
     template <>
-    inline std::array<double, 2> coeffs<2>()
+    inline std::array<double, 2> prediction_coeffs<2>()
     {
         return {-22. / 128., 3. / 128.};
     }
 
     template <>
-    inline std::array<double, 3> coeffs<3>()
+    inline std::array<double, 3> prediction_coeffs<3>()
     {
         return {-201. / 1024., 11. / 256., -5. / 1024.};
     }
 
     template <>
-    inline std::array<double, 4> coeffs<4>()
+    inline std::array<double, 4> prediction_coeffs<4>()
     {
         return {-3461. / 16384., 949. / 16384, -185. / 16384, 35. / 32768.};
     }
 
     template <>
-    inline std::array<double, 5> coeffs<5>()
+    inline std::array<double, 5> prediction_coeffs<5>()
     {
         return {-29011. / 131072., 569. / 8192., -4661. / 262144., 49. / 16384., -63. / 262144.};
     }
@@ -170,7 +170,7 @@ namespace samurai
     template <std::size_t s, class Field, class interval_t, class... index_t>
     inline auto Qs_i(const Field& field, std::size_t level, const interval_t& i, const index_t... index)
     {
-        auto c  = coeffs<s>();
+        auto c  = prediction_coeffs<s>();
         auto qs = make_Qs_i<s>(make_field_hack(field), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, index...);
     }
@@ -221,7 +221,7 @@ namespace samurai
     template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
     inline auto Qs_j(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const index_t... index)
     {
-        auto c  = coeffs<s>();
+        auto c  = prediction_coeffs<s>();
         auto qs = make_Qs_j<s>(make_field_hack(field), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
     }
@@ -272,7 +272,7 @@ namespace samurai
     template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
     inline auto Qs_k(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const coord_index_t k)
     {
-        auto c  = coeffs<s>();
+        auto c  = prediction_coeffs<s>();
         auto qs = make_Qs_k<s>(make_field_hack(field), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, k);
     }
@@ -280,7 +280,7 @@ namespace samurai
     template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
     inline auto Qs_ij(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const index_t... index)
     {
-        auto c  = coeffs<s>();
+        auto c  = prediction_coeffs<s>();
         auto qs = make_Qs_i<s>(make_Qs_j<s>(make_field_hack(field), c), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
     }
@@ -288,7 +288,7 @@ namespace samurai
     template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
     inline auto Qs_ik(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const index_t... index)
     {
-        auto c  = coeffs<s>();
+        auto c  = prediction_coeffs<s>();
         auto qs = make_Qs_i<s>(make_Qs_k<s>(make_field_hack(field), c), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
     }
@@ -296,7 +296,7 @@ namespace samurai
     template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
     inline auto Qs_jk(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const index_t... index)
     {
-        auto c  = coeffs<s>();
+        auto c  = prediction_coeffs<s>();
         auto qs = make_Qs_j<s>(make_Qs_k<s>(make_field_hack(field), c), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
     }
@@ -304,7 +304,7 @@ namespace samurai
     template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
     inline auto Qs_ijk(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const coord_index_t k)
     {
-        auto c  = coeffs<s>();
+        auto c  = prediction_coeffs<s>();
         auto qs = make_Qs_i<s>(make_Qs_j<s>(make_Qs_k<s>(make_field_hack(field), c), c), c);
         return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, k);
     }
