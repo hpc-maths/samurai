@@ -9,7 +9,7 @@ namespace samurai
     template <FluxType flux_type_, std::size_t output_field_size_, std::size_t stencil_size_>
     struct FluxBasedSchemeConfig
     {
-        static constexpr FluxType flux_type            = flux_type_; // NOLINT
+        static constexpr FluxType flux_type            = flux_type_;
         static constexpr std::size_t output_field_size = output_field_size_;
         static constexpr std::size_t stencil_size      = stencil_size_;
     };
