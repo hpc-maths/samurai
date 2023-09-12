@@ -94,7 +94,7 @@ namespace samurai
             // which is equivalent to
             //                        [ -1/h2  -1/h2] = -2/h2 * dirichlet_value
             config.equations[0].ghost_index        = ghost;
-            config.equations[0].get_stencil_coeffs = [&](double h)
+            config.equations[0].get_stencil_coeffs = [](double h)
             {
                 std::array<coeffs_t, bdry_stencil_size> coeffs;
                 auto Identity         = eye<coeffs_t>();
@@ -103,7 +103,7 @@ namespace samurai
                 coeffs[interior_cell] = zeros<coeffs_t>();
                 return coeffs;
             };
-            config.equations[0].get_rhs_coeffs = [&](double h)
+            config.equations[0].get_rhs_coeffs = [](double h)
             {
                 coeffs_t coeffs;
                 auto Identity = eye<coeffs_t>();

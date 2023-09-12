@@ -19,6 +19,7 @@ namespace samurai
         using base_class                 = FluxBasedScheme<Scalar_x_FluxBasedScheme<Scheme>, cfg_t, bdry_cfg_t, field_t>;
         using scheme_definition_t        = typename base_class::scheme_definition_t;
         using flux_definition_t          = typename scheme_definition_t::flux_definition_t;
+        using directional_bdry_config_t  = typename base_class::directional_bdry_config_t;
         static constexpr std::size_t dim = field_t::dim;
         using base_class::name;
 
@@ -136,6 +137,16 @@ namespace samurai
                         }
                     }
                 });
+        }
+
+        directional_bdry_config_t dirichlet_config(const DirectionVector<dim>& direction) const override
+        {
+            return m_scheme.dirichlet_config(direction);
+        }
+
+        directional_bdry_config_t neumann_config(const DirectionVector<dim>& direction) const override
+        {
+            return m_scheme.neumann_config(direction);
         }
 
         bool matrix_is_symmetric(const field_t& f) const override
