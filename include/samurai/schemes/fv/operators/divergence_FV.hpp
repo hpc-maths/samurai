@@ -49,74 +49,72 @@ namespace samurai
 
       public:
 
-        using scheme_definition_t               = typename base_class::scheme_definition_t;
-        using flux_definition_t                 = typename scheme_definition_t::flux_definition_t;
-        using scheme_stencil_coeffs_t           = typename scheme_definition_t::scheme_stencil_coeffs_t;
-        using flux_stencil_coeffs_t             = typename scheme_definition_t::flux_stencil_coeffs_t;
-        static constexpr std::size_t field_size = Field::size;
+        using scheme_definition_t = typename base_class::scheme_definition_t;
+        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
         explicit DivergenceFV(const flux_definition_t& flux_definition)
             : base_class(flux_definition)
         {
             this->set_name("Divergence");
-            static_assert(field_size == dim, "The field put into the divergence operator must have a size equal to the space dimension.");
-            add_contribution_to_scheme_definition();
-        }
-
-      private:
-
-        void add_contribution_to_scheme_definition()
-        {
-            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-                [&](auto integral_constant_d)
-                {
-                    static constexpr int d = decltype(integral_constant_d)::value;
-                    this->definition()[d].set_contribution(add_flux_to_col<d>);
-                });
-        }
-
-        template <std::size_t d>
-        static scheme_stencil_coeffs_t add_flux_to_col(flux_stencil_coeffs_t& flux)
-        {
-            scheme_stencil_coeffs_t coeffs;
-            for (std::size_t i = 0; i < stencil_size; ++i)
-            {
-                if constexpr (field_size == 1)
-                {
-                    coeffs[i] = flux[i];
-                }
-                else
-                {
-                    coeffs[i].fill(0);
-                    for (std::size_t d2 = 0; d2 < dim; ++d2)
-                    {
-                        xt::col(coeffs[i], d) += flux[i](d, d2);
-                    }
-                }
-            }
-            return coeffs;
         }
     };
 
-    template <class Field>
-    [[deprecated("Use make_divergence() instead.")]] auto make_divergence_FV()
+    template <class Field, std::size_t flux_output_field_size, std::size_t stencil_size = 2>
+    auto make_divergence(const FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>& flux_definition)
     {
-        return make_divergence<Field>();
+        return DivergenceFV<Field, stencil_size>(flux_definition);
     }
 
     template <class Field>
     auto make_divergence()
     {
-        static constexpr std::size_t flux_output_field_size = Field::size;
+        static constexpr std::size_t field_size = Field::size;
+        static constexpr std::size_t dim        = Field::dim;
+        static_assert(field_size == dim, "The field type for the divergence operator must have a size equal to the space dimension.");
 
-        auto flux_definition = make_flux_definition<Field, flux_output_field_size>(get_average_coeffs<Field>);
-        return make_divergence(flux_definition);
+        static constexpr std::size_t output_field_size = 1;
+
+        using flux_computation_t = NormalFluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size>;
+
+        // 2 matrices (left, right) of size output_field_size x field_size.
+        // In the case of the divergence, of size 1 x dim, i.e. a row vector of size dim.
+        using flux_stencil_coeffs_t        = typename flux_computation_t::flux_stencil_coeffs_t;
+        static constexpr std::size_t left  = 0;
+        static constexpr std::size_t right = 1;
+
+        auto average_coeffs = samurai::make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
+
+        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+            [&](auto integral_constant_d)
+            {
+                static constexpr int d = decltype(integral_constant_d)::value;
+
+                average_coeffs[d].flux_function = [](double)
+                {
+                    flux_stencil_coeffs_t coeffs;
+                    if constexpr (field_size == 1)
+                    {
+                        coeffs[left]  = 0.5;
+                        coeffs[right] = 0.5;
+                    }
+                    else
+                    {
+                        coeffs[left].fill(0);
+                        coeffs[right].fill(0);
+                        xt::col(coeffs[left], d)  = 0.5;
+                        xt::col(coeffs[right], d) = 0.5;
+                    }
+                    return coeffs;
+                };
+            });
+
+        return samurai::make_divergence<Field, output_field_size>(average_coeffs);
     }
 
-    template <class Field, std::size_t flux_output_field_size, std::size_t stencil_size>
-    auto make_divergence(const FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>& flux_definition)
+    template <class Field>
+    [[deprecated("Use make_divergence() instead.")]] auto make_divergence_FV()
     {
-        return DivergenceFV<Field, stencil_size>(flux_definition);
+        return make_divergence<Field>();
     }
 
 } // end namespace samurai

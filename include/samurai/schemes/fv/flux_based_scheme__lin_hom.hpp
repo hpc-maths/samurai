@@ -15,11 +15,10 @@ namespace samurai
     {
       public:
 
-        static constexpr std::size_t dim                    = Field::dim;
-        static constexpr std::size_t field_size             = Field::size;
-        static constexpr std::size_t flux_output_field_size = field_size;
+        static constexpr std::size_t dim        = Field::dim;
+        static constexpr std::size_t field_size = Field::size;
 
-        using flux_definition_t       = FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>;
+        using flux_definition_t       = FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>;
         using flux_computation_t      = typename flux_definition_t::flux_computation_t;
         using field_value_type        = typename Field::value_type;
         using scheme_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
@@ -34,6 +33,19 @@ namespace samurai
         flux_to_scheme_func_t m_contribution_opposite_direction_func = nullptr;
 
       public:
+
+        FluxBasedSchemeDefinition()
+        {
+            if constexpr (std::is_same_v<scheme_stencil_coeffs_t, flux_stencil_coeffs_t>)
+            {
+                // By default, the contribution is the flux
+                m_contribution_func = [](const flux_stencil_coeffs_t& flux)
+                {
+                    return flux;
+                };
+                m_contribution_opposite_direction_func = m_contribution_func;
+            }
+        }
 
         ~FluxBasedSchemeDefinition()
         {

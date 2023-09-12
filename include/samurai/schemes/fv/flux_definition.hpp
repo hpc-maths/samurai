@@ -78,11 +78,11 @@ namespace samurai
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
     struct NormalFluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>
     {
-        static constexpr std::size_t dim                    = Field::dim;
-        static constexpr std::size_t field_size             = Field::size;
-        static constexpr std::size_t flux_output_field_size = field_size;
-        using field_value_type                              = typename Field::value_type;
-        using flux_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, flux_output_field_size, field_size>::Type;
+        static constexpr std::size_t dim        = Field::dim;
+        static constexpr std::size_t field_size = Field::size;
+        using field_value_type                  = typename Field::value_type;
+
+        using flux_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
         using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<stencil_size>>;
         using flux_func             = std::function<flux_stencil_coeffs_t(double)>;
 
@@ -228,6 +228,12 @@ namespace samurai
             return m_normal_fluxes[d];
         }
     };
+
+    template <FluxType flux_type, class Field, std::size_t output_field_size, std::size_t stencil_size = 2>
+    auto make_flux_definition()
+    {
+        return FluxDefinition<flux_type, Field, output_field_size, stencil_size>();
+    }
 
     /**
      * Defines a LINEAR and HOMOGENEOUS flux

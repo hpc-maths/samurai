@@ -52,64 +52,65 @@ namespace samurai
 
       public:
 
-        using scheme_definition_t     = typename base_class::scheme_definition_t;
-        using flux_definition_t       = typename scheme_definition_t::flux_definition_t;
-        using scheme_stencil_coeffs_t = typename scheme_definition_t::scheme_stencil_coeffs_t;
-        using flux_stencil_coeffs_t   = typename scheme_definition_t::flux_stencil_coeffs_t;
+        using scheme_definition_t = typename base_class::scheme_definition_t;
+        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
         explicit GradientFV(const flux_definition_t& flux_definition)
             : base_class(flux_definition)
         {
             this->set_name("Gradient");
-            static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
-            add_contribution_to_scheme_definition();
-        }
-
-      private:
-
-        void add_contribution_to_scheme_definition()
-        {
-            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-                [&](auto integral_constant_d)
-                {
-                    static constexpr int d = decltype(integral_constant_d)::value;
-                    this->definition()[d].set_contribution(add_flux_to_row<d>);
-                });
-        }
-
-        template <std::size_t d>
-        static scheme_stencil_coeffs_t add_flux_to_row(flux_stencil_coeffs_t& flux)
-        {
-            scheme_stencil_coeffs_t coeffs;
-            for (std::size_t i = 0; i < stencil_size; ++i)
-            {
-                if constexpr (dim == 1)
-                {
-                    coeffs[i] = flux[i];
-                }
-                else
-                {
-                    coeffs[i].fill(0);
-                    xt::row(coeffs[i], d) = flux[i];
-                }
-            }
-            return coeffs;
         }
     };
+
+    template <class Field, std::size_t output_field_size, std::size_t stencil_size = 2>
+    auto make_gradient(const FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition)
+    {
+        return GradientFV<Field, stencil_size>(flux_definition);
+    }
 
     template <class Field>
     auto make_gradient()
     {
-        static constexpr std::size_t flux_output_field_size = Field::size;
+        static_assert(Field::size == 1, "The field type for the gradient operator must be a scalar field.");
 
-        auto flux_definition = make_flux_definition<Field, flux_output_field_size>(get_average_coeffs<Field>);
-        return make_gradient(flux_definition);
-    }
+        static constexpr std::size_t dim               = Field::dim;
+        static constexpr std::size_t output_field_size = dim;
 
-    template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    auto make_gradient(const FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition)
-    {
-        return GradientFV<Field, stencil_size>(flux_definition);
+        using flux_computation_t = NormalFluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size>;
+
+        // 2 matrices (left, right) of size output_field_size x field_size.
+        // In the case of the gradient, of size dim x 1, i.e. a column vector of size dim.
+        using flux_stencil_coeffs_t        = typename flux_computation_t::flux_stencil_coeffs_t;
+        static constexpr std::size_t left  = 0;
+        static constexpr std::size_t right = 1;
+
+        auto average_coeffs = samurai::make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
+
+        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+            [&](auto integral_constant_d)
+            {
+                static constexpr int d = decltype(integral_constant_d)::value;
+
+                average_coeffs[d].flux_function = [](double)
+                {
+                    flux_stencil_coeffs_t coeffs;
+                    if constexpr (output_field_size == 1)
+                    {
+                        coeffs[left]  = 0.5;
+                        coeffs[right] = 0.5;
+                    }
+                    else
+                    {
+                        coeffs[left].fill(0);
+                        coeffs[right].fill(0);
+                        xt::row(coeffs[left], d)  = 0.5;
+                        xt::row(coeffs[right], d) = 0.5;
+                    }
+                    return coeffs;
+                };
+            });
+
+        return samurai::make_gradient<Field, output_field_size>(average_coeffs);
     }
 
     template <class Field>
