@@ -1,4 +1,6 @@
 #pragma once
+#include <functional>
+#include <xtensor/xfixed.hpp>
 
 namespace samurai
 {

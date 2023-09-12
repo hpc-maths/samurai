@@ -56,7 +56,7 @@ namespace samurai
             build_scheme_definition();
         }
 
-        Scalar_x_FluxBasedScheme(Scalar_x_FluxBasedScheme<Scheme>&& other)
+        Scalar_x_FluxBasedScheme(Scalar_x_FluxBasedScheme<Scheme>&& other) noexcept
             : base_class(flux_definition_t())
             , m_scheme(other.scheme())
             , m_scalar(other.scalar())

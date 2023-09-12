@@ -1,5 +1,8 @@
 #pragma once
+#include "../../bc.hpp"
 #include "../../boundary.hpp"
+#include "../../field.hpp"
+#include "../../static_algorithm.hpp"
 #include "flux_definition.hpp"
 
 namespace samurai
@@ -108,15 +111,13 @@ namespace samurai
 
         using directional_bdry_config_t = DirectionalBoundaryConfig<Field, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
 
-      protected:
+      private:
 
         std::string m_name = "(unnamed)";
 
       public:
 
-        FVScheme()
-        {
-        }
+        FVScheme() = default;
 
         std::string name() const
         {
@@ -143,9 +144,7 @@ namespace samurai
             return *static_cast<DerivedScheme*>(this);
         }
 
-        virtual ~FVScheme()
-        {
-        }
+        virtual ~FVScheme() = default;
 
         template <class Coeffs>
         inline static double cell_coeff(const Coeffs& coeffs,

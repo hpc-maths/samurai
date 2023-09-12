@@ -85,7 +85,7 @@ namespace samurai
         return hidden_constant * pow(h, order);
     }
 
-    double convergence_order(double h1, double error1, double h2, double error2)
+    inline double convergence_order(double h1, double error1, double h2, double error2)
     {
         return log(error2 / error1) / log(h2 / h1);
     }

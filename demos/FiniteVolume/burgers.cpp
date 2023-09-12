@@ -17,7 +17,7 @@ double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double 
 {
     const double a = 1;
     const double b = 0;
-    double x       = coords(0);
+    double& x      = coords(0);
     return (a * x + b) / (a * t + 1);
 }
 
@@ -157,7 +157,7 @@ int main_dim(int argc, char* argv[])
             samurai::for_each_cell(mesh,
                                    [&](auto& cell)
                                    {
-                                       double max = 2;
+                                       const double max = 2;
                                        for (std::size_t d = 0; d < dim; ++d)
                                        {
                                            if (cell.center(d) >= -0.5 && cell.center(d) <= 0)

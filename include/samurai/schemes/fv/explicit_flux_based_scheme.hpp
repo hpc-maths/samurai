@@ -20,7 +20,7 @@ namespace samurai
         static constexpr std::size_t output_field_size = Scheme::output_field_size;
         static constexpr std::size_t stencil_size      = Scheme::stencil_size;
 
-      protected:
+      private:
 
         const Scheme* m_scheme = nullptr;
 
