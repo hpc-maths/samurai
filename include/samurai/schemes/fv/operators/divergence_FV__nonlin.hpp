@@ -19,26 +19,26 @@ namespace samurai
         using scheme_definition_t = typename base_class::scheme_definition_t;
         using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
-        explicit DivergenceFV_NonLin(const flux_definition_t& flux_definition, Field& u)
-            : base_class(flux_definition, u)
+        explicit DivergenceFV_NonLin(const flux_definition_t& flux_definition)
+            : base_class(flux_definition)
         {
             this->set_name("Flux divergence");
         }
     };
 
     template <class Field>
-    auto make_divergence_nonlin(Field& f)
+    auto make_divergence_nonlin()
     {
         static constexpr std::size_t output_field_size = 1;
 
         auto flux_definition = make_flux_definition<Field, output_field_size>(get_average_value<Field>);
-        return make_divergence_FV(flux_definition, f);
+        return make_divergence_FV(flux_definition);
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    auto make_divergence(const FluxDefinition<FluxType::NonLinear, Field, output_field_size, stencil_size>& flux_definition, Field& f)
+    auto make_divergence(const FluxDefinition<FluxType::NonLinear, Field, output_field_size, stencil_size>& flux_definition)
     {
-        return DivergenceFV_NonLin<Field, output_field_size, stencil_size>(flux_definition, f);
+        return DivergenceFV_NonLin<Field, output_field_size, stencil_size>(flux_definition);
     }
 
 } // end namespace samurai

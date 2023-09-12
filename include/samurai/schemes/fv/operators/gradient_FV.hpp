@@ -57,8 +57,8 @@ namespace samurai
         using scheme_stencil_coeffs_t = typename scheme_definition_t::scheme_stencil_coeffs_t;
         using flux_stencil_coeffs_t   = typename scheme_definition_t::flux_stencil_coeffs_t;
 
-        explicit GradientFV(const flux_definition_t& flux_definition, Field& u)
-            : base_class(flux_definition, u)
+        explicit GradientFV(const flux_definition_t& flux_definition)
+            : base_class(flux_definition)
         {
             this->set_name("Gradient");
             static_assert(Field::size == 1, "The field put in the gradient operator must be a scalar field.");
@@ -98,24 +98,24 @@ namespace samurai
     };
 
     template <class Field>
-    [[deprecated("Use make_gradient() instead.")]] auto make_gradient_FV(Field& f)
-    {
-        return make_gradient(f);
-    }
-
-    template <class Field>
-    auto make_gradient(Field& f)
+    auto make_gradient()
     {
         static constexpr std::size_t flux_output_field_size = Field::size;
 
         auto flux_definition = make_flux_definition<Field, flux_output_field_size>(get_average_coeffs<Field>);
-        return make_gradient(flux_definition, f);
+        return make_gradient(flux_definition);
     }
 
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    auto make_gradient(const FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition, Field& f)
+    auto make_gradient(const FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition)
     {
-        return GradientFV<Field, stencil_size>(flux_definition, f);
+        return GradientFV<Field, stencil_size>(flux_definition);
+    }
+
+    template <class Field>
+    [[deprecated("Use make_gradient() instead.")]] auto make_gradient_FV()
+    {
+        return make_gradient<Field>();
     }
 
 } // end namespace samurai

@@ -12,8 +12,7 @@ namespace samurai
 
       public:
 
-        explicit IdentityFV(Field& unknown)
-            : base_class(unknown)
+        IdentityFV()
         {
             this->set_name("Identity");
         }
@@ -40,15 +39,15 @@ namespace samurai
     };
 
     template <class Field>
-    [[deprecated("Use make_identity() instead.")]] auto make_identity_FV(Field& f)
+    auto make_identity()
     {
-        return make_identity(f);
+        return IdentityFV<Field>();
     }
 
     template <class Field>
-    auto make_identity(Field& f)
+    [[deprecated("Use make_identity() instead.")]] auto make_identity_FV()
     {
-        return IdentityFV<Field>(f);
+        return make_identity<Field>();
     }
 
 } // end namespace samurai

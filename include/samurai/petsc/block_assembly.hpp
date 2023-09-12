@@ -87,6 +87,13 @@ namespace samurai
             }
 
             template <class... Fields>
+            void set_unknowns(Fields&... unknowns)
+            {
+                auto unknown_tuple = block_operator().tie_unknowns(unknowns...);
+                set_unknown(unknown_tuple);
+            }
+
+            template <class... Fields>
             void set_unknown(std::tuple<Fields...>& unknowns)
             {
                 for_each_assembly_op(
@@ -114,6 +121,17 @@ namespace samurai
                                 i++;
                             });
                     });
+            }
+
+            bool undefined_unknown() const
+            {
+                bool undefined = false;
+                for_each_assembly_op(
+                    [&](auto& op, auto, auto)
+                    {
+                        undefined = undefined || !op.unknown_ptr();
+                    });
+                return undefined;
             }
 
             std::array<std::string, cols> field_names() const
@@ -333,7 +351,6 @@ namespace samurai
                     {
                         op.set_is_block(true);
                     });
-                reset();
             }
 
             void reset() override

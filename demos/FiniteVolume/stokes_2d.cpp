@@ -233,6 +233,9 @@ int main(int argc, char* argv[])
         auto velocity = samurai::make_field<dim, is_soa>("velocity", mesh);
         auto pressure = samurai::make_field<1, is_soa>("pressure", mesh);
 
+        using VelocityField = decltype(velocity);
+        using PressureField = decltype(pressure);
+
         // Boundary conditions
         samurai::make_bc<samurai::Dirichlet>(velocity,
                                              [](const auto&, const auto& coord)
@@ -258,10 +261,10 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = samurai::make_diffusion(velocity);
-        auto grad    = samurai::make_gradient(pressure);
-        auto div     = samurai::make_divergence(velocity);
-        auto zero_op = samurai::make_zero_operator(pressure);
+        auto diff    = samurai::make_diffusion<VelocityField>();
+        auto grad    = samurai::make_gradient<PressureField>();
+        auto div     = samurai::make_divergence<VelocityField>();
+        auto zero_op = samurai::make_zero_operator<PressureField>();
 
         auto stokes = samurai::make_block_operator<2, 2>(diff, grad,
                                                          -div, zero_op);
@@ -285,11 +288,11 @@ int main(int argc, char* argv[])
         // Linear solver
         std::cout << "Solving Stokes system..." << std::endl;
         auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
+
+        stokes_solver.set_unknowns(velocity, pressure);
         configure_solver(stokes_solver);
 
-        auto unknowns = stokes.tie_unknowns(velocity, pressure);
-        auto rhs      = stokes.tie_rhs(f, zero);
-        stokes_solver.solve(unknowns, rhs);
+        stokes_solver.solve(f, zero);
         std::cout << stokes_solver.iterations() << " iterations" << std::endl << std::endl;
 
         // Error
@@ -397,6 +400,10 @@ int main(int argc, char* argv[])
         auto velocity     = samurai::make_field<dim, is_soa>("velocity", mesh);
         auto velocity_np1 = samurai::make_field<dim, is_soa>("velocity_np1", mesh);
         auto pressure_np1 = samurai::make_field<1, is_soa>("pressure_np1", mesh);
+
+        using VelocityField = decltype(velocity);
+        using PressureField = decltype(pressure_np1);
+
         // Right-hand side
         auto rhs  = samurai::make_field<dim, is_soa>("rhs", mesh);
         auto zero = samurai::make_field<1, is_soa>("zero", mesh);
@@ -418,11 +425,11 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = diff_coeff * samurai::make_diffusion(velocity_np1);
-        auto grad    =              samurai::make_gradient(pressure_np1);
-        auto div     =              samurai::make_divergence(velocity_np1);
-        auto zero_op =              samurai::make_zero_operator(pressure_np1);
-        auto id      =              samurai::make_identity(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion<VelocityField>();
+        auto grad    =              samurai::make_gradient<PressureField>();
+        auto div     =              samurai::make_divergence<VelocityField>();
+        auto zero_op =              samurai::make_zero_operator<PressureField>();
+        auto id      =              samurai::make_identity<VelocityField>();
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
@@ -433,6 +440,8 @@ int main(int argc, char* argv[])
 
         // Linear solver
         auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
+
+        stokes_solver.set_unknowns(velocity_np1, pressure_np1);
         configure_solver(stokes_solver);
 
         // Initial condition
@@ -512,6 +521,7 @@ int main(int argc, char* argv[])
                     stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
                 }
                 stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
+                stokes_solver.set_unknowns(velocity_np1, pressure_np1);
                 configure_solver(stokes_solver);
             }
 
@@ -527,9 +537,7 @@ int main(int argc, char* argv[])
             rhs.fill(0);
             rhs = velocity + dt * f;
             zero.fill(0);
-            auto unknowns = stokes.tie_unknowns(velocity_np1, pressure_np1);
-            auto tied_rhs = stokes.tie_rhs(rhs, zero);
-            stokes_solver.solve(unknowns, tied_rhs);
+            stokes_solver.solve(rhs, zero);
 
             // Prepare next step
             std::swap(velocity.array(), velocity_np1.array());
@@ -597,6 +605,10 @@ int main(int argc, char* argv[])
         auto velocity     = samurai::make_field<dim, is_soa>("velocity", mesh);
         auto velocity_np1 = samurai::make_field<dim, is_soa>("velocity_np1", mesh);
         auto pressure_np1 = samurai::make_field<1, is_soa>("pressure_np1", mesh);
+
+        using VelocityField = decltype(velocity);
+        using PressureField = decltype(pressure_np1);
+
         // Right-hand side
         auto rhs  = samurai::make_field<dim, is_soa>("rhs", mesh);
         auto zero = samurai::make_field<1, is_soa>("zero", mesh);
@@ -627,12 +639,12 @@ int main(int argc, char* argv[])
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = diff_coeff * samurai::make_diffusion(velocity_np1);
-        auto grad    =              samurai::make_gradient(pressure_np1);
-        auto conv    =              samurai::make_convection(velocity);
-        auto div     =              samurai::make_divergence(velocity_np1);
-        auto zero_op =              samurai::make_zero_operator(pressure_np1);
-        auto id      =              samurai::make_identity(velocity_np1);
+        auto diff    = diff_coeff * samurai::make_diffusion<VelocityField>();
+        auto grad    =              samurai::make_gradient<PressureField>();
+        auto conv    =              samurai::make_convection<VelocityField>();
+        auto div     =              samurai::make_divergence<VelocityField>();
+        auto zero_op =              samurai::make_zero_operator<PressureField>();
+        auto id      =              samurai::make_identity<VelocityField>();
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
@@ -645,6 +657,8 @@ int main(int argc, char* argv[])
 
         // Linear solver
         auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
+
+        stokes_solver.set_unknowns(velocity_np1, pressure_np1);
         configure_solver(stokes_solver);
 
         // Time iteration
@@ -702,6 +716,7 @@ int main(int argc, char* argv[])
                     stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
                 }
                 stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
+                stokes_solver.set_unknowns(velocity_np1, pressure_np1);
                 configure_solver(stokes_solver);
             }
 
@@ -710,9 +725,7 @@ int main(int argc, char* argv[])
             auto conv_v = conv(velocity);
             rhs         = velocity - dt * conv_v;
             zero.fill(0);
-            auto unknowns  = stokes.tie_unknowns(velocity_np1, pressure_np1);
-            auto block_rhs = stokes.tie_rhs(rhs, zero);
-            stokes_solver.solve(unknowns, block_rhs);
+            stokes_solver.solve(rhs, zero);
 
             // Prepare next step
             std::swap(velocity.array(), velocity_np1.array());

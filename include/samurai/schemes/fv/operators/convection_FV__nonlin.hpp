@@ -19,7 +19,7 @@ namespace samurai
      *   | uv  |                    | v^2 |
      */
     template <class Field>
-    auto make_convection(Field& u)
+    auto make_convection()
     {
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
@@ -43,7 +43,7 @@ namespace samurai
                     return v[left] >= 0 ? f(v[left]) : f(v[right]);
                 });
 
-            return samurai::make_divergence(upwind_f, u);
+            return samurai::make_divergence(upwind_f);
         }
         else if constexpr (field_size == dim)
         {
@@ -88,7 +88,7 @@ namespace samurai
                     return v[bottom](y) >= 0 ? f_y(v[bottom]) : f_y(v[top]);
                 };
 
-                return make_divergence(upwind_f, u);
+                return make_divergence(upwind_f);
             }
             if constexpr (dim == 3)
             {
@@ -145,7 +145,7 @@ namespace samurai
                     return v[bottom](z) >= 0 ? f_z(v[bottom]) : f_z(v[top]);
                 };
 
-                return make_divergence(upwind_f, u);
+                return make_divergence(upwind_f);
             }
             else
             {
@@ -178,7 +178,7 @@ namespace samurai
                     };
                 });
 
-            return make_divergence(upwind_f, u);
+            return make_divergence(upwind_f);
             //}
         }
 

@@ -133,8 +133,7 @@ namespace samurai
 
       public:
 
-        explicit FluxBasedScheme(const flux_definition_t& flux_definition, Field& unknown)
-            : base_class(unknown)
+        explicit FluxBasedScheme(const flux_definition_t& flux_definition)
         {
             add_flux_to_scheme_definition(flux_definition);
         }

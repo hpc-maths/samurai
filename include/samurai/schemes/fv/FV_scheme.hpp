@@ -111,12 +111,10 @@ namespace samurai
       protected:
 
         std::string m_name = "(unnamed)";
-        Field* m_unknown;
 
       public:
 
-        explicit FVScheme(Field& unknown)
-            : m_unknown(&unknown)
+        FVScheme()
         {
         }
 
@@ -128,11 +126,6 @@ namespace samurai
         void set_name(const std::string& name)
         {
             m_name = name;
-        }
-
-        auto& unknown() const
-        {
-            return *m_unknown;
         }
 
         inline DerivedScheme& derived_cast() & noexcept

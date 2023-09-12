@@ -236,8 +236,9 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    auto diff   = samurai::make_diffusion<samurai::DirichletEnforcement::Equation>(solution);
+    auto diff   = samurai::make_diffusion<samurai::DirichletEnforcement::Equation, decltype(solution)>();
     auto solver = samurai::petsc::make_solver(diff);
+    solver.set_unknown(solution);
 
     Timer setup_timer, solve_timer, total_timer;
 
@@ -250,7 +251,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Solving..." << std::endl;
     solve_timer.Start();
-    solver.solve(solution, source);
+    solver.solve(source);
     solve_timer.Stop();
 
     total_timer.Stop();

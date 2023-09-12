@@ -32,7 +32,6 @@ namespace samurai
 
             explicit Assembly(const scheme_t& sum_scheme)
                 : m_sum_scheme(&sum_scheme)
-                , m_unknown(&sum_scheme.unknown())
                 , m_flux_assembly(sum_scheme.flux_scheme())
                 , m_cell_assembly(sum_scheme.cell_scheme())
             {
@@ -41,13 +40,23 @@ namespace samurai
 
             auto& unknown() const
             {
-                assert(m_unknown);
-                return *m_unknown;
+                return m_flux_assembly.unknown();
+            }
+
+            auto unknown_ptr() const
+            {
+                return m_flux_assembly.unknown_ptr();
+            }
+
+            bool undefined_unknown() const
+            {
+                return !m_flux_assembly.unknown_ptr();
             }
 
             void set_unknown(field_t& unknown)
             {
-                m_unknown = &unknown;
+                m_flux_assembly.set_unknown(unknown);
+                m_cell_assembly.set_unknown(unknown);
             }
 
             auto& scheme() const

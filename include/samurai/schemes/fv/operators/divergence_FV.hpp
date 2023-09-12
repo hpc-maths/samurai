@@ -55,8 +55,8 @@ namespace samurai
         using flux_stencil_coeffs_t             = typename scheme_definition_t::flux_stencil_coeffs_t;
         static constexpr std::size_t field_size = Field::size;
 
-        explicit DivergenceFV(const flux_definition_t& flux_definition, Field& u)
-            : base_class(flux_definition, u)
+        explicit DivergenceFV(const flux_definition_t& flux_definition)
+            : base_class(flux_definition)
         {
             this->set_name("Divergence");
             static_assert(field_size == dim, "The field put into the divergence operator must have a size equal to the space dimension.");
@@ -99,25 +99,24 @@ namespace samurai
     };
 
     template <class Field>
-    [[deprecated("Use make_divergence() instead.")]] auto make_divergence_FV(Field& f)
+    [[deprecated("Use make_divergence() instead.")]] auto make_divergence_FV()
     {
-        return make_divergence(f);
+        return make_divergence<Field>();
     }
 
     template <class Field>
-    auto make_divergence(Field& f)
+    auto make_divergence()
     {
         static constexpr std::size_t flux_output_field_size = Field::size;
 
         auto flux_definition = make_flux_definition<Field, flux_output_field_size>(get_average_coeffs<Field>);
-        return make_divergence(flux_definition, f);
+        return make_divergence(flux_definition);
     }
 
     template <class Field, std::size_t flux_output_field_size, std::size_t stencil_size>
-    auto make_divergence(const FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>& flux_definition,
-                         Field& f)
+    auto make_divergence(const FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>& flux_definition)
     {
-        return DivergenceFV<Field, stencil_size>(flux_definition, f);
+        return DivergenceFV<Field, stencil_size>(flux_definition);
     }
 
 } // end namespace samurai
