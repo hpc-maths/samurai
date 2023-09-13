@@ -30,11 +30,6 @@ namespace samurai
         {
             return {zeros<local_matrix_t>()};
         }
-
-        bool matrix_is_symmetric(const Field& unknown) const override
-        {
-            return is_uniform(unknown.mesh());
-        }
     };
 
     // For some reason this version with an empty stencil is slower...
@@ -61,7 +56,9 @@ namespace samurai
     template <std::size_t output_field_size, class Field>
     auto make_zero_operator()
     {
-        return ZeroOperatorFV<Field, output_field_size>();
+        ZeroOperatorFV<Field, output_field_size> zero;
+        zero.is_symmetric(true);
+        return zero;
     }
 
     template <class Field>

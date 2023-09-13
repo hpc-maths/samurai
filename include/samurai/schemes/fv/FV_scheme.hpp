@@ -113,7 +113,9 @@ namespace samurai
 
       private:
 
-        std::string m_name = "(unnamed)";
+        std::string m_name  = "(unnamed)";
+        bool m_is_symmetric = false;
+        bool m_is_spd       = false;
 
       public:
 
@@ -249,19 +251,29 @@ namespace samurai
         }
 
         /**
-         * @brief Is the matrix symmetric?
+         * @brief Is the operator symmetric?
          */
-        virtual bool matrix_is_symmetric(const Field&) const
+        bool is_symmetric() const
         {
-            return false;
+            return m_is_symmetric;
         }
 
         /**
-         * @brief Is the matrix symmetric positive-definite?
+         * @brief Is the operator symmetric positive-definite?
          */
-        virtual bool matrix_is_spd(const Field&) const
+        bool is_spd() const
         {
-            return false;
+            return m_is_spd;
+        }
+
+        void is_symmetric(bool value)
+        {
+            m_is_symmetric = value;
+        }
+
+        void is_spd(bool value)
+        {
+            m_is_spd = value;
         }
     };
 

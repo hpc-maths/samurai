@@ -26,22 +26,15 @@ namespace samurai
         {
             return {eye<local_matrix_t>()};
         }
-
-        bool matrix_is_symmetric(const Field& unknown) const override
-        {
-            return is_uniform(unknown.mesh());
-        }
-
-        bool matrix_is_spd(const Field& unknown) const override
-        {
-            return matrix_is_symmetric(unknown);
-        }
     };
 
     template <class Field>
     auto make_identity()
     {
-        return IdentityFV<Field>();
+        IdentityFV<Field> id;
+        id.is_symmetric(true);
+        id.is_spd(true);
+        return id;
     }
 
     template <class Field>

@@ -137,6 +137,9 @@ namespace samurai
                         }
                     }
                 });
+
+            this->is_symmetric(m_scheme.is_symmetric());
+            this->is_spd(m_scheme.is_spd() && m_scalar != 0);
         }
 
         directional_bdry_config_t dirichlet_config(const DirectionVector<dim>& direction) const override
@@ -147,20 +150,6 @@ namespace samurai
         directional_bdry_config_t neumann_config(const DirectionVector<dim>& direction) const override
         {
             return m_scheme.neumann_config(direction);
-        }
-
-        bool matrix_is_symmetric(const field_t& f) const override
-        {
-            return m_scheme.matrix_is_symmetric(f);
-        }
-
-        bool matrix_is_spd(const field_t& f) const override
-        {
-            if (m_scheme.matrix_is_spd(f))
-            {
-                return m_scalar != 0;
-            }
-            return false;
         }
     };
 

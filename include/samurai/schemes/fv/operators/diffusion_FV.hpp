@@ -113,17 +113,6 @@ namespace samurai
 
             return config;
         }
-
-        bool matrix_is_symmetric(const field_t& unknown) const override
-        {
-            // The projections/predictions kill the symmetry, so the matrix is spd only if the mesh is uniform.
-            return is_uniform(unknown.mesh());
-        }
-
-        bool matrix_is_spd(const field_t& unknown) const override
-        {
-            return matrix_is_symmetric(unknown);
-        }
     };
 
     template <class Field, std::size_t flux_output_field_size, std::size_t stencil_size = 2, DirichletEnforcement dirichlet_enfcmt = Equation>
@@ -179,7 +168,10 @@ namespace samurai
                 };
             });
 
-        return make_diffusion<Field, output_field_size, 2, dirichlet_enfcmt>(normal_grad);
+        auto diff = make_diffusion<Field, output_field_size, 2, dirichlet_enfcmt>(normal_grad);
+        diff.is_symmetric(true);
+        diff.is_spd(true);
+        return diff;
         //  return make_divergence(flux_definition);
     }
 

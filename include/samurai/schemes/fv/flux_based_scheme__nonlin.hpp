@@ -114,7 +114,7 @@ namespace samurai
         using scheme_definition_t = FluxBasedSchemeDefinition<FluxType::NonLinear, Field, output_field_size, stencil_size>;
         using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
-      protected:
+      private:
 
         std::array<scheme_definition_t, dim> m_scheme_definition;
 
