@@ -5,9 +5,8 @@
 namespace samurai
 {
     /**
-     * @class DiffusionFV
-     * Assemble the matrix for the problem -Lap(u)=f.
-     * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
+     * @class DiffusionFV:
+     * implements the operator -Laplacian.
      */
     template <
         // template parameters
@@ -35,6 +34,8 @@ namespace samurai
             : base_class(flux_definition)
         {
             this->set_name("Diffusion");
+            this->is_symmetric(true);
+            this->is_spd(true);
         }
 
         //---------------------------------//
@@ -128,15 +129,7 @@ namespace samurai
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
 
-        using flux_computation_t = NormalFluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size>;
-
-        // 2 matrices (left, right) of size output_field_size x field_size.
-        // In the case of the laplacian, of size field_size x field_size.
-        using flux_stencil_coeffs_t        = typename flux_computation_t::flux_stencil_coeffs_t;
-        static constexpr std::size_t left  = 0;
-        static constexpr std::size_t right = 1;
-
-        auto normal_grad = samurai::make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
+        auto normal_grad = make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
@@ -145,6 +138,12 @@ namespace samurai
 
                 normal_grad[d].flux_function = [](double h)
                 {
+                    // 2 matrices (left, right) of size output_field_size x field_size.
+                    // In this case, of size field_size x field_size.
+                    using flux_stencil_coeffs_t        = typename decltype(normal_grad)::flux_computation_t::flux_stencil_coeffs_t;
+                    static constexpr std::size_t left  = 0;
+                    static constexpr std::size_t right = 1;
+
                     flux_stencil_coeffs_t coeffs;
                     if constexpr (field_size == 1)
                     {
@@ -168,11 +167,7 @@ namespace samurai
                 };
             });
 
-        auto diff = make_diffusion<Field, output_field_size, 2, dirichlet_enfcmt>(normal_grad);
-        diff.is_symmetric(true);
-        diff.is_spd(true);
-        return diff;
-        //  return make_divergence(flux_definition);
+        return make_diffusion<Field, output_field_size, 2, dirichlet_enfcmt>(normal_grad);
     }
 
     template <class Field>

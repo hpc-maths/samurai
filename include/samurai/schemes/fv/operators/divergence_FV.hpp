@@ -3,66 +3,10 @@
 
 namespace samurai
 {
-    /**
-     * If u is a field of size 2, e.g. the velocity --> u = (u_x, u_y), then
-     *         Div(u) = d(u_x)/dx + d(u_y)/dy.
-     * On each cell, we adopt a cell-centered approximation:
-     *         d(u_x)/dx = 1/2 [(u_x^R - u_x)/h + (u_x - u_x^L)/h]   where (L, R) = (Left, Right)
-     *         d(u_y)/dy = 1/2 [(u_y^T - u_y)/h + (u_y - u_x^B)/h]   where (B, T) = (Bottom, Top).
-     * We denote by Fx^f = d(u_x)/dx * n_f the outer normal flux through the face f, i.e.
-     *         Fx^R = (u_x^R - u_x)/h,      Fx^L = (u_x^L - u_x)/h,
-     *         Fy^T = (u_y^T - u_y)/h,      Fy^B = (u_y^B - u_y)/h.
-     * The approximations become
-     *         d(u_x)/dx = 1/2 (Fx^R - Fx^L)
-     *         d(u_y)/dy = 1/2 (Fy^T - Fy^B).
-     * and finally,
-     *         Div(u) = 1/2 (Fx^R - Fx^L) + 1/2 (Fy^T - Fy^B)      (S)
-     *
-     * Implementation:
-     *
-     * 1. The computation of the normal fluxes between cell 1 and cell 2 (in the direction d=x or y) is given by
-     *         Fx = (u_x^2 - u_x^1)/h = -1/h * u_x^1 + 1/h * u_x^2 +  0 * u_y^1 +   0 * u_y^2    if d=x
-     *         Fy = (u_y^2 - u_y^1)/h =    0 * u_x^1 +   0 * u_x^2 -1/h * u_y^1 + 1/h * u_x^2    if d=y
-     *
-     *    So   F = [-1/h   0 | 1/h   0  ] if d=x
-     *         F = [  0  -1/h|  0   1/h ] if d=y
-     *             |_________|__________|
-     *               cell 1     cell 2
-     *
-     * 2. On each couple (cell 1, cell 2), we compute Fx^R(1) or Fx^T(1) (according to the direction) and consider that
-     *         Fx^L(2) = -Fx^R(1)
-     *         Fy^B(2) = -Fy^T(1).
-     *    The divergence scheme (S) becomes
-     *         Div(u)(cell 1) = 1/2 (Fx^R(1) + Fx^L(2)) + 1/2 (Fy^T(1) + Fy^B(2)), where 2 denotes the neighbour in the appropriate
-     * direction. So the contribution of a flux F (R or T) computed on cell 1 is for cell 1: 1/2 F for cell 2: 1/2 F
-     */
-    template <class Field,
-              std::size_t stencil_size = 2,
-              // scheme config
-              std::size_t dim               = Field::dim,
-              std::size_t output_field_size = 1,
-              class cfg                     = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size>,
-              class bdry_cfg                = BoundaryConfigFV<stencil_size / 2>>
-    class DivergenceFV : public FluxBasedScheme<DivergenceFV<Field, stencil_size>, cfg, bdry_cfg, Field>
+    template <class Field, std::size_t output_field_size, std::size_t stencil_size>
+    auto make_divergence(const FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition)
     {
-        using base_class = FluxBasedScheme<DivergenceFV<Field, stencil_size>, cfg, bdry_cfg, Field>;
-
-      public:
-
-        using scheme_definition_t = typename base_class::scheme_definition_t;
-        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
-
-        explicit DivergenceFV(const flux_definition_t& flux_definition)
-            : base_class(flux_definition)
-        {
-            this->set_name("Divergence");
-        }
-    };
-
-    template <class Field, std::size_t flux_output_field_size, std::size_t stencil_size = 2>
-    auto make_divergence(const FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>& flux_definition)
-    {
-        return DivergenceFV<Field, stencil_size>(flux_definition);
+        return make_flux_based_scheme(flux_definition);
     }
 
     template <class Field>
@@ -74,15 +18,7 @@ namespace samurai
 
         static constexpr std::size_t output_field_size = 1;
 
-        using flux_computation_t = NormalFluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size>;
-
-        // 2 matrices (left, right) of size output_field_size x field_size.
-        // In the case of the divergence, of size 1 x dim, i.e. a row vector of size dim.
-        using flux_stencil_coeffs_t        = typename flux_computation_t::flux_stencil_coeffs_t;
-        static constexpr std::size_t left  = 0;
-        static constexpr std::size_t right = 1;
-
-        auto average_coeffs = samurai::make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
+        auto average_coeffs = make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
@@ -91,6 +27,12 @@ namespace samurai
 
                 average_coeffs[d].flux_function = [](double)
                 {
+                    // 2 matrices (left, right) of size output_field_size x field_size.
+                    // In this case, of size 1 x dim, i.e. a row vector of size dim.
+                    using flux_stencil_coeffs_t        = typename decltype(average_coeffs)::flux_computation_t::flux_stencil_coeffs_t;
+                    static constexpr std::size_t left  = 0;
+                    static constexpr std::size_t right = 1;
+
                     flux_stencil_coeffs_t coeffs;
                     if constexpr (field_size == 1)
                     {
@@ -108,7 +50,9 @@ namespace samurai
                 };
             });
 
-        return samurai::make_divergence<Field, output_field_size>(average_coeffs);
+        auto div = make_flux_based_scheme(average_coeffs);
+        div.set_name("Divergence");
+        return div;
     }
 
     template <class Field>

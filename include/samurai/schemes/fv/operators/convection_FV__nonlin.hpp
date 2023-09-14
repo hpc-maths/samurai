@@ -24,18 +24,17 @@ namespace samurai
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
-        static constexpr std::size_t stencil_size      = 2;
 
         if constexpr (field_size == 1)
         {
             auto f = [](auto v)
             {
-                auto f_v = samurai::make_flux_value<Field, output_field_size>();
+                auto f_v = make_flux_value<Field, output_field_size>();
                 f_v      = v * v;
                 return f_v;
             };
 
-            auto upwind_f = samurai::make_flux_definition<Field, output_field_size>(
+            auto upwind_f = make_flux_definition<Field, output_field_size>(
                 [f](auto& v, auto& cells)
                 {
                     auto& left  = cells[0];
@@ -43,7 +42,7 @@ namespace samurai
                     return v[left] >= 0 ? f(v[left]) : f(v[right]);
                 });
 
-            return samurai::make_divergence(upwind_f);
+            return make_flux_based_scheme(upwind_f);
         }
         else if constexpr (field_size == dim)
         {
@@ -56,7 +55,7 @@ namespace samurai
             {
                 auto f_x = [](auto v)
                 {
-                    auto f_v = samurai::make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<Field, output_field_size>();
                     f_v[0]   = v[0] * v[0];
                     f_v[1]   = v[0] * v[1];
                     return f_v;
@@ -64,13 +63,13 @@ namespace samurai
 
                 auto f_y = [](auto v)
                 {
-                    auto f_v = samurai::make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<Field, output_field_size>();
                     f_v[0]   = v[1] * v[0];
                     f_v[1]   = v[1] * v[1];
                     return f_v;
                 };
 
-                auto upwind_f = samurai::make_flux_definition<Field, output_field_size, stencil_size>();
+                auto upwind_f = make_flux_definition<Field, output_field_size>();
                 // x-direction
                 upwind_f[0].flux_function = [f_x](auto& v, auto& cells)
                 {
@@ -88,13 +87,13 @@ namespace samurai
                     return v[bottom](y) >= 0 ? f_y(v[bottom]) : f_y(v[top]);
                 };
 
-                return make_divergence(upwind_f);
+                return make_flux_based_scheme(upwind_f);
             }
             if constexpr (dim == 3)
             {
                 auto f_x = [](auto v)
                 {
-                    auto f_v = samurai::make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<Field, output_field_size>();
                     f_v[0]   = v[0] * v[0];
                     f_v[1]   = v[0] * v[1];
                     f_v[2]   = v[0] * v[2];
@@ -103,7 +102,7 @@ namespace samurai
 
                 auto f_y = [](auto v)
                 {
-                    auto f_v = samurai::make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<Field, output_field_size>();
                     f_v[0]   = v[1] * v[0];
                     f_v[1]   = v[1] * v[1];
                     f_v[2]   = v[1] * v[2];
@@ -112,14 +111,14 @@ namespace samurai
 
                 auto f_z = [](auto v)
                 {
-                    auto f_v = samurai::make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<Field, output_field_size>();
                     f_v[0]   = v[2] * v[0];
                     f_v[1]   = v[2] * v[1];
                     f_v[2]   = v[2] * v[2];
                     return f_v;
                 };
 
-                auto upwind_f = samurai::make_flux_definition<Field, output_field_size, stencil_size>();
+                auto upwind_f = make_flux_definition<Field, output_field_size>();
                 // x-direction
                 upwind_f[0].flux_function = [f_x](auto& v, auto& cells)
                 {
@@ -145,40 +144,41 @@ namespace samurai
                     return v[bottom](z) >= 0 ? f_z(v[bottom]) : f_z(v[top]);
                 };
 
-                return make_divergence(upwind_f);
+                return make_flux_based_scheme(upwind_f);
             }
             else
             {
             */
-            auto upwind_f = samurai::make_flux_definition<Field, output_field_size, stencil_size>();
+            auto upwind_f = make_flux_definition<Field, output_field_size>();
 
-            static_for<0, field_size>::apply( // for (int i=0; i<field_size; i++)
-                [&](auto integral_constant_i)
+            static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
+                [&](auto integral_constant_d)
                 {
-                    static constexpr int i = decltype(integral_constant_i)::value;
+                    static constexpr int d = decltype(integral_constant_d)::value;
 
                     auto f = [](auto v)
                     {
-                        auto f_v = samurai::make_flux_value<Field, output_field_size>();
+                        // f(v) = v[d] * v
+                        auto f_v = make_flux_value<Field, output_field_size>();
                         static_for<0, field_size>::apply( // for (int j=0; j<field_size; j++)
                             [&](auto integral_constant_j)
                             {
                                 static constexpr int j = decltype(integral_constant_j)::value;
 
-                                f_v[j] = v[i] * v[j];
+                                f_v[j] = v[d] * v[j];
                             });
                         return f_v;
                     };
 
-                    upwind_f[i].flux_function = [f](auto& v, auto& cells)
+                    upwind_f[d].flux_function = [f](auto& v, auto& cells)
                     {
                         auto& left  = cells[0];
                         auto& right = cells[1];
-                        return v[left](i) >= 0 ? f(v[left]) : f(v[right]);
+                        return v[left](d) >= 0 ? f(v[left]) : f(v[right]);
                     };
                 });
 
-            return make_divergence(upwind_f);
+            return make_flux_based_scheme(upwind_f);
             //}
         }
 

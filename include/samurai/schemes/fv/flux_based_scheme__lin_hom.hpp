@@ -309,4 +309,38 @@ namespace samurai
         }
     };
 
+    /**
+     * This class only exists as a default implementation of @class FluxBasedScheme,
+     * in order to define the helper function make_flux_based_scheme().
+     */
+    template <
+        // parameters
+        class Field,
+        std::size_t output_field_size,
+        std::size_t stencil_size,
+        // scheme config
+        class cfg      = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size>,
+        class bdry_cfg = BoundaryConfigFV<stencil_size / 2>>
+    class LinearHomogFluxBasedScheme
+        : public FluxBasedScheme<LinearHomogFluxBasedScheme<Field, output_field_size, stencil_size>, cfg, bdry_cfg, Field>
+    {
+        using base_class = FluxBasedScheme<LinearHomogFluxBasedScheme<Field, output_field_size, stencil_size>, cfg, bdry_cfg, Field>;
+
+      public:
+
+        using scheme_definition_t = typename base_class::scheme_definition_t;
+        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
+
+        explicit LinearHomogFluxBasedScheme(const flux_definition_t& flux_definition)
+            : base_class(flux_definition)
+        {
+        }
+    };
+
+    template <class Field, std::size_t output_field_size, std::size_t stencil_size>
+    auto make_flux_based_scheme(const FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition)
+    {
+        return LinearHomogFluxBasedScheme<Field, output_field_size, stencil_size>(flux_definition);
+    }
+
 } // end namespace samurai
