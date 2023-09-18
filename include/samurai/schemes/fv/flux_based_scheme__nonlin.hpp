@@ -89,13 +89,13 @@ namespace samurai
      * @class FluxBasedScheme
      *    Implementation of non-linear schemes
      */
-    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
-    class FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
-        : public FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>
+    template <class cfg, class bdry_cfg, class Field>
+    class FluxBasedScheme<cfg, bdry_cfg, Field, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
+        : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
     {
       protected:
 
-        using base_class = FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
 
       public:
 
@@ -303,38 +303,13 @@ namespace samurai
         }
     };
 
-    /**
-     * This class only exists as a default implementation of @class FluxBasedScheme,
-     * in order to define the helper function make_flux_based_scheme().
-     */
-    template <
-        // parameters
-        class Field,
-        std::size_t output_field_size,
-        std::size_t stencil_size,
-        // scheme config
-        class cfg      = FluxBasedSchemeConfig<FluxType::NonLinear, output_field_size, stencil_size>,
-        class bdry_cfg = BoundaryConfigFV<stencil_size / 2>>
-    class NonLinearFluxBasedScheme
-        : public FluxBasedScheme<NonLinearFluxBasedScheme<Field, output_field_size, stencil_size>, cfg, bdry_cfg, Field>
-    {
-        using base_class = FluxBasedScheme<NonLinearFluxBasedScheme<Field, output_field_size, stencil_size>, cfg, bdry_cfg, Field>;
-
-      public:
-
-        using scheme_definition_t = typename base_class::scheme_definition_t;
-        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
-
-        explicit NonLinearFluxBasedScheme(const flux_definition_t& flux_definition)
-            : base_class(flux_definition)
-        {
-        }
-    };
-
     template <class Field, std::size_t output_field_size, std::size_t stencil_size>
     auto make_flux_based_scheme(const FluxDefinition<FluxType::NonLinear, Field, output_field_size, stencil_size>& flux_definition)
     {
-        return NonLinearFluxBasedScheme<Field, output_field_size, stencil_size>(flux_definition);
+        using cfg      = FluxBasedSchemeConfig<FluxType::NonLinear, output_field_size, stencil_size>;
+        using bdry_cfg = BoundaryConfigFV<stencil_size / 2>;
+
+        return FluxBasedScheme<cfg, bdry_cfg, Field>(flux_definition);
     }
 
 } // end namespace samurai

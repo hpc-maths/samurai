@@ -18,9 +18,9 @@ namespace samurai
         std::size_t output_field_size = Field::size,
         class cfg                     = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size>,
         class bdry_cfg                = BoundaryConfigFV<stencil_size / 2, dirichlet_enfcmt>>
-    class DiffusionFV : public FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt, stencil_size>, cfg, bdry_cfg, Field>
+    class DiffusionFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
     {
-        using base_class = FluxBasedScheme<DiffusionFV<Field, dirichlet_enfcmt, stencil_size>, cfg, bdry_cfg, Field>;
+        using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
         using base_class::bdry_stencil_size;
 
       public:

@@ -15,9 +15,9 @@ namespace samurai
               std::size_t neighbourhood_width = 1,
               class cfg                       = StarStencilFV<dim, Field::size, neighbourhood_width>,
               class bdry_cfg                  = BoundaryConfigFV<neighbourhood_width, dirichlet_enfcmt>>
-    class DiffusionFV_old : public CellBasedScheme<DiffusionFV_old<Field, dirichlet_enfcmt>, cfg, bdry_cfg, Field>
+    class DiffusionFV_old : public CellBasedScheme<cfg, bdry_cfg, Field>
     {
-        using base_class = CellBasedScheme<DiffusionFV_old<Field, dirichlet_enfcmt>, cfg, bdry_cfg, Field>;
+        using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
         using base_class::bdry_stencil_size;
 
       public:

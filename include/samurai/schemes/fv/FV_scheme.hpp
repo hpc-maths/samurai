@@ -87,7 +87,7 @@ namespace samurai
      *     - the projection/prediction ghosts
      *     - the unused ghosts
      */
-    template <class DerivedScheme, class Field, std::size_t output_field_size_, class bdry_cfg_>
+    template <class Field, std::size_t output_field_size_, class bdry_cfg_>
     class FVScheme
     {
       public:

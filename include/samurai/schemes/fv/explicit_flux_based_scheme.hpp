@@ -9,10 +9,10 @@ namespace samurai
     /**
      * LINEAR and HOMOGENEOUS explicit schemes
      */
-    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
-    class Explicit<FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field>, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>>
+    template <class cfg, class bdry_cfg, class Field>
+    class Explicit<FluxBasedScheme<cfg, bdry_cfg, Field>, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>>
     {
-        using scheme_t                                 = FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field>;
+        using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg, Field>;
         using field_t                                  = typename scheme_t::field_t;
         using scheme_definition_t                      = typename scheme_t::scheme_definition_t;
         using flux_stencil_coeffs_t                    = typename scheme_definition_t::flux_stencil_coeffs_t;
@@ -104,10 +104,10 @@ namespace samurai
     /**
      * NON-LINEAR explicit schemes
      */
-    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
-    class Explicit<FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field>, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
+    template <class cfg, class bdry_cfg, class Field>
+    class Explicit<FluxBasedScheme<cfg, bdry_cfg, Field>, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
     {
-        using scheme_t                                 = FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field>;
+        using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg, Field>;
         using field_t                                  = typename scheme_t::field_t;
         using scheme_definition_t                      = typename scheme_t::scheme_definition_t;
         static constexpr std::size_t dim               = field_t::dim;

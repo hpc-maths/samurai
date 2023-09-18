@@ -16,7 +16,7 @@ template <class Field,
           std::size_t neighbourhood_width = 2,
           class cfg                       = samurai::StarStencilFV<Field::dim, Field::size, neighbourhood_width>,
           class bdry_cfg                  = samurai::BoundaryConfigFV<neighbourhood_width>>
-class HighOrderDiffusion : public samurai::CellBasedScheme<HighOrderDiffusion<Field>, cfg, bdry_cfg, Field>
+class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg, Field>
 {
   public:
 

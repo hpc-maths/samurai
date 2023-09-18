@@ -51,12 +51,12 @@ namespace samurai
                                                    0,  // Stencil size
                                                    0>; // Index of the stencil center
 
-    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
-    class CellBasedScheme : public FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>
+    template <class cfg, class bdry_cfg, class Field>
+    class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
     {
       protected:
 
-        using base_class = FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
         using base_class::dim;
         using base_class::field_size;
 
@@ -134,8 +134,7 @@ namespace samurai
     template <class Scheme>
     struct is_CellBasedScheme<
         Scheme,
-        std::enable_if_t<
-            std::is_base_of_v<CellBasedScheme<Scheme, typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
+        std::enable_if_t<std::is_base_of_v<CellBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
         : std::true_type
     {
     };

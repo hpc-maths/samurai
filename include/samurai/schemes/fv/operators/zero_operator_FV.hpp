@@ -8,9 +8,9 @@ namespace samurai
               // scheme config
               class cfg      = OneCellStencilFV<output_field_size>,
               class bdry_cfg = BoundaryConfigFV<1>>
-    class ZeroOperatorFV : public CellBasedScheme<ZeroOperatorFV<Field, output_field_size>, cfg, bdry_cfg, Field>
+    class ZeroOperatorFV : public CellBasedScheme<cfg, bdry_cfg, Field>
     {
-        using base_class = CellBasedScheme<ZeroOperatorFV<Field, output_field_size>, cfg, bdry_cfg, Field>;
+        using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
         using base_class::dim;
         using local_matrix_t = typename base_class::local_matrix_t;
 
