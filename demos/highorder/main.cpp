@@ -24,24 +24,19 @@ class HighOrderDiffusion : public samurai::CellBasedScheme<HighOrderDiffusion<Fi
 
     HighOrderDiffusion()
     {
-        set_dirichlet_config();
-    }
-
-    static constexpr auto stencil()
-    {
-        return samurai::star_stencil<dim, 2>();
-    }
-
-    static std::array<double, 9> coefficients(double h)
-    {
-        // https://en.wikipedia.org/wiki/Finite_difference_coefficient
-        std::array<double, 9> coeffs = {1. / 12, -4. / 3, 5., -4. / 3, 1. / 12, 1. / 12, -4. / 3, -4. / 3, 1. / 12};
-        double one_over_h2           = 1 / (h * h);
-        for (double& coeff : coeffs)
+        this->stencil()           = samurai::star_stencil<dim, neighbourhood_width>();
+        this->coefficients_func() = [](double h)
         {
-            coeff *= one_over_h2;
-        }
-        return coeffs;
+            //                              left2,    left, center, right, right2   bottom2,  bottom,   top,    top2
+            std::array<double, 9> coeffs = {1. / 12, -4. / 3, 5., -4. / 3, 1. / 12, 1. / 12, -4. / 3, -4. / 3, 1. / 12};
+            double one_over_h2           = 1 / (h * h);
+            for (double& coeff : coeffs)
+            {
+                coeff *= one_over_h2;
+            }
+            return coeffs;
+        };
+        set_dirichlet_config();
     }
 
     void set_dirichlet_config()

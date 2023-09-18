@@ -19,46 +19,19 @@ namespace samurai
         ZeroOperatorFV()
         {
             this->set_name("Zero");
-        }
-
-        static constexpr auto stencil()
-        {
-            return center_only_stencil<dim>();
-        }
-
-        static std::array<local_matrix_t, 1> coefficients(double)
-        {
-            return {zeros<local_matrix_t>()};
+            this->stencil()           = center_only_stencil<dim>();
+            this->coefficients_func() = [](double) -> std::array<local_matrix_t, 1>
+            {
+                return {zeros<local_matrix_t>()};
+            };
+            this->is_symmetric(true);
         }
     };
-
-    // For some reason this version with an empty stencil is slower...
-    /*template <class Field, std::size_t output_field_size, class cfg = EmptyStencilFV<output_field_size>, class bdry_cfg =
-    BoundaryConfigFV<1>> class ZeroOperatorFV : public CellBasedScheme<cfg, bdry_cfg, Field>
-    {
-        using base_class     = CellBasedScheme<cfg, bdry_cfg, Field>;
-        using local_matrix_t = typename base_class::local_matrix_t;
-
-      public:
-
-        explicit ZeroOperatorFV(Field& unknown)
-            : base_class(unknown, {}, coefficients)
-        {
-            this->set_name("Zero");
-        }
-
-        static std::array<local_matrix_t, 0> coefficients(double)
-        {
-            return {};
-        }
-    };*/
 
     template <std::size_t output_field_size, class Field>
     auto make_zero_operator()
     {
-        ZeroOperatorFV<Field, output_field_size> zero;
-        zero.is_symmetric(true);
-        return zero;
+        return ZeroOperatorFV<Field, output_field_size>();
     }
 
     template <class Field>

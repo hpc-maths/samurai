@@ -15,26 +15,20 @@ namespace samurai
         IdentityFV()
         {
             this->set_name("Identity");
-        }
-
-        static constexpr auto stencil()
-        {
-            return center_only_stencil<dim>();
-        }
-
-        static std::array<local_matrix_t, 1> coefficients(double)
-        {
-            return {eye<local_matrix_t>()};
+            this->stencil()           = center_only_stencil<dim>();
+            this->coefficients_func() = [](double) -> std::array<local_matrix_t, 1>
+            {
+                return {eye<local_matrix_t>()};
+            };
+            this->is_symmetric(true);
+            this->is_spd(true);
         }
     };
 
     template <class Field>
     auto make_identity()
     {
-        IdentityFV<Field> id;
-        id.is_symmetric(true);
-        id.is_spd(true);
-        return id;
+        return IdentityFV<Field>();
     }
 
     template <class Field>

@@ -35,7 +35,6 @@ namespace samurai
             , m_scheme(std::move(scheme))
             , m_scalar(scalar)
         {
-            set_name();
             build_scheme_definition();
         }
 
@@ -44,7 +43,6 @@ namespace samurai
             , m_scheme(scheme)
             , m_scalar(scalar)
         {
-            set_name();
             build_scheme_definition();
         }
 
@@ -53,7 +51,6 @@ namespace samurai
             , m_scheme(other.scheme())
             , m_scalar(other.scalar())
         {
-            set_name();
             build_scheme_definition();
         }
 
@@ -62,7 +59,6 @@ namespace samurai
             , m_scheme(other.scheme())
             , m_scalar(other.scalar())
         {
-            set_name();
             build_scheme_definition();
         }
 
@@ -72,7 +68,6 @@ namespace samurai
             {
                 this->m_scheme = other.m_scheme;
                 this->m_scalar = other.m_scalar;
-                this->set_name();
                 this->build_scheme_definition();
             }
             return *this;
@@ -84,15 +79,9 @@ namespace samurai
             {
                 this->m_scheme = other.m_scheme;
                 this->m_scalar = other.m_scalar;
-                this->set_name();
                 this->build_scheme_definition();
             }
             return *this;
-        }
-
-        void set_name()
-        {
-            base_class::set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
         }
 
         auto scalar() const
@@ -138,18 +127,13 @@ namespace samurai
                     }
                 });
 
+            this->dirichlet_config() = m_scheme.dirichlet_config();
+            this->neumann_config()   = m_scheme.neumann_config();
+
             this->is_symmetric(m_scheme.is_symmetric());
             this->is_spd(m_scheme.is_spd() && m_scalar != 0);
-        }
 
-        directional_bdry_config_t dirichlet_config(const DirectionVector<dim>& direction) const override
-        {
-            return m_scheme.dirichlet_config(direction);
-        }
-
-        directional_bdry_config_t neumann_config(const DirectionVector<dim>& direction) const override
-        {
-            return m_scheme.neumann_config(direction);
+            this->set_name(std::to_string(m_scalar) + " * " + m_scheme.name());
         }
     };
 
