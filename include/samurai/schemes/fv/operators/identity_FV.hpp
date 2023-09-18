@@ -3,32 +3,27 @@
 
 namespace samurai
 {
-    template <class Field, class cfg = OneCellStencilFV<Field::size>, class bdry_cfg = BoundaryConfigFV<1>>
-    class IdentityFV : public CellBasedScheme<cfg, bdry_cfg, Field>
-    {
-        using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
-        using base_class::dim;
-        using local_matrix_t = typename base_class::local_matrix_t;
-
-      public:
-
-        IdentityFV()
-        {
-            this->set_name("Identity");
-            this->stencil()           = center_only_stencil<dim>();
-            this->coefficients_func() = [](double) -> std::array<local_matrix_t, 1>
-            {
-                return {eye<local_matrix_t>()};
-            };
-            this->is_symmetric(true);
-            this->is_spd(true);
-        }
-    };
-
     template <class Field>
     auto make_identity()
     {
-        return IdentityFV<Field>();
+        static constexpr std::size_t dim = Field::dim;
+
+        using cfg      = OneCellStencilFV<Field::size>;
+        using bdry_cfg = BoundaryConfigFV<1>;
+
+        CellBasedScheme<cfg, bdry_cfg, Field> identity;
+
+        using local_matrix_t = typename decltype(identity)::local_matrix_t;
+
+        identity.set_name("Identity");
+        identity.stencil()           = center_only_stencil<dim>();
+        identity.coefficients_func() = [](double) -> std::array<local_matrix_t, 1>
+        {
+            return {eye<local_matrix_t>()};
+        };
+        identity.is_symmetric(true);
+        identity.is_spd(true);
+        return identity;
     }
 
     template <class Field>
