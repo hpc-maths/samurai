@@ -25,16 +25,18 @@ namespace samurai
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
 
+        using cfg = FluxBasedSchemeConfig<FluxType::NonLinear, output_field_size>;
+
         if constexpr (field_size == 1)
         {
             auto f = [](auto v)
             {
-                auto f_v = make_flux_value<Field, output_field_size>();
+                auto f_v = make_flux_value<cfg, Field>();
                 f_v      = v * v;
                 return f_v;
             };
 
-            auto upwind_f = make_flux_definition<Field, output_field_size>(
+            FluxDefinition<cfg, Field> upwind_f(
                 [f](auto& v, auto& cells)
                 {
                     auto& left  = cells[0];
@@ -55,7 +57,7 @@ namespace samurai
             {
                 auto f_x = [](auto v)
                 {
-                    auto f_v = make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<cfg, Field>();
                     f_v[0]   = v[0] * v[0];
                     f_v[1]   = v[0] * v[1];
                     return f_v;
@@ -63,13 +65,13 @@ namespace samurai
 
                 auto f_y = [](auto v)
                 {
-                    auto f_v = make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<cfg, Field>();
                     f_v[0]   = v[1] * v[0];
                     f_v[1]   = v[1] * v[1];
                     return f_v;
                 };
 
-                auto upwind_f = make_flux_definition<Field, output_field_size>();
+                auto upwind_f = make_flux_definition<cfg, Field>();
                 // x-direction
                 upwind_f[0].flux_function = [f_x](auto& v, auto& cells)
                 {
@@ -93,7 +95,7 @@ namespace samurai
             {
                 auto f_x = [](auto v)
                 {
-                    auto f_v = make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<cfg, Field>();
                     f_v[0]   = v[0] * v[0];
                     f_v[1]   = v[0] * v[1];
                     f_v[2]   = v[0] * v[2];
@@ -102,7 +104,7 @@ namespace samurai
 
                 auto f_y = [](auto v)
                 {
-                    auto f_v = make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<cfg, Field>();
                     f_v[0]   = v[1] * v[0];
                     f_v[1]   = v[1] * v[1];
                     f_v[2]   = v[1] * v[2];
@@ -111,14 +113,14 @@ namespace samurai
 
                 auto f_z = [](auto v)
                 {
-                    auto f_v = make_flux_value<Field, output_field_size>();
+                    auto f_v = make_flux_value<cfg, Field>();
                     f_v[0]   = v[2] * v[0];
                     f_v[1]   = v[2] * v[1];
                     f_v[2]   = v[2] * v[2];
                     return f_v;
                 };
 
-                auto upwind_f = make_flux_definition<Field, output_field_size>();
+                auto upwind_f = make_flux_definition<cfg, Field>();
                 // x-direction
                 upwind_f[0].flux_function = [f_x](auto& v, auto& cells)
                 {
@@ -149,7 +151,8 @@ namespace samurai
             else
             {
             */
-            auto upwind_f = make_flux_definition<Field, output_field_size>();
+
+            FluxDefinition<cfg, Field> upwind_f;
 
             static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
                 [&](auto integral_constant_d)
@@ -159,7 +162,7 @@ namespace samurai
                     auto f = [](auto v)
                     {
                         // f(v) = v[d] * v
-                        auto f_v = make_flux_value<Field, output_field_size>();
+                        auto f_v = make_flux_value<cfg, Field>();
                         static_for<0, field_size>::apply( // for (int j=0; j<field_size; j++)
                             [&](auto integral_constant_j)
                             {

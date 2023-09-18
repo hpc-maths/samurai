@@ -10,19 +10,19 @@ namespace samurai
      * - how the flux of the field is computed
      * - how the flux contributes to the scheme
      */
-    template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    class FluxBasedSchemeDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>
+    template <class cfg, class Field>
+    class FluxBasedSchemeDefinition<cfg, Field, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>>
     {
       public:
 
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
 
-        using flux_definition_t       = FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>;
+        using flux_definition_t       = FluxDefinition<cfg, Field>;
         using flux_computation_t      = typename flux_definition_t::flux_computation_t;
         using field_value_type        = typename Field::value_type;
-        using scheme_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
-        using scheme_stencil_coeffs_t = xt::xtensor_fixed<scheme_coeff_matrix_t, xt::xshape<stencil_size>>;
+        using scheme_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        using scheme_stencil_coeffs_t = xt::xtensor_fixed<scheme_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
         using flux_stencil_coeffs_t   = typename flux_computation_t::flux_stencil_coeffs_t;
         using flux_to_scheme_func_t   = std::function<scheme_stencil_coeffs_t(flux_stencil_coeffs_t&)>;
 
@@ -136,7 +136,7 @@ namespace samurai
 
         static constexpr std::size_t stencil_size = cfg::stencil_size;
 
-        using scheme_definition_t = FluxBasedSchemeDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>;
+        using scheme_definition_t = FluxBasedSchemeDefinition<cfg, Field>;
         using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
 
       private:
@@ -309,14 +309,5 @@ namespace samurai
             }
         }
     };
-
-    template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    auto make_flux_based_scheme(const FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition)
-    {
-        using cfg      = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size>;
-        using bdry_cfg = BoundaryConfigFV<stencil_size / 2>;
-
-        return FluxBasedScheme<cfg, bdry_cfg, Field>(flux_definition);
-    }
 
 } // end namespace samurai

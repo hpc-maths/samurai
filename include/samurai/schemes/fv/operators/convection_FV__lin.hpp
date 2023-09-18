@@ -15,7 +15,9 @@ namespace samurai
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
 
-        auto upwind = make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
+        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size>;
+
+        FluxDefinition<cfg, Field> upwind;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)

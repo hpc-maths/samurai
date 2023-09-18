@@ -11,7 +11,9 @@ namespace samurai
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t output_field_size = dim;
 
-        auto average_coeffs = make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
+        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size>;
+
+        FluxDefinition<cfg, Field> average_coeffs;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)

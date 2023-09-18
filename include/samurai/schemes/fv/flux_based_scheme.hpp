@@ -6,19 +6,10 @@
 
 namespace samurai
 {
-
-    template <FluxType flux_type_, std::size_t output_field_size_, std::size_t stencil_size_>
-    struct FluxBasedSchemeConfig
-    {
-        static constexpr FluxType flux_type            = flux_type_;
-        static constexpr std::size_t output_field_size = output_field_size_;
-        static constexpr std::size_t stencil_size      = stencil_size_;
-    };
-
     /**
      * @class FluxBasedSchemeDefinition
      */
-    template <FluxType flux_type, class Field, std::size_t output_field_size, std::size_t stencil_size>
+    template <class cfg, class Field, class check = void>
     class FluxBasedSchemeDefinition
     {
     };
@@ -30,6 +21,14 @@ namespace samurai
     class FluxBasedScheme
     {
     };
+
+    template <class cfg, class Field>
+    auto make_flux_based_scheme(const FluxDefinition<cfg, Field>& flux_definition)
+    {
+        using bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2>;
+
+        return FluxBasedScheme<cfg, bdry_cfg, Field>(flux_definition);
+    }
 
     /**
      * is_FluxBasedScheme

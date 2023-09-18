@@ -3,12 +3,6 @@
 
 namespace samurai
 {
-    template <class Field, std::size_t output_field_size, std::size_t stencil_size>
-    auto make_divergence(const FluxDefinition<FluxType::LinearHomogeneous, Field, output_field_size, stencil_size>& flux_definition)
-    {
-        return make_flux_based_scheme(flux_definition);
-    }
-
     template <class Field>
     auto make_divergence()
     {
@@ -18,7 +12,9 @@ namespace samurai
 
         static constexpr std::size_t output_field_size = 1;
 
-        auto average_coeffs = make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
+        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size>;
+
+        FluxDefinition<cfg, Field> average_coeffs;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)

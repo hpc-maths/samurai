@@ -10,18 +10,16 @@ namespace samurai
      */
     template <
         // template parameters
+        class cfg,
         class Field,
         DirichletEnforcement dirichlet_enfcmt = Equation,
-        std::size_t stencil_size              = 2,
-        // scheme config
-        std::size_t dim               = Field::dim,
-        std::size_t output_field_size = Field::size,
-        class cfg                     = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size>,
-        class bdry_cfg                = BoundaryConfigFV<stencil_size / 2, dirichlet_enfcmt>>
+        // boundary config
+        class bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2, dirichlet_enfcmt>>
     class DiffusionFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
     {
         using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
         using base_class::bdry_stencil_size;
+        using base_class::dim;
 
       public:
 
@@ -118,10 +116,10 @@ namespace samurai
         }
     };
 
-    template <class Field, std::size_t flux_output_field_size, std::size_t stencil_size = 2, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion(const FluxDefinition<FluxType::LinearHomogeneous, Field, flux_output_field_size, stencil_size>& flux_definition)
+    template <class cfg, class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_diffusion(const FluxDefinition<cfg, Field>& flux_definition)
     {
-        return DiffusionFV<Field, dirichlet_enfcmt, stencil_size>(flux_definition);
+        return DiffusionFV<cfg, Field, dirichlet_enfcmt>(flux_definition);
     }
 
     template <DirichletEnforcement dirichlet_enfcmt, class Field>
@@ -131,7 +129,9 @@ namespace samurai
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
 
-        auto normal_grad = make_flux_definition<FluxType::LinearHomogeneous, Field, output_field_size>();
+        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size>;
+
+        FluxDefinition<cfg, Field> normal_grad;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
@@ -169,7 +169,7 @@ namespace samurai
                 };
             });
 
-        return make_diffusion<Field, output_field_size, 2, dirichlet_enfcmt>(normal_grad);
+        return make_diffusion<cfg, Field, dirichlet_enfcmt>(normal_grad);
     }
 
     template <class Field>
