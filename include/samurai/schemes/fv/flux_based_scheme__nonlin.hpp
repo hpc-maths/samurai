@@ -153,7 +153,9 @@ namespace samurai
 
         auto operator()(Field& f)
         {
-            auto explicit_scheme = make_explicit(this->derived_cast());
+            // auto explicit_scheme = make_explicit(this->derived_cast());
+            auto explicit_scheme = make_explicit(*this);
+            // Explicit<FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field>> explicit_scheme(*this);
             return explicit_scheme.apply_to(f);
         }
 

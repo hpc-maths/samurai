@@ -178,7 +178,8 @@ namespace samurai
 
         auto operator()(Field& f)
         {
-            auto explicit_scheme = make_explicit(this->derived_cast());
+            // auto explicit_scheme = make_explicit(this->derived_cast());
+            auto explicit_scheme = make_explicit(*this);
             return explicit_scheme.apply_to(f);
         }
 

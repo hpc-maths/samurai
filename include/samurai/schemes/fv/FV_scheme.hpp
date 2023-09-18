@@ -138,20 +138,20 @@ namespace samurai
             m_name = name;
         }
 
-        inline DerivedScheme& derived_cast() & noexcept
-        {
-            return *static_cast<DerivedScheme*>(this);
-        }
+        // inline DerivedScheme& derived_cast() & noexcept
+        // {
+        //     return *static_cast<DerivedScheme*>(this);
+        // }
 
-        inline const DerivedScheme& derived_cast() const& noexcept
-        {
-            return *static_cast<const DerivedScheme*>(this);
-        }
+        // inline const DerivedScheme& derived_cast() const& noexcept
+        // {
+        //     return *static_cast<const DerivedScheme*>(this);
+        // }
 
-        inline DerivedScheme derived_cast() && noexcept
-        {
-            return *static_cast<DerivedScheme*>(this);
-        }
+        // inline DerivedScheme derived_cast() && noexcept
+        // {
+        //     return *static_cast<DerivedScheme*>(this);
+        // }
 
         virtual ~FVScheme() = default;
 

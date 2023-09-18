@@ -9,24 +9,25 @@ namespace samurai
     /**
      * LINEAR and HOMOGENEOUS explicit schemes
      */
-    template <class Scheme>
-    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && Scheme::cfg_t::flux_type == FluxType::LinearHomogeneous>>
+    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
+    class Explicit<FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field>, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>>
     {
-        using field_t                                  = typename Scheme::field_t;
-        using scheme_definition_t                      = typename Scheme::scheme_definition_t;
+        using scheme_t                                 = FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field>;
+        using field_t                                  = typename scheme_t::field_t;
+        using scheme_definition_t                      = typename scheme_t::scheme_definition_t;
         using flux_stencil_coeffs_t                    = typename scheme_definition_t::flux_stencil_coeffs_t;
         static constexpr std::size_t dim               = field_t::dim;
         static constexpr std::size_t field_size        = field_t::size;
-        static constexpr std::size_t output_field_size = Scheme::output_field_size;
-        static constexpr std::size_t stencil_size      = Scheme::stencil_size;
+        static constexpr std::size_t output_field_size = scheme_t::output_field_size;
+        static constexpr std::size_t stencil_size      = scheme_t::stencil_size;
 
       private:
 
-        const Scheme* m_scheme = nullptr;
+        const scheme_t* m_scheme = nullptr;
 
       public:
 
-        explicit Explicit(const Scheme& scheme)
+        explicit Explicit(const scheme_t& scheme)
             : m_scheme(&scheme)
         {
         }
@@ -38,9 +39,8 @@ namespace samurai
 
         auto apply_to(field_t& f)
         {
-            auto result = make_field<typename field_t::value_type, Scheme::output_field_size, field_t::is_soa>(
-                scheme().name() + "(" + f.name() + ")",
-                f.mesh());
+            auto result = make_field<typename field_t::value_type, output_field_size, field_t::is_soa>(scheme().name() + "(" + f.name() + ")",
+                                                                                                       f.mesh());
             result.fill(0);
 
             update_bc(f);
@@ -104,23 +104,24 @@ namespace samurai
     /**
      * NON-LINEAR explicit schemes
      */
-    template <class Scheme>
-    class Explicit<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme> && Scheme::cfg_t::flux_type == FluxType::NonLinear>>
+    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
+    class Explicit<FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field>, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
     {
-        using field_t                                  = typename Scheme::field_t;
-        using scheme_definition_t                      = typename Scheme::scheme_definition_t;
+        using scheme_t                                 = FluxBasedScheme<DerivedScheme, cfg, bdry_cfg, Field>;
+        using field_t                                  = typename scheme_t::field_t;
+        using scheme_definition_t                      = typename scheme_t::scheme_definition_t;
         static constexpr std::size_t dim               = field_t::dim;
         static constexpr std::size_t field_size        = field_t::size;
-        static constexpr std::size_t output_field_size = Scheme::output_field_size;
-        static constexpr std::size_t stencil_size      = Scheme::stencil_size;
+        static constexpr std::size_t output_field_size = scheme_t::output_field_size;
+        static constexpr std::size_t stencil_size      = scheme_t::stencil_size;
 
       protected:
 
-        const Scheme* m_scheme;
+        const scheme_t* m_scheme;
 
       public:
 
-        explicit Explicit(const Scheme& scheme)
+        explicit Explicit(const scheme_t& scheme)
             : m_scheme(&scheme)
         {
         }
@@ -132,9 +133,8 @@ namespace samurai
 
         auto apply_to(field_t& f)
         {
-            auto result = make_field<typename field_t::value_type, Scheme::output_field_size, field_t::is_soa>(
-                scheme().name() + "(" + f.name() + ")",
-                f.mesh());
+            auto result = make_field<typename field_t::value_type, output_field_size, field_t::is_soa>(scheme().name() + "(" + f.name() + ")",
+                                                                                                       f.mesh());
             result.fill(0);
 
             update_bc(f);
