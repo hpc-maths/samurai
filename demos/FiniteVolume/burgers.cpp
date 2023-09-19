@@ -15,9 +15,9 @@ namespace fs = std::filesystem;
 template <std::size_t dim>
 double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t)
 {
-    const double a = 1;
-    const double b = 0;
-    double& x      = coords(0);
+    const double a  = 1;
+    const double b  = 0;
+    const double& x = coords(0);
     return (a * x + b) / (a * t + 1);
 }
 

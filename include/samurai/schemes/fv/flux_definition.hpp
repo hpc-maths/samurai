@@ -123,16 +123,15 @@ namespace samurai
     template <class cfg>
     struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>> : NormalFluxDefinitionBase<cfg>
     {
-        using field_t                           = typename cfg::input_field_t;
-        using field_value_type                  = typename field_t::value_type;
-        using cell_t                            = typename field_t::cell_t;
-        static constexpr std::size_t field_size = field_t::size;
+        using field_t          = typename cfg::input_field_t;
+        using field_value_type = typename field_t::value_type;
+        using cell_t           = typename field_t::cell_t;
 
         using stencil_cells_t = std::array<cell_t, cfg::stencil_size>;
         using flux_value_t    = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, 1>::Type;
         using flux_func       = std::function<flux_value_t(stencil_cells_t&, field_t&)>;
 
-        flux_func flux_function;
+        flux_func flux_function = nullptr;
 
         ~NormalFluxDefinition()
         {
@@ -173,7 +172,7 @@ namespace samurai
          *                coeffs[0] = diag(-1/h),
          *                coeffs[1] = diag( 1/h).
          */
-        flux_func flux_function;
+        flux_func flux_function = nullptr;
 
         ~NormalFluxDefinition()
         {

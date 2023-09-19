@@ -53,7 +53,7 @@ namespace samurai
             return m_flux_definition;
         }
 
-        flux_value_t contribution(flux_value_t& flux_value, double h_face, double h_cell) const
+        flux_value_t contribution(const flux_value_t& flux_value, double h_face, double h_cell) const
         {
             double face_measure = pow(h_face, dim - 1);
             double cell_measure = pow(h_cell, dim);
