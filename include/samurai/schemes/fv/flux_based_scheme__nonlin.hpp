@@ -37,11 +37,6 @@ namespace samurai
             }
         }
 
-        ~FluxBasedSchemeDefinition()
-        {
-            contribution_func = nullptr;
-        }
-
         /**
          * Computes and returns the contribution coefficients
          */
@@ -166,10 +161,9 @@ namespace samurai
                                                              scheme_def.flux.stencil,
                                                              [&](auto& interface_cells, auto& comput_cells)
                                                              {
-                                                                 auto flux_value = scheme_def.flux.flux_function(f, comput_cells);
-                                                                 decltype(flux_value) minus_flux_value = -flux_value;
-                                                                 auto left_cell_contrib  = scheme_def.contribution(flux_value, h, h);
-                                                                 auto right_cell_contrib = scheme_def.contribution(minus_flux_value, h, h);
+                                                                 auto flux_value        = scheme_def.flux.flux_function(f, comput_cells);
+                                                                 auto left_cell_contrib = scheme_def.contribution(flux_value, h, h);
+                                                                 decltype(left_cell_contrib) right_cell_contrib = -left_cell_contrib;
                                                                  apply_contrib(interface_cells, left_cell_contrib, right_cell_contrib);
                                                              });
                 }

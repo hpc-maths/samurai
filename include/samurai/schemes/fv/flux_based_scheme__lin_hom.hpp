@@ -24,8 +24,7 @@ namespace samurai
         using flux_to_scheme_func_t   = std::function<scheme_stencil_coeffs_t(flux_stencil_coeffs_t&)>;
 
         flux_computation_t flux;
-        flux_to_scheme_func_t contribution_func                    = nullptr;
-        flux_to_scheme_func_t contribution_opposite_direction_func = nullptr;
+        flux_to_scheme_func_t contribution_func = nullptr;
 
         FluxBasedSchemeDefinition()
         {
@@ -36,14 +35,7 @@ namespace samurai
                 {
                     return flux_coeffs;
                 };
-                contribution_opposite_direction_func = contribution_func;
             }
-        }
-
-        ~FluxBasedSchemeDefinition()
-        {
-            contribution_func                    = nullptr;
-            contribution_opposite_direction_func = nullptr;
         }
 
         /**
@@ -54,14 +46,6 @@ namespace samurai
             double face_measure = pow(h_face, dim - 1);
             double cell_measure = pow(h_cell, dim);
             return (face_measure / cell_measure) * contribution_func(flux_coeffs);
-        }
-
-        scheme_stencil_coeffs_t contribution_opposite_direction(flux_stencil_coeffs_t& flux_coeffs, double h_face, double h_cell) const
-        {
-            // double face_measure = pow(h_face, dim - 1);
-            // double cell_measure = pow(h_cell, dim);
-            // return (face_measure / cell_measure) * contribution_opposite_direction_func(flux_coeffs);
-            return contribution(flux_coeffs, h_face, h_cell);
         }
     };
 
@@ -155,12 +139,11 @@ namespace samurai
                 // Same level
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    auto h                                  = cell_length(level);
-                    auto flux_coeffs                        = scheme_def.flux.flux_function(h);
-                    decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
+                    auto h           = cell_length(level);
+                    auto flux_coeffs = scheme_def.flux.flux_function(h);
 
-                    auto left_cell_coeffs  = scheme_def.contribution(flux_coeffs, h, h);
-                    auto right_cell_coeffs = scheme_def.contribution_opposite_direction(minus_flux_coeffs, h, h);
+                    auto left_cell_coeffs                        = scheme_def.contribution(flux_coeffs, h, h);
+                    decltype(left_cell_coeffs) right_cell_coeffs = -left_cell_coeffs;
 
                     for_each_interior_interface___same_level(
                         mesh,
@@ -187,7 +170,7 @@ namespace samurai
                     //    direction
                     {
                         auto left_cell_coeffs  = scheme_def.contribution(flux_coeffs, h_lp1, h_l);
-                        auto right_cell_coeffs = scheme_def.contribution_opposite_direction(minus_flux_coeffs, h_lp1, h_lp1);
+                        auto right_cell_coeffs = scheme_def.contribution(minus_flux_coeffs, h_lp1, h_lp1);
 
                         for_each_interior_interface___level_jump_direction(
                             mesh,
@@ -205,7 +188,7 @@ namespace samurai
                     //    direction
                     {
                         auto left_cell_coeffs  = scheme_def.contribution(flux_coeffs, h_lp1, h_lp1);
-                        auto right_cell_coeffs = scheme_def.contribution_opposite_direction(minus_flux_coeffs, h_lp1, h_l);
+                        auto right_cell_coeffs = scheme_def.contribution(minus_flux_coeffs, h_lp1, h_l);
 
                         for_each_interior_interface___level_jump_opposite_direction(
                             mesh,
@@ -250,7 +233,7 @@ namespace samurai
 
                                    // Boundary in opposite direction
                                    decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
-                                   cell_coeffs = scheme_def.contribution_opposite_direction(minus_flux_coeffs, h, h);
+                                   cell_coeffs                             = scheme_def.contribution(minus_flux_coeffs, h, h);
                                    for_each_boundary_interface___opposite_direction(mesh,
                                                                                     level,
                                                                                     scheme_def.flux.direction,
