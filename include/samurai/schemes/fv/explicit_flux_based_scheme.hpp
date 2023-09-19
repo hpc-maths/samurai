@@ -14,8 +14,7 @@ namespace samurai
     {
         using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg, Field>;
         using field_t                                  = typename scheme_t::field_t;
-        using scheme_definition_t                      = typename scheme_t::scheme_definition_t;
-        using flux_stencil_coeffs_t                    = typename scheme_definition_t::flux_stencil_coeffs_t;
+        using flux_stencil_coeffs_t                    = typename scheme_t::flux_stencil_coeffs_t;
         static constexpr std::size_t dim               = field_t::dim;
         static constexpr std::size_t field_size        = field_t::size;
         static constexpr std::size_t output_field_size = scheme_t::output_field_size;
@@ -109,7 +108,6 @@ namespace samurai
     {
         using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg, Field>;
         using field_t                                  = typename scheme_t::field_t;
-        using scheme_definition_t                      = typename scheme_t::scheme_definition_t;
         static constexpr std::size_t dim               = field_t::dim;
         static constexpr std::size_t field_size        = field_t::size;
         static constexpr std::size_t output_field_size = scheme_t::output_field_size;

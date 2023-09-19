@@ -4,52 +4,6 @@
 namespace samurai
 {
     /**
-     * @class FluxBasedSchemeDefinition for linear and homogeneous fluxes
-     * Contains:
-     * - how the flux of the field is computed
-     * - how the flux contributes to the scheme
-     */
-    template <class cfg, class Field>
-    struct FluxBasedSchemeDefinition<cfg, Field, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>>
-    {
-        static constexpr std::size_t dim        = Field::dim;
-        static constexpr std::size_t field_size = Field::size;
-
-        using flux_definition_t       = FluxDefinition<cfg, Field>;
-        using flux_computation_t      = typename flux_definition_t::flux_computation_t;
-        using field_value_type        = typename Field::value_type;
-        using scheme_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
-        using scheme_stencil_coeffs_t = xt::xtensor_fixed<scheme_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
-        using flux_stencil_coeffs_t   = typename flux_computation_t::flux_stencil_coeffs_t;
-        using flux_to_scheme_func_t   = std::function<scheme_stencil_coeffs_t(flux_stencil_coeffs_t&)>;
-
-        flux_computation_t flux;
-        flux_to_scheme_func_t contribution_func = nullptr;
-
-        FluxBasedSchemeDefinition()
-        {
-            if constexpr (std::is_same_v<scheme_stencil_coeffs_t, flux_stencil_coeffs_t>)
-            {
-                // By default, the contribution is the flux
-                contribution_func = [](const flux_stencil_coeffs_t& flux_coeffs)
-                {
-                    return flux_coeffs;
-                };
-            }
-        }
-
-        /**
-         * Computes and returns the contribution coefficients
-         */
-        scheme_stencil_coeffs_t contribution(flux_stencil_coeffs_t& flux_coeffs, double h_face, double h_cell) const
-        {
-            double face_measure = pow(h_face, dim - 1);
-            double cell_measure = pow(h_cell, dim);
-            return (face_measure / cell_measure) * contribution_func(flux_coeffs);
-        }
-    };
-
-    /**
      * @class FluxBasedScheme
      *    Implementation of LINEAR and HOMOGENEOUS schemes
      */
@@ -75,44 +29,36 @@ namespace samurai
 
         static constexpr std::size_t stencil_size = cfg::stencil_size;
 
-        using scheme_definition_t = FluxBasedSchemeDefinition<cfg, Field>;
-        using flux_definition_t   = typename scheme_definition_t::flux_definition_t;
+        using flux_definition_t     = FluxDefinition<cfg, Field>;
+        using flux_computation_t    = typename flux_definition_t::flux_computation_t;
+        using flux_stencil_coeffs_t = typename flux_computation_t::flux_stencil_coeffs_t;
 
       private:
 
-        std::array<scheme_definition_t, dim> m_scheme_definition;
+        flux_definition_t m_flux_definition;
 
       public:
 
         explicit FluxBasedScheme(const flux_definition_t& flux_definition)
+            : m_flux_definition(flux_definition)
         {
-            add_flux_to_scheme_definition(flux_definition);
         }
 
-      private:
-
-        void add_flux_to_scheme_definition(const flux_definition_t& flux_definition)
+        auto& flux_definition() const
         {
-            auto directions = positive_cartesian_directions<dim>();
-            for (std::size_t d = 0; d < dim; d++)
-            {
-                DirectionVector<dim> direction = xt::view(directions, d);
-                assert(direction == flux_definition[d].direction
-                       && "The flux definitions must be added in the following order: 1) x-direction, 2) y-direction, 3) z-direction.");
-                m_scheme_definition[d].flux = flux_definition[d];
-            }
+            return m_flux_definition;
         }
 
-      public:
-
-        auto& definition() const
+        auto& flux_definition()
         {
-            return m_scheme_definition;
+            return m_flux_definition;
         }
 
-        auto& definition()
+        flux_stencil_coeffs_t contribution(flux_stencil_coeffs_t& flux_coeffs, double h_face, double h_cell) const
         {
-            return m_scheme_definition;
+            double face_measure = pow(h_face, dim - 1);
+            double cell_measure = pow(h_cell, dim);
+            return (face_measure / cell_measure) * flux_coeffs;
         }
 
         auto operator()(Field& f)
@@ -134,22 +80,22 @@ namespace samurai
 
             for (std::size_t d = 0; d < dim; ++d)
             {
-                auto& scheme_def = definition()[d];
+                auto& flux_def = flux_definition()[d];
 
                 // Same level
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
                     auto h           = cell_length(level);
-                    auto flux_coeffs = scheme_def.flux.flux_function(h);
+                    auto flux_coeffs = flux_def.flux_function(h);
 
-                    auto left_cell_coeffs                        = scheme_def.contribution(flux_coeffs, h, h);
+                    auto left_cell_coeffs                        = contribution(flux_coeffs, h, h);
                     decltype(left_cell_coeffs) right_cell_coeffs = -left_cell_coeffs;
 
                     for_each_interior_interface___same_level(
                         mesh,
                         level,
-                        scheme_def.flux.direction,
-                        scheme_def.flux.stencil,
+                        flux_def.direction,
+                        flux_def.stencil,
                         [&](auto& interface_cells, auto& comput_cells)
                         {
                             apply_coeffs(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
@@ -161,7 +107,7 @@ namespace samurai
                 {
                     auto h_l                                = cell_length(level);
                     auto h_lp1                              = cell_length(level + 1);
-                    auto flux_coeffs                        = scheme_def.flux.flux_function(h_lp1); // flux computed at level l+1
+                    auto flux_coeffs                        = flux_def.flux_function(h_lp1); // flux computed at level l+1
                     decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
 
                     //         |__|   l+1
@@ -169,14 +115,14 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        auto left_cell_coeffs  = scheme_def.contribution(flux_coeffs, h_lp1, h_l);
-                        auto right_cell_coeffs = scheme_def.contribution(minus_flux_coeffs, h_lp1, h_lp1);
+                        auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_l);
+                        auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_lp1);
 
                         for_each_interior_interface___level_jump_direction(
                             mesh,
                             level,
-                            scheme_def.flux.direction,
-                            scheme_def.flux.stencil,
+                            flux_def.direction,
+                            flux_def.stencil,
                             [&](auto& interface_cells, auto& comput_cells)
                             {
                                 apply_coeffs(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
@@ -187,14 +133,14 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        auto left_cell_coeffs  = scheme_def.contribution(flux_coeffs, h_lp1, h_lp1);
-                        auto right_cell_coeffs = scheme_def.contribution(minus_flux_coeffs, h_lp1, h_l);
+                        auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_lp1);
+                        auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_l);
 
                         for_each_interior_interface___level_jump_opposite_direction(
                             mesh,
                             level,
-                            scheme_def.flux.direction,
-                            scheme_def.flux.stencil,
+                            flux_def.direction,
+                            flux_def.stencil,
                             [&](auto& interface_cells, auto& comput_cells)
                             {
                                 apply_coeffs(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
@@ -212,7 +158,7 @@ namespace samurai
         {
             for (std::size_t d = 0; d < dim; ++d)
             {
-                auto& scheme_def = definition()[d];
+                auto& flux_def = flux_definition()[d];
 
                 for_each_level(mesh,
                                [&](auto level)
@@ -220,12 +166,12 @@ namespace samurai
                                    auto h = cell_length(level);
 
                                    // Boundary in direction
-                                   auto flux_coeffs = scheme_def.flux.flux_function(h);
-                                   auto cell_coeffs = scheme_def.contribution(flux_coeffs, h, h);
+                                   auto flux_coeffs = flux_def.flux_function(h);
+                                   auto cell_coeffs = contribution(flux_coeffs, h, h);
                                    for_each_boundary_interface___direction(mesh,
                                                                            level,
-                                                                           scheme_def.flux.direction,
-                                                                           scheme_def.flux.stencil,
+                                                                           flux_def.direction,
+                                                                           flux_def.stencil,
                                                                            [&](auto& cell, auto& comput_cells)
                                                                            {
                                                                                apply_coeffs(cell, comput_cells, cell_coeffs);
@@ -233,11 +179,11 @@ namespace samurai
 
                                    // Boundary in opposite direction
                                    decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
-                                   cell_coeffs                             = scheme_def.contribution(minus_flux_coeffs, h, h);
+                                   cell_coeffs                             = contribution(minus_flux_coeffs, h, h);
                                    for_each_boundary_interface___opposite_direction(mesh,
                                                                                     level,
-                                                                                    scheme_def.flux.direction,
-                                                                                    scheme_def.flux.stencil,
+                                                                                    flux_def.direction,
+                                                                                    flux_def.stencil,
                                                                                     [&](auto& cell, auto& comput_cells)
                                                                                     {
                                                                                         apply_coeffs(cell, comput_cells, cell_coeffs);

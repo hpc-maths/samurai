@@ -16,8 +16,7 @@ namespace samurai
         using bdry_cfg_t                 = typename Scheme::bdry_cfg_t;
         using field_t                    = typename Scheme::field_t;
         using base_class                 = FluxBasedScheme<cfg_t, bdry_cfg_t, field_t>;
-        using scheme_definition_t        = typename base_class::scheme_definition_t;
-        using flux_definition_t          = typename scheme_definition_t::flux_definition_t;
+        using flux_definition_t          = typename base_class::flux_definition_t;
         using directional_bdry_config_t  = typename base_class::directional_bdry_config_t;
         static constexpr std::size_t dim = field_t::dim;
         using base_class::name;
@@ -105,22 +104,22 @@ namespace samurai
                 {
                     static constexpr int d = decltype(integral_constant_d)::value;
 
-                    this->definition()[d] = m_scheme.definition()[d];
+                    this->flux_definition()[d] = m_scheme.flux_definition()[d];
                     if (m_scalar != 1)
                     {
                         // Multiply the flux function by the scalar
                         if constexpr (cfg_t::flux_type == FluxType::LinearHomogeneous)
                         {
-                            this->definition()[d].flux.flux_function = [&](auto h)
+                            this->flux_definition()[d].flux_function = [&](auto h)
                             {
-                                return m_scalar * m_scheme.definition()[d].flux.flux_function(h);
+                                return m_scalar * m_scheme.flux_definition()[d].flux_function(h);
                             };
                         }
                         else
                         {
-                            this->definition()[d].flux.flux_function = [&](auto& field, auto& cells)
+                            this->flux_definition()[d].flux_function = [&](auto& field, auto& cells)
                             {
-                                return m_scalar * m_scheme.definition()[d].flux.flux_function(field, cells);
+                                return m_scalar * m_scheme.flux_definition()[d].flux_function(field, cells);
                             };
                         }
                     }

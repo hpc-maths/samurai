@@ -34,8 +34,7 @@ namespace samurai
             using cfg_t                                    = typename Scheme::cfg_t;
             using bdry_cfg_t                               = typename Scheme::bdry_cfg;
             using field_t                                  = typename Scheme::field_t;
-            using scheme_definition_t                      = typename Scheme::scheme_definition_t;
-            using flux_stencil_coeffs_t                    = typename scheme_definition_t::flux_stencil_coeffs_t;
+            using flux_stencil_coeffs_t                    = typename Scheme::flux_stencil_coeffs_t;
             static constexpr std::size_t output_field_size = cfg_t::output_field_size;
             static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
 
@@ -45,24 +44,19 @@ namespace samurai
                 set_current_insert_mode(ADD_VALUES);
             }
 
-            auto scheme_definition() const
-            {
-                return scheme().definition();
-            }
-
             //-------------------------------------------------------------//
             //                     Sparsity pattern                        //
             //-------------------------------------------------------------//
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
-                auto definition = scheme_definition();
+                auto& flux_def = scheme().flux_definition();
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     for_each_interior_interface(
                         mesh(),
-                        definition[d].flux.direction,
-                        definition[d].flux.stencil,
+                        flux_def[d].direction,
+                        flux_def[d].stencil,
                         [&](auto& interface_cells, auto& comput_cells)
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -101,8 +95,8 @@ namespace samurai
                         });
 
                     for_each_boundary_interface(mesh(),
-                                                definition[d].flux.direction,
-                                                definition[d].flux.stencil,
+                                                flux_def[d].direction,
+                                                flux_def[d].stencil,
                                                 [&](auto& cell, auto&)
                                                 {
                                                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)

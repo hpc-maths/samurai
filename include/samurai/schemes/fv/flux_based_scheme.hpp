@@ -7,14 +7,6 @@
 namespace samurai
 {
     /**
-     * @class FluxBasedSchemeDefinition
-     */
-    template <class cfg, class Field, class check = void>
-    class FluxBasedSchemeDefinition
-    {
-    };
-
-    /**
      * @class FluxBasedScheme
      */
     template <class cfg, class bdry_cfg, class Field, class check = void>

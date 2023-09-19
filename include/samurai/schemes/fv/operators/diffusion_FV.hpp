@@ -23,8 +23,7 @@ namespace samurai
 
       public:
 
-        using scheme_definition_t       = typename base_class::scheme_definition_t;
-        using flux_definition_t         = typename scheme_definition_t::flux_definition_t;
+        using flux_definition_t         = typename base_class::flux_definition_t;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
         explicit DiffusionFV(const flux_definition_t& flux_definition)
@@ -41,8 +40,6 @@ namespace samurai
         //---------------------------------//
         //       Boundary conditions       //
         //---------------------------------//
-
-      public:
 
         void set_dirichlet_config()
         {
