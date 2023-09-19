@@ -111,16 +111,16 @@ namespace samurai
                         // Multiply the flux function by the scalar
                         if constexpr (cfg_t::flux_type == FluxType::LinearHomogeneous)
                         {
-                            this->definition()[d].flux().flux_function = [&](auto h)
+                            this->definition()[d].flux.flux_function = [&](auto h)
                             {
-                                return m_scalar * m_scheme.definition()[d].flux().flux_function(h);
+                                return m_scalar * m_scheme.definition()[d].flux.flux_function(h);
                             };
                         }
                         else
                         {
-                            this->definition()[d].flux().flux_function = [&](auto& field, auto& cells)
+                            this->definition()[d].flux.flux_function = [&](auto& field, auto& cells)
                             {
-                                return m_scalar * m_scheme.definition()[d].flux().flux_function(field, cells);
+                                return m_scalar * m_scheme.definition()[d].flux.flux_function(field, cells);
                             };
                         }
                     }

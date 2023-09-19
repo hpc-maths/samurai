@@ -10,10 +10,8 @@ namespace samurai
      * - how the flux contributes to the scheme
      */
     template <class cfg, class Field>
-    class FluxBasedSchemeDefinition<cfg, Field, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
+    struct FluxBasedSchemeDefinition<cfg, Field, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
     {
-      public:
-
         static constexpr std::size_t dim        = Field::dim;
         static constexpr std::size_t field_size = Field::size;
 
@@ -24,63 +22,34 @@ namespace samurai
         using flux_value_t          = typename flux_computation_t::flux_value_t;
         using flux_to_scheme_func_t = std::function<scheme_contrib_t(flux_value_t&)>;
 
-      private:
-
-        flux_computation_t m_flux;
-        flux_to_scheme_func_t m_contribution_func = nullptr;
-
-      public:
+        flux_computation_t flux;
+        flux_to_scheme_func_t contribution_func = nullptr;
 
         FluxBasedSchemeDefinition()
         {
             if constexpr (std::is_same_v<scheme_contrib_t, flux_value_t>)
             {
                 // By default, the contribution is the flux
-                m_contribution_func = [](const flux_value_t& flux)
+                contribution_func = [](const flux_value_t& flux_value)
                 {
-                    return flux;
+                    return flux_value;
                 };
             }
         }
 
         ~FluxBasedSchemeDefinition()
         {
-            m_contribution_func = nullptr;
-        }
-
-        auto& flux() const
-        {
-            return m_flux;
-        }
-
-        auto& flux()
-        {
-            return m_flux;
-        }
-
-        auto& contribution_func() const
-        {
-            return m_contribution_func;
-        }
-
-        void set_flux(const flux_computation_t& flux)
-        {
-            m_flux = flux;
-        }
-
-        void set_contribution(flux_to_scheme_func_t contribution_func)
-        {
-            m_contribution_func = contribution_func;
+            contribution_func = nullptr;
         }
 
         /**
          * Computes and returns the contribution coefficients
          */
-        scheme_contrib_t contribution(flux_value_t& flux, double h_face, double h_cell) const
+        scheme_contrib_t contribution(flux_value_t& flux_value, double h_face, double h_cell) const
         {
             double face_measure = pow(h_face, dim - 1);
             double cell_measure = pow(h_cell, dim);
-            return (face_measure / cell_measure) * m_contribution_func(flux);
+            return (face_measure / cell_measure) * contribution_func(flux_value);
         }
     };
 
@@ -134,7 +103,7 @@ namespace samurai
                 DirectionVector<dim> direction = xt::view(directions, d);
                 assert(direction == flux_definition[d].direction
                        && "The flux definitions must be added in the following order: 1) x-direction, 2) y-direction, 3) z-direction.");
-                m_scheme_definition[d].set_flux(flux_definition[d]);
+                m_scheme_definition[d].flux = flux_definition[d];
             }
         }
 
@@ -193,11 +162,11 @@ namespace samurai
 
                     for_each_interior_interface___same_level(mesh,
                                                              level,
-                                                             scheme_def.flux().direction,
-                                                             scheme_def.flux().stencil,
+                                                             scheme_def.flux.direction,
+                                                             scheme_def.flux.stencil,
                                                              [&](auto& interface_cells, auto& comput_cells)
                                                              {
-                                                                 auto flux_value = scheme_def.flux().flux_function(f, comput_cells);
+                                                                 auto flux_value = scheme_def.flux.flux_function(f, comput_cells);
                                                                  decltype(flux_value) minus_flux_value = -flux_value;
                                                                  auto left_cell_contrib  = scheme_def.contribution(flux_value, h, h);
                                                                  auto right_cell_contrib = scheme_def.contribution(minus_flux_value, h, h);
@@ -219,11 +188,11 @@ namespace samurai
                         for_each_interior_interface___level_jump_direction(
                             mesh,
                             level,
-                            scheme_def.flux().direction,
-                            scheme_def.flux().stencil,
+                            scheme_def.flux.direction,
+                            scheme_def.flux.stencil,
                             [&](auto& interface_cells, auto& comput_cells)
                             {
-                                auto flux_value                       = scheme_def.flux().flux_function(f, comput_cells);
+                                auto flux_value                       = scheme_def.flux.flux_function(f, comput_cells);
                                 decltype(flux_value) minus_flux_value = -flux_value;
                                 auto left_cell_contrib                = scheme_def.contribution(flux_value, h_lp1, h_l);
                                 auto right_cell_contrib               = scheme_def.contribution(minus_flux_value, h_lp1, h_lp1);
@@ -238,11 +207,11 @@ namespace samurai
                         for_each_interior_interface___level_jump_opposite_direction(
                             mesh,
                             level,
-                            scheme_def.flux().direction,
-                            scheme_def.flux().stencil,
+                            scheme_def.flux.direction,
+                            scheme_def.flux.stencil,
                             [&](auto& interface_cells, auto& comput_cells)
                             {
-                                auto flux_value                       = scheme_def.flux().flux_function(f, comput_cells);
+                                auto flux_value                       = scheme_def.flux.flux_function(f, comput_cells);
                                 decltype(flux_value) minus_flux_value = -flux_value;
                                 auto left_cell_contrib                = scheme_def.contribution(flux_value, h_lp1, h_lp1);
                                 auto right_cell_contrib               = scheme_def.contribution(minus_flux_value, h_lp1, h_l);
@@ -273,11 +242,11 @@ namespace samurai
                                    for_each_boundary_interface___direction(
                                        mesh,
                                        level,
-                                       scheme_def.flux().direction,
-                                       scheme_def.flux().stencil,
+                                       scheme_def.flux.direction,
+                                       scheme_def.flux.stencil,
                                        [&](auto& cell, auto& comput_cells)
                                        {
-                                           auto flux_value   = scheme_def.flux().flux_function(f, comput_cells);
+                                           auto flux_value   = scheme_def.flux.flux_function(f, comput_cells);
                                            auto cell_contrib = scheme_def.contribution(flux_value, h, h);
                                            apply_contrib(cell, cell_contrib);
                                        });
@@ -286,11 +255,11 @@ namespace samurai
                                    for_each_boundary_interface___opposite_direction(
                                        mesh,
                                        level,
-                                       scheme_def.flux().direction,
-                                       scheme_def.flux().stencil,
+                                       scheme_def.flux.direction,
+                                       scheme_def.flux.stencil,
                                        [&](auto& cell, auto& comput_cells)
                                        {
-                                           auto flux_value                       = scheme_def.flux().flux_function(f, comput_cells);
+                                           auto flux_value                       = scheme_def.flux.flux_function(f, comput_cells);
                                            decltype(flux_value) minus_flux_value = -flux_value;
                                            auto cell_contrib                     = scheme_def.contribution(minus_flux_value, h, h);
                                            apply_contrib(cell, cell_contrib);
