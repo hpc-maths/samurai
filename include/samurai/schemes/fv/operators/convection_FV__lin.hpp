@@ -24,9 +24,6 @@ namespace samurai
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
 
-                // Return type: 2 matrices (left, right) of size output_field_size x field_size.
-                // In this case, of size field_size x field_size.
-                using flux_stencil_coeffs_t        = typename decltype(upwind)::flux_computation_t::flux_stencil_coeffs_t;
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
 
@@ -34,7 +31,9 @@ namespace samurai
                 {
                     upwind[d].flux_function = [&](double)
                     {
-                        flux_stencil_coeffs_t coeffs;
+                        // Return type: 2 matrices (left, right) of size output_field_size x field_size.
+                        // In this case, of size field_size x field_size.
+                        FluxStencilCoeffs<cfg, Field> coeffs;
                         if constexpr (output_field_size == 1)
                         {
                             coeffs[left]  = velocity(d);
@@ -54,7 +53,7 @@ namespace samurai
                 {
                     upwind[d].flux_function = [&](double)
                     {
-                        flux_stencil_coeffs_t coeffs;
+                        FluxStencilCoeffs<cfg, Field> coeffs;
                         if constexpr (output_field_size == 1)
                         {
                             coeffs[left]  = 0;

@@ -35,11 +35,11 @@ namespace samurai
             };
 
             FluxDefinition<cfg, Field> upwind_f(
-                [f](auto& v, auto& cells)
+                [f](auto& cells, Field& field)
                 {
                     auto& left  = cells[0];
                     auto& right = cells[1];
-                    return v[left] >= 0 ? f(v[left]) : f(v[right]);
+                    return field[left] >= 0 ? f(field[left]) : f(field[right]);
                 });
 
             return make_flux_based_scheme(upwind_f);
@@ -71,7 +71,7 @@ namespace samurai
 
                 FluxDefinition<cfg, Field> upwind_f;
                 // x-direction
-                upwind_f[0].flux_function = [f_x](auto& v, auto& cells)
+                upwind_f[0].flux_function = [f_x](auto& cells, Field& v)
                 {
                     static constexpr std::size_t x = 0;
                     auto& left                     = cells[0];
@@ -79,7 +79,7 @@ namespace samurai
                     return v[left](x) >= 0 ? f_x(v[left]) : f_x(v[right]);
                 };
                 // y-direction
-                upwind_f[1].flux_function = [f_y](auto& v, auto& cells)
+                upwind_f[1].flux_function = [f_y](auto& cells, Field& v)
                 {
                     static constexpr std::size_t y = 1;
                     auto& bottom                   = cells[0];
@@ -120,7 +120,7 @@ namespace samurai
 
                 FluxDefinition<cfg, Field> upwind_f;
                 // x-direction
-                upwind_f[0].flux_function = [f_x](auto& v, auto& cells)
+                upwind_f[0].flux_function = [f_x](auto& cells, Field& v)
                 {
                     static constexpr std::size_t x = 0;
                     auto& left                     = cells[0];
@@ -128,7 +128,7 @@ namespace samurai
                     return v[left](x) >= 0 ? f_x(v[left]) : f_x(v[right]);
                 };
                 // y-direction
-                upwind_f[1].flux_function = [f_y](auto& v, auto& cells)
+                upwind_f[1].flux_function = [f_y](auto& cells, Field& v)
                 {
                     static constexpr std::size_t y = 1;
                     auto& front                    = cells[0];
@@ -136,7 +136,7 @@ namespace samurai
                     return v[front](y) >= 0 ? f_y(v[front]) : f_y(v[back]);
                 };
                 // z-direction
-                upwind_f[2].flux_function = [f_z](auto& v, auto& cells)
+                upwind_f[2].flux_function = [f_z](auto& cells, Field& v)
                 {
                     static constexpr std::size_t z = 2;
                     auto& bottom                   = cells[0];
@@ -171,11 +171,11 @@ namespace samurai
                         return f_v;
                     };
 
-                    upwind_f[d].flux_function = [f](auto& v, auto& cells)
+                    upwind_f[d].flux_function = [f](auto& cells, Field& field)
                     {
                         auto& left  = cells[0];
                         auto& right = cells[1];
-                        return v[left](d) >= 0 ? f(v[left]) : f(v[right]);
+                        return field[left](d) >= 0 ? f(field[left]) : f(field[right]);
                     };
                 });
 

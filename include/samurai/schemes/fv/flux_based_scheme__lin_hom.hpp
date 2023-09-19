@@ -61,10 +61,10 @@ namespace samurai
             return (face_measure / cell_measure) * flux_coeffs;
         }
 
-        auto operator()(Field& f)
+        auto operator()(Field& field)
         {
             auto explicit_scheme = make_explicit(*this);
-            return explicit_scheme.apply_to(f);
+            return explicit_scheme.apply_to(field);
         }
 
         /**
