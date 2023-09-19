@@ -126,7 +126,7 @@ namespace samurai
         static constexpr std::size_t output_field_size = field_size;
         static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
         FluxDefinition<cfg> normal_grad;
 

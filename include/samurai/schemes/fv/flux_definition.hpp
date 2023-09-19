@@ -65,7 +65,7 @@ namespace samurai
     };
 
     template <FluxType flux_type_, std::size_t output_field_size_, std::size_t stencil_size_, class InputField_>
-    struct FluxBasedSchemeConfig
+    struct FluxConfig
     {
         static constexpr FluxType flux_type            = flux_type_;
         static constexpr std::size_t output_field_size = output_field_size_;
@@ -191,9 +191,9 @@ namespace samurai
 
         static constexpr std::size_t dim          = cfg::dim;
         static constexpr std::size_t stencil_size = cfg::stencil_size;
-        using cfg_stencil2                = FluxBasedSchemeConfig<cfg::flux_type, cfg::output_field_size, 2, typename cfg::input_field_t>;
-        using flux_computation_t          = NormalFluxDefinition<cfg>;
-        using flux_computation_stencil2_t = NormalFluxDefinition<cfg_stencil2>;
+        using cfg_stencil2                        = FluxConfig<cfg::flux_type, cfg::output_field_size, 2, typename cfg::input_field_t>;
+        using flux_computation_t                  = NormalFluxDefinition<cfg>;
+        using flux_computation_stencil2_t         = NormalFluxDefinition<cfg_stencil2>;
 
       private:
 
