@@ -1,6 +1,5 @@
 #pragma once
 #include "flux_based_scheme.hpp"
-#include "flux_implem.hpp"
 
 namespace samurai
 {
@@ -178,7 +177,6 @@ namespace samurai
 
         auto operator()(Field& f)
         {
-            // auto explicit_scheme = make_explicit(this->derived_cast());
             auto explicit_scheme = make_explicit(*this);
             return explicit_scheme.apply_to(f);
         }

@@ -240,23 +240,12 @@ namespace samurai
     };
 
     template <class cfg, class Field>
-    auto make_flux_definition()
-    {
-        return FluxDefinition<cfg, Field>();
-    }
-
-    template <class cfg, class Field>
     auto make_flux_definition(typename NormalFluxDefinition<cfg, Field>::flux_func flux_impl)
     {
         return FluxDefinition<cfg, Field>(flux_impl);
     }
 
     template <class cfg, class Field>
-    auto make_flux_value()
-    {
-        using flux_computation_t = NormalFluxDefinition<cfg, std::decay_t<Field>>;
-        using flux_value_t       = typename flux_computation_t::flux_value_t;
-        return flux_value_t();
-    }
+    using FluxValue = typename NormalFluxDefinition<cfg, std::decay_t<Field>>::flux_value_t;
 
 } // end namespace samurai
