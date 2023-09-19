@@ -75,7 +75,7 @@ namespace samurai
     /**
      * Defines how to compute a normal flux
      */
-    template <class cfg, class Field, class check = void>
+    template <class cfg, class Field, class enable = void>
     struct NormalFluxDefinition
     {
     };
@@ -240,12 +240,9 @@ namespace samurai
     };
 
     template <class cfg, class Field>
-    auto make_flux_definition(typename NormalFluxDefinition<cfg, Field>::flux_func flux_impl)
-    {
-        return FluxDefinition<cfg, Field>(flux_impl);
-    }
+    using FluxValue = typename NormalFluxDefinition<cfg, std::decay_t<Field>>::flux_value_t;
 
     template <class cfg, class Field>
-    using FluxValue = typename NormalFluxDefinition<cfg, std::decay_t<Field>>::flux_value_t;
+    using FluxStencilCoeffs = typename NormalFluxDefinition<cfg, std::decay_t<Field>>::flux_stencil_coeffs_t;
 
 } // end namespace samurai

@@ -137,13 +137,12 @@ namespace samurai
 
                 normal_grad[d].flux_function = [](double h)
                 {
-                    // 2 matrices (left, right) of size output_field_size x field_size.
-                    // In this case, of size field_size x field_size.
-                    using flux_stencil_coeffs_t        = typename decltype(normal_grad)::flux_computation_t::flux_stencil_coeffs_t;
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
 
-                    flux_stencil_coeffs_t coeffs;
+                    // Return value: 2 matrices (left, right) of size output_field_size x field_size.
+                    // In this case, of size field_size x field_size.
+                    FluxStencilCoeffs<cfg, Field> coeffs;
                     if constexpr (field_size == 1)
                     {
                         coeffs[left]  = -1 / h;

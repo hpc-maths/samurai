@@ -213,25 +213,24 @@ int main_dim(int argc, char* argv[])
     /**
      * The following is another implementation of the convection operator (here in 1D):
      */
-    // if constexpr (dim == 1)
+    // auto f = [](double x)
     // {
-    //     auto f = [](double x)
+    //     return pow(x, 2) / 2;
+    // };
+
+    // using cfg = samurai::FluxBasedSchemeConfig<samurai::FluxType::NonLinear, /* output_field_size = */ field_size>;
+
+    // samurai::FluxDefinition<cfg, decltype(u)> upwind_f(
+    //     [&](auto& v, auto& cells)
     //     {
-    //         return pow(x, 2) / 2;
-    //     };
+    //         auto& left  = cells[0];
+    //         auto& right = cells[1];
+    //         return v[left] >= 0 ? f(v[left]) : f(v[right]);                        // upwind
+    //         // return (f(v[left]) + f(v[right])) / 2;                              // average
+    //         // return (f(v[left]) + f(v[right] - lambda*(v[right] - v[left])) / 2; // rusanov
+    //     });
 
-    //     auto upwind_f = samurai::make_flux_definition<decltype(u)>(
-    //         [&](auto& v, auto& cells)
-    //         {
-    //             auto& left  = cells[0];
-    //             auto& right = cells[1];
-    //             // return (f(v[left]) + f(v[right])) / 2;                              // average
-    //             // return (f(v[left]) + f(v[right] - lambda*(v[right] - v[left])) / 2; // rusanov
-    //             return v[left] >= 0 ? f(v[left]) : f(v[right]);                        // upwind
-    //         });
-
-    //     auto conv = samurai::make_divergence(upwind_f, u);
-    // }
+    // auto conv = samurai::make_divergence(upwind_f);
 
     //--------------------//
     //   Time iteration   //

@@ -23,13 +23,12 @@ namespace samurai
 
                 average_coeffs[d].flux_function = [](double)
                 {
-                    // 2 matrices (left, right) of size output_field_size x field_size.
-                    // In this case, of size 1 x dim, i.e. a row vector of size dim.
-                    using flux_stencil_coeffs_t        = typename decltype(average_coeffs)::flux_computation_t::flux_stencil_coeffs_t;
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
 
-                    flux_stencil_coeffs_t coeffs;
+                    // Return value: 2 matrices (left, right) of size output_field_size x field_size.
+                    // In this case, of size 1 x dim, i.e. a row vector of size dim.
+                    FluxStencilCoeffs<cfg, Field> coeffs;
                     if constexpr (field_size == 1)
                     {
                         coeffs[left]  = 0.5;
