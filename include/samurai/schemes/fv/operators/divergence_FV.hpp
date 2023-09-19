@@ -11,10 +11,11 @@ namespace samurai
         static_assert(field_size == dim, "The field type for the divergence operator must have a size equal to the space dimension.");
 
         static constexpr std::size_t output_field_size = 1;
+        static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size>;
+        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
-        FluxDefinition<cfg, Field> average_coeffs;
+        FluxDefinition<cfg> average_coeffs;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
@@ -28,7 +29,7 @@ namespace samurai
 
                     // Return value: 2 matrices (left, right) of size output_field_size x field_size.
                     // In this case, of size 1 x dim, i.e. a row vector of size dim.
-                    FluxStencilCoeffs<cfg, Field> coeffs;
+                    FluxStencilCoeffs<cfg> coeffs;
                     if constexpr (field_size == 1)
                     {
                         coeffs[left]  = 0.5;

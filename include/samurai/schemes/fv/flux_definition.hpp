@@ -64,22 +64,24 @@ namespace samurai
         LinearHeterogeneous
     };
 
-    template <FluxType flux_type_, std::size_t output_field_size_, std::size_t stencil_size_ = 2>
+    template <FluxType flux_type_, std::size_t output_field_size_, std::size_t stencil_size_, class InputField_>
     struct FluxBasedSchemeConfig
     {
         static constexpr FluxType flux_type            = flux_type_;
         static constexpr std::size_t output_field_size = output_field_size_;
         static constexpr std::size_t stencil_size      = stencil_size_;
+        using input_field_t                            = std::decay_t<InputField_>;
+        static constexpr std::size_t dim               = input_field_t::dim;
     };
 
-    template <std::size_t dim, class cfg>
+    template <class cfg>
     struct NormalFluxDefinitionBase
     {
         /**
          * Direction of the flux.
          * In 2D, e.g., {1,0} for the flux on the right.
          */
-        DirectionVector<dim> direction;
+        DirectionVector<cfg::dim> direction;
 
         /**
          * Stencil for the flux computation of the flux in the direction defined above.
@@ -102,14 +104,14 @@ namespace samurai
          *                   normal flux
          *
          */
-        Stencil<cfg::stencil_size, dim> stencil;
+        Stencil<cfg::stencil_size, cfg::dim> stencil;
     };
 
     /**
      * @class NormalFluxDefinition defines how to compute a normal flux.
      * This struct inherits from @class NormalFluxDefinitionBase and is specialized for all flux types (see below).
      */
-    template <class cfg, class Field, class enable = void>
+    template <class cfg, class enable = void>
     struct NormalFluxDefinition
     {
     };
@@ -118,17 +120,17 @@ namespace samurai
      * Specialization of @class NormalFluxDefinition.
      * Defines how to compute a NON-LINEAR normal flux.
      */
-    template <class cfg, class Field>
-    struct NormalFluxDefinition<cfg, Field, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
-        : NormalFluxDefinitionBase<Field::dim, cfg>
+    template <class cfg>
+    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>> : NormalFluxDefinitionBase<cfg>
     {
-        static constexpr std::size_t field_size = Field::size;
-        using field_value_type                  = typename Field::value_type;
+        using field_t                           = typename cfg::input_field_t;
+        using field_value_type                  = typename field_t::value_type;
+        using cell_t                            = typename field_t::cell_t;
+        static constexpr std::size_t field_size = field_t::size;
 
-        using cell_t          = typename Field::cell_t;
         using stencil_cells_t = std::array<cell_t, cfg::stencil_size>;
         using flux_value_t    = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, 1>::Type;
-        using flux_func       = std::function<flux_value_t(stencil_cells_t&, Field&)>;
+        using flux_func       = std::function<flux_value_t(stencil_cells_t&, field_t&)>;
 
         flux_func flux_function;
 
@@ -142,12 +144,12 @@ namespace samurai
      * Specialization of @class NormalFluxDefinition.
      * Defines how to compute a LINEAR and HOMOGENEOUS normal flux.
      */
-    template <class cfg, class Field>
-    struct NormalFluxDefinition<cfg, Field, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>>
-        : NormalFluxDefinitionBase<Field::dim, cfg>
+    template <class cfg>
+    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>> : NormalFluxDefinitionBase<cfg>
     {
-        static constexpr std::size_t field_size = Field::size;
-        using field_value_type                  = typename Field::value_type;
+        using field_t                           = typename cfg::input_field_t;
+        using field_value_type                  = typename field_t::value_type;
+        static constexpr std::size_t field_size = field_t::size;
 
         using flux_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
         using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
@@ -183,16 +185,16 @@ namespace samurai
      * @class FluxDefinition:
      * Stores one object of @class NormalFluxDefinition for each positive Cartesian direction.
      */
-    template <class cfg, class Field>
+    template <class cfg>
     class FluxDefinition
     {
       public:
 
-        static constexpr std::size_t dim          = Field::dim;
+        static constexpr std::size_t dim          = cfg::dim;
         static constexpr std::size_t stencil_size = cfg::stencil_size;
-        using cfg_stencil2                        = FluxBasedSchemeConfig<cfg::flux_type, cfg::output_field_size, 2>;
-        using flux_computation_t                  = NormalFluxDefinition<cfg, Field>;
-        using flux_computation_stencil2_t         = NormalFluxDefinition<cfg_stencil2, Field>;
+        using cfg_stencil2                = FluxBasedSchemeConfig<cfg::flux_type, cfg::output_field_size, 2, typename cfg::input_field_t>;
+        using flux_computation_t          = NormalFluxDefinition<cfg>;
+        using flux_computation_stencil2_t = NormalFluxDefinition<cfg_stencil2>;
 
       private:
 
@@ -245,10 +247,10 @@ namespace samurai
         }
     };
 
-    template <class cfg, class Field>
-    using FluxValue = typename NormalFluxDefinition<cfg, std::decay_t<Field>>::flux_value_t;
+    template <class cfg>
+    using FluxValue = typename NormalFluxDefinition<cfg>::flux_value_t;
 
-    template <class cfg, class Field>
-    using FluxStencilCoeffs = typename NormalFluxDefinition<cfg, std::decay_t<Field>>::flux_stencil_coeffs_t;
+    template <class cfg>
+    using FluxStencilCoeffs = typename NormalFluxDefinition<cfg>::flux_stencil_coeffs_t;
 
 } // end namespace samurai

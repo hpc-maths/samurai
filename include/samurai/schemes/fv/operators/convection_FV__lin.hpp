@@ -14,10 +14,11 @@ namespace samurai
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
+        static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size>;
+        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
-        FluxDefinition<cfg, Field> upwind;
+        FluxDefinition<cfg> upwind;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
@@ -33,7 +34,7 @@ namespace samurai
                     {
                         // Return type: 2 matrices (left, right) of size output_field_size x field_size.
                         // In this case, of size field_size x field_size.
-                        FluxStencilCoeffs<cfg, Field> coeffs;
+                        FluxStencilCoeffs<cfg> coeffs;
                         if constexpr (output_field_size == 1)
                         {
                             coeffs[left]  = velocity(d);
@@ -53,7 +54,7 @@ namespace samurai
                 {
                     upwind[d].flux_function = [&](double)
                     {
-                        FluxStencilCoeffs<cfg, Field> coeffs;
+                        FluxStencilCoeffs<cfg> coeffs;
                         if constexpr (output_field_size == 1)
                         {
                             coeffs[left]  = 0;

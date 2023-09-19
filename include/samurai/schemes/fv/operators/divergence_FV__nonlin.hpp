@@ -4,8 +4,8 @@
 namespace samurai
 {
 
-    template <class cfg, class Field>
-    auto make_divergence(const FluxDefinition<cfg, Field>& flux_definition)
+    template <class cfg>
+    auto make_divergence(const FluxDefinition<cfg>& flux_definition)
     {
         return make_flux_based_scheme(flux_definition);
     }

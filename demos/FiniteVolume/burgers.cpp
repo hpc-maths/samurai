@@ -218,9 +218,9 @@ int main_dim(int argc, char* argv[])
     //     return pow(x, 2) / 2;
     // };
 
-    // using cfg = samurai::FluxBasedSchemeConfig<samurai::FluxType::NonLinear, /* output_field_size = */ field_size>;
+    // using cfg = samurai::FluxBasedSchemeConfig<samurai::FluxType::NonLinear, /* output_field_size = */ field_size, 2, decltype(u)>;
 
-    // samurai::FluxDefinition<cfg, decltype(u)> upwind_f(
+    // samurai::FluxDefinition<cfg> upwind_f(
     //     [&](auto& v, auto& cells)
     //     {
     //         auto& left  = cells[0];

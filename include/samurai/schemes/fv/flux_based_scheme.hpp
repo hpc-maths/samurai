@@ -9,17 +9,17 @@ namespace samurai
     /**
      * @class FluxBasedScheme
      */
-    template <class cfg, class bdry_cfg, class Field, class check = void>
+    template <class cfg, class bdry_cfg, class check = void>
     class FluxBasedScheme
     {
     };
 
-    template <class cfg, class Field>
-    auto make_flux_based_scheme(const FluxDefinition<cfg, Field>& flux_definition)
+    template <class cfg>
+    auto make_flux_based_scheme(const FluxDefinition<cfg>& flux_definition)
     {
         using bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2>;
 
-        return FluxBasedScheme<cfg, bdry_cfg, Field>(flux_definition);
+        return FluxBasedScheme<cfg, bdry_cfg>(flux_definition);
     }
 
     /**
@@ -31,10 +31,9 @@ namespace samurai
     };
 
     template <class Scheme>
-    struct is_FluxBasedScheme<
-        Scheme,
-        std::enable_if_t<std::is_base_of_v<FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>
-                         || std::is_same_v<FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
+    struct is_FluxBasedScheme<Scheme,
+                              std::enable_if_t<std::is_base_of_v<FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t>, Scheme>
+                                               || std::is_same_v<FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t>, Scheme>>>
         : std::true_type
     {
     };

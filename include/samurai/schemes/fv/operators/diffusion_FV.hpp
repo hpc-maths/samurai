@@ -11,13 +11,12 @@ namespace samurai
     template <
         // template parameters
         class cfg,
-        class Field,
         DirichletEnforcement dirichlet_enfcmt = Equation,
         // boundary config
         class bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2, dirichlet_enfcmt>>
-    class DiffusionFV : public FluxBasedScheme<cfg, bdry_cfg, Field>
+    class DiffusionFV : public FluxBasedScheme<cfg, bdry_cfg>
     {
-        using base_class = FluxBasedScheme<cfg, bdry_cfg, Field>;
+        using base_class = FluxBasedScheme<cfg, bdry_cfg>;
         using base_class::bdry_stencil_size;
         using base_class::dim;
 
@@ -113,10 +112,10 @@ namespace samurai
         }
     };
 
-    template <class cfg, class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion(const FluxDefinition<cfg, Field>& flux_definition)
+    template <class cfg, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_diffusion(const FluxDefinition<cfg>& flux_definition)
     {
-        return DiffusionFV<cfg, Field, dirichlet_enfcmt>(flux_definition);
+        return DiffusionFV<cfg, dirichlet_enfcmt>(flux_definition);
     }
 
     template <DirichletEnforcement dirichlet_enfcmt, class Field>
@@ -125,10 +124,11 @@ namespace samurai
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
+        static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size>;
+        using cfg = FluxBasedSchemeConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
-        FluxDefinition<cfg, Field> normal_grad;
+        FluxDefinition<cfg> normal_grad;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
@@ -142,7 +142,7 @@ namespace samurai
 
                     // Return value: 2 matrices (left, right) of size output_field_size x field_size.
                     // In this case, of size field_size x field_size.
-                    FluxStencilCoeffs<cfg, Field> coeffs;
+                    FluxStencilCoeffs<cfg> coeffs;
                     if constexpr (field_size == 1)
                     {
                         coeffs[left]  = -1 / h;
@@ -165,7 +165,7 @@ namespace samurai
                 };
             });
 
-        return make_diffusion<cfg, Field, dirichlet_enfcmt>(normal_grad);
+        return make_diffusion<cfg, dirichlet_enfcmt>(normal_grad);
     }
 
     template <class Field>

@@ -24,17 +24,18 @@ namespace samurai
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
+        static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxBasedSchemeConfig<FluxType::NonLinear, output_field_size>;
+        using cfg = FluxBasedSchemeConfig<FluxType::NonLinear, output_field_size, stencil_size, Field>;
 
         if constexpr (field_size == 1)
         {
-            auto f = [](auto v) -> FluxValue<cfg, Field>
+            auto f = [](auto v) -> FluxValue<cfg>
             {
                 return v * v;
             };
 
-            FluxDefinition<cfg, Field> upwind_f(
+            FluxDefinition<cfg> upwind_f(
                 [f](auto& cells, Field& field)
                 {
                     auto& left  = cells[0];
@@ -55,7 +56,7 @@ namespace samurai
             {
                 auto f_x = [](auto v)
                 {
-                    FluxValue<cfg, Field> f_v;
+                    FluxValue<cfg> f_v;
                     f_v[0]   = v[0] * v[0];
                     f_v[1]   = v[0] * v[1];
                     return f_v;
@@ -63,13 +64,13 @@ namespace samurai
 
                 auto f_y = [](auto v)
                 {
-                    FluxValue<cfg, Field> f_v;
+                    FluxValue<cfg> f_v;
                     f_v[0]   = v[1] * v[0];
                     f_v[1]   = v[1] * v[1];
                     return f_v;
                 };
 
-                FluxDefinition<cfg, Field> upwind_f;
+                FluxDefinition<cfg> upwind_f;
                 // x-direction
                 upwind_f[0].flux_function = [f_x](auto& cells, Field& v)
                 {
@@ -93,7 +94,7 @@ namespace samurai
             {
                 auto f_x = [](auto v)
                 {
-                    FluxValue<cfg, Field> f_v;
+                    FluxValue<cfg> f_v;
                     f_v[0]   = v[0] * v[0];
                     f_v[1]   = v[0] * v[1];
                     f_v[2]   = v[0] * v[2];
@@ -102,7 +103,7 @@ namespace samurai
 
                 auto f_y = [](auto v)
                 {
-                    FluxValue<cfg, Field> f_v;
+                    FluxValue<cfg> f_v;
                     f_v[0]   = v[1] * v[0];
                     f_v[1]   = v[1] * v[1];
                     f_v[2]   = v[1] * v[2];
@@ -111,14 +112,14 @@ namespace samurai
 
                 auto f_z = [](auto v)
                 {
-                    FluxValue<cfg, Field> f_v;
+                    FluxValue<cfg> f_v;
                     f_v[0]   = v[2] * v[0];
                     f_v[1]   = v[2] * v[1];
                     f_v[2]   = v[2] * v[2];
                     return f_v;
                 };
 
-                FluxDefinition<cfg, Field> upwind_f;
+                FluxDefinition<cfg> upwind_f;
                 // x-direction
                 upwind_f[0].flux_function = [f_x](auto& cells, Field& v)
                 {
@@ -150,7 +151,7 @@ namespace samurai
             {
             */
 
-            FluxDefinition<cfg, Field> upwind_f;
+            FluxDefinition<cfg> upwind_f;
 
             static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
                 [&](auto integral_constant_d)
@@ -160,7 +161,7 @@ namespace samurai
                     auto f = [](auto v)
                     {
                         // f(v) = v[d] * v
-                        FluxValue<cfg, Field> f_v;
+                        FluxValue<cfg> f_v;
                         static_for<0, field_size>::apply( // for (int j=0; j<field_size; j++)
                             [&](auto integral_constant_j)
                             {
