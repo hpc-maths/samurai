@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    auto diff   = samurai::make_diffusion<samurai::DirichletEnforcement::Equation, decltype(solution)>();
+    auto diff   = samurai::make_diffusion<decltype(solution), samurai::DirichletEnforcement::Equation>();
     auto solver = samurai::petsc::make_solver(diff);
     solver.set_unknown(solution);
 

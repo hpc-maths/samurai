@@ -1,4 +1,5 @@
 #pragma once
+#include "../flux_based_scheme__lin_het.hpp"
 #include "../flux_based_scheme__lin_hom.hpp"
 #include "divergence_FV.hpp"
 
@@ -112,14 +113,23 @@ namespace samurai
         }
     };
 
+    template <std::size_t dim>
+    using DiffCoeff = xt::xtensor_fixed<double, xt::xshape<dim>>;
+
+    // using DiffusionTensor = detail::LocalMatrix<double, dim, dim>;
+
+    /**
+     * Linear homogeneous diffusion
+     */
+
     template <class cfg, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion(const FluxDefinition<cfg>& flux_definition)
+    auto make_diffusion__(const FluxDefinition<cfg>& flux_definition)
     {
         return DiffusionFV<cfg, dirichlet_enfcmt>(flux_definition);
     }
 
-    template <DirichletEnforcement dirichlet_enfcmt, class Field>
-    auto make_diffusion()
+    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_diffusion(const DiffCoeff<Field::dim>& K)
     {
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
@@ -128,14 +138,14 @@ namespace samurai
 
         using cfg = FluxConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
-        FluxDefinition<cfg> normal_grad;
+        FluxDefinition<cfg> K_grad;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
 
-                normal_grad[d].flux_function = [](double h)
+                K_grad[d].flux_function = [K](double h)
                 {
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
@@ -158,6 +168,88 @@ namespace samurai
                             coeffs[right](i, i) = 1 / h;
                         }
                     }
+                    // Minus sign because we want -Laplacian
+                    coeffs[left] *= -K(d);
+                    coeffs[right] *= -K(d);
+                    return coeffs;
+                };
+            });
+        return make_diffusion__<cfg, dirichlet_enfcmt>(K_grad);
+    }
+
+    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_diffusion(double k)
+    {
+        DiffCoeff<Field::dim> K;
+        K.fill(k);
+        return make_diffusion<Field, dirichlet_enfcmt>(K);
+    }
+
+    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_diffusion()
+    {
+        return make_diffusion<Field, dirichlet_enfcmt>(1.);
+    }
+
+    template <class Field>
+    auto make_laplacian()
+    {
+        return -make_diffusion<Field>();
+    }
+
+    /**
+     * Linear heterogeneous diffusion
+     */
+
+    template <class field_t,
+              class DiffTensorField,
+              std::enable_if_t<DiffTensorField::size == 1 && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>, bool> = true>
+    auto make_diffusion(const DiffTensorField& K)
+    {
+        // static_assert(DiffTensorField::size == 1 && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>>);
+
+        static constexpr std::size_t dim               = field_t::dim;
+        static constexpr std::size_t field_size        = field_t::size;
+        static constexpr std::size_t output_field_size = field_size;
+        static constexpr std::size_t stencil_size      = 2;
+
+        using cfg = FluxConfig<FluxType::LinearHeterogeneous, output_field_size, stencil_size, field_t>;
+
+        FluxDefinition<cfg> K_grad;
+
+        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+            [&](auto integral_constant_d)
+            {
+                static constexpr int d = decltype(integral_constant_d)::value;
+
+                K_grad[d].flux_function = [&](auto& cells)
+                {
+                    static constexpr std::size_t left  = 0;
+                    static constexpr std::size_t right = 1;
+
+                    double h = cells[left].length;
+
+                    auto k_left  = K[cells[left]];
+                    auto k_right = K[cells[left]];
+
+                    // Return value: 2 matrices (left, right) of size output_field_size x field_size.
+                    // In this case, of size field_size x field_size.
+                    FluxStencilCoeffs<cfg> coeffs;
+                    if constexpr (field_size == 1)
+                    {
+                        coeffs[left]  = -k_left(d) / h;
+                        coeffs[right] = k_left(d) / h;
+                    }
+                    else
+                    {
+                        coeffs[left].fill(0);
+                        coeffs[right].fill(0);
+                        for (std::size_t i = 0; i < field_size; ++i)
+                        {
+                            coeffs[left](i, i)  = -k_left(d) / h;
+                            coeffs[right](i, i) = k_left(d) / h;
+                        }
+                    }
                     // Because we want -Laplacian
                     coeffs[left] *= -1;
                     coeffs[right] *= -1;
@@ -165,31 +257,7 @@ namespace samurai
                 };
             });
 
-        return make_diffusion<cfg, dirichlet_enfcmt>(normal_grad);
-    }
-
-    template <class Field>
-    auto make_diffusion()
-    {
-        return make_diffusion<DirichletEnforcement::Equation, Field>();
-    }
-
-    template <class Field>
-    [[deprecated("Use make_diffusion() instead.")]] auto make_diffusion_FV()
-    {
-        return make_diffusion<Field>();
-    }
-
-    template <DirichletEnforcement dirichlet_enfcmt, class Field>
-    auto make_laplacian()
-    {
-        return -make_diffusion<dirichlet_enfcmt, Field>();
-    }
-
-    template <class Field>
-    auto make_laplacian()
-    {
-        return -make_diffusion<Field>();
+        return make_diffusion__<cfg>(K_grad);
     }
 
 } // end namespace samurai

@@ -115,11 +115,18 @@ namespace samurai
                                 return m_scalar * m_scheme.flux_definition()[d].flux_function(h);
                             };
                         }
-                        else
+                        else if constexpr (cfg_t::flux_type == FluxType::LinearHeterogeneous)
                         {
-                            this->flux_definition()[d].flux_function = [&](auto& field, auto& cells)
+                            this->flux_definition()[d].flux_function = [&](auto& cells)
                             {
-                                return m_scalar * m_scheme.flux_definition()[d].flux_function(field, cells);
+                                return m_scalar * m_scheme.flux_definition()[d].flux_function(cells);
+                            };
+                        }
+                        else // FluxType::NonLinear
+                        {
+                            this->flux_definition()[d].flux_function = [&](auto& cells, auto& field)
+                            {
+                                return m_scalar * m_scheme.flux_definition()[d].flux_function(cells, field);
                             };
                         }
                     }

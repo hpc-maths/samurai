@@ -11,18 +11,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <std::size_t dim>
-double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t, double diff_coeff)
-{
-    assert(t > 0 && "t must be > 0");
-    double result = 1;
-    for (std::size_t d = 0; d < dim; ++d)
-    {
-        result *= 1 / (2 * sqrt(M_PI * diff_coeff * t)) * exp(-coords(d) * coords(d) / (4 * diff_coeff * t));
-    }
-    return result;
-}
-
 template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
@@ -57,20 +45,8 @@ int main(int argc, char* argv[])
     //--------------------//
 
     // Simulation parameters
-    double left_box  = -1;
-    double right_box = 1;
-    if constexpr (dim == 1)
-    {
-        left_box  = -20;
-        right_box = 20;
-    }
-    else if constexpr (dim == 2)
-    {
-        left_box  = -4;
-        right_box = 4;
-    }
-    std::string init_sol = "dirac";
-    double diff_coeff    = 1;
+    double left_box  = -4;
+    double right_box = 4;
 
     // Time integration
     double Tf            = 1.;
@@ -80,19 +56,15 @@ int main(int argc, char* argv[])
 
     // Multiresolution parameters
     std::size_t min_level = 0;
-    std::size_t max_level = dim == 1 ? 5 : 3;
+    std::size_t max_level = 3;
     double mr_epsilon     = 1e-4; // Threshold used by multiresolution
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
     fs::path path        = fs::current_path();
-    std::string filename = "heat_" + std::to_string(dim) + "D";
+    std::string filename = "heat_heterog_" + std::to_string(dim) + "D";
 
-    CLI::App app{"Finite volume example for the heat equation in 1d"};
-    app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--init-sol", init_sol, "Initial solution: dirac/crenel")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--diff-coeff", diff_coeff, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
+    CLI::App app{"Finite volume example for the heat equation in 2D"};
     app.add_flag("--explicit", explicit_scheme, "Explicit scheme instead of implicit")->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
@@ -135,43 +107,47 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    auto u = samurai::make_field<1>("u", mesh);
-
-    // Initial solution
-    double t0 = 0;
-    if (init_sol == "dirac")
-    {
-        t0 = 1e-2; // in this particular case, the exact solution is not defined for t=0
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   u[cell] = exact_solution(cell.center(), t0, diff_coeff);
-                               });
-    }
-    else // crenel
-    {
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   bool is_in_crenel = true;
-                                   for (std::size_t d = 0; d < dim; ++d)
-                                   {
-                                       is_in_crenel = is_in_crenel && (abs(cell.center(d)) < right_box / 3);
-                                   }
-                                   u[cell] = is_in_crenel ? 1 : 0;
-                               });
-    }
-
+    auto u    = samurai::make_field<1>("u", mesh);
     auto unp1 = samurai::make_field<1>("unp1", mesh);
 
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
-    samurai::DiffCoeff<dim> K;
-    K.fill(diff_coeff);
+    auto K = samurai::make_field<samurai::DiffCoeff<dim>, 1>("K", mesh);
+
+    auto set_K_values = [&]()
+    {
+        samurai::for_each_cell(mesh[decltype(mesh)::mesh_id_t::reference],
+                               [&](auto& cell)
+                               {
+                                   double x = cell.center(0);
+                                   double y = cell.center(1);
+                                   // Domain divided into 4 quadrants
+                                   if ((x < 0 && y > 0) || (x > 0 && y < 0))
+                                   {
+                                       K[cell] = {0.1, 4};
+                                   }
+                                   else
+                                   {
+                                       K[cell] = {4, 0.1};
+                                   }
+                               });
+    };
 
     auto diff = samurai::make_diffusion<decltype(u)>(K);
     auto id   = samurai::make_identity<decltype(u)>();
+
+    // Initial solution: crenel
+    samurai::for_each_cell(mesh,
+                           [&](auto& cell)
+                           {
+                               bool is_in_crenel = true;
+                               for (std::size_t d = 0; d < dim; ++d)
+                               {
+                                   is_in_crenel = is_in_crenel && (abs(cell.center(d)) < right_box / 3);
+                               }
+                               u[cell] = is_in_crenel ? 1 : 0;
+                           });
 
     //--------------------//
     //   Time iteration   //
@@ -179,8 +155,9 @@ int main(int argc, char* argv[])
 
     if (explicit_scheme)
     {
-        double dx = samurai::cell_length(max_level);
-        dt        = cfl * (dx * dx) / (pow(2, dim) * diff_coeff);
+        double diff_coeff = 4;
+        double dx         = samurai::cell_length(max_level);
+        dt                = cfl * (dx * dx) / (pow(2, dim) * diff_coeff);
     }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
@@ -189,7 +166,7 @@ int main(int argc, char* argv[])
     std::size_t nsave = 0, nt = 0;
     save(path, filename, u, fmt::format("_ite_{}", nsave++));
 
-    double t = t0;
+    double t = 0;
     while (t != Tf)
     {
         // Move to next timestep
@@ -205,6 +182,8 @@ int main(int argc, char* argv[])
         MRadaptation(mr_epsilon, mr_regularity);
         samurai::update_ghost_mr(u);
         unp1.resize();
+        K.resize();
+        set_K_values();
 
         if (explicit_scheme)
         {
@@ -223,28 +202,9 @@ int main(int argc, char* argv[])
         // Save the result
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
 
-        // Compute the error at instant t with respect to the exact solution
-        if (init_sol == "dirac")
-        {
-            double error = samurai::L2_error(u,
-                                             [&](auto& coord)
-                                             {
-                                                 return exact_solution(coord, t, diff_coeff);
-                                             });
-            std::cout.precision(2);
-            std::cout << ", L2-error: " << std::scientific << error;
-        }
         std::cout << std::endl;
     }
 
-    if constexpr (dim == 1)
-    {
-        std::cout << std::endl;
-        std::cout << "Run the following command to view the results:" << std::endl;
-        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 1 --end " << nsave
-                  << std::endl;
-    }
     PetscFinalize();
-
     return 0;
 }

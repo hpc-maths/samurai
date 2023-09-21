@@ -7,10 +7,11 @@
 namespace samurai
 {
     /**
-     * LINEAR and HOMOGENEOUS explicit schemes
+     * LINEAR explicit schemes
      */
     template <class cfg, class bdry_cfg>
-    class Explicit<FluxBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>>
+    class Explicit<FluxBasedScheme<cfg, bdry_cfg>,
+                   std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous || cfg::flux_type == FluxType::LinearHeterogeneous>>
     {
         using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg>;
         using field_t                                  = typename scheme_t::field_t;
