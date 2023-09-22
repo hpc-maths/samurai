@@ -258,6 +258,8 @@ int main(int argc, char* argv[])
 
     std::cout << solver.iterations() << " iterations" << std::endl << std::endl;
 
+    solver.destroy_petsc_objects();
+
     //--------------------//
     //  Print exec times  //
     //--------------------//

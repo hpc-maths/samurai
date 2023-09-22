@@ -369,6 +369,7 @@ int main(int argc, char* argv[])
         //     });
     }
 
+    stokes_solver.destroy_petsc_objects();
     PetscFinalize();
     return 0;
 }
