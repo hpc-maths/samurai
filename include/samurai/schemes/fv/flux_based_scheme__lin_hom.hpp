@@ -26,8 +26,6 @@ namespace samurai
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
 
-        static constexpr std::size_t stencil_size = cfg::stencil_size;
-
         using flux_definition_t     = FluxDefinition<cfg>;
         using flux_computation_t    = typename flux_definition_t::flux_computation_t;
         using flux_stencil_coeffs_t = typename flux_computation_t::flux_stencil_coeffs_t;

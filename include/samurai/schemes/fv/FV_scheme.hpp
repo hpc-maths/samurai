@@ -92,19 +92,17 @@ namespace samurai
     {
       public:
 
-        using Mesh                                             = typename Field::mesh_t;
-        using mesh_id_t                                        = typename Mesh::mesh_id_t;
-        using interval_t                                       = typename Mesh::interval_t;
-        using field_value_type                                 = typename Field::value_type; // double
-        using bdry_cfg                                         = bdry_cfg_;
-        static constexpr std::size_t dim                       = Field::dim;
-        static constexpr std::size_t field_size                = Field::size;
-        static constexpr std::size_t output_field_size         = output_field_size_;
-        static constexpr std::size_t prediction_order          = Mesh::config::prediction_order;
-        static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg::neighbourhood_width;
-        static constexpr std::size_t bdry_stencil_size         = bdry_cfg::stencil_size;
-        static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg::nb_ghosts;
-        static constexpr DirichletEnforcement dirichlet_enfcmt = bdry_cfg::dirichlet_enfcmt;
+        using Mesh                                            = typename Field::mesh_t;
+        using mesh_id_t                                       = typename Mesh::mesh_id_t;
+        using interval_t                                      = typename Mesh::interval_t;
+        using field_value_type                                = typename Field::value_type; // double
+        using bdry_cfg                                        = bdry_cfg_;
+        static constexpr std::size_t dim                      = Field::dim;
+        static constexpr std::size_t field_size               = Field::size;
+        static constexpr std::size_t output_field_size        = output_field_size_;
+        static constexpr std::size_t bdry_neighbourhood_width = bdry_cfg::neighbourhood_width;
+        static constexpr std::size_t bdry_stencil_size        = bdry_cfg::stencil_size;
+        static constexpr std::size_t nb_bdry_ghosts           = bdry_cfg::nb_ghosts;
 
         using dirichlet_t = Dirichlet<Field>;
         using neumann_t   = Neumann<Field>;

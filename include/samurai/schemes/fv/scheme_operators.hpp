@@ -7,18 +7,18 @@ namespace samurai
     /**
      * Multiplication by a scalar value of the flux-based scheme
      */
-    template <class Scheme> //, std::enable_if_t<Scheme::is_flux_based>>
+    template <class Scheme>
     class Scalar_x_FluxBasedScheme : public FluxBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t>
     {
       public:
 
-        using cfg_t                      = typename Scheme::cfg_t;
-        using bdry_cfg_t                 = typename Scheme::bdry_cfg_t;
-        using field_t                    = typename Scheme::field_t;
-        using base_class                 = FluxBasedScheme<cfg_t, bdry_cfg_t>;
-        using flux_definition_t          = typename base_class::flux_definition_t;
-        using directional_bdry_config_t  = typename base_class::directional_bdry_config_t;
-        static constexpr std::size_t dim = field_t::dim;
+        using cfg_t                     = typename Scheme::cfg_t;
+        using bdry_cfg_t                = typename Scheme::bdry_cfg_t;
+        using field_t                   = typename Scheme::field_t;
+        using base_class                = FluxBasedScheme<cfg_t, bdry_cfg_t>;
+        using flux_definition_t         = typename base_class::flux_definition_t;
+        using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
+        using base_class::dim;
         using base_class::name;
 
       private:
