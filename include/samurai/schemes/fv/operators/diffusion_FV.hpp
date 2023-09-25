@@ -222,7 +222,7 @@ namespace samurai
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
 
-                K_grad[d].flux_function = [&](auto& cells)
+                K_grad[d].flux_function = [&](const auto& cells)
                 {
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
