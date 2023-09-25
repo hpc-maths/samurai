@@ -761,53 +761,53 @@ namespace samurai
                         auto shift = level_dst - level_src;
                         if constexpr (dim == 1)
                         {
-                            auto dst = field_dst(level_dst, i);
                             for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
                             {
+                                auto dst   = field_dst(level_dst, interval_t{i.start + ii, i.start + ii + 1});
                                 auto i_src = (i.start + static_cast<value_t>(ii)) >> shift;
-                                dst(ii)    = portion(field_src,
-                                                  level_src,
-                                                  interval_t{i_src, i_src + 1},
-                                                  shift,
-                                                  i.start + ii - (i_src << static_cast<value_t>(shift)))[0];
+                                dst        = portion(field_src,
+                                              level_src,
+                                              interval_t{i_src, i_src + 1},
+                                              shift,
+                                              i.start + ii - (i_src << static_cast<value_t>(shift)));
                             }
                         }
                         else if constexpr (dim == 2)
                         {
-                            auto j   = index[0];
-                            auto dst = field_dst(level_dst, i, j);
+                            auto j = index[0];
                             for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
                             {
+                                auto dst   = field_dst(level_dst, interval_t{i.start + ii, i.start + ii + 1}, j);
                                 auto i_src = (i.start + static_cast<value_t>(ii)) >> shift;
                                 auto j_src = j >> shift;
-                                dst(ii)    = portion(field_src,
-                                                  level_src,
-                                                  interval_t{i_src, i_src + 1},
-                                                  j_src,
-                                                  shift,
-                                                  i.start + ii - (i_src << static_cast<value_t>(shift)),
-                                                  j - (j_src << shift))[0];
+                                dst        = portion(field_src,
+                                              level_src,
+                                              interval_t{i_src, i_src + 1},
+                                              j_src,
+                                              shift,
+                                              i.start + ii - (i_src << static_cast<value_t>(shift)),
+                                              j - (j_src << shift));
                             }
                         }
                         else if constexpr (dim == 3)
                         {
-                            auto j   = index[0];
-                            auto k   = index[1];
-                            auto dst = field_dst(level_dst, i, j, k);
+                            auto j = index[0];
+                            auto k = index[1];
                             for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
                             {
+                                auto dst   = field_dst(level_dst, interval_t{i.start + ii, i.start + ii + 1}, j, k);
                                 auto i_src = (i.start + static_cast<value_t>(ii)) >> shift;
                                 auto j_src = j >> shift;
                                 auto k_src = k >> shift;
-                                dst(ii)    = portion(field_src,
-                                                  level_src,
-                                                  interval_t{i_src, i_src + 1},
-                                                  j_src,
-                                                  k_src,
-                                                  shift,
-                                                  i.start + ii - (i_src << static_cast<value_t>(shift)),
-                                                  j - (j_src << shift),
-                                                  k - (k_src << shift))[0];
+                                dst        = portion(field_src,
+                                              level_src,
+                                              interval_t{i_src, i_src + 1},
+                                              j_src,
+                                              k_src,
+                                              shift,
+                                              i.start + ii - (i_src << static_cast<value_t>(shift)),
+                                              j - (j_src << shift),
+                                              k - (k_src << shift));
                             }
                         }
                     });
