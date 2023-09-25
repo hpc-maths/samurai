@@ -15,9 +15,9 @@ namespace fs = std::filesystem;
 template <std::size_t dim>
 double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t)
 {
-    const double a = 1;
-    const double b = 0;
-    double x       = coords(0);
+    const double a  = 1;
+    const double b  = 0;
+    const double& x = coords(0);
     return (a * x + b) / (a * t + 1);
 }
 
@@ -157,7 +157,7 @@ int main_dim(int argc, char* argv[])
             samurai::for_each_cell(mesh,
                                    [&](auto& cell)
                                    {
-                                       double max = 2;
+                                       const double max = 2;
                                        for (std::size_t d = 0; d < dim; ++d)
                                        {
                                            if (cell.center(d) >= -0.5 && cell.center(d) <= 0)
@@ -213,25 +213,24 @@ int main_dim(int argc, char* argv[])
     /**
      * The following is another implementation of the convection operator (here in 1D):
      */
-    // if constexpr (dim == 1)
+    // auto f = [](double x)
     // {
-    //     auto f = [](double x)
+    //     return pow(x, 2) / 2;
+    // };
+
+    // using cfg = samurai::FluxConfig<samurai::FluxType::NonLinear, /* output_field_size = */ field_size, 2, decltype(u)>;
+
+    // samurai::FluxDefinition<cfg> upwind_f(
+    //     [&](auto& v, auto& cells)
     //     {
-    //         return pow(x, 2) / 2;
-    //     };
+    //         auto& left  = cells[0];
+    //         auto& right = cells[1];
+    //         return v[left] >= 0 ? f(v[left]) : f(v[right]);                        // upwind
+    //         // return (f(v[left]) + f(v[right])) / 2;                              // average
+    //         // return (f(v[left]) + f(v[right] - lambda*(v[right] - v[left])) / 2; // rusanov
+    //     });
 
-    //     auto upwind_f = samurai::make_flux_definition<decltype(u)>(
-    //         [&](auto& v, auto& cells)
-    //         {
-    //             auto& left  = cells[0];
-    //             auto& right = cells[1];
-    //             // return (f(v[left]) + f(v[right])) / 2;                              // average
-    //             // return (f(v[left]) + f(v[right] - lambda*(v[right] - v[left])) / 2; // rusanov
-    //             return v[left] >= 0 ? f(v[left]) : f(v[right]);                        // upwind
-    //         });
-
-    //     auto conv = samurai::make_divergence(upwind_f, u);
-    // }
+    // auto conv = samurai::make_divergence(upwind_f);
 
     //--------------------//
     //   Time iteration   //

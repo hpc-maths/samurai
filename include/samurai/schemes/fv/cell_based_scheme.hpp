@@ -51,12 +51,12 @@ namespace samurai
                                                    0,  // Stencil size
                                                    0>; // Index of the stencil center
 
-    template <class DerivedScheme, class cfg, class bdry_cfg, class Field>
-    class CellBasedScheme : public FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>
+    template <class cfg, class bdry_cfg, class Field>
+    class CellBasedScheme : public FVScheme<Field, cfg::output_field_size, bdry_cfg>
     {
       protected:
 
-        using base_class = FVScheme<DerivedScheme, Field, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<Field, cfg::output_field_size, bdry_cfg>;
         using base_class::dim;
         using base_class::field_size;
 
@@ -71,9 +71,58 @@ namespace samurai
                                                             output_field_size,
                                                             field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a
                                                                                                          // matrix otherwise
+        using scheme_stencil_t      = Stencil<cfg::scheme_stencil_size, dim>;
+        using get_coefficients_func = std::function<std::array<local_matrix_t, cfg::scheme_stencil_size>(double)>;
+
+      private:
+
+        scheme_stencil_t m_stencil;
+        get_coefficients_func m_get_coefficients;
+
+      public:
 
         explicit CellBasedScheme()
         {
+        }
+
+        auto& stencil() const
+        {
+            return m_stencil;
+        }
+
+        auto& stencil()
+        {
+            return m_stencil;
+        }
+
+        void set_stencil(const scheme_stencil_t& stencil)
+        {
+            m_stencil = stencil;
+        }
+
+        void set_stencil(scheme_stencil_t&& stencil)
+        {
+            m_stencil = stencil;
+        }
+
+        get_coefficients_func& coefficients_func() const
+        {
+            return m_get_coefficients;
+        }
+
+        get_coefficients_func& coefficients_func()
+        {
+            return m_get_coefficients;
+        }
+
+        void set_coefficients_func(get_coefficients_func get_coefficients)
+        {
+            m_get_coefficients = get_coefficients;
+        }
+
+        auto coefficients(double h) const
+        {
+            return m_get_coefficients(h);
         }
     };
 
@@ -85,8 +134,7 @@ namespace samurai
     template <class Scheme>
     struct is_CellBasedScheme<
         Scheme,
-        std::enable_if_t<
-            std::is_base_of_v<CellBasedScheme<Scheme, typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
+        std::enable_if_t<std::is_base_of_v<CellBasedScheme<typename Scheme::cfg_t, typename Scheme::bdry_cfg_t, typename Scheme::field_t>, Scheme>>>
         : std::true_type
     {
     };

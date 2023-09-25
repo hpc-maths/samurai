@@ -145,8 +145,8 @@ namespace samurai
 
         auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
 
-        int direction_index_int     = find(comput_stencil, direction);
-        std::size_t direction_index = static_cast<std::size_t>(direction_index_int);
+        int direction_index_int = find(comput_stencil, direction);
+        auto direction_index    = static_cast<std::size_t>(direction_index_int);
 
         auto& coarse_cells = mesh[mesh_id_t::cells][level];
         auto& fine_cells   = mesh[mesh_id_t::cells][level + 1];
@@ -216,7 +216,7 @@ namespace samurai
         Stencil<comput_stencil_size, dim> minus_comput_stencil = -xt::flip(comput_stencil, 0);
         Vector minus_direction                                 = -direction;
         int minus_direction_index_int                          = find(minus_comput_stencil, minus_direction);
-        std::size_t minus_direction_index                      = static_cast<std::size_t>(minus_direction_index_int);
+        auto minus_direction_index                             = static_cast<std::size_t>(minus_direction_index_int);
         auto minus_comput_stencil_it                           = make_stencil_iterator(mesh, minus_comput_stencil);
 
         auto& coarse_cells = mesh[mesh_id_t::cells][level];

@@ -7,6 +7,9 @@ if(PETSC_FOUND)
     add_executable(finite-volume-heat heat.cpp)
     target_link_libraries(finite-volume-heat samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
 
+    add_executable(finite-volume-linear-convection linear_convection.cpp)
+    target_link_libraries(finite-volume-linear-convection samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+
     add_executable(finite-volume-stokes-2d stokes_2d.cpp)
     target_link_libraries(finite-volume-stokes-2d samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
 endif()

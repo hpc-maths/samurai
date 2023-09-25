@@ -1059,12 +1059,12 @@ namespace samurai
 
             bool matrix_is_symmetric() const override
             {
-                return scheme().matrix_is_symmetric(unknown());
+                return scheme().is_symmetric() && is_uniform(mesh());
             }
 
             bool matrix_is_spd() const override
             {
-                return scheme().matrix_is_spd(unknown());
+                return scheme().is_spd() && is_uniform(mesh());
             }
         };
 

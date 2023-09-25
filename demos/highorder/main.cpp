@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include "CLI/CLI.hpp"
-#include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -17,100 +16,101 @@ template <class Field,
           std::size_t neighbourhood_width = 2,
           class cfg                       = samurai::StarStencilFV<Field::dim, Field::size, neighbourhood_width>,
           class bdry_cfg                  = samurai::BoundaryConfigFV<neighbourhood_width>>
-class HighOrderDiffusion : public samurai::CellBasedScheme<HighOrderDiffusion<Field>, cfg, bdry_cfg, Field>
+class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg, Field>
 {
-    using base_class = samurai::CellBasedScheme<HighOrderDiffusion<Field>, cfg, bdry_cfg, Field>;
-
   public:
 
     static constexpr std::size_t dim = Field::dim;
-    using field_t                    = Field;
-    using directional_bdry_config_t  = typename base_class::directional_bdry_config_t;
 
     HighOrderDiffusion()
     {
-    }
-
-    static constexpr auto stencil()
-    {
-        return samurai::star_stencil<dim, 2>();
-    }
-
-    static std::array<double, 9> coefficients(double h)
-    {
-        // https://en.wikipedia.org/wiki/Finite_difference_coefficient
-        std::array<double, 9> coeffs = {1. / 12, -4. / 3, 5., -4. / 3, 1. / 12, 1. / 12, -4. / 3, -4. / 3, 1. / 12};
-        double one_over_h2           = 1 / (h * h);
-        for (double& coeff : coeffs)
+        this->stencil()           = samurai::star_stencil<dim, neighbourhood_width>();
+        this->coefficients_func() = [](double h)
         {
-            coeff *= one_over_h2;
+            //                              left2,    left, center, right, right2   bottom2,  bottom,   top,    top2
+            std::array<double, 9> coeffs = {1. / 12, -4. / 3, 5., -4. / 3, 1. / 12, 1. / 12, -4. / 3, -4. / 3, 1. / 12};
+            double one_over_h2           = 1 / (h * h);
+            for (double& coeff : coeffs)
+            {
+                coeff *= one_over_h2;
+            }
+            return coeffs;
+        };
+        set_dirichlet_config();
+    }
+
+    void set_dirichlet_config()
+    {
+        for (std::size_t d = 0; d < 2 * dim; ++d)
+        {
+            auto& config = this->dirichlet_config()[d];
+
+            // Example of directional stencil:
+            //
+            // direction:    {1,0} (--> right)
+            // stencil  :      [0]     [1]     [2]    [3]    [4]
+            //               {{0,0}, {-1,0}, {-2,0}, {1,0}, {2,0}};
+            //
+            //                 [2]     [1]     [0]     [3]     [4]
+            //              |_______|_______|_______|.......|.......|
+            //                cell3   cell2   cell1  ghost1  ghost2
+
+            static constexpr std::size_t cell1  = 0;
+            static constexpr std::size_t cell2  = 1;
+            static constexpr std::size_t cell3  = 2;
+            static constexpr std::size_t ghost1 = 3;
+            static constexpr std::size_t ghost2 = 4;
+
+            // We need to define a polynomial of degree 3 that passes by the 4 points c3, c2, c1 and the boundary point.
+            // This polynomial writes
+            //                       p(x) = a*x^3 + b*x^2 + c*x + d.
+            // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 points into
+            // the polynomial. If we set the abscissa 0 at the center of c1, this system reads
+            //                       p(  0) = u1
+            //                       p( -h) = u2
+            //                       p(-2h) = u3
+            //                       p(h/2) = dirichlet_value.
+            // Then, we want that the ghost values be also located on this polynomial, i.e.
+            //                       u_g1 = p( h)
+            //                       u_g2 = p(2h).
+            // This gives
+            //             5/16 * u_g1  +  15/16 * u1  -5/16 * u2  +  1/16 * u3 = dirichlet_value
+            //             5/64 * u_g2  +  45/32 * u1  -5/8  * u2  +  9/64 * u3 = dirichlet_value
+
+            // Equation of ghost1
+            config.equations[0].ghost_index        = ghost1;
+            config.equations[0].get_stencil_coeffs = [&](double)
+            {
+                std::array<double, 5> coeffs;
+                coeffs[ghost1] = 5. / 16;
+                coeffs[cell1]  = 15. / 16;
+                coeffs[cell2]  = -5. / 16;
+                coeffs[cell3]  = 1. / 16;
+                coeffs[ghost2] = 0;
+                return coeffs;
+            };
+            config.equations[0].get_rhs_coeffs = [&](double)
+            {
+                return 1.;
+            };
+
+            // Equation of ghost2
+            config.equations[1].ghost_index        = ghost2;
+            config.equations[1].get_stencil_coeffs = [&](double)
+            {
+                std::array<double, 5> coeffs;
+                coeffs[ghost2] = 5. / 64;
+                coeffs[cell1]  = 45. / 32;
+                coeffs[cell2]  = -5. / 8;
+                coeffs[cell3]  = 9. / 64;
+                coeffs[ghost1] = 0;
+                return coeffs;
+            };
+            config.equations[1].get_rhs_coeffs = [&](double)
+            {
+                return 1.;
+            };
         }
-        return coeffs;
-    }
-
-    directional_bdry_config_t dirichlet_config(const samurai::DirectionVector<dim>& direction) const override
-    {
-        directional_bdry_config_t config;
-
-        config.directional_stencil = this->get_directional_stencil(direction);
-
-        static constexpr std::size_t cell1  = 0;
-        static constexpr std::size_t cell2  = 1;
-        static constexpr std::size_t cell3  = 2;
-        static constexpr std::size_t ghost1 = 3;
-        static constexpr std::size_t ghost2 = 4;
-
-        // We need to define a polynomial of degree 3 that passes by the 4 points c3, c2, c1 and the boundary point.
-        // This polynomial writes
-        //                       p(x) = a*x^3 + b*x^2 + c*x + d.
-        // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 points into
-        // the polynomial. If we set the abscissa 0 at the center of c1, this system reads
-        //                       p(  0) = u1
-        //                       p( -h) = u2
-        //                       p(-2h) = u3
-        //                       p(h/2) = dirichlet_value.
-        // Then, we want that the ghost values be also located on this polynomial, i.e.
-        //                       u_g1 = p( h)
-        //                       u_g2 = p(2h).
-        // This gives
-        //             5/16 * u_g1  +  15/16 * u1  -5/16 * u2  +  1/16 * u3 = dirichlet_value
-        //             5/64 * u_g2  +  45/32 * u1  -5/8  * u2  +  9/64 * u3 = dirichlet_value
-
-        // Equation of ghost1
-        config.equations[0].ghost_index        = ghost1;
-        config.equations[0].get_stencil_coeffs = [&](double)
-        {
-            std::array<double, 5> coeffs;
-            coeffs[ghost1] = 5. / 16;
-            coeffs[cell1]  = 15. / 16;
-            coeffs[cell2]  = -5. / 16;
-            coeffs[cell3]  = 1. / 16;
-            coeffs[ghost2] = 0;
-            return coeffs;
-        };
-        config.equations[0].get_rhs_coeffs = [&](double)
-        {
-            return 1.;
-        };
-
-        // Equation of ghost2
-        config.equations[1].ghost_index        = ghost2;
-        config.equations[1].get_stencil_coeffs = [&](double)
-        {
-            std::array<double, 5> coeffs;
-            coeffs[ghost2] = 5. / 64;
-            coeffs[cell1]  = 45. / 32;
-            coeffs[cell2]  = -5. / 8;
-            coeffs[cell3]  = 9. / 64;
-            coeffs[ghost1] = 0;
-            return coeffs;
-        };
-        config.equations[1].get_rhs_coeffs = [&](double)
-        {
-            return 1.;
-        };
-
-        return config;
     }
 };
 
