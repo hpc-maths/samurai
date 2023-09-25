@@ -98,7 +98,7 @@ namespace samurai
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
 
-                upwind[d].flux_function = [&](auto& cells)
+                upwind[d].flux_function = [&](const auto& cells)
                 {
                     // Return type: 2 matrices (left, right) of size output_field_size x field_size.
                     // In this case, of size field_size x field_size.
