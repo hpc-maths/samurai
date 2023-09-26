@@ -35,7 +35,7 @@ def test_finite_volume_demo(exec, Tf, config):
 
 @pytest.mark.h5diff()
 def test_finite_volume_demo_heat_explicit(config):
-    cmd = [get_executable(Path("../build/release/demos/FiniteVolume/"), "finite-volume-heat"), # remove release/
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--save-final-state-only",
@@ -49,7 +49,7 @@ def test_finite_volume_demo_heat_explicit(config):
 
 @pytest.mark.h5diff()
 def test_finite_volume_demo_heat_implicit(config):
-    cmd = [get_executable(Path("../build/release/demos/FiniteVolume/"), "finite-volume-heat"), # remove release/
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--save-final-state-only",
@@ -63,7 +63,7 @@ def test_finite_volume_demo_heat_implicit(config):
 
 @pytest.mark.h5diff()
 def test_finite_volume_demo_heat_heterogeneous_explicit(config):
-    cmd = [get_executable(Path("../build/release/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"), # remove release/
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--save-final-state-only",
@@ -76,7 +76,7 @@ def test_finite_volume_demo_heat_heterogeneous_explicit(config):
 
 @pytest.mark.h5diff()
 def test_finite_volume_demo_heat_heterogeneous_implicit(config):
-    cmd = [get_executable(Path("../build/release/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"), # remove release/
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--save-final-state-only",
@@ -89,7 +89,7 @@ def test_finite_volume_demo_heat_heterogeneous_implicit(config):
 
 @pytest.mark.h5diff()
 def test_finite_volume_demo_stokes_stationary(config):
-    cmd = [get_executable(Path("../build/release/demos/FiniteVolume/"), "finite-volume-stokes-2d"), # remove release/
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--test-case", "s",
@@ -99,7 +99,7 @@ def test_finite_volume_demo_stokes_stationary(config):
 
 @pytest.mark.h5diff()
 def test_finite_volume_demo_stokes_nonstationary(config):
-    cmd = [get_executable(Path("../build/release/demos/FiniteVolume/"), "finite-volume-stokes-2d"), # remove release/
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--test-case", "ns",
@@ -111,7 +111,7 @@ def test_finite_volume_demo_stokes_nonstationary(config):
 
 @pytest.mark.h5diff()
 def test_finite_volume_demo_burgers(config):
-    cmd = [get_executable(Path("../build/release/demos/FiniteVolume/"), "finite-volume-burgers"), # remove release/
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-burgers"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--nfiles", "1",
