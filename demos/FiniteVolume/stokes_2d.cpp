@@ -4,8 +4,6 @@
 
 #include "CLI/CLI.hpp"
 #include <iostream>
-#include <samurai/box.hpp>
-#include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -33,7 +31,7 @@ bool check_nan_or_inf(const Field& f)
 }
 
 template <class Solver>
-void configure_LU_solver(Solver& solver)
+void configure_direct_solver(Solver& solver)
 {
     KSP ksp = solver.Ksp();
     PC pc;
@@ -140,7 +138,7 @@ void configure_solver(Solver& solver)
 {
     if constexpr (Solver::is_monolithic)
     {
-        configure_LU_solver(solver);
+        configure_direct_solver(solver);
     }
     else
     {
@@ -176,7 +174,7 @@ int main(int argc, char* argv[])
     std::string filename = "";
 
     CLI::App app{"Stokes problem"};
-    app.add_option("--test-case", test_case, "Test case (s = stationary, ns = non-stationary, ldc = lid-driven cavity)")
+    app.add_option("--test-case", test_case, "Test case (s = stationary, ns = non-stationary)")
         ->capture_default_str()
         ->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
@@ -580,226 +578,9 @@ int main(int argc, char* argv[])
             std::cout << std::endl;
         }
     }
-
-    //------------------------//
-    //   Lid-driven cavity    //
-    //------------------------//
-
-    else if (test_case == "ldc")
-    {
-        std::cout << "lid-driven cavity" << std::endl;
-
-        if (filename.empty())
-        {
-            filename = "ldc_velocity";
-        }
-
-        // 2 equations: v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = v_n
-        //                                        Div(v_np1)                = 0
-        // where v = velocity
-        //       p = pressure
-
-        double diff_coeff = 1. / 100;
-
-        // Unknowns
-        auto velocity     = samurai::make_field<dim, is_soa>("velocity", mesh);
-        auto velocity_np1 = samurai::make_field<dim, is_soa>("velocity_np1", mesh);
-        auto pressure_np1 = samurai::make_field<1, is_soa>("pressure_np1", mesh);
-
-        using VelocityField = decltype(velocity);
-        using PressureField = decltype(pressure_np1);
-
-        // Right-hand side
-        auto rhs  = samurai::make_field<dim, is_soa>("rhs", mesh);
-        auto zero = samurai::make_field<1, is_soa>("zero", mesh);
-        zero.fill(0);
-
-        // Boundary conditions (n)
-        samurai::DirectionVector<dim> left   = {-1, 0};
-        samurai::DirectionVector<dim> right  = {1, 0};
-        samurai::DirectionVector<dim> bottom = {0, -1};
-        samurai::DirectionVector<dim> top    = {0, 1};
-        samurai::make_bc<samurai::Dirichlet>(velocity, 1., 0.)->on(top);
-        samurai::make_bc<samurai::Dirichlet>(velocity, 0., 0.)->on(left, bottom, right);
-
-        // Boundary conditions (n+1)
-        samurai::make_bc<samurai::Dirichlet>(velocity_np1, 1., 0.)->on(top);
-        samurai::make_bc<samurai::Dirichlet>(velocity_np1, 0., 0.)->on(left, bottom, right);
-
-        samurai::make_bc<samurai::Neumann>(pressure_np1, 0.);
-
-        // Initial condition
-        velocity.fill(0);
-
-        velocity_np1.fill(0);
-        pressure_np1.fill(0);
-
-        // clang-format off
-
-        // Stokes operator
-        //             |  Diff  Grad |
-        //             | -Div     0  |
-        auto diff    = diff_coeff * samurai::make_diffusion<VelocityField>();
-        auto grad    =              samurai::make_gradient<PressureField>();
-        auto conv    =              samurai::make_convection<VelocityField>();
-        auto div     =              samurai::make_divergence<VelocityField>();
-        auto zero_op =              samurai::make_zero_operator<PressureField>();
-        auto id      =              samurai::make_identity<VelocityField>();
-
-        // Stokes with backward Euler
-        //             | I + dt*Diff    dt*Grad |
-        //             |       -Div        0    |
-        auto stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad,
-                                                                   -div,   zero_op);
-        // clang-format on
-
-        auto MRadaptation = samurai::make_MRAdapt(velocity);
-
-        // Linear solver
-        auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
-
-        stokes_solver.set_unknowns(velocity_np1, pressure_np1);
-        configure_solver(stokes_solver);
-
-        // Time iteration
-        double dt_save    = dt; // Tf/static_cast<double>(nfiles);
-        std::size_t nsave = 0, nt = 0;
-        {
-            std::string suffix = fmt::format("_ite_{}", nsave++);
-            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
-        }
-
-        bool mesh_has_changed = false;
-        bool dt_has_changed   = false;
-
-        std::size_t min_level_n   = mesh[mesh_id_t::cells].min_level();
-        std::size_t max_level_n   = mesh[mesh_id_t::cells].max_level();
-        std::size_t min_level_np1 = min_level_n;
-        std::size_t max_level_np1 = max_level_n;
-
-        double t = 0;
-        while (t != Tf)
-        {
-            // Move to next timestep
-            t += dt;
-            if (t > Tf)
-            {
-                dt += Tf - t;
-                t              = Tf;
-                dt_has_changed = true;
-            }
-            std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
-
-            // Mesh adaptation
-            if (min_level != max_level)
-            {
-                MRadaptation(mr_epsilon, mr_regularity);
-                min_level_np1    = mesh[mesh_id_t::cells].min_level();
-                max_level_np1    = mesh[mesh_id_t::cells].max_level();
-                mesh_has_changed = !(samurai::is_uniform(mesh) && min_level_n == min_level_np1 && max_level_n == max_level_np1);
-                if (mesh_has_changed)
-                {
-                    velocity_np1.resize();
-                    pressure_np1.resize();
-                    zero.resize();
-                    rhs.resize();
-                }
-                std::cout << ", levels " << min_level_np1 << "-" << max_level_np1;
-            }
-            std::cout << std::endl;
-
-            // Update solver
-            if (mesh_has_changed || dt_has_changed)
-            {
-                if (dt_has_changed)
-                {
-                    stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
-                }
-                stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
-                stokes_solver.set_unknowns(velocity_np1, pressure_np1);
-                configure_solver(stokes_solver);
-            }
-
-            // Solve system
-            rhs.fill(0);
-            auto conv_v = conv(velocity);
-            rhs         = velocity - dt * conv_v;
-            zero.fill(0);
-            stokes_solver.solve(rhs, zero);
-
-            // Prepare next step
-            std::swap(velocity.array(), velocity_np1.array());
-            min_level_n = min_level_np1;
-            max_level_n = max_level_np1;
-
-            // Save the result
-            if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
-            {
-                samurai::update_ghost_mr(velocity);
-                auto velocity_recons = samurai::reconstruction(velocity);
-                auto div_velocity    = div(velocity);
-
-                std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-                samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity, div_velocity);
-                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
-            }
-
-            // srand(time(NULL));
-            // auto x_velocity = samurai::make_field<dim, is_soa>("x_velocity", mesh);
-            // auto x_pressure = samurai::make_field<1, is_soa>("x_pressure", mesh);
-            // samurai::for_each_cell(mesh[mesh_id_t::reference],
-            //                        [&](auto cell)
-            //                        {
-            //                            x_velocity[cell] = rand() % 10 + 1;
-            //                            x_pressure[cell] = rand() % 10 + 1;
-            //                        });
-            // auto x = stokes.tie_unknowns(x_velocity, x_pressure);
-
-            // auto monolithicAssembly = samurai::petsc::make_assembly<true>(stokes);
-            // Mat monolithicA;
-            // monolithicAssembly.create_matrix(monolithicA);
-            // monolithicAssembly.assemble_matrix(monolithicA);
-            // Vec mono_x                = monolithicAssembly.create_applicable_vector(x); // copy
-            // auto result_velocity_mono = samurai::make_field<dim, is_soa>("result_velocity", mesh);
-            // auto result_pressure_mono = samurai::make_field<1, is_soa>("result_pressure", mesh);
-            // auto result_mono          = stokes.tie_rhs(result_velocity_mono, result_pressure_mono);
-            // Vec mono_result           = monolithicAssembly.create_rhs_vector(result_mono); // copy
-            // MatMult(monolithicA, mono_x, mono_result);
-            // monolithicAssembly.update_result_fields(mono_result, result_mono); // copy
-
-            // auto nestedAssembly = samurai::petsc::make_assembly<false>(stokes);
-            // Mat nestedA;
-            // nestedAssembly.create_matrix(nestedA);
-            // nestedAssembly.assemble_matrix(nestedA);
-            // Vec nest_x                = nestedAssembly.create_applicable_vector(x);
-            // auto result_velocity_nest = samurai::make_field<dim, is_soa>("result_velocity", mesh);
-            // auto result_pressure_nest = samurai::make_field<1, is_soa>("result_pressure", mesh);
-            // auto result_nest          = stokes.tie_rhs(result_velocity_nest, result_pressure_nest);
-            // Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);
-            // MatMult(nestedA, nest_x, nest_result);
-
-            // std::cout << std::setprecision(15);
-            // std::cout << std::fixed;
-            // samurai::for_each_cell(
-            //     mesh[mesh_id_t::reference],
-            //     [&](auto cell)
-            //     {
-            //         std::cout << round(result_velocity_mono[cell][0] * 1.e8) / 1.e8 << std::endl;
-            //         if (round(result_velocity_mono[cell][0] * 1.e5) / 1.e5 != round(result_velocity_nest[cell][0] * 1.e5) / 1.e5)
-            //         {
-            //             std::cout << result_velocity_mono[cell][0] << " =? " << result_velocity_nest[cell][0] << std::endl;
-            //         }
-            //         if (result_pressure_mono[cell] != result_pressure_nest[cell])
-            //         {
-            //             std::cout << result_pressure_mono[cell] << " =? " << result_pressure_nest[cell] << std::endl;
-            //         }
-            //     });
-        }
-    }
     else
     {
-        std::cerr << "Unknown test case. Allowed options are 's' = stationary, 'ns' = non-stationary, 'ldc' = lid-driven cavity."
-                  << std::endl;
+        std::cerr << "Unknown test case. Allowed options are 's' = stationary, 'ns' = non-stationary." << std::endl;
     }
 
     PetscFinalize();

@@ -182,6 +182,31 @@ namespace samurai
     };
 
     /**
+     * Specialization of @class NormalFluxDefinition.
+     * Defines how to compute a LINEAR and HETEROGENEOUS normal flux.
+     */
+    template <class cfg>
+    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::flux_type == FluxType::LinearHeterogeneous>> : NormalFluxDefinitionBase<cfg>
+    {
+        using field_t                           = typename cfg::input_field_t;
+        using field_value_type                  = typename field_t::value_type;
+        using cell_t                            = typename field_t::cell_t;
+        static constexpr std::size_t field_size = field_t::size;
+
+        using stencil_cells_t       = std::array<cell_t, cfg::stencil_size>;
+        using flux_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
+        using flux_func             = std::function<flux_stencil_coeffs_t(stencil_cells_t&)>;
+
+        flux_func flux_function = nullptr;
+
+        ~NormalFluxDefinition()
+        {
+            flux_function = nullptr;
+        }
+    };
+
+    /**
      * @class FluxDefinition:
      * Stores one object of @class NormalFluxDefinition for each positive Cartesian direction.
      */
