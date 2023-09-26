@@ -307,43 +307,39 @@ int main(int argc, char* argv[])
         std::cout << "L2-error on the velocity: " << std::scientific << error << std::endl;
 
         // Save solution
-        bool save_solution = false;
-        if (save_solution)
-        {
-            std::cout << "Saving solution..." << std::endl;
+        std::cout << "Saving solution..." << std::endl;
 
-            samurai::save(path, filename, mesh, velocity);
-            samurai::save(path, "pressure", mesh, pressure);
+        samurai::save(path, filename, mesh, velocity);
+        samurai::save(path, "pressure", mesh, pressure);
 
-            auto exact_velocity = samurai::make_field<dim, is_soa>("exact_velocity",
-                                                                   mesh,
-                                                                   [](const auto& coord)
-                                                                   {
-                                                                       const auto& x = coord[0];
-                                                                       const auto& y = coord[1];
-                                                                       auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
-                                                                       auto v_y      = -v_x;
-                                                                       return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-                                                                   });
-            samurai::save(path, "exact_velocity", mesh, exact_velocity);
+        auto exact_velocity = samurai::make_field<dim, is_soa>("exact_velocity",
+                                                               mesh,
+                                                               [](const auto& coord)
+                                                               {
+                                                                   const auto& x = coord[0];
+                                                                   const auto& y = coord[1];
+                                                                   auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
+                                                                   auto v_y      = -v_x;
+                                                                   return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
+                                                               });
+        samurai::save(path, "exact_velocity", mesh, exact_velocity);
 
-            /*auto err = samurai::make_field<dim, is_soa>("error", mesh);
-            for_each_cell(err.mesh(), [&](const auto& cell)
-                {
-                    err[cell] = exact_velocity[cell] - velocity[cell];
-                });
-            samurai::save(path, "error_velocity", mesh, err);*/
+        /*auto err = samurai::make_field<dim, is_soa>("error", mesh);
+        for_each_cell(err.mesh(), [&](const auto& cell)
+            {
+                err[cell] = exact_velocity[cell] - velocity[cell];
+            });
+        samurai::save(path, "error_velocity", mesh, err);*/
 
-            auto exact_pressure = samurai::make_field<1, is_soa>("exact_pressure",
-                                                                 mesh,
-                                                                 [](const auto& coord)
-                                                                 {
-                                                                     const auto& x = coord[0];
-                                                                     const auto& y = coord[1];
-                                                                     return 1 / (pi * pi) * sin(pi * (x + y));
-                                                                 });
-            samurai::save(path, "exact_pressure", mesh, exact_pressure);
-        }
+        auto exact_pressure = samurai::make_field<1, is_soa>("exact_pressure",
+                                                             mesh,
+                                                             [](const auto& coord)
+                                                             {
+                                                                 const auto& x = coord[0];
+                                                                 const auto& y = coord[1];
+                                                                 return 1 / (pi * pi) * sin(pi * (x + y));
+                                                             });
+        samurai::save(path, "exact_pressure", mesh, exact_pressure);
     }
 
     //------------------------//
@@ -452,6 +448,7 @@ int main(int argc, char* argv[])
         auto MRadaptation = samurai::make_MRAdapt(velocity);
 
         std::size_t nsave = 0, nt = 0;
+        if (nfiles != 1)
         {
             std::string suffix = fmt::format("_ite_{}", nsave++);
             samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity);
@@ -556,8 +553,10 @@ int main(int argc, char* argv[])
             auto div_velocity = div(velocity);
 
             // Save the result
-            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-            samurai::save(path, fmt::format("{}{}", filename, suffix), velocity.mesh(), velocity, div_velocity);
+            if (nfiles != 1)
+            {
+                samurai::save(path, fmt::format("{}_ite_{}", filename, nsave), velocity.mesh(), velocity, div_velocity);
+            }
 
             if (min_level != max_level)
             {
@@ -573,9 +572,21 @@ int main(int argc, char* argv[])
                 std::cout.precision(2);
                 std::cout << ", L2-error (recons): " << std::scientific << error_recons;
                 // Save
-                samurai::save(path, fmt::format("{}_recons{}", filename, suffix), velocity_recons.mesh(), velocity_recons);
+                if (nfiles != 1)
+                {
+                    samurai::save(path, fmt::format("{}_recons_ite_{}", filename, nsave), velocity_recons.mesh(), velocity_recons);
+                }
+            }
+            if (nfiles != 1)
+            {
+                nsave++;
             }
             std::cout << std::endl;
+        }
+
+        if (nfiles == 1)
+        {
+            samurai::save(path, filename, velocity.mesh(), velocity);
         }
     }
     else
