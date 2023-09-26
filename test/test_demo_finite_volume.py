@@ -1,6 +1,7 @@
 import os
 import pytest
 import subprocess
+import sys
 from pathlib import Path
 
 path = 'finite_volume'
@@ -34,6 +35,7 @@ def test_finite_volume_demo(exec, Tf, config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_heat_explicit(config):
     cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
            "--path", config['path'],
@@ -48,6 +50,7 @@ def test_finite_volume_demo_heat_explicit(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_heat_implicit(config):
     cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
            "--path", config['path'],
@@ -62,6 +65,7 @@ def test_finite_volume_demo_heat_implicit(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_heat_heterogeneous_explicit(config):
     cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"),
            "--path", config['path'],
@@ -75,6 +79,7 @@ def test_finite_volume_demo_heat_heterogeneous_explicit(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_heat_heterogeneous_implicit(config):
     cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"),
            "--path", config['path'],
@@ -88,6 +93,7 @@ def test_finite_volume_demo_heat_heterogeneous_implicit(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_stokes_stationary(config):
     cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
            "--path", config['path'],
@@ -98,6 +104,7 @@ def test_finite_volume_demo_stokes_stationary(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_stokes_nonstationary(config):
     cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
            "--path", config['path'],
@@ -110,6 +117,7 @@ def test_finite_volume_demo_stokes_nonstationary(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_burgers(config):
     cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-burgers"),
            "--path", config['path'],
