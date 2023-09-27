@@ -5,7 +5,7 @@
 #pragma once
 #include "../numeric/error.hpp"
 
-#include "fv/explicit_flux_based_scheme.hpp"
+#include "fv/flux_based/explicit_flux_based_scheme.hpp"
 #include "fv/scheme_operators.hpp"
 
 #include "fv/operators/convection_FV__lin.hpp"

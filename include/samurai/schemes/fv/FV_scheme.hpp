@@ -3,7 +3,7 @@
 #include "../../boundary.hpp"
 #include "../../field.hpp"
 #include "../../static_algorithm.hpp"
-#include "flux_definition.hpp"
+#include "utils.hpp"
 
 namespace samurai
 {

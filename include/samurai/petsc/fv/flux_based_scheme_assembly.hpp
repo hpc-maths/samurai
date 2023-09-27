@@ -1,6 +1,6 @@
 #pragma once
 #include "../../interface.hpp"
-#include "../../schemes/fv/flux_based_scheme.hpp"
+#include "../../schemes/fv/flux_based/flux_based_scheme.hpp"
 #include "FV_scheme_assembly.hpp"
 
 namespace samurai
