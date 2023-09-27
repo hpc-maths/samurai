@@ -1,18 +1,10 @@
 #pragma once
 #include "../../explicit_scheme.hpp"
 #include "../FV_scheme.hpp"
-
-// #include "flux_definition.hpp"
+#include "cell_based_scheme_definition.hpp"
 
 namespace samurai
 {
-    enum class SchemeType
-    {
-        NonLinear,
-        LinearHeterogeneous,
-        LinearHomogeneous
-    };
-
     /**
      * @class CellBasedScheme
      */

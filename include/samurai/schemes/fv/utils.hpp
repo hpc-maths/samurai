@@ -40,6 +40,13 @@ namespace samurai
         return 1;
     }
 
+    template <class value_type, std::size_t rows, std::size_t cols>
+    auto eye()
+    {
+        using matrix_type = typename detail::LocalMatrix<value_type, rows, cols>::Type;
+        return eye<matrix_type>();
+    }
+
     template <class matrix_type>
     matrix_type zeros()
     {
@@ -52,6 +59,13 @@ namespace samurai
     double zeros<double>()
     {
         return 0;
+    }
+
+    template <class value_type, std::size_t rows, std::size_t cols>
+    auto zeros()
+    {
+        using matrix_type = typename detail::LocalMatrix<value_type, rows, cols>::Type;
+        return zeros<matrix_type>();
     }
 
 } // end namespace samurai
