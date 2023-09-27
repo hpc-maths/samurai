@@ -1,5 +1,5 @@
 #pragma once
-#include "../cell_based_scheme.hpp"
+#include "../cell_based_scheme__lin_hom.hpp"
 
 namespace samurai
 {
@@ -13,11 +13,11 @@ namespace samurai
               // scheme config
               std::size_t dim                 = Field::dim,
               std::size_t neighbourhood_width = 1,
-              class cfg                       = StarStencilFV<dim, Field::size, neighbourhood_width>,
+              class cfg                       = StarStencilFV<SchemeType::LinearHomogeneous, Field::size, neighbourhood_width, Field>,
               class bdry_cfg                  = BoundaryConfigFV<neighbourhood_width, dirichlet_enfcmt>>
-    class DiffusionFV_old : public CellBasedScheme<cfg, bdry_cfg, Field>
+    class DiffusionFV_old : public CellBasedScheme<cfg, bdry_cfg>
     {
-        using base_class = CellBasedScheme<cfg, bdry_cfg, Field>;
+        using base_class = CellBasedScheme<cfg, bdry_cfg>;
         using base_class::bdry_stencil_size;
 
       public:

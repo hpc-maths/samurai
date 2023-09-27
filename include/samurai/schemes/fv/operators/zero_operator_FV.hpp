@@ -1,5 +1,5 @@
 #pragma once
-#include "../cell_based_scheme.hpp"
+#include "../cell_based_scheme__lin_hom.hpp"
 
 namespace samurai
 {
@@ -8,10 +8,10 @@ namespace samurai
     {
         static constexpr std::size_t dim = Field::dim;
 
-        using cfg      = OneCellStencilFV<output_field_size>;
+        using cfg      = OneCellStencilFV<SchemeType::LinearHomogeneous, output_field_size, Field>;
         using bdry_cfg = BoundaryConfigFV<1>;
 
-        CellBasedScheme<cfg, bdry_cfg, Field> zero;
+        CellBasedScheme<cfg, bdry_cfg> zero;
 
         using local_matrix_t = typename decltype(zero)::local_matrix_t;
 
