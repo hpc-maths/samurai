@@ -9,7 +9,7 @@ namespace samurai
     namespace detail
     {
         /**
-         * Local square matrix to store the coefficients of a vectorial field.
+         * Local matrix to store the coefficients of a vectorial field.
          */
         template <class value_type, std::size_t rows, std::size_t cols>
         struct LocalMatrix
@@ -22,6 +22,24 @@ namespace samurai
          */
         template <class value_type>
         struct LocalMatrix<value_type, 1, 1>
+        {
+            using Type = value_type;
+        };
+
+        /**
+         * Fixed-size vector
+         */
+        template <class value_type, std::size_t size>
+        struct FixedVector
+        {
+            using Type = xt::xtensor_fixed<value_type, xt::xshape<size>>;
+        };
+
+        /**
+         * Template specialization: if size=1, then just a scalar coefficient
+         */
+        template <class value_type>
+        struct FixedVector<value_type, 1>
         {
             using Type = value_type;
         };

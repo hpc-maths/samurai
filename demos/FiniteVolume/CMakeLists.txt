@@ -18,6 +18,9 @@ if(PETSC_FOUND)
 
     add_executable(finite-volume-lid-driven-cavity lid_driven_cavity.cpp)
     target_link_libraries(finite-volume-lid-driven-cavity samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+
+    add_executable(finite-volume-nagumo nagumo.cpp)
+    target_link_libraries(finite-volume-nagumo samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
 endif()
 
 add_executable(finite-volume-amr-burgers-hat AMR_Burgers_Hat.cpp)

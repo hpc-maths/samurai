@@ -149,29 +149,6 @@ namespace samurai
                 }
             }
 
-          protected:
-
-            template <class Func>
-            void for_each_stencil_and_coeffs(Func&& f)
-            {
-                auto stencil    = scheme().stencil();
-                auto stencil_it = make_stencil_iterator(mesh(), stencil);
-
-                for_each_level(mesh(),
-                               [&](std::size_t level)
-                               {
-                                   auto coeffs = scheme().coefficients(cell_length(level));
-
-                                   for_each_stencil(mesh(),
-                                                    level,
-                                                    stencil_it,
-                                                    [&](auto& cells)
-                                                    {
-                                                        f(cells, coeffs);
-                                                    });
-                               });
-            }
-
             //-------------------------------------------------------------//
             //             Assemble scheme in the interior                 //
             //-------------------------------------------------------------//
@@ -191,7 +168,8 @@ namespace samurai
                 }
 
                 // Apply the given coefficents to the given stencil
-                for_each_stencil_and_coeffs(
+                scheme().for_each_stencil_and_coeffs(
+                    mesh(),
                     [&](const auto& cells, const auto& coeffs)
                     {
                         // std::cout << "coeffs: " << std::endl;

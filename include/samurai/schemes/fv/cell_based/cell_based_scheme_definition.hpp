@@ -63,7 +63,7 @@ namespace samurai
 
     /**
      * @class CellBasedSchemeDefinition defines how to compute the scheme.
-     * This struct inherits from @class CellBasedSchemeDefinitionBase and is specialized for all flux types (see below).
+     * This struct inherits from @class CellBasedSchemeDefinitionBase and is specialized for all scheme types (see below).
      */
     template <class cfg, class enable = void>
     struct CellBasedSchemeDefinition
@@ -77,7 +77,28 @@ namespace samurai
     template <class cfg>
     struct CellBasedSchemeDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>> : CellBasedSchemeDefinitionBase<cfg>
     {
-        // TODO
+        using field_t          = typename cfg::input_field_t;
+        using field_value_type = typename field_t::value_type;
+        using cell_t           = typename field_t::cell_t;
+
+        using stencil_cells_t = std::array<cell_t, cfg::scheme_stencil_size>;
+
+        // using scheme_value_t = xt::xtensor_fixed<field_value_type, xt::xshape<cfg::output_field_size>>;
+        using scheme_value_t = typename detail::FixedVector<field_value_type, cfg::output_field_size>::Type;
+        using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, field_t&)>;
+
+        // using jac_t         = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        // using jacobian_func = std::function<flux_jac_t(stencil_cells_t&, field_t&)>;
+
+        scheme_func scheme_function = nullptr;
+
+        // jacobian_func jac_function = nullptr;
+
+        ~CellBasedSchemeDefinition()
+        {
+            scheme_function = nullptr;
+            // jac_function = nullptr;
+        }
     };
 
     /**
@@ -88,7 +109,22 @@ namespace samurai
     struct CellBasedSchemeDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHeterogeneous>>
         : CellBasedSchemeDefinitionBase<cfg>
     {
-        // TODO
+        using field_t                           = typename cfg::input_field_t;
+        using field_value_type                  = typename field_t::value_type;
+        using cell_t                            = typename field_t::cell_t;
+        static constexpr std::size_t field_size = field_t::size;
+
+        using stencil_cells_t       = std::array<cell_t, cfg::scheme_stencil_size>;
+        using local_matrix_t        = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        using stencil_coeffs_t      = xt::xtensor_fixed<local_matrix_t, xt::xshape<cfg::stencil_size>>;
+        using get_coefficients_func = std::function<stencil_coeffs_t(stencil_cells_t&)>;
+
+        get_coefficients_func get_coefficients_function = nullptr;
+
+        ~CellBasedSchemeDefinition()
+        {
+            get_coefficients_function = nullptr;
+        }
     };
 
     /**
@@ -104,7 +140,7 @@ namespace samurai
         static constexpr std::size_t field_size = field_t::size;
 
         using local_matrix_t        = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
-        using stencil_coeffs_t      = std::array<local_matrix_t, cfg::scheme_stencil_size>;
+        using stencil_coeffs_t      = xt::xtensor_fixed<local_matrix_t, xt::xshape<cfg::scheme_stencil_size>>;
         using get_coefficients_func = std::function<stencil_coeffs_t(double)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
@@ -115,8 +151,8 @@ namespace samurai
         }
     };
 
-    // template <class cfg>
-    // using FluxValue = typename NormalFluxDefinition<cfg>::flux_value_t;
+    template <class cfg>
+    using SchemeValue = typename CellBasedSchemeDefinition<cfg>::scheme_value_t;
 
     template <class cfg>
     using StencilCoeffs = typename CellBasedSchemeDefinition<cfg>::stencil_coeffs_t;

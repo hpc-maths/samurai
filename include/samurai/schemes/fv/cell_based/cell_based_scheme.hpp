@@ -11,6 +11,12 @@ namespace samurai
     template <class cfg, class bdry_cfg, class check = void>
     class CellBasedScheme
     {
+        template <class>
+        static constexpr bool dependent_false = false;
+
+        static_assert(
+            dependent_false<cfg>,
+            "Either the required file has not been included, or the CellBasedScheme class has not been specialized for this type of scheme.");
     };
 
     template <class cfg>

@@ -18,6 +18,7 @@ namespace samurai
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
         using field_t    = typename cfg::input_field_t;
+        using mesh_t     = typename field_t::mesh_t;
 
         using scheme_definition_t   = CellBasedSchemeDefinition<cfg>;
         using scheme_stencil_t      = typename scheme_definition_t::scheme_stencil_t;
@@ -34,9 +35,7 @@ namespace samurai
         {
         }
 
-        CellBasedScheme()
-        {
-        }
+        CellBasedScheme() = default;
 
         auto& stencil() const
         {
@@ -76,6 +75,26 @@ namespace samurai
         auto coefficients(double h) const
         {
             return m_scheme_definition.get_coefficients_function(h);
+        }
+
+        template <class Func>
+        void for_each_stencil_and_coeffs(const mesh_t& mesh, Func&& apply_coeffs) const
+        {
+            auto stencil_it = make_stencil_iterator(mesh, stencil());
+
+            for_each_level(mesh,
+                           [&](std::size_t level)
+                           {
+                               auto coeffs = coefficients(cell_length(level));
+
+                               for_each_stencil(mesh,
+                                                level,
+                                                stencil_it,
+                                                [&](auto& stencil_cells)
+                                                {
+                                                    apply_coeffs(stencil_cells, coeffs);
+                                                });
+                           });
         }
     };
 
