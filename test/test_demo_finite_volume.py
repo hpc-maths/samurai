@@ -1,6 +1,7 @@
 import os
 import pytest
 import subprocess
+import sys
 from pathlib import Path
 
 path = 'finite_volume'
@@ -31,4 +32,100 @@ def test_finite_volume_demo(exec, Tf, config):
            "--path", config['path'],
            '--filename', config['filename'],
            '--Tf', Tf]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_heat_explicit(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--save-final-state-only",
+           "--explicit",
+           "--init-sol", "dirac",
+           "--Tf", "0.1",
+           "--cfl", "0.95",
+           "--min_level", "0",
+           "--max_level", "3"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_heat_implicit(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--save-final-state-only",
+           "--init-sol", "dirac",
+           "--Tf", "0.1",
+           "--min_level", "0",
+           "--max_level", "3",
+           "-ksp_type", "preonly",
+           "-pc_type", "lu"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_heat_heterogeneous_explicit(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--save-final-state-only",
+           "--explicit",
+           "--Tf", "0.1",
+           "--cfl", "0.95",
+           "--min_level", "0",
+           "--max_level", "3"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_heat_heterogeneous_implicit(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--save-final-state-only",
+           "--Tf", "0.1",
+           "--min_level", "0",
+           "--max_level", "3",
+           "-ksp_type", "preonly",
+           "-pc_type", "lu"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_stokes_stationary(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--test-case", "s",
+           "--min-level", "5",
+           "--max-level", "5"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_stokes_nonstationary(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--test-case", "ns",
+           "--nfiles", "1",
+           "--min-level", "3",
+           "--max-level", "6",
+           "--Tf", "0.1"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_burgers(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-burgers"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--nfiles", "1",
+           "--min-level", "1",
+           "--max-level", "4",
+           "--init-sol", "hat",
+           "--cfl", "0.5",
+           "--Tf", "0.1"]
     output = subprocess.run(cmd, check=True, capture_output=True)

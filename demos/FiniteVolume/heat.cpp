@@ -85,8 +85,9 @@ int main(int argc, char* argv[])
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
-    fs::path path        = fs::current_path();
-    std::string filename = "heat_" + std::to_string(dim) + "D";
+    fs::path path              = fs::current_path();
+    std::string filename       = "heat_" + std::to_string(dim) + "D";
+    bool save_final_state_only = false;
 
     CLI::App app{"Finite volume example for the heat equation in 1d"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
@@ -110,6 +111,7 @@ int main(int argc, char* argv[])
         ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
 
@@ -187,7 +189,10 @@ int main(int argc, char* argv[])
     MRadaptation(mr_epsilon, mr_regularity);
 
     std::size_t nsave = 0, nt = 0;
-    save(path, filename, u, fmt::format("_ite_{}", nsave++));
+    if (!save_final_state_only)
+    {
+        save(path, filename, u, fmt::format("_ite_{}", nsave++));
+    }
 
     double t = t0;
     while (t != Tf)
@@ -221,7 +226,10 @@ int main(int argc, char* argv[])
         std::swap(u.array(), unp1.array());
 
         // Save the result
-        save(path, filename, u, fmt::format("_ite_{}", nsave++));
+        if (!save_final_state_only)
+        {
+            save(path, filename, u, fmt::format("_ite_{}", nsave++));
+        }
 
         // Compute the error at instant t with respect to the exact solution
         if (init_sol == "dirac")
@@ -237,13 +245,19 @@ int main(int argc, char* argv[])
         std::cout << std::endl;
     }
 
-    if constexpr (dim == 1)
+    if (!save_final_state_only && dim == 1)
     {
         std::cout << std::endl;
         std::cout << "Run the following command to view the results:" << std::endl;
         std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 1 --end " << nsave
                   << std::endl;
     }
+
+    if (save_final_state_only)
+    {
+        save(path, filename, u);
+    }
+
     PetscFinalize();
 
     return 0;
