@@ -143,18 +143,14 @@ int main(int argc, char* argv[])
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator
-    using cfg      = samurai::OneCellStencilFV<samurai::SchemeType::NonLinear, 1, decltype(u)>;
-    using bdry_cfg = samurai::BoundaryConfigFV<1>;
-
-    samurai::CellBasedScheme<cfg, bdry_cfg> react;
+    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, 1, decltype(u)>;
+    auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
-    react.stencil()         = samurai::center_only_stencil<dim>();
     react.scheme_function() = [&](auto& stencil_cells, auto& field) //-> samurai::SchemeValue<cfg>
     {
         auto v = field[stencil_cells[0]];
         return k * v * v * (1 - v);
     };
-    // auto react = samurai::make_local_scheme<decltype(u)>();
 
     //--------------------//
     //   Time iteration   //

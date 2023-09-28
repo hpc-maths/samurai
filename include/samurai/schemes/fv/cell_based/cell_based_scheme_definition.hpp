@@ -32,33 +32,42 @@ namespace samurai
     };
 
     template <SchemeType scheme_type, std::size_t output_field_size, std::size_t neighbourhood_width, class InputField>
-    using StarStencilFV = CellBasedSchemeConfig<scheme_type,
-                                                output_field_size,
-                                                neighbourhood_width,
-                                                // ---- Stencil size
-                                                // Cell-centered Finite Volume scheme:
-                                                // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim
-                                                // directions) --> 1+2=3 in 1D
-                                                //                 1+4=5 in 2D
-                                                1 + 2 * InputField::dim * neighbourhood_width,
-                                                // ---- Index of the stencil center
-                                                // (as defined in star_stencil())
-                                                neighbourhood_width,
-                                                // ---- Start index and size of contiguous cell indices
-                                                // (as defined in star_stencil())
-                                                0,
-                                                1 + 2 * neighbourhood_width,
-                                                // ---- Input field
-                                                InputField>;
+    using StarStencilSchemeConfig = CellBasedSchemeConfig<scheme_type,
+                                                          output_field_size,
+                                                          neighbourhood_width,
+                                                          // ---- Stencil size
+                                                          // Cell-centered Finite Volume scheme:
+                                                          // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim
+                                                          // directions) --> 1+2=3 in 1D
+                                                          //                 1+4=5 in 2D
+                                                          1 + 2 * InputField::dim * neighbourhood_width,
+                                                          // ---- Index of the stencil center
+                                                          // (as defined in star_stencil())
+                                                          neighbourhood_width,
+                                                          // ---- Start index and size of contiguous cell indices
+                                                          // (as defined in star_stencil())
+                                                          0,
+                                                          1 + 2 * neighbourhood_width,
+                                                          // ---- Input field
+                                                          InputField>;
 
     template <SchemeType scheme_type, std::size_t output_field_size, class InputField>
-    using OneCellStencilFV = StarStencilFV<scheme_type, output_field_size, 0, InputField>;
+    using LocalCellSchemeConfig = StarStencilSchemeConfig<scheme_type, output_field_size, 0, InputField>;
 
     template <class cfg>
     struct CellBasedSchemeDefinitionBase
     {
-        using scheme_stencil_t = Stencil<cfg::scheme_stencil_size, cfg::input_field_t::dim>;
+        static constexpr std::size_t dim = cfg::input_field_t::dim;
+        using scheme_stencil_t           = Stencil<cfg::scheme_stencil_size, dim>;
         scheme_stencil_t stencil;
+
+        CellBasedSchemeDefinitionBase()
+        {
+            if constexpr (cfg::scheme_stencil_size == 1 + 2 * dim * cfg::neighbourhood_width)
+            {
+                stencil = samurai::star_stencil<dim, cfg::neighbourhood_width>();
+            }
+        }
     };
 
     /**

@@ -19,12 +19,33 @@ namespace samurai
             "Either the required file has not been included, or the CellBasedScheme class has not been specialized for this type of scheme.");
     };
 
-    template <class cfg>
-    auto make_cell_based_scheme(/*const FluxDefinition<cfg>& flux_definition*/)
+    template <class cfg, class bdry_cfg>
+    auto make_cell_based_scheme()
     {
-        using bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2>;
+        return CellBasedScheme<cfg, bdry_cfg>();
+    }
 
-        return CellBasedScheme<cfg, bdry_cfg>(); // flux_definition);
+    template <class cfg, class bdry_cfg>
+    auto make_cell_based_scheme(std::string name)
+    {
+        auto scheme = make_cell_based_scheme<cfg, bdry_cfg>();
+        scheme.set_name(name);
+        return scheme;
+    }
+
+    template <class cfg>
+    auto make_cell_based_scheme()
+    {
+        using bdry_cfg = BoundaryConfigFV<1>;
+        return make_cell_based_scheme<cfg, bdry_cfg>();
+    }
+
+    template <class cfg>
+    auto make_cell_based_scheme(std::string name)
+    {
+        auto scheme = make_cell_based_scheme<cfg>();
+        scheme.set_name(name);
+        return scheme;
     }
 
     /**

@@ -13,8 +13,8 @@ namespace samurai
               // scheme config
               std::size_t dim                 = Field::dim,
               std::size_t neighbourhood_width = 1,
-              class cfg                       = StarStencilFV<SchemeType::LinearHomogeneous, Field::size, neighbourhood_width, Field>,
-              class bdry_cfg                  = BoundaryConfigFV<neighbourhood_width, dirichlet_enfcmt>>
+              class cfg      = StarStencilSchemeConfig<SchemeType::LinearHomogeneous, Field::size, neighbourhood_width, Field>,
+              class bdry_cfg = BoundaryConfigFV<neighbourhood_width, dirichlet_enfcmt>>
     class DiffusionFV_old : public CellBasedScheme<cfg, bdry_cfg>
     {
         using base_class = CellBasedScheme<cfg, bdry_cfg>;

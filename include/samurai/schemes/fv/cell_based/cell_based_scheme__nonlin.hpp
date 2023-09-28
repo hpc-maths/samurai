@@ -86,7 +86,6 @@ namespace samurai
             return explicit_scheme.apply_to(field);
         }
 
-        // template <class Coeffs>
         inline static field_value_type cell_coeff(const scheme_value_t& coeffs, [[maybe_unused]] std::size_t field_i)
         {
             if constexpr (cfg::output_field_size == 1)
@@ -102,20 +101,13 @@ namespace samurai
         template <class Func>
         void for_each_stencil_center(field_t& field, Func&& apply_contrib) const
         {
-            auto stencil_it = make_stencil_iterator(field.mesh(), stencil());
-
-            for_each_level(field.mesh(),
-                           [&](std::size_t level)
-                           {
-                               for_each_stencil(field.mesh(),
-                                                level,
-                                                stencil_it,
-                                                [&](auto& stencil_cells)
-                                                {
-                                                    auto contrib = contribution(stencil_cells, field);
-                                                    apply_contrib(stencil_cells[cfg::center_index], contrib);
-                                                });
-                           });
+            for_each_stencil(field.mesh(),
+                             stencil(),
+                             [&](auto& stencil_cells)
+                             {
+                                 auto contrib = contribution(stencil_cells, field);
+                                 apply_contrib(stencil_cells[cfg::center_index], contrib);
+                             });
         }
     };
 
