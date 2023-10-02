@@ -47,7 +47,7 @@ class TestCase
                 return solution()(coords);
             };
         }
-        return [](const cell_t&, const coords_t&)
+        return [](const auto&, const cell_t&, const coords_t&)
         {
             if constexpr (Field::size == 1)
             {
