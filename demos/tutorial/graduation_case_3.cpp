@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 
 auto generate_mesh(std::size_t start_level)
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     const samurai::Box<int, dim> box({-(2 << start_level), -(2 << start_level)}, {2 << start_level, 2 << start_level});
     samurai::CellArray<dim> ca;
 
