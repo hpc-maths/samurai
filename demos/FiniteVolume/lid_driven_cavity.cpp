@@ -121,15 +121,20 @@ int main(int argc, char* argv[])
     //   Parameters   //
     //----------------//
 
-    std::size_t min_level = 5;
-    std::size_t max_level = 5;
+    std::size_t min_level = 3;
+    std::size_t max_level = 6;
     double Tf             = 5.;
     double dt             = Tf / 100;
     double cfl            = 0.95;
 
+    int ink_init = 20;
+
     double mr_epsilon    = 1e-1; // Threshold used by multiresolution
     double mr_regularity = 3;    // Regularity guess for multiresolution
-    std::size_t nfiles   = 50;
+
+    std::size_t nfiles      = 50;
+    bool export_velocity    = false;
+    bool export_reconstruct = false;
 
     fs::path path = fs::current_path();
 
@@ -147,6 +152,8 @@ int main(int argc, char* argv[])
         ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_flag("--export-velocity", export_velocity, "Export velocity field")->capture_default_str()->group("Ouput");
+    app.add_flag("--export_reconstruct", export_reconstruct, "Export reconstructed fields")->capture_default_str()->group("Ouput");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
 
@@ -162,25 +169,21 @@ int main(int argc, char* argv[])
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
     PetscOptionsSetValue(NULL, "-options_left", "off"); // disable warning for unused options
 
-    auto box  = samurai::Box<double, dim>({0, 0}, {1, 1});
-    auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level));
-
-    auto ink_mesh = Mesh(box, static_cast<std::size_t>(max_level), static_cast<std::size_t>(max_level));
-
-    //--------------------//
-    // Stationary problem //
-    //--------------------//
+    auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
 
     std::cout << "lid-driven cavity" << std::endl;
 
-    // 2 equations: v_np1 + dt * (-diff_coeff*Lap(v_np1) + Grad(p_np1)) = v_n
-    //                                        Div(v_np1)                = 0
+    //-------------------- 1 -----------------------------------------------------------------
+    //
+    // Incompressible Navier-Stokes equations:
+    //              dv/dt + diff(v) + conv(v) + grad(p) = 0
+    //                                           div(v) = 0
     // where v = velocity
     //       p = pressure
 
-    double diff_coeff = 1. / 100;
+    auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level));
 
-    // Fields for the Navier-Stokes equation
+    // Fields for the Navier-Stokes equations
     auto velocity     = samurai::make_field<dim, is_soa>("velocity", mesh);
     auto velocity_np1 = samurai::make_field<dim, is_soa>("velocity_np1", mesh);
     auto pressure_np1 = samurai::make_field<1, is_soa>("pressure_np1", mesh);
@@ -188,17 +191,8 @@ int main(int argc, char* argv[])
     using VelocityField = decltype(velocity);
     using PressureField = decltype(pressure_np1);
 
-    // Fields for the ink convection
-    auto ink          = samurai::make_field<1, is_soa>("ink", ink_mesh);
-    auto ink_np1      = samurai::make_field<1, is_soa>("ink_np1", ink_mesh);
-    auto ink_velocity = samurai::make_field<dim, is_soa>("ink_velocity", ink_mesh);
-
-    using InkField = decltype(ink);
-
-    // Right-hand side of the Stokes system
-    auto rhs  = samurai::make_field<dim, is_soa>("rhs", mesh);
-    auto zero = samurai::make_field<1, is_soa>("zero", mesh);
-    zero.fill(0);
+    // Multi-resolution: the mesh will be adapted according to the velocity
+    auto MRadaptation = samurai::make_MRAdapt(velocity);
 
     // Boundary conditions (n)
     samurai::DirectionVector<dim> left   = {-1, 0};
@@ -208,68 +202,123 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Dirichlet>(velocity, 1., 0.)->on(top);
     samurai::make_bc<samurai::Dirichlet>(velocity, 0., 0.)->on(left, bottom, right);
 
-    samurai::make_bc<samurai::Dirichlet>(ink, 0.);
-
     // Boundary conditions (n+1)
     samurai::make_bc<samurai::Dirichlet>(velocity_np1, 1., 0.)->on(top);
     samurai::make_bc<samurai::Dirichlet>(velocity_np1, 0., 0.)->on(left, bottom, right);
-
     samurai::make_bc<samurai::Neumann>(pressure_np1, 0.);
 
     // Initial condition
     velocity.fill(0);
-
     velocity_np1.fill(0);
     pressure_np1.fill(0);
 
-    samurai::for_each_cell(mesh,
-                           [&](auto& cell)
-                           {
-                               double x              = cell.center(0);
-                               double y              = cell.center(1);
-                               const double center_x = 0.5;
-                               const double center_y = 0.5;
-                               const double radius   = 0.1;
+    // Operators for the Navier-Stokes equation solved with:
+    //         - backward Euler,
+    //         - implicit diffusion,
+    //         - explicit convection.
+    //
+    // ==> We solve the following equations:
+    //
+    //              v_np1 + dt * (diff(v_np1) + grad(p_np1)) = v_n - dt * conv(v_n)
+    //                             div(v_np1)                = 0
+    //
+    // which gives the algebraic Stokes system
+    //
+    //             | I + dt*diff    dt*grad | |v_np1| = |v_n -dt * conv(v_n)|
+    //             |       -div        0    | |p_np1|   |         0         |
 
-                               ink[cell] = (pow(x - center_x, 2) + pow(y - center_y, 2) <= pow(radius, 2)) ? 1 : 0;
-                           });
+    double diff_coeff = 1. / 100;
 
-    // Operators for the Navier-Stokes equation
-    auto diff    = samurai::make_diffusion<VelocityField>(diff_coeff);
+    auto diff    = samurai::make_diffusion<VelocityField>(diff_coeff); // diff: v ---> -diff_coeff*Lap(v)
     auto grad    = samurai::make_gradient<PressureField>();
-    auto conv    = samurai::make_convection<VelocityField>();
+    auto conv    = samurai::make_convection<VelocityField>(); // conv: v ---> v.grad(v)
     auto div     = samurai::make_divergence<VelocityField>();
     auto zero_op = samurai::make_zero_operator<PressureField>();
-    auto id      = samurai::make_identity<VelocityField>();
+    auto id      = samurai::make_identity<VelocityField>(); // id: v ---> v
 
     // clang-format off
-
-    // Stokes with backward Euler
-    //             | I + dt*Diff    dt*Grad |
-    //             |       -Div        0    |
     auto stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad,
                                                                -div,   zero_op);
     // clang-format on
 
-    // Convection operator for the ink
-    auto ink_conv = samurai::make_convection<InkField>(ink_velocity);
+    // Fields for the right-hand side of the system
+    auto rhs  = samurai::make_field<dim, is_soa>("rhs", mesh);
+    auto zero = samurai::make_field<1, is_soa>("zero", mesh);
 
-    // Linear solver for the Stokes system
+    // Linear solver
     auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
-
     stokes_solver.set_unknowns(velocity_np1, pressure_np1);
     configure_solver(stokes_solver);
 
+    //-------------------- 2 ----------------------------------------------------------------
+    //
+    // Convection of the ink concentration 'i' using the Navier-Stokes velocity 'v':
+    //
+    //               d(i)/dt + conv(i) = 0,       where conv(i) = v.grad(i).
+
+    // 2nd mesh
+    auto mesh2 = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level));
+
+    // Ink data fields
+    auto ink     = samurai::make_field<1, is_soa>("ink", mesh2);
+    auto ink_np1 = samurai::make_field<1, is_soa>("ink_np1", mesh2);
+    // Field to store the Navier-Stokes velocity transferred to the 2nd mesh
+    auto velocity2 = samurai::make_field<dim, is_soa>("velocity2", mesh2);
+
+    using InkField = decltype(ink);
+
+    // Multi-resolution: the mesh will be adapted according to the ink concentration
+    auto MRadaptation2 = samurai::make_MRAdapt(ink);
+
+    // Here, 'velocity2' is used as the velocity parameter of the convection operator
+    auto conv2 = samurai::make_convection<InkField>(velocity2);
+
+    // Boundary condition
+    samurai::make_bc<samurai::Dirichlet>(ink, 0.);
+
+    // Initial condition
+    samurai::for_each_cell(mesh,
+                           [&](auto& cell)
+                           {
+                               double x = cell.center(0);
+                               double y = cell.center(1);
+
+                               const double center1_x = 0.5;
+                               const double center1_y = 0.5;
+                               const double center2_x = 0.8;
+                               const double center2_y = 0.2;
+                               const double center3_x = 0.2;
+                               const double center3_y = 0.8;
+                               const double center4_x = 0.8;
+                               const double center4_y = 0.8;
+                               const double center5_x = 0.2;
+                               const double center5_y = 0.2;
+                               const double radius    = 0.1;
+
+                               ink[cell] = (pow(x - center1_x, 2) + pow(y - center1_y, 2) <= pow(radius, 2))
+                                                || (pow(x - center2_x, 2) + pow(y - center2_y, 2) <= pow(radius, 2))
+                                                || (pow(x - center3_x, 2) + pow(y - center3_y, 2) <= pow(radius, 2))
+                                                || (pow(x - center4_x, 2) + pow(y - center4_y, 2) <= pow(radius, 2))
+                                                || (pow(x - center5_x, 2) + pow(y - center5_y, 2) <= pow(radius, 2))
+                                             ? ink_init
+                                             : 0;
+                           });
+
+    //-------------------- 3 --------------------------------------------------------------
+    //
     // Time iteration
+
     double dx                 = samurai::cell_length(mesh.max_level());
     double sum_max_velocities = 2;
     dt                        = cfl * dx / sum_max_velocities;
 
-    auto MRadaptation = samurai::make_MRAdapt(velocity);
-
     double dt_save    = dt; // Tf/static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
-    samurai::save(path, fmt::format("ldc_velocity_ite_{}", nsave), velocity.mesh(), velocity);
+
+    if (export_velocity)
+    {
+        samurai::save(path, fmt::format("ldc_velocity_ite_{}", nsave), velocity.mesh(), velocity);
+    }
     samurai::save(path, fmt::format("ldc_ink_ite_{}", nsave), ink.mesh(), ink);
     nsave++;
 
@@ -294,7 +343,7 @@ int main(int argc, char* argv[])
         }
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
 
-        // Mesh adaptation
+        // Mesh adaptation for Navier-Stokes
         if (min_level != max_level)
         {
             MRadaptation(mr_epsilon, mr_regularity);
@@ -331,11 +380,17 @@ int main(int argc, char* argv[])
         zero.fill(0);
         stokes_solver.solve(rhs, zero);
 
-        // Ink convection
-        samurai::update_ghost_mr(velocity_np1);
-        samurai::transfer(velocity_np1, ink_velocity);
+        // Mesh adaptation for the ink
+        MRadaptation2(mr_epsilon, mr_regularity);
+        ink_np1.resize();
 
-        auto conv_ink = ink_conv(ink);
+        // Transfer velocity_np1 to the 2nd mesh (--> velocity2)
+        samurai::update_ghost_mr(velocity_np1);
+        samurai::transfer(velocity_np1, velocity2);
+
+        // Ink convection
+        samurai::update_ghost_mr(velocity2);
+        auto conv_ink = conv2(ink);
         ink_np1       = ink - dt * conv_ink;
 
         // Prepare next step
@@ -344,20 +399,34 @@ int main(int argc, char* argv[])
         min_level_n = min_level_np1;
         max_level_n = max_level_np1;
 
-        // Save the result
+        // Save the results
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            samurai::update_ghost_mr(velocity);
-            auto velocity_recons = samurai::reconstruction(velocity);
-            auto div_velocity    = div(velocity);
-
-            samurai::save(path, fmt::format("ldc_velocity_ite_{}", nsave), velocity.mesh(), velocity, div_velocity);
-            samurai::save(path, fmt::format("ldc_velocity_recons_ite_{}", nsave), velocity_recons.mesh(), velocity_recons);
-
-            samurai::save(path, fmt::format("ldc_ink_velocity_ite_{}", nsave), ink_velocity.mesh(), ink_velocity);
             samurai::save(path, fmt::format("ldc_ink_ite_{}", nsave), ink.mesh(), ink);
+            if (export_reconstruct)
+            {
+                samurai::update_bc(ink);
+                samurai::update_ghost_mr(ink);
+                auto ink_recons = samurai::reconstruction(ink);
+                samurai::save(path, fmt::format("ldc_ink_recons_ite_{}", nsave), ink_recons.mesh(), ink_recons);
+            }
+
+            if (export_velocity)
+            {
+                // auto div_velocity    = div(velocity);
+                samurai::save(path, fmt::format("ldc_velocity_ite_{}", nsave), velocity.mesh(), velocity); //, div_velocity);
+
+                if (export_reconstruct)
+                {
+                    samurai::update_ghost_mr(velocity);
+                    auto velocity_recons = samurai::reconstruction(velocity);
+                    samurai::save(path, fmt::format("ldc_velocity_recons_ite_{}", nsave), velocity_recons.mesh(), velocity_recons);
+                }
+                // samurai::save(path, fmt::format("ldc_velocity2_ite_{}", nsave), velocity2.mesh(), velocity2);
+            }
             nsave++;
-        }
+
+        } // end time loop
 
         // srand(time(NULL));
         // auto x_velocity = samurai::make_field<dim, is_soa>("x_velocity", mesh);
