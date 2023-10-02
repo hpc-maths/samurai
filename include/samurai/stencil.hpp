@@ -337,7 +337,7 @@ namespace samurai
     template <std::size_t dim, std::size_t neighbourhood_width = 1>
     auto directional_stencils()
     {
-        static_assert(dim >= 1 && dim <= 2, "directional_stencils() not implemented for this dimension");
+        static_assert(dim >= 1 && dim <= 3, "directional_stencils() not implemented for this dimension");
         static_assert(neighbourhood_width >= 0 && neighbourhood_width <= 2,
                       "directional_stencils() not implemented for this neighbourhood width");
 
@@ -378,6 +378,27 @@ namespace samurai
                 dir_stencils[3].direction = {0, -1};
                 dir_stencils[3].stencil   = {{0, 0 }, {0, 1 }, {0, -1}};
             }
+            else if constexpr (dim == 3)
+            {
+                // Left
+                dir_stencils[0].direction = {-1, 0, 0};
+                dir_stencils[0].stencil   = {{0,  0, 0}, {1,  0, 0}, {-1, 0, 0}};
+                // Top
+                dir_stencils[1].direction = {0, 1, 0};
+                dir_stencils[1].stencil   = {{0, 0 ,0}, {0, -1,0}, {0, 1,0 }};
+                // Right
+                dir_stencils[2].direction = {1, 0,0};
+                dir_stencils[2].stencil   = {{0,  0,0}, {-1, 0,0}, {1,  0,0}};
+                // Bottom
+                dir_stencils[3].direction = {0, -1,0};
+                dir_stencils[3].stencil   = {{0, 0,0 }, {0, 1,0 }, {0, -1,0}};
+                // Back
+                dir_stencils[4].direction = {0, 0,-1};
+                dir_stencils[4].stencil   = {{0,  0,0}, {0, 0,1}, {0,  0,-1}};
+                // Front
+                dir_stencils[5].direction = {0, 0, 1};
+                dir_stencils[5].stencil   = {{0, 0,0 }, {0, 0, -1}, {0, 0,1}};
+            }
             // clang-format on
         }
         else if constexpr (neighbourhood_width == 2)
@@ -406,6 +427,27 @@ namespace samurai
                 // Bottom
                 dir_stencils[3].direction = {0, -1};
                 dir_stencils[3].stencil   = {{0, 0 }, {0, 1 }, {0, 2 }, {0, -1}, {0, -2}};
+            }
+            else if constexpr (dim == 3)
+            {
+                // Left
+                dir_stencils[0].direction = {-1, 0, 0};
+                dir_stencils[0].stencil   = {{0,  0, 0}, {1,  0, 0}, {2,  0, 0}, {-1, 0, 0}, {-2, 0, 0}};
+                // Top
+                dir_stencils[1].direction = {0, 1, 0};
+                dir_stencils[1].stencil   = {{0, 0 , 0}, {0, -1, 0}, {0, -2, 0}, {0, 1 , 0}, {0, 2 , 0}};
+                // Right
+                dir_stencils[2].direction = {1, 0, 0};
+                dir_stencils[2].stencil   = {{0,  0, 0}, {-1, 0, 0}, {-2, 0, 0}, {1,  0, 0}, {2,  0, 0}};
+                // Bottom
+                dir_stencils[3].direction = {0, -1, 0};
+                dir_stencils[3].stencil   = {{0, 0 , 0}, {0, 1 , 0}, {0, 2 , 0}, {0, -1, 0}, {0, -2, 0}};
+                // Back
+                dir_stencils[4].direction = {0, 0, -1};
+                dir_stencils[4].stencil   = {{0,  0, 0}, {0, 0, 1}, {0, 0, 2}, {0,  0, -1}, {0,  0, -2}};
+                // Front
+                dir_stencils[5].direction = {0, 0, 1};
+                dir_stencils[5].stencil   = {{0,  0, 0}, {0, 0, -1}, {0, 0, -2}, {0,  0, 1}, {0,  0, 2}};
             }
             // clang-format on
         }
