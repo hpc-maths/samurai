@@ -408,12 +408,12 @@ int main(int argc, char* argv[])
 
         // Boundary conditions
         samurai::make_bc<samurai::Dirichlet>(velocity_np1,
-                                             [&](const auto&, const auto& coord)
+                                             [&](const auto&, const auto&, const auto& coord)
                                              {
                                                  return exact_velocity(0, coord);
                                              });
         samurai::make_bc<samurai::Neumann>(pressure_np1,
-                                           [&](const auto&, const auto& coord)
+                                           [&](const auto&, const auto&, const auto& coord)
                                            {
                                                return exact_normal_grad_pressure(0, coord);
                                            });
@@ -500,13 +500,13 @@ int main(int argc, char* argv[])
             // Boundary conditions
             velocity_np1.get_bc().clear();
             samurai::make_bc<samurai::Dirichlet>(velocity_np1,
-                                                 [&](const auto&, const auto& coord)
+                                                 [&](const auto&, const auto&, const auto& coord)
                                                  {
                                                      return exact_velocity(t_np1, coord);
                                                  });
             pressure_np1.get_bc().clear();
             samurai::make_bc<samurai::Neumann>(pressure_np1,
-                                               [&](const auto&, const auto& coord)
+                                               [&](const auto&, const auto&, const auto& coord)
                                                {
                                                    return exact_normal_grad_pressure(t_np1, coord);
                                                });
