@@ -211,8 +211,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    constexpr size_t dim = 2;
-    using Config         = samurai::MRConfig<dim>;
+    constexpr std::size_t dim = 2;
+    using Config              = samurai::MRConfig<dim>;
 
     // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};

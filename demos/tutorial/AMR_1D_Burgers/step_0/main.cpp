@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    constexpr std::size_t dim    = 1;
+    constexpr std::size_t dim    = 1; // cppcheck-suppress unreadVariable
     const std::size_t init_level = 4;
 
     /**

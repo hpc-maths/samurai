@@ -227,7 +227,7 @@ void make_graduation(samurai::CellArray<dim>& ca)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
 
     // Simulation parameters
     std::vector<double> min_corner_v = {0., 0.};

@@ -111,7 +111,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 1;
+    constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
     using Config              = samurai::MRConfig<dim>;
 
     // Simulation parameters

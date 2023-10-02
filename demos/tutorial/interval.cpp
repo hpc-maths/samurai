@@ -9,7 +9,7 @@
 
 int main()
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
 
     samurai::CellList<dim> cl;
 

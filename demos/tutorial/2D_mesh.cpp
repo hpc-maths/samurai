@@ -14,7 +14,7 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     samurai::CellList<dim> cl;
 
     // Output parameters
