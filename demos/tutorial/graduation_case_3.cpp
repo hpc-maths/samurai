@@ -29,7 +29,7 @@ auto generate_mesh(std::size_t start_level)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     std::size_t start_level   = 1;
     std::size_t max_level     = 6;
     bool with_graduation      = true;
