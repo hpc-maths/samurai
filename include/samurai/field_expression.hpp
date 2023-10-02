@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "xtl/xtype_traits.hpp"
+#include <xtl/xtype_traits.hpp>
 
-#include "xtensor/xexpression.hpp"
-#include "xtensor/xmath.hpp"
+#include <xtensor/xexpression.hpp>
+#include <xtensor/xmath.hpp>
 
 #include "cell.hpp"
 #include "interval.hpp"

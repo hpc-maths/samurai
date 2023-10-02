@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 #include <iostream>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
