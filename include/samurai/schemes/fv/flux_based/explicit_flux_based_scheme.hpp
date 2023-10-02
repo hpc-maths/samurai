@@ -11,7 +11,7 @@ namespace samurai
      */
     template <class cfg, class bdry_cfg>
     class Explicit<FluxBasedScheme<cfg, bdry_cfg>,
-                   std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous || cfg::flux_type == FluxType::LinearHeterogeneous>>
+                   std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous || cfg::scheme_type == SchemeType::LinearHeterogeneous>>
     {
         using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg>;
         using field_t                                  = typename scheme_t::field_t;
@@ -104,7 +104,7 @@ namespace samurai
      * NON-LINEAR explicit schemes
      */
     template <class cfg, class bdry_cfg>
-    class Explicit<FluxBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
+    class Explicit<FluxBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
     {
         using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg>;
         using field_t                                  = typename scheme_t::field_t;

@@ -4,17 +4,10 @@
 
 namespace samurai
 {
-    enum class FluxType
-    {
-        NonLinear,
-        LinearHeterogeneous,
-        LinearHomogeneous
-    };
-
-    template <FluxType flux_type_, std::size_t output_field_size_, std::size_t stencil_size_, class InputField_>
+    template <SchemeType scheme_type_, std::size_t output_field_size_, std::size_t stencil_size_, class InputField_>
     struct FluxConfig
     {
-        static constexpr FluxType flux_type            = flux_type_;
+        static constexpr SchemeType scheme_type        = scheme_type_;
         static constexpr std::size_t output_field_size = output_field_size_;
         static constexpr std::size_t stencil_size      = stencil_size_;
         using input_field_t                            = std::decay_t<InputField_>;
@@ -68,7 +61,7 @@ namespace samurai
      * Defines how to compute a NON-LINEAR normal flux.
      */
     template <class cfg>
-    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>> : NormalFluxDefinitionBase<cfg>
+    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>> : NormalFluxDefinitionBase<cfg>
     {
         using field_t          = typename cfg::input_field_t;
         using field_value_type = typename field_t::value_type;
@@ -98,7 +91,7 @@ namespace samurai
      * Defines how to compute a LINEAR and HETEROGENEOUS normal flux.
      */
     template <class cfg>
-    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::flux_type == FluxType::LinearHeterogeneous>> : NormalFluxDefinitionBase<cfg>
+    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHeterogeneous>> : NormalFluxDefinitionBase<cfg>
     {
         using field_t                           = typename cfg::input_field_t;
         using field_value_type                  = typename field_t::value_type;
@@ -123,7 +116,7 @@ namespace samurai
      * Defines how to compute a LINEAR and HOMOGENEOUS normal flux.
      */
     template <class cfg>
-    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous>> : NormalFluxDefinitionBase<cfg>
+    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>> : NormalFluxDefinitionBase<cfg>
     {
         using field_t                           = typename cfg::input_field_t;
         using field_value_type                  = typename field_t::value_type;
@@ -170,7 +163,7 @@ namespace samurai
 
         static constexpr std::size_t dim          = cfg::dim;
         static constexpr std::size_t stencil_size = cfg::stencil_size;
-        using cfg_stencil2                        = FluxConfig<cfg::flux_type, cfg::output_field_size, 2, typename cfg::input_field_t>;
+        using cfg_stencil2                        = FluxConfig<cfg::scheme_type, cfg::output_field_size, 2, typename cfg::input_field_t>;
         using flux_computation_t                  = NormalFluxDefinition<cfg>;
         using flux_computation_stencil2_t         = NormalFluxDefinition<cfg_stencil2>;
 

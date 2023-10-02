@@ -13,8 +13,9 @@ namespace samurai
         template <class Scheme>
         class Assembly<Scheme,
                        std::enable_if_t<is_FluxBasedScheme_v<Scheme>
-                                        && (Scheme::cfg_t::flux_type == FluxType::LinearHomogeneous
-                                            || Scheme::cfg_t::flux_type == FluxType::LinearHeterogeneous)>> : public FVSchemeAssembly<Scheme>
+                                        && (Scheme::cfg_t::scheme_type == SchemeType::LinearHomogeneous
+                                            || Scheme::cfg_t::scheme_type == SchemeType::LinearHeterogeneous)>>
+            : public FVSchemeAssembly<Scheme>
         {
           protected:
 

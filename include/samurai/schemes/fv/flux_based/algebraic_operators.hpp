@@ -107,21 +107,21 @@ namespace samurai
                     if (m_scalar != 1)
                     {
                         // Multiply the flux function by the scalar
-                        if constexpr (cfg_t::flux_type == FluxType::LinearHomogeneous)
+                        if constexpr (cfg_t::scheme_type == SchemeType::LinearHomogeneous)
                         {
                             this->flux_definition()[d].flux_function = [&](auto h)
                             {
                                 return m_scalar * m_scheme.flux_definition()[d].flux_function(h);
                             };
                         }
-                        else if constexpr (cfg_t::flux_type == FluxType::LinearHeterogeneous)
+                        else if constexpr (cfg_t::scheme_type == SchemeType::LinearHeterogeneous)
                         {
                             this->flux_definition()[d].flux_function = [&](auto& cells)
                             {
                                 return m_scalar * m_scheme.flux_definition()[d].flux_function(cells);
                             };
                         }
-                        else // FluxType::NonLinear
+                        else // SchemeType::NonLinear
                         {
                             this->flux_definition()[d].flux_function = [&](auto& cells, auto& field)
                             {

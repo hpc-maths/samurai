@@ -3,6 +3,13 @@
 
 namespace samurai
 {
+    enum class SchemeType
+    {
+        NonLinear,
+        LinearHeterogeneous,
+        LinearHomogeneous
+    };
+
     /**
      * Matrix type
      */

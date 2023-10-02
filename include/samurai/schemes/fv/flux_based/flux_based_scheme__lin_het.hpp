@@ -8,7 +8,7 @@ namespace samurai
      *    Implementation of LINEAR and HETEROGENEOUS schemes
      */
     template <class cfg, class bdry_cfg>
-    class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::flux_type == FluxType::LinearHeterogeneous>>
+    class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHeterogeneous>>
         : public FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>
     {
       public:

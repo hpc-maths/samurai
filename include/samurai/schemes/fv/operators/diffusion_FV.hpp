@@ -136,7 +136,7 @@ namespace samurai
         static constexpr std::size_t output_field_size = field_size;
         static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
         FluxDefinition<cfg> K_grad;
 
@@ -206,14 +206,12 @@ namespace samurai
               std::enable_if_t<DiffTensorField::size == 1 && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>, bool> = true>
     auto make_diffusion(const DiffTensorField& K)
     {
-        // static_assert(DiffTensorField::size == 1 && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>>);
-
         static constexpr std::size_t dim               = field_t::dim;
         static constexpr std::size_t field_size        = field_t::size;
         static constexpr std::size_t output_field_size = field_size;
         static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxConfig<FluxType::LinearHeterogeneous, output_field_size, stencil_size, field_t>;
+        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, output_field_size, stencil_size, field_t>;
 
         FluxDefinition<cfg> K_grad;
 

@@ -4,13 +4,6 @@
 
 namespace samurai
 {
-    enum class SchemeType
-    {
-        NonLinear,
-        LinearHeterogeneous,
-        LinearHomogeneous
-    };
-
     template <SchemeType scheme_type_,
               std::size_t output_field_size_,
               std::size_t neighbourhood_width_,
