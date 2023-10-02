@@ -244,7 +244,7 @@ namespace samurai
                                                           old_fields_t& old_fields,
                                                           Fields&... other_fields)
     {
-        auto& mesh = m_field.mesh();
+        auto& mesh = m_fields.mesh();
 
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
