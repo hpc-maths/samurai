@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
 
         // Boundary conditions
         samurai::make_bc<samurai::Dirichlet>(velocity,
-                                             [](const auto&, const auto& coord)
+                                             [](const auto&, const auto&, const auto& coord)
                                              {
                                                  const auto& x = coord[0];
                                                  const auto& y = coord[1];
@@ -246,7 +246,7 @@ int main(int argc, char* argv[])
                                              });
 
         samurai::make_bc<samurai::Neumann>(pressure,
-                                           [](const auto&, const auto& coord)
+                                           [](const auto&, const auto&, const auto& coord)
                                            {
                                                const auto& x = coord[0];
                                                const auto& y = coord[1];
