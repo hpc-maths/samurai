@@ -1,7 +1,7 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 #include <cmath>
 
 #include <filesystem>
@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 
 auto generate_mesh(std::size_t start_level)
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     const samurai::Box<int, dim> box({-(2 << start_level), -(2 << start_level)}, {2 << start_level, 2 << start_level});
     samurai::CellArray<dim> ca;
 
@@ -29,7 +29,7 @@ auto generate_mesh(std::size_t start_level)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     std::size_t start_level   = 1;
     std::size_t max_level     = 6;
     bool with_graduation      = true;

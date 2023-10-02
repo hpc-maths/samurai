@@ -1,7 +1,7 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -266,7 +266,7 @@ int main(int argc, char* argv[])
 
         auto u = samurai::make_field<double, 1>("u", mesh);
         samurai::make_bc<samurai::Dirichlet>(u,
-                                             [](const auto&, const auto& coord)
+                                             [](const auto&, const auto&, const auto& coord)
                                              {
                                                  const auto& x = coord[0];
                                                  const auto& y = coord[1];

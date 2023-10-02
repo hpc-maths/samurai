@@ -104,6 +104,12 @@ namespace samurai
     inline subset_node<T>::subset_node(T&& node)
         : m_node(std::forward<T>(node))
     {
+        m_index.fill(std::numeric_limits<std::size_t>::infinity());
+        m_ipos.fill(std::numeric_limits<std::size_t>::infinity());
+        m_start.fill(std::numeric_limits<std::size_t>::infinity());
+        m_end.fill(std::numeric_limits<std::size_t>::infinity());
+        m_start_offset.fill(std::numeric_limits<std::size_t>::infinity());
+        m_end_offset.fill(std::numeric_limits<std::size_t>::infinity());
     }
 
     /**

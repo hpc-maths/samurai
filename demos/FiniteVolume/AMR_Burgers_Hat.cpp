@@ -1,7 +1,7 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 #include <fmt/format.h>
 #include <iostream>
 
@@ -171,7 +171,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 1;
+    constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
     using Config              = samurai::amr::Config<dim>;
 
     // Simulation parameters

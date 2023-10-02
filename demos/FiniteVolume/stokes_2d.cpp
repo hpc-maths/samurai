@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 #include <iostream>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
 
         // Boundary conditions
         samurai::make_bc<samurai::Dirichlet>(velocity,
-                                             [](const auto&, const auto& coord)
+                                             [](const auto&, const auto&, const auto& coord)
                                              {
                                                  const auto& x = coord[0];
                                                  const auto& y = coord[1];
@@ -246,7 +246,7 @@ int main(int argc, char* argv[])
                                              });
 
         samurai::make_bc<samurai::Neumann>(pressure,
-                                           [](const auto&, const auto& coord)
+                                           [](const auto&, const auto&, const auto& coord)
                                            {
                                                const auto& x = coord[0];
                                                const auto& y = coord[1];
@@ -404,12 +404,12 @@ int main(int argc, char* argv[])
 
         // Boundary conditions
         samurai::make_bc<samurai::Dirichlet>(velocity_np1,
-                                             [&](const auto&, const auto& coord)
+                                             [&](const auto&, const auto&, const auto& coord)
                                              {
                                                  return exact_velocity(0, coord);
                                              });
         samurai::make_bc<samurai::Neumann>(pressure_np1,
-                                           [&](const auto&, const auto& coord)
+                                           [&](const auto&, const auto&, const auto& coord)
                                            {
                                                return exact_normal_grad_pressure(0, coord);
                                            });
@@ -497,13 +497,13 @@ int main(int argc, char* argv[])
             // Boundary conditions
             velocity_np1.get_bc().clear();
             samurai::make_bc<samurai::Dirichlet>(velocity_np1,
-                                                 [&](const auto&, const auto& coord)
+                                                 [&](const auto&, const auto&, const auto& coord)
                                                  {
                                                      return exact_velocity(t_np1, coord);
                                                  });
             pressure_np1.get_bc().clear();
             samurai::make_bc<samurai::Neumann>(pressure_np1,
-                                               [&](const auto&, const auto& coord)
+                                               [&](const auto&, const auto&, const auto& coord)
                                                {
                                                    return exact_normal_grad_pressure(t_np1, coord);
                                                });

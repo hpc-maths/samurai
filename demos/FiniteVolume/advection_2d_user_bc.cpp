@@ -1,7 +1,7 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 #include <array>
 
 #include <xtensor/xfixed.hpp>
@@ -211,8 +211,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    constexpr size_t dim = 2;
-    using Config         = samurai::MRConfig<dim>;
+    constexpr std::size_t dim = 2;
+    using Config              = samurai::MRConfig<dim>;
 
     // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};

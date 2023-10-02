@@ -19,14 +19,13 @@ namespace samurai
         template <class Field>
         inline auto operator()(Dim<2>, const Field& phi, const Field& phi_0, const std::size_t max_level) const
         {
-            double dx = this->dx();
-
             auto out = xt::empty<double>({i.size()});
 
             out.fill(0.);
 
             if (level == max_level)
             {
+                double dx = this->dx();
                 // // First order one sided
                 // auto dxp = (phi(level, i + 1, j) - phi(level, i    , j))/dx;
                 // auto dxm = (phi(level, i    , j) - phi(level, i - 1, j))/dx;

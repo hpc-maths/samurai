@@ -1,7 +1,7 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 #include <iostream>
 
 #include <filesystem>
@@ -227,7 +227,7 @@ void make_graduation(samurai::CellArray<dim>& ca)
 
 int main(int argc, char* argv[])
 {
-    constexpr std::size_t dim = 2;
+    constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
 
     // Simulation parameters
     std::vector<double> min_corner_v = {0., 0.};

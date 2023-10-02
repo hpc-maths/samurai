@@ -1,7 +1,7 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 
 #include <filesystem>
 
@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    constexpr std::size_t dim    = 1;
+    constexpr std::size_t dim    = 1; // cppcheck-suppress unreadVariable
     const std::size_t init_level = 4;
 
     /**

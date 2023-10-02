@@ -86,6 +86,7 @@ namespace samurai
         static constexpr std::size_t dim = Field::dim;
         using value_t                    = detail::return_type_t<typename Field::value_type, Field::size>;
         using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;
+        using direction_t                = xt::xtensor_fixed<int, xt::xshape<dim>>;
         using cell_t                     = typename Field::cell_t;
 
         virtual ~BcValue()                 = default;
@@ -94,9 +95,9 @@ namespace samurai
         BcValue(BcValue&&)                 = delete;
         BcValue& operator=(BcValue&&)      = delete;
 
-        virtual value_t get_value(const cell_t&, const coords_t&) const = 0;
-        virtual std::unique_ptr<BcValue> clone() const                  = 0;
-        virtual BCVType type() const                                    = 0;
+        virtual value_t get_value(const direction_t& d, const cell_t&, const coords_t&) const = 0;
+        virtual std::unique_ptr<BcValue> clone() const                                        = 0;
+        virtual BCVType type() const                                                          = 0;
 
       protected:
 
@@ -108,17 +109,18 @@ namespace samurai
     {
       public:
 
-        using base_t   = BcValue<Field>;
-        using value_t  = typename base_t::value_t;
-        using coords_t = typename base_t::coords_t;
-        using cell_t   = typename base_t::cell_t;
+        using base_t      = BcValue<Field>;
+        using value_t     = typename base_t::value_t;
+        using coords_t    = typename base_t::coords_t;
+        using direction_t = typename base_t::direction_t;
+        using cell_t      = typename base_t::cell_t;
 
         template <class... CT>
         ConstantBc(const CT... v);
 
         ConstantBc();
 
-        value_t get_value(const cell_t&, const coords_t&) const override;
+        value_t get_value(const direction_t&, const cell_t&, const coords_t&) const override;
         std::unique_ptr<base_t> clone() const override;
         BCVType type() const override;
 
@@ -132,15 +134,16 @@ namespace samurai
     {
       public:
 
-        using base_t     = BcValue<Field>;
-        using value_t    = typename base_t::value_t;
-        using coords_t   = typename base_t::coords_t;
-        using cell_t     = typename base_t::cell_t;
-        using function_t = std::function<value_t(const cell_t&, const coords_t&)>;
+        using base_t      = BcValue<Field>;
+        using value_t     = typename base_t::value_t;
+        using coords_t    = typename base_t::coords_t;
+        using direction_t = typename base_t::direction_t;
+        using cell_t      = typename base_t::cell_t;
+        using function_t  = std::function<value_t(const direction_t&, const cell_t&, const coords_t&)>;
 
         FunctionBc(const function_t& f);
 
-        value_t get_value(const cell_t& cell_in, const coords_t& coords) const override;
+        value_t get_value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const override;
         std::unique_ptr<base_t> clone() const override;
         BCVType type() const override;
 
@@ -167,7 +170,7 @@ namespace samurai
     }
 
     template <class Field>
-    inline auto ConstantBc<Field>::get_value(const cell_t&, const coords_t&) const -> value_t
+    inline auto ConstantBc<Field>::get_value(const direction_t&, const cell_t&, const coords_t&) const -> value_t
     {
         return m_v;
     }
@@ -191,9 +194,9 @@ namespace samurai
     }
 
     template <class Field>
-    inline auto FunctionBc<Field>::get_value(const cell_t& cell_in, const coords_t& coords) const -> value_t
+    inline auto FunctionBc<Field>::get_value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const -> value_t
     {
-        return m_func(cell_in, coords);
+        return m_func(d, cell_in, coords);
     }
 
     template <class Field>
@@ -515,10 +518,12 @@ namespace samurai
 
         static constexpr std::size_t dim  = Field::dim;
         static constexpr std::size_t size = Field::size;
+        using mesh_t                      = typename Field::mesh_t;
         using interval_t                  = typename Field::interval_t;
 
         using bcvalue_t    = BcValue<Field>;
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
+        using direction_t  = typename bcvalue_t::direction_t;
         using value_t      = typename bcvalue_t::value_t;
         using coords_t     = typename bcvalue_t::coords_t;
         using cell_t       = typename bcvalue_t::cell_t;
@@ -548,14 +553,14 @@ namespace samurai
 
         auto get_region() const;
 
-        template <class Direction>
-        void update_values(const Direction& d,
+        void update_values(const mesh_t& mesh,
+                           const direction_t& d,
                            std::size_t level,
                            const interval_t& i,
                            xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>> index);
 
         value_t constant_value();
-        value_t value(const cell_t& cell_in, const coords_t& coords) const;
+        value_t value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const;
         const auto& value() const;
         BCVType get_value_type() const;
 
@@ -631,8 +636,8 @@ namespace samurai
     }
 
     template <class Field>
-    template <class Direction>
-    void Bc<Field>::update_values(const Direction& dir,
+    void Bc<Field>::update_values(const mesh_t& mesh,
+                                  const direction_t& dir,
                                   std::size_t level,
                                   const interval_t& i,
                                   xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>> index)
@@ -651,7 +656,7 @@ namespace samurai
             {
                 shift              = dir[d] < 0 ? -dir[d] : -dir[d] + 1;
                 coords[d]          = dx * (index[d - 1] + shift);
-                cell_in.indices[d] = index[d - 1] + dir[d];
+                cell_in.indices[d] = index[d - 1] - dir[d];
             }
 
             if constexpr (size == 1)
@@ -663,11 +668,13 @@ namespace samurai
                 m_value.resize({i.size(), size});
             }
 
-            cell_in.indices[0] = i.start + dir[0];
-            cell_in.index      = i.index;
+            cell_in.indices[0] = i.start - dir[0];
+            cell_in.index      = mesh.get_index(level, cell_in.indices);
+            cell_in.length     = cell_length(level);
+
             for (std::size_t ii = 0; ii < i.size(); ++ii)
             {
-                xt::view(m_value, ii) = p_bcvalue->get_value(cell_in, coords);
+                xt::view(m_value, ii) = p_bcvalue->get_value(dir, cell_in, coords);
                 coords[0] += dx;
                 ++cell_in.indices[0];
                 ++cell_in.index;
@@ -678,7 +685,7 @@ namespace samurai
     template <class Field>
     inline auto Bc<Field>::constant_value() -> value_t
     {
-        return p_bcvalue->get_value({}, {});
+        return p_bcvalue->get_value({}, {}, {});
     }
 
     template <class Field>
@@ -688,9 +695,9 @@ namespace samurai
     }
 
     template <class Field>
-    inline auto Bc<Field>::value(const cell_t& cell_in, const coords_t& coords) const -> value_t
+    inline auto Bc<Field>::value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const -> value_t
     {
-        return p_bcvalue->get_value(cell_in, coords);
+        return p_bcvalue->get_value(d, cell_in, coords);
     }
 
     template <class Field>
@@ -838,7 +845,7 @@ namespace samurai
                             }
                             else if (bc.get_value_type() == BCVType::function)
                             {
-                                bc.update_values(direction[d], level, i, index);
+                                bc.update_values(field.mesh(), direction[d], level, i, index);
 
                                 if constexpr (dim == 1)
                                 {
@@ -928,7 +935,7 @@ namespace samurai
                             }
                             else if (bc.get_value_type() == BCVType::function)
                             {
-                                bc.update_values(direction[d], level, i, index);
+                                bc.update_values(field.mesh(), direction[d], level, i, index);
 
                                 if constexpr (dim == 1)
                                 {

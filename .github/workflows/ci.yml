@@ -28,7 +28,7 @@ jobs:
         with:
           path: |
             ~/.cache/ccache
-            ~/micromamba-root/envs/samurai-env
+            ~/micromamba/envs/samurai-env
           key: cppcheck
 
       - name: Mamba and samurai env installation
@@ -39,21 +39,19 @@ jobs:
           cache-environment: true
 
       - name: cppcheck installation
-        shell: bash -l {0}
+        shell: bash -el {0}
         run: |
           conda install -y cppcheck cxx-compiler
-          pip install compdb
 
       - name: Configure
-        shell: bash -l {0}
+        shell: bash -el {0}
         run: |
           cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
-          compdb -p build list > compile_commands.json
 
       - name: Run cppcheck on samurai
-        shell: bash -l {0}
+        shell: bash -el {0}
         run: |
-          cppcheck --enable=all -q --project=compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
+          cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
 
       - name: Check for errors
         run: |

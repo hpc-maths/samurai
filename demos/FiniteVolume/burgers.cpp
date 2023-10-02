@@ -1,7 +1,7 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -186,7 +186,7 @@ int main_dim(int argc, char* argv[])
     if (dim == 1 && init_sol == "linear")
     {
         samurai::make_bc<samurai::Dirichlet>(u,
-                                             [&](const auto&, const auto& coord)
+                                             [&](const auto&, const auto&, const auto& coord)
                                              {
                                                  return exact_solution(coord, 0);
                                              });
@@ -272,7 +272,7 @@ int main_dim(int argc, char* argv[])
         {
             u.get_bc().clear();
             samurai::make_bc<samurai::Dirichlet>(u,
-                                                 [&](const auto&, const auto& coord)
+                                                 [&](const auto&, const auto&, const auto& coord)
                                                  {
                                                      return exact_solution(coord, t - dt);
                                                  });

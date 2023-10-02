@@ -592,12 +592,12 @@ namespace samurai
                         double bc_value;
                         if constexpr (field_size == 1)
                         {
-                            bc_value = bc->value({}, boundary_point);
+                            bc_value = bc->value({}, {}, boundary_point);
                         }
                         else
                         {
-                            bc_value = bc->value({}, boundary_point)(field_i); // TODO: call get_value() only once instead of
-                                                                               // once per field_i
+                            bc_value = bc->value({}, {}, boundary_point)(field_i); // TODO: call get_value() only once instead of
+                                                                                   // once per field_i
                         }
 
                         if constexpr (dirichlet_enfcmt == DirichletEnforcement::Elimination)
