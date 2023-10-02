@@ -42,7 +42,7 @@ class TestCase
     {
         if (solution_is_known())
         {
-            return [&](const auto&, const auto& coords)
+            return [&](const auto&, const auto&, const auto& coords)
             {
                 return solution()(coords);
             };
@@ -150,7 +150,7 @@ class PolynomialTestCase : public TestCase<Field>
 
     boundary_cond_t dirichlet() override
     {
-        return [](const cell_t&, const coords_t&)
+        return [](const auto&, const cell_t&, const coords_t&)
         {
             if constexpr (Field::size == 1)
             {
@@ -169,7 +169,7 @@ class PolynomialTestCase : public TestCase<Field>
     {
         if constexpr (dim == 1)
         {
-            return [](const auto&, const coords_t& coord)
+            return [](const auto&, const auto&, const coords_t& coord)
             {
                 const auto& x = coord[0];
                 if (x == 0 || x == 1)
@@ -185,7 +185,7 @@ class PolynomialTestCase : public TestCase<Field>
         }
         else if constexpr (dim == 2)
         {
-            return [](const auto&, const auto& coord)
+            return [](const auto&, const auto&, const auto& coord)
             {
                 const auto& x = coord[0];
                 const auto& y = coord[1];
