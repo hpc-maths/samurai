@@ -57,7 +57,7 @@ namespace samurai
             m_scheme_definition.stencil = stencil;
         }
 
-        get_coefficients_func& coefficients_func() const
+        const get_coefficients_func& coefficients_func() const
         {
             return m_scheme_definition.get_coefficients_function;
         }

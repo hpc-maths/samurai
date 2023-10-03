@@ -7,7 +7,11 @@ namespace samurai
     namespace petsc
     {
         template <class Scheme>
-        class Assembly<Scheme, std::enable_if_t<is_CellBasedScheme_v<Scheme>>> : public FVSchemeAssembly<Scheme>
+        class Assembly<Scheme,
+                       std::enable_if_t<is_CellBasedScheme_v<Scheme>
+                                        // && (Scheme::cfg_t::scheme_type == SchemeType::LinearHomogeneous
+                                        //     || Scheme::cfg_t::scheme_type == SchemeType::LinearHeterogeneous)
+                                        >> : public FVSchemeAssembly<Scheme>
         {
           protected:
 
@@ -159,12 +163,12 @@ namespace samurai
             {
                 // std::cout << "assemble_scheme() of " << this->name() << std::endl;
 
-                if (this->current_insert_mode() == ADD_VALUES)
+                if (this->current_insert_mode() == INSERT_VALUES)
                 {
-                    // Must flush to use INSERT_VALUES instead of ADD_VALUES
+                    // Must flush to use ADD_VALUES instead of INSERT_VALUES
                     MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
-                    set_current_insert_mode(INSERT_VALUES);
+                    set_current_insert_mode(ADD_VALUES);
                 }
 
                 // Apply the given coefficents to the given stencil
@@ -250,7 +254,7 @@ namespace samurai
                                             }
                                             if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
-                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, INSERT_VALUES);
+                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);
                                             }
                                         }
                                     }
@@ -281,7 +285,7 @@ namespace samurai
                                                      static_cast<PetscInt>(cfg_t::contiguous_indices_size),
                                                      &cols[local_col_index(cfg_t::contiguous_indices_start, field_j)],
                                                      contiguous_coeffs.data(),
-                                                     INSERT_VALUES);
+                                                     ADD_VALUES);
                                         // }
                                     }
                                     if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size
@@ -302,7 +306,7 @@ namespace samurai
                                             }
                                             if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
-                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, INSERT_VALUES);
+                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);
                                             }
                                         }
                                     }
@@ -332,7 +336,7 @@ namespace samurai
                                              static_cast<PetscInt>(field_size),
                                              &cols[local_col_index(c, 0)],
                                              coeffs[c].data(),
-                                             INSERT_VALUES);
+                                             ADD_VALUES);
                             }
 
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)

@@ -60,7 +60,7 @@ namespace samurai
             m_scheme_definition.stencil = stencil;
         }
 
-        scheme_func& scheme_function() const
+        const scheme_func& scheme_function() const
         {
             return m_scheme_definition.scheme_function;
         }
@@ -98,6 +98,10 @@ namespace samurai
             }
         }
 
+        /**
+         * This function is used in the Explicit class to iterate over the stencil centers
+         * and receive the contribution computed from the stencil.
+         */
         template <class Func>
         void for_each_stencil_center(field_t& field, Func&& apply_contrib) const
         {
@@ -107,6 +111,22 @@ namespace samurai
                              {
                                  auto contrib = contribution(stencil_cells, field);
                                  apply_contrib(stencil_cells[cfg::center_index], contrib);
+                             });
+        }
+
+        /**
+         * This function is used in the Assembly class to iterate over the stencils
+         * and receive the Jacobian coefficients.
+         */
+        template <class Func>
+        void for_each_stencil_and_coeffs(const mesh_t& mesh, Func&& apply_jacobian_coeffs) const
+        {
+            for_each_stencil(mesh,
+                             stencil(),
+                             [&](auto& stencil_cells)
+                             {
+                                 auto contrib = contribution(stencil_cells, field);
+                                 apply_jacobian_coeffs(stencil_cells, contrib);
                              });
         }
     };

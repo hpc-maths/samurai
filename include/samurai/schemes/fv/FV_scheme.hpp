@@ -136,7 +136,10 @@ namespace samurai
             m_name = name;
         }
 
-        virtual ~FVScheme() = default;
+        virtual ~FVScheme()
+        {
+            m_name += " (deleted)";
+        }
 
         template <class Coeffs>
         inline static double cell_coeff(const Coeffs& coeffs,

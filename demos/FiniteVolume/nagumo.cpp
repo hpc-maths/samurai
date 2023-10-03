@@ -182,11 +182,25 @@ int main(int argc, char* argv[])
         samurai::update_ghost_mr(u);
         unp1.resize();
 
-        // u_np1 + dt*diff(u_np1) = u + dt*react(u)
-        auto back_euler = id + dt * diff;
-        auto react_u    = react(u);
-        auto rhs        = u + react_u;
-        samurai::petsc::solve(back_euler, unp1, rhs); // solves the linear equation   [Id + dt*Diff](unp1) = rhs
+        static constexpr bool explicit_reaction = false;
+        if constexpr (explicit_reaction)
+        {
+            // u_np1 + dt*diff(u_np1) = u + dt*react(u)
+            auto back_euler = id + dt * diff;
+            auto react_u    = react(u);
+            auto rhs        = u + react_u;
+            samurai::petsc::solve(back_euler, unp1, rhs); // solves the linear equation   [Id + dt*Diff](unp1) = rhs
+        }
+        else
+        {
+            // u_np1 + dt*diff(u_np1) - dt*react(u_np1) = u
+
+            auto back_euler = id + dt * diff - dt * react;
+
+            // auto tmp        = id + dt * diff;
+            // auto back_euler = tmp - dt * react;
+            samurai::petsc::solve(back_euler, unp1, u); // solves the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
+        }
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
