@@ -1,6 +1,6 @@
 #pragma once
-#include "../flux_based_scheme__lin_het.hpp"
-#include "../flux_based_scheme__lin_hom.hpp"
+#include "../flux_based/flux_based_scheme__lin_het.hpp"
+#include "../flux_based/flux_based_scheme__lin_hom.hpp"
 
 namespace samurai
 {
@@ -17,7 +17,7 @@ namespace samurai
         static constexpr std::size_t output_field_size = field_size;
         static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
         FluxDefinition<cfg> upwind;
 
@@ -86,7 +86,7 @@ namespace samurai
         static constexpr std::size_t output_field_size = field_size;
         static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxConfig<FluxType::LinearHeterogeneous, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, output_field_size, stencil_size, Field>;
 
         FluxDefinition<cfg> upwind;
 

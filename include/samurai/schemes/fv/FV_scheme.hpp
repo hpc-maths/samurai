@@ -3,7 +3,7 @@
 #include "../../boundary.hpp"
 #include "../../field.hpp"
 #include "../../static_algorithm.hpp"
-#include "flux_definition.hpp"
+#include "utils.hpp"
 
 namespace samurai
 {
@@ -13,7 +13,7 @@ namespace samurai
         Elimination
     };
 
-    template <std::size_t neighbourhood_width_, DirichletEnforcement dirichlet_enfcmt_ = Equation>
+    template <std::size_t neighbourhood_width_ = 1, DirichletEnforcement dirichlet_enfcmt_ = Equation>
     struct BoundaryConfigFV
     {
         static constexpr std::size_t neighbourhood_width       = neighbourhood_width_;
@@ -177,6 +177,7 @@ namespace samurai
                     return m_dirichlet_config[d];
                 }
             }
+            std::cerr << "No Dirichlet config found for direction " << direction << std::endl;
             assert(false);
             return m_dirichlet_config[0];
         }
@@ -226,6 +227,7 @@ namespace samurai
                     return m_neumann_config[d];
                 }
             }
+            std::cerr << "No Neumann config found for direction " << direction << std::endl;
             assert(false);
             return m_neumann_config[0];
         }

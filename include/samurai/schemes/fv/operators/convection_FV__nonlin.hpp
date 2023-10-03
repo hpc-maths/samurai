@@ -26,7 +26,7 @@ namespace samurai
         static constexpr std::size_t output_field_size = field_size;
         static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxConfig<FluxType::NonLinear, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, output_field_size, stencil_size, Field>;
 
         if constexpr (field_size == 1)
         {

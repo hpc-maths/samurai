@@ -1,25 +1,21 @@
 #pragma once
-#include "../cell_based_scheme.hpp"
+#include "../cell_based/cell_based_scheme__lin_hom.hpp"
 
 namespace samurai
 {
     template <class Field>
     auto make_identity()
     {
-        static constexpr std::size_t dim = Field::dim;
+        static constexpr std::size_t field_size = Field::size;
+        using field_value_type                  = typename Field::value_type;
 
-        using cfg      = OneCellStencilFV<Field::size>;
-        using bdry_cfg = BoundaryConfigFV<1>;
+        using cfg = LocalCellSchemeConfig<SchemeType::LinearHomogeneous, Field::size, Field>;
 
-        CellBasedScheme<cfg, bdry_cfg, Field> identity;
+        auto identity = make_cell_based_scheme<cfg>("Identity");
 
-        using local_matrix_t = typename decltype(identity)::local_matrix_t;
-
-        identity.set_name("Identity");
-        identity.stencil()           = center_only_stencil<dim>();
-        identity.coefficients_func() = [](double) -> std::array<local_matrix_t, 1>
+        identity.coefficients_func() = [](double) -> StencilCoeffs<cfg>
         {
-            return {eye<local_matrix_t>()};
+            return {eye<field_value_type, field_size, field_size>()};
         };
         identity.is_symmetric(true);
         identity.is_spd(true);

@@ -1,19 +1,18 @@
 #pragma once
-// #include "../../petsc/fv/flux_based_scheme_assembly.hpp"
-#include "../explicit_scheme.hpp"
-#include "flux_based_scheme__lin_hom.hpp"
-#include "flux_based_scheme__nonlin.hpp"
+// #include "../../../petsc/fv/cell_based_scheme_assembly.hpp"
+#include "../../explicit_scheme.hpp"
+#include "cell_based_scheme__lin_hom.hpp"
+#include "cell_based_scheme__nonlin.hpp"
 
 namespace samurai
 {
     /**
-     * LINEAR explicit schemes
+     * LINEAR and HOMOGENEOUS explicit schemes
      */
     template <class cfg, class bdry_cfg>
-    class Explicit<FluxBasedScheme<cfg, bdry_cfg>,
-                   std::enable_if_t<cfg::flux_type == FluxType::LinearHomogeneous || cfg::flux_type == FluxType::LinearHeterogeneous>>
+    class Explicit<CellBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>>
     {
-        using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg>;
+        using scheme_t                                 = CellBasedScheme<cfg, bdry_cfg>;
         using field_t                                  = typename scheme_t::field_t;
         using flux_stencil_coeffs_t                    = typename scheme_t::flux_stencil_coeffs_t;
         static constexpr std::size_t field_size        = field_t::size;
@@ -104,15 +103,15 @@ namespace samurai
      * NON-LINEAR explicit schemes
      */
     template <class cfg, class bdry_cfg>
-    class Explicit<FluxBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
+    class Explicit<CellBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
     {
-        using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg>;
+        using scheme_t                                 = CellBasedScheme<cfg, bdry_cfg>;
         using field_t                                  = typename scheme_t::field_t;
         static constexpr std::size_t output_field_size = scheme_t::output_field_size;
 
       protected:
 
-        const scheme_t* m_scheme;
+        const scheme_t* m_scheme = nullptr;
 
       public:
 
@@ -134,28 +133,14 @@ namespace samurai
 
             update_bc(f);
 
-            // Interior interfaces
-            scheme().for_each_interior_interface(
-                f,
-                [&](auto& interface_cells, auto& left_cell_contrib, auto& right_cell_contrib)
-                {
-                    for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
-                    {
-                        field_value(result, interface_cells[0], field_i) += scheme().cell_coeff(left_cell_contrib, field_i);
-                        field_value(result, interface_cells[1], field_i) += scheme().cell_coeff(right_cell_contrib, field_i);
-                    }
-                });
-
-            // Boundary interfaces
-            scheme().for_each_boundary_interface(f,
-                                                 [&](auto& cell, auto& contrib)
+            scheme().for_each_stencil_center(f,
+                                             [&](auto& stencil_center, auto& contrib)
+                                             {
+                                                 for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                                                  {
-                                                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
-                                                     {
-                                                         field_value(result, cell, field_i) += scheme().cell_coeff(contrib, field_i);
-                                                     }
-                                                 });
-
+                                                     field_value(result, stencil_center, field_i) += scheme().cell_coeff(contrib, field_i);
+                                                 }
+                                             });
             return result;
         }
     };

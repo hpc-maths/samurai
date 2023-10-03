@@ -1,5 +1,5 @@
 #pragma once
-#include "../flux_based_scheme__lin_hom.hpp"
+#include "../flux_based/flux_based_scheme__lin_hom.hpp"
 
 namespace samurai
 {
@@ -12,7 +12,7 @@ namespace samurai
         static constexpr std::size_t output_field_size = dim;
         static constexpr std::size_t stencil_size      = 2;
 
-        using cfg = FluxConfig<FluxType::LinearHomogeneous, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
         FluxDefinition<cfg> average_coeffs;
 

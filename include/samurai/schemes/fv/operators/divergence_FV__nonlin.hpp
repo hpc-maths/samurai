@@ -1,5 +1,5 @@
 #pragma once
-#include "../flux_based_scheme__nonlin.hpp"
+#include "../flux_based/flux_based_scheme__nonlin.hpp"
 
 namespace samurai
 {

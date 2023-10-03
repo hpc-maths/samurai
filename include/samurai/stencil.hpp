@@ -201,10 +201,21 @@ namespace samurai
                               });
     }
 
-    template <class Set, class iterator_stencil, class Func>
-    inline void for_each_stencil(Set& set, iterator_stencil& stencil_it, Func&& f)
+    template <class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, Func&& f)
     {
-        using mesh_interval_t = typename iterator_stencil::mesh_interval_t;
+        auto stencil_it = make_stencil_iterator(mesh, stencil);
+        for_each_level(mesh,
+                       [&](std::size_t level)
+                       {
+                           for_each_stencil(mesh, level, stencil_it, std::forward<Func>(f));
+                       });
+    }
+
+    template <class Set, class Mesh, std::size_t stencil_size, class Func>
+    inline void for_each_stencil(Set& set, IteratorStencil<Mesh, stencil_size>& stencil_it, Func&& f)
+    {
+        using mesh_interval_t = typename IteratorStencil<Mesh, stencil_size>::mesh_interval_t;
         for_each_meshinterval<mesh_interval_t>(set,
                                                [&](auto mesh_interval)
                                                {

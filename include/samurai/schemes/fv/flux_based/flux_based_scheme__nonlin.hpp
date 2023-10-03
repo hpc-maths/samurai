@@ -8,7 +8,7 @@ namespace samurai
      *    Implementation of non-linear schemes
      */
     template <class cfg, class bdry_cfg>
-    class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::flux_type == FluxType::NonLinear>>
+    class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
         : public FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>
     {
       public:

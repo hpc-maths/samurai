@@ -1,6 +1,6 @@
 #pragma once
 #include "../../interface.hpp"
-#include "../../schemes/fv/flux_based_scheme.hpp"
+#include "../../schemes/fv/flux_based/flux_based_scheme.hpp"
 #include "FV_scheme_assembly.hpp"
 
 namespace samurai
@@ -13,8 +13,9 @@ namespace samurai
         template <class Scheme>
         class Assembly<Scheme,
                        std::enable_if_t<is_FluxBasedScheme_v<Scheme>
-                                        && (Scheme::cfg_t::flux_type == FluxType::LinearHomogeneous
-                                            || Scheme::cfg_t::flux_type == FluxType::LinearHeterogeneous)>> : public FVSchemeAssembly<Scheme>
+                                        && (Scheme::cfg_t::scheme_type == SchemeType::LinearHomogeneous
+                                            || Scheme::cfg_t::scheme_type == SchemeType::LinearHeterogeneous)>>
+            : public FVSchemeAssembly<Scheme>
         {
           protected:
 
