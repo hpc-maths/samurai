@@ -58,23 +58,22 @@ namespace samurai
             return (face_measure / cell_measure) * flux_value;
         }
 
+        inline double flux_value_cmpnent(const flux_value_t& flux_value, [[maybe_unused]] std::size_t field_i) const
+        {
+            if constexpr (output_field_size == 1)
+            {
+                return flux_value;
+            }
+            else
+            {
+                return flux_value(field_i);
+            }
+        }
+
         auto operator()(field_t& field)
         {
             auto explicit_scheme = make_explicit(*this);
             return explicit_scheme.apply_to(field);
-        }
-
-        template <class Coeffs>
-        inline static double cell_coeff(const Coeffs& coeffs, [[maybe_unused]] std::size_t field_i)
-        {
-            if constexpr (output_field_size == 1)
-            {
-                return coeffs;
-            }
-            else
-            {
-                return coeffs(field_i);
-            }
         }
 
         /**

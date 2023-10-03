@@ -58,6 +58,21 @@ namespace samurai
             return (face_measure / cell_measure) * flux_coeffs;
         }
 
+        inline double cell_coeff(const flux_stencil_coeffs_t& coeffs,
+                                 std::size_t cell_number_in_stencil,
+                                 [[maybe_unused]] std::size_t field_i,
+                                 [[maybe_unused]] std::size_t field_j) const
+        {
+            if constexpr (field_size == 1 && output_field_size == 1)
+            {
+                return coeffs[cell_number_in_stencil];
+            }
+            else
+            {
+                return coeffs[cell_number_in_stencil](field_i, field_j);
+            }
+        }
+
         auto operator()(field_t& field)
         {
             auto explicit_scheme = make_explicit(*this);

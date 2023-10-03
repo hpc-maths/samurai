@@ -108,6 +108,7 @@ namespace samurai
         using neumann_t   = Neumann<Field>;
 
         using directional_bdry_config_t = DirectionalBoundaryConfig<Field, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
+        using bdry_stencil_coeffs_t     = typename directional_bdry_config_t::bdry_equation_config_t::stencil_coeffs_t;
 
       private:
 
@@ -141,11 +142,10 @@ namespace samurai
             m_name += " (deleted)";
         }
 
-        template <class Coeffs>
-        inline static double cell_coeff(const Coeffs& coeffs,
-                                        std::size_t cell_number_in_stencil,
-                                        [[maybe_unused]] std::size_t field_i,
-                                        [[maybe_unused]] std::size_t field_j)
+        inline double bdry_cell_coeff(const bdry_stencil_coeffs_t& coeffs,
+                                      std::size_t cell_number_in_stencil,
+                                      [[maybe_unused]] std::size_t field_i,
+                                      [[maybe_unused]] std::size_t field_j) const
         {
             if constexpr (field_size == 1 && output_field_size == 1)
             {

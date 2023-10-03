@@ -277,7 +277,7 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Dirichlet>(ink, 0.);
 
     // Initial condition
-    samurai::for_each_cell(mesh,
+    samurai::for_each_cell(mesh2,
                            [&](auto& cell)
                            {
                                double x = cell.center(0);

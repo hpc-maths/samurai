@@ -78,8 +78,9 @@ namespace samurai
         }
 
         template <class Func>
-        void for_each_stencil_and_coeffs(const mesh_t& mesh, Func&& apply_coeffs) const
+        void for_each_stencil_and_coeffs(field_t& field, Func&& apply_coeffs) const
         {
+            auto& mesh      = field.mesh();
             auto stencil_it = make_stencil_iterator(mesh, stencil());
 
             for_each_level(mesh,

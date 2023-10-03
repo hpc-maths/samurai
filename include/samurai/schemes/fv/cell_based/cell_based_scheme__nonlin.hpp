@@ -26,6 +26,7 @@ namespace samurai
         using stencil_cells_t     = typename scheme_definition_t::stencil_cells_t;
         using scheme_value_t      = typename scheme_definition_t::scheme_value_t;
         using scheme_func         = typename scheme_definition_t::scheme_func;
+        using jacobian_func       = typename scheme_definition_t::jacobian_func;
 
       private:
 
@@ -80,13 +81,28 @@ namespace samurai
             return m_scheme_definition.scheme_function(stencil_cells, field);
         }
 
+        const jacobian_func& jacobian_function() const
+        {
+            return m_scheme_definition.jacobian_function;
+        }
+
+        jacobian_func& jacobian_function()
+        {
+            return m_scheme_definition.jacobian_function;
+        }
+
+        auto jacobian_coefficients(stencil_cells_t& stencil_cells, field_t& field) const
+        {
+            return m_scheme_definition.jacobian_function(stencil_cells, field);
+        }
+
         auto operator()(field_t& field)
         {
             auto explicit_scheme = make_explicit(*this);
             return explicit_scheme.apply_to(field);
         }
 
-        inline static field_value_type cell_coeff(const scheme_value_t& coeffs, [[maybe_unused]] std::size_t field_i)
+        inline field_value_type cell_coeff(const scheme_value_t& coeffs, [[maybe_unused]] std::size_t field_i) const
         {
             if constexpr (cfg::output_field_size == 1)
             {
@@ -119,14 +135,14 @@ namespace samurai
          * and receive the Jacobian coefficients.
          */
         template <class Func>
-        void for_each_stencil_and_coeffs(const mesh_t& mesh, Func&& apply_jacobian_coeffs) const
+        void for_each_stencil_and_coeffs(field_t& field, Func&& apply_jacobian_coeffs) const
         {
-            for_each_stencil(mesh,
+            for_each_stencil(field.mesh(),
                              stencil(),
                              [&](auto& stencil_cells)
                              {
-                                 auto contrib = contribution(stencil_cells, field);
-                                 apply_jacobian_coeffs(stencil_cells, contrib);
+                                 auto coeffs = jacobian_coefficients(stencil_cells, field);
+                                 apply_jacobian_coeffs(stencil_cells, coeffs);
                              });
         }
     };

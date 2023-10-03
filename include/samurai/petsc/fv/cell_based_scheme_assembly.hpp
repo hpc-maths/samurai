@@ -27,6 +27,7 @@ namespace samurai
             using base_class::mesh;
             using base_class::scheme;
             using base_class::set_current_insert_mode;
+            using base_class::unknown;
 
           public:
 
@@ -98,12 +99,15 @@ namespace samurai
                     return;
                 }
 
-                auto coeffs = scheme().coefficients(cell_length(0));
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
                     PetscInt scheme_nnz_i = scheme_stencil_size * field_size;
-                    if constexpr (field_t::is_soa)
+
+                    // If LinearHomogeneous, take only the non-zero coefficients into account.
+                    // Not sure if this optimization really makes a difference though...
+                    if constexpr (cfg_t::scheme_type == SchemeType::LinearHomogeneous && field_t::is_soa)
                     {
+                        auto coeffs  = scheme().coefficients(cell_length(0));
                         scheme_nnz_i = 0;
                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                         {
@@ -173,7 +177,7 @@ namespace samurai
 
                 // Apply the given coefficents to the given stencil
                 scheme().for_each_stencil_and_coeffs(
-                    mesh(),
+                    unknown(),
                     [&](const auto& cells, const auto& coeffs)
                     {
                         // std::cout << "coeffs: " << std::endl;

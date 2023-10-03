@@ -28,6 +28,10 @@ namespace samurai
             {
                 return scalar * scheme.scheme_function()(cells, field);
             };
+            multiplied_scheme.jacobian_function() = [=](stencil_cells_t& cells, field_t& field)
+            {
+                return scalar * scheme.jacobian_function()(cells, field);
+            };
         }
         return multiplied_scheme;
     }
@@ -56,6 +60,10 @@ namespace samurai
             addition_scheme.scheme_function() = [=](stencil_cells_t& cells, field_t& field)
             {
                 return scheme1.scheme_function()(cells, field) + scheme2.scheme_function()(cells, field);
+            };
+            addition_scheme.jacobian_function() = [=](stencil_cells_t& cells, field_t& field)
+            {
+                return scheme1.jacobian_function()(cells, field) + scheme2.jacobian_function()(cells, field);
             };
         }
         return addition_scheme;

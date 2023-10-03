@@ -478,7 +478,7 @@ namespace samurai
                             PetscInt equation_row = col_index(equation_ghost, field_i);
                             PetscInt col          = col_index(cells[c], field_i);
 
-                            double coeff = scheme().cell_coeff(eq.stencil_coeffs, c, field_i, field_i);
+                            double coeff = scheme().bdry_cell_coeff(eq.stencil_coeffs, c, field_i, field_i);
 
                             if (coeff != 0)
                             {

@@ -151,6 +151,11 @@ int main(int argc, char* argv[])
         auto v = field[stencil_cells[0]];
         return k * v * v * (1 - v);
     };
+    react.jacobian_function() = [&](auto& stencil_cells, auto& field)
+    {
+        auto v = field[stencil_cells[0]];
+        return k * (2 * v * (1 - v) - v * v);
+    };
 
     //--------------------//
     //   Time iteration   //
