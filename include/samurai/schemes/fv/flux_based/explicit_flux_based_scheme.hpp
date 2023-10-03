@@ -112,7 +112,7 @@ namespace samurai
 
       protected:
 
-        const scheme_t* m_scheme;
+        const scheme_t* m_scheme = nullptr;
 
       public:
 
