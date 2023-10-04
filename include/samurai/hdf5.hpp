@@ -85,13 +85,17 @@ namespace samurai
     {
         std::array<std::size_t, 2> shape = {submesh.nb_cells(), field.size};
         xt::xtensor<typename Field::value_type, 2> data(shape);
+
         std::size_t index = 0;
-        for_each_cell(submesh,
-                      [&](auto cell)
-                      {
-                          xt::view(data, index) = field[cell];
-                          index++;
-                      });
+        if (submesh.nb_cells() != 0)
+        {
+            for_each_cell(submesh,
+                          [&](auto cell)
+                          {
+                              xt::view(data, index) = field[cell];
+                              index++;
+                          });
+        }
         return data;
     }
 
