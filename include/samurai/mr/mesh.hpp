@@ -40,9 +40,9 @@ namespace samurai
     {
         static constexpr std::size_t dim                  = dim_;
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
-        static constexpr std::size_t max_stencil_width    = max_stencil_width_;
+        static constexpr int max_stencil_width            = max_stencil_width_;
         static constexpr std::size_t graduation_width     = graduation_width_;
-        static constexpr std::size_t prediction_order     = prediction_order_;
+        static constexpr int prediction_order             = prediction_order_;
 
         // static constexpr int ghost_width = std::max(std::max(2 *
         // static_cast<int>(graduation_width) - 1,
@@ -135,36 +135,10 @@ namespace samurai
         auto min_level = this->cells()[mesh_id_t::cells].min_level();
         cl_type cell_list;
 
-        // Construction of union cells
-        // ===========================
-        //
-        // level 2                 |-|-|-|-|                   |-| cells
-        //                                                     |.| union_cells
-        // level 1         |---|---|       |---|---|
-        //                         |...|...|
-        // level 0 |-------|                       |-------|
-        //                 |.......|.......|.......|
-        //
-        this->cells()[mesh_id_t::union_cells][max_level] = {max_level};
-
-        for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
-        {
-            lcl_type lcl{level - 1};
-            auto expr = union_(this->cells()[mesh_id_t::cells][level], this->cells()[mesh_id_t::union_cells][level]).on(level - 1);
-
-            expr(
-                [&](const auto& interval, const auto& index_yz)
-                {
-                    lcl[index_yz].add_interval({interval.start, interval.end});
-                });
-
-            this->cells()[mesh_id_t::union_cells][level - 1] = {lcl};
-        }
-
         // Construction of ghost cells
         // ===========================
         //
-        // Example with ghost_width = 1
+        // Example with max_stencil_width = 1
         //
         // level 2                       |.|-|-|-|-|.|                   |-|
         // cells
@@ -175,159 +149,65 @@ namespace samurai
         //
         // level 0 |.......|-------|.......|       |.......|-------|.......|
         //
-        for_each_interval(this->cells()[mesh_id_t::cells],
-                          [&](std::size_t level, const auto& interval, const auto& index_yz)
-                          {
-                              lcl_type& lcl = cell_list[level];
-                              static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
-                                  [&](auto stencil)
-                                  {
-                                      auto index = xt::eval(index_yz + stencil);
-                                      lcl[index].add_interval({interval.start - config::ghost_width, interval.end + config::ghost_width});
-                                  });
-                          });
+        for_each_interval(
+            this->cells()[mesh_id_t::cells],
+            [&](std::size_t level, const auto& interval, const auto& index_yz)
+            {
+                lcl_type& lcl = cell_list[level];
+                static_nested_loop<dim - 1, -config::max_stencil_width, config::max_stencil_width + 1>(
+                    [&](auto stencil)
+                    {
+                        auto index = xt::eval(index_yz + stencil);
+                        lcl[index].add_interval({interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
+                    });
+            });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cell_list, false};
 
-        // Construction of projection cells
-        // ================================
-        //
-        // The projection cells are used for the computation of the details
-        // involved in the multiresolution. The process is to take the children
-        // cells and use them to make the projection on the parent cell. To do
-        // that, we have to be sure that those cells exist.
-        //
-
-        // level 2                         |-|-|-|-|                     |-|
-        // cells
-        //                                                               |.|
-        //                                                               projection
-        //                                                               cells
-        // level 1                 |---|---|...|...|---|---|
-        //
-        // level 0         |-------|.......|       |.......|-------|
-        //
-
-        for (std::size_t level = ((min_level == 0) ? 1 : min_level); level <= max_level; ++level)
+        // Add cells for the MRA
+        for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
         {
-            lca_type& lca = this->cells()[mesh_id_t::cells][level];
-            lcl_type& lcl = cell_list[level - 1];
+            auto expr = difference(intersection(this->cells()[mesh_id_t::cells_and_ghosts][level], this->subdomain()),
+                                   this->get_union()[level])
+                            .on(level);
 
-            for_each_interval(lca,
-                              [&](std::size_t /*level*/, const auto& interval, const auto& index_yz)
-                              {
-                                  static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
-                                      [&](auto stencil)
-                                      {
-                                          int beg = (interval.start >> 1) - config::ghost_width;
-                                          int end = ((interval.end + 1) >> 1) + config::ghost_width;
+            expr(
+                [&](const auto& interval, const auto& index_yz)
+                {
+                    lcl_type& lcl = cell_list[level - 1];
 
-                                          lcl[(index_yz >> 1) + stencil].add_interval({beg, end});
-                                      });
-                              });
+                    static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                        [&](auto stencil)
+                        {
+                            auto new_interval = interval >> 1;
+                            lcl[(index_yz >> 1) + stencil].add_interval(
+                                {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                        });
+                });
         }
         this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
-        // Make sure that the ghost cells where their values are computed using
-        // the prediction operator have enough cells on the coarse level below.
-        //
-        // Example with a stencil of the prediction operator equals to 1.
-        //
-        // level l                            |.|-|-|        |-| cells
-        //                                                   |.| ghost computed
-        //                                                   with prediction
-        //                                                   operator
-        // level l - 1                  |xxx|---|            |x| ghost added to
-        // be able to compute the ghost cell on the level l
-        //
-        for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
-        {
-            if (!this->cells()[mesh_id_t::cells][level].empty())
-            {
-                auto expr = intersection(
-                                difference(this->cells()[mesh_id_t::all_cells][level],
-                                           union_(this->cells()[mesh_id_t::cells][level], this->cells()[mesh_id_t::union_cells][level])),
-                                this->domain())
-                                .on(level - 1);
+        this->update_mesh_neighbour();
 
+        for (auto& neighbour : this->mpi_neighbourhood())
+        {
+            for (std::size_t level = 0; level <= max_level; ++level)
+            {
+                auto expr = intersection(this->subdomain(), neighbour.mesh[mesh_id_t::reference][level]).on(level);
                 expr(
                     [&](const auto& interval, const auto& index_yz)
                     {
-                        lcl_type& lcl = cell_list[level - 1];
-
-                        static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
-                            [&](auto stencil)
-                            {
-                                lcl[index_yz + stencil].add_interval(
-                                    {interval.start - config::ghost_width, interval.end + config::ghost_width});
-                            });
+                        lcl_type& lcl = cell_list[level];
+                        lcl[index_yz].add_interval(interval);
                     });
             }
         }
         this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
-        // add ghosts for periodicity
-        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
-        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil_dir;
-        auto& domain     = this->domain();
-        auto min_indices = domain.min_indices();
-        auto max_indices = domain.max_indices();
-
-        // FIX: cppcheck false positive ?
-        // cppcheck-suppress constStatement
-        for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <= this->cells()[mesh_id_t::reference].max_level();
-             ++level)
+        for (std::size_t level = 0; level < max_level; ++level)
         {
-            lcl_type& lcl = cell_list[level];
-
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                std::size_t delta_l = domain.level() - level;
-
-                if (this->is_periodic(d))
-                {
-                    stencil.fill(0);
-                    stencil[d] = max_indices[d] - min_indices[d];
-
-                    auto set1 = intersection(this->cells()[mesh_id_t::reference][level],
-                                             expand(translate(domain, stencil), config::ghost_width << delta_l))
-                                    .on(level);
-                    set1(
-                        [&](const auto& i, const auto& index_yz)
-                        {
-                            lcl[index_yz - (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i - (stencil[0] >> delta_l));
-                        });
-
-                    auto set2 = intersection(this->cells()[mesh_id_t::reference][level],
-                                             expand(translate(domain, -stencil), config::ghost_width << delta_l))
-                                    .on(level);
-                    set2(
-                        [&](const auto& i, const auto& index_yz)
-                        {
-                            lcl[index_yz + (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i + (stencil[0] >> delta_l));
-                        });
-                }
-                this->cells()[mesh_id_t::all_cells][level] = {lcl};
-            }
-        }
-
-        // Add ghost cells for the projection operator
-        //
-        // Example
-        //
-        // level l                  |-|-|.|x|       |-| cells
-        //                                          |.| ghost cell
-        // level l - 1          |---|...|...|       |x| ghost added to be able
-        // to compute
-        //                                              the ghost cell on the
-        //                                              level l - 1 using the
-        //                                              projection operator
-        //
-        for (std::size_t level = ((min_level == 0) ? 1 : min_level); level <= max_level; ++level)
-        {
-            auto expr = intersection(this->cells()[mesh_id_t::union_cells][level - 1], this->cells()[mesh_id_t::all_cells][level - 1])
-                            .on(level - 1);
-
-            lcl_type& lcl = cell_list[level];
+            lcl_type& lcl = cell_list[level + 1];
+            lcl_type lcl_proj{level};
+            auto expr = intersection(this->cells()[mesh_id_t::all_cells][level], this->get_union()[level]).on(level);
 
             expr(
                 [&](const auto& interval, const auto& index_yz)
@@ -335,92 +215,250 @@ namespace samurai
                     static_nested_loop<dim - 1, 0, 2>(
                         [&](auto stencil)
                         {
-                            lcl[(index_yz << 1) + stencil].add_interval({interval.start << 1, interval.end << 1});
+                            lcl[(index_yz << 1) + stencil].add_interval(interval << 1);
                         });
+                    lcl_proj[index_yz].add_interval(interval);
                 });
-            this->cells()[mesh_id_t::all_cells][level] = {lcl};
+            this->cells()[mesh_id_t::all_cells][level + 1] = lcl;
+            this->cells()[mesh_id_t::proj_cells][level]    = lcl_proj;
         }
 
-        // add ghosts for periodicity
-        // FIX: cppcheck false positive ?
-        // cppcheck-suppress constStatement
-        for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <= this->cells()[mesh_id_t::reference].max_level();
-             ++level)
-        {
-            lcl_type& lcl = cell_list[level];
+        // // Construction of projection cells
+        // // ================================
+        // //
+        // // The projection cells are used for the computation of the details
+        // // involved in the multiresolution. The process is to take the children
+        // // cells and use them to make the projection on the parent cell. To do
+        // // that, we have to be sure that those cells exist.
+        // //
 
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                std::size_t delta_l = domain.level() - level;
+        // // level 2                         |-|-|-|-|                     |-|
+        // // cells
+        // //                                                               |.|
+        // //                                                               projection
+        // //                                                               cells
+        // // level 1                 |---|---|...|...|---|---|
+        // //
+        // // level 0         |-------|.......|       |.......|-------|
+        // //
 
-                if (this->is_periodic(d))
-                {
-                    stencil.fill(0);
-                    stencil[d] = max_indices[d] - min_indices[d];
+        // for (std::size_t level = ((min_level == 0) ? 1 : min_level); level <= max_level; ++level)
+        // {
+        //     lca_type& lca = this->cells()[mesh_id_t::cells][level];
+        //     lcl_type& lcl = cell_list[level - 1];
 
-                    auto set1 = intersection(this->cells()[mesh_id_t::reference][level],
-                                             expand(translate(domain, stencil), config::ghost_width << delta_l))
-                                    .on(level);
-                    set1(
-                        [&](const auto& i, const auto& index_yz)
-                        {
-                            lcl[index_yz - (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i - (stencil[0] >> delta_l));
-                        });
+        //     for_each_interval(lca,
+        //                       [&](std::size_t /*level*/, const auto& interval, const auto& index_yz)
+        //                       {
+        //                           static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
+        //                               [&](auto stencil)
+        //                               {
+        //                                   int beg = (interval.start >> 1) - config::ghost_width;
+        //                                   int end = ((interval.end + 1) >> 1) + config::ghost_width;
 
-                    auto set2 = intersection(this->cells()[mesh_id_t::reference][level],
-                                             expand(translate(domain, -stencil), config::ghost_width << delta_l))
-                                    .on(level);
-                    set2(
-                        [&](const auto& i, const auto& index_yz)
-                        {
-                            lcl[index_yz + (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i + (stencil[0] >> delta_l));
-                        });
-                }
-                this->cells()[mesh_id_t::all_cells][level] = {lcl};
-            }
-        }
+        //                                   lcl[(index_yz >> 1) + stencil].add_interval({beg, end});
+        //                               });
+        //                       });
+        // }
+        // this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
-        for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
-        {
-            if (!this->cells()[mesh_id_t::cells][level].empty())
-            {
-                auto expr = intersection(difference(this->cells()[mesh_id_t::all_cells][level], this->subdomain()), this->domain()).on(level - 1);
+        // // Make sure that the ghost cells where their values are computed using
+        // // the prediction operator have enough cells on the coarse level below.
+        // //
+        // // Example with a stencil of the prediction operator equals to 1.
+        // //
+        // // level l                            |.|-|-|        |-| cells
+        // //                                                   |.| ghost computed
+        // //                                                   with prediction
+        // //                                                   operator
+        // // level l - 1                  |xxx|---|            |x| ghost added to
+        // // be able to compute the ghost cell on the level l
+        // //
+        // for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
+        // {
+        //     if (!this->cells()[mesh_id_t::cells][level].empty())
+        //     {
+        //         auto expr = intersection(
+        //                         difference(this->cells()[mesh_id_t::all_cells][level],
+        //                                    union_(this->cells()[mesh_id_t::cells][level], this->cells()[mesh_id_t::union_cells][level])),
+        //                         this->domain())
+        //                         .on(level - 1);
 
-                lcl_type& lcl = cell_list[level - 1];
-                expr(
-                    [&](const auto& interval, const auto& index_yz)
-                    {
-                        static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
-                            [&](auto stencil)
-                            {
-                                lcl[index_yz + stencil].add_interval(
-                                    {interval.start - config::ghost_width, interval.end + config::ghost_width});
-                            });
-                    });
-                this->cells()[mesh_id_t::all_cells][level - 1] = {lcl};
-            }
-        }
+        //         expr(
+        //             [&](const auto& interval, const auto& index_yz)
+        //             {
+        //                 lcl_type& lcl = cell_list[level - 1];
 
-        this->cells()[mesh_id_t::all_cells].update_index();
+        //                 static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
+        //                     [&](auto stencil)
+        //                     {
+        //                         lcl[index_yz + stencil].add_interval(
+        //                             {interval.start - config::ghost_width, interval.end + config::ghost_width});
+        //                     });
+        //             });
+        //     }
+        // }
+        // this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
-        // Extract the projection cells from the all_cells
-        // Do we really need this ?
-        // See if we can use the set definition directly into the projection
-        // function
-        //
-        for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
-        {
-            lcl_type lcl{level - 1};
-            auto expr = intersection(this->cells()[mesh_id_t::all_cells][level - 1], this->cells()[mesh_id_t::union_cells][level - 1]);
+        // // add ghosts for periodicity
+        // xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
+        // xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil_dir;
+        // auto& domain     = this->domain();
+        // auto min_indices = domain.min_indices();
+        // auto max_indices = domain.max_indices();
 
-            expr(
-                [&](const auto& interval, const auto& index_yz)
-                {
-                    lcl[index_yz].add_interval({interval.start, interval.end});
-                });
+        // // FIX: cppcheck false positive ?
+        // // cppcheck-suppress constStatement
+        // for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <=
+        // this->cells()[mesh_id_t::reference].max_level();
+        //      ++level)
+        // {
+        //     lcl_type& lcl = cell_list[level];
 
-            this->cells()[mesh_id_t::proj_cells][level - 1] = {lcl};
-        }
+        //     for (std::size_t d = 0; d < dim; ++d)
+        //     {
+        //         std::size_t delta_l = domain.level() - level;
+
+        //         if (this->is_periodic(d))
+        //         {
+        //             stencil.fill(0);
+        //             stencil[d] = max_indices[d] - min_indices[d];
+
+        //             auto set1 = intersection(this->cells()[mesh_id_t::reference][level],
+        //                                      expand(translate(domain, stencil), config::ghost_width << delta_l))
+        //                             .on(level);
+        //             set1(
+        //                 [&](const auto& i, const auto& index_yz)
+        //                 {
+        //                     lcl[index_yz - (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i - (stencil[0] >> delta_l));
+        //                 });
+
+        //             auto set2 = intersection(this->cells()[mesh_id_t::reference][level],
+        //                                      expand(translate(domain, -stencil), config::ghost_width << delta_l))
+        //                             .on(level);
+        //             set2(
+        //                 [&](const auto& i, const auto& index_yz)
+        //                 {
+        //                     lcl[index_yz + (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i + (stencil[0] >> delta_l));
+        //                 });
+        //         }
+        //         this->cells()[mesh_id_t::all_cells][level] = {lcl};
+        //     }
+        // }
+
+        // // Add ghost cells for the projection operator
+        // //
+        // // Example
+        // //
+        // // level l                  |-|-|.|x|       |-| cells
+        // //                                          |.| ghost cell
+        // // level l - 1          |---|...|...|       |x| ghost added to be able
+        // // to compute
+        // //                                              the ghost cell on the
+        // //                                              level l - 1 using the
+        // //                                              projection operator
+        // //
+        // for (std::size_t level = ((min_level == 0) ? 1 : min_level); level <= max_level; ++level)
+        // {
+        //     auto expr = intersection(this->cells()[mesh_id_t::union_cells][level - 1], this->cells()[mesh_id_t::all_cells][level - 1])
+        //                     .on(level - 1);
+
+        //     lcl_type& lcl = cell_list[level];
+
+        //     expr(
+        //         [&](const auto& interval, const auto& index_yz)
+        //         {
+        //             static_nested_loop<dim - 1, 0, 2>(
+        //                 [&](auto stencil)
+        //                 {
+        //                     lcl[(index_yz << 1) + stencil].add_interval({interval.start << 1, interval.end << 1});
+        //                 });
+        //         });
+        //     this->cells()[mesh_id_t::all_cells][level] = {lcl};
+        // }
+
+        // // add ghosts for periodicity
+        // // FIX: cppcheck false positive ?
+        // // cppcheck-suppress constStatement
+        // for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <=
+        // this->cells()[mesh_id_t::reference].max_level();
+        //      ++level)
+        // {
+        //     lcl_type& lcl = cell_list[level];
+
+        //     for (std::size_t d = 0; d < dim; ++d)
+        //     {
+        //         std::size_t delta_l = domain.level() - level;
+
+        //         if (this->is_periodic(d))
+        //         {
+        //             stencil.fill(0);
+        //             stencil[d] = max_indices[d] - min_indices[d];
+
+        //             auto set1 = intersection(this->cells()[mesh_id_t::reference][level],
+        //                                      expand(translate(domain, stencil), config::ghost_width << delta_l))
+        //                             .on(level);
+        //             set1(
+        //                 [&](const auto& i, const auto& index_yz)
+        //                 {
+        //                     lcl[index_yz - (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i - (stencil[0] >> delta_l));
+        //                 });
+
+        //             auto set2 = intersection(this->cells()[mesh_id_t::reference][level],
+        //                                      expand(translate(domain, -stencil), config::ghost_width << delta_l))
+        //                             .on(level);
+        //             set2(
+        //                 [&](const auto& i, const auto& index_yz)
+        //                 {
+        //                     lcl[index_yz + (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i + (stencil[0] >> delta_l));
+        //                 });
+        //         }
+        //         this->cells()[mesh_id_t::all_cells][level] = {lcl};
+        //     }
+        // }
+
+        // for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
+        // {
+        //     if (!this->cells()[mesh_id_t::cells][level].empty())
+        //     {
+        //         auto expr = intersection(difference(this->cells()[mesh_id_t::all_cells][level], this->subdomain()),
+        //         this->domain()).on(level - 1);
+
+        //         lcl_type& lcl = cell_list[level - 1];
+        //         expr(
+        //             [&](const auto& interval, const auto& index_yz)
+        //             {
+        //                 static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
+        //                     [&](auto stencil)
+        //                     {
+        //                         lcl[index_yz + stencil].add_interval(
+        //                             {interval.start - config::ghost_width, interval.end + config::ghost_width});
+        //                     });
+        //             });
+        //         this->cells()[mesh_id_t::all_cells][level - 1] = {lcl};
+        //     }
+        // }
+
+        // this->cells()[mesh_id_t::all_cells].update_index();
+
+        // // Extract the projection cells from the all_cells
+        // // Do we really need this ?
+        // // See if we can use the set definition directly into the projection
+        // // function
+        // //
+        // for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
+        // {
+        //     lcl_type lcl{level - 1};
+        //     auto expr = intersection(this->cells()[mesh_id_t::all_cells][level - 1], this->cells()[mesh_id_t::union_cells][level - 1]);
+
+        //     expr(
+        //         [&](const auto& interval, const auto& index_yz)
+        //         {
+        //             lcl[index_yz].add_interval({interval.start, interval.end});
+        //         });
+
+        //     this->cells()[mesh_id_t::proj_cells][level - 1] = {lcl};
+        // }
     }
 
     template <class Config>

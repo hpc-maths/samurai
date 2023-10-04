@@ -526,24 +526,32 @@ namespace samurai
         std::size_t min_lvl = m_cells[mesh_id_t::cells].min_level();
         std::size_t max_lvl = m_cells[mesh_id_t::cells].max_level();
 
+        // Construction of union cells
+        // ===========================
+        //
+        // level 2                 |-|-|-|-|                   |-| cells
+        //                                                     |.| union_cells
+        // level 1         |---|---|       |---|---|
+        //                         |...|...|
+        // level 0 |-------|                       |-------|
+        //                 |.......|.......|.......|
+        //
+
         // FIX: cppcheck false positive ?
         // cppcheck-suppress redundantAssignment
-        m_union[max_lvl] = m_cells[mesh_id_t::cells][max_lvl];
-        for (std::size_t level = max_lvl - 1; level >= ((min_lvl == 0) ? 1 : min_lvl); --level)
-        // for (std::size_t level = max_level - 1; level--> 0; )
+        m_union[max_lvl] = {max_lvl};
+        for (std::size_t level = max_lvl; level >= ((min_lvl == 0) ? 1 : min_lvl); --level)
         {
-            lcl_type lcl{level};
-            auto expr = union_(this->m_cells[mesh_id_t::cells][level], m_union[level + 1]).on(level);
+            lcl_type lcl{level - 1};
+            auto expr = union_(this->m_cells[mesh_id_t::cells][level], m_union[level]).on(level - 1);
 
-            // std::cout << this->m_cells[mesh_id_t::cells][level] << std::endl;
-            // std::cout << m_union[level+1] << std::endl;
             expr(
                 [&](const auto& interval, const auto& index_yz)
                 {
-                    lcl[index_yz].add_interval({interval.start, interval.end});
+                    lcl[index_yz].add_interval(interval);
                 });
 
-            m_union[level] = {lcl};
+            m_union[level - 1] = {lcl};
         }
     }
 

@@ -110,7 +110,7 @@ namespace samurai
         {
             auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
                                                 union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
-                                     mesh.domain(),
+                                     mesh.subdomain(),
                                      mesh[mesh_id_t::all_cells][level - 1])
                             .on(level);
 
