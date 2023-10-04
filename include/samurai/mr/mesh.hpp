@@ -207,7 +207,7 @@ namespace samurai
         {
             lcl_type& lcl = cell_list[level + 1];
             lcl_type lcl_proj{level};
-            auto expr = intersection(this->cells()[mesh_id_t::all_cells][level], this->get_union()[level]).on(level);
+            auto expr = intersection(this->cells()[mesh_id_t::all_cells][level], this->get_union()[level]);
 
             expr(
                 [&](const auto& interval, const auto& index_yz)

@@ -261,6 +261,7 @@ namespace samurai
 
         m_cells[mesh_id_t::cells] = {cl, false};
 
+        update_mesh_neighbour();
         construct_subdomain();
         construct_union();
         update_sub_mesh();
@@ -282,6 +283,8 @@ namespace samurai
     {
         assert(min_level <= max_level);
         m_cells[mesh_id_t::cells] = {cl, false};
+
+        update_mesh_neighbour();
 
         construct_subdomain();
         construct_union();
@@ -523,8 +526,8 @@ namespace samurai
     template <class D, class Config>
     inline void Mesh_base<D, Config>::construct_union()
     {
-        std::size_t min_lvl = m_cells[mesh_id_t::cells].min_level();
-        std::size_t max_lvl = m_cells[mesh_id_t::cells].max_level();
+        std::size_t min_lvl = m_min_level;
+        std::size_t max_lvl = m_max_level;
 
         // Construction of union cells
         // ===========================
@@ -551,6 +554,16 @@ namespace samurai
                     lcl[index_yz].add_interval(interval);
                 });
 
+            for (auto& neighbour : m_mpi_neighbourhood)
+            {
+                auto neigh_expr = union_(neighbour.mesh.m_cells[mesh_id_t::cells][level], m_union[level]).on(level - 1);
+
+                neigh_expr(
+                    [&](const auto& interval, const auto& index_yz)
+                    {
+                        lcl[index_yz].add_interval(interval);
+                    });
+            }
             m_union[level - 1] = {lcl};
         }
     }

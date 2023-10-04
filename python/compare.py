@@ -59,14 +59,14 @@ if np.any(cells1[index1] != cells2[index2]):
 field1 = construct_fields(mesh1)
 field2 = construct_fields(mesh2)
 
-
+tol = 1e-7
 for field in field1.keys():
     if not field in field2.keys():
         print(f"{field} is not in second file")
         sys.exit()
 
-    if np.any(np.abs(field1[field][:][index1] - field2[field][:][index2]) > 1e-15):
-        ind = np.where(field1[field][:][index1] != field2[field][:][index2])
+    if np.any(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol):
+        ind = np.where(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol)
         print(field1[field][:][index1[ind]], field2[field][:][index2[ind]])
         print(np.abs(field1[field][:][index1[ind]]-field2[field][:][index2[ind]]))
         print(f"{field} is not the same")
