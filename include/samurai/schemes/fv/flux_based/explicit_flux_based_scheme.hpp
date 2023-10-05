@@ -36,7 +36,7 @@ namespace samurai
             return *m_scheme;
         }
 
-        auto apply_to(field_t& f)
+        auto apply_to(field_t& f) const
         {
             auto result = make_field<typename field_t::value_type, output_field_size, field_t::is_soa>(scheme().name() + "(" + f.name() + ")",
                                                                                                        f.mesh());

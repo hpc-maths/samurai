@@ -4,140 +4,49 @@
 
 namespace samurai
 {
-    /**
-     * Addition of a flux-based scheme and a cell-based scheme.
-     */
-    template <class FluxScheme, class CellScheme>
-    class FluxBasedScheme_Sum_CellBasedScheme
+
+    template <class... Operators>
+    constexpr SchemeType scheme_type_of_sum()
     {
-        //   public:
+        constexpr bool
+            one_is_nonlinear = std::disjunction_v<std::integral_constant<bool, Operators::cfg_t::scheme_type == SchemeType::NonLinear>...>;
+        constexpr bool one_is_linear_het = std::disjunction_v<
+            std::integral_constant<bool, Operators::cfg_t::scheme_type == SchemeType::LinearHeterogeneous>...>;
 
-        //     using field_t = typename FluxScheme::field_t;
-
-        //   private:
-
-        //     std::string m_name = "(unnamed)";
-        //     FluxScheme m_flux_scheme;
-        //     CellScheme m_cell_scheme;
-
-        //   public:
-
-        //     FluxBasedScheme_Sum_CellBasedScheme(const FluxScheme& flux_scheme, const CellScheme& cell_scheme)
-        //         : m_flux_scheme(flux_scheme)
-        //         , m_cell_scheme(cell_scheme)
-        //     {
-        //         this->m_name = m_flux_scheme.name() + " + " + m_cell_scheme.name();
-        //     }
-
-        //     std::string name() const
-        //     {
-        //         return m_name;
-        //     }
-
-        //     auto& flux_scheme() const
-        //     {
-        //         return m_flux_scheme;
-        //     }
-
-        //     auto& cell_scheme() const
-        //     {
-        //         return m_cell_scheme;
-        //     }
-
-        //     bool matrix_is_symmetric() const // override
-        //     {
-        //         return m_flux_scheme.matrix_is_symmetric() && m_cell_scheme.matrix_is_symmetric();
-        //     }
-
-        //     bool matrix_is_spd() const // override
-        //     {
-        //         return m_flux_scheme.matrix_is_spd() && m_cell_scheme.matrix_is_spd();
-        //     }
-    };
-
-    // Operator +
-    // template <typename FluxScheme,
-    //           typename CellScheme,
-    //           std::enable_if_t<is_CellBasedScheme_v<CellScheme> && is_FluxBasedScheme_v<FluxScheme>, bool> = true>
-    // auto operator+(const FluxScheme& flux_scheme, const CellScheme& cell_scheme)
-    // {
-    //     return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
-    // }
-
-    // Operator + with reference rvalue
-    /*template <typename FluxScheme, typename CellScheme, std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true,
-    std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true> auto operator + (FluxScheme&& flux_scheme, const CellScheme&
-    cell_scheme)
-    {
-        //return flux_scheme + cell_scheme;
-        return FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>(flux_scheme, cell_scheme);
-    }*/
-
-    // Operator + in the reverse order
-    // template <typename CellScheme,
-    //           typename FluxScheme,
-    //           std::enable_if_t<is_CellBasedScheme_v<CellScheme> && is_FluxBasedScheme_v<FluxScheme>, bool> = true>
-    // auto operator+(const CellScheme& cell_scheme, const FluxScheme& flux_scheme)
-    // {
-    //     return flux_scheme + cell_scheme;
-    // }
-
-    // Operator + in the reverse order with reference rvalue
-    /*template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true,
-    std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true> auto operator + (const CellScheme& cell_scheme, FluxScheme&&
-    flux_scheme)
-    {
-        return flux_scheme + cell_scheme;
-    }*/
-
-    // Operator + with reference rvalue
-    /*template <typename CellScheme, typename FluxScheme, std::enable_if_t<is_CellBasedScheme<CellScheme>, bool> = true,
-    std::enable_if_t<is_FluxBasedScheme<FluxScheme>, bool> = true> auto operator + (CellScheme&& cell_scheme, FluxScheme&& flux_scheme)
-    {
-        return flux_scheme + cell_scheme;
-    }*/
-
-    // FluxBasedScheme_Sum_CellBasedScheme + flux_scheme2
-    // template <typename CellScheme, typename FluxScheme, typename FluxScheme2, std::enable_if_t<is_FluxBasedScheme_v<FluxScheme2>, bool> =
-    // true> auto operator+(const FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>& sum_scheme, const FluxScheme2& flux_scheme2)
-    // {
-    //     return (sum_scheme.flux_scheme() + flux_scheme2) + sum_scheme.cell_scheme();
-    // }
-
-    // FluxBasedScheme_Sum_CellBasedScheme + cell_scheme2
-    // template <typename CellScheme, typename FluxScheme, typename CellScheme2, std::enable_if_t<is_CellBasedScheme_v<CellScheme2>, bool> =
-    // true> auto operator+(const FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>& sum_scheme, const CellScheme2& cell_scheme2)
-    // {
-    //     return (sum_scheme.cell_scheme() + cell_scheme2) + sum_scheme.flux_scheme();
-    // }
-
-    // FluxBasedScheme_Sum_CellBasedScheme - cell_scheme2
-    // template <typename CellScheme, typename FluxScheme, typename CellScheme2, std::enable_if_t<is_CellBasedScheme_v<CellScheme2>, bool> =
-    // true> auto operator-(const FluxBasedScheme_Sum_CellBasedScheme<FluxScheme, CellScheme>& sum_scheme, const CellScheme2& cell_scheme2)
-    // {
-    //     return (sum_scheme.cell_scheme() - cell_scheme2) + sum_scheme.flux_scheme();
-    // }
-
-    // Sum_CellBasedScheme + flux_scheme
-    // template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2, class cfg3, class bdry_cfg3>
-    // auto
-    // operator+(const Sum_CellBasedScheme<cfg1, bdry_cfg1, cfg2, bdry_cfg2>& sum_scheme, const FluxBasedScheme<cfg3, bdry_cfg3>&
-    // flux_scheme)
-    // {
-    //     return (sum_scheme.cell_scheme() + cell_scheme2) + sum_scheme.flux_scheme();
-    // }
+        if constexpr (one_is_nonlinear)
+        {
+            return SchemeType::NonLinear;
+        }
+        else if constexpr (one_is_linear_het)
+        {
+            return SchemeType::LinearHeterogeneous;
+        }
+        else
+        {
+            return SchemeType::LinearHomogeneous;
+        }
+    }
 
     template <class... Operators>
     class OperatorSum
     {
       private:
 
-        using FirstOperatorType = std::tuple_element_t<0, std::tuple<Operators...>>;
+        template <SchemeType scheme_type_, std::size_t output_field_size_>
+        struct Config
+        {
+            static constexpr SchemeType scheme_type        = scheme_type_;
+            static constexpr std::size_t output_field_size = output_field_size_;
+        };
 
       public:
 
+        using FirstOperatorType = std::tuple_element_t<0, std::tuple<Operators...>>;
+
         static constexpr std::size_t output_field_size = FirstOperatorType::cfg_t::output_field_size;
         using field_t                                  = typename FirstOperatorType::field_t;
+
+        using cfg_t = Config<scheme_type_of_sum<Operators...>(), output_field_size>;
 
       private:
 
@@ -183,6 +92,12 @@ namespace samurai
                      });
             return ss.str();
         }
+
+        auto operator()(field_t& field) const
+        {
+            auto explicit_scheme = make_explicit(*this);
+            return explicit_scheme.apply_to(field);
+        }
     };
 
     template <class... Operators>
@@ -194,12 +109,6 @@ namespace samurai
     template <class... Operators>
     auto make_operator_sum(const std::tuple<Operators...>& operator_tuple)
     {
-        // return std::apply(
-        //     [&]
-        //     {
-        //         return OperatorSum<Operators...>(operator_tuple);
-        //     });
-        // return std::apply(OperatorSum<Operators...>, operator_tuple);
         return OperatorSum<Operators...>(operator_tuple);
     }
 
@@ -253,6 +162,16 @@ namespace samurai
         return make_operator_sum(scheme1, scheme2);
     }
 
+    template <class cfg1,
+              class bdry_cfg1,
+              class cfg2,
+              class bdry_cfg2,
+              std::enable_if_t<!std::is_same_v<cfg1, cfg2> || !std::is_same_v<bdry_cfg1, bdry_cfg2>, bool> = true>
+    auto operator+(const CellBasedScheme<cfg1, bdry_cfg1>& scheme1, const CellBasedScheme<cfg2, bdry_cfg2>& scheme2)
+    {
+        return make_operator_sum(scheme1, scheme2);
+    }
+
     template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
     auto operator+(const FluxBasedScheme<cfg1, bdry_cfg1>& scheme1, const CellBasedScheme<cfg2, bdry_cfg2>& scheme2)
     {
@@ -272,8 +191,6 @@ namespace samurai
     auto operator+(const OperatorSum<Operators...>& sum_scheme, const CellBasedScheme<cfg, bdry_cfg>& scheme)
         -> std::enable_if_t<scheme_is_combinable<CellBasedScheme<cfg, bdry_cfg>, Operators...>, OperatorSum<Operators...>>
     {
-        // static constexpr bool type_is_in_sum = std::disjunction_v<std::is_same<Operators, CellBasedScheme<cfg, bdry_cfg>>...>;
-
         for_each(sum_scheme.operators(),
                  [&](auto& op)
                  {
@@ -293,12 +210,6 @@ namespace samurai
         auto added = std::tuple_cat(std::make_tuple(scheme), sum_scheme.operators());
         return make_operator_sum(added);
     }
-
-    // template <class cfg, class bdry_cfg, class... Operators>
-    // auto operator+(const OperatorSum<Operators...>& scheme1, const FluxBasedScheme<cfg, bdry_cfg>& scheme2)
-    // {
-    //     return scheme2 + scheme1;
-    // }
 
     template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
     auto operator-(const FluxBasedScheme<cfg1, bdry_cfg1>& scheme1, const CellBasedScheme<cfg2, bdry_cfg2>& scheme2)

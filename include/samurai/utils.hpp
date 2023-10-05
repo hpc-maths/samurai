@@ -244,7 +244,7 @@ namespace samurai
     }
 
     template <class Field>
-    auto& field_value(Field& f, typename Field::cell_t& cell, [[maybe_unused]] std::size_t field_i)
+    auto& field_value(Field& f, const typename Field::cell_t& cell, [[maybe_unused]] std::size_t field_i)
     {
         if constexpr (Field::size == 1)
         {

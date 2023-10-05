@@ -247,15 +247,7 @@ namespace samurai
                                     {
                                         for (unsigned int c = 0; c < cfg_t::contiguous_indices_start; ++c)
                                         {
-                                            double coeff;
-                                            if constexpr (field_size == 1 && output_field_size == 1)
-                                            {
-                                                coeff = coeffs[c];
-                                            }
-                                            else
-                                            {
-                                                coeff = coeffs[c](field_i, field_j);
-                                            }
+                                            double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                             if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
                                                 MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);
@@ -267,14 +259,10 @@ namespace samurai
                                         std::array<double, cfg_t::contiguous_indices_size> contiguous_coeffs;
                                         for (unsigned int c = 0; c < cfg_t::contiguous_indices_size; ++c)
                                         {
-                                            if constexpr (field_size == 1 && output_field_size == 1)
-                                            {
-                                                contiguous_coeffs[c] = coeffs[cfg_t::contiguous_indices_start + c];
-                                            }
-                                            else
-                                            {
-                                                contiguous_coeffs[c] = coeffs[cfg_t::contiguous_indices_start + c](field_i, field_j);
-                                            }
+                                            contiguous_coeffs[c] = scheme().cell_coeff(coeffs,
+                                                                                       cfg_t::contiguous_indices_start + c,
+                                                                                       field_i,
+                                                                                       field_j);
                                         }
                                         // if (std::any_of(contiguous_coeffs.begin(),
                                         //                 contiguous_coeffs.end(),
@@ -299,15 +287,7 @@ namespace samurai
                                              c < cfg_t::scheme_stencil_size;
                                              ++c)
                                         {
-                                            double coeff;
-                                            if constexpr (field_size == 1 && output_field_size == 1)
-                                            {
-                                                coeff = coeffs[c];
-                                            }
-                                            else
-                                            {
-                                                coeff = coeffs[c](field_i, field_j);
-                                            }
+                                            double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                             if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
                                                 MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);

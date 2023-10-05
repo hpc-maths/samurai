@@ -63,6 +63,8 @@ int main(int argc, char* argv[])
     double diff_coeff = 1;
     double k          = 1;
 
+    bool explicit_reaction = false;
+
     // Time integration
     double Tf  = 1.;
     double dt  = Tf / 100;
@@ -86,6 +88,7 @@ int main(int argc, char* argv[])
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_flag("--explicit-reaction", explicit_reaction, "Explicit the reaction term")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
@@ -187,8 +190,7 @@ int main(int argc, char* argv[])
         samurai::update_ghost_mr(u);
         unp1.resize();
 
-        static constexpr bool explicit_reaction = false;
-        if constexpr (explicit_reaction)
+        if (explicit_reaction)
         {
             // u_np1 + dt*diff(u_np1) = u + dt*react(u)
             auto back_euler = id + dt * diff;
@@ -204,7 +206,12 @@ int main(int argc, char* argv[])
 
             // auto tmp        = id + dt * diff;
             // auto back_euler = tmp - dt * react;
-            samurai::petsc::solve(back_euler, unp1, u); // solves the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
+
+            // Set initial guess for the Newton algorithm:
+            unp1.fill(0);
+            unp1 = u;
+            // Solves the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
+            samurai::petsc::solve(back_euler, unp1, u);
         }
 
         // u <-- unp1

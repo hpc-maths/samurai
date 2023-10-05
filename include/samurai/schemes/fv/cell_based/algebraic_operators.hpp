@@ -70,31 +70,6 @@ namespace samurai
     }
 
     /**
-     * Binary '+' operator if different configs
-     */
-    template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
-    struct Sum_CellBasedSchemes
-    {
-        using Scheme1 = CellBasedScheme<cfg1, bdry_cfg1>;
-        using Scheme2 = CellBasedScheme<cfg2, bdry_cfg2>;
-
-        Scheme1 scheme1;
-        Scheme2 scheme2;
-
-        Sum_CellBasedSchemes(const Scheme1& s1, const Scheme2& s2)
-            : scheme1(s1)
-            , scheme2(s2)
-        {
-        }
-    };
-
-    template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
-    auto operator+(const CellBasedScheme<cfg1, bdry_cfg1>& scheme1, const CellBasedScheme<cfg2, bdry_cfg2>& scheme2)
-    {
-        return Sum_CellBasedSchemes<cfg1, bdry_cfg1, cfg2, bdry_cfg2>(scheme1, scheme2);
-    }
-
-    /**
      * Unary '-' operator
      */
     template <class cfg, class bdry_cfg>

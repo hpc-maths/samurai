@@ -527,7 +527,7 @@ namespace samurai
          * Helper functions
          */
 
-        template <class Scheme>
+        template <class Scheme, std::enable_if_t<Scheme::cfg_t::scheme_type != SchemeType::NonLinear, bool> = true>
         auto make_solver(const Scheme& scheme)
         {
             return SingleFieldSolver<Assembly<Scheme>>(scheme);

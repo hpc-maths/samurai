@@ -7,13 +7,13 @@ namespace samurai
     class CellBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
         : public FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>
     {
-      protected:
-
         using base_class = FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>;
-        using base_class::dim;
-        using base_class::field_size;
 
       public:
+
+        using base_class::dim;
+        using base_class::field_size;
+        using base_class::output_field_size;
 
         using cfg_t            = cfg;
         using bdry_cfg_t       = bdry_cfg;
@@ -21,12 +21,13 @@ namespace samurai
         using mesh_t           = typename field_t::mesh_t;
         using field_value_type = typename field_t::value_type;
 
-        using scheme_definition_t = CellBasedSchemeDefinition<cfg>;
-        using scheme_stencil_t    = typename scheme_definition_t::scheme_stencil_t;
-        using stencil_cells_t     = typename scheme_definition_t::stencil_cells_t;
-        using scheme_value_t      = typename scheme_definition_t::scheme_value_t;
-        using scheme_func         = typename scheme_definition_t::scheme_func;
-        using jacobian_func       = typename scheme_definition_t::jacobian_func;
+        using scheme_definition_t  = CellBasedSchemeDefinition<cfg>;
+        using scheme_stencil_t     = typename scheme_definition_t::scheme_stencil_t;
+        using stencil_cells_t      = typename scheme_definition_t::stencil_cells_t;
+        using scheme_value_t       = typename scheme_definition_t::scheme_value_t;
+        using scheme_func          = typename scheme_definition_t::scheme_func;
+        using jac_stencil_coeffs_t = typename scheme_definition_t::jac_stencil_coeffs_t;
+        using jacobian_func        = typename scheme_definition_t::jacobian_func;
 
       private:
 
@@ -96,13 +97,13 @@ namespace samurai
             return m_scheme_definition.jacobian_function(stencil_cells, field);
         }
 
-        auto operator()(field_t& field)
+        auto operator()(field_t& field) const
         {
             auto explicit_scheme = make_explicit(*this);
             return explicit_scheme.apply_to(field);
         }
 
-        inline field_value_type cell_coeff(const scheme_value_t& coeffs, [[maybe_unused]] std::size_t field_i) const
+        inline field_value_type contrib_cmpnent(const scheme_value_t& coeffs, [[maybe_unused]] std::size_t field_i) const
         {
             if constexpr (cfg::output_field_size == 1)
             {
@@ -111,6 +112,21 @@ namespace samurai
             else
             {
                 return coeffs(field_i);
+            }
+        }
+
+        inline double cell_coeff(const jac_stencil_coeffs_t& coeffs,
+                                 std::size_t cell_number_in_stencil,
+                                 [[maybe_unused]] std::size_t field_i,
+                                 [[maybe_unused]] std::size_t field_j) const
+        {
+            if constexpr (field_size == 1 && output_field_size == 1)
+            {
+                return coeffs[cell_number_in_stencil];
+            }
+            else
+            {
+                return coeffs[cell_number_in_stencil](field_i, field_j);
             }
         }
 

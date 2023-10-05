@@ -70,7 +70,7 @@ namespace samurai
             }
         }
 
-        auto operator()(field_t& field)
+        auto operator()(field_t& field) const
         {
             auto explicit_scheme = make_explicit(*this);
             return explicit_scheme.apply_to(field);

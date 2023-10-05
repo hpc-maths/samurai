@@ -22,27 +22,28 @@ namespace samurai
 
       public:
 
-        using local_matrix_t            = typename base_class::local_matrix_t;
+        using field_value_type          = typename Field::value_type;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
+
+        static constexpr std::size_t field_size = Field::size;
 
         explicit DiffusionFV_old()
         {
             this->set_name("Diffusion");
 
-            this->set_stencil(star_stencil<dim>());
-            this->set_coefficients(
-                [](double h)
+            this->stencil()           = star_stencil<dim>();
+            this->coefficients_func() = [](double h)
+            {
+                auto Identity = eye<field_value_type, field_size, field_size>();
+                StencilCoeffs<cfg> coeffs;
+                for (unsigned int i = 0; i < cfg::scheme_stencil_size; ++i)
                 {
-                    double one_over_h2 = 1 / (h * h);
-                    auto Identity      = eye<local_matrix_t>();
-                    std::array<local_matrix_t, cfg::scheme_stencil_size> coeffs;
-                    for (unsigned int i = 0; i < cfg::scheme_stencil_size; ++i)
-                    {
-                        coeffs[i] = -one_over_h2 * Identity;
-                    }
-                    coeffs[cfg::center_index] = (cfg::scheme_stencil_size - 1) * one_over_h2 * Identity;
-                    return coeffs;
-                });
+                    coeffs[i] = -Identity;
+                }
+                coeffs[cfg::center_index] = (cfg::scheme_stencil_size - 1) * Identity;
+                coeffs /= (h * h);
+                return coeffs;
+            };
 
             this->is_symmetric(true);
             this->is_spd(true);
