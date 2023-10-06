@@ -224,7 +224,7 @@ namespace samurai
     }
 
     template <class Field>
-    void update_tag_subdomains(std::size_t level, Field& tag)
+    void update_tag_subdomains(std::size_t level, Field& tag, bool erase = false)
     {
         //  constexpr std::size_t dim = Field::dim;
         using mesh_t    = typename Field::mesh_t;
@@ -272,13 +272,21 @@ namespace samurai
                     {
                         xt::xtensor<value_t, 1> neigh_tag = xt::empty_like(tag(level, i, index));
                         std::copy(to_recv.begin() + count, to_recv.begin() + count + static_cast<std::ptrdiff_t>(i.size()), neigh_tag.begin());
-                        tag(level, i, index) |= neigh_tag;
+                        if (erase)
+                        {
+                            tag(level, i, index) = neigh_tag;
+                        }
+                        else
+                        {
+                            tag(level, i, index) |= neigh_tag;
+                        }
                         count += i.size();
                     });
             }
         }
         mpi::wait_all(req.begin(), req.end());
 
+        req.clear();
         i_neigh = 0;
         for (auto& neighbour : mesh.mpi_neighbourhood())
         {
