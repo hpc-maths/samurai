@@ -744,15 +744,15 @@ namespace samurai
                 set_refine.apply_op(prediction<pred_order, true>(new_field, field));
             }
 
-            for (std::size_t level = 1; level <= max_level; ++level)
-            {
-                auto subset = intersection(intersection(old_mesh[mesh_id_t::cells][level],
-                                                        difference(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level])),
-                                           mesh[mesh_id_t::cells][level - 1])
-                                  .on(level);
+            // for (std::size_t level = 1; level <= max_level; ++level)
+            // {
+            //     auto subset = intersection(intersection(old_mesh[mesh_id_t::cells][level],
+            //                                             difference(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level])),
+            //                                mesh[mesh_id_t::cells][level - 1])
+            //                       .on(level);
 
-                subset.apply_op(copy(new_field, old_field));
-            }
+            //     subset.apply_op(copy(new_field, old_field));
+            // }
 
             std::swap(field.array(), new_field.array());
             std::swap(old_field.array(), new_field.array());
