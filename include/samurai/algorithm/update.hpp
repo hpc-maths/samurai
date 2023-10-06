@@ -367,9 +367,9 @@ namespace samurai
     template <class Field>
     void keep_only_one_coarse_tag(Field& tag)
     {
-        //  constexpr std::size_t dim = Field::dim;
-        using mesh_t    = typename Field::mesh_t;
-        using mesh_id_t = typename mesh_t::mesh_id_t;
+        constexpr std::size_t dim = Field::dim;
+        using mesh_t              = typename Field::mesh_t;
+        using mesh_id_t           = typename mesh_t::mesh_id_t;
         std::vector<mpi::request> req;
 
         auto& mesh            = tag.mesh();
@@ -386,21 +386,66 @@ namespace samurai
                     out_interface(
                         [&](const auto& i, const auto& index)
                         {
-                            auto j     = index[0];
-                            auto mask1 = (tag(level, 2 * i, 2 * j) & static_cast<int>(CellFlag::coarsen))
-                                       & (tag(level, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::coarsen))
-                                       & (tag(level, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::coarsen))
-                                       & (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::coarsen));
-                            auto mask2 = (tag(level, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
-                                       | (tag(level, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
-                                       | (tag(level, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::keep))
-                                       | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::keep));
-                            auto mask = xt::eval(mask1 && !mask2);
+                            if constexpr (dim == 1)
+                            {
+                                auto mask1 = (tag(level, 2 * i) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1) & static_cast<int>(CellFlag::coarsen));
+                                auto mask2 = (tag(level, 2 * i) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1) & static_cast<int>(CellFlag::keep));
+                                auto mask = xt::eval(mask1 && !mask2);
 
-                            xt::masked_view(tag(level, 2 * i, 2 * j), mask)         = 0;
-                            xt::masked_view(tag(level, 2 * i + 1, 2 * j), mask)     = 0;
-                            xt::masked_view(tag(level, 2 * i, 2 * j + 1), mask)     = 0;
-                            xt::masked_view(tag(level, 2 * i + 1, 2 * j + 1), mask) = 0;
+                                xt::masked_view(tag(level, 2 * i), mask)     = 0;
+                                xt::masked_view(tag(level, 2 * i + 1), mask) = 0;
+                            }
+                            if constexpr (dim == 2)
+                            {
+                                auto j     = index[0];
+                                auto mask1 = (tag(level, 2 * i, 2 * j) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::coarsen));
+                                auto mask2 = (tag(level, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::keep));
+                                auto mask = xt::eval(mask1 && !mask2);
+
+                                xt::masked_view(tag(level, 2 * i, 2 * j), mask)         = 0;
+                                xt::masked_view(tag(level, 2 * i + 1, 2 * j), mask)     = 0;
+                                xt::masked_view(tag(level, 2 * i, 2 * j + 1), mask)     = 0;
+                                xt::masked_view(tag(level, 2 * i + 1, 2 * j + 1), mask) = 0;
+                            }
+                            if constexpr (dim == 3)
+                            {
+                                auto j     = index[0];
+                                auto k     = index[1];
+                                auto mask1 = (tag(level, 2 * i, 2 * j, 2 * k) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j, 2 * k) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::coarsen));
+                                auto mask2 = (tag(level, 2 * i, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep));
+                                auto mask = xt::eval(mask1 && !mask2);
+
+                                xt::masked_view(tag(level, 2 * i, 2 * j, 2 * k), mask)             = 0;
+                                xt::masked_view(tag(level, 2 * i + 1, 2 * j, 2 * k), mask)         = 0;
+                                xt::masked_view(tag(level, 2 * i, 2 * j + 1, 2 * k), mask)         = 0;
+                                xt::masked_view(tag(level, 2 * i + 1, 2 * j + 1, 2 * k), mask)     = 0;
+                                xt::masked_view(tag(level, 2 * i, 2 * j, 2 * k + 1), mask)         = 0;
+                                xt::masked_view(tag(level, 2 * i + 1, 2 * j, 2 * k + 1), mask)     = 0;
+                                xt::masked_view(tag(level, 2 * i, 2 * j + 1, 2 * k + 1), mask)     = 0;
+                                xt::masked_view(tag(level, 2 * i + 1, 2 * j + 1, 2 * k + 1), mask) = 0;
+                            }
                         });
                 }
             }
