@@ -33,25 +33,23 @@ class Plot:
 
         if args.field is None:
             ax = plt.subplot(111)
-            if args.mpi_size == 1:
-                mesh = read_mesh(filename)
+            mesh = read_mesh(filename)
+            if 'points' in mesh:
                 self.plot(ax, mesh)
             else:
-                for rank in range(args.mpi_size):
-                    mesh = read_mesh(f"{filename}_rank_{rank}")
-                    self.plot(ax, mesh)
+                for rank in mesh.keys():
+                    self.plot(ax, mesh[rank])
             ax.set_title("Mesh")
             self.ax = [ax]
         else:
             for i, f in enumerate(args.field):
                 ax = plt.subplot(1, len(args.field), i + 1)
-                if args.mpi_size == 1:
-                    mesh = read_mesh(filename)
+                mesh = read_mesh(filename)
+                if 'points' in mesh:
                     self.plot(ax, mesh, f)
                 else:
-                    for rank in range(args.mpi_size):
-                        mesh = read_mesh(f"{filename}_rank_{rank}")
-                        self.plot(ax, mesh, f)
+                    for rank in mesh.keys():
+                        self.plot(ax, mesh[rank], f)
                 ax.set_title(f)
                 self.ax.append(ax)
 

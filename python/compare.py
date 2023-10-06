@@ -65,9 +65,12 @@ for field in field1.keys():
         print(f"{field} is not in second file")
         sys.exit()
 
-    if np.any(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol):
-        ind = np.where(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol)
+    # if np.any(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol):
+    if np.any(field1[field][:][index1] != field2[field][:][index2]):
+        # ind = np.where(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol)
+        ind = np.where(field1[field][:][index1] != field2[field][:][index2])
         print(field1[field][:][index1[ind]], field2[field][:][index2[ind]])
-        print(np.abs(field1[field][:][index1[ind]]-field2[field][:][index2[ind]]))
+        print(cells1[index1[ind]], cells2[index2[ind]])
+        # print(np.abs(field1[field][:][index1[ind]]-field2[field][:][index2[ind]]))
         print(f"{field} is not the same")
         # sys.exit()
