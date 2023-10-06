@@ -255,6 +255,10 @@ namespace samurai
                           m_tag[cell] = static_cast<int>(CellFlag::keep);
                       });
 
+        for (std::size_t level = min_level; level <= max_level; ++level)
+        {
+            update_tag_subdomains(level, m_tag, true);
+        }
         update_ghost_mr(m_fields);
 
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
@@ -277,7 +281,7 @@ namespace samurai
                                            m_tag,
                                            (pow(2.0, regularity_to_use)) * eps_l,
                                            max_level)); // Refinement according to Harten
-            update_tag_subdomains(level, m_tag);
+            update_tag_subdomains(level, m_tag, true);
         }
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
