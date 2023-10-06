@@ -723,8 +723,8 @@ namespace samurai
             Field new_field("new_f", new_mesh);
             new_field.fill(0);
 
-            auto& mesh     = field.mesh();
-            auto& old_mesh = old_field.mesh();
+            auto& mesh = field.mesh();
+            // auto& old_mesh = old_field.mesh();
 
             auto min_level = mesh.min_level();
             auto max_level = mesh.max_level();

@@ -121,7 +121,7 @@ namespace samurai
 
         using derived_type = D;
 
-        Mesh_base() = default;
+        Mesh_base() = default; // cppcheck-suppress uninitMemberVar
         Mesh_base(const cl_type& cl,
                   std::size_t min_level,
                   std::size_t max_level,
@@ -488,14 +488,19 @@ namespace samurai
         mpi::communicator world;
         std::vector<mpi::request> req;
 
-        for (auto& neighbour : m_mpi_neighbourhood)
-        {
-            req.push_back(world.isend(neighbour.rank, neighbour.rank, derived_cast()));
-        }
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, derived_cast());
+                       });
+
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             world.recv(neighbour.rank, world.rank(), neighbour.mesh);
         }
+
         mpi::wait_all(req.begin(), req.end());
     }
 

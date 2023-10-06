@@ -86,9 +86,9 @@ namespace samurai
         std::array<std::size_t, 2> shape = {submesh.nb_cells(), field.size};
         xt::xtensor<typename Field::value_type, 2> data(shape);
 
-        std::size_t index = 0;
         if (submesh.nb_cells() != 0)
         {
+            std::size_t index = 0;
             for_each_cell(submesh,
                           [&](auto cell)
                           {
@@ -393,7 +393,7 @@ namespace samurai
                 {
                     for (std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
                     {
-                        auto& submesh = this->derived_cast().get_submesh(im);
+                        const auto& submesh = this->derived_cast().get_submesh(im);
 
                         std::string mesh_name = fmt::format("level_{}_{}", level, this->derived_cast().get_submesh_name(im));
                         std::string prefix    = fmt::format("/level/{}/mesh/{}", level, mesh_name);
