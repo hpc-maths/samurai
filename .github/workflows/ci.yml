@@ -165,7 +165,7 @@ jobs:
       - name: Install HighFive
         shell: bash -l {0}
         run: |
-          cmake --build highfive/build install
+          cmake --build highfive/build --target install
 
 
       # - name: Petsc installation
