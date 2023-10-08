@@ -145,6 +145,29 @@ jobs:
           environment-name: samurai-env
           cache-environment: true
 
+      - name: Clone HighFive
+        uses: actions/checkout@v3
+        with:
+          repository: https://github.com/BlueBrain/HighFive
+          ref: v2.7.1
+          path: highfive
+
+      - name: Configure HighFive
+        shell: bash -l {0}
+        run: |
+          CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+          highfive \
+          -Bhighfive/build \
+          -GNinja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+
+      - name: Install HighFive
+        shell: bash -l {0}
+        run: |
+          cmake --build highfive/build install
+
+
       # - name: Petsc installation
       #   shell: bash -l {0}
       #   run: |
