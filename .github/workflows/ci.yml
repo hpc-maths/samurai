@@ -145,6 +145,17 @@ jobs:
           environment-name: samurai-env
           cache-environment: true
 
+      - name: Petsc installation
+        shell: bash -l {0}
+        run: |
+          conda install -y petsc pkg-config
+
+      - name: Conda informations
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+
       - name: Clone HighFive
         uses: actions/checkout@v3
         with:
@@ -166,18 +177,6 @@ jobs:
         shell: bash -l {0}
         run: |
           cmake --build highfive/build --target install
-
-
-      # - name: Petsc installation
-      #   shell: bash -l {0}
-      #   run: |
-      #     conda install -y petsc=3.18 pkg-config
-
-      - name: Conda informations
-        shell: bash -l {0}
-        run: |
-          conda info
-          conda list
 
       - name: Configure
         shell: bash -l {0}
@@ -232,6 +231,28 @@ jobs:
         run: |
           micromamba info
           micromamba list
+
+      - name: Clone HighFive
+        uses: actions/checkout@v3
+        with:
+          repository: BlueBrain/HighFive
+          ref: v2.7.1
+          path: highfive
+
+      - name: Configure HighFive
+        shell: bash -l {0}
+        run: |
+          CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+          highfive \
+          -Bhighfive/build \
+          -GNinja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+
+      - name: Install HighFive
+        shell: bash -l {0}
+        run: |
+          cmake --build highfive/build --target install
 
       - name: Configure
         shell: bash -l {0}
