@@ -134,6 +134,7 @@ namespace samurai
         mpi::communicator world;
         // cppcheck-suppress redundantInitialization
         auto max_level = mpi::all_reduce(world, this->cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
+        // cppcheck-suppress redundantInitialization
         auto min_level = mpi::all_reduce(world, this->cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
         cl_type cell_list;
 

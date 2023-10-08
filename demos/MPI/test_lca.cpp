@@ -5,7 +5,7 @@
 
 namespace fs = std::filesystem;
 
-#include "CLI/CLI.hpp"
+#include <CLI/CLI.hpp>
 
 #include <samurai/algorithm/update.hpp>
 #include <samurai/bc.hpp>
