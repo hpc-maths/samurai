@@ -145,10 +145,10 @@ jobs:
           environment-name: samurai-env
           cache-environment: true
 
-      - name: Petsc installation
-        shell: bash -l {0}
-        run: |
-          conda install -y petsc=3.18 pkg-config
+      # - name: Petsc installation
+      #   shell: bash -l {0}
+      #   run: |
+      #     conda install -y petsc=3.18 pkg-config
 
       - name: Conda informations
         shell: bash -l {0}
