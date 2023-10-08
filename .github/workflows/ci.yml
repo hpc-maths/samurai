@@ -148,7 +148,7 @@ jobs:
       - name: Clone HighFive
         uses: actions/checkout@v3
         with:
-          repository: https://github.com/BlueBrain/HighFive
+          repository: BlueBrain/HighFive
           ref: v2.7.1
           path: highfive
 
