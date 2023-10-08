@@ -862,7 +862,7 @@ namespace samurai
                               }
                           });
 
-        mesh_t new_mesh = {cl, mesh.min_level(), mesh.max_level()};
+        mesh_t new_mesh = {cl, mesh};
 
         if (mesh == new_mesh)
         {
@@ -930,7 +930,7 @@ namespace samurai
                               }
                           });
 
-        mesh_t new_mesh = {cl, mesh.min_level(), mesh.max_level(), mesh.domain(), mesh.mpi_neighbourhood(), mesh.periodicity()};
+        mesh_t new_mesh = {cl, mesh};
 
         if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
         {

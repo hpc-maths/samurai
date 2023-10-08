@@ -58,7 +58,8 @@ namespace samurai
     {
       public:
 
-        using config = Config;
+        using self_type = D;
+        using config    = Config;
 
         static constexpr std::size_t dim                  = config::dim;
         static constexpr std::size_t max_refinement_level = config::max_refinement_level;
@@ -122,17 +123,8 @@ namespace samurai
         using derived_type = D;
 
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
-        Mesh_base(const cl_type& cl,
-                  std::size_t min_level,
-                  std::size_t max_level,
-                  const lca_type& domain,
-                  const std::vector<mpi_subdomain_t>& mpi_neighbourhood);
-        Mesh_base(const cl_type& cl,
-                  std::size_t min_level,
-                  std::size_t max_level,
-                  const lca_type& domain,
-                  const std::vector<mpi_subdomain_t>& mpi_neighbourhood,
-                  const std::array<bool, dim>& periodic);
+        Mesh_base(const cl_type& cl, const self_type& ref_mesh);
+        Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b,
                   std::size_t start_level,
@@ -245,47 +237,34 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl,
-                                           std::size_t min_level,
-                                           std::size_t max_level,
-                                           const lca_type& domain,
-                                           const std::vector<mpi_subdomain_t>& mpi_neighbourhood)
-        : m_domain(domain)
-        , m_min_level{min_level}
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level)
+        : m_min_level{min_level}
         , m_max_level{max_level}
-        , m_mpi_neighbourhood(mpi_neighbourhood)
-
     {
-        assert(min_level <= max_level);
         m_periodic.fill(false);
+        assert(min_level <= max_level);
 
-        m_cells[mesh_id_t::cells] = {cl, false};
+        this->m_cells[mesh_id_t::cells] = {cl};
 
-        update_mesh_neighbour();
         construct_subdomain();
+        m_domain = m_subdomain;
         construct_union();
         update_sub_mesh();
         renumbering();
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl,
-                                           std::size_t min_level,
-                                           std::size_t max_level,
-                                           const lca_type& domain,
-                                           const std::vector<mpi_subdomain_t>& mpi_neighbourhood,
-                                           const std::array<bool, dim>& periodic)
-        : m_domain(domain)
-        , m_min_level{min_level}
-        , m_max_level{max_level}
-        , m_periodic{periodic}
-        , m_mpi_neighbourhood(mpi_neighbourhood)
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const self_type& ref_mesh)
+        : m_domain(ref_mesh.m_domain)
+        , m_min_level(ref_mesh.m_min_level)
+        , m_max_level(ref_mesh.m_max_level)
+        , m_periodic(ref_mesh.m_periodic)
+        , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
+
     {
-        assert(min_level <= max_level);
         m_cells[mesh_id_t::cells] = {cl, false};
 
         update_mesh_neighbour();
-
         construct_subdomain();
         construct_union();
         update_sub_mesh();

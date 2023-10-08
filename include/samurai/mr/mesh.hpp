@@ -59,6 +59,7 @@ namespace samurai
       public:
 
         using base_type                  = samurai::Mesh_base<MRMesh<Config>, Config>;
+        using self_type                  = MRMesh<Config>;
         using mpi_subdomain_t            = typename base_type::mpi_subdomain_t;
         using config                     = typename base_type::config;
         static constexpr std::size_t dim = config::dim;
@@ -72,17 +73,8 @@ namespace samurai
         using lca_type = typename base_type::lca_type;
 
         MRMesh() = default;
-        MRMesh(const cl_type& cl,
-               std::size_t min_level,
-               std::size_t max_level,
-               const lca_type& domain,
-               const std::vector<mpi_subdomain_t>& mpi_neighbourhood);
-        MRMesh(const cl_type& cl,
-               std::size_t min_level,
-               std::size_t max_level,
-               const lca_type& domain,
-               const std::vector<mpi_subdomain_t>& mpi_neighbourhood,
-               const std::array<bool, dim>& periodic);
+        MRMesh(const cl_type& cl, const self_type& ref_mesh);
+        MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
 
@@ -93,23 +85,14 @@ namespace samurai
     };
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const cl_type& cl,
-                                  std::size_t min_level,
-                                  std::size_t max_level,
-                                  const lca_type& domain,
-                                  const std::vector<mpi_subdomain_t>& mpi_neighbourhood)
-        : base_type(cl, min_level, max_level, domain, mpi_neighbourhood)
+    inline MRMesh<Config>::MRMesh(const cl_type& cl, const self_type& ref_mesh)
+        : base_type(cl, ref_mesh)
     {
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const cl_type& cl,
-                                  std::size_t min_level,
-                                  std::size_t max_level,
-                                  const lca_type& domain,
-                                  const std::vector<mpi_subdomain_t>& mpi_neighbourhood,
-                                  const std::array<bool, dim>& periodic)
-        : base_type(cl, min_level, max_level, domain, mpi_neighbourhood, periodic)
+    inline MRMesh<Config>::MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
+        : base_type(cl, min_level, max_level)
     {
     }
 
@@ -205,6 +188,51 @@ namespace samurai
             }
         }
         this->cells()[mesh_id_t::all_cells] = {cell_list, false};
+
+        // add ghosts for periodicity
+        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
+        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil_dir;
+        auto& domain     = this->domain();
+        auto min_indices = domain.min_indices();
+        auto max_indices = domain.max_indices();
+
+        // FIX: cppcheck false positive ?
+        // cppcheck-suppress constStatement
+        for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <= this->cells()[mesh_id_t::reference].max_level();
+             ++level)
+        {
+            lcl_type& lcl = cell_list[level];
+
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                std::size_t delta_l = domain.level() - level;
+
+                if (this->is_periodic(d))
+                {
+                    stencil.fill(0);
+                    stencil[d] = max_indices[d] - min_indices[d];
+
+                    auto set1 = intersection(this->cells()[mesh_id_t::reference][level],
+                                             expand(translate(domain, stencil), config::ghost_width << delta_l))
+                                    .on(level);
+                    set1(
+                        [&](const auto& i, const auto& index_yz)
+                        {
+                            lcl[index_yz - (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i - (stencil[0] >> delta_l));
+                        });
+
+                    auto set2 = intersection(this->cells()[mesh_id_t::reference][level],
+                                             expand(translate(domain, -stencil), config::ghost_width << delta_l))
+                                    .on(level);
+                    set2(
+                        [&](const auto& i, const auto& index_yz)
+                        {
+                            lcl[index_yz + (xt::view(stencil, xt::range(1, _)) >> delta_l)].add_interval(i + (stencil[0] >> delta_l));
+                        });
+                }
+                this->cells()[mesh_id_t::all_cells][level] = {lcl};
+            }
+        }
 
         for (std::size_t level = 0; level < max_level; ++level)
         {

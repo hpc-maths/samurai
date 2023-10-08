@@ -55,6 +55,7 @@ namespace samurai::amr
       public:
 
         using base_type                  = Mesh_base<Mesh<Config>, Config>;
+        using self_type                  = Mesh<Config>;
         using mpi_subdomain_t            = typename base_type::mpi_subdomain_t;
         using config                     = typename base_type::config;
         static constexpr std::size_t dim = config::dim;
@@ -63,13 +64,11 @@ namespace samurai::amr
         using cl_type   = typename base_type::cl_type;
         using lcl_type  = typename base_type::lcl_type;
 
-        using ca_type = typename base_type::ca_type;
+        using ca_type  = typename base_type::ca_type;
+        using lca_type = typename base_type::lca_type;
 
-        Mesh(const cl_type& cl,
-             std::size_t min_level,
-             std::size_t max_level,
-             const lca_type& domain,
-             const std::vector<mpi_subdomain_t>& mpi_neighbourhood);
+        Mesh(const cl_type& cl, const self_type& ref_mesh);
+        Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
 
         void update_sub_mesh_impl();
@@ -80,12 +79,14 @@ namespace samurai::amr
     /////////////////////////////
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const cl_type& cl,
-                              std::size_t min_level,
-                              std::size_t max_level,
-                              const lca_type& domain,
-                              const std::vector<int>& neighbouring_ranks)
-        : base_type(cl, min_level, max_level, domain, neighbouring_ranks)
+    inline Mesh<Config>::Mesh(const cl_type& cl, const self_type& ref_mesh)
+        : base_type(cl, ref_mesh)
+    {
+    }
+
+    template <class Config>
+    inline Mesh<Config>::Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
+        : base_type(cl, min_level, max_level)
     {
     }
 
