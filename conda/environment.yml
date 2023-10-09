@@ -13,3 +13,4 @@ dependencies:
   - pytest
   - h5py
   - libboost-mpi
+  - hdf5=*=mpi*
