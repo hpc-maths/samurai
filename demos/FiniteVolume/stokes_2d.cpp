@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
     boost::mpi::environment env(argc, argv);
 
     constexpr std::size_t dim        = 2;
-    using Config                     = samurai::MRConfig<dim, 1>;
+    using Config                     = samurai::MRConfig<dim, 2>;
     using Mesh                       = samurai::MRMesh<Config>;
     using mesh_id_t                  = typename Mesh::mesh_id_t;
     static constexpr bool is_soa     = false;
