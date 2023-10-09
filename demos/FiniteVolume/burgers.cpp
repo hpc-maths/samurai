@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
 
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -44,6 +45,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 template <std::size_t dim, std::size_t field_size>
 int main_dim(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     using Config  = samurai::MRConfig<dim>;
     using Box     = samurai::Box<double, dim>;
     using point_t = typename Box::point_t;

@@ -62,6 +62,8 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
     using cl_type   = typename base_type::cl_type;
     using lcl_type  = typename base_type::lcl_type;
 
+    Mesh() = default;
+
     // Constructor starting from a cell list
     inline Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
         : base_type(cl, min_level, max_level)

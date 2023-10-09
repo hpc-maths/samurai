@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
 
 #include <filesystem>
 
@@ -26,6 +27,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "amr_1d_burgers_step_1";

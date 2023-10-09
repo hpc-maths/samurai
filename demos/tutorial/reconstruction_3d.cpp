@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
 
 #include <chrono>
 #include <filesystem>
@@ -58,8 +59,10 @@ auto init(Mesh& mesh, Case& c)
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     constexpr size_t dim                     = 3;
-    constexpr std::size_t max_stencil_width_ = 1;
+    constexpr std::size_t max_stencil_width_ = 2;
     // constexpr std::size_t graduation_width_ =
     // samurai::default_config::graduation_width;
     constexpr std::size_t graduation_width_     = 2;

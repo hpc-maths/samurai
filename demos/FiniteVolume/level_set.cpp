@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
 
 #include <samurai/algorithm/graduation.hpp>
 #include <samurai/algorithm/update.hpp>
@@ -246,6 +247,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     constexpr std::size_t dim = 2;
     using Config              = samurai::amr::Config<dim, 2>;
 

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
 
 #include <filesystem>
 
@@ -40,6 +41,8 @@ auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsa
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     constexpr std::size_t dim = 2;
     std::size_t min_level     = 1;
     std::size_t max_level     = 7;

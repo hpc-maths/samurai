@@ -1,8 +1,9 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
+
 #include <iostream>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -148,6 +149,8 @@ void configure_solver(Solver& solver)
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     constexpr std::size_t dim        = 2;
     using Config                     = samurai::MRConfig<dim, 1>;
     using Mesh                       = samurai::MRMesh<Config>;

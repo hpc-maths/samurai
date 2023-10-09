@@ -1,6 +1,7 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+#include <boost/mpi.hpp>
 
 #include <iostream>
 #include <samurai/amr/mesh.hpp>
@@ -118,6 +119,8 @@ template <class Mesh>
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     constexpr std::size_t dim = 2;
     using Config              = samurai::amr::Config<dim>;
     using Mesh                = samurai::amr::Mesh<Config>;

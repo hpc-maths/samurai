@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
 #include <iostream>
 
 #include <filesystem>
@@ -14,6 +15,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     samurai::CellList<dim> cl;
 

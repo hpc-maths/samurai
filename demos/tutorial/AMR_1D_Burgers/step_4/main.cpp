@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
 
 #include <filesystem>
 
@@ -30,6 +31,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     // AMR parameters
     std::size_t start_level = 8;
     std::size_t min_level   = 2;

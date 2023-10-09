@@ -1,4 +1,6 @@
+#include <boost/mpi.hpp>
 #include <iostream>
+
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -48,6 +50,8 @@ auto init_field(Mesh& mesh, double dec)
 
 int main()
 {
+    boost::mpi::environment env;
+
     constexpr std::size_t dim = 3;
     using Config              = samurai::MRConfig<dim>;
     auto box                  = samurai::Box<double, dim>({0., 0., 0.}, {1., 1., 1.});

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
+
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -112,6 +114,8 @@ class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg>
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     constexpr std::size_t dim              = 2;
     constexpr std::size_t stencil_width    = 2;
     constexpr std::size_t graduation_width = 4;

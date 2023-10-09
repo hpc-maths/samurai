@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+#include <boost/mpi.hpp>
 #include <iostream>
 
 #include <samurai/cell_array.hpp>
@@ -49,6 +50,8 @@ inline auto projection(T&& field)
 
 int main()
 {
+    boost::mpi::environment env;
+
     constexpr std::size_t dim = 1;
     samurai::CellList<dim> cl;
     samurai::CellArray<dim> ca;

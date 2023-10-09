@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+#include <boost/mpi.hpp>
 #include <iostream>
 
 #include <samurai/cell_array.hpp>
@@ -9,6 +10,8 @@
 
 int main()
 {
+    boost::mpi::environment env;
+
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
 
     samurai::CellList<dim> cl;

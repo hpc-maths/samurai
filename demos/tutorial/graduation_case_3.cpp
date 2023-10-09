@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+#include <boost/mpi.hpp>
+
 #include <cmath>
 
 #include <filesystem>
@@ -29,6 +31,8 @@ auto generate_mesh(std::size_t start_level)
 
 int main(int argc, char* argv[])
 {
+    boost::mpi::environment env(argc, argv);
+
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     std::size_t start_level   = 1;
     std::size_t max_level     = 6;
