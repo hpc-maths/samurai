@@ -7,6 +7,7 @@
 #include <type_traits>
 
 #include "cell.hpp"
+#include "mesh_holder.hpp"
 #include "mesh_interval.hpp"
 
 namespace samurai
@@ -216,8 +217,14 @@ namespace samurai
     template <class Mesh, class Func>
     inline void for_each_cell(const Mesh& mesh, Func&& f)
     {
-        using mesh_id_t = typename Mesh::config::mesh_id_t;
+        using mesh_id_t = typename Mesh::mesh_id_t;
         for_each_cell(mesh[mesh_id_t::cells], std::forward<Func>(f));
+    }
+
+    template <class Mesh, class Func>
+    inline void for_each_cell(const hold<Mesh>& mesh, Func&& f)
+    {
+        for_each_cell(mesh.get(), std::forward<Func>(f));
     }
 
     template <class Mesh, class coord_type, class Func>
