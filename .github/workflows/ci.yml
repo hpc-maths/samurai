@@ -226,6 +226,11 @@ jobs:
       #   run: |
       #     micromamba install -y petsc=3.18 pkg-config
 
+      - name: Installl cxx compiler
+        shell: bash -l {0}
+        run: |
+          micromamba install -y cxx compiler
+
       - name: micromamba informations
         shell: bash -l {0}
         run: |
