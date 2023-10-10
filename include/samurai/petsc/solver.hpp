@@ -540,6 +540,13 @@ namespace samurai
             solver.solve(unknown, rhs);
         }
 
+        template <class Scheme>
+        void solve(const Scheme& scheme, typename Scheme::field_t& unknown, typename Scheme::field_t& rhs)
+        {
+            auto solver = make_solver(scheme);
+            solver.solve(unknown, rhs);
+        }
+
         template <bool monolithic, std::size_t rows, std::size_t cols, class... Operators>
         auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {

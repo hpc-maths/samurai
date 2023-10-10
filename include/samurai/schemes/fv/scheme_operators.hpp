@@ -44,7 +44,9 @@ namespace samurai
         using FirstOperatorType = std::tuple_element_t<0, std::tuple<Operators...>>;
 
         static constexpr std::size_t output_field_size = FirstOperatorType::cfg_t::output_field_size;
-        using field_t                                  = typename FirstOperatorType::field_t;
+        using input_field_t                            = typename FirstOperatorType::input_field_t;
+        using output_field_t                           = typename FirstOperatorType::output_field_t;
+        using field_t                                  = input_field_t;
 
         using cfg_t = Config<scheme_type_of_sum<Operators...>(), output_field_size>;
 
@@ -83,6 +85,7 @@ namespace samurai
         std::string name() const
         {
             std::stringstream ss;
+            ss << "[ ";
             bool is_first = true;
             for_each(m_operators,
                      [&](const auto& op)
@@ -90,13 +93,20 @@ namespace samurai
                          ss << (is_first ? "" : " + ") << op.name();
                          is_first = false;
                      });
+            ss << " ]";
             return ss.str();
         }
 
-        auto operator()(field_t& field) const
+        auto operator()(input_field_t& input_field) const
         {
             auto explicit_scheme = make_explicit(*this);
-            return explicit_scheme.apply_to(field);
+            return explicit_scheme.apply_to(input_field);
+        }
+
+        void apply(output_field_t& output_field, input_field_t& input_field) const
+        {
+            auto explicit_scheme = make_explicit(*this);
+            return explicit_scheme.apply(output_field, input_field);
         }
     };
 

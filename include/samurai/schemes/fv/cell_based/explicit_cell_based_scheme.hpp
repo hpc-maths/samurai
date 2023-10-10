@@ -11,10 +11,11 @@ namespace samurai
     template <class cfg, class bdry_cfg>
     class Explicit<CellBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>>
     {
-        using scheme_t = CellBasedScheme<cfg, bdry_cfg>;
-        using field_t  = typename scheme_t::field_t;
+        using scheme_t       = CellBasedScheme<cfg, bdry_cfg>;
+        using input_field_t  = typename scheme_t::input_field_t;
+        using output_field_t = typename scheme_t::output_field_t;
 
-        static constexpr std::size_t field_size        = field_t::size;
+        static constexpr std::size_t field_size        = input_field_t::size;
         static constexpr std::size_t output_field_size = cfg::output_field_size;
         static constexpr std::size_t stencil_size      = cfg::scheme_stencil_size;
         static constexpr std::size_t center_index      = cfg::center_index;
@@ -35,17 +36,21 @@ namespace samurai
             return *m_scheme;
         }
 
-        auto apply_to(field_t& f) const
+        auto apply_to(input_field_t& input_field) const
         {
-            auto result = make_field<typename field_t::value_type, output_field_size, field_t::is_soa>(scheme().name() + "(" + f.name() + ")",
-                                                                                                       f.mesh());
-            result.fill(0);
+            output_field_t output_field(scheme().name() + "(" + input_field.name() + ")", input_field.mesh());
+            output_field.fill(0);
 
-            update_bc(f);
+            update_bc(input_field);
+            apply(output_field, input_field);
 
-            // Interior interfaces
+            return output_field;
+        }
+
+        void apply(output_field_t& output_field, input_field_t& input_field) const
+        {
             scheme().for_each_stencil_and_coeffs(
-                f,
+                input_field,
                 [&](const auto& cells, const auto& coeffs)
                 {
                     for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -55,13 +60,12 @@ namespace samurai
                             for (std::size_t c = 0; c < stencil_size; ++c)
                             {
                                 double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                field_value(result, cells[center_index], field_i) += coeff * field_value(f, cells[c], field_j);
+                                field_value(output_field, cells[center_index], field_i) += coeff
+                                                                                         * field_value(input_field, cells[c], field_j);
                             }
                         }
                     }
                 });
-
-            return result;
         }
     };
 
@@ -72,7 +76,8 @@ namespace samurai
     class Explicit<CellBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
     {
         using scheme_t                                 = CellBasedScheme<cfg, bdry_cfg>;
-        using field_t                                  = typename scheme_t::field_t;
+        using input_field_t                            = typename scheme_t::input_field_t;
+        using output_field_t                           = typename scheme_t::output_field_t;
         static constexpr std::size_t output_field_size = cfg::output_field_size;
 
       protected:
@@ -91,24 +96,28 @@ namespace samurai
             return *m_scheme;
         }
 
-        auto apply_to(field_t& f)
+        auto apply_to(input_field_t& input_field) const
         {
-            auto result = make_field<typename field_t::value_type, output_field_size, field_t::is_soa>(scheme().name() + "(" + f.name() + ")",
-                                                                                                       f.mesh());
-            result.fill(0);
+            output_field_t output_field(scheme().name() + "(" + input_field.name() + ")", input_field.mesh());
+            output_field.fill(0);
 
-            update_bc(f);
+            update_bc(input_field);
+            apply(output_field, input_field);
 
+            return output_field;
+        }
+
+        void apply(output_field_t& output_field, input_field_t& input_field) const
+        {
             scheme().for_each_stencil_center(
-                f,
+                input_field,
                 [&](auto& stencil_center, auto& contrib)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        field_value(result, stencil_center, field_i) += scheme().contrib_cmpnent(contrib, field_i);
+                        field_value(output_field, stencil_center, field_i) += scheme().contrib_cmpnent(contrib, field_i);
                     }
                 });
-            return result;
         }
     };
 } // end namespace samurai

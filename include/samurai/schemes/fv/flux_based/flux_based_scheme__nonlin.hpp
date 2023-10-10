@@ -13,15 +13,17 @@ namespace samurai
     {
       public:
 
-        using field_t = typename cfg::input_field_t;
-
-        using base_class = FVScheme<field_t, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>;
 
         using base_class::dim;
         using base_class::field_size;
         using base_class::output_field_size;
         using field_value_type = typename base_class::field_value_type;
-        using mesh_t           = typename field_t::mesh_t;
+
+        using input_field_t  = typename cfg::input_field_t;
+        using field_t        = input_field_t;
+        using mesh_t         = typename field_t::mesh_t;
+        using output_field_t = Field<mesh_t, field_value_type, output_field_size, input_field_t::is_soa>;
 
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
@@ -70,17 +72,27 @@ namespace samurai
             }
         }
 
-        auto operator()(field_t& field) const
+        /**
+         * Explicit application of the scheme
+         */
+
+        auto operator()(input_field_t& input_field) const
         {
             auto explicit_scheme = make_explicit(*this);
-            return explicit_scheme.apply_to(field);
+            return explicit_scheme.apply_to(input_field);
+        }
+
+        void apply(output_field_t& output_field, input_field_t& input_field) const
+        {
+            auto explicit_scheme = make_explicit(*this);
+            explicit_scheme.apply(output_field, input_field);
         }
 
         /**
          * Iterates for each interior interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <class Func>
-        void for_each_interior_interface(field_t& field, Func&& apply_contrib) const
+        void for_each_interior_interface(input_field_t& field, Func&& apply_contrib) const
         {
             using mesh_id_t = typename mesh_t::mesh_id_t;
 

@@ -14,9 +14,10 @@ namespace samurai
                    std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous || cfg::scheme_type == SchemeType::LinearHeterogeneous>>
     {
         using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg>;
-        using field_t                                  = typename scheme_t::field_t;
+        using input_field_t                            = typename scheme_t::input_field_t;
+        using output_field_t                           = typename scheme_t::output_field_t;
         using flux_stencil_coeffs_t                    = typename scheme_t::flux_stencil_coeffs_t;
-        static constexpr std::size_t field_size        = field_t::size;
+        static constexpr std::size_t field_size        = input_field_t::size;
         static constexpr std::size_t output_field_size = scheme_t::output_field_size;
         static constexpr std::size_t stencil_size      = cfg::stencil_size;
 
@@ -36,14 +37,19 @@ namespace samurai
             return *m_scheme;
         }
 
-        auto apply_to(field_t& f) const
+        auto apply_to(input_field_t& input_field) const
         {
-            auto result = make_field<typename field_t::value_type, output_field_size, field_t::is_soa>(scheme().name() + "(" + f.name() + ")",
-                                                                                                       f.mesh());
-            result.fill(0);
+            output_field_t output_field(scheme().name() + "(" + input_field.name() + ")", input_field.mesh());
+            output_field.fill(0);
 
-            update_bc(f);
+            update_bc(input_field);
+            apply(output_field, input_field);
 
+            return output_field;
+        }
+
+        void apply(output_field_t& output_field, input_field_t& input_field) const
+        {
             /**
              * Implementation by matrix-vector multiplication
              */
@@ -52,13 +58,12 @@ namespace samurai
             // assembly.create_matrix(A);
             // assembly.assemble_matrix(A);
             // Vec vec_f   = petsc::create_petsc_vector_from(f);
-            // Vec vec_res = petsc::create_petsc_vector_from(result);
+            // Vec vec_res = petsc::create_petsc_vector_from(output_field);
             // MatMult(A, vec_f, vec_res);
-            // return result;
 
             // Interior interfaces
             scheme().for_each_interior_interface(
-                f.mesh(),
+                input_field.mesh(),
                 [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
@@ -69,10 +74,10 @@ namespace samurai
                             {
                                 double left_cell_coeff  = scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
                                 double right_cell_coeff = scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
-                                field_value(result, interface_cells[0], field_i) += left_cell_coeff
-                                                                                  * field_value(f, comput_cells[c], field_j);
-                                field_value(result, interface_cells[1], field_i) += right_cell_coeff
-                                                                                  * field_value(f, comput_cells[c], field_j);
+                                field_value(output_field, interface_cells[0], field_i) += left_cell_coeff
+                                                                                        * field_value(input_field, comput_cells[c], field_j);
+                                field_value(output_field, interface_cells[1], field_i) += right_cell_coeff
+                                                                                        * field_value(input_field, comput_cells[c], field_j);
                             }
                         }
                     }
@@ -80,7 +85,7 @@ namespace samurai
 
             // Boundary interfaces
             scheme().for_each_boundary_interface(
-                f.mesh(),
+                input_field.mesh(),
                 [&](auto& cell, auto& comput_cells, auto& coeffs)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
@@ -90,13 +95,11 @@ namespace samurai
                             for (std::size_t c = 0; c < stencil_size; ++c)
                             {
                                 double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                field_value(result, cell, field_i) += coeff * field_value(f, comput_cells[c], field_j);
+                                field_value(output_field, cell, field_i) += coeff * field_value(input_field, comput_cells[c], field_j);
                             }
                         }
                     }
                 });
-
-            return result;
         }
     };
 

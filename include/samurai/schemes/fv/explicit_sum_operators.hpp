@@ -9,8 +9,9 @@ namespace samurai
     {
       public:
 
-        using scheme_t = OperatorSum<Operators...>;
-        using field_t  = typename scheme_t::field_t;
+        using scheme_t       = OperatorSum<Operators...>;
+        using input_field_t  = typename scheme_t::input_field_t;
+        using output_field_t = typename scheme_t::output_field_t;
 
         static constexpr std::size_t output_field_size = scheme_t::cfg_t::output_field_size;
 
@@ -37,19 +38,25 @@ namespace samurai
             return *m_sum_scheme;
         }
 
-        auto apply_to(field_t& f)
+        auto apply_to(input_field_t& input_field) const
         {
-            auto result = make_field<typename field_t::value_type, output_field_size, field_t::is_soa>(scheme().name() + "(" + f.name() + ")",
-                                                                                                       f.mesh());
-            result.fill(0);
+            output_field_t output_field(scheme().name() + "(" + input_field.name() + ")", input_field.mesh());
+            // output_field_t output_field("f_newton", input_field.mesh());
+            output_field.fill(0);
 
+            update_bc(input_field);
+            apply(output_field, input_field);
+
+            return output_field;
+        }
+
+        void apply(output_field_t& output_field, input_field_t& input_field) const
+        {
             for_each(m_sum_scheme->operators(),
                      [&](const auto& op)
                      {
-                         result = result + op(f);
+                         op.apply(output_field, input_field);
                      });
-
-            return result;
         }
     };
 

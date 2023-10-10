@@ -15,10 +15,12 @@ namespace samurai
         using base_class::field_size;
         using base_class::output_field_size;
 
-        using cfg_t      = cfg;
-        using bdry_cfg_t = bdry_cfg;
-        using field_t    = typename cfg::input_field_t;
-        using mesh_t     = typename field_t::mesh_t;
+        using cfg_t          = cfg;
+        using bdry_cfg_t     = bdry_cfg;
+        using input_field_t  = typename cfg::input_field_t;
+        using field_t        = input_field_t;
+        using mesh_t         = typename field_t::mesh_t;
+        using output_field_t = Field<mesh_t, typename input_field_t::value_type, output_field_size, input_field_t::is_soa>;
 
         using scheme_definition_t   = CellBasedSchemeDefinition<cfg>;
         using scheme_stencil_t      = typename scheme_definition_t::scheme_stencil_t;
@@ -93,10 +95,20 @@ namespace samurai
             }
         }
 
-        auto operator()(field_t& field) const
+        /**
+         * Explicit application of the scheme
+         */
+
+        auto operator()(input_field_t& input_field) const
         {
             auto explicit_scheme = make_explicit(*this);
-            return explicit_scheme.apply_to(field);
+            return explicit_scheme.apply_to(input_field);
+        }
+
+        void apply(output_field_t& output_field, input_field_t& input_field) const
+        {
+            auto explicit_scheme = make_explicit(*this);
+            explicit_scheme.apply(output_field, input_field);
         }
 
         template <class Func>
