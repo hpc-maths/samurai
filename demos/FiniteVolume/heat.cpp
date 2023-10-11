@@ -213,8 +213,7 @@ int main(int argc, char* argv[])
 
         if (explicit_scheme)
         {
-            auto diff_u = diff(u);
-            unp1        = u - dt * diff_u;
+            unp1 = u - dt * diff(u);
         }
         else
         {

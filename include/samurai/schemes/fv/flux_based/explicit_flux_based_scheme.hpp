@@ -110,7 +110,8 @@ namespace samurai
     class Explicit<FluxBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
     {
         using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg>;
-        using field_t                                  = typename scheme_t::field_t;
+        using input_field_t                            = typename scheme_t::input_field_t;
+        using output_field_t                           = typename scheme_t::output_field_t;
         static constexpr std::size_t output_field_size = scheme_t::output_field_size;
 
       protected:
@@ -129,37 +130,41 @@ namespace samurai
             return *m_scheme;
         }
 
-        auto apply_to(field_t& f)
+        auto apply_to(input_field_t& input_field) const
         {
-            auto result = make_field<typename field_t::value_type, output_field_size, field_t::is_soa>(scheme().name() + "(" + f.name() + ")",
-                                                                                                       f.mesh());
-            result.fill(0);
+            output_field_t output_field(scheme().name() + "(" + input_field.name() + ")", input_field.mesh());
+            output_field.fill(0);
 
-            update_bc(f);
+            update_bc(input_field);
+            apply(output_field, input_field);
 
+            return output_field;
+        }
+
+        void apply(output_field_t& output_field, input_field_t& input_field) const
+        {
             // Interior interfaces
             scheme().for_each_interior_interface(
-                f,
+                input_field,
                 [&](auto& interface_cells, auto& left_cell_contrib, auto& right_cell_contrib)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        field_value(result, interface_cells[0], field_i) += scheme().flux_value_cmpnent(left_cell_contrib, field_i);
-                        field_value(result, interface_cells[1], field_i) += scheme().flux_value_cmpnent(right_cell_contrib, field_i);
+                        field_value(output_field, interface_cells[0], field_i) += scheme().flux_value_cmpnent(left_cell_contrib, field_i);
+                        field_value(output_field, interface_cells[1], field_i) += scheme().flux_value_cmpnent(right_cell_contrib, field_i);
                     }
                 });
 
             // Boundary interfaces
-            scheme().for_each_boundary_interface(f,
-                                                 [&](auto& cell, auto& contrib)
-                                                 {
-                                                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
-                                                     {
-                                                         field_value(result, cell, field_i) += scheme().flux_value_cmpnent(contrib, field_i);
-                                                     }
-                                                 });
-
-            return result;
+            scheme().for_each_boundary_interface(
+                input_field,
+                [&](auto& cell, auto& contrib)
+                {
+                    for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                    {
+                        field_value(output_field, cell, field_i) += scheme().flux_value_cmpnent(contrib, field_i);
+                    }
+                });
         }
     };
 } // end namespace samurai

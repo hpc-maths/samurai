@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     // Multiresolution parameters
     std::size_t min_level = 0;
     std::size_t max_level = 4;
-    double mr_epsilon     = 1e-4; // Threshold used by multiresolution
+    double mr_epsilon     = 1e-5; // Threshold used by multiresolution
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
@@ -198,24 +198,16 @@ int main(int argc, char* argv[])
             // u_np1 + dt*diff(u_np1) = u + dt*react(u)
             auto implicit_operator = id + dt * diff;
             auto rhs               = u + dt * react(u);
-            samurai::petsc::solve(implicit_operator, unp1, rhs); // solves the linear equation   [Id + dt*Diff](unp1) = rhs
+            // Solve the linear equation   [Id + dt*Diff](unp1) = rhs
+            samurai::petsc::solve(implicit_operator, unp1, rhs);
         }
         else
         {
             // u_np1 + dt*diff(u_np1) - dt*react(u_np1) = u
             auto implicit_operator = id + dt * diff - dt * react;
-
-            // Set initial guess for the Newton algorithm:
-            unp1.fill(0);
+            // Set initial guess for the Newton algorithm
             unp1 = u;
-            //  samurai::update_bc(unp1);
-            //  samurai::update_ghost_mr(unp1);
-            //    samurai::update_ghost_mr(u);
-            //    samurai::update_bc(u);
-
-            // u.fill(0);
-
-            // Solves the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
+            // Solve the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
             samurai::petsc::solve(implicit_operator, unp1, u);
         }
 

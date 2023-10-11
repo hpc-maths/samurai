@@ -374,9 +374,7 @@ int main(int argc, char* argv[])
         }
 
         // Solve Stokes system
-        rhs.fill(0);
-        auto conv_v = conv(velocity);
-        rhs         = velocity - dt * conv_v;
+        rhs = velocity - dt * conv(velocity);
         zero.fill(0);
         stokes_solver.solve(rhs, zero);
 
@@ -390,8 +388,7 @@ int main(int argc, char* argv[])
 
         // Ink convection
         samurai::update_ghost_mr(velocity2);
-        auto conv_ink = conv2(ink);
-        ink_np1       = ink - dt * conv_ink;
+        ink_np1 = ink - dt * conv2(ink);
 
         // Prepare next step
         std::swap(velocity.array(), velocity_np1.array());
