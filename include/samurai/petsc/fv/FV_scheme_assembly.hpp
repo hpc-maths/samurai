@@ -248,7 +248,7 @@ namespace samurai
                 }
                 else if constexpr (field_t::is_soa)
                 {
-                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells + cell.index);
+                    return m_col_shift + static_cast<PetscInt>(field_j * static_cast<index_t>(m_n_cells) + cell.index);
                 }
                 else
                 {
@@ -265,7 +265,7 @@ namespace samurai
                 }
                 else if constexpr (field_t::is_soa)
                 {
-                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells + cell.index);
+                    return m_row_shift + static_cast<PetscInt>(field_i * static_cast<index_t>(m_n_cells) + cell.index);
                 }
                 else
                 {
@@ -726,9 +726,9 @@ namespace samurai
                 for_each_projection_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
-                                              for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                               {
-                                                  VecSetValue(b, col_index(ghost, field_i), 0, INSERT_VALUES);
+                                                  VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
                                               }
                                           });
 
@@ -736,9 +736,9 @@ namespace samurai
                 for_each_prediction_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
-                                              for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                               {
-                                                  VecSetValue(b, col_index(ghost, field_i), 0, INSERT_VALUES);
+                                                  VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
                                               }
                                           });
             }
