@@ -38,7 +38,13 @@ int main(int argc, char* argv[])
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
-    std::cout << "------------------------- Heat -------------------------" << std::endl;
+    std::cout << "------------------------- Nagumo -------------------------" << std::endl;
+
+    /**
+     * Nagumo, or Fisher-KPP equation:
+     *
+     * du/dt -D*Lap(u) = k u^2 (1-u)
+     */
 
     //--------------------//
     // Program parameters //
@@ -48,8 +54,8 @@ int main(int argc, char* argv[])
     double left_box  = -10;
     double right_box = 10;
 
-    double diff_coeff = 1;
-    double k          = 10;
+    double D = 1;
+    double k = 10;
 
     bool explicit_reaction = false;
 
@@ -72,7 +78,7 @@ int main(int argc, char* argv[])
     CLI::App app{"Finite volume example for the Nagumo equation"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--diff-coeff", diff_coeff, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--D", D, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
     app.add_option("--k", k, "Parameter of the reaction operator")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
@@ -119,12 +125,12 @@ int main(int argc, char* argv[])
 
     auto u = samurai::make_field<1>("u", mesh);
 
-    double z0 = left_box / 5;             // wave initial position
-    double c  = sqrt(k * diff_coeff / 2); // wave velocity
+    double z0 = left_box / 5;    // wave initial position
+    double c  = sqrt(k * D / 2); // wave velocity
 
     auto beta = [&](double z)
     {
-        double e = exp(-sqrt(k / (2 * diff_coeff)) * (z - z0));
+        double e = exp(-sqrt(k / (2 * D)) * (z - z0));
         return e / (1 + e);
     };
 
@@ -145,7 +151,7 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
-    auto diff = samurai::make_diffusion<decltype(u)>(diff_coeff);
+    auto diff = samurai::make_diffusion<decltype(u)>(D);
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator

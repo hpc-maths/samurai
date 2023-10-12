@@ -159,9 +159,9 @@ namespace samurai
         //         m_flux_assembly.assemble_prediction(A);
         //     }
 
-        //     void add_1_on_diag_for_useless_ghosts(Mat& A) override
+        //     void set_1_on_diag_for_useless_ghosts(Mat& A) override
         //     {
-        //         m_flux_assembly.add_1_on_diag_for_useless_ghosts(A);
+        //         m_flux_assembly.set_1_on_diag_for_useless_ghosts(A);
         //     }
 
         //     void enforce_bc(Vec& b) const
@@ -169,9 +169,9 @@ namespace samurai
         //         m_flux_assembly.enforce_bc(b);
         //     }
 
-        //     void add_0_for_useless_ghosts(Vec& b) const
+        //     void set_0_for_useless_ghosts(Vec& b) const
         //     {
-        //         m_flux_assembly.add_0_for_useless_ghosts(b);
+        //         m_flux_assembly.set_0_for_useless_ghosts(b);
         //     }
 
         //     void enforce_projection_prediction(Vec& b) const
@@ -372,9 +372,14 @@ namespace samurai
                 std::get<0>(m_assembly_ops).assemble_prediction(A);
             }
 
-            void add_1_on_diag_for_useless_ghosts(Mat& A) override
+            void set_1_on_diag_for_useless_ghosts(Mat& A) override
             {
-                std::get<0>(m_assembly_ops).add_1_on_diag_for_useless_ghosts(A);
+                std::get<0>(m_assembly_ops).set_1_on_diag_for_useless_ghosts(A);
+            }
+
+            void set_0_for_all_ghosts(Vec& b) const
+            {
+                std::get<0>(m_assembly_ops).set_0_for_all_ghosts(b);
             }
 
             void enforce_bc(Vec& b) const
@@ -382,9 +387,9 @@ namespace samurai
                 std::get<0>(m_assembly_ops).enforce_bc(b);
             }
 
-            void add_0_for_useless_ghosts(Vec& b) const
+            void set_0_for_useless_ghosts(Vec& b) const
             {
-                std::get<0>(m_assembly_ops).add_0_for_useless_ghosts(b);
+                std::get<0>(m_assembly_ops).set_0_for_useless_ghosts(b);
             }
 
             void enforce_projection_prediction(Vec& b) const

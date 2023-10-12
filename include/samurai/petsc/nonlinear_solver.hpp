@@ -87,11 +87,6 @@ namespace samurai
                 return m_snes;
             }
 
-            // KSP& Ksp()
-            // {
-            //     return m_ksp;
-            // }
-
             bool is_set_up()
             {
                 return m_is_set_up;
@@ -151,22 +146,6 @@ namespace samurai
                 m_is_set_up = true;
             }
 
-            static inline void set_0_in_each_ghost(field_t& field)
-            {
-                using mesh_id_t = typename field_t::mesh_t::mesh_id_t;
-
-                auto& mesh = field.mesh();
-                for (std::size_t level = mesh.min_level(); level <= mesh.min_level(); ++level)
-                {
-                    auto ghosts = difference(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::cells][level]);
-                    for_each_interval(ghosts,
-                                      [&](auto l, const auto& i, const auto& index)
-                                      {
-                                          field(l, i, index) = 0;
-                                      });
-                }
-            }
-
           private:
 
             static PetscErrorCode PETSC_nonlinear_function(SNES /*snes*/, Vec x, Vec f, void* ctx)
@@ -175,14 +154,19 @@ namespace samurai
                 // VecGetArrayRead(x, &xx);
                 // field_t x_field("Newton iterate", assembly().unknown().mesh(), const_cast<PetscScalar*>(xx));
 
+                // const char* x_name;
+                // PetscObjectGetName(reinterpret_cast<PetscObject>(x), &x_name);
+                // const char* f_name;
+                // PetscObjectGetName(reinterpret_cast<PetscObject>(f), &f_name);
+
                 auto self = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
 
                 auto& mesh = self->assembly().unknown().mesh();
-                auto iter  = self->iterations();
+                // auto iter  = self->iterations();
 
                 // assembly().enforce_projection_prediction(x);
 
-                field_t x_field("newton", self->assembly().unknown().mesh());
+                field_t x_field("newton", mesh);
                 copy(x, x_field); // This is really bad... A field structure wrapped around the data of the Petsc vector is what we want
                 // Transfer B.C.
                 std::transform(self->assembly().unknown().get_bc().cbegin(),
@@ -201,7 +185,7 @@ namespace samurai
 
                 // f_field = f(x_field)
 
-                samurai::save(std::filesystem::current_path(), fmt::format("newton_x_ite_{}", iter), mesh, x_field);
+                // samurai::save(std::filesystem::current_path(), fmt::format("newton_x_ite_{}", iter), mesh, x_field);
 
                 // double x_norm;
                 // VecNorm(x, NORM_2, &x_norm);
@@ -212,24 +196,17 @@ namespace samurai
 
                 // std::cout << f_field << std::endl;
 
-                samurai::save(std::filesystem::current_path(), fmt::format("newton_ite_{}", iter), f_field.mesh(), x_field, f_field);
+                // samurai::save(std::filesystem::current_path(), fmt::format("newton_ite_{}", iter), f_field.mesh(), x_field, f_field);
 
                 // double f_norm;
                 // VecNorm(f, NORM_2, &f_norm);
                 // std::cout << "f_norm (before) = " << f_norm << std::endl;
 
-                set_0_in_each_ghost(f_field);
                 copy(f_field, f);
 
                 // VecView(f, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
                 // std::cout << std::endl;
-
-                // Update the right-hand side with the boundary conditions stored in the solution field
-                self->assembly().enforce_bc(f);
-                // Set to zero the right-hand side of the ghost equations
-                self->assembly().enforce_projection_prediction(f);
-                // Set to zero the right-hand side of the useless ghosts' equations
-                self->assembly().add_0_for_useless_ghosts(f);
+                self->prepare_rhs(f);
 
                 // VecZeroEntries(f);
 
@@ -275,7 +252,7 @@ namespace samurai
                 // // Set to zero the right-hand side of the ghost equations
                 // self->assembly().enforce_projection_prediction(f2);
                 // // Set to zero the right-hand side of the useless ghosts' equations
-                // self->assembly().add_0_for_useless_ghosts(f2);
+                // self->assembly().set_0_for_useless_ghosts(f2);
 
                 // samurai::save(std::filesystem::current_path(), fmt::format("newton4_ite_{}", iter), mesh, w_field, f2_field,
                 // *self->m_rhs);
@@ -356,18 +333,24 @@ namespace samurai
 
           protected:
 
-            void prepare_rhs_and_solve(Vec& b, Vec& x)
+            void prepare_rhs(Vec& b)
             {
+                assembly().set_0_for_all_ghosts(b);
                 // Update the right-hand side with the boundary conditions stored in the solution field
                 assembly().enforce_bc(b);
                 // Set to zero the right-hand side of the ghost equations
-                assembly().enforce_projection_prediction(b);
+                // assembly().enforce_projection_prediction(b);
                 // Set to zero the right-hand side of the useless ghosts' equations
-                assembly().add_0_for_useless_ghosts(b);
+                // assembly().set_0_for_useless_ghosts(b);
+
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
                 // std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
+            }
 
+            void prepare_rhs_and_solve(Vec& b, Vec& x)
+            {
+                prepare_rhs(b);
                 solve_system(b, x);
             }
 
@@ -488,15 +471,13 @@ namespace samurai
 
             void solve(/*const*/ Field& rhs)
             {
-                base_class::set_0_in_each_ghost(rhs);
-                // this->m_rhs = &rhs;
+                //  this->m_rhs = &rhs;
 
                 if (!m_is_set_up)
                 {
                     this->setup();
                 }
                 Vec b = create_petsc_vector_from(rhs);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
                 Vec x = create_petsc_vector_from(assembly().unknown());
                 this->prepare_rhs_and_solve(b, x);
 

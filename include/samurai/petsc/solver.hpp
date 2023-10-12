@@ -157,7 +157,7 @@ namespace samurai
                 // Set to zero the right-hand side of the ghost equations
                 assembly().enforce_projection_prediction(b);
                 // Set to zero the right-hand side of the useless ghosts' equations
-                assembly().add_0_for_useless_ghosts(b);
+                assembly().set_0_for_useless_ghosts(b);
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
 
