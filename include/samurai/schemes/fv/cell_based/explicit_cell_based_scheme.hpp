@@ -82,7 +82,7 @@ namespace samurai
         {
             scheme().for_each_stencil_center(
                 input_field,
-                [&](auto& stencil_center, auto& contrib)
+                [&](const auto& stencil_center, auto& contrib)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {

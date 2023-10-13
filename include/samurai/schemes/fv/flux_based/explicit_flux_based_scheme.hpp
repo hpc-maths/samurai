@@ -49,7 +49,7 @@ namespace samurai
             // Interior interfaces
             scheme().for_each_interior_interface(
                 input_field.mesh(),
-                [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
+                [&](const auto& interface_cells, const auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
@@ -71,7 +71,7 @@ namespace samurai
             // Boundary interfaces
             scheme().for_each_boundary_interface(
                 input_field.mesh(),
-                [&](auto& cell, auto& comput_cells, auto& coeffs)
+                [&](const auto& cell, const auto& comput_cells, auto& coeffs)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
@@ -116,7 +116,7 @@ namespace samurai
             // Interior interfaces
             scheme().for_each_interior_interface(
                 input_field,
-                [&](auto& interface_cells, auto& left_cell_contrib, auto& right_cell_contrib)
+                [&](const auto& interface_cells, auto& left_cell_contrib, auto& right_cell_contrib)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
@@ -128,7 +128,7 @@ namespace samurai
             // Boundary interfaces
             scheme().for_each_boundary_interface(
                 input_field,
-                [&](auto& cell, auto& contrib)
+                [&](const auto& cell, auto& contrib)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
