@@ -9,21 +9,18 @@ namespace samurai
      */
     template <class cfg, class bdry_cfg>
     class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
-        : public FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>
+        : public FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>
     {
       public:
 
-        using base_class = FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>;
 
         using base_class::dim;
         using base_class::field_size;
         using base_class::output_field_size;
-        using field_value_type = typename base_class::field_value_type;
 
-        using input_field_t  = typename cfg::input_field_t;
-        using field_t        = input_field_t;
-        using mesh_t         = typename field_t::mesh_t;
-        using output_field_t = Field<mesh_t, field_value_type, output_field_size, input_field_t::is_soa>;
+        using input_field_t = typename base_class::input_field_t;
+        using mesh_t        = typename base_class::mesh_t;
 
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
@@ -70,22 +67,6 @@ namespace samurai
             {
                 return flux_value(field_i);
             }
-        }
-
-        /**
-         * Explicit application of the scheme
-         */
-
-        auto operator()(input_field_t& input_field) const
-        {
-            auto explicit_scheme = make_explicit(*this);
-            return explicit_scheme.apply_to(input_field);
-        }
-
-        void apply(output_field_t& output_field, input_field_t& input_field) const
-        {
-            auto explicit_scheme = make_explicit(*this);
-            explicit_scheme.apply(output_field, input_field);
         }
 
         /**
@@ -175,7 +156,7 @@ namespace samurai
          * Iterates for each boundary interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <class Func>
-        void for_each_boundary_interface(field_t& field, Func&& apply_contrib) const
+        void for_each_boundary_interface(input_field_t& field, Func&& apply_contrib) const
         {
             auto& mesh = field.mesh();
             for (std::size_t d = 0; d < dim; ++d)

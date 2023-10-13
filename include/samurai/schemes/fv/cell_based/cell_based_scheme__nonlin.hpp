@@ -5,9 +5,9 @@ namespace samurai
 {
     template <class cfg, class bdry_cfg>
     class CellBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
-        : public FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>
+        : public FVScheme<CellBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>
     {
-        using base_class = FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<CellBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>;
 
       public:
 
@@ -17,11 +17,9 @@ namespace samurai
 
         using cfg_t            = cfg;
         using bdry_cfg_t       = bdry_cfg;
-        using input_field_t    = typename cfg::input_field_t;
-        using field_t          = input_field_t;
-        using mesh_t           = typename input_field_t::mesh_t;
-        using field_value_type = typename input_field_t::value_type;
-        using output_field_t   = Field<mesh_t, field_value_type, output_field_size, input_field_t::is_soa>;
+        using input_field_t    = typename base_class::input_field_t;
+        using mesh_t           = typename base_class::mesh_t;
+        using field_value_type = typename base_class::field_value_type;
 
         using scheme_definition_t  = CellBasedSchemeDefinition<cfg>;
         using scheme_stencil_t     = typename scheme_definition_t::scheme_stencil_t;
@@ -79,7 +77,7 @@ namespace samurai
             m_scheme_definition.scheme_function = scheme_function;
         }
 
-        auto contribution(stencil_cells_t& stencil_cells, field_t& field) const
+        auto contribution(stencil_cells_t& stencil_cells, input_field_t& field) const
         {
             return m_scheme_definition.scheme_function(stencil_cells, field);
         }
@@ -94,25 +92,9 @@ namespace samurai
             return m_scheme_definition.jacobian_function;
         }
 
-        auto jacobian_coefficients(stencil_cells_t& stencil_cells, field_t& field) const
+        auto jacobian_coefficients(stencil_cells_t& stencil_cells, input_field_t& field) const
         {
             return m_scheme_definition.jacobian_function(stencil_cells, field);
-        }
-
-        /**
-         * Explicit application of the scheme
-         */
-
-        auto operator()(input_field_t& input_field) const
-        {
-            auto explicit_scheme = make_explicit(*this);
-            return explicit_scheme.apply_to(input_field);
-        }
-
-        void apply(output_field_t& output_field, input_field_t& input_field) const
-        {
-            auto explicit_scheme = make_explicit(*this);
-            explicit_scheme.apply(output_field, input_field);
         }
 
         inline field_value_type contrib_cmpnent(const scheme_value_t& coeffs, [[maybe_unused]] std::size_t field_i) const
@@ -147,7 +129,7 @@ namespace samurai
          * and receive the contribution computed from the stencil.
          */
         template <class Func>
-        void for_each_stencil_center(field_t& field, Func&& apply_contrib) const
+        void for_each_stencil_center(input_field_t& field, Func&& apply_contrib) const
         {
             for_each_stencil(field.mesh(),
                              stencil(),
@@ -163,7 +145,7 @@ namespace samurai
          * and receive the Jacobian coefficients.
          */
         template <class Func>
-        void for_each_stencil_and_coeffs(field_t& field, Func&& apply_jacobian_coeffs) const
+        void for_each_stencil_and_coeffs(input_field_t& field, Func&& apply_jacobian_coeffs) const
         {
             for_each_stencil(field.mesh(),
                              stencil(),

@@ -5,9 +5,9 @@ namespace samurai
 {
     template <class cfg, class bdry_cfg>
     class CellBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>>
-        : public FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>
+        : public FVScheme<CellBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>
     {
-        using base_class = FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<CellBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>;
 
       public:
 
@@ -15,12 +15,10 @@ namespace samurai
         using base_class::field_size;
         using base_class::output_field_size;
 
-        using cfg_t          = cfg;
-        using bdry_cfg_t     = bdry_cfg;
-        using input_field_t  = typename cfg::input_field_t;
-        using field_t        = input_field_t;
-        using mesh_t         = typename field_t::mesh_t;
-        using output_field_t = Field<mesh_t, typename input_field_t::value_type, output_field_size, input_field_t::is_soa>;
+        using cfg_t         = cfg;
+        using bdry_cfg_t    = bdry_cfg;
+        using input_field_t = typename base_class::input_field_t;
+        using mesh_t        = typename base_class::mesh_t;
 
         using scheme_definition_t   = CellBasedSchemeDefinition<cfg>;
         using scheme_stencil_t      = typename scheme_definition_t::scheme_stencil_t;
@@ -95,24 +93,8 @@ namespace samurai
             }
         }
 
-        /**
-         * Explicit application of the scheme
-         */
-
-        auto operator()(input_field_t& input_field) const
-        {
-            auto explicit_scheme = make_explicit(*this);
-            return explicit_scheme.apply_to(input_field);
-        }
-
-        void apply(output_field_t& output_field, input_field_t& input_field) const
-        {
-            auto explicit_scheme = make_explicit(*this);
-            explicit_scheme.apply(output_field, input_field);
-        }
-
         template <class Func>
-        void for_each_stencil_and_coeffs(field_t& field, Func&& apply_coeffs) const
+        void for_each_stencil_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
         {
             auto& mesh      = field.mesh();
             auto stencil_it = make_stencil_iterator(mesh, stencil());
