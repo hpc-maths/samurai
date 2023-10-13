@@ -57,8 +57,8 @@ namespace samurai
                         {
                             for (std::size_t c = 0; c < stencil_size; ++c)
                             {
-                                double left_cell_coeff  = scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
-                                double right_cell_coeff = scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
+                                double left_cell_coeff  = this->scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
+                                double right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
                                 field_value(output_field, interface_cells[0], field_i) += left_cell_coeff
                                                                                         * field_value(input_field, comput_cells[c], field_j);
                                 field_value(output_field, interface_cells[1], field_i) += right_cell_coeff

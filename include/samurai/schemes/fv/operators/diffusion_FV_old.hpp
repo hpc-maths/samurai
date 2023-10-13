@@ -19,13 +19,12 @@ namespace samurai
     {
         using base_class = CellBasedScheme<cfg, bdry_cfg>;
         using base_class::bdry_stencil_size;
+        using base_class::field_size;
 
       public:
 
         using field_value_type          = typename Field::value_type;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
-
-        static constexpr std::size_t field_size = Field::size;
 
         explicit DiffusionFV_old()
         {
