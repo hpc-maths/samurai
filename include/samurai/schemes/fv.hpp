@@ -7,7 +7,7 @@
 
 #include "fv/cell_based/cell_based_scheme__nonlin.hpp"
 #include "fv/cell_based/explicit_cell_based_scheme.hpp"
-#include "fv/explicit_sum_operators.hpp"
+#include "fv/explicit_operator_sum.hpp"
 #include "fv/flux_based/explicit_flux_based_scheme.hpp"
 #include "fv/scheme_operators.hpp"
 

@@ -26,6 +26,13 @@ namespace samurai
         }
     }
 
+    /**
+     * @class OperatorSum:
+     * Stores a list of operators that cannot be combined.
+     * When an explicit execution of is requested, the operators are executed sequentially (see @class Explicit<OperatorSum>).
+     * When a matrix assembly is requested for an implicit term, the operators add their coefficients sequentially
+     * (see @class Assembly<OperatorSum>).
+     */
     template <class... Operators>
     class OperatorSum
     {

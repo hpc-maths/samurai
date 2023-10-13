@@ -4,7 +4,7 @@
 #include "block_assembly.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
-#include "fv/scheme_operators_assembly.hpp"
+#include "fv/operator_sum_assembly.hpp"
 #ifdef ENABLE_MG
 #include "multigrid/petsc/GeometricMultigrid.hpp"
 #else
