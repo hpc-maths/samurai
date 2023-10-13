@@ -79,7 +79,7 @@ namespace samurai
                         {
                             for (std::size_t c = 0; c < stencil_size; ++c)
                             {
-                                double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
+                                double coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
                                 field_value(output_field, cell, field_i) += coeff * field_value(input_field, comput_cells[c], field_j);
                             }
                         }
