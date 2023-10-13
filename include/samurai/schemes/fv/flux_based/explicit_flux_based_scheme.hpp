@@ -1,6 +1,6 @@
 #pragma once
 // #include "../../../petsc/fv/flux_based_scheme_assembly.hpp"
-#include "../../explicit_scheme.hpp"
+#include "../explicit_FV_scheme.hpp"
 #include "flux_based_scheme__lin_hom.hpp"
 #include "flux_based_scheme__nonlin.hpp"
 
@@ -12,43 +12,28 @@ namespace samurai
     template <class cfg, class bdry_cfg>
     class Explicit<FluxBasedScheme<cfg, bdry_cfg>,
                    std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous || cfg::scheme_type == SchemeType::LinearHeterogeneous>>
+        : public ExplicitFVScheme<FluxBasedScheme<cfg, bdry_cfg>>
     {
-        using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg>;
-        using input_field_t                            = typename scheme_t::input_field_t;
-        using output_field_t                           = typename scheme_t::output_field_t;
-        using flux_stencil_coeffs_t                    = typename scheme_t::flux_stencil_coeffs_t;
+        using base_class = ExplicitFVScheme<FluxBasedScheme<cfg, bdry_cfg>>;
+
+        using scheme_t              = typename base_class::scheme_t;
+        using input_field_t         = typename base_class::input_field_t;
+        using output_field_t        = typename base_class::output_field_t;
+        using flux_stencil_coeffs_t = typename scheme_t::flux_stencil_coeffs_t;
+        using base_class::scheme;
+
         static constexpr std::size_t field_size        = input_field_t::size;
         static constexpr std::size_t output_field_size = scheme_t::output_field_size;
         static constexpr std::size_t stencil_size      = cfg::stencil_size;
 
-      private:
-
-        const scheme_t* m_scheme = nullptr;
-
       public:
 
         explicit Explicit(const scheme_t& scheme)
-            : m_scheme(&scheme)
+            : base_class(scheme)
         {
         }
 
-        auto& scheme() const
-        {
-            return *m_scheme;
-        }
-
-        auto apply_to(input_field_t& input_field) const
-        {
-            output_field_t output_field(scheme().name() + "(" + input_field.name() + ")", input_field.mesh());
-            output_field.fill(0);
-
-            update_bc(input_field);
-            apply(output_field, input_field);
-
-            return output_field;
-        }
-
-        void apply(output_field_t& output_field, input_field_t& input_field) const
+        void apply(output_field_t& output_field, input_field_t& input_field) const override
         {
             /**
              * Implementation by matrix-vector multiplication
@@ -108,40 +93,25 @@ namespace samurai
      */
     template <class cfg, class bdry_cfg>
     class Explicit<FluxBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
+        : public ExplicitFVScheme<FluxBasedScheme<cfg, bdry_cfg>>
     {
-        using scheme_t                                 = FluxBasedScheme<cfg, bdry_cfg>;
-        using input_field_t                            = typename scheme_t::input_field_t;
-        using output_field_t                           = typename scheme_t::output_field_t;
+        using base_class = ExplicitFVScheme<FluxBasedScheme<cfg, bdry_cfg>>;
+
+        using scheme_t       = typename base_class::scheme_t;
+        using input_field_t  = typename base_class::input_field_t;
+        using output_field_t = typename base_class::output_field_t;
+        using base_class::scheme;
+
         static constexpr std::size_t output_field_size = scheme_t::output_field_size;
-
-      protected:
-
-        const scheme_t* m_scheme = nullptr;
 
       public:
 
         explicit Explicit(const scheme_t& scheme)
-            : m_scheme(&scheme)
+            : base_class(scheme)
         {
         }
 
-        auto& scheme() const
-        {
-            return *m_scheme;
-        }
-
-        auto apply_to(input_field_t& input_field) const
-        {
-            output_field_t output_field(scheme().name() + "(" + input_field.name() + ")", input_field.mesh());
-            output_field.fill(0);
-
-            update_bc(input_field);
-            apply(output_field, input_field);
-
-            return output_field;
-        }
-
-        void apply(output_field_t& output_field, input_field_t& input_field) const
+        void apply(output_field_t& output_field, input_field_t& input_field) const override
         {
             // Interior interfaces
             scheme().for_each_interior_interface(
