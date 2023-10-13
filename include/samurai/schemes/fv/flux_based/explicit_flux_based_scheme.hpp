@@ -120,8 +120,10 @@ namespace samurai
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        field_value(output_field, interface_cells[0], field_i) += scheme().flux_value_cmpnent(left_cell_contrib, field_i);
-                        field_value(output_field, interface_cells[1], field_i) += scheme().flux_value_cmpnent(right_cell_contrib, field_i);
+                        field_value(output_field, interface_cells[0], field_i) += this->scheme().flux_value_cmpnent(left_cell_contrib,
+                                                                                                                    field_i);
+                        field_value(output_field, interface_cells[1], field_i) += this->scheme().flux_value_cmpnent(right_cell_contrib,
+                                                                                                                    field_i);
                     }
                 });
 
@@ -132,7 +134,7 @@ namespace samurai
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        field_value(output_field, cell, field_i) += scheme().flux_value_cmpnent(contrib, field_i);
+                        field_value(output_field, cell, field_i) += this->scheme().flux_value_cmpnent(contrib, field_i);
                     }
                 });
         }
