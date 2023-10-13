@@ -93,8 +93,8 @@ namespace samurai
     /**
      * Binary '-' operator if same config
      */
-    template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
-    auto operator-(const CellBasedScheme<cfg1, bdry_cfg1>& scheme1, const CellBasedScheme<cfg2, bdry_cfg2>& scheme2)
+    template <class cfg, class bdry_cfg>
+    auto operator-(const CellBasedScheme<cfg, bdry_cfg>& scheme1, const CellBasedScheme<cfg, bdry_cfg>& scheme2)
     {
         return scheme1 + ((-1) * scheme2);
     }

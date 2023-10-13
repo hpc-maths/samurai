@@ -4,7 +4,6 @@
 
 namespace samurai
 {
-
     template <class... Operators>
     constexpr SchemeType scheme_type_of_sum()
     {
@@ -160,8 +159,10 @@ namespace samurai
     }
 
     /**
-     * Operator '+'
+     * Operator '+' between FluxBasedScheme and CellBasedScheme
      */
+
+    // 2 uncombinable FluxBasedSchemes
     template <class cfg1,
               class bdry_cfg1,
               class cfg2,
@@ -172,6 +173,7 @@ namespace samurai
         return make_operator_sum(scheme1, scheme2);
     }
 
+    // 2 uncombinable CellBasedSchemes
     template <class cfg1,
               class bdry_cfg1,
               class cfg2,
@@ -182,29 +184,36 @@ namespace samurai
         return make_operator_sum(scheme1, scheme2);
     }
 
+    // FluxBasedScheme + CellBasedScheme
     template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
     auto operator+(const FluxBasedScheme<cfg1, bdry_cfg1>& scheme1, const CellBasedScheme<cfg2, bdry_cfg2>& scheme2)
     {
         return make_operator_sum(scheme1, scheme2);
     }
 
+    // CellBasedScheme + FluxBasedScheme
     template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
     auto operator+(const CellBasedScheme<cfg1, bdry_cfg1>& scheme1, const FluxBasedScheme<cfg2, bdry_cfg2>& scheme2)
     {
         return make_operator_sum(scheme1, scheme2);
     }
 
+    /**
+     * Operator '+' between OperatorSum and CellBasedScheme
+     */
+
     template <class Scheme, class... Operators>
     constexpr bool scheme_is_combinable = std::disjunction_v<std::is_same<Operators, Scheme>...>;
 
+    // OperatorSum + combinable CellBasedScheme
     template <class cfg, class bdry_cfg, class... Operators>
-    auto operator+(const OperatorSum<Operators...>& sum_scheme, const CellBasedScheme<cfg, bdry_cfg>& scheme)
+    auto operator+(OperatorSum<Operators...>& sum_scheme, const CellBasedScheme<cfg, bdry_cfg>& scheme)
         -> std::enable_if_t<scheme_is_combinable<CellBasedScheme<cfg, bdry_cfg>, Operators...>, OperatorSum<Operators...>>
     {
         for_each(sum_scheme.operators(),
                  [&](auto& op)
                  {
-                     if constexpr (std::is_same_v<CellBasedScheme<cfg, bdry_cfg>, decltype(op)>)
+                     if constexpr (std::is_same_v<CellBasedScheme<cfg, bdry_cfg>, std::decay_t<decltype(op)>>)
                      {
                          op = op + scheme;
                      }
@@ -212,8 +221,27 @@ namespace samurai
         return sum_scheme;
     }
 
+    // combinable CellBasedScheme + OperatorSum
+    template <class cfg, class bdry_cfg, class... Operators>
+    auto operator+(const CellBasedScheme<cfg, bdry_cfg>& scheme, OperatorSum<Operators...>& sum_scheme)
+        -> std::enable_if_t<scheme_is_combinable<CellBasedScheme<cfg, bdry_cfg>, Operators...>, OperatorSum<Operators...>>
+    {
+        return sum_scheme + scheme;
+    }
+
+    // OperatorSum + uncombinable CellBasedScheme
     template <class cfg, class bdry_cfg, class... Operators>
     auto operator+(const OperatorSum<Operators...>& sum_scheme, const CellBasedScheme<cfg, bdry_cfg>& scheme)
+        -> std::enable_if_t<!scheme_is_combinable<CellBasedScheme<cfg, bdry_cfg>, Operators...>,
+                            OperatorSum<Operators..., CellBasedScheme<cfg, bdry_cfg>>>
+    {
+        auto added = std::tuple_cat(sum_scheme.operators(), std::make_tuple(scheme));
+        return make_operator_sum(added);
+    }
+
+    // uncombinable CellBasedScheme + OperatorSum
+    template <class cfg, class bdry_cfg, class... Operators>
+    auto operator+(const CellBasedScheme<cfg, bdry_cfg>& scheme, const OperatorSum<Operators...>& sum_scheme)
         -> std::enable_if_t<!scheme_is_combinable<CellBasedScheme<cfg, bdry_cfg>, Operators...>,
                             OperatorSum<CellBasedScheme<cfg, bdry_cfg>, Operators...>>
     {
@@ -221,6 +249,9 @@ namespace samurai
         return make_operator_sum(added);
     }
 
+    /**
+     * Operator '-' between FluxBasedScheme and CellBasedScheme
+     */
     template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
     auto operator-(const FluxBasedScheme<cfg1, bdry_cfg1>& scheme1, const CellBasedScheme<cfg2, bdry_cfg2>& scheme2)
     {
@@ -233,10 +264,48 @@ namespace samurai
         return make_operator_sum(scheme1, -scheme2);
     }
 
+    /**
+     * Operator '-' between OperatorSum and CellBasedScheme
+     */
     template <class cfg, class bdry_cfg, class... Operators>
     auto operator-(const OperatorSum<Operators...>& sum_scheme, const CellBasedScheme<cfg, bdry_cfg>& scheme)
     {
         return sum_scheme + ((-1) * scheme);
+    }
+
+    template <class cfg, class bdry_cfg, class... Operators>
+    auto operator-(const CellBasedScheme<cfg, bdry_cfg>& scheme, const OperatorSum<Operators...>& sum_scheme)
+    {
+        return scheme + ((-1) * sum_scheme);
+    }
+
+    /**
+     * Operator '-' between OperatorSum and FluxBasedScheme
+     */
+    template <class cfg, class bdry_cfg, class... Operators>
+    auto operator-(const OperatorSum<Operators...>& sum_scheme, const FluxBasedScheme<cfg, bdry_cfg>& scheme)
+    {
+        return sum_scheme + ((-1) * scheme);
+    }
+
+    template <class cfg, class bdry_cfg, class... Operators>
+    auto operator-(const FluxBasedScheme<cfg, bdry_cfg>& scheme, const OperatorSum<Operators...>& sum_scheme)
+    {
+        return scheme + ((-1) * sum_scheme);
+    }
+
+    /**
+     * Multiplication by scalar
+     */
+    template <class... Operators>
+    OperatorSum<Operators...> operator*(double scalar, OperatorSum<Operators...>&& sum_scheme)
+    {
+        for_each(sum_scheme.operators(),
+                 [&](auto& op)
+                 {
+                     op = scalar * op;
+                 });
+        return sum_scheme;
     }
 
 } // end namespace samurai
