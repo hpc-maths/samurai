@@ -168,8 +168,7 @@ int main(int argc, char* argv[])
         samurai::update_ghost_mr(u);
         unp1.resize();
 
-        auto conv_u = conv(u);
-        unp1        = u - dt * conv_u;
+        unp1 = u - dt * conv(u);
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());

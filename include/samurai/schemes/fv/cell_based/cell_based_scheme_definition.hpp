@@ -79,9 +79,10 @@ namespace samurai
     template <class cfg>
     struct CellBasedSchemeDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>> : CellBasedSchemeDefinitionBase<cfg>
     {
-        using field_t          = typename cfg::input_field_t;
-        using field_value_type = typename field_t::value_type;
-        using cell_t           = typename field_t::cell_t;
+        using field_t                           = typename cfg::input_field_t;
+        using field_value_type                  = typename field_t::value_type;
+        using cell_t                            = typename field_t::cell_t;
+        static constexpr std::size_t field_size = field_t::size;
 
         using stencil_cells_t = std::array<cell_t, cfg::scheme_stencil_size>;
 
@@ -89,17 +90,17 @@ namespace samurai
         using scheme_value_t = typename detail::FixedVector<field_value_type, cfg::output_field_size>::Type;
         using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, field_t&)>;
 
-        // using jac_t         = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
-        // using jacobian_func = std::function<flux_jac_t(stencil_cells_t&, field_t&)>;
+        using jac_coeffs_t         = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        using jac_stencil_coeffs_t = xt::xtensor_fixed<jac_coeffs_t, xt::xshape<cfg::scheme_stencil_size>>;
+        using jacobian_func        = std::function<jac_stencil_coeffs_t(stencil_cells_t&, field_t&)>;
 
-        scheme_func scheme_function = nullptr;
-
-        // jacobian_func jac_function = nullptr;
+        scheme_func scheme_function     = nullptr;
+        jacobian_func jacobian_function = nullptr;
 
         ~CellBasedSchemeDefinition()
         {
-            scheme_function = nullptr;
-            // jac_function = nullptr;
+            scheme_function   = nullptr;
+            jacobian_function = nullptr;
         }
     };
 

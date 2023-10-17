@@ -278,8 +278,7 @@ int main_dim(int argc, char* argv[])
                                                  });
         }
 
-        auto conv_u = conv(u);
-        unp1        = u - dt * conv_u;
+        unp1 = u - dt * conv(u);
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());

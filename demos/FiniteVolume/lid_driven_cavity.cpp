@@ -10,24 +10,6 @@
 #include <samurai/petsc.hpp>
 #include <samurai/reconstruction.hpp>
 
-template <class Field>
-bool check_nan_or_inf(const Field& f)
-{
-    std::size_t n      = f.mesh().nb_cells();
-    bool is_nan_or_inf = false;
-    for (std::size_t i = 0; i < n * Field::size; ++i)
-    {
-        double value = f.array().data()[i];
-        if (std::isnan(value) || std::isinf(value) || (abs(value) < 1e-300 && abs(value) != 0))
-        {
-            is_nan_or_inf = true;
-            std::cout << f << std::endl;
-            break;
-        }
-    }
-    return !is_nan_or_inf;
-}
-
 template <class Solver>
 void configure_direct_solver(Solver& solver)
 {
@@ -38,7 +20,6 @@ void configure_direct_solver(Solver& solver)
     PCSetType(pc, PCQR);         // (equiv. '-pc_type qr')
     // KSP and PC overwritten by user value if needed
     KSPSetFromOptions(ksp);
-    // If neither SuperLU nor MUMPS is installed, you can try: -ksp_type gmres -pc_type ilu
 }
 
 //
@@ -153,7 +134,7 @@ int main(int argc, char* argv[])
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     app.add_flag("--export-velocity", export_velocity, "Export velocity field")->capture_default_str()->group("Ouput");
-    app.add_flag("--export_reconstruct", export_reconstruct, "Export reconstructed fields")->capture_default_str()->group("Ouput");
+    app.add_flag("--export-reconstruct", export_reconstruct, "Export reconstructed fields")->capture_default_str()->group("Ouput");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
 
@@ -277,7 +258,7 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Dirichlet>(ink, 0.);
 
     // Initial condition
-    samurai::for_each_cell(mesh,
+    samurai::for_each_cell(mesh2,
                            [&](auto& cell)
                            {
                                double x = cell.center(0);
@@ -374,9 +355,7 @@ int main(int argc, char* argv[])
         }
 
         // Solve Stokes system
-        rhs.fill(0);
-        auto conv_v = conv(velocity);
-        rhs         = velocity - dt * conv_v;
+        rhs = velocity - dt * conv(velocity);
         zero.fill(0);
         stokes_solver.solve(rhs, zero);
 
@@ -390,8 +369,7 @@ int main(int argc, char* argv[])
 
         // Ink convection
         samurai::update_ghost_mr(velocity2);
-        auto conv_ink = conv2(ink);
-        ink_np1       = ink - dt * conv_ink;
+        ink_np1 = ink - dt * conv2(ink);
 
         // Prepare next step
         std::swap(velocity.array(), velocity_np1.array());

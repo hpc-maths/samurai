@@ -248,7 +248,7 @@ namespace samurai
                 }
                 else if constexpr (field_t::is_soa)
                 {
-                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells + cell.index);
+                    return m_col_shift + static_cast<PetscInt>(field_j * static_cast<index_t>(m_n_cells) + cell.index);
                 }
                 else
                 {
@@ -265,7 +265,7 @@ namespace samurai
                 }
                 else if constexpr (field_t::is_soa)
                 {
-                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells + cell.index);
+                    return m_row_shift + static_cast<PetscInt>(field_i * static_cast<index_t>(m_n_cells) + cell.index);
                 }
                 else
                 {
@@ -405,6 +405,14 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
+                if (unknown().get_bc().empty())
+                {
+                    std::cerr << "Failure to assemble to boundary conditions in the operator '" << this->name()
+                              << "': no boundary condition attached to the field '" << unknown().name() << "'." << std::endl;
+                    assert(false);
+                    return;
+                }
+
                 // std::cout << "assemble_boundary_conditions of " << this->name() << std::endl;
                 if (current_insert_mode() == ADD_VALUES)
                 {
@@ -478,7 +486,7 @@ namespace samurai
                             PetscInt equation_row = col_index(equation_ghost, field_i);
                             PetscInt col          = col_index(cells[c], field_i);
 
-                            double coeff = scheme().cell_coeff(eq.stencil_coeffs, c, field_i, field_i);
+                            double coeff = scheme().bdry_cell_coeff(eq.stencil_coeffs, c, field_i, field_i);
 
                             if (coeff != 0)
                             {
@@ -617,7 +625,7 @@ namespace samurai
             //                      Useless ghosts                         //
             //-------------------------------------------------------------//
 
-            void add_1_on_diag_for_useless_ghosts(Mat& A) override
+            void set_1_on_diag_for_useless_ghosts(Mat& A) override
             {
                 if (current_insert_mode() == ADD_VALUES)
                 {
@@ -626,7 +634,7 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
                 }
-                // std::cout << "add_1_on_diag_for_useless_ghosts of " << this->name() << std::endl;
+                // std::cout << "set_1_on_diag_for_useless_ghosts of " << this->name() << std::endl;
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
                     if (m_is_row_empty[i])
@@ -645,7 +653,7 @@ namespace samurai
                 }
             }
 
-            void add_0_for_useless_ghosts(Vec& b) const
+            void set_0_for_useless_ghosts(Vec& b) const
             {
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
@@ -653,6 +661,24 @@ namespace samurai
                     {
                         VecSetValue(b, m_row_shift + static_cast<PetscInt>(i), 0, INSERT_VALUES);
                     }
+                }
+            }
+
+            void set_0_for_all_ghosts(Vec& b) const
+            {
+                for (std::size_t level = mesh().min_level(); level <= mesh().max_level(); ++level)
+                {
+                    auto ghosts = difference(mesh()[mesh_id_t::reference][level], mesh()[mesh_id_t::cells][level]);
+
+                    for_each_cell(mesh(),
+                                  ghosts,
+                                  [&](auto& ghost)
+                                  {
+                                      for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                      {
+                                          VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
+                                      }
+                                  });
                 }
             }
 
@@ -718,9 +744,9 @@ namespace samurai
                 for_each_projection_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
-                                              for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                               {
-                                                  VecSetValue(b, col_index(ghost, field_i), 0, INSERT_VALUES);
+                                                  VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
                                               }
                                           });
 
@@ -728,9 +754,9 @@ namespace samurai
                 for_each_prediction_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
-                                              for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                               {
-                                                  VecSetValue(b, col_index(ghost, field_i), 0, INSERT_VALUES);
+                                                  VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
                                               }
                                           });
             }

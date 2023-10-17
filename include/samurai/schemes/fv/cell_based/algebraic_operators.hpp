@@ -28,6 +28,10 @@ namespace samurai
             {
                 return scalar * scheme.scheme_function()(cells, field);
             };
+            multiplied_scheme.jacobian_function() = [=](stencil_cells_t& cells, field_t& field)
+            {
+                return scalar * scheme.jacobian_function()(cells, field);
+            };
         }
         return multiplied_scheme;
     }
@@ -57,33 +61,12 @@ namespace samurai
             {
                 return scheme1.scheme_function()(cells, field) + scheme2.scheme_function()(cells, field);
             };
+            addition_scheme.jacobian_function() = [=](stencil_cells_t& cells, field_t& field)
+            {
+                return scheme1.jacobian_function()(cells, field) + scheme2.jacobian_function()(cells, field);
+            };
         }
         return addition_scheme;
-    }
-
-    /**
-     * Binary '+' operator if different configs
-     */
-    template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
-    struct Sum_CellBasedSchemes
-    {
-        using Scheme1 = CellBasedScheme<cfg1, bdry_cfg1>;
-        using Scheme2 = CellBasedScheme<cfg2, bdry_cfg2>;
-
-        Scheme1 scheme1;
-        Scheme2 scheme2;
-
-        Sum_CellBasedSchemes(const Scheme1& s1, const Scheme2& s2)
-            : scheme1(s1)
-            , scheme2(s2)
-        {
-        }
-    };
-
-    template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
-    auto operator+(const CellBasedScheme<cfg1, bdry_cfg1>& scheme1, const CellBasedScheme<cfg2, bdry_cfg2>& scheme2)
-    {
-        return Sum_CellBasedSchemes<cfg1, bdry_cfg1, cfg2, bdry_cfg2>(scheme1, scheme2);
     }
 
     /**
@@ -110,8 +93,8 @@ namespace samurai
     /**
      * Binary '-' operator if same config
      */
-    template <class cfg1, class bdry_cfg1, class cfg2, class bdry_cfg2>
-    auto operator-(const CellBasedScheme<cfg1, bdry_cfg1>& scheme1, const CellBasedScheme<cfg2, bdry_cfg2>& scheme2)
+    template <class cfg, class bdry_cfg>
+    auto operator-(const CellBasedScheme<cfg, bdry_cfg>& scheme1, const CellBasedScheme<cfg, bdry_cfg>& scheme2)
     {
         return scheme1 + ((-1) * scheme2);
     }

@@ -9,19 +9,18 @@ namespace samurai
      */
     template <class cfg, class bdry_cfg>
     class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
-        : public FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>
+        : public FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>
     {
       public:
 
-        using field_t = typename cfg::input_field_t;
-
-        using base_class = FVScheme<field_t, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>;
 
         using base_class::dim;
         using base_class::field_size;
         using base_class::output_field_size;
-        using field_value_type = typename base_class::field_value_type;
-        using mesh_t           = typename field_t::mesh_t;
+
+        using input_field_t = typename base_class::input_field_t;
+        using mesh_t        = typename base_class::mesh_t;
 
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
@@ -58,22 +57,15 @@ namespace samurai
             return (face_measure / cell_measure) * flux_value;
         }
 
-        auto operator()(field_t& field)
-        {
-            auto explicit_scheme = make_explicit(*this);
-            return explicit_scheme.apply_to(field);
-        }
-
-        template <class Coeffs>
-        inline static double cell_coeff(const Coeffs& coeffs, [[maybe_unused]] std::size_t field_i)
+        inline double flux_value_cmpnent(const flux_value_t& flux_value, [[maybe_unused]] std::size_t field_i) const
         {
             if constexpr (output_field_size == 1)
             {
-                return coeffs;
+                return flux_value;
             }
             else
             {
-                return coeffs(field_i);
+                return flux_value(field_i);
             }
         }
 
@@ -81,7 +73,7 @@ namespace samurai
          * Iterates for each interior interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <class Func>
-        void for_each_interior_interface(field_t& field, Func&& apply_contrib) const
+        void for_each_interior_interface(input_field_t& field, Func&& apply_contrib) const
         {
             using mesh_id_t = typename mesh_t::mesh_id_t;
 
@@ -164,7 +156,7 @@ namespace samurai
          * Iterates for each boundary interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <class Func>
-        void for_each_boundary_interface(field_t& field, Func&& apply_contrib) const
+        void for_each_boundary_interface(input_field_t& field, Func&& apply_contrib) const
         {
             auto& mesh = field.mesh();
             for (std::size_t d = 0; d < dim; ++d)

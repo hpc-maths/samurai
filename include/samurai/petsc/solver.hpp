@@ -4,7 +4,7 @@
 #include "block_assembly.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
-#include "fv/scheme_operators_assembly.hpp"
+#include "fv/operator_sum_assembly.hpp"
 #ifdef ENABLE_MG
 #include "multigrid/petsc/GeometricMultigrid.hpp"
 #else
@@ -157,7 +157,7 @@ namespace samurai
                 // Set to zero the right-hand side of the ghost equations
                 assembly().enforce_projection_prediction(b);
                 // Set to zero the right-hand side of the useless ghosts' equations
-                assembly().add_0_for_useless_ghosts(b);
+                assembly().set_0_for_useless_ghosts(b);
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
 
@@ -527,7 +527,7 @@ namespace samurai
          * Helper functions
          */
 
-        template <class Scheme>
+        template <class Scheme, std::enable_if_t<Scheme::cfg_t::scheme_type != SchemeType::NonLinear, bool> = true>
         auto make_solver(const Scheme& scheme)
         {
             return SingleFieldSolver<Assembly<Scheme>>(scheme);
@@ -535,6 +535,13 @@ namespace samurai
 
         template <class Scheme>
         void solve(const Scheme& scheme, typename Scheme::field_t& unknown, const typename Scheme::field_t& rhs)
+        {
+            auto solver = make_solver(scheme);
+            solver.solve(unknown, rhs);
+        }
+
+        template <class Scheme>
+        void solve(const Scheme& scheme, typename Scheme::field_t& unknown, typename Scheme::field_t& rhs)
         {
             auto solver = make_solver(scheme);
             solver.solve(unknown, rhs);

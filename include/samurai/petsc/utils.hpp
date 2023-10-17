@@ -11,6 +11,7 @@ namespace samurai
             Vec v;
             auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::size);
             VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, f.array().data(), &v);
+            PetscObjectSetName(reinterpret_cast<PetscObject>(v), f.name().data());
             return v;
         }
 
@@ -23,11 +24,10 @@ namespace samurai
             VecGetSize(v, &n_vec);
             assert(n == n_vec);
 
-            for (PetscInt i = 0; i < n; ++i)
-            {
-                double value = f.array().data()[i];
-                VecSetValues(v, 1, &i, &value, INSERT_VALUES);
-            }
+            double* v_data;
+            VecGetArray(v, &v_data);
+            std::copy(f.array().begin(), f.array().end(), v_data);
+            VecRestoreArray(v, &v_data);
         }
 
         template <class Field>

@@ -36,7 +36,7 @@ namespace samurai
                     [&](auto& op, auto row, auto col)
                     {
                         bool diagonal_block = (row == col);
-                        op.add_1_on_diag_for_useless_ghosts_if(diagonal_block);
+                        op.set_1_on_diag_for_useless_ghosts_if(diagonal_block);
                         op.include_bc_if(diagonal_block);
                         op.assemble_proj_pred_if(diagonal_block);
                     });
@@ -266,16 +266,16 @@ namespace samurai
                     });
             }
 
-            void add_0_for_useless_ghosts(Vec& b) const
+            void set_0_for_useless_ghosts(Vec& b) const
             {
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto)
                     {
-                        if (op.must_add_1_on_diag_for_useless_ghosts())
+                        if (op.must_set_1_on_diag_for_useless_ghosts())
                         {
                             Vec b_block;
                             VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
-                            op.add_0_for_useless_ghosts(b_block);
+                            op.set_0_for_useless_ghosts(b_block);
                         }
                     });
             }
@@ -452,7 +452,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        if (op.must_add_1_on_diag_for_useless_ghosts())
+                        if (op.must_set_1_on_diag_for_useless_ghosts())
                         {
                             op.sparsity_pattern_useless_ghosts(nnz);
                         }
@@ -510,14 +510,14 @@ namespace samurai
                     });
             }
 
-            void add_1_on_diag_for_useless_ghosts(Mat& A) override
+            void set_1_on_diag_for_useless_ghosts(Mat& A) override
             {
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        if (op.must_add_1_on_diag_for_useless_ghosts())
+                        if (op.must_set_1_on_diag_for_useless_ghosts())
                         {
-                            op.add_1_on_diag_for_useless_ghosts(A);
+                            op.set_1_on_diag_for_useless_ghosts(A);
                         }
                     });
             }
@@ -593,14 +593,14 @@ namespace samurai
                     });
             }
 
-            void add_0_for_useless_ghosts(Vec& b) const
+            void set_0_for_useless_ghosts(Vec& b) const
             {
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        if (op.must_add_1_on_diag_for_useless_ghosts())
+                        if (op.must_set_1_on_diag_for_useless_ghosts())
                         {
-                            op.add_0_for_useless_ghosts(b);
+                            op.set_0_for_useless_ghosts(b);
                         }
                     });
             }

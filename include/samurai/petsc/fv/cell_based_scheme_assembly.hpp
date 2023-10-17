@@ -7,7 +7,11 @@ namespace samurai
     namespace petsc
     {
         template <class Scheme>
-        class Assembly<Scheme, std::enable_if_t<is_CellBasedScheme_v<Scheme>>> : public FVSchemeAssembly<Scheme>
+        class Assembly<Scheme,
+                       std::enable_if_t<is_CellBasedScheme_v<Scheme>
+                                        // && (Scheme::cfg_t::scheme_type == SchemeType::LinearHomogeneous
+                                        //     || Scheme::cfg_t::scheme_type == SchemeType::LinearHeterogeneous)
+                                        >> : public FVSchemeAssembly<Scheme>
         {
           protected:
 
@@ -23,6 +27,7 @@ namespace samurai
             using base_class::mesh;
             using base_class::scheme;
             using base_class::set_current_insert_mode;
+            using base_class::unknown;
 
           public:
 
@@ -94,12 +99,15 @@ namespace samurai
                     return;
                 }
 
-                auto coeffs = scheme().coefficients(cell_length(0));
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
                     PetscInt scheme_nnz_i = scheme_stencil_size * field_size;
-                    if constexpr (field_t::is_soa)
+
+                    // If LinearHomogeneous, take only the non-zero coefficients into account.
+                    // Not sure if this optimization really makes a difference though...
+                    if constexpr (cfg_t::scheme_type == SchemeType::LinearHomogeneous && field_t::is_soa)
                     {
+                        auto coeffs  = scheme().coefficients(cell_length(0));
                         scheme_nnz_i = 0;
                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                         {
@@ -159,17 +167,17 @@ namespace samurai
             {
                 // std::cout << "assemble_scheme() of " << this->name() << std::endl;
 
-                if (this->current_insert_mode() == ADD_VALUES)
+                if (this->current_insert_mode() == INSERT_VALUES)
                 {
-                    // Must flush to use INSERT_VALUES instead of ADD_VALUES
+                    // Must flush to use ADD_VALUES instead of INSERT_VALUES
                     MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
-                    set_current_insert_mode(INSERT_VALUES);
+                    set_current_insert_mode(ADD_VALUES);
                 }
 
                 // Apply the given coefficents to the given stencil
                 scheme().for_each_stencil_and_coeffs(
-                    mesh(),
+                    unknown(),
                     [&](const auto& cells, const auto& coeffs)
                     {
                         // std::cout << "coeffs: " << std::endl;
@@ -239,18 +247,10 @@ namespace samurai
                                     {
                                         for (unsigned int c = 0; c < cfg_t::contiguous_indices_start; ++c)
                                         {
-                                            double coeff;
-                                            if constexpr (field_size == 1 && output_field_size == 1)
-                                            {
-                                                coeff = coeffs[c];
-                                            }
-                                            else
-                                            {
-                                                coeff = coeffs[c](field_i, field_j);
-                                            }
+                                            double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                             if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
-                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, INSERT_VALUES);
+                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);
                                             }
                                         }
                                     }
@@ -259,14 +259,10 @@ namespace samurai
                                         std::array<double, cfg_t::contiguous_indices_size> contiguous_coeffs;
                                         for (unsigned int c = 0; c < cfg_t::contiguous_indices_size; ++c)
                                         {
-                                            if constexpr (field_size == 1 && output_field_size == 1)
-                                            {
-                                                contiguous_coeffs[c] = coeffs[cfg_t::contiguous_indices_start + c];
-                                            }
-                                            else
-                                            {
-                                                contiguous_coeffs[c] = coeffs[cfg_t::contiguous_indices_start + c](field_i, field_j);
-                                            }
+                                            contiguous_coeffs[c] = scheme().cell_coeff(coeffs,
+                                                                                       cfg_t::contiguous_indices_start + c,
+                                                                                       field_i,
+                                                                                       field_j);
                                         }
                                         // if (std::any_of(contiguous_coeffs.begin(),
                                         //                 contiguous_coeffs.end(),
@@ -281,7 +277,7 @@ namespace samurai
                                                      static_cast<PetscInt>(cfg_t::contiguous_indices_size),
                                                      &cols[local_col_index(cfg_t::contiguous_indices_start, field_j)],
                                                      contiguous_coeffs.data(),
-                                                     INSERT_VALUES);
+                                                     ADD_VALUES);
                                         // }
                                     }
                                     if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size
@@ -291,18 +287,10 @@ namespace samurai
                                              c < cfg_t::scheme_stencil_size;
                                              ++c)
                                         {
-                                            double coeff;
-                                            if constexpr (field_size == 1 && output_field_size == 1)
-                                            {
-                                                coeff = coeffs[c];
-                                            }
-                                            else
-                                            {
-                                                coeff = coeffs[c](field_i, field_j);
-                                            }
+                                            double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                             if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
-                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, INSERT_VALUES);
+                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);
                                             }
                                         }
                                     }
@@ -332,7 +320,7 @@ namespace samurai
                                              static_cast<PetscInt>(field_size),
                                              &cols[local_col_index(c, 0)],
                                              coeffs[c].data(),
-                                             INSERT_VALUES);
+                                             ADD_VALUES);
                             }
 
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)

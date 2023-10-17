@@ -11,18 +11,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <std::size_t dim>
-double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t, double diff_coeff)
-{
-    assert(t > 0 && "t must be > 0");
-    double result = 1;
-    for (std::size_t d = 0; d < dim; ++d)
-    {
-        result *= 1 / (2 * sqrt(M_PI * diff_coeff * t)) * exp(-coords(d) * coords(d) / (4 * diff_coeff * t));
-    }
-    return result;
-}
-
 template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
@@ -50,7 +38,13 @@ int main(int argc, char* argv[])
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
-    std::cout << "------------------------- Heat -------------------------" << std::endl;
+    std::cout << "------------------------- Nagumo -------------------------" << std::endl;
+
+    /**
+     * Nagumo, or Fisher-KPP equation:
+     *
+     * du/dt -D*Lap(u) = k u^2 (1-u)
+     */
 
     //--------------------//
     // Program parameters //
@@ -60,8 +54,10 @@ int main(int argc, char* argv[])
     double left_box  = -10;
     double right_box = 10;
 
-    double diff_coeff = 1;
-    double k          = 1;
+    double D = 1;
+    double k = 10;
+
+    bool explicit_reaction = false;
 
     // Time integration
     double Tf  = 1.;
@@ -71,7 +67,7 @@ int main(int argc, char* argv[])
     // Multiresolution parameters
     std::size_t min_level = 0;
     std::size_t max_level = 4;
-    double mr_epsilon     = 1e-4; // Threshold used by multiresolution
+    double mr_epsilon     = 1e-5; // Threshold used by multiresolution
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
@@ -82,10 +78,12 @@ int main(int argc, char* argv[])
     CLI::App app{"Finite volume example for the Nagumo equation"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--diff-coeff", diff_coeff, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--D", D, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--k", k, "Parameter of the reaction operator")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_flag("--explicit-reaction", explicit_reaction, "Explicit the reaction term")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
@@ -127,11 +125,25 @@ int main(int argc, char* argv[])
 
     auto u = samurai::make_field<1>("u", mesh);
 
+    double z0 = left_box / 5;    // wave initial position
+    double c  = sqrt(k * D / 2); // wave velocity
+
+    auto beta = [&](double z)
+    {
+        double e = exp(-sqrt(k / (2 * D)) * (z - z0));
+        return e / (1 + e);
+    };
+
+    auto exact_solution = [&](double x, double t)
+    {
+        return beta(x - c * t);
+    };
+
     // Initial solution
     samurai::for_each_cell(mesh,
                            [&](auto& cell)
                            {
-                               u[cell] = cell.center(0) < left_box / 4 ? 1 : 0;
+                               u[cell] = exact_solution(cell.center(0), 0);
                            });
 
     auto unp1 = samurai::make_field<1>("unp1", mesh);
@@ -139,7 +151,7 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
-    auto diff = samurai::make_diffusion<decltype(u)>(diff_coeff);
+    auto diff = samurai::make_diffusion<decltype(u)>(D);
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator
@@ -150,6 +162,11 @@ int main(int argc, char* argv[])
     {
         auto v = field[stencil_cells[0]];
         return k * v * v * (1 - v);
+    };
+    react.jacobian_function() = [&](auto& stencil_cells, auto& field)
+    {
+        auto v = field[stencil_cells[0]];
+        return k * (2 * v * (1 - v) - v * v);
     };
 
     //--------------------//
@@ -182,14 +199,35 @@ int main(int argc, char* argv[])
         samurai::update_ghost_mr(u);
         unp1.resize();
 
-        // u_np1 + dt*diff(u_np1) = u + dt*react(u)
-        auto back_euler = id + dt * diff;
-        auto react_u    = react(u);
-        auto rhs        = u + react_u;
-        samurai::petsc::solve(back_euler, unp1, rhs); // solves the linear equation   [Id + dt*Diff](unp1) = rhs
+        if (explicit_reaction)
+        {
+            // u_np1 + dt*diff(u_np1) = u + dt*react(u)
+            auto implicit_operator = id + dt * diff;
+            auto rhs               = u + dt * react(u);
+            // Solve the linear equation   [Id + dt*Diff](unp1) = rhs
+            samurai::petsc::solve(implicit_operator, unp1, rhs);
+        }
+        else
+        {
+            // u_np1 + dt*diff(u_np1) - dt*react(u_np1) = u
+            auto implicit_operator = id + dt * diff - dt * react;
+            // Set initial guess for the Newton algorithm
+            unp1 = u;
+            // Solve the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
+            samurai::petsc::solve(implicit_operator, unp1, u);
+        }
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
+
+        // Compute error
+        double error = samurai::L2_error(u,
+                                         [&](auto& coord)
+                                         {
+                                             return exact_solution(coord(0), t);
+                                         });
+        std::cout.precision(2);
+        std::cout << ", L2-error: " << std::scientific << error;
 
         // Save the result
         if (!save_final_state_only)

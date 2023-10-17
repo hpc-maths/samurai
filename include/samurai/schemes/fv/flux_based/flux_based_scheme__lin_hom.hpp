@@ -9,19 +9,16 @@ namespace samurai
      */
     template <class cfg, class bdry_cfg>
     class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>>
-        : public FVScheme<typename cfg::input_field_t, cfg::output_field_size, bdry_cfg>
+        : public FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>
     {
       public:
 
-        using field_t = typename cfg::input_field_t;
-
-        using base_class = FVScheme<field_t, cfg::output_field_size, bdry_cfg>;
+        using base_class = FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>;
 
         using base_class::dim;
         using base_class::field_size;
         using base_class::output_field_size;
-        using field_value_type = typename base_class::field_value_type;
-        using mesh_t           = typename field_t::mesh_t;
+        using mesh_t = typename base_class::mesh_t;
 
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
@@ -58,10 +55,19 @@ namespace samurai
             return (face_measure / cell_measure) * flux_coeffs;
         }
 
-        auto operator()(field_t& field)
+        inline double cell_coeff(const flux_stencil_coeffs_t& coeffs,
+                                 std::size_t cell_number_in_stencil,
+                                 [[maybe_unused]] std::size_t field_i,
+                                 [[maybe_unused]] std::size_t field_j) const
         {
-            auto explicit_scheme = make_explicit(*this);
-            return explicit_scheme.apply_to(field);
+            if constexpr (field_size == 1 && output_field_size == 1)
+            {
+                return coeffs[cell_number_in_stencil];
+            }
+            else
+            {
+                return coeffs[cell_number_in_stencil](field_i, field_j);
+            }
         }
 
         /**

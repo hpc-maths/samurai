@@ -86,28 +86,37 @@ namespace samurai
      *     - the boundary conditions
      *     - the projection/prediction ghosts
      *     - the unused ghosts
+     *     - the explicit application of the scheme
      */
-    template <class Field, std::size_t output_field_size_, class bdry_cfg_>
+    // template <class Field, std::size_t output_field_size_, class bdry_cfg_>
+    template <class DerivedScheme, class cfg_, class bdry_cfg_>
     class FVScheme
     {
       public:
 
-        using Mesh                                            = typename Field::mesh_t;
-        using mesh_id_t                                       = typename Mesh::mesh_id_t;
-        using interval_t                                      = typename Mesh::interval_t;
-        using field_value_type                                = typename Field::value_type; // double
+        using input_field_t    = typename cfg_::input_field_t;
+        using field_t          = input_field_t;
+        using mesh_t           = typename field_t::mesh_t;
+        using mesh_id_t        = typename mesh_t::mesh_id_t;
+        using interval_t       = typename mesh_t::interval_t;
+        using field_value_type = typename field_t::value_type; // double
+
+        using cfg                                             = cfg_;
         using bdry_cfg                                        = bdry_cfg_;
-        static constexpr std::size_t dim                      = Field::dim;
-        static constexpr std::size_t field_size               = Field::size;
-        static constexpr std::size_t output_field_size        = output_field_size_;
+        static constexpr std::size_t dim                      = field_t::dim;
+        static constexpr std::size_t field_size               = field_t::size;
+        static constexpr std::size_t output_field_size        = cfg::output_field_size;
         static constexpr std::size_t bdry_neighbourhood_width = bdry_cfg::neighbourhood_width;
         static constexpr std::size_t bdry_stencil_size        = bdry_cfg::stencil_size;
         static constexpr std::size_t nb_bdry_ghosts           = bdry_cfg::nb_ghosts;
 
-        using dirichlet_t = Dirichlet<Field>;
-        using neumann_t   = Neumann<Field>;
+        using output_field_t = Field<mesh_t, field_value_type, output_field_size, input_field_t::is_soa>;
 
-        using directional_bdry_config_t = DirectionalBoundaryConfig<Field, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
+        using dirichlet_t = Dirichlet<field_t>;
+        using neumann_t   = Neumann<field_t>;
+
+        using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
+        using bdry_stencil_coeffs_t     = typename directional_bdry_config_t::bdry_equation_config_t::stencil_coeffs_t;
 
       private:
 
@@ -136,13 +145,45 @@ namespace samurai
             m_name = name;
         }
 
-        virtual ~FVScheme() = default;
+        virtual ~FVScheme()
+        {
+            m_name += " (deleted)";
+        }
 
-        template <class Coeffs>
-        inline static double cell_coeff(const Coeffs& coeffs,
-                                        std::size_t cell_number_in_stencil,
-                                        [[maybe_unused]] std::size_t field_i,
-                                        [[maybe_unused]] std::size_t field_j)
+        DerivedScheme& derived_cast() & noexcept
+        {
+            return *static_cast<DerivedScheme*>(this);
+        }
+
+        const DerivedScheme& derived_cast() const& noexcept
+        {
+            return *static_cast<const DerivedScheme*>(this);
+        }
+
+        DerivedScheme derived_cast() && noexcept
+        {
+            return *static_cast<DerivedScheme*>(this);
+        }
+
+        /**
+         * Explicit application of the scheme
+         */
+        auto operator()(input_field_t& input_field) const
+        {
+            auto explicit_scheme = make_explicit(derived_cast());
+            return explicit_scheme.apply_to(input_field);
+        }
+
+        void apply(output_field_t& output_field, input_field_t& input_field) const
+        {
+            auto explicit_scheme = make_explicit(derived_cast());
+            explicit_scheme.apply(output_field, input_field);
+        }
+
+        inline double bdry_cell_coeff(const bdry_stencil_coeffs_t& coeffs,
+                                      std::size_t cell_number_in_stencil,
+                                      [[maybe_unused]] std::size_t field_i,
+                                      [[maybe_unused]] std::size_t field_j) const
         {
             if constexpr (field_size == 1 && output_field_size == 1)
             {
