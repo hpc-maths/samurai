@@ -12,7 +12,7 @@
 namespace samurai
 {
     template <class value_t, class index_t>
-    class Interval;
+    struct Interval;
 }
 
 template <class T>
