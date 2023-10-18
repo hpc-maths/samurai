@@ -177,8 +177,8 @@ namespace samurai
         old_fields_t old_fields;
         if constexpr (keep_previous)
         {
-            auto mesh_old           = mesh;
-            old_fields_t old_fields = detail::copy_fields(mesh_old, m_fields);
+            auto mesh_old = mesh;
+            old_fields    = detail::copy_fields(mesh_old, m_fields);
         }
 
         for (std::size_t i = 0; i < max_level - min_level; ++i)
