@@ -447,6 +447,18 @@ namespace samurai
             update_fields_with_old(new_mesh, old_fields, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
         }
 
+        template <class Mesh, class Fields, std::size_t... Is>
+        void update_fields(Mesh& new_mesh, Fields& fields, std::index_sequence<Is...>)
+        {
+            (update_fields(new_mesh, std::get<Is>(fields)), ...);
+        }
+
+        template <class Mesh, class... T>
+        void update_fields(Mesh& new_mesh, Field_tuple<T...>& fields)
+        {
+            update_fields(new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
+        }
+
         template <class Mesh, class Field, class... Fields>
         void update_fields(Mesh& new_mesh, Field& field, Fields&... fields)
         {
@@ -540,7 +552,7 @@ namespace samurai
     }
 
     template <class Tag, class Field, class Old_field, class... Fields>
-    bool update_field_mr(const Tag& tag, Field& field, Old_field& old_field, Fields&... other_fields)
+    bool update_field_mr(std::integral_constant<bool, true>, const Tag& tag, Field& field, Old_field& old_field, Fields&... other_fields)
     {
         using mesh_t                     = typename Field::mesh_t;
         static constexpr std::size_t dim = mesh_t::dim;
@@ -605,6 +617,77 @@ namespace samurai
 
         detail::swap_mesh(new_mesh, old_field, field);
         // field.mesh().swap(new_mesh);
+        // std::get<0>(old_field).mesh().swap(new_mesh);
+
+        return false;
+    }
+
+    template <class Tag, class Field, class... Fields>
+    bool update_field_mr(std::integral_constant<bool, false>, const Tag& tag, Field& field, Fields&... other_fields)
+    {
+        using mesh_t                     = typename Field::mesh_t;
+        static constexpr std::size_t dim = mesh_t::dim;
+        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
+        using interval_t                 = typename mesh_t::interval_t;
+        using value_t                    = typename interval_t::value_t;
+        using cl_type                    = typename Field::mesh_t::cl_type;
+
+        auto& mesh = field.mesh();
+        cl_type cl;
+
+        for_each_interval(mesh[mesh_id_t::cells],
+                          [&](std::size_t level, const auto& interval, const auto& index)
+                          {
+                              auto itag = interval.start + interval.index;
+                              for (value_t i = interval.start; i < interval.end; ++i)
+                              {
+                                  if (tag[itag] & static_cast<int>(CellFlag::refine))
+                                  {
+                                      if (level < mesh.max_level())
+                                      {
+                                          static_nested_loop<dim - 1, 0, 2>(
+                                              [&](const auto& stencil)
+                                              {
+                                                  auto new_index = 2 * index + stencil;
+                                                  cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});
+                                              });
+                                      }
+                                      else
+                                      {
+                                          cl[level][index].add_point(i);
+                                      }
+                                  }
+                                  else if (tag[itag] & static_cast<int>(CellFlag::keep))
+                                  {
+                                      cl[level][index].add_point(i);
+                                  }
+                                  else
+                                  {
+                                      if (level > mesh.min_level())
+                                      {
+                                          cl[level - 1][index >> 1].add_point(i >> 1);
+                                      }
+                                      else
+                                      {
+                                          cl[level][index].add_point(i);
+                                      }
+                                  }
+                                  itag++;
+                              }
+                          });
+
+        mesh_t new_mesh = {cl, mesh.min_level(), mesh.max_level(), mesh.periodicity()};
+
+        if (mesh == new_mesh)
+        {
+            return true;
+        }
+
+        detail::update_fields(new_mesh, other_fields...);
+        detail::update_fields(new_mesh, field);
+
+        // detail::swap_mesh(new_mesh, old_field, field);
+        field.mesh().swap(new_mesh);
         // std::get<0>(old_field).mesh().swap(new_mesh);
 
         return false;

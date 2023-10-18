@@ -118,7 +118,7 @@ namespace samurai
         }
     }
 
-    template <class TField, class... TFields>
+    template <bool keep_previous, class TField, class... TFields>
     class Adapt
     {
       public:
@@ -152,17 +152,17 @@ namespace samurai
         tag_t m_tag;
     };
 
-    template <class TField, class... TFields>
-    inline Adapt<TField, TFields...>::Adapt(TField& field, TFields&... fields)
+    template <bool keep_previous, class TField, class... TFields>
+    inline Adapt<keep_previous, TField, TFields...>::Adapt(TField& field, TFields&... fields)
         : m_fields(field, fields...)
         , m_detail("detail", field.mesh())
         , m_tag("tag", field.mesh())
     {
     }
 
-    template <class TField, class... TFields>
+    template <bool keep_previous, class TField, class... TFields>
     template <class... Fields>
-    void Adapt<TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
+    void Adapt<keep_previous, TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
@@ -174,8 +174,12 @@ namespace samurai
         }
         update_ghost_mr(m_fields);
 
-        auto mesh_old           = mesh;
-        old_fields_t old_fields = detail::copy_fields(mesh_old, m_fields);
+        old_fields_t old_fields;
+        if constexpr (keep_previous)
+        {
+            auto mesh_old           = mesh;
+            old_fields_t old_fields = detail::copy_fields(mesh_old, m_fields);
+        }
 
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
@@ -230,9 +234,13 @@ namespace samurai
         }
     }
 
-    template <class TField, class... TFields>
+    template <bool keep_previous, class TField, class... TFields>
     template <class... Fields>
-    bool Adapt<TField, TFields...>::harten(std::size_t ite, double eps, double regularity, old_fields_t& old_fields, Fields&... other_fields)
+    bool Adapt<keep_previous, TField, TFields...>::harten(std::size_t ite,
+                                                          double eps,
+                                                          double regularity,
+                                                          old_fields_t& old_fields,
+                                                          Fields&... other_fields)
     {
         auto& mesh = m_fields.mesh();
 
@@ -317,8 +325,9 @@ namespace samurai
 
             for (std::size_t is = 0; is < stencil.shape(0); ++is)
             {
-                auto s      = xt::view(stencil, is);
-                auto subset = intersection(translate(mesh[mesh_id_t::cells][level], s), mesh[mesh_id_t::all_cells][level - 1]).on(level);
+                auto s = xt::view(stencil, is);
+                auto subset = intersection(translate(mesh[mesh_id_t::cells][level], s), mesh[mesh_id_t::all_cells][level - 1], mesh.domain())
+                                  .on(level);
 
                 subset.apply_op(make_graduation(m_tag));
             }
@@ -356,14 +365,28 @@ namespace samurai
             update_tag_periodic(level, m_tag);
         }
 
-        update_ghost_mr(old_fields);
         update_ghost_mr(other_fields...);
-        return update_field_mr(m_tag, m_fields, old_fields, other_fields...);
+
+        if constexpr (keep_previous)
+        {
+            update_ghost_mr(old_fields);
+            return update_field_mr(std::integral_constant<bool, true>{}, m_tag, m_fields, old_fields, other_fields...);
+        }
+        else
+        {
+            return update_field_mr(std::integral_constant<bool, false>{}, m_tag, m_fields, other_fields...);
+        }
     }
 
     template <class... TFields>
     auto make_MRAdapt(TFields&... fields)
     {
-        return Adapt<TFields...>(fields...);
+        return Adapt<true, TFields...>(fields...);
+    }
+
+    template <bool keep_previous, class... TFields>
+    auto make_MRAdapt(TFields&... fields)
+    {
+        return Adapt<keep_previous, TFields...>(fields...);
     }
 } // namespace samurai
