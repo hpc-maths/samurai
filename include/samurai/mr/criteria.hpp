@@ -126,13 +126,13 @@ namespace samurai
                     //             (xt::abs(detail(level, 2*i+1, 2*j+1))/maxd <
                     //             eps);
                     auto mask = (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
-                            and (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
-                            and (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
-                            and (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
-                            and (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
-                            and (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
-                            and (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
-                            and (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps);
+                             && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
+                             && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
+                             && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
+                             && (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
+                             && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
+                             && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
+                             && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps);
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j, 2 * k), mask)             = static_cast<int>(CellFlag::coarsen);
                     xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j, 2 * k), mask)         = static_cast<int>(CellFlag::coarsen);
@@ -154,14 +154,14 @@ namespace samurai
                     //                     (xt::abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (size-1);
                     auto mask = xt::sum((xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
-                                            and (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
-                                            and (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
-                                            and (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
-                                            and (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
-                                            and (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
-                                            and (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
-                                            and (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps),
-                                        {1})
+                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
+                                            && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
+                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
+                                            && (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
+                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
+                                            && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
+                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps),
+                                        {detail.is_soa ? 0 : 1})
                               > (size - 1);
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j, 2 * k), mask)             = static_cast<int>(CellFlag::coarsen);
@@ -381,13 +381,13 @@ namespace samurai
                     //             ((xt::abs(detail(fine_level, 2*i+1,
                     //             2*j+1))/maxd) > eps);
                     auto mask = (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) > eps)
-                             or (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) > eps)
-                             or (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) > eps)
-                             or (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) > eps)
-                             or (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) > eps)
-                             or (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) > eps)
-                             or (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) > eps)
-                             or (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) > eps);
+                             || (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) > eps)
+                             || (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) > eps)
+                             || (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) > eps)
+                             || (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) > eps)
+                             || (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) > eps)
+                             || (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) > eps)
+                             || (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) > eps);
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j, 2 * k), mask)             = static_cast<int>(CellFlag::refine);
                     xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j, 2 * k), mask)         = static_cast<int>(CellFlag::refine);
@@ -409,14 +409,14 @@ namespace samurai
                     //                     ((xt::abs(detail(fine_level, 2*i+1,
                     //                     2*j+1))/maxd) > eps), {1}) > 0;
                     auto mask = xt::sum((xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) > eps)
-                                            or (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) > eps)
-                                            or (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) > eps)
-                                            or (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) > eps)
-                                            or (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) > eps)
-                                            or (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) > eps)
-                                            or (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) > eps)
-                                            or (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) > eps),
-                                        {1})
+                                            || (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) > eps)
+                                            || (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) > eps)
+                                            || (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) > eps)
+                                            || (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) > eps)
+                                            || (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) > eps)
+                                            || (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) > eps)
+                                            || (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) > eps),
+                                        {detail.is_soa ? 0 : 1})
                               > 0;
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j, 2 * k), mask)             = static_cast<int>(CellFlag::refine);
