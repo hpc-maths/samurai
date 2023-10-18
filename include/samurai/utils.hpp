@@ -11,6 +11,50 @@
 
 namespace samurai
 {
+    template <class value_t, class index_t>
+    class Interval;
+}
+
+template <class T>
+inline void hash_combine(std::size_t& seed, const T& v)
+{
+    std::hash<T> hasher;
+    seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+template <class value_t, class index_t>
+struct std::hash<samurai::Interval<value_t, index_t>>
+{
+    std::size_t operator()(const samurai::Interval<value_t, index_t>& s) const noexcept
+    {
+        std::size_t seed = 0;
+        ::hash_combine(seed, s.start);
+        ::hash_combine(seed, s.end);
+        ::hash_combine(seed, s.step);
+        ::hash_combine(seed, s.index);
+        return seed;
+    }
+};
+
+template <class... T>
+struct std::hash<std::tuple<T...>>
+{
+    template <std::size_t... I>
+    std::size_t hash_tuple(const std::tuple<T...>& s, std::integer_sequence<std::size_t, I...>) const noexcept
+    {
+        std::size_t seed = 0;
+        (::hash_combine(seed, std::get<I>(s)), ...);
+        return seed;
+    }
+
+    std::size_t operator()(const std::tuple<T...>& s) const noexcept
+    {
+        return hash_tuple(s, std::index_sequence_for<T...>{});
+    }
+};
+
+namespace samurai
+{
     template <class T>
     class subset_node;
 
