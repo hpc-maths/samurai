@@ -18,11 +18,9 @@ namespace samurai
         template <class Field>
         void copy(Field& f, Vec& v)
         {
-            auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::size);
-
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
-            assert(n == n_vec);
+            assert(static_cast<PetscInt>(f.mesh().nb_cells() * Field::size) == n_vec);
 
             double* v_data;
             VecGetArray(v, &v_data);
