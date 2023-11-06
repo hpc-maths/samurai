@@ -1,8 +1,8 @@
 .. _topics-index:
 
-===============================
-Samurai |version| documentation
-===============================
+========================
+ |project| documentation
+========================
 
 The main goal of |project| is to provide a new data structure based on intervals and algebra of sets to handle efficiently adaptive mesh refinement methods based on a cartesian grid. Such an approach has to be versatile enough to handle both AMR and multi-resolution methods.
 
@@ -28,7 +28,7 @@ Test cases
 ========
 .. toctree::
    :caption: Test cases
-   :hidden:
+   .. :hidden:
 
    LBM/test_cases
 
@@ -38,7 +38,7 @@ Tutorial
 
 .. toctree::
    :caption: Tutorial
-   :hidden:
+   .. :hidden:
 
    tutorial/interval
    tutorial/field
@@ -65,7 +65,7 @@ Reference
 
 .. toctree::
    :caption: Reference
-   :hidden:
+   .. :hidden:
 
    reference/subset
 
@@ -76,7 +76,7 @@ API reference
 
 .. toctree::
    :caption: API reference
-   :hidden:
+   .. :hidden:
 
    api/algorithm
    api/interval
