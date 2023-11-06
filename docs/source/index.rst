@@ -20,11 +20,6 @@ In order to improve the efficiency of the tree / space-filling curve, the propos
 
 SAMURAI: Structured Adaptive mesh and MUlti-Resolution based on Algebra of Intervals.
 
-.. toctree::
-   :caption: Test cases
-   .. :hidden:
-
-   LBM/test_cases
 
 .. toctree::
    :caption: Tutorial
@@ -49,6 +44,12 @@ SAMURAI: Structured Adaptive mesh and MUlti-Resolution based on Algebra of Inter
 .. :doc:`tutorial/level_set`
 
 .. :doc:`tutorial/1d_burgers_amr`
+
+.. toctree::
+   :caption: Test cases
+   :maxdepth: 1
+
+   LBM/test_cases
 
 .. toctree::
    :caption: Reference
