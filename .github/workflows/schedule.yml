@@ -156,13 +156,13 @@ jobs:
       - name: Unix test
         if: runner.os != 'Windows'
         run: |
-          ./build/test/Release/test_samurai_lib
-          cd test; pytest --h5diff
+          ./build/tests/Release/test_samurai_lib
+          cd tests; pytest --h5diff
       - name: Windows test
         if: runner.os == 'Windows'
         run: |
-          .\build\test\Release\test_samurai_lib
-          # cd test; pytest -s --h5diff
+          .\build\tests\Release\test_samurai_lib
+          # cd tests; pytest -s --h5diff
 
   #
   # Check vcpkg build
@@ -258,13 +258,13 @@ jobs:
       - name: Unix test
         if: runner.os != 'Windows'
         run: |
-          ./build/test/Release/test_samurai_lib
-          cd test; pytest --h5diff
+          ./build/tests/Release/test_samurai_lib
+          cd tests; pytest --h5diff
       - name: Windows test
         if: runner.os == 'Windows'
         run: |
-          .\build\test\Release\test_samurai_lib
-          cd test; pytest -s --h5diff
+          .\build\tests\Release\test_samurai_lib
+          cd tests; pytest -s --h5diff
 
   #
   # Check windows build using mamba
@@ -308,5 +308,5 @@ jobs:
       - name: Windows test
         shell: bash -l {0}
         run: |
-          ./build/test/Release/test_samurai_lib
-          cd test; pytest -s --h5diff
+          ./build/tests/Release/test_samurai_lib
+          cd tests; pytest -s --h5diff
