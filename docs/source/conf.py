@@ -16,8 +16,6 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-import sphinx_rtd_theme
-
 # -- Project information -----------------------------------------------------
 
 project = 'Samurai'
@@ -42,7 +40,6 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.mathjax',
     'breathe',
-    'sphinx_rtd_theme',
 ]
 
 breathe_projects = { 'samurai': '../xml' }
@@ -72,7 +69,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -88,15 +85,31 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "pydata_sphinx_theme"
+
+html_theme_options = {
+   "logo": {
+      "image_light": "_static/light_logo.png",
+      "image_dark": "_static/dark_logo.png",
+   },
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/hpc-maths/samurai",
+            "icon": "fa-brands fa-square-github",
+            "type": "fontawesome",
+        },
+    ],
+    "primary_sidebar_end": ["sidebar-ethical-ads.html"],
+}
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-html_theme_options = {
-    'collapse_navigation': False,
-}
+# html_theme_options = {
+#     'collapse_navigation': False,
+# }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -113,9 +126,9 @@ html_static_path = ['_static']
 #
 # html_sidebars = {}
 
-html_css_files = [
-    'css/custom.css',
-]
+# html_css_files = [
+#     'css/custom.css',
+# ]
 
 # -- Options for HTMLHelp output ---------------------------------------------
 
