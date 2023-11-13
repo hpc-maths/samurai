@@ -8,6 +8,7 @@
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xio.hpp>
+#include <xtensor/xview.hpp>
 
 namespace samurai
 {
@@ -39,6 +40,7 @@ namespace samurai
         Cell() = default;
 
         Cell(std::size_t level, const indices_t& indices, index_t index);
+        Cell(std::size_t level, const value_t& i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others, index_t index);
 
         coords_t corner() const;
         double corner(std::size_t i) const;
@@ -73,6 +75,21 @@ namespace samurai
         , index(index_)
         , length(cell_length(level))
     {
+    }
+
+    template <std::size_t dim_, class TInterval>
+    inline Cell<dim_, TInterval>::Cell(std::size_t level_,
+                                       const value_t& i,
+                                       const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others,
+                                       index_t index_)
+        : level(level_)
+        , index(index_)
+        , length(cell_length(level))
+    {
+        using namespace xt::placeholders;
+
+        indices[0]                         = i;
+        xt::view(indices, xt::range(1, _)) = others;
     }
 
     /**
