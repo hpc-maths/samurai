@@ -1,8 +1,14 @@
-.. _topics-index:
-
 ========================
  |project| documentation
 ========================
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   tutorial <tutorial/index>
+   reference <reference/index>
+   api <api/index>
 
 The main goal of |project| is to provide a new data structure based on intervals and algebra of sets to handle efficiently adaptive mesh refinement methods based on a cartesian grid. Such an approach has to be versatile enough to handle both AMR and multi-resolution methods.
 
@@ -19,64 +25,5 @@ In order to improve the efficiency of the tree / space-filling curve, the propos
 #. introduce an approach which will have good properties for distributed parallel computing.
 
 SAMURAI: Structured Adaptive mesh and MUlti-Resolution based on Algebra of Intervals.
-
-
-.. toctree::
-   :caption: Tutorial
-   :maxdepth: 1
-
-   tutorial/interval
-   tutorial/field
-   tutorial/algorithm
-   tutorial/operator_on_subset
-   tutorial/graduation
-   tutorial/level_set
-   tutorial/1d_burgers_amr
-
-.. :doc:`tutorial/interval`
-
-.. :doc:`tutorial/algorithm`
-
-.. :doc:`tutorial/operator_on_subset`
-
-.. :doc:`tutorial/graduation`
-
-.. :doc:`tutorial/level_set`
-
-.. :doc:`tutorial/1d_burgers_amr`
-
-.. toctree::
-   :caption: Test cases
-   :maxdepth: 1
-
-   LBM/test_cases
-
-.. toctree::
-   :caption: Reference
-   :maxdepth: 2
-
-   reference/subset
-
-.. :doc:`reference/subset`
-
-.. toctree::
-   :caption: API reference
-   :maxdepth: 2
-
-   api/algorithm
-   api/interval
-   api/box
-   api/cell
-   api/subset
-
-.. :doc:`api/algorithm`
-
-.. :doc:`api/interval`
-
-.. :doc:`api/box`
-
-.. :doc:`api/cell`
-
-.. :doc:`api/subset`
 
 .. _p4est: http://www.p4est.org/
