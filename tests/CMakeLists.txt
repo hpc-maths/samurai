@@ -11,6 +11,7 @@ set(COMMON_BASE
 )
 
 set(SAMURAI_TESTS
+    test_adapt.cpp
     test_bc.cpp
     test_box.cpp
     test_cell.cpp

@@ -70,7 +70,7 @@ namespace samurai
             using mesh_t                       = typename fields_t::mesh_t;
             static constexpr std::size_t nelem = fields_t::nelem;
             using common_t                     = typename fields_t::common_t;
-            using detail_t                     = Field<mesh_t, common_t, nelem, true>;
+            using detail_t                     = Field<mesh_t, common_t, nelem>;
         };
 
         template <class TField>

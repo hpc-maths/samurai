@@ -263,37 +263,69 @@ namespace samurai
 
         INIT_OPERATOR(compute_detail_on_tuple_op)
 
-        template <class T1, class T2>
-        inline void compute_detail_impl(Dim<1>, std::size_t index, T1& detail, const T2& field) const
+        template <class Ranges, class T1, class T2>
+        inline void compute_detail_impl(Dim<1>, std::size_t index, const Ranges& ranges, T1& detail, const T2& field) const
         {
             static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
             auto qs_i                          = xt::eval(Qs_i<order>(field, level, i));
 
-            detail(index, level + 1, 2 * i) = field(level + 1, 2 * i) - (field(level, i) + qs_i);
-
-            detail(index, level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
+            auto dest_shape = detail(ranges[index], ranges[index + 1], level + 1, 2 * i).shape();
+            auto src_shape  = field(level + 1, 2 * i).shape();
+            if (xt::same_shape(dest_shape, src_shape))
+            {
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i)     = field(level + 1, 2 * i) - (field(level, i) + qs_i);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
+            }
+            else
+            {
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i) = xt::transpose(field(level + 1, 2 * i) - (field(level, i) + qs_i));
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1) = xt::transpose(field(level + 1, 2 * i + 1)
+                                                                                               - (field(level, i) - qs_i));
+            }
         }
 
-        template <class T1, class T2>
-        inline void compute_detail_impl(Dim<2>, std::size_t index, T1& detail, const T2& field) const
+        template <class Ranges, class T1, class T2>
+        inline void compute_detail_impl(Dim<2>, std::size_t index, const Ranges& ranges, T1& detail, const T2& field) const
         {
             static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
             auto qs_i                          = Qs_i<order>(field, level, i, j);
             auto qs_j                          = Qs_j<order>(field, level, i, j);
             auto qs_ij                         = Qs_ij<order>(field, level, i, j);
 
-            detail(index, level + 1, 2 * i, 2 * j) = field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij);
+            auto dest_shape = detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j).shape();
+            auto src_shape  = field(level + 1, 2 * i, 2 * j).shape();
+            if (xt::same_shape(dest_shape, src_shape))
+            {
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j) = field(level + 1, 2 * i, 2 * j)
+                                                                                  - (field(level, i, j) + qs_i + qs_j - qs_ij);
 
-            detail(index, level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j)
+                                                                                      - (field(level, i, j) - qs_i + qs_j + qs_ij);
 
-            detail(index, level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1)
+                                                                                      - (field(level, i, j) + qs_i - qs_j + qs_ij);
 
-            detail(index, level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1)
-                                                           - (field(level, i, j) - qs_i - qs_j - qs_ij);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1)
+                                                                                          - (field(level, i, j) - qs_i - qs_j - qs_ij);
+            }
+            else
+            {
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j) = xt::transpose(
+                    field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij));
+
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j) = xt::transpose(
+                    field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij));
+
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j + 1) = xt::transpose(
+                    field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij));
+
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j + 1) = xt::transpose(
+                    field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij));
+            }
         }
 
-        template <class T1, class T2>
-        inline void compute_detail_impl(Dim<3>, std::size_t index, T1& detail, const T2& field) const
+        template <class Ranges, class T1, class T2>
+        inline void compute_detail_impl(Dim<3>, std::size_t index, const Ranges& ranges, T1& detail, const T2& field) const
         {
             static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
             auto qs_i                          = Qs_i<order>(field, level, i, j, k);
@@ -304,38 +336,90 @@ namespace samurai
             auto qs_jk                         = Qs_jk<order>(field, level, i, j, k);
             auto qs_ijk                        = Qs_ijk<order>(field, level, i, j, k);
 
-            detail(index, level + 1, 2 * i, 2 * j, 2 * k) = field(level + 1, 2 * i, 2 * j, 2 * k)
-                                                          - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk);
+            auto dest_shape = detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j, 2 * k).shape();
+            auto src_shape  = field(level + 1, 2 * i, 2 * j, 2 * k).shape();
+            if (xt::same_shape(dest_shape, src_shape))
+            {
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j, 2 * k) = field(level + 1, 2 * i, 2 * j, 2 * k)
+                                                                                         - (field(level, i, j, k) + qs_i + qs_j + qs_k
+                                                                                            - qs_ij - qs_ik - qs_jk + qs_ijk);
 
-            detail(index, level + 1, 2 * i + 1, 2 * j, 2 * k) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
-                                                              - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j, 2 * k) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
+                                                                                             - (field(level, i, j, k) - qs_i + qs_j + qs_k
+                                                                                                + qs_ij + qs_ik - qs_jk - qs_ijk);
 
-            detail(index, level + 1, 2 * i, 2 * j + 1, 2 * k) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
-                                                              - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j + 1, 2 * k) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
+                                                                                             - (field(level, i, j, k) + qs_i - qs_j + qs_k
+                                                                                                + qs_ij - qs_ik + qs_jk - qs_ijk);
 
-            detail(index, level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                                                                  - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk
-                                                                     + qs_ijk);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
+                                                                                                 - (field(level, i, j, k) - qs_i - qs_j
+                                                                                                    + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk);
 
-            detail(index, level + 1, 2 * i, 2 * j, 2 * k + 1) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
-                                                              - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j, 2 * k + 1) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
+                                                                                             - (field(level, i, j, k) + qs_i + qs_j - qs_k
+                                                                                                - qs_ij + qs_ik + qs_jk - qs_ijk);
 
-            detail(index, level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                                                                  - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk
-                                                                     + qs_ijk);
-            detail(index, level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
-                                                                  - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk
-                                                                     + qs_ijk);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
+                                                                                                 - (field(level, i, j, k) - qs_i + qs_j
+                                                                                                    - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk);
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
+                                                                                                 - (field(level, i, j, k) + qs_i - qs_j
+                                                                                                    - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk);
 
-            detail(index, level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
-                                                                      - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk
-                                                                         - qs_ijk);
+                detail(ranges[index],
+                       ranges[index + 1],
+                       level + 1,
+                       2 * i + 1,
+                       2 * j + 1,
+                       2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
+                                  - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk);
+            }
+            else
+            {
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j, 2 * k) = xt::transpose(
+                    field(level + 1, 2 * i, 2 * j, 2 * k) - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk));
+
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j, 2 * k) = xt::transpose(
+                    field(level + 1, 2 * i + 1, 2 * j, 2 * k) - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk));
+
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j + 1, 2 * k) = xt::transpose(
+                    field(level + 1, 2 * i, 2 * j + 1, 2 * k) - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk));
+
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = xt::transpose(
+                    field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
+                    - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk));
+
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j, 2 * k + 1) = xt::transpose(
+                    field(level + 1, 2 * i, 2 * j, 2 * k + 1) - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk));
+
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = xt::transpose(
+                    field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
+                    - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk));
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = xt::transpose(
+                    field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
+                    - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk));
+
+                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = xt::transpose(
+                    field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
+                    - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk));
+            }
         }
 
         template <std::size_t dim, class T1, class T2, std::size_t... Is>
         inline void compute_detail_impl(Dim<dim>, T1& detail, const T2& fields, std::index_sequence<Is...>) const
         {
-            (compute_detail_impl(Dim<dim>(), Is, detail, std::get<Is>(fields)), ...);
+            std::array<std::size_t, std::tuple_size_v<T2> + 1> ranges;
+            ranges[0]         = 0;
+            std::size_t index = 1;
+            (
+                [&]()
+                {
+                    ranges[index] = ranges[index - 1] + std::get<Is>(fields).size;
+                    ++index;
+                }(),
+                ...);
+            (compute_detail_impl(Dim<dim>(), Is, ranges, detail, std::get<Is>(fields)), ...);
         }
 
         template <std::size_t dim, class T1, class T2>
