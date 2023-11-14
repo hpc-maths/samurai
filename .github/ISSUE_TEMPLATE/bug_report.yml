@@ -1,0 +1,72 @@
+name: Bug Report
+description: File a bug report
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of what you observe.
+      placeholder: Tell us what you see!
+      value: "A bug happened!"
+    validations:
+      required: true
+  - type: textarea
+    id: input-code
+    attributes:
+      label: Input code
+      description: A code example which shows this behavior.
+      render: cpp
+    validations:
+      required: true
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What expected?
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: dropdown
+    id: OS
+    attributes:
+      label: What is your operating system?
+      options:
+        - Linux
+        - Mac OS
+        - Windows
+    validations:
+      required: true
+  - type: dropdown
+    id: OS
+    attributes:
+      label: How did you install our software?
+      options:
+        - conda or mamba
+        - from source
+    validations:
+      required: true
+  - type: textarea
+    id: version
+    attributes:
+      label: Software version
+      description: The version of our software used where the bug was found.
+      value: "0.x.x"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: Shell
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/hpc-maths/samurai/blob/master/docs/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
