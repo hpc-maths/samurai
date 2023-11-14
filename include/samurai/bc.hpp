@@ -14,10 +14,21 @@
 #include <xtensor/xnoalias.hpp>
 #include <xtensor/xview.hpp>
 
-#include "dispatch.hpp"
+#include "samurai/cell.hpp"
 #include "samurai_config.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
+
+#define INIT_BC(NAME)                              \
+    using base_t  = samurai::Bc<Field>;            \
+    using cell_t  = typename base_t::cell_t;       \
+    using value_t = typename base_t::value_t;      \
+    using base_t::Bc;                              \
+                                                   \
+    std::unique_ptr<base_t> clone() const override \
+    {                                              \
+        return std::make_unique<NAME>(*this);      \
+    }
 
 namespace samurai
 {
@@ -543,7 +554,8 @@ namespace samurai
         Bc(Bc&& bc) noexcept            = default;
         Bc& operator=(Bc&& bc) noexcept = default;
 
-        virtual std::unique_ptr<Bc> clone() const = 0;
+        virtual std::unique_ptr<Bc> clone() const                                                               = 0;
+        virtual void apply(Field& f, const cell_t& cell_out, const cell_t& cell_in, const value_t& value) const = 0;
 
         template <class Region>
         auto on(const Region& region);
@@ -762,256 +774,106 @@ namespace samurai
     // BC Types //
     //////////////
     template <class Field>
+    void apply_bc_impl(Bc<Field>& bc, std::size_t level, Field& field)
+    {
+        using cell_t                     = typename Bc<Field>::cell_t;
+        using value_t                    = typename cell_t::value_t;
+        static constexpr std::size_t dim = Field::dim;
+        constexpr int ghost_width        = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
+                                             static_cast<int>(Field::mesh_t::config::prediction_order));
+
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh      = field.mesh()[mesh_id_t::reference];
+
+        auto region     = bc.get_region();
+        auto& direction = region.first;
+        auto& lca       = region.second;
+        for (std::size_t d = 0; d < direction.size(); ++d)
+        {
+            bool is_periodic = false;
+            for (std::size_t i = 0; i < dim; ++i)
+            {
+                if (direction[d](i) != 0 && field.mesh().is_periodic(i))
+                {
+                    is_periodic = true;
+                    break;
+                }
+            }
+            if (!is_periodic)
+            {
+                std::size_t delta_l = lca[d].level() - level;
+                for (int ig = 0; ig < ghost_width; ++ig)
+                {
+                    auto first_layer_ghosts = intersection(intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))),
+                                                           translate(mesh[level], (2 * ig + 1) * direction[d]))
+                                                  .on(level);
+                    first_layer_ghosts(
+                        [&](const auto& i, const auto& index)
+                        {
+                            auto cell_out = mesh.get_cell(level, i.start, index);
+
+                            xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index_in = index;
+                            if constexpr (dim > 1)
+                            {
+                                index_in -= (2 * ig + 1) * xt::view(direction[d], xt::range(1, _));
+                            }
+                            auto cell_in = mesh.get_cell(level, i.start - (2 * ig + 1) * direction[d][0], index_in);
+
+                            if (bc.get_value_type() == BCVType::function)
+                            {
+                                bc.update_values(field.mesh(), direction[d], level, i, index);
+                            }
+
+                            for (std::size_t ii = 0; ii < i.size(); ++ii)
+                            {
+                                if (bc.get_value_type() == BCVType::constant)
+                                {
+                                    bc.apply(field, cell_out, cell_in, bc.constant_value());
+                                }
+                                else if (bc.get_value_type() == BCVType::function)
+                                {
+                                    bc.apply(field, cell_out, cell_in, bc.value()[ii]);
+                                }
+                                ++cell_out.indices[0];
+                                ++cell_out.index;
+                                ++cell_in.indices[0];
+                                ++cell_in.index;
+                            }
+                        });
+                }
+            }
+        }
+    }
+
+    template <class Field>
     struct Dirichlet : public Bc<Field>
     {
-        using base_t = Bc<Field>;
-        using Bc<Field>::Bc;
+        INIT_BC(Dirichlet)
 
-        std::unique_ptr<base_t> clone() const override
+        void apply(Field& f, const cell_t& cell_out, const cell_t& cell_in, const value_t& value) const override
         {
-            return std::make_unique<Dirichlet>(*this);
+            f[cell_out] = 2 * value - f[cell_in];
         }
     };
 
     template <class Field>
     struct Neumann : public Bc<Field>
     {
-        using base_t = Bc<Field>;
-        using Bc<Field>::Bc;
+        INIT_BC(Neumann)
 
-        std::unique_ptr<base_t> clone() const override
+        void apply(Field& f, const cell_t& cell_out, const cell_t& cell_in, const value_t& value) const override
         {
-            return std::make_unique<Neumann>(*this);
+            double dx   = cell_length(cell_out.level);
+            f[cell_out] = dx * value + f[cell_in];
         }
     };
-
-    template <class Field>
-    void apply_bc_impl(Dirichlet<Field>& bc, std::size_t level, Field& field)
-    {
-        static constexpr std::size_t dim = Field::dim;
-        constexpr int ghost_width        = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
-                                             static_cast<int>(Field::mesh_t::config::prediction_order));
-
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        auto& mesh      = field.mesh()[mesh_id_t::reference];
-
-        auto region     = bc.get_region();
-        auto& direction = region.first;
-        auto& lca       = region.second;
-        for (std::size_t d = 0; d < direction.size(); ++d)
-        {
-            bool is_periodic = false;
-            for (std::size_t i = 0; i < dim; ++i)
-            {
-                if (direction[d](i) != 0 && field.mesh().is_periodic(i))
-                {
-                    is_periodic = true;
-                    break;
-                }
-            }
-            if (!is_periodic)
-            {
-                std::size_t delta_l = lca[d].level() - level;
-                for (int ig = 0; ig < ghost_width; ++ig)
-                {
-                    auto first_layer_ghosts = intersection(intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))),
-                                                           translate(mesh[level], (2 * ig + 1) * direction[d]))
-                                                  .on(level);
-                    first_layer_ghosts(
-                        [&](const auto& i, const auto& index)
-                        {
-                            if (bc.get_value_type() == BCVType::constant)
-                            {
-                                if constexpr (dim == 1)
-                                {
-                                    field(level, i) = 2 * bc.constant_value() - field(level, i - (2 * ig + 1) * direction[d][0]);
-                                }
-                                else if constexpr (dim == 2)
-                                {
-                                    auto j             = index[0];
-                                    field(level, i, j) = 2 * bc.constant_value()
-                                                       - field(level, i - (2 * ig + 1) * direction[d][0], j - (2 * ig + 1) * direction[d][1]);
-                                }
-                                else if constexpr (dim == 3)
-                                {
-                                    auto j                = index[0];
-                                    auto k                = index[1];
-                                    field(level, i, j, k) = 2 * bc.constant_value()
-                                                          - field(level,
-                                                                  i - (2 * ig + 1) * direction[d][0],
-                                                                  j - (2 * ig + 1) * direction[d][1],
-                                                                  k - (2 * ig + 1) * direction[d][2]);
-                                }
-                            }
-                            else if (bc.get_value_type() == BCVType::function)
-                            {
-                                bc.update_values(field.mesh(), direction[d], level, i, index);
-
-                                if constexpr (dim == 1)
-                                {
-                                    field(level, i) = 2 * bc.value() - field(level, i - (2 * ig + 1) * direction[d][0]);
-                                }
-                                else if constexpr (dim == 2)
-                                {
-                                    auto j             = index[0];
-                                    field(level, i, j) = 2 * bc.value()
-                                                       - field(level, i - (2 * ig + 1) * direction[d][0], j - (2 * ig + 1) * direction[d][1]);
-                                }
-                                else if constexpr (dim == 3)
-                                {
-                                    auto j                = index[0];
-                                    auto k                = index[1];
-                                    field(level, i, j, k) = 2 * bc.value()
-                                                          - field(level,
-                                                                  i - (2 * ig + 1) * direction[d][0],
-                                                                  j - (2 * ig + 1) * direction[d][1],
-                                                                  k - (2 * ig + 1) * direction[d][2]);
-                                }
-                            }
-                        });
-                }
-            }
-        }
-    }
-
-    template <class Field>
-    void apply_bc_impl(Neumann<Field>& bc, std::size_t level, Field& field)
-    {
-        static constexpr std::size_t dim = Field::dim;
-        constexpr int ghost_width        = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
-                                             static_cast<int>(Field::mesh_t::config::prediction_order));
-
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        auto& mesh      = field.mesh()[mesh_id_t::reference];
-
-        auto region     = bc.get_region();
-        auto& direction = region.first;
-        auto& lca       = region.second;
-        for (std::size_t d = 0; d < direction.size(); ++d)
-        {
-            bool is_periodic = false;
-            for (std::size_t i = 0; i < dim; ++i)
-            {
-                if (direction[d](i) != 0 && field.mesh().is_periodic(i))
-                {
-                    is_periodic = true;
-                    break;
-                }
-            }
-            if (!is_periodic)
-            {
-                std::size_t delta_l = lca[d].level() - level;
-                for (int ig = 0; ig < ghost_width; ++ig)
-                {
-                    auto first_layer_ghosts = intersection(intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))),
-                                                           translate(mesh[level], (2 * ig + 1) * direction[d]))
-                                                  .on(level);
-                    first_layer_ghosts(
-                        [&](const auto& i, const auto& index)
-                        {
-                            const double dx = 1. / (1 << level);
-                            if (bc.get_value_type() == BCVType::constant)
-                            {
-                                if constexpr (dim == 1)
-                                {
-                                    field(level, i) = dx * bc.constant_value() + field(level, i - (2 * ig + 1) * direction[d][0]);
-                                }
-                                else if constexpr (dim == 2)
-                                {
-                                    auto j             = index[0];
-                                    field(level, i, j) = dx * bc.constant_value()
-                                                       + field(level, i - (2 * ig + 1) * direction[d][0], j - (2 * ig + 1) * direction[d][1]);
-                                }
-                                else if constexpr (dim == 3)
-                                {
-                                    auto j                = index[0];
-                                    auto k                = index[1];
-                                    field(level, i, j, k) = dx * bc.constant_value()
-                                                          + field(level,
-                                                                  i - (2 * ig + 1) * direction[d][0],
-                                                                  j - (2 * ig + 1) * direction[d][1],
-                                                                  k - (2 * ig + 1) * direction[d][2]);
-                                }
-                            }
-                            else if (bc.get_value_type() == BCVType::function)
-                            {
-                                bc.update_values(field.mesh(), direction[d], level, i, index);
-
-                                if constexpr (dim == 1)
-                                {
-                                    field(level, i) = dx * bc.value() + field(level, i - (2 * ig + 1) * direction[d][0]);
-                                }
-                                else if constexpr (dim == 2)
-                                {
-                                    auto j             = index[0];
-                                    field(level, i, j) = dx * bc.value()
-                                                       + field(level, i - (2 * ig + 1) * direction[d][0], j - (2 * ig + 1) * direction[d][1]);
-                                }
-                                else if constexpr (dim == 3)
-                                {
-                                    auto j                = index[0];
-                                    auto k                = index[1];
-                                    field(level, i, j, k) = dx * bc.value()
-                                                          + field(level,
-                                                                  i - (2 * ig + 1) * direction[d][0],
-                                                                  j - (2 * ig + 1) * direction[d][1],
-                                                                  k - (2 * ig + 1) * direction[d][2]);
-                                }
-                            }
-                        });
-                }
-            }
-        }
-    }
-
-    struct select_bc_functor
-    {
-        template <class BC, class Field>
-        void run(BC& bc, std::size_t level, Field& field) const
-        {
-            return apply_bc_impl(bc, level, field);
-        }
-
-        template <class BC, class Field>
-        void run(BC& bc, Field& field) const
-        {
-            return apply_bc_impl(bc, field);
-        }
-
-        template <class Field>
-        void on_error(Bc<Field>&, std::size_t, Field&) const
-        {
-            std::cerr << "BC not known" << std::endl;
-        }
-
-        template <class Field>
-        void on_error(Bc<Field>&, Field&) const
-        {
-            std::cerr << "BC not known" << std::endl;
-        }
-    };
-
-    template <class Field>
-    using select_bc_dispatcher = unit_static_dispatcher<select_bc_functor, Bc<Field>, BC_TYPES::types<Field>>;
-
-    template <class BCType, class Field>
-    void apply_bc_impl(BCType& bc, Field& field)
-    {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        auto& mesh      = field.mesh()[mesh_id_t::reference];
-
-        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
-        {
-            apply_bc_impl(bc, level, field);
-        }
-    }
 
     template <class Field>
     void update_bc(std::size_t level, Field& field)
     {
         for (auto& bc : field.get_bc())
         {
-            select_bc_dispatcher<Field>::dispatch(*bc.get(), level, field);
+            apply_bc_impl(*bc.get(), level, field);
         }
     }
 
@@ -1025,9 +887,12 @@ namespace samurai
     template <class Field>
     void update_bc(Field& field)
     {
-        for (auto& bc : field.get_bc())
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh      = field.mesh()[mesh_id_t::reference];
+
+        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
         {
-            select_bc_dispatcher<Field>::dispatch(*bc.get(), field);
+            update_bc(level, field);
         }
     }
 

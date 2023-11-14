@@ -111,8 +111,8 @@ namespace samurai
         const interval_t& get_interval(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
 
         template <typename... T>
-        index_t get_index(const value_t& i, T... index) const;
-        index_t get_index(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
+        index_t get_index(value_t i, T... index) const;
+        index_t get_index(value_t i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& others) const;
 
         void update_index();
 
@@ -467,15 +467,16 @@ namespace samurai
 
     template <std::size_t Dim, class TInterval>
     template <typename... T>
-    inline auto LevelCellArray<Dim, TInterval>::get_index(const value_t& i, T... index) const -> index_t
+    inline auto LevelCellArray<Dim, TInterval>::get_index(value_t i, T... index) const -> index_t
     {
         return get_interval({i, i + 1}, index...).index + i;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::get_index(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const -> index_t
+    inline auto LevelCellArray<Dim, TInterval>::get_index(value_t i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& others) const
+        -> index_t
     {
-        return get_interval(coord).index + coord[0];
+        return get_interval({i, i + 1}, others).index + i;
     }
 
     /**

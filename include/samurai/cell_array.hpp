@@ -72,6 +72,7 @@ namespace samurai
 
         using self_type  = CellArray<dim_, TInterval, max_size_>;
         using interval_t = TInterval;
+        using cell_t     = Cell<dim, interval_t>;
         using value_t    = typename interval_t::value_t;
         using index_t    = typename interval_t::index_t;
         using lca_type   = LevelCellArray<dim, TInterval>;
@@ -98,7 +99,11 @@ namespace samurai
 
         template <typename... T>
         index_t get_index(std::size_t level, value_t i, T... index) const;
-        index_t get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
+        index_t get_index(std::size_t level, value_t i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& others) const;
+
+        template <typename... T>
+        cell_t get_cell(std::size_t level, value_t i, T... index) const;
+        cell_t get_cell(std::size_t level, value_t i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& others) const;
 
         std::size_t nb_cells() const;
         std::size_t nb_cells(std::size_t level) const;
@@ -286,11 +291,27 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto
-    CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const
+    inline auto CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level,
+                                                                 value_t i,
+                                                                 const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& others) const
         -> index_t
     {
-        return m_cells[level].get_index(coord);
+        return m_cells[level].get_index(i, others);
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    template <typename... T>
+    inline auto CellArray<dim_, TInterval, max_size_>::get_cell(std::size_t level, value_t i, T... index) const -> cell_t
+    {
+        return {level, i, index..., get_index(level, i, index...)};
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline auto CellArray<dim_, TInterval, max_size_>::get_cell(std::size_t level,
+                                                                value_t i,
+                                                                const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& others) const -> cell_t
+    {
+        return {level, i, others, get_index(level, i, others)};
     }
 
     /**

@@ -6,21 +6,6 @@
 
 #include <xtensor/xfixed.hpp>
 
-// Lines needed to create new BC
-// -----------------------------
-struct new_bc_types;
-#define BC_TYPES new_bc_types
-
-#include <samurai/samurai_config.hpp>
-
-ADD_BC(Mybc)
-
-struct new_bc_types
-{
-    template <class Field>
-    using types = xtl::mpl::push_back_t<samurai::bc_types::types<Field>, Mybc<Field>>;
-};
-
 // -----------------------------
 
 #include <samurai/algorithm.hpp>
@@ -36,33 +21,15 @@ struct new_bc_types
 namespace fs = std::filesystem;
 
 template <class Field>
-void apply_bc_impl(Mybc<Field>& bc, std::size_t level, Field& field)
+struct Mybc : public samurai::Bc<Field>
 {
-    constexpr int ghost_width = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
-                                         static_cast<int>(Field::mesh_t::config::prediction_order));
+    INIT_BC(Mybc)
 
-    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-    auto& mesh      = field.mesh()[mesh_id_t::reference];
-
-    auto region     = bc.get_region();
-    auto& direction = region.first;
-    auto& lca       = region.second;
-    for (std::size_t d = 0; d < direction.size(); ++d)
+    void apply(Field& f, const cell_t& cell_out, const cell_t& cell_in, const value_t& value) const override
     {
-        std::size_t delta_l = lca[d].level() - level;
-        for (int ig = 0; ig < ghost_width; ++ig)
-        {
-            auto first_layer_ghosts = intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))).on(level);
-            first_layer_ghosts(
-                [&](const auto& i, const auto& index)
-                {
-                    auto j             = index[0];
-                    field(level, i, j) = 2 * bc.constant_value()
-                                       - field(level, i - (2 * ig + 1) * direction[d][0], j - (2 * ig + 1) * direction[d][1]);
-                });
-        }
+        f[cell_out] = 2 * value - f[cell_in];
     }
-}
+};
 
 template <class Mesh>
 auto init(Mesh& mesh)
