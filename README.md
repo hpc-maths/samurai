@@ -1,8 +1,8 @@
 <h1 align="center">
   <a href="https://github.com/hpc-maths/samurai">
     <picture>
-        <source media="(prefers-color-scheme: dark)" height="200" srcset="./doc/source/logo/dark_logo.png">
-        <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" height=200 src="./doc/source/logo/light_logo.png">
+        <source media="(prefers-color-scheme: dark)" height="200" srcset="./docs/source/logo/dark_logo.png">
+        <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" height=200 src="./docs/source/logo/light_logo.png">
     </picture>
   </a>
 </h1>
@@ -47,8 +47,6 @@ Samurai also offers a flexible and pleasant interface to easily implement numeri
 - [Features](#features)
 - [Installation](#installation)
   - [From conda](#from-conda)
-  - [From vcpkg](#from-vcpkg)
-  - [From conan](#from-conan)
   - [From source](#from-source)
 - [Get help](#get-help)
 - [Project assistance](#project-assistance)
@@ -219,15 +217,21 @@ The [tutorial](./demos/tutorial/) directory is a good first step followed by the
 
 ### From conda
 
-Coming soon !
+```bash
+mamba install samurai
+```
 
-### From vcpkg
+If you want to compile your scripts, you also have to install a C++ compiler and cmake.
 
-Coming soon !
+```bash
+mamba install cxx-compiler cmake
+```
 
-### From conan
+And finally, if you have to use PETSc to assemble the matrix of your problem, you need to install it
 
-Coming soon !
+```bash
+mamba install petsc pkg-config
+```
 
 ### From source
 
