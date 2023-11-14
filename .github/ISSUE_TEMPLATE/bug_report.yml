@@ -42,7 +42,7 @@ body:
     validations:
       required: true
   - type: dropdown
-    id: OS
+    id: installation
     attributes:
       label: How did you install our software?
       options:
