@@ -7,3 +7,4 @@ Reference manual
 
    Boundary conditions <bc>
    Algebra of set <subset>
+   Finite Volume schemes <finite_volume_schemes>

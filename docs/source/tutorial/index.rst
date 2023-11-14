@@ -12,3 +12,4 @@ Tutorials
    graduation
    level_set
    1d_burgers_amr
+   reaction_diffusion
