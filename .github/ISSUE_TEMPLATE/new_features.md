@@ -1,0 +1,41 @@
+name: Feature request
+description: Ask for a new feature
+title: "[Feat]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to ask for a new feature!
+  - type: textarea
+    id: what
+    attributes:
+      label: What do you want?
+      description: A clear and concise description of what you would like to be able to do with our software.
+    validations:
+      required: true
+  - type: textarea
+    id: code-example
+    attributes:
+      label: A possible usage
+      description: A code example which shows how to use this new feature.
+      render: cpp
+  - type: textarea
+    id: code-implementation
+    attributes:
+      label: A possible implementation
+      description: A first idea of how this new feature could be implemented.
+      render: cpp
+  - type: textarea
+    id: others
+    attributes:
+      label: Other informations
+      description: Please feel free to provide any other information you feel may be useful for understanding and implementing this new feature.
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/hpc-maths/samurai/blob/master/docs/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
