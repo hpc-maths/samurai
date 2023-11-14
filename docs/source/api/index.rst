@@ -7,6 +7,7 @@ API
 
    algorithm
    interval
+   bc
    box
    cell
    subset
