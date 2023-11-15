@@ -104,7 +104,7 @@ We now build the operators required by the equation, namely, the diffusion and t
 Diffusion operator
 ++++++++++++++++++
 
-The diffusion operator of order 2 is implemented into the finite volume framework and is declared by
+The diffusion operator of order 2 is implemented in the :doc:`finite volume framework <../reference/finite_volume_schemes>` and is declared by
 
 .. code-block:: c++
 
@@ -127,6 +127,7 @@ and the diffusion coefficient :code:`D` is passed as a dynamic parameter.
 Reaction operator
 +++++++++++++++++
 
+The reaction operator is a local scheme, which we build using the :doc:`dedicated framework <../reference/local_schemes>`.
 We start by declaring a configuration object that holds the static properties of the operator.
 
 .. code-block:: c++
@@ -150,15 +151,15 @@ Then, we implement the analytical formula of the operator as a lambda function.
 
 .. code-block:: c++
 
-    react.scheme_function() = [&](auto& stencil_cells, auto& field)
+    react.scheme_function() = [&](auto& cells, auto& field)
     {
-        auto v = field[stencil_cells[0]];
+        auto v = field[cells[0]];
         return k * v * v * (1 - v);
     };
 
 The parameters of the function are
 
-- :code:`stencil_cells`: here, the operator was declared as *local*, so :code:`stencil_cells` contains only one cell, which we access through :code:`stencil_cells[0]`;
+- :code:`cells`: here, the operator was declared as *local*, so :code:`cells` contains only one cell, which we access through :code:`cells[0]`;
 - :code:`field`: the input field, to which the operator applies. Its actual type is declared in the :code:`cfg` object.
 
 If the operator is to be implicited, its jacobian function must also be defined.
@@ -166,9 +167,9 @@ If only explicit applications of the operator shall be used, then this step is o
 
 .. code-block:: c++
 
-    react.jacobian_function() = [&](auto& stencil_cells, auto& field)
+    react.jacobian_function() = [&](auto& cells, auto& field)
     {
-        auto v = field[stencil_cells[0]];
+        auto v = field[cells[0]];
         return k * (2 * v * (1 - v) - v * v);
     };
 
