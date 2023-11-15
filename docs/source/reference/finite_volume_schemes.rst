@@ -50,16 +50,8 @@ while :math:`V_L` and :math:`V_R` still refer to real cells in the formulas of :
 .. note::
 
     You can remark that the contributions are divided by the measure of the corresponding cell.
-    Instead of
-
-    .. math::
-        \int_V \mathcal{D}(u) = \int_{\partial V} \mathcal{F}(u),
-
-    we actually compute
-
-    .. math::
-        \frac{1}{|V|} \int_V \mathcal{D}(u) = \frac{1}{|V|} \int_{\partial V} \mathcal{F}(u).
-
+    Instead of :math:`\int_V \mathcal{D}(u)`,
+    we actually compute :math:`\frac{1}{|V|} \int_V \mathcal{D}(u)`.
     This choice is designed to avoid multiplying the discrete source terms by the cell measures.
 
 
@@ -765,7 +757,200 @@ The construction of the operator now reads
             };
         });
 
-    auto div = samurai::make_flux_based_scheme(upwind);
+    auto conv = samurai::make_flux_based_scheme(upwind);
 
 Non-linear operators
 --------------------
+
+This section refers to operators configured with :code:`SchemeType::NonLinear`.
+Here, the analytical formula computing the flux must be implemented.
+The flux function is
+
+.. code::
+
+    auto my_flux_function = [](const auto& cells, auto& field)
+    {
+        FluxValue<cfg> flux_value;
+
+        // Compute your flux using the field and the stencil cells
+
+        return flux_value;
+    };
+
+Here, the :code:`FluxValue<cfg>` is an array-like structure of size :code:`output_field_size` (defined in :code:`cfg`).
+
+.. warning::
+
+    The provided cells correspond to the *computational* stencil. This is not the couple of real cells around the considered face.
+    Where a level jump occurs, at least one of the computational cells is a ghost cell.
+    Consequently, make sure that values are set in the ghost cells for the considered field,
+    typically with the instruction
+
+    .. code::
+
+        samurai::update_ghost_mr(u);
+
+Flux divergence
++++++++++++++++
+
+We have
+
+.. math::
+    \int_V \nabla \cdot f(u) = \int_{\partial V} f(u)\cdot \mathbf{n},
+
+so we have to implement
+
+.. math::
+    \mathcal{F}_h(u_h)_{|F} := f_h(u_h),
+
+where :math:`f_h` is a discrete version of :math:`f(\cdot)\cdot \mathbf{n}`.
+The simple centered scheme writes
+
+.. math::
+    f_h(u_h) := \frac{f(u_L) + f(u_R)}{2}.
+
+The associated code yields
+
+.. code::
+
+    FluxDefinition<cfg> f_h;
+
+    static_for<0, dim>::apply(
+        [&](auto integral_constant_d)
+        {
+            static constexpr int d = decltype(integral_constant_d)::value;
+
+            auto f = [](auto v)
+            {
+                FluxValue<cfg> f_v = ...;
+                return f_v;
+            };
+
+            f_h[d].flux_function = [f](auto& cells, Field& u)
+            {
+                auto& L = cells[0];
+                auto& R = cells[1];
+                return (f(u[L]) + f(u[R])) / 2;
+            };
+        });
+
+.. warning::
+
+    If the flux function :code:`f_h` calls a continuous function :code:`f`, make sure :code:`f` still exists when :code:`f_h` is called.
+    Typically, if the non-linear flux operator is created and returned by a function, and if :code:`f` is also defined inside that function's scope, it will be deallocated prior to its use.
+    In situations like this, make sure that :code:`f` is captured **by value** by :code:`f_h`. This is done in the above example by the capture instruction :code:`[f]`.
+    If :code:`f_h` also requires to capture other fields or parameters by reference, you can write :code:`[f,&]`.
+
+To build the operator, you can use indifferently
+
+.. code::
+
+    auto my_flux_op = samurai::make_flux_based_scheme(f_h);
+
+or
+
+.. code::
+
+    auto my_flux_op = samurai::make_divergence(f_h);
+
+The latter function is simply an alias of :code:`make_flux_based_scheme`, proposed to improve code readability in the specific case where the operator is a flux divergence.
+
+Convection
+++++++++++
+
+We implement the operator :math:`\nabla \cdot \mathbf{u}\otimes\mathbf{u}` for a vectorial field :math:`\mathbf{u}`.
+Recall that if :math:`\nabla \cdot \mathbf{u} = 0`, it is equivalent to :math:`\mathbf{u} \cdot \nabla\mathbf{u}`.
+We have
+
+.. math::
+    \int_V \nabla \cdot \mathbf{u}\otimes\mathbf{u} = \int_{\partial V} (\mathbf{u}\otimes\mathbf{u})\mathbf{n}.
+
+Developped in 2D, where :math:`\mathbf{u} := [u\;v]`, it reads
+
+.. math::
+    (\mathbf{u}\otimes\mathbf{u})\mathbf{n} =
+    \begin{bmatrix}
+        u^2 & uv \\
+        uv  & v^2
+    \end{bmatrix}
+    \mathbf{n}
+    =
+    \begin{cases}
+        \begin{bmatrix} u^2 \\ uv \end{bmatrix} & \text{if } \mathbf{n} = \begin{bmatrix} 1 \\ 0 \end{bmatrix}, \\
+        \begin{bmatrix} uv \\ v^2 \end{bmatrix} & \text{if } \mathbf{n} = \begin{bmatrix} 0 \\ 1 \end{bmatrix}.
+    \end{cases}
+
+We implement both cases as functions:
+
+.. code::
+
+    auto f_x = [](auto u)
+    {
+        FluxValue<cfg> f_u;
+        f_u(0) = u(0) * u(0);
+        f_u(1) = u(0) * u(1);
+        return f_u;
+    };
+
+    auto f_y = [](auto u)
+    {
+        FluxValue<cfg> f_u;
+        f_u(0) = u(1) * u(0);
+        f_u(1) = u(1) * u(1);
+        return f_u;
+    };
+
+We choose the upwind scheme, and implement:
+
+.. code::
+
+    FluxDefinition<cfg> upwind_f;
+
+    // x-direction
+    upwind_f[0].flux_function = [f_x](auto& cells, Field& u)
+    {
+        auto& L = cells[0]; // left
+        auto& R = cells[1]; // right
+        return u[L](0) >= 0 ? f_x(u[L]) : f_x(u[R]);
+    };
+
+    // y-direction
+    upwind_f[1].flux_function = [f_y](auto& cells, Field& u)
+    {
+        auto& B = cells[0]; // bottom
+        auto& T = cells[1]; // top
+        return u[B](1) >= 0 ? f_y(u[B]) : f_y(u[T]);
+    };
+
+    return make_flux_based_scheme(upwind_f);
+
+Now, given that for each direction :math:`d`, we have
+
+.. math::
+    (\mathbf{u}\otimes\mathbf{u})\mathbf{n} = u_d\, \mathbf{u},
+
+where :math:`u_d` is the :math:`d`-th component of :math:`\mathbf{u}`, the code can be generalized in :math:`n` dimensions:
+
+.. code::
+
+    FluxDefinition<cfg> upwind_f;
+
+    static_for<0, dim>::apply(
+        [&](auto integral_constant_d)
+        {
+            static constexpr int d = decltype(integral_constant_d)::value;
+
+            auto f_d = [](auto u) -> FluxValue<cfg>
+            {
+                return u(d) * u;
+            };
+
+            upwind_f[d].flux_function = [f_d](auto& cells, Field& u)
+            {
+                auto& L = cells[0];
+                auto& R = cells[1];
+                return u[L](d) >= 0 ? f_d(u[L]) : f_d(u[R]);
+            };
+        });
+
+    return make_flux_based_scheme(upwind_f);

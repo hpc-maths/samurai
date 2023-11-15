@@ -26,8 +26,8 @@ In this example, we have
 
 .. math::
 
-        \mathcal{D}(u) = - D\Delta u,
-        \mathcal{R}(u) = k u^2(1-u).
+        \mathcal{D}(u) &= - D\Delta u, \\
+        \mathcal{R}(u) &= k u^2(1-u).
 
 
 Standard samurai initializations
