@@ -59,7 +59,7 @@ namespace samurai
 
         inline double flux_value_cmpnent(const flux_value_t& flux_value, [[maybe_unused]] std::size_t field_i) const
         {
-            if constexpr (output_field_size == 1)
+            if constexpr (output_field_size == 1 && std::is_same_v<flux_value_t, double>)
             {
                 return flux_value;
             }
