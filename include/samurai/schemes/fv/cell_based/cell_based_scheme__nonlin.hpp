@@ -135,8 +135,16 @@ namespace samurai
                              stencil(),
                              [&](auto& stencil_cells)
                              {
-                                 auto contrib = contribution(stencil_cells, field);
-                                 apply_contrib(stencil_cells[cfg::center_index], contrib);
+                                 if constexpr (cfg::scheme_stencil_size == 1)
+                                 {
+                                     auto contrib = contribution(stencil_cells[0], field);
+                                     apply_contrib(stencil_cells[cfg::center_index], contrib);
+                                 }
+                                 else
+                                 {
+                                     auto contrib = contribution(stencil_cells, field);
+                                     apply_contrib(stencil_cells[cfg::center_index], contrib);
+                                 }
                              });
         }
 
@@ -151,8 +159,16 @@ namespace samurai
                              stencil(),
                              [&](auto& stencil_cells)
                              {
-                                 auto coeffs = jacobian_coefficients(stencil_cells, field);
-                                 apply_jacobian_coeffs(stencil_cells, coeffs);
+                                 if constexpr (cfg::scheme_stencil_size == 1)
+                                 {
+                                     auto coeffs = jacobian_coefficients(stencil_cells[0], field);
+                                     apply_jacobian_coeffs(stencil_cells, coeffs);
+                                 }
+                                 else
+                                 {
+                                     auto coeffs = jacobian_coefficients(stencil_cells, field);
+                                     apply_jacobian_coeffs(stencil_cells, coeffs);
+                                 }
                              });
         }
     };

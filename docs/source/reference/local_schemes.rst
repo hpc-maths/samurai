@@ -83,10 +83,10 @@ The analytical formula of the operator is implemented as a lambda function.
 
 .. code-block:: c++
 
-    A.scheme_function() = [&](auto& cells, auto& field)
+    A.scheme_function() = [&](auto& cell, auto& field)
     {
         // Local field value
-        auto v = field[cells[0]];
+        auto v = field[cell];
 
         // Use 'v' and captured parameters in your computation
         samurai::SchemeValue<cfg> result = ...;
@@ -96,7 +96,7 @@ The analytical formula of the operator is implemented as a lambda function.
 
 The parameters of the function are
 
-- :code:`cells`: as this is a local scheme, :code:`cells` contains only one cell, which we get by :code:`cells[0]`;
+- :code:`cell`: the current local cell;
 - :code:`field`: the input field, to which the operator applies. Its actual type is declared in :code:`cfg`.
 
 The return type :code:`SchemeValue<cfg>` is a array-like structure of size :code:`output_field_size` (declared in :code:`cfg`).

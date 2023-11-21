@@ -158,14 +158,14 @@ int main(int argc, char* argv[])
     using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, 1, decltype(u)>;
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
-    react.scheme_function() = [&](auto& stencil_cells, auto& field) //-> samurai::SchemeValue<cfg>
+    react.scheme_function() = [&](auto& cell, auto& field) //-> samurai::SchemeValue<cfg>
     {
-        auto v = field[stencil_cells[0]];
+        auto v = field[cell];
         return k * v * v * (1 - v);
     };
-    react.jacobian_function() = [&](auto& stencil_cells, auto& field)
+    react.jacobian_function() = [&](auto& cell, auto& field)
     {
-        auto v = field[stencil_cells[0]];
+        auto v = field[cell];
         return k * (2 * v * (1 - v) - v * v);
     };
 

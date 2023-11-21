@@ -84,9 +84,8 @@ namespace samurai
         using cell_t                            = typename field_t::cell_t;
         static constexpr std::size_t field_size = field_t::size;
 
-        using stencil_cells_t = std::array<cell_t, cfg::scheme_stencil_size>;
+        using stencil_cells_t = typename detail::FixedVector<cell_t, cfg::scheme_stencil_size>::Type;
 
-        // using scheme_value_t = xt::xtensor_fixed<field_value_type, xt::xshape<cfg::output_field_size>>;
         using scheme_value_t = typename detail::FixedVector<field_value_type, cfg::output_field_size>::Type;
         using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, field_t&)>;
 
