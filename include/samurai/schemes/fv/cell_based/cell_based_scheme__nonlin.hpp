@@ -155,6 +155,12 @@ namespace samurai
         template <class Func>
         void for_each_stencil_and_coeffs(input_field_t& field, Func&& apply_jacobian_coeffs) const
         {
+            if (!jacobian_function())
+            {
+                std::cerr << "The jacobian function of operator '" << this->name() << "' has not been implemented." << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
             for_each_stencil(field.mesh(),
                              stencil(),
                              [&](auto& stencil_cells)
