@@ -534,17 +534,17 @@ namespace samurai
         }
 
         template <class Scheme>
-        void solve(const Scheme& scheme, typename Scheme::field_t& unknown, const typename Scheme::field_t& rhs)
+        void solve(const Scheme& scheme, typename Scheme::field_t& unknown, typename Scheme::field_t& rhs)
         {
             auto solver = make_solver(scheme);
             solver.solve(unknown, rhs);
         }
 
-        template <class Scheme>
-        void solve(const Scheme& scheme, typename Scheme::field_t& unknown, typename Scheme::field_t& rhs)
+        template <class Scheme, class E>
+        void solve(const Scheme& scheme, typename Scheme::field_t& unknown, const field_expression<E>& rhs_expression)
         {
-            auto solver = make_solver(scheme);
-            solver.solve(unknown, rhs);
+            typename Scheme::field_t rhs = rhs_expression;
+            solve(scheme, unknown, rhs);
         }
 
         template <bool monolithic, std::size_t rows, std::size_t cols, class... Operators>

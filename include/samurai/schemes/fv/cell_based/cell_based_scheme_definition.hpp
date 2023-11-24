@@ -1,5 +1,6 @@
 #pragma once
 #include "../utils.hpp"
+#include "local_field.hpp"
 #include <functional>
 
 namespace samurai
@@ -93,8 +94,20 @@ namespace samurai
         using jac_stencil_coeffs_t = xt::xtensor_fixed<jac_coeffs_t, xt::xshape<cfg::scheme_stencil_size>>;
         using jacobian_func        = std::function<jac_stencil_coeffs_t(stencil_cells_t&, field_t&)>;
 
+        // Specific to implicit local schemes (unused otherwise)
+        using local_field_t     = LocalField<field_t>;
+        using local_scheme_func = std::function<scheme_value_t(stencil_cells_t&, local_field_t&)>; // same as 'scheme_func', but with
+                                                                                                   // 'local_field_t' instead of 'field_t'
+        using local_jacobian_func = std::function<jac_stencil_coeffs_t(stencil_cells_t&, local_field_t&)>; // same as 'jacobian_func', but
+                                                                                                           // with 'local_field_t' instead
+                                                                                                           // of 'field_t'
+
         scheme_func scheme_function     = nullptr;
         jacobian_func jacobian_function = nullptr;
+
+        // Specific to implicit local schemes (unused otherwise)
+        local_scheme_func local_scheme_function     = nullptr;
+        local_jacobian_func local_jacobian_function = nullptr;
 
         ~CellBasedSchemeDefinition()
         {

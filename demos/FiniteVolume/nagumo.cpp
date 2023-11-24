@@ -57,7 +57,8 @@ int main(int argc, char* argv[])
     double D = 1;
     double k = 10;
 
-    bool explicit_reaction = false;
+    bool explicit_diffusion = false;
+    bool explicit_reaction  = false;
 
     // Time integration
     double Tf  = 1.;
@@ -84,6 +85,7 @@ int main(int argc, char* argv[])
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_flag("--explicit-reaction", explicit_reaction, "Explicit the reaction term")->capture_default_str()->group("Simulation parameters");
+    app.add_flag("--explicit-diffusion", explicit_diffusion, "Explicit the diffusion term")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
@@ -158,16 +160,18 @@ int main(int argc, char* argv[])
     using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, 1, decltype(u)>;
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
-    react.scheme_function() = [&](auto& cell, auto& field) //-> samurai::SchemeValue<cfg>
-    {
-        auto v = field[cell];
-        return k * v * v * (1 - v);
-    };
-    react.jacobian_function() = [&](auto& cell, auto& field)
-    {
-        auto v = field[cell];
-        return k * (2 * v * (1 - v) - v * v);
-    };
+    react.set_scheme_function(
+        [&](auto& cell, auto& field) //-> samurai::SchemeValue<cfg>
+        {
+            auto v = field[cell];
+            return k * v * v * (1 - v);
+        });
+    react.set_jacobian_function(
+        [&](auto& cell, auto& field)
+        {
+            auto v = field[cell];
+            return k * (2 * v * (1 - v) - v * v);
+        });
 
     //--------------------//
     //   Time iteration   //
@@ -181,6 +185,8 @@ int main(int argc, char* argv[])
     {
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
+
+    auto rhs = samurai::make_field<1>("rhs", mesh);
 
     double t = 0;
     while (t != Tf)
@@ -198,13 +204,29 @@ int main(int argc, char* argv[])
         MRadaptation(mr_epsilon, mr_regularity);
         samurai::update_ghost_mr(u);
         unp1.resize();
+        rhs.resize();
 
-        if (explicit_reaction)
+        if (explicit_diffusion && explicit_reaction)
+        {
+            unp1 = u + dt * react(u) - dt * diff(u);
+        }
+        else if (!explicit_diffusion && explicit_reaction)
         {
             // u_np1 + dt*diff(u_np1) = u + dt*react(u)
             auto implicit_operator = id + dt * diff;
-            auto rhs               = u + dt * react(u);
+            rhs                    = u + dt * react(u);
             // Solve the linear equation   [Id + dt*Diff](unp1) = rhs
+            samurai::petsc::solve(implicit_operator, unp1, rhs);
+        }
+        else if (explicit_diffusion && !explicit_reaction)
+        {
+            // u_np1 - dt*react(u_np1) = u - dt*diff(u)
+            auto implicit_operator = id - dt * react;
+            rhs                    = u - dt * diff(u);
+            // Set initial guess for the Newton algorithm
+            unp1 = u;
+            // Solve the non-linear equation   [Id - dt*React](unp1) = u - dt*Diff(u)
+            // Here, small independent local Newton methods are used.
             samurai::petsc::solve(implicit_operator, unp1, rhs);
         }
         else
