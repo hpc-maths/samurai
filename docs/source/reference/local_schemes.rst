@@ -55,8 +55,8 @@ Secondly, we create the operator from the configuration :code:`cfg`:
 
     auto A = samurai::make_cell_based_scheme<cfg>();
 
-    A.scheme_function()   = ...;
-    A.jacobian_function() = ...; // only A is non-linear
+    A.set_scheme_function(...);
+    A.set_jacobian_function(...); // only A is non-linear
 
 The signature of the scheme function actually depends on the :code:`SchemeType` declared in :code:`cfg` (see sections below).
 
@@ -83,7 +83,7 @@ The analytical formula of the operator is implemented as a lambda function.
 
 .. code-block:: c++
 
-    A.scheme_function() = [&](auto& cell, auto& field)
+    A.set_scheme_function([&](auto& cell, auto& field)
     {
         // Local field value
         auto v = field[cell];
@@ -92,7 +92,7 @@ The analytical formula of the operator is implemented as a lambda function.
         samurai::SchemeValue<cfg> result = ...;
 
         return result;
-    };
+    });
 
 The parameters of the function are
 
@@ -111,16 +111,15 @@ If only explicit applications of the operator shall be used, then this step is o
 
 .. code-block:: c++
 
-    A.jacobian_function() = [&](auto& cells, auto& field)
+    A.set_jacobian_function([&](auto& cell, auto& field)
     {
         // Local field value
-        auto v = field[cells[0]];
+        auto v = field[cell];
 
-        samurai::Jacobian<cfg> jac = ...
+        samurai::JacobianMatrix<cfg> jac = ...
         return jac;
-    };
+    });
 
 .. warning::
-    The type :code:`Jacobian<cfg>` is not implemented yet! It will be a matrix of size :code:`output_field_size x input_field_type`.
+    The type :code:`JacobianMatrix<cfg>` is a matrix of size :code:`output_field_size x input_field_type`.
     However, if :code:`output_field_size = input_field_size = 1`, it reduces to a scalar type (typically :code:`double`).
-    The framework can be used in this case.

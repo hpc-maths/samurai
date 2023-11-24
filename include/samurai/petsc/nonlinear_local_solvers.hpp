@@ -108,11 +108,6 @@ namespace samurai
                 return m_is_set_up;
             }
 
-            // auto& assembly()
-            // {
-            //     return m_assembly;
-            // }
-
             auto& scheme()
             {
                 return m_scheme;
@@ -195,40 +190,6 @@ namespace samurai
                 VecDestroy(&x);
             }
 
-            // virtual void setup()
-            // {
-            //     if (is_set_up())
-            //     {
-            //         return;
-            //     }
-
-            //     if (!m_unknown)
-            //     {
-            //         std::cerr << "Undefined unknown for this non-linear system. Please set the unknowns using the instruction
-            //         '[solver].set_unknown(u);'."
-            //                   << std::endl;
-            //         assert(false && "Undefined unknown");
-            //         exit(EXIT_FAILURE);
-            //     }
-
-            //     scheme().for_each_stencil_and_coeffs(unknown(),
-            //                                          [&](auto& stencil_cells, auto& jac_coeffs)
-            //                                          {
-            //                                              auto& cell = stencil_cells[0];
-
-            //                                              // Non-linear function
-            //                                              SNESSetFunction(m_snes, nullptr, PETSC_nonlinear_function, this);
-
-            //                                              // Jacobian matrix
-            //                                              Mat J = nullptr;
-            //                                              assembly().create_matrix(J);
-            //                                              // assembly().assemble_matrix(m_J);
-            //                                              SNESSetJacobian(m_snes, J, J, PETSC_jacobian_function, this);
-            //                                          });
-
-            //     m_is_set_up = true;
-            // }
-
           private:
 
             static PetscErrorCode PETSC_nonlinear_function(SNES /*snes*/, Vec x, Vec f, void* ctx)
@@ -254,14 +215,7 @@ namespace samurai
                 // Apply explicit scheme
                 auto f_field = scheme.scheme_definition().local_scheme_function(cell, x_field);
 
-                // if constexpr (field_t::size == 1)
-                // {
                 copy(f_field, f);
-                // }
-                // else
-                // {
-                //     copy(f_field.array(), f);
-                // }
 
                 VecRestoreArrayRead(x, &x_data);
                 // VecRestoreArray(f, &f_data);
@@ -291,9 +245,9 @@ namespace samurai
                 }
                 else
                 {
-                    for (int i = 0; i < field_t::size; ++i)
+                    for (PetscInt i = 0; i < static_cast<PetscInt>(field_t::size); ++i)
                     {
-                        for (int j = 0; j < field_t::size; ++j)
+                        for (PetscInt j = 0; j < static_cast<PetscInt>(field_t::size); ++j)
                         {
                             MatSetValue(B, i, j, jac_coeffs(i, j), INSERT_VALUES);
                         }
@@ -317,19 +271,6 @@ namespace samurai
             }
 
           protected:
-
-            // void prepare_rhs(Vec& b)
-            // {
-            //     assembly().set_0_for_all_ghosts(b);
-            //     // Update the right-hand side with the boundary conditions stored in the solution field
-            //     assembly().enforce_bc(b);
-            // }
-
-            // void prepare_rhs_and_solve(Vec& b, Vec& x)
-            // {
-            //     prepare_rhs(b);
-            //     solve_system(b, x);
-            // }
 
             void solve_system(SNES snes, Vec& b, Vec& x)
             {

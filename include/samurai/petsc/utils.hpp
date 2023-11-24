@@ -177,7 +177,7 @@ namespace samurai
 
             PetscScalar* v_data;
             VecGetArray(v, &v_data);
-            std::copy(container.array().begin(), container.array().end(), v_data);
+            std::copy(container.linear_begin(), container.linear_end(), v_data);
             VecRestoreArray(v, &v_data);
         }
 

@@ -170,6 +170,9 @@ namespace samurai
     using SchemeValue = typename CellBasedSchemeDefinition<cfg>::scheme_value_t;
 
     template <class cfg>
+    using JacobianMatrix = typename CellBasedSchemeDefinition<cfg>::jac_coeffs_t;
+
+    template <class cfg>
     using StencilCoeffs = typename CellBasedSchemeDefinition<cfg>::stencil_coeffs_t;
 
 } // end namespace samurai

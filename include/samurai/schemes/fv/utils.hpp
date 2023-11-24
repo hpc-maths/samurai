@@ -52,6 +52,12 @@ namespace samurai
         };
     }
 
+    template <class value_type, std::size_t rows, std::size_t cols>
+    using RMatrix = typename detail::LocalMatrix<value_type, rows, cols>::Type;
+
+    template <class value_type, std::size_t size>
+    using RVector = typename detail::FixedVector<value_type, size>::Type;
+
     template <class matrix_type>
     matrix_type eye()
     {
@@ -91,6 +97,49 @@ namespace samurai
     {
         using matrix_type = typename detail::LocalMatrix<value_type, rows, cols>::Type;
         return zeros<matrix_type>();
+    }
+
+    template <class value_type, std::enable_if_t<std::is_floating_point_v<value_type>, bool> = true>
+    auto mat_vec(value_type A, value_type x)
+    {
+        return A * x;
+    }
+
+    template <class value_type, std::size_t rows, std::size_t cols, class vector_type>
+    auto mat_vec(const xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>& A, const vector_type& x)
+    {
+        // 'vector_type' can be an xt::view or an RVector
+
+        RVector<value_type, rows> res = zeros<RMatrix<value_type, rows, cols>>();
+        if constexpr (rows == 1 && cols == 1)
+        {
+            res = A * x;
+        }
+        else if constexpr (rows == 1)
+        {
+            for (std::size_t j = 0; j < cols; ++j)
+            {
+                res += A(0, j) * x(j);
+            }
+        }
+        else if constexpr (cols == 1)
+        {
+            for (std::size_t i = 0; i < rows; ++i)
+            {
+                res(i) = A(i, 0) * x;
+            }
+        }
+        else
+        {
+            for (std::size_t i = 0; i < rows; ++i)
+            {
+                for (std::size_t j = 0; j < cols; ++j)
+                {
+                    res(i) += A(i, j) * x(j);
+                }
+            }
+        }
+        return res;
     }
 
 } // end namespace samurai
