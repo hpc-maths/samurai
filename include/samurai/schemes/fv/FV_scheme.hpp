@@ -29,8 +29,8 @@ namespace samurai
     struct BoundaryEquationCoeffs
     {
         static constexpr std::size_t field_size = Field::size;
-        using field_value_type                  = typename Field::value_type; // double
-        using coeffs_t                          = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
+        using field_value_type                  = typename Field::value_type;
+        using coeffs_t                          = CollapsMatrix<field_value_type, output_field_size, field_size>;
 
         using stencil_coeffs_t = std::array<coeffs_t, bdry_stencil_size>;
         using rhs_coeffs_t     = coeffs_t;

@@ -15,11 +15,8 @@ namespace samurai
      */
     namespace detail
     {
-        /**
-         * Local matrix to store the coefficients of a vectorial field.
-         */
         template <class value_type, std::size_t rows, std::size_t cols>
-        struct LocalMatrix
+        struct FixedCollapsableMatrix
         {
             using Type = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;
         };
@@ -28,16 +25,13 @@ namespace samurai
          * Template specialization: if rows=cols=1, then just a scalar coefficient
          */
         template <class value_type>
-        struct LocalMatrix<value_type, 1, 1>
+        struct FixedCollapsableMatrix<value_type, 1, 1>
         {
             using Type = value_type;
         };
 
-        /**
-         * Fixed-size vector
-         */
         template <class value_type, std::size_t size>
-        struct FixedVector
+        struct FixedCollapsableVector
         {
             using Type = xt::xtensor_fixed<value_type, xt::xshape<size>>;
         };
@@ -46,17 +40,23 @@ namespace samurai
          * Template specialization: if size=1, then just a scalar coefficient
          */
         template <class value_type>
-        struct FixedVector<value_type, 1>
+        struct FixedCollapsableVector<value_type, 1>
         {
             using Type = value_type;
         };
     }
 
+    /**
+     * Collapsable, fixed-size matrix: reduces to a scalar if rows = cols = 1.
+     */
     template <class value_type, std::size_t rows, std::size_t cols>
-    using RMatrix = typename detail::LocalMatrix<value_type, rows, cols>::Type;
+    using CollapsMatrix = typename detail::FixedCollapsableMatrix<value_type, rows, cols>::Type;
 
+    /**
+     * Collapsable, fixed size vector: reduces to a scalar if size = 1.
+     */
     template <class value_type, std::size_t size>
-    using RVector = typename detail::FixedVector<value_type, size>::Type;
+    using CollapsVector = typename detail::FixedCollapsableVector<value_type, size>::Type;
 
     template <class matrix_type>
     matrix_type eye()
@@ -74,7 +74,7 @@ namespace samurai
     template <class value_type, std::size_t rows, std::size_t cols>
     auto eye()
     {
-        using matrix_type = typename detail::LocalMatrix<value_type, rows, cols>::Type;
+        using matrix_type = CollapsMatrix<value_type, rows, cols>;
         return eye<matrix_type>();
     }
 
@@ -95,7 +95,7 @@ namespace samurai
     template <class value_type, std::size_t rows, std::size_t cols>
     auto zeros()
     {
-        using matrix_type = typename detail::LocalMatrix<value_type, rows, cols>::Type;
+        using matrix_type = CollapsMatrix<value_type, rows, cols>;
         return zeros<matrix_type>();
     }
 
@@ -108,9 +108,9 @@ namespace samurai
     template <class value_type, std::size_t rows, std::size_t cols, class vector_type>
     auto mat_vec(const xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>& A, const vector_type& x)
     {
-        // 'vector_type' can be an xt::view or an RVector
+        // 'vector_type' can be an xt::view or a CollapsVector
 
-        RVector<value_type, rows> res = zeros<RMatrix<value_type, rows, cols>>();
+        CollapsVector<value_type, rows> res = zeros<CollapsMatrix<value_type, rows, cols>>();
         if constexpr (rows == 1 && cols == 1)
         {
             res = A * x;
