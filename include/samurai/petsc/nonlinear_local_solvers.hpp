@@ -321,11 +321,11 @@ namespace samurai
          * Helper functions
          */
 
-        template <class cfg, class bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear && cfg::scheme_stencil_size == 1, bool> = true>
-        auto make_solver(const CellBasedScheme<cfg, bdry_cfg>& scheme)
-        {
-            return NonLinearLocalSolvers<CellBasedScheme<cfg, bdry_cfg>>(scheme);
-        }
+        // template <class cfg, class bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear && cfg::scheme_stencil_size == 1,
+        // bool> = true> auto make_solver(const CellBasedScheme<cfg, bdry_cfg>& scheme)
+        // {
+        //     return NonLinearLocalSolvers<CellBasedScheme<cfg, bdry_cfg>>(scheme);
+        // }
 
     } // end namespace petsc
 } // end namespace samurai

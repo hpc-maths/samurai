@@ -3,7 +3,5 @@
 // license that can be found in the LICENSE file.
 
 #pragma once
-#include "petsc/nonlinear_local_solvers.hpp"
-#include "petsc/nonlinear_solver.hpp"
-#include "petsc/solver.hpp"
+#include "petsc/solver_helpers.hpp"
 #include "schemes/fv.hpp"
