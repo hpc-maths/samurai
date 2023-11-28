@@ -1,6 +1,6 @@
 #pragma once
 
-#include "linear_solver.hpp"
+#include "linear_block_solver.hpp"
 #include "nonlinear_local_solvers.hpp"
 #include "nonlinear_solver.hpp"
 
@@ -12,18 +12,18 @@ namespace samurai
          * make_solver
          */
 
-        // Single field linear solver
+        // Linear solver
         template <class Scheme, std::enable_if_t<Scheme::cfg_t::scheme_type != SchemeType::NonLinear, bool> = true>
         auto make_solver(const Scheme& scheme)
         {
-            return SingleFieldSolver<Assembly<Scheme>>(scheme);
+            return LinearSolver<Scheme>(scheme);
         }
 
-        // Linear block solver
+        // Linear block solver (choice monolithic or not)
         template <bool monolithic, std::size_t rows, std::size_t cols, class... Operators>
         auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
-            return BlockSolver<monolithic, rows, cols, Operators...>(block_operator);
+            return LinearBlockSolver<monolithic, rows, cols, Operators...>(block_operator);
         }
 
         // Linear block solver (monolithic)
@@ -34,14 +34,14 @@ namespace samurai
             return make_solver<default_monolithic, rows, cols, Operators...>(block_operator);
         }
 
-        // Single field non-linear solver
+        // Non-linear solver
         template <class Scheme, std::enable_if_t<Scheme::cfg_t::scheme_type == SchemeType::NonLinear, bool> = true>
         auto make_solver(const Scheme& scheme)
         {
-            return SingleFieldNonLinearSolver<Assembly<Scheme>>(scheme);
+            return NonLinearSolver<Scheme>(scheme);
         }
 
-        // Single field non-linear local solvers
+        // Non-linear local solvers
         template <class cfg, class bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear && cfg::scheme_stencil_size == 1, bool> = true>
         auto make_solver(const CellBasedScheme<cfg, bdry_cfg>& scheme)
         {

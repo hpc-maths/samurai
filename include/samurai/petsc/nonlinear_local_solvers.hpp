@@ -21,7 +21,6 @@ namespace samurai
 
             field_t* m_unknown;
             scheme_t m_scheme;
-            // Assembly m_assembly;
             SNES m_snes = nullptr;
             Mat m_J     = nullptr;
 
@@ -74,7 +73,6 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
-                    // this->m_assembly  = other.m_assembly;
                     this->m_snes      = other.m_snes;
                     this->m_J         = other.m_J;
                     this->m_is_set_up = other.m_is_set_up;
@@ -87,7 +85,6 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
-                    // this->m_assembly  = other.m_assembly;
                     this->m_snes      = other.m_snes;
                     this->m_J         = other.m_J;
                     this->m_is_set_up = other.m_is_set_up;
@@ -296,7 +293,7 @@ namespace samurai
 
           public:
 
-            void solve(field_t& unknown, /*const*/ field_t& rhs)
+            void solve(field_t& unknown, field_t& rhs)
             {
                 set_unknown(unknown);
                 solve(rhs);
@@ -316,16 +313,6 @@ namespace samurai
                 configure_default_solver(m_snes);
             }
         };
-
-        /**
-         * Helper functions
-         */
-
-        // template <class cfg, class bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear && cfg::scheme_stencil_size == 1,
-        // bool> = true> auto make_solver(const CellBasedScheme<cfg, bdry_cfg>& scheme)
-        // {
-        //     return NonLinearLocalSolvers<CellBasedScheme<cfg, bdry_cfg>>(scheme);
-        // }
 
     } // end namespace petsc
 } // end namespace samurai
