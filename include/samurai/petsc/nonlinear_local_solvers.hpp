@@ -191,11 +191,6 @@ namespace samurai
 
             static PetscErrorCode PETSC_nonlinear_function(SNES /*snes*/, Vec x, Vec f, void* ctx)
             {
-                // const char* x_name;
-                // PetscObjectGetName(reinterpret_cast<PetscObject>(x), &x_name);
-                // const char* f_name;
-                // PetscObjectGetName(reinterpret_cast<PetscObject>(f), &f_name);
-
                 auto petsc_ctx = reinterpret_cast<CellContextForPETSc*>(ctx);
                 auto& scheme   = *petsc_ctx->scheme;
                 auto& cell     = *petsc_ctx->cell;
@@ -207,7 +202,7 @@ namespace samurai
 
                 // PetscScalar* f_data;
                 // VecGetArray(f, &f_data);
-                // LocalField<field_t> x_field(cell, x_data);
+                // LocalField<field_t> f_field(cell, f_data);
 
                 // Apply explicit scheme
                 auto f_field = scheme.scheme_definition().local_scheme_function(cell, x_field);
