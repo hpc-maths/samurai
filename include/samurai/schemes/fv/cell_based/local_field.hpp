@@ -50,6 +50,7 @@ namespace samurai
 
       private:
 
+        // cppcheck-suppress uninitMemberVar
         const cell_t& m_cell;
         container_t m_container;
 
