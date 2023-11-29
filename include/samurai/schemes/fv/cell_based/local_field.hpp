@@ -50,12 +50,12 @@ namespace samurai
 
       private:
 
-        // cppcheck-suppress uninitMemberVar
         const cell_t& m_cell;
         container_t m_container;
 
       public:
 
+        // cppcheck-suppress uninitMemberVar
         LocalField(const cell_t& cell, const field_value_type* data)
             : m_cell(cell)
             , m_container(container_closure_t(data, xt::detail::fixed_compute_size<xt::xshape<field_t::size>>::value))

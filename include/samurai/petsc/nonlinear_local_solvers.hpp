@@ -19,7 +19,7 @@ namespace samurai
 
           protected:
 
-            field_t* m_unknown;
+            field_t* m_unknown = nullptr;
             scheme_t m_scheme;
             SNES m_snes = nullptr;
             Mat m_J     = nullptr;
@@ -73,6 +73,7 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
+                    this->m_unknown   = other.m_unknown;
                     this->m_snes      = other.m_snes;
                     this->m_J         = other.m_J;
                     this->m_is_set_up = other.m_is_set_up;
@@ -85,9 +86,11 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
+                    this->m_unknown   = other.m_unknown;
                     this->m_snes      = other.m_snes;
                     this->m_J         = other.m_J;
                     this->m_is_set_up = other.m_is_set_up;
+                    other.m_unknown   = nullptr;
                     other.m_snes      = nullptr; // Prevent SNES destruction when 'other' object is destroyed
                     other.m_J         = nullptr;
                     other.m_is_set_up = false;
