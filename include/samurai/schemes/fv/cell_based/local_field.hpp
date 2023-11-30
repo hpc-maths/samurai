@@ -30,7 +30,7 @@ namespace samurai
         {
         }
 
-        field_value_type& operator[](const cell_t& cell)
+        field_value_type& operator[]([[maybe_unused]] const cell_t& cell)
         {
             assert(cell.index == m_cell.index);
             return m_value;
@@ -62,7 +62,7 @@ namespace samurai
         {
         }
 
-        auto operator[](const cell_t& cell) const
+        auto operator[]([[maybe_unused]] const cell_t& cell) const
         {
             assert(cell.index == m_cell.index);
             return xt::view(m_container, xt::all());
