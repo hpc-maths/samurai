@@ -169,7 +169,7 @@ namespace samurai
                                });
 
                 // Apply explicit scheme
-                // update_ghost_mr(x_field); // Necessary ?? Seems to work without it but seems risky
+                update_ghost_mr(x_field);
                 auto f_field = self->scheme()(x_field);
 
                 copy(f_field, f);
