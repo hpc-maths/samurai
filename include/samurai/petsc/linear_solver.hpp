@@ -1,7 +1,6 @@
 #pragma once
 
 // #define ENABLE_MG
-#include "block_assembly.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
 #include "fv/operator_sum_assembly.hpp"
@@ -16,7 +15,7 @@ namespace samurai
     namespace petsc
     {
         template <class Assembly>
-        class SolverBase
+        class LinearSolverBase
         {
             using scheme_t = typename Assembly::scheme_t;
 
@@ -29,13 +28,13 @@ namespace samurai
 
           public:
 
-            explicit SolverBase(const scheme_t& scheme)
+            explicit LinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
                 configure_default_solver();
             }
 
-            virtual ~SolverBase()
+            virtual ~LinearSolverBase()
             {
                 destroy_petsc_objects();
             }
@@ -54,7 +53,7 @@ namespace samurai
                 }
             }
 
-            SolverBase& operator=(const SolverBase& other)
+            LinearSolverBase& operator=(const LinearSolverBase& other)
             {
                 if (this != &other)
                 {
@@ -67,7 +66,7 @@ namespace samurai
                 return *this;
             }
 
-            SolverBase& operator=(SolverBase&& other)
+            LinearSolverBase& operator=(LinearSolverBase&& other)
             {
                 if (this != &other)
                 {
@@ -203,11 +202,11 @@ namespace samurai
             }
         };
 
-        template <class Assembly>
-        class SingleFieldSolver : public SolverBase<Assembly>
+        template <class Scheme>
+        class LinearSolver : public LinearSolverBase<Assembly<Scheme>>
         {
-            using base_class = SolverBase<Assembly>;
-            using scheme_t   = typename Assembly::scheme_t;
+            using base_class = LinearSolverBase<Assembly<Scheme>>;
+            using scheme_t   = Scheme;
             using Field      = typename scheme_t::field_t;
             using Mesh       = typename Field::mesh_t;
 
@@ -220,12 +219,12 @@ namespace samurai
 
             bool m_use_samurai_mg = false;
 #ifdef ENABLE_MG
-            GeometricMultigrid<Assembly> _samurai_mg;
+            GeometricMultigrid<Assembly<Scheme>> _samurai_mg;
 #endif
 
           public:
 
-            explicit SingleFieldSolver(const scheme_t& scheme)
+            explicit LinearSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
                 configure_solver();
@@ -331,234 +330,6 @@ namespace samurai
                 solve(rhs);
             }
         };
-
-        /**
-         * Block solver
-         */
-        template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
-        class BlockSolver
-        {
-        };
-
-        /**
-         * Nested block solver
-         */
-        template <std::size_t rows_, std::size_t cols_, class... Operators>
-        class BlockSolver<false, rows_, cols_, Operators...> : public SolverBase<NestedBlockAssembly<rows_, cols_, Operators...>>
-        {
-            using assembly_t = NestedBlockAssembly<rows_, cols_, Operators...>;
-            using base_class = SolverBase<assembly_t>;
-            using base_class::assembly;
-            using base_class::m_A;
-            using base_class::m_is_set_up;
-            using base_class::m_ksp;
-
-            using block_operator_t            = typename assembly_t::scheme_t;
-            static constexpr std::size_t rows = assembly_t::rows;
-            static constexpr std::size_t cols = assembly_t::cols;
-
-          public:
-
-            static constexpr bool is_monolithic = false;
-
-            explicit BlockSolver(const block_operator_t& block_op)
-                : base_class(block_op)
-            {
-                configure_solver();
-            }
-
-          private:
-
-            void configure_solver() override
-            {
-                KSPCreate(PETSC_COMM_SELF, &m_ksp);
-                // KSPSetFromOptions(m_ksp);
-            }
-
-          public:
-
-            template <class... Fields>
-            void set_unknowns(Fields&... unknowns)
-            {
-                auto unknown_tuple = assembly().block_operator().tie_unknowns(unknowns...);
-                set_unknown(unknown_tuple);
-            }
-
-            template <class UnknownTuple>
-            void set_unknown(UnknownTuple& unknown_tuple)
-            {
-                static_assert(std::tuple_size_v<UnknownTuple> == cols,
-                              "The number of unknown fields passed to solve() must equal "
-                              "the number of columns of the block operator.");
-                assembly().set_unknown(unknown_tuple);
-                assembly().reset();
-            }
-
-            void setup() override
-            {
-                if (m_is_set_up)
-                {
-                    return;
-                }
-
-                if (assembly().undefined_unknown())
-                {
-                    std::cerr << "Undefined unknowns for this linear system. Please set the unknowns using the instruction '[solver].set_unknowns(u1, u2...);'."
-                              << std::endl;
-                    assert(false && "Undefined unknowns");
-                    exit(EXIT_FAILURE);
-                }
-
-                // assembly().reset();
-                assembly().create_matrix(m_A);
-                assembly().assemble_matrix(m_A);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
-                // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
-                KSPSetOperators(m_ksp, m_A, m_A);
-
-                // Set names to the petsc fields
-                PC pc;
-                KSPGetPC(m_ksp, &pc);
-                IS is_fields[cols];
-                MatNestGetISs(m_A, is_fields, NULL);
-                auto field_names = assembly().field_names();
-                for (std::size_t i = 0; i < cols; ++i)
-                {
-                    PCFieldSplitSetIS(pc, field_names[i].c_str(), is_fields[i]);
-                }
-
-                KSPSetFromOptions(m_ksp);
-                PCSetUp(pc);
-                // KSPSetUp(m_ksp); // Here, PETSc fails for some reason.
-
-                m_is_set_up = true;
-            }
-
-            template <class... Fields>
-            void solve(Fields&... rhs_fields)
-            {
-                auto rhs_tuple = assembly().block_operator().tie_rhs(rhs_fields...);
-                // static_assert(std::tuple_size_v<RHSTuple> == rows,
-                //                   "The number of source fields passed to solve() must equal "
-                //                   "the number of rows of the block operator.");
-
-                if (!m_is_set_up)
-                {
-                    setup();
-                }
-                Vec b = assembly().create_rhs_vector(rhs_tuple);
-                Vec x = assembly().create_solution_vector();
-                this->prepare_rhs_and_solve(b, x);
-
-                VecDestroy(&b);
-                VecDestroy(&x);
-            }
-        };
-
-        /**
-         * Monolithic block solver
-         */
-        template <std::size_t rows_, std::size_t cols_, class... Operators>
-        class BlockSolver<true, rows_, cols_, Operators...> : public SolverBase<MonolithicBlockAssembly<rows_, cols_, Operators...>>
-        {
-            using assembly_t = MonolithicBlockAssembly<rows_, cols_, Operators...>;
-            using base_class = SolverBase<assembly_t>;
-            using base_class::assembly;
-            using base_class::m_A;
-            using base_class::m_is_set_up;
-            using base_class::m_ksp;
-
-            using block_operator_t = typename assembly_t::scheme_t;
-
-            static constexpr std::size_t rows = assembly_t::rows;
-            static constexpr std::size_t cols = assembly_t::cols;
-
-          public:
-
-            static constexpr bool is_monolithic = true;
-
-            explicit BlockSolver(const block_operator_t& block_op)
-                : base_class(block_op)
-            {
-            }
-
-            template <class... Fields>
-            void set_unknowns(Fields&... unknowns)
-            {
-                auto unknown_tuple = assembly().block_operator().tie_unknowns(unknowns...);
-                set_unknown(unknown_tuple);
-            }
-
-            template <class UnknownTuple>
-            void set_unknown(UnknownTuple& unknown_tuple)
-            {
-                static_assert(std::tuple_size_v<UnknownTuple> == cols,
-                              "The number of unknown fields passed to solve() must equal "
-                              "the number of columns of the block operator.");
-                assembly().set_unknown(unknown_tuple);
-                assembly().reset();
-            }
-
-            template <class... Fields>
-            void solve(Fields&... rhs_fields)
-            {
-                auto rhs_tuple = assembly().block_operator().tie_rhs(rhs_fields...);
-                // static_assert(std::tuple_size_v<RHSTuple> == rows,
-                //                   "The number of source fields passed to solve() must equal "
-                //                   "the number of rows of the block operator.");
-
-                if (!m_is_set_up)
-                {
-                    this->setup();
-                }
-
-                Vec b = assembly().create_rhs_vector(rhs_tuple);
-                Vec x = assembly().create_solution_vector();
-                this->prepare_rhs_and_solve(b, x);
-
-                assembly().update_unknowns(x);
-
-                VecDestroy(&b);
-                VecDestroy(&x);
-            }
-        };
-
-        /**
-         * Helper functions
-         */
-
-        template <class Scheme, std::enable_if_t<Scheme::cfg_t::scheme_type != SchemeType::NonLinear, bool> = true>
-        auto make_solver(const Scheme& scheme)
-        {
-            return SingleFieldSolver<Assembly<Scheme>>(scheme);
-        }
-
-        template <class Scheme>
-        void solve(const Scheme& scheme, typename Scheme::field_t& unknown, const typename Scheme::field_t& rhs)
-        {
-            auto solver = make_solver(scheme);
-            solver.solve(unknown, rhs);
-        }
-
-        template <class Scheme>
-        void solve(const Scheme& scheme, typename Scheme::field_t& unknown, typename Scheme::field_t& rhs)
-        {
-            auto solver = make_solver(scheme);
-            solver.solve(unknown, rhs);
-        }
-
-        template <bool monolithic, std::size_t rows, std::size_t cols, class... Operators>
-        auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
-        {
-            return BlockSolver<monolithic, rows, cols, Operators...>(block_operator);
-        }
-
-        template <std::size_t rows, std::size_t cols, class... Operators>
-        auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
-        {
-            static constexpr bool default_monolithic = true;
-            return make_solver<default_monolithic, rows, cols, Operators...>(block_operator);
-        }
 
     } // end namespace petsc
 } // end namespace samurai

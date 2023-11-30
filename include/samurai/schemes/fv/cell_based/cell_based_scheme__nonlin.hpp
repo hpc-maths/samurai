@@ -26,8 +26,10 @@ namespace samurai
         using stencil_cells_t      = typename scheme_definition_t::stencil_cells_t;
         using scheme_value_t       = typename scheme_definition_t::scheme_value_t;
         using scheme_func          = typename scheme_definition_t::scheme_func;
+        using local_scheme_func    = typename scheme_definition_t::local_scheme_func;
         using jac_stencil_coeffs_t = typename scheme_definition_t::jac_stencil_coeffs_t;
         using jacobian_func        = typename scheme_definition_t::jacobian_func;
+        using local_jacobian_func  = typename scheme_definition_t::local_jacobian_func;
 
       private:
 
@@ -41,6 +43,11 @@ namespace samurai
         }
 
         CellBasedScheme() = default;
+
+        auto& scheme_definition()
+        {
+            return m_scheme_definition;
+        }
 
         auto& stencil() const
         {
@@ -72,9 +79,21 @@ namespace samurai
             return m_scheme_definition.scheme_function;
         }
 
-        void set_scheme_function(scheme_func scheme_function)
+        const local_scheme_func& local_scheme_function() const
         {
-            m_scheme_definition.scheme_function = scheme_function;
+            return m_scheme_definition.local_scheme_function;
+        }
+
+        local_scheme_func& local_scheme_function()
+        {
+            return m_scheme_definition.local_scheme_function;
+        }
+
+        template <class scheme_function_t>
+        void set_scheme_function(scheme_function_t scheme_function)
+        {
+            m_scheme_definition.scheme_function       = scheme_function;
+            m_scheme_definition.local_scheme_function = scheme_function;
         }
 
         auto contribution(stencil_cells_t& stencil_cells, input_field_t& field) const
@@ -90,6 +109,23 @@ namespace samurai
         jacobian_func& jacobian_function()
         {
             return m_scheme_definition.jacobian_function;
+        }
+
+        const local_jacobian_func& local_jacobian_function() const
+        {
+            return m_scheme_definition.local_jacobian_function;
+        }
+
+        local_jacobian_func& local_jacobian_function()
+        {
+            return m_scheme_definition.local_jacobian_function;
+        }
+
+        template <class jacobian_function_t>
+        void set_jacobian_function(jacobian_function_t jacobian_function)
+        {
+            m_scheme_definition.jacobian_function       = jacobian_function;
+            m_scheme_definition.local_jacobian_function = jacobian_function;
         }
 
         auto jacobian_coefficients(stencil_cells_t& stencil_cells, input_field_t& field) const
@@ -135,8 +171,16 @@ namespace samurai
                              stencil(),
                              [&](auto& stencil_cells)
                              {
-                                 auto contrib = contribution(stencil_cells, field);
-                                 apply_contrib(stencil_cells[cfg::center_index], contrib);
+                                 if constexpr (cfg::scheme_stencil_size == 1)
+                                 {
+                                     auto contrib = contribution(stencil_cells[0], field);
+                                     apply_contrib(stencil_cells[cfg::center_index], contrib);
+                                 }
+                                 else
+                                 {
+                                     auto contrib = contribution(stencil_cells, field);
+                                     apply_contrib(stencil_cells[cfg::center_index], contrib);
+                                 }
                              });
         }
 
@@ -147,12 +191,26 @@ namespace samurai
         template <class Func>
         void for_each_stencil_and_coeffs(input_field_t& field, Func&& apply_jacobian_coeffs) const
         {
+            if (!jacobian_function())
+            {
+                std::cerr << "The jacobian function of operator '" << this->name() << "' has not been implemented." << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
             for_each_stencil(field.mesh(),
                              stencil(),
                              [&](auto& stencil_cells)
                              {
-                                 auto coeffs = jacobian_coefficients(stencil_cells, field);
-                                 apply_jacobian_coeffs(stencil_cells, coeffs);
+                                 if constexpr (cfg::scheme_stencil_size == 1)
+                                 {
+                                     auto coeffs = jacobian_coefficients(stencil_cells[0], field);
+                                     apply_jacobian_coeffs(stencil_cells, coeffs);
+                                 }
+                                 else
+                                 {
+                                     auto coeffs = jacobian_coefficients(stencil_cells, field);
+                                     apply_jacobian_coeffs(stencil_cells, coeffs);
+                                 }
                              });
         }
     };

@@ -38,10 +38,7 @@ namespace samurai
             using field_value_type                           = typename field_t::value_type; // double
             static constexpr std::size_t output_field_size   = cfg_t::output_field_size;
             static constexpr std::size_t scheme_stencil_size = cfg_t::scheme_stencil_size;
-            using local_matrix_t                             = typename detail::LocalMatrix<field_value_type,
-                                                                output_field_size,
-                                                                field_size>::Type; // 'double' if field_size = 1, 'xtensor' representing a
-                                                                                                               // matrix otherwise
+            using local_matrix_t                             = CollapsMatrix<field_value_type, output_field_size, field_size>;
 
             using stencil_t         = Stencil<scheme_stencil_size, dim>;
             using get_coeffs_func_t = std::function<std::array<local_matrix_t, scheme_stencil_size>(double)>;

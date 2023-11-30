@@ -286,79 +286,32 @@ namespace samurai
             }
         };
 
-        template <class Assembly>
-        class SingleFieldNonLinearSolver : public NonLinearSolverBase<Assembly>
+        template <class Scheme>
+        class NonLinearSolver : public NonLinearSolverBase<Assembly<Scheme>>
         {
-            using base_class = NonLinearSolverBase<Assembly>;
-            using scheme_t   = typename Assembly::scheme_t;
-            using Field      = typename scheme_t::field_t;
-            using Mesh       = typename Field::mesh_t;
+            using base_class = NonLinearSolverBase<Assembly<Scheme>>;
+
+          public:
+
+            using scheme_t = Scheme;
+            using Field    = typename scheme_t::field_t;
+            using Mesh     = typename Field::mesh_t;
 
             using base_class::assembly;
             using base_class::m_is_set_up;
             using base_class::m_J;
-            // using base_class::m_ksp;
 
-          public:
-
-            explicit SingleFieldNonLinearSolver(const scheme_t& scheme)
+            explicit NonLinearSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
-                // configure_solver();
             }
-
-          protected:
-
-            // void configure_solver() override
-            // {
-            //     KSP user_ksp;
-            //     KSPCreate(PETSC_COMM_SELF, &user_ksp);
-            //     KSPSetFromOptions(user_ksp);
-            //     PC user_pc;
-            //     KSPGetPC(user_ksp, &user_pc);
-            //     PCType user_pc_type;
-            //     PCGetType(user_pc, &user_pc_type);
-
-            //     KSPDestroy(&user_ksp);
-
-            //     KSPCreate(PETSC_COMM_SELF, &m_ksp);
-            //     KSPSetFromOptions(m_ksp);
-            //     m_is_set_up = false;
-            // }
-
-          public:
 
             void set_unknown(Field& unknown)
             {
                 assembly().set_unknown(unknown);
             }
 
-            // void setup() override
-            // {
-            //     if (m_is_set_up)
-            //     {
-            //         return;
-            //     }
-            //     if (assembly().undefined_unknown())
-            //     {
-            //         std::cerr << "Undefined unknown for this linear system. Please set the unknown using the instruction
-            //         '[solver].set_unknown(u);'."
-            //                   << std::endl;
-            //         assert(false && "Undefined unknown");
-            //         exit(EXIT_FAILURE);
-            //     }
-
-            //     assembly().create_matrix(m_A);
-            //     assembly().assemble_matrix(m_A);
-            //     PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
-
-            //     KSPSetOperators(m_ksp, m_A, m_A);
-
-            //     KSPSetUp(m_ksp);
-            //     m_is_set_up = true;
-            // }
-
-            void solve(/*const*/ Field& rhs)
+            void solve(Field& rhs)
             {
                 if (!m_is_set_up)
                 {
@@ -372,22 +325,12 @@ namespace samurai
                 VecDestroy(&x);
             }
 
-            void solve(Field& unknown, /*const*/ Field& rhs)
+            void solve(Field& unknown, Field& rhs)
             {
                 set_unknown(unknown);
                 solve(rhs);
             }
         };
-
-        /**
-         * Helper functions
-         */
-
-        template <class Scheme, std::enable_if_t<Scheme::cfg_t::scheme_type == SchemeType::NonLinear, bool> = true>
-        auto make_solver(const Scheme& scheme)
-        {
-            return SingleFieldNonLinearSolver<Assembly<Scheme>>(scheme);
-        }
 
     } // end namespace petsc
 } // end namespace samurai

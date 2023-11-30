@@ -29,8 +29,8 @@ namespace samurai
     struct BoundaryEquationCoeffs
     {
         static constexpr std::size_t field_size = Field::size;
-        using field_value_type                  = typename Field::value_type; // double
-        using coeffs_t                          = typename detail::LocalMatrix<field_value_type, output_field_size, field_size>::Type;
+        using field_value_type                  = typename Field::value_type;
+        using coeffs_t                          = CollapsMatrix<field_value_type, output_field_size, field_size>;
 
         using stencil_coeffs_t = std::array<coeffs_t, bdry_stencil_size>;
         using rhs_coeffs_t     = coeffs_t;
@@ -227,34 +227,37 @@ namespace samurai
         {
             using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
 
-            auto dir_stencils = directional_stencils<dim, bdry_neighbourhood_width>();
-            for (std::size_t d = 0; d < 2 * dim; ++d)
+            if constexpr (bdry_neighbourhood_width <= 2) // to be removed when directional_stencils<>() is implemented for larger stencils
             {
-                auto& config = m_dirichlet_config[d];
-
-                config.directional_stencil = dir_stencils[d];
-                if constexpr (bdry_neighbourhood_width == 1)
+                auto dir_stencils = directional_stencils<dim, bdry_neighbourhood_width>();
+                for (std::size_t d = 0; d < 2 * dim; ++d)
                 {
-                    static constexpr std::size_t cell          = 0;
-                    static constexpr std::size_t interior_cell = 1;
-                    static constexpr std::size_t ghost         = 2;
+                    auto& config = m_dirichlet_config[d];
 
-                    // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is
-                    //                        [  1/2    1/2 ] = dirichlet_value
-                    config.equations[0].ghost_index        = ghost;
-                    config.equations[0].get_stencil_coeffs = [&](double)
+                    config.directional_stencil = dir_stencils[d];
+                    if constexpr (bdry_neighbourhood_width == 1)
                     {
-                        std::array<coeffs_t, bdry_stencil_size> coeffs;
-                        coeffs[cell]          = 0.5 * eye<coeffs_t>();
-                        coeffs[ghost]         = 0.5 * eye<coeffs_t>();
-                        coeffs[interior_cell] = zeros<coeffs_t>();
-                        return coeffs;
-                    };
-                    config.equations[0].get_rhs_coeffs = [&](double)
-                    {
-                        coeffs_t coeffs = eye<coeffs_t>();
-                        return coeffs;
-                    };
+                        static constexpr std::size_t cell          = 0;
+                        static constexpr std::size_t interior_cell = 1;
+                        static constexpr std::size_t ghost         = 2;
+
+                        // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is
+                        //                        [  1/2    1/2 ] = dirichlet_value
+                        config.equations[0].ghost_index        = ghost;
+                        config.equations[0].get_stencil_coeffs = [&](double)
+                        {
+                            std::array<coeffs_t, bdry_stencil_size> coeffs;
+                            coeffs[cell]          = 0.5 * eye<coeffs_t>();
+                            coeffs[ghost]         = 0.5 * eye<coeffs_t>();
+                            coeffs[interior_cell] = zeros<coeffs_t>();
+                            return coeffs;
+                        };
+                        config.equations[0].get_rhs_coeffs = [&](double)
+                        {
+                            coeffs_t coeffs = eye<coeffs_t>();
+                            return coeffs;
+                        };
+                    }
                 }
             }
         }
@@ -277,34 +280,37 @@ namespace samurai
         {
             using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
 
-            auto dir_stencils = directional_stencils<dim, bdry_neighbourhood_width>();
-            for (std::size_t d = 0; d < 2 * dim; ++d)
+            if constexpr (bdry_neighbourhood_width <= 2) // to be removed when directional_stencils<>() is implemented for larger stencils
             {
-                auto& config = m_neumann_config[d];
-
-                config.directional_stencil = dir_stencils[d];
-                if constexpr (bdry_neighbourhood_width == 1)
+                auto dir_stencils = directional_stencils<dim, bdry_neighbourhood_width>();
+                for (std::size_t d = 0; d < 2 * dim; ++d)
                 {
-                    static constexpr std::size_t cell          = 0;
-                    static constexpr std::size_t interior_cell = 1;
-                    static constexpr std::size_t ghost         = 2;
+                    auto& config = m_neumann_config[d];
 
-                    // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is
-                    //                    [ 1/h  -1/h ] = neumann_value
-                    config.equations[0].ghost_index        = ghost;
-                    config.equations[0].get_stencil_coeffs = [&](double)
+                    config.directional_stencil = dir_stencils[d];
+                    if constexpr (bdry_neighbourhood_width == 1)
                     {
-                        std::array<coeffs_t, bdry_stencil_size> coeffs;
-                        coeffs[cell]          = -eye<coeffs_t>();
-                        coeffs[ghost]         = eye<coeffs_t>();
-                        coeffs[interior_cell] = zeros<coeffs_t>();
-                        return coeffs;
-                    };
-                    config.equations[0].get_rhs_coeffs = [&](double h)
-                    {
-                        coeffs_t coeffs = h * eye<coeffs_t>();
-                        return coeffs;
-                    };
+                        static constexpr std::size_t cell          = 0;
+                        static constexpr std::size_t interior_cell = 1;
+                        static constexpr std::size_t ghost         = 2;
+
+                        // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is
+                        //                    [ 1/h  -1/h ] = neumann_value
+                        config.equations[0].ghost_index        = ghost;
+                        config.equations[0].get_stencil_coeffs = [&](double)
+                        {
+                            std::array<coeffs_t, bdry_stencil_size> coeffs;
+                            coeffs[cell]          = -eye<coeffs_t>();
+                            coeffs[ghost]         = eye<coeffs_t>();
+                            coeffs[interior_cell] = zeros<coeffs_t>();
+                            return coeffs;
+                        };
+                        config.equations[0].get_rhs_coeffs = [&](double h)
+                        {
+                            coeffs_t coeffs = h * eye<coeffs_t>();
+                            return coeffs;
+                        };
+                    }
                 }
             }
         }

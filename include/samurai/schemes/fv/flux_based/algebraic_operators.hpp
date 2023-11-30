@@ -48,6 +48,46 @@ namespace samurai
         return multiplied_scheme;
     }
 
+    /**
+     * Binary '+' operator if same config
+     */
+    template <class cfg, class bdry_cfg>
+    FluxBasedScheme<cfg, bdry_cfg> operator+(const FluxBasedScheme<cfg, bdry_cfg>& scheme1, const FluxBasedScheme<cfg, bdry_cfg>& scheme2)
+    {
+        FluxBasedScheme<cfg, bdry_cfg> sum_scheme(scheme1); // copy
+        sum_scheme.set_name(scheme1.name() + " + " + scheme2.name());
+
+        static_for<0, cfg::dim>::apply(
+            [&](auto integral_constant_d)
+            {
+                static constexpr int d = decltype(integral_constant_d)::value;
+
+                if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
+                {
+                    sum_scheme.flux_definition()[d].flux_function = [=](auto h)
+                    {
+                        return scheme1.flux_definition()[d].flux_function(h) + scheme2.flux_definition()[d].flux_function(h);
+                    };
+                }
+                else if constexpr (cfg::scheme_type == SchemeType::LinearHeterogeneous)
+                {
+                    sum_scheme.flux_definition()[d].flux_function = [=](auto& cells)
+                    {
+                        return scheme1.flux_definition()[d].flux_function(cells) + scheme2.flux_definition()[d].flux_function(cells);
+                    };
+                }
+                else // SchemeType::NonLinear
+                {
+                    sum_scheme.flux_definition()[d].flux_function = [=](auto& cells, auto& field)
+                    {
+                        return scheme1.flux_definition()[d].flux_function(cells, field)
+                             + scheme2.flux_definition()[d].flux_function(cells, field);
+                    };
+                }
+            });
+        return sum_scheme;
+    }
+
     template <class cfg, class bdry_cfg>
     auto operator-(const FluxBasedScheme<cfg, bdry_cfg>& scheme)
     {

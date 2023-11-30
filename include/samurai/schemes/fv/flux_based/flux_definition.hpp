@@ -72,7 +72,7 @@ namespace samurai
         using flux_value_t = xt::xtensor_fixed<field_value_type, xt::xshape<cfg::output_field_size>>;
         using flux_func    = std::function<flux_value_t(stencil_cells_t&, field_t&)>;
 
-        // using flux_jac_t         = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        // using flux_jac_t         = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         // using flux_jacobian_func = std::function<flux_jac_t(stencil_cells_t&, field_t&)>;
 
         flux_func flux_function = nullptr;
@@ -99,7 +99,7 @@ namespace samurai
         static constexpr std::size_t field_size = field_t::size;
 
         using stencil_cells_t       = std::array<cell_t, cfg::stencil_size>;
-        using flux_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        using flux_coeff_matrix_t   = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
         using flux_func             = std::function<flux_stencil_coeffs_t(stencil_cells_t&)>;
 
@@ -122,7 +122,7 @@ namespace samurai
         using field_value_type                  = typename field_t::value_type;
         static constexpr std::size_t field_size = field_t::size;
 
-        using flux_coeff_matrix_t   = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        using flux_coeff_matrix_t   = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
         using flux_func             = std::function<flux_stencil_coeffs_t(double)>;
 

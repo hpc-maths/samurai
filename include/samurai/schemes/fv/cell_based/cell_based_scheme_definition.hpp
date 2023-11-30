@@ -1,5 +1,6 @@
 #pragma once
 #include "../utils.hpp"
+#include "local_field.hpp"
 #include <functional>
 
 namespace samurai
@@ -84,18 +85,29 @@ namespace samurai
         using cell_t                            = typename field_t::cell_t;
         static constexpr std::size_t field_size = field_t::size;
 
-        using stencil_cells_t = std::array<cell_t, cfg::scheme_stencil_size>;
+        using stencil_cells_t = CollapsVector<cell_t, cfg::scheme_stencil_size>;
 
-        // using scheme_value_t = xt::xtensor_fixed<field_value_type, xt::xshape<cfg::output_field_size>>;
-        using scheme_value_t = typename detail::FixedVector<field_value_type, cfg::output_field_size>::Type;
+        using scheme_value_t = CollapsVector<field_value_type, cfg::output_field_size>;
         using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, field_t&)>;
 
-        using jac_coeffs_t         = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        using jac_coeffs_t         = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         using jac_stencil_coeffs_t = xt::xtensor_fixed<jac_coeffs_t, xt::xshape<cfg::scheme_stencil_size>>;
         using jacobian_func        = std::function<jac_stencil_coeffs_t(stencil_cells_t&, field_t&)>;
 
+        // Specific to implicit local schemes (unused otherwise)
+        using local_field_t     = LocalField<field_t>;
+        using local_scheme_func = std::function<scheme_value_t(stencil_cells_t&, local_field_t&)>; // same as 'scheme_func', but with
+                                                                                                   // 'local_field_t' instead of 'field_t'
+        using local_jacobian_func = std::function<jac_stencil_coeffs_t(stencil_cells_t&, local_field_t&)>; // same as 'jacobian_func', but
+                                                                                                           // with 'local_field_t' instead
+                                                                                                           // of 'field_t'
+
         scheme_func scheme_function     = nullptr;
         jacobian_func jacobian_function = nullptr;
+
+        // Specific to implicit local schemes (unused otherwise)
+        local_scheme_func local_scheme_function     = nullptr;
+        local_jacobian_func local_jacobian_function = nullptr;
 
         ~CellBasedSchemeDefinition()
         {
@@ -118,7 +130,7 @@ namespace samurai
         static constexpr std::size_t field_size = field_t::size;
 
         using stencil_cells_t       = std::array<cell_t, cfg::scheme_stencil_size>;
-        using local_matrix_t        = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        using local_matrix_t        = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         using stencil_coeffs_t      = xt::xtensor_fixed<local_matrix_t, xt::xshape<cfg::stencil_size>>;
         using get_coefficients_func = std::function<stencil_coeffs_t(stencil_cells_t&)>;
 
@@ -142,7 +154,7 @@ namespace samurai
         using field_value_type                  = typename field_t::value_type;
         static constexpr std::size_t field_size = field_t::size;
 
-        using local_matrix_t        = typename detail::LocalMatrix<field_value_type, cfg::output_field_size, field_size>::Type;
+        using local_matrix_t        = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         using stencil_coeffs_t      = xt::xtensor_fixed<local_matrix_t, xt::xshape<cfg::scheme_stencil_size>>;
         using get_coefficients_func = std::function<stencil_coeffs_t(double)>;
 
@@ -156,6 +168,9 @@ namespace samurai
 
     template <class cfg>
     using SchemeValue = typename CellBasedSchemeDefinition<cfg>::scheme_value_t;
+
+    template <class cfg>
+    using JacobianMatrix = typename CellBasedSchemeDefinition<cfg>::jac_coeffs_t;
 
     template <class cfg>
     using StencilCoeffs = typename CellBasedSchemeDefinition<cfg>::stencil_coeffs_t;

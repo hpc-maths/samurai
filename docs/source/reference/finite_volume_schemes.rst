@@ -109,7 +109,7 @@ Here in 3D:
     samurai::FluxDefinition<cfg> my_flux;
     my_flux[0].flux_function = my_flux_function_x; // flux in the x-direction
     my_flux[1].flux_function = my_flux_function_y; // flux in the y-direction
-    my_flux[2].flux_function = my_flux_function_z; // flux in the y-direction
+    my_flux[2].flux_function = my_flux_function_z; // flux in the z-direction
 
 In this generic code, the flux functions remain abstract:
 their signatures actually depend on the :code:`SchemeType` declared in :code:`cfg`, and are described in the next sections.
