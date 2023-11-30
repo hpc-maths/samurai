@@ -278,4 +278,16 @@ namespace samurai
         return sum_scheme;
     }
 
+    template <class... Operators>
+    OperatorSum<Operators...> operator*(double scalar, const OperatorSum<Operators...>& sum_scheme)
+    {
+        auto result = sum_scheme;
+        for_each(result.operators(),
+                 [&](auto& op)
+                 {
+                     op = scalar * op;
+                 });
+        return result;
+    }
+
 } // end namespace samurai
