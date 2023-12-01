@@ -666,7 +666,7 @@ namespace samurai
 
             void set_0_for_all_ghosts(Vec& b) const
             {
-                for (std::size_t level = mesh().min_level(); level <= mesh().max_level(); ++level)
+                for (std::size_t level = 0; level <= mesh().max_level(); ++level)
                 {
                     auto ghosts = difference(mesh()[mesh_id_t::reference][level], mesh()[mesh_id_t::cells][level]);
 
