@@ -34,6 +34,11 @@ This approximation is assumed constant on each face, thus simplifying the integr
 In a nutshell, from a :code:`samurai` mesh and an implementation of :math:`\mathcal{F}_h(u_h)`, the Finite Volume module builds a discrete differential operator
 that can be called like a function in an explicit context, or passed into a solver in an implicit context.
 Specifically, upon execution, it iterates over all cell interfaces :math:`F` and computes the flux :math:`\mathcal{F}_h(u_h)_{|F}` going through.
+
+.. figure:: ./figures/flux.svg
+    :width: 8%
+    :align: center
+
 Denoting :math:`V_L` and :math:`V_R` the two cells sharing the face :math:`F`, and ordered in the direction of the corresponding Cartesian vector
 (i.e., in the x-direction, :math:`V_L` and :math:`V_R` are the left and right cells, respectively),
 the scheme contributions are defined as
@@ -43,9 +48,14 @@ the scheme contributions are defined as
     \mathcal{C}_R := -\frac{|F|}{|V_R|} \mathcal{F}_h(u_h)_{|F}.
 
 The flux :math:`\mathcal{F}_h(u_h)_{|F}` is computed only once and used for both contributions.
-The flux :math:`\mathcal{F}_h(u_h)_{|F}` is always computed between two cells of same length.
-It means that where level jumps occur, ghost cells are involved in :math:`\mathcal{F}_h(u_h)_{|F}`,
-while :math:`V_L` and :math:`V_R` still refer to real cells in the formulas of :math:`\mathcal{C}_L` and :math:`\mathcal{C}_R`.
+
+Where level jumps occur, ghost cells are involved in the computation of :math:`\mathcal{F}_h(u_h)_{|F}`, so that it is always computed between two cells of same length.
+
+.. figure:: ./figures/flux_level_jump.svg
+    :width: 8%
+    :align: center
+
+:math:`V_L` and :math:`V_R` still refer to real cells in the formulas of :math:`\mathcal{C}_L` and :math:`\mathcal{C}_R`.
 
 .. note::
 
