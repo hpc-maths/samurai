@@ -64,7 +64,8 @@ Let :math:`v` denote the resulting field:
 .. math::
     v = \mathcal{D}(u).
 
-1. Static configuration
+Static configuration
+++++++++++++++++++++
 
 First of all, the structural information about the scheme must be declared.
 It contains:
@@ -99,17 +100,84 @@ Here is an example for the vectorial Laplace operator:
                                     2,                             // stencil_size (for the Laplacian of order 2)
                                     decltype(u)>;                  // input_field_type
 
-2. Flux definition
+Stencil configuration
++++++++++++++++++++++
 
-From :code:`cfg`, you can now declare a :code:`FluxDefinition` object to hold how the flux must be computed in each Cartesian direction.
-Here in 3D:
+From :code:`cfg`, you can now declare a :code:`FluxDefinition` object to hold how the flux is computed.
+
+.. code-block:: c++
+
+    samurai::FluxDefinition<cfg> my_flux;
+
+In each direction, the flux is computed between one cell and its neighbour following the associated Cartesian unit vector.
+Namely, in 2D, from left to right and from bottom to top.
+The stencil is defined as an array of directional vectors from the origin cell. The origin cell is defined as the left cell in the horizontal direction, or the bottom cell in the vertical direction.
+It is represented by the zero vector :code:`{0,0}` (or :code:`{0,0,0}` in 3D).
+The desired neighbours are selected by inserting into the stencil the direction vectors that capture them from the origin cell.
+Typically, for the x-direction, the stencil :code:`{{0,0}, {1,0}}` captures the origin cell and its right neighbour.
+Here is an example of larger stencils:
+
+.. figure:: ./figures/flux_stencils.svg
+    :width: 20%
+    :align: center
+
+In this figure, four cells are required to compute the flux at the red interface. The orientation of the flux is indicated by a blue arrow.
+In each cell, we specify the direction vector that must be inserted into the stencil to capture it.
+The corresponding stencils are configured by
+
+.. code-block:: c++
+
+    samurai::FluxDefinition<cfg> my_flux;
+
+    // x-direction
+    my_flux[0].stencil       = {{-1,0}, {0,0}, {1,0}, {2,0}};
+    my_flux[0].flux_function = my_flux_function_x;
+    // y-direction
+    my_flux[1].stencil       = {{0,-1}, {0,0}, {0,1}, {0,2}};
+    my_flux[1].flux_function = my_flux_function_y;
+
+Note that one stencil and associated flux function must be defined for each positive Cartesian direction.
+The set of cells captured by the stencil will be passed as argument of the flux function in the form of a cell array, arranged according the order chosen in the configured stencil:
+
+.. code-block:: c++
+
+    my_flux[0].stencil       = {{-1,0}, {0,0}, {1,0}, {2,0}};
+    my_flux[0].flux_function = [](auto& cells, ...)
+        {
+            auto& L2 = cells[0]; // {-1,0}
+            auto& L1 = cells[1]; // { 0,0}
+            auto& R1 = cells[2]; // { 1,0}
+            auto& R2 = cells[3]; // { 2,0}
+        };
+
+If the :code:`stencil_size` is set to 2, then a default stencil composed of the origin cell and its neighbour in the relevant Cartesian direction is configured.
+Configuring it explicitly yields
+
+.. code-block:: c++
+
+    my_flux[0].stencil       = {{0,0}, {1,0}}; // default value
+    my_flux[0].flux_function = [](auto& cells, ...)
+        {
+            auto& L = cells[0]; // {0,0}
+            auto& R = cells[1]; // {1,0}
+        };
+
+.. note::
+    If the stencil depends on the value of a dynamic parameter (e.g., in the upwind or WENO schemes, the sign of the local velocity component),
+    then a fixed stencil composed of all cells possibly used by the scheme must be configured.
+    The selection of the cells actually used in the computation must be performed dynamically within the flux function.
+    See the :ref:`upwind operator <upwind_conv_operator>` for an example.
+
+Flux definition
++++++++++++++++
+
+The flux function must be defined for each positive Cartesian direction. Here in 2D:
 
 .. code-block:: c++
 
     samurai::FluxDefinition<cfg> my_flux;
     my_flux[0].flux_function = my_flux_function_x; // flux in the x-direction
     my_flux[1].flux_function = my_flux_function_y; // flux in the y-direction
-    my_flux[2].flux_function = my_flux_function_z; // flux in the z-direction
 
 In this generic code, the flux functions remain abstract:
 their signatures actually depend on the :code:`SchemeType` declared in :code:`cfg`, and are described in the next sections.
@@ -117,7 +185,7 @@ If the flux functions only differ by the direction index, you can write an :math
 
 .. code-block:: c++
 
-    static constexpr std::size_t dim = 3;
+    static constexpr std::size_t dim = 2;
 
     samurai::FluxDefinition<cfg> my_flux;
     samurai::static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
@@ -134,30 +202,9 @@ If the flux function is strictly identical for all directions, you can simply pa
 
     samurai::FluxDefinition<cfg> my_flux(my_flux_function);
 
-Remark that in these code examples, no stencil have been defined.
-This is because if :code:`stencil_size` is set to 2, all stencils are defaulted.
-Specifically, in each direction, the default stencil of size 2 is composed of the current cell and its neighbour in the relevant Cartesian direction.
-Configuring those stencils explicitly yields
 
-.. code-block:: c++
-
-    samurai::FluxDefinition<cfg> my_flux;
-
-    // x-direction
-    my_flux[0].stencil       = {{0,0,0}, {1,0,0}};
-    my_flux[0].flux_function = my_flux_function_x;
-    // y-direction
-    my_flux[1].stencil       = {{0,0,0}, {0,1,0}};
-    my_flux[1].flux_function = my_flux_function_y;
-    // z-direction
-    my_flux[2].stencil       = {{0,0,0}, {0,0,1}};
-    my_flux[2].flux_function = my_flux_function_z;
-
-Each vector in these stencils represents, from the current cell, the direction where to get the desired neighbour.
-Here, in the x-direction, the stencil :code:`{{0,0,0}, {1,0,0}}` captures the current cell and its right neighbour.
-The set of cells captured by the stencil will be passed as argument of the flux function.
-
-3. Operator creation and usage
+Operator creation and usage
++++++++++++++++++++++++++++
 
 Once the :code:`FluxDefinition` object is constructed, you can finally declare your operator by
 
@@ -671,6 +718,8 @@ The parameter is captured by reference by the lambda function.
 
 Here is an example:
 
+.. _upwind_conv_operator:
+
 Upwind convection
 +++++++++++++++++
 
@@ -722,7 +771,7 @@ The construction of the operator now reads
 
     auto u = samurai::make_field<1>("u", mesh); // scalar field
 
-    using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
+    using cfg = samurai::FluxConfig<SchemeType::LinearHeterogeneous,
                                     1,            // output_field_size
                                     2,            // stencil_size
                                     decltype(u)>; // input_field_type
