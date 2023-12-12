@@ -57,7 +57,7 @@ namespace samurai
 
         CellBasedSchemeDefinitionBase()
         {
-            if constexpr (cfg::scheme_stencil_size == 1 + 2 * dim * cfg::neighbourhood_width)
+            if constexpr (cfg::scheme_stencil_size == 1 + 2 * dim * cfg::neighbourhood_width && cfg::neighbourhood_width <= 2)
             {
                 stencil = samurai::star_stencil<dim, cfg::neighbourhood_width>();
             }
@@ -85,7 +85,7 @@ namespace samurai
         using cell_t                            = typename field_t::cell_t;
         static constexpr std::size_t field_size = field_t::size;
 
-        using stencil_cells_t = CollapsVector<cell_t, cfg::scheme_stencil_size>;
+        using stencil_cells_t = CollapsArray<cell_t, cfg::scheme_stencil_size>;
 
         using scheme_value_t = CollapsVector<field_value_type, cfg::output_field_size>;
         using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, field_t&)>;
