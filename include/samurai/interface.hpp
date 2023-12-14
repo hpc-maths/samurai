@@ -213,7 +213,7 @@ namespace samurai
         Stencil<1, dim> coarse_cell_stencil = center_only_stencil<dim>();
         auto coarse_it                      = make_stencil_iterator(mesh, coarse_cell_stencil);
 
-        Stencil<comput_stencil_size, dim> minus_comput_stencil = -xt::flip(comput_stencil, 0);
+        Stencil<comput_stencil_size, dim> minus_comput_stencil = comput_stencil - direction;
         Vector minus_direction                                 = -direction;
         int minus_direction_index_int                          = find(minus_comput_stencil, minus_direction);
         auto minus_direction_index                             = static_cast<std::size_t>(minus_direction_index_int);
@@ -323,7 +323,7 @@ namespace samurai
                                                           Func&& f)
     {
         Vector opposite_direction                        = -direction;
-        decltype(comput_stencil) opposite_comput_stencil = -xt::flip(comput_stencil, 0);
+        decltype(comput_stencil) opposite_comput_stencil = comput_stencil - direction;
         for_each_boundary_interface___direction(mesh, level, opposite_direction, opposite_comput_stencil, std::forward<Func>(f));
     }
 

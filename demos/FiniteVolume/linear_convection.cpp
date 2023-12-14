@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
-    std::cout << "------------------------- Burgers -------------------------" << std::endl;
+    std::cout << "------------------------- Linear convection -------------------------" << std::endl;
 
     //--------------------//
     // Program parameters //
