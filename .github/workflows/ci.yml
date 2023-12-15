@@ -111,6 +111,11 @@ jobs:
             package: "clang-14"
             cc: "clang-14"
             cxx: "clang++-14"
+          - cpp-version: clang-15
+            compiler: "clang"
+            package: "clang-15"
+            cc: "clang-15"
+            cxx: "clang++-15"
     steps:
       - uses: actions/checkout@v3
 
