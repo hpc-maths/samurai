@@ -1,0 +1,26 @@
+[project]
+name = "samurai"
+authors = ["Loic Gouarin <loic.gouarin@gmail.com>"]
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+
+[tasks]
+clean = { cmd = "ninja -C .build -t clean" }
+configure = { cmd = "cmake -G Ninja -S . -B .build " }
+configure_all = { cmd = "cmake -G Ninja -S . -B .build -DBUILD_DEMOS=ON -DBUILD_TESTS=ON" }
+build_ninja = { cmd = "ninja -C .build" }
+build = { depends_on = ["configure", "build_ninja"] }
+build_all = { depends_on = ["configure_all", "build_ninja"] }
+test = { cmd = ".build/tests/test_samurai_lib", depends_on = ["build_all"] }
+
+[dependencies]
+fmt = "10.1.1.*"
+xtensor = "0.24.7.*"
+cmake = "3.28.0.*"
+highfive = "2.8.0.*"
+pugixml = "1.14.*"
+cli11 = "2.3.2.*"
+ninja = "1.11.1.*"
+boost = "1.83.0.*"
+pytest = "7.4.3.*"
+h5py = "3.10.0.*"
