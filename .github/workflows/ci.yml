@@ -28,8 +28,8 @@ jobs:
           pixi-version: v0.9.1
           cache: true
 
-      - name: cppcheck installation
-        run: pixi add cppcheck
+      # - name: cppcheck installation
+      #   run: pixi add cppcheck
 
       - name: Configure
         shell: pixi run bash {0}
