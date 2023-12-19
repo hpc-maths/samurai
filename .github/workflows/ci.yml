@@ -108,10 +108,6 @@ jobs:
           pixi-version: v0.9.1
           cache: true
 
-      - name: Add PETSc
-        shell: pixi run bash {0}
-        run: pixi add petsc pkg-config
-
       - name: Run tests
         run: pixi run test
 

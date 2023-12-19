@@ -26,3 +26,15 @@ pytest = "7.4.3.*"
 h5py = "3.10.0.*"
 cppcheck = ">=2.7.5,<2.13"
 pre-commit = ">=3.6.0,<3.7"
+
+[target.linux-64.dependencies]
+petsc = "3.20.*"
+pkg-config = ">=0.29.2,<0.30"
+
+[target.osx-64.dependencies]
+petsc = "3.20.*"
+pkg-config = ">=0.29.2,<0.30"
+
+[target.osx-arm64.dependencies]
+petsc = "3.20.*"
+pkg-config = ">=0.29.2,<0.30"
