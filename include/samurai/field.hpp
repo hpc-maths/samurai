@@ -567,7 +567,7 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline auto Field<mesh_t, value_t, size_, SOA>::operator=(const Field& field) -> Field&
+    inline Field<mesh_t, value_t, size_, SOA>& Field<mesh_t, value_t, size_, SOA>::operator=(const Field& field)
     {
         inner_mesh_t::operator=(field.mesh());
         m_name = field.m_name;
@@ -587,7 +587,7 @@ namespace samurai
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     template <class E>
-    inline auto Field<mesh_t, value_t, size_, SOA>::operator=(const field_expression<E>& e) -> Field&
+    inline Field<mesh_t, value_t, size_, SOA>& Field<mesh_t, value_t, size_, SOA>::operator=(const field_expression<E>& e)
     {
         for_each_interval(this->mesh(),
                           [&](std::size_t level, const auto& i, const auto& index)
