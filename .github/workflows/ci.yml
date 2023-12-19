@@ -29,9 +29,7 @@ jobs:
           cache: true
 
       - name: cppcheck installation
-        run: |
-          pixi add cppcheck=2.12.1
-          pixi add cxx-compiler
+        run: pixi add cppcheck
 
       - name: Configure
         shell: pixi run bash {0}
