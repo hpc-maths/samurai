@@ -34,8 +34,8 @@ jobs:
       - name: Configure
         shell: pixi run bash {0}
         run: |
-          cmake -S . -B .build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_EXAMPLES=ON
-          cppcheck --enable=all -q --project=.build/compile_commands.json --suppressions-list=.cppcheck 2> cppcheck_err.txt
+          cmake -S . -B .build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
+          cppcheck --enable=all -q --project=.build/compile_commands.json --inline-suppr --suppressions-list=.cppcheck 2> cppcheck_err.txt
 
       - name: Check for errors
         run: |

@@ -567,7 +567,7 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline auto Field<mesh_t, value_t, size_, SOA>::operator=(const Field& field) -> Field&
+    inline auto Field<mesh_t, value_t, size_, SOA>::operator=(const Field& field) -> Field& // cppcheck-suppress operatorEqRetRefThis
     {
         inner_mesh_t::operator=(field.mesh());
         m_name = field.m_name;
