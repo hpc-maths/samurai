@@ -28,8 +28,8 @@ jobs:
           pixi-version: v0.10.0
           cache: true
 
-      - name: cppcheck installation
-        run: pixi remove petsc
+      - name: Remove petsc
+        run: pixi remove -p linux-64 petsc
 
       - name: Configure
         shell: pixi run bash {0}
