@@ -17,7 +17,7 @@ test = { cmd = ".build/tests/test_samurai_lib", depends_on = ["build_all"] }
 fmt = "10.1.1.*"
 xtensor = "0.24.7.*"
 cmake = "3.28.0.*"
-highfive = "2.8.0.*"
+highfive = "2.7.1.*"
 pugixml = "1.14.*"
 cli11 = "2.3.2.*"
 ninja = ">=1.11.1,<1.12"
