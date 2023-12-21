@@ -27,15 +27,17 @@ namespace samurai
             explicit NonLinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
-                configure_default_solver();
+                _configure_solver();
             }
 
             virtual ~NonLinearSolverBase()
             {
-                destroy_petsc_objects();
+                _destroy_petsc_objects();
             }
 
-            virtual void destroy_petsc_objects()
+          private:
+
+            void _destroy_petsc_objects()
             {
                 if (m_J)
                 {
@@ -47,6 +49,13 @@ namespace samurai
                     SNESDestroy(&m_snes);
                     m_snes = nullptr;
                 }
+            }
+
+          public:
+
+            virtual void destroy_petsc_objects()
+            {
+                _destroy_petsc_objects();
             }
 
             NonLinearSolverBase& operator=(const NonLinearSolverBase& other)
@@ -100,7 +109,7 @@ namespace samurai
 
           private:
 
-            void configure_default_solver()
+            void _configure_solver()
             {
                 SNESCreate(PETSC_COMM_SELF, &m_snes);
                 SNESSetType(m_snes, SNESNEWTONLS);
@@ -111,7 +120,7 @@ namespace samurai
 
             virtual void configure_solver()
             {
-                configure_default_solver();
+                _configure_solver();
             }
 
           public:

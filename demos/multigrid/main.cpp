@@ -94,7 +94,7 @@ Mesh create_uniform_mesh(std::size_t level)
 }
 
 template <class Mesh>
-Mesh create_refined_mesh(std::size_t level)
+[[maybe_unused]] Mesh create_refined_mesh(std::size_t level)
 {
     using cl_type = typename Mesh::cl_type;
 

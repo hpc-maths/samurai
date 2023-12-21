@@ -13,7 +13,7 @@
 static constexpr double pi = M_PI;
 
 template <class Field>
-bool check_nan_or_inf(const Field& f)
+[[maybe_unused]] bool check_nan_or_inf(const Field& f)
 {
     std::size_t n      = f.mesh().nb_cells();
     bool is_nan_or_inf = false;
@@ -295,7 +295,7 @@ int main(int argc, char* argv[])
 
         // Error
         double error = L2_error(velocity,
-                                [](auto& coord)
+                                [](const auto& coord)
                                 {
                                     const auto& x = coord[0];
                                     const auto& y = coord[1];

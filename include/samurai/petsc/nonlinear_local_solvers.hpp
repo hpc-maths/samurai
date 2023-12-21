@@ -46,15 +46,17 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
 
-                configure_default_solver(m_snes);
+                _configure_solver(m_snes);
             }
 
             virtual ~NonLinearLocalSolvers()
             {
-                destroy_petsc_objects();
+                _destroy_petsc_objects();
             }
 
-            virtual void destroy_petsc_objects()
+          private:
+
+            void _destroy_petsc_objects()
             {
                 if (m_J)
                 {
@@ -66,6 +68,13 @@ namespace samurai
                     SNESDestroy(&m_snes);
                     m_snes = nullptr;
                 }
+            }
+
+          public:
+
+            virtual void destroy_petsc_objects()
+            {
+                _destroy_petsc_objects();
             }
 
             NonLinearLocalSolvers& operator=(const NonLinearLocalSolvers& other)
@@ -125,7 +134,7 @@ namespace samurai
 
           private:
 
-            static void configure_default_solver(SNES& snes)
+            static void _configure_solver(SNES& snes)
             {
                 SNESCreate(PETSC_COMM_SELF, &snes);
                 SNESSetType(snes, SNESNEWTONLS);
@@ -136,7 +145,7 @@ namespace samurai
 
             // virtual void configure_solver()
             // {
-            //     configure_default_solver();
+            //     _configure_solver();
             // }
 
           private:
@@ -308,7 +317,7 @@ namespace samurai
             {
                 destroy_petsc_objects();
                 m_is_set_up = false;
-                configure_default_solver(m_snes);
+                _configure_solver(m_snes);
             }
         };
 

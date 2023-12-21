@@ -35,7 +35,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     }
 
     samurai::for_each_cell(mesh,
-                           [&](auto& cell)
+                           [&](const auto& cell)
                            {
                                level_[cell] = cell.level;
                            });
@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
     std::string filename       = "heat_" + std::to_string(dim) + "D";
     bool save_final_state_only = false;
 
-    CLI::App app{"Finite volume example for the heat equation in 1d"};
+    CLI::App app{"Finite volume example for the heat equation"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--init-sol", init_sol, "Initial solution: dirac/crenel")->capture_default_str()->group("Simulation parameters");
@@ -234,7 +234,7 @@ int main(int argc, char* argv[])
         if (init_sol == "dirac")
         {
             double error = samurai::L2_error(u,
-                                             [&](auto& coord)
+                                             [&](const auto& coord)
                                              {
                                                  return exact_solution(coord, t, diff_coeff);
                                              });
