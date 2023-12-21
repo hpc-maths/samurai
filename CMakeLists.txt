@@ -85,10 +85,13 @@ set_target_properties(samurai
         CXX_EXTENSIONS NO
 )
 
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+include(addHighFive)
+
 # Includes
 set(INCLUDE_DIR "include") # must be relative paths
 target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${INCLUDE_DIR}>"
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 # Find dependencies:
 set(DEPENDENCIES_CONFIGURED xtensor HighFive pugixml fmt)
@@ -112,12 +115,11 @@ target_link_system_libraries(
   HighFive
   pugixml::pugixml
   fmt::fmt
-)
+  )
 
-target_compile_features(samurai INTERFACE cxx_std_17)
+  target_compile_features(samurai INTERFACE cxx_std_17)
 
-# target_compile_definitions(samurai INTERFACE _HAS_AUTO_PTR_ETC=0)
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+  # target_compile_definitions(samurai INTERFACE _HAS_AUTO_PTR_ETC=0)
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
 OPTION(BUILD_DEMOS "samurai build all demos" OFF)
