@@ -9,6 +9,7 @@ namespace samurai
     {
       private:
 
+        // cppcheck-suppress unusedPrivateFunction
         static constexpr std::size_t n_required_points(int degree)
         {
             return degree < 0 ? N_IMPLEMENTED_POINTS : static_cast<std::size_t>(ce_ceil((degree + 1.) / 2.));
