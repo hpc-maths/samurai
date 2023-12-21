@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
     std::string filename       = "heat_" + std::to_string(dim) + "D";
     bool save_final_state_only = false;
 
-    CLI::App app{"Finite volume example for the heat equation in 1d"};
+    CLI::App app{"Finite volume example for the heat equation"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--init-sol", init_sol, "Initial solution: dirac/crenel")->capture_default_str()->group("Simulation parameters");

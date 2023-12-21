@@ -39,18 +39,23 @@ namespace samurai
             explicit LinearBlockSolver(const block_operator_t& block_op)
                 : base_class(block_op)
             {
-                configure_solver();
+                _configure_solver();
             }
 
           private:
 
-            void configure_solver() override
+            void _configure_solver()
             {
                 KSPCreate(PETSC_COMM_SELF, &m_ksp);
                 // KSPSetFromOptions(m_ksp);
             }
 
           public:
+
+            void configure_solver() override
+            {
+                _configure_solver();
+            }
 
             template <class... Fields>
             void set_unknowns(Fields&... unknowns)

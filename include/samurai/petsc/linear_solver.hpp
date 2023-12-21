@@ -31,15 +31,17 @@ namespace samurai
             explicit LinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
-                configure_default_solver();
+                _configure_solver();
             }
 
             virtual ~LinearSolverBase()
             {
-                destroy_petsc_objects();
+                _destroy_petsc_objects();
             }
 
-            virtual void destroy_petsc_objects()
+          private:
+
+            void _destroy_petsc_objects()
             {
                 if (m_A)
                 {
@@ -51,6 +53,13 @@ namespace samurai
                     KSPDestroy(&m_ksp);
                     m_ksp = nullptr;
                 }
+            }
+
+          public:
+
+            virtual void destroy_petsc_objects()
+            {
+                _destroy_petsc_objects();
             }
 
             LinearSolverBase& operator=(const LinearSolverBase& other)
@@ -99,7 +108,7 @@ namespace samurai
 
           private:
 
-            void configure_default_solver()
+            void _configure_solver()
             {
                 KSPCreate(PETSC_COMM_SELF, &m_ksp);
                 KSPSetFromOptions(m_ksp);
@@ -109,7 +118,7 @@ namespace samurai
 
             virtual void configure_solver()
             {
-                configure_default_solver();
+                _configure_solver();
             }
 
           public:
@@ -227,7 +236,7 @@ namespace samurai
             explicit LinearSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
-                configure_solver();
+                _configure_solver();
             }
 
 #ifdef ENABLE_MG
@@ -238,9 +247,9 @@ namespace samurai
             }
 #endif
 
-          protected:
+          private:
 
-            void configure_solver() override
+            void _configure_solver()
             {
                 KSP user_ksp;
                 KSPCreate(PETSC_COMM_SELF, &user_ksp);
@@ -272,6 +281,13 @@ namespace samurai
                 }
 #endif
                 m_is_set_up = false;
+            }
+
+          protected:
+
+            void configure_solver() override
+            {
+                _configure_solver();
             }
 
           public:
