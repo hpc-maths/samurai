@@ -110,12 +110,6 @@ class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg>
     }
 };
 
-template <class Field>
-auto make_high_order_diffusion()
-{
-    return HighOrderDiffusion<Field>();
-}
-
 int main(int argc, char* argv[])
 {
     constexpr std::size_t dim              = 2;
@@ -210,7 +204,7 @@ int main(int argc, char* argv[])
                                        [&](std::size_t level, const auto& i, const auto& index)
                                        {
                                            samurai::static_nested_loop<dim - 1, 0, 2>(
-                                               [&](auto& stencil)
+                                               [&](const auto& stencil)
                                                {
                                                    auto new_index = 2 * index + stencil;
                                                    cl[level + 1][new_index].add_interval(i << 1);

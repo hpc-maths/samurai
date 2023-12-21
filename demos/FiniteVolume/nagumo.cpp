@@ -23,7 +23,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     }
 
     samurai::for_each_cell(mesh,
-                           [&](auto& cell)
+                           [&](const auto& cell)
                            {
                                level_[cell] = cell.level;
                            });
@@ -161,13 +161,13 @@ int main(int argc, char* argv[])
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
     react.set_scheme_function(
-        [&](auto& cell, auto& field) //-> samurai::SchemeValue<cfg>
+        [&](const auto& cell, const auto& field) //-> samurai::SchemeValue<cfg>
         {
             auto v = field[cell];
             return k * v * v * (1 - v);
         });
     react.set_jacobian_function(
-        [&](auto& cell, auto& field)
+        [&](const auto& cell, const auto& field)
         {
             auto v = field[cell];
             return k * (2 * v * (1 - v) - v * v);
@@ -244,7 +244,7 @@ int main(int argc, char* argv[])
 
         // Compute error
         double error = samurai::L2_error(u,
-                                         [&](auto& coord)
+                                         [&](const auto& coord)
                                          {
                                              return exact_solution(coord(0), t);
                                          });
