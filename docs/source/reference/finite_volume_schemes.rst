@@ -44,10 +44,17 @@ Denoting :math:`V_L` and :math:`V_R` the two cells sharing the face :math:`F`, a
 the scheme contributions are defined as
 
 .. math::
-    \mathcal{C}_L := \frac{|F|}{|V_L|} \mathcal{F}_h(u_h)_{|F}, \\
-    \mathcal{C}_R := -\frac{|F|}{|V_R|} \mathcal{F}_h(u_h)_{|F}.
+
+    \mathcal{C}_L &:= \;\;\; \frac{|F|}{|V_L|} \mathcal{F}_h(u_h)_{|F}, \\
+    \mathcal{C}_R &:=      - \frac{|F|}{|V_R|} \mathcal{F}_h(u_h)_{|F}.
 
 The flux :math:`\mathcal{F}_h(u_h)_{|F}` is computed only once and used for both contributions.
+
+.. note::
+
+    Flux conservation imposes that the flux in one direction be the opposite of that in the opposite direction.
+    Defining two fluxes :math:`\mathcal{F}_h^+(u_h)_{|F}` and :math:`\mathcal{F}_h^-(u_h)_{|F}` such that :math:`\mathcal{F}_h^-(u_h)_{|F} \neq -\mathcal{F}_h^+(u_h)_{|F}` is also possible.
+    Refer to :ref:`non conservative schemes <non_conservative_schemes>`.
 
 Where level jumps occur, ghost cells are involved in the computation of :math:`\mathcal{F}_h(u_h)_{|F}`, so that it is always computed between two cells of same length.
 
@@ -829,7 +836,7 @@ The flux function is
 
     auto my_flux_function = [](const auto& cells, auto& field)
     {
-        FluxValue<cfg> flux_value;
+        samurai::FluxValue<cfg> flux_value;
 
         // Compute your flux using the field and the stencil cells
 
@@ -872,16 +879,16 @@ The associated code yields
 
 .. code::
 
-    FluxDefinition<cfg> f_h;
+    samurai::FluxDefinition<cfg> f_h;
 
-    static_for<0, dim>::apply(
+    samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
             static constexpr int d = decltype(integral_constant_d)::value;
 
             auto f = [](auto v)
             {
-                FluxValue<cfg> f_v = ...;
+                samurai::FluxValue<cfg> f_v = ...;
                 return f_v;
             };
 
@@ -945,7 +952,7 @@ We implement both cases as functions:
 
     auto f_x = [](auto u)
     {
-        FluxValue<cfg> f_u;
+        samurai::FluxValue<cfg> f_u;
         f_u(0) = u(0) * u(0);
         f_u(1) = u(0) * u(1);
         return f_u;
@@ -953,7 +960,7 @@ We implement both cases as functions:
 
     auto f_y = [](auto u)
     {
-        FluxValue<cfg> f_u;
+        samurai::FluxValue<cfg> f_u;
         f_u(0) = u(1) * u(0);
         f_u(1) = u(1) * u(1);
         return f_u;
@@ -963,7 +970,7 @@ We choose the upwind scheme, and implement:
 
 .. code::
 
-    FluxDefinition<cfg> upwind_f;
+    samurai::FluxDefinition<cfg> upwind_f;
 
     // x-direction
     upwind_f[0].flux_function = [f_x](auto& cells, Field& u)
@@ -981,7 +988,7 @@ We choose the upwind scheme, and implement:
         return u[B](1) >= 0 ? f_y(u[B]) : f_y(u[T]);
     };
 
-    return make_flux_based_scheme(upwind_f);
+    return samurai::make_flux_based_scheme(upwind_f);
 
 Now, given that for each direction :math:`d`, we have
 
@@ -992,14 +999,14 @@ where :math:`u_d` is the :math:`d`-th component of :math:`\mathbf{u}`, the code 
 
 .. code::
 
-    FluxDefinition<cfg> upwind_f;
+    samurai::FluxDefinition<cfg> upwind_f;
 
-    static_for<0, dim>::apply(
+    samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
             static constexpr int d = decltype(integral_constant_d)::value;
 
-            auto f_d = [](auto u) -> FluxValue<cfg>
+            auto f_d = [](auto u) -> samurai::FluxValue<cfg>
             {
                 return u(d) * u;
             };
@@ -1012,4 +1019,71 @@ where :math:`u_d` is the :math:`d`-th component of :math:`\mathbf{u}`, the code 
             };
         });
 
-    return make_flux_based_scheme(upwind_f);
+    return samurai::make_flux_based_scheme(upwind_f);
+
+.. _non_conservative_schemes:
+
+Implementing a non-conservative scheme
+--------------------------------------
+
+Flux-based, non-conservative schemes also exist.
+Exemples can be found in two-phase flow simulation: while the scheme remains conservative within each phase, non-conservative fluxes can be computed at the interface between phases.
+
+We recall :math:`V_L` and :math:`V_R`, the two cells sharing the face :math:`F`, and ordered in the direction of the corresponding Cartesian vector
+(i.e., in the x-direction, :math:`V_L` and :math:`V_R` are the left and right cells, respectively).
+In a conservative scheme, the respective contributions of :math:`F` on :math:`V_L` and :math:`V_R` are defined as
+
+.. math::
+
+    \mathcal{C}_L &:= \;\;\; \frac{|F|}{|V_L|} \mathcal{F}_h(u_h)_{|F}, \\
+    \mathcal{C}_R &:=      - \frac{|F|}{|V_R|} \mathcal{F}_h(u_h)_{|F},
+
+and flux :math:`\mathcal{F}_h(u_h)_{|F}` is computed only once and used for both contributions.
+
+Now, the contributions of a non-conservative scheme reads
+
+.. math::
+
+    \mathcal{C}_L &:= \frac{|F|}{|V_L|} \mathcal{F}_h^+(u_h)_{|F}, \\
+    \mathcal{C}_R &:= \frac{|F|}{|V_R|} \mathcal{F}_h^-(u_h)_{|F},
+
+where we do not necessarily have :math:`\mathcal{F}_h^-(u_h)_{|F} = -\mathcal{F}_h^+(u_h)_{|F}`.
+
+Implementation-wise, conservative schemes are implemented as a particular case of non-conservative ones, where :math:`\mathcal{F}_h^+(u_h)_{|F} = \mathcal{F}_h(u_h)_{|F}` and  :math:`\mathcal{F}_h^-(u_h)_{|F} = -\mathcal{F}_h(u_h)_{|F}`.
+As a consequence, the preceding sections allow you to implement :math:`\mathcal{F}_h^+(u_h)_{|F}`. Only :math:`\mathcal{F}_h^-(u_h)_{|F}` remains.
+This is done via the data member :code:`opposite_flux_function`:
+
+.. code::
+
+    samurai::FluxDefinition<cfg> my_flux;
+
+    my_flux[0].flux_function          = ...;
+    my_flux[0].opposite_flux_function = ...;
+
+So far, only non-linear schemes are possible.
+The signature of the flux functions are
+
+.. code::
+
+    samurai::FluxDefinition<cfg> my_flux;
+
+    my_flux[0].flux_function = [](auto& cells, Field& u)
+                               {
+                                   ...
+                               };
+    my_flux[0].opposite_flux_function = [](auto& flux_value, auto& cells, Field& u)
+                               {
+                                   ...
+                               };
+
+The argument :code:`flux_value` holds the return value of the function :code:`flux_function` on the same face.
+As an exemple, here is how a conservative scheme can be emulated as a non-conservative one:
+
+.. code::
+
+    my_flux[0].opposite_flux_function = [](auto& flux_value, auto& cells, Field& u)
+                               {
+                                   return -flux_value;
+                               };
+
+Note also that in both flux functions, the stencil cells are given in the same order.

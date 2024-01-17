@@ -69,13 +69,18 @@ namespace samurai
 
         using stencil_cells_t = std::array<cell_t, cfg::stencil_size>;
 
-        using flux_value_t = xt::xtensor_fixed<field_value_type, xt::xshape<cfg::output_field_size>>;
-        using flux_func    = std::function<flux_value_t(stencil_cells_t&, field_t&)>;
+        using flux_value_t       = xt::xtensor_fixed<field_value_type, xt::xshape<cfg::output_field_size>>;
+        using flux_func          = std::function<flux_value_t(stencil_cells_t&, field_t&)>;
+        using opposite_flux_func = std::function<flux_value_t(flux_value_t&, stencil_cells_t&, field_t&)>;
 
         // using flux_jac_t         = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         // using flux_jacobian_func = std::function<flux_jac_t(stencil_cells_t&, field_t&)>;
 
-        flux_func flux_function = nullptr;
+        flux_func flux_function                   = nullptr;
+        opposite_flux_func opposite_flux_function = [](auto& flux_value, auto&, auto&) -> flux_value_t
+        {
+            return -flux_value;
+        };
 
         // flux_jacobian_func flux_jac_function = nullptr;
 
