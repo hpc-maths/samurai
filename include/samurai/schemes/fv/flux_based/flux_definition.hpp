@@ -69,24 +69,48 @@ namespace samurai
 
         using stencil_cells_t = std::array<cell_t, cfg::stencil_size>;
 
-        using flux_value_t       = xt::xtensor_fixed<field_value_type, xt::xshape<cfg::output_field_size>>;
-        using flux_func          = std::function<flux_value_t(stencil_cells_t&, field_t&)>;
-        using opposite_flux_func = std::function<flux_value_t(flux_value_t&, stencil_cells_t&, field_t&)>;
+        using flux_value_t      = xt::xtensor_fixed<field_value_type, xt::xshape<cfg::output_field_size>>;
+        using flux_value_pair_t = xt::xtensor_fixed<flux_value_t, xt::xshape<2>>;
+        using flux_func         = std::function<flux_value_pair_t(stencil_cells_t&, field_t&)>; // non-conservative
+        using cons_flux_func    = std::function<flux_value_t(stencil_cells_t&, field_t&)>;      // conservative
 
         // using flux_jac_t         = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         // using flux_jacobian_func = std::function<flux_jac_t(stencil_cells_t&, field_t&)>;
 
-        flux_func flux_function                   = nullptr;
-        opposite_flux_func opposite_flux_function = [](auto& flux_value, auto&, auto&) -> flux_value_t
-        {
-            return -flux_value;
-        };
+        /**
+         * Conservative flux function:
+         * @returns the flux in the positive direction.
+         */
+        cons_flux_func cons_flux_function = nullptr;
+
+        /**
+         * Non-conservative flux function:
+         * @returns the flux in the positive direction and in the negative direction.
+         * By default, uses the conservative formula.
+         */
+        flux_func flux_function = nullptr;
 
         // flux_jacobian_func flux_jac_function = nullptr;
 
+        /**
+         * @returns the non-conservative flux function that calls the conservative one.
+         * This function is used to default 'flux_function' if it is not set.
+         */
+        flux_func flux_function_as_conservative() const
+        {
+            return [&](auto& cells, auto& field)
+            {
+                flux_value_pair_t fluxes;
+                fluxes[0] = cons_flux_function(cells, field);
+                fluxes[1] = -fluxes[0];
+                return fluxes;
+            };
+        }
+
         ~NormalFluxDefinition()
         {
-            flux_function = nullptr;
+            cons_flux_function = nullptr;
+            flux_function      = nullptr;
             // flux_jac_function = nullptr;
         }
     };
@@ -106,13 +130,13 @@ namespace samurai
         using stencil_cells_t       = std::array<cell_t, cfg::stencil_size>;
         using flux_coeff_matrix_t   = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
-        using flux_func             = std::function<flux_stencil_coeffs_t(stencil_cells_t&)>;
+        using cons_flux_func        = std::function<flux_stencil_coeffs_t(stencil_cells_t&)>;
 
-        flux_func flux_function = nullptr;
+        cons_flux_func cons_flux_function = nullptr;
 
         ~NormalFluxDefinition()
         {
-            flux_function = nullptr;
+            cons_flux_function = nullptr;
         }
     };
 
@@ -129,7 +153,7 @@ namespace samurai
 
         using flux_coeff_matrix_t   = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
-        using flux_func             = std::function<flux_stencil_coeffs_t(double)>;
+        using cons_flux_func        = std::function<flux_stencil_coeffs_t(double)>;
 
         /**
          * Function returning the coefficients for the computation of the flux w.r.t. the defined stencil, in function of the meshsize h.
@@ -149,11 +173,11 @@ namespace samurai
          *                coeffs[0] = diag(-1/h),
          *                coeffs[1] = diag( 1/h).
          */
-        flux_func flux_function = nullptr;
+        cons_flux_func cons_flux_function = nullptr;
 
         ~NormalFluxDefinition()
         {
-            flux_function = nullptr;
+            cons_flux_function = nullptr;
         }
     };
 
@@ -189,24 +213,24 @@ namespace samurai
                 {
                     m_normal_fluxes[d].stencil = in_out_stencil<dim>(direction); // TODO: stencil for any stencil size
                 }
-                m_normal_fluxes[d].flux_function = nullptr; // to be set by the user
+                m_normal_fluxes[d].cons_flux_function = nullptr; // to be set by the user
             }
         }
 
         /**
          * This constructor sets the same flux function for all directions
          */
-        explicit FluxDefinition(typename flux_computation_stencil2_t::flux_func flux_implem)
+        explicit FluxDefinition(typename flux_computation_stencil2_t::cons_flux_func flux_implem)
         {
             static_assert(stencil_size == 2, "stencil_size = 2 required to use this constructor.");
 
             auto directions = positive_cartesian_directions<dim>();
             for (std::size_t d = 0; d < dim; ++d)
             {
-                DirectionVector<dim> direction   = xt::view(directions, d);
-                m_normal_fluxes[d].direction     = direction;
-                m_normal_fluxes[d].stencil       = in_out_stencil<dim>(direction);
-                m_normal_fluxes[d].flux_function = flux_implem;
+                DirectionVector<dim> direction        = xt::view(directions, d);
+                m_normal_fluxes[d].direction          = direction;
+                m_normal_fluxes[d].stencil            = in_out_stencil<dim>(direction);
+                m_normal_fluxes[d].cons_flux_function = flux_implem;
             }
         }
 
@@ -225,6 +249,9 @@ namespace samurai
 
     template <class cfg>
     using FluxValue = typename NormalFluxDefinition<cfg>::flux_value_t;
+
+    template <class cfg>
+    using FluxValuePair = typename NormalFluxDefinition<cfg>::flux_value_pair_t;
 
     template <class cfg>
     using FluxStencilCoeffs = typename NormalFluxDefinition<cfg>::flux_stencil_coeffs_t;

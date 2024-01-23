@@ -97,7 +97,7 @@ namespace samurai
                         flux_def.stencil,
                         [&](auto& interface_cells, auto& comput_cells)
                         {
-                            auto flux_coeffs                               = flux_def.flux_function(comput_cells);
+                            auto flux_coeffs                               = flux_def.cons_flux_function(comput_cells);
                             auto left_cell_contrib                         = contribution(flux_coeffs, h, h);
                             decltype(left_cell_contrib) right_cell_contrib = -left_cell_contrib;
                             apply_coeffs(interface_cells, comput_cells, left_cell_contrib, right_cell_contrib);
@@ -122,7 +122,7 @@ namespace samurai
                             flux_def.stencil,
                             [&](auto& interface_cells, auto& comput_cells)
                             {
-                                auto flux_coeffs                        = flux_def.flux_function(comput_cells);
+                                auto flux_coeffs                        = flux_def.cons_flux_function(comput_cells);
                                 decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
                                 auto left_cell_contrib                  = contribution(flux_coeffs, h_lp1, h_l);
                                 auto right_cell_contrib                 = contribution(minus_flux_coeffs, h_lp1, h_lp1);
@@ -141,7 +141,7 @@ namespace samurai
                             flux_def.stencil,
                             [&](auto& interface_cells, auto& comput_cells)
                             {
-                                auto flux_coeffs                        = flux_def.flux_function(comput_cells);
+                                auto flux_coeffs                        = flux_def.cons_flux_function(comput_cells);
                                 decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
                                 auto left_cell_contrib                  = contribution(flux_coeffs, h_lp1, h_lp1);
                                 auto right_cell_contrib                 = contribution(minus_flux_coeffs, h_lp1, h_l);
@@ -174,7 +174,7 @@ namespace samurai
                                                                            flux_def.stencil,
                                                                            [&](auto& cell, auto& comput_cells)
                                                                            {
-                                                                               auto flux_coeffs  = flux_def.flux_function(comput_cells);
+                                                                               auto flux_coeffs = flux_def.cons_flux_function(comput_cells);
                                                                                auto cell_contrib = contribution(flux_coeffs, h, h);
                                                                                apply_coeffs(cell, comput_cells, cell_contrib);
                                                                            });
@@ -187,7 +187,7 @@ namespace samurai
                                        flux_def.stencil,
                                        [&](auto& cell, auto& comput_cells)
                                        {
-                                           auto flux_coeffs                        = flux_def.flux_function(comput_cells);
+                                           auto flux_coeffs                        = flux_def.cons_flux_function(comput_cells);
                                            decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
                                            auto cell_contrib                       = contribution(minus_flux_coeffs, h, h);
                                            apply_coeffs(cell, comput_cells, cell_contrib);

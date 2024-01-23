@@ -147,19 +147,19 @@ The corresponding stencils are configured by
     samurai::FluxDefinition<cfg> my_flux;
 
     // x-direction
-    my_flux[0].stencil       = {{-1,0}, {0,0}, {1,0}, {2,0}};
-    my_flux[0].flux_function = my_flux_function_x;
+    my_flux[0].stencil = {{-1,0}, {0,0}, {1,0}, {2,0}};
+    my_flux[0].cons_flux_function = my_flux_function_x;
     // y-direction
-    my_flux[1].stencil       = {{0,-1}, {0,0}, {0,1}, {0,2}};
-    my_flux[1].flux_function = my_flux_function_y;
+    my_flux[1].stencil = {{0,-1}, {0,0}, {0,1}, {0,2}};
+    my_flux[1].cons_flux_function = my_flux_function_y;
 
 Note that one stencil and associated flux function must be defined for each positive Cartesian direction.
 The set of cells captured by the stencil will be passed as argument of the flux function in the form of a cell array, arranged according the order chosen in the configured stencil:
 
 .. code-block:: c++
 
-    my_flux[0].stencil       = {{-1,0}, {0,0}, {1,0}, {2,0}};
-    my_flux[0].flux_function = [](auto& cells, ...)
+    my_flux[0].stencil = {{-1,0}, {0,0}, {1,0}, {2,0}};
+    my_flux[0].cons_flux_function = [](auto& cells, ...)
         {
             auto& L2 = cells[0]; // {-1,0}
             auto& L1 = cells[1]; // { 0,0}
@@ -172,8 +172,8 @@ Configuring it explicitly yields
 
 .. code-block:: c++
 
-    my_flux[0].stencil       = {{0,0}, {1,0}}; // default value
-    my_flux[0].flux_function = [](auto& cells, ...)
+    my_flux[0].stencil = {{0,0}, {1,0}}; // default value
+    my_flux[0].cons_flux_function = [](auto& cells, ...)
         {
             auto& L = cells[0]; // {0,0}
             auto& R = cells[1]; // {1,0}
@@ -193,8 +193,8 @@ The flux function must be defined for each positive Cartesian direction. Here in
 .. code-block:: c++
 
     samurai::FluxDefinition<cfg> my_flux;
-    my_flux[0].flux_function = my_flux_function_x; // flux in the x-direction
-    my_flux[1].flux_function = my_flux_function_y; // flux in the y-direction
+    my_flux[0].cons_flux_function = my_flux_function_x; // flux in the x-direction
+    my_flux[1].cons_flux_function = my_flux_function_y; // flux in the y-direction
 
 In this generic code, the flux functions remain abstract:
 their signatures actually depend on the :code:`SchemeType` declared in :code:`cfg`, and are described in the next sections.
@@ -210,7 +210,7 @@ If the flux functions only differ by the direction index, you can write an :math
             {
                 static constexpr int d = decltype(integral_constant_d)::value; // get the static direction index
 
-                my_flux[d].flux_function = my_flux_function_d;
+                my_flux[d].cons_flux_function = my_flux_function_d;
             });
 
 If the flux function is strictly identical for all directions, you can simply pass it into the constructor:
@@ -509,7 +509,7 @@ In 2D, they write:
 
     samurai::FluxDefinition<cfg> flux;
 
-    flux[x].flux_function = [](double h)
+    flux[x].cons_flux_function = [](double h)
     {
         static constexpr std::size_t L = 0;
         static constexpr std::size_t R = 1;
@@ -523,7 +523,7 @@ In 2D, they write:
         return c;
     };
 
-    flux[y].flux_function = [](double h)
+    flux[y].cons_flux_function = [](double h)
     {
         static constexpr std::size_t B = 0;
         static constexpr std::size_t T = 1;
@@ -551,7 +551,7 @@ This code can be compacted into the :math:`n`-dimensional code
         {
             static constexpr int d = decltype(integral_constant_d)::value; // direction index
 
-            flux[d].flux_function = [](double h)
+            flux[d].cons_flux_function = [](double h)
             {
                 static constexpr std::size_t L = 0;
                 static constexpr std::size_t R = 1;
@@ -650,7 +650,7 @@ The following code corresponds directly to the :math:`n`-dimensional version:
         {
             static constexpr int d = decltype(integral_constant_d)::value;
 
-            flux[d].flux_function = [](double)
+            flux[d].cons_flux_function = [](double)
             {
                 static constexpr std::size_t L = 0;
                 static constexpr std::size_t R = 1;
@@ -800,7 +800,7 @@ The construction of the operator now reads
         {
             static constexpr int d = decltype(integral_constant_d)::value;
 
-            upwind[d].flux_function = [&](const auto& cells)
+            upwind[d].cons_flux_function = [&](const auto& cells)
             {
                 static constexpr std::size_t L = 0;
                 static constexpr std::size_t R = 1;
@@ -892,7 +892,7 @@ The associated code yields
                 return f_v;
             };
 
-            f_h[d].flux_function = [f](auto& cells, Field& u)
+            f_h[d].cons_flux_function = [f](auto& cells, Field& u)
             {
                 auto& L = cells[0];
                 auto& R = cells[1];
@@ -973,7 +973,7 @@ We choose the upwind scheme, and implement:
     samurai::FluxDefinition<cfg> upwind_f;
 
     // x-direction
-    upwind_f[0].flux_function = [f_x](auto& cells, Field& u)
+    upwind_f[0].cons_flux_function = [f_x](auto& cells, Field& u)
     {
         auto& L = cells[0]; // left
         auto& R = cells[1]; // right
@@ -981,7 +981,7 @@ We choose the upwind scheme, and implement:
     };
 
     // y-direction
-    upwind_f[1].flux_function = [f_y](auto& cells, Field& u)
+    upwind_f[1].cons_flux_function = [f_y](auto& cells, Field& u)
     {
         auto& B = cells[0]; // bottom
         auto& T = cells[1]; // top
@@ -1011,7 +1011,7 @@ where :math:`u_d` is the :math:`d`-th component of :math:`\mathbf{u}`, the code 
                 return u(d) * u;
             };
 
-            upwind_f[d].flux_function = [f_d](auto& cells, Field& u)
+            upwind_f[d].cons_flux_function = [f_d](auto& cells, Field& u)
             {
                 auto& L = cells[0];
                 auto& R = cells[1];
@@ -1040,7 +1040,7 @@ In a conservative scheme, the respective contributions of :math:`F` on :math:`V_
 
 and flux :math:`\mathcal{F}_h(u_h)_{|F}` is computed only once and used for both contributions.
 
-Now, the contributions of a non-conservative scheme reads
+Now, the contributions of a non-conservative scheme read
 
 .. math::
 
@@ -1049,19 +1049,10 @@ Now, the contributions of a non-conservative scheme reads
 
 where we do not necessarily have :math:`\mathcal{F}_h^-(u_h)_{|F} = -\mathcal{F}_h^+(u_h)_{|F}`.
 
-Implementation-wise, conservative schemes are implemented as a particular case of non-conservative ones, where :math:`\mathcal{F}_h^+(u_h)_{|F} = \mathcal{F}_h(u_h)_{|F}` and  :math:`\mathcal{F}_h^-(u_h)_{|F} = -\mathcal{F}_h(u_h)_{|F}`.
-As a consequence, the preceding sections allow you to implement :math:`\mathcal{F}_h^+(u_h)_{|F}`. Only :math:`\mathcal{F}_h^-(u_h)_{|F}` remains.
-This is done via the data member :code:`opposite_flux_function`:
-
-.. code::
-
-    samurai::FluxDefinition<cfg> my_flux;
-
-    my_flux[0].flux_function          = ...;
-    my_flux[0].opposite_flux_function = ...;
-
+Implementation-wise, while conservative schemes implement :math:`\mathcal{F}_h(u_h)_{|F}` through :code:`cons_flux_function`,
+non-conservative ones return both values of :math:`\mathcal{F}_h^+(u_h)_{|F}` and :math:`\mathcal{F}_h^-(u_h)_{|F}` through :code:`flux_function`.
 So far, only non-linear schemes are possible.
-The signature of the flux functions are
+The signature is the same as :code:`flux_function`, except that it returns two values instead of one:
 
 .. code::
 
@@ -1069,21 +1060,29 @@ The signature of the flux functions are
 
     my_flux[0].flux_function = [](auto& cells, Field& u)
                                {
-                                   ...
-                               };
-    my_flux[0].opposite_flux_function = [](auto& flux_value, auto& cells, Field& u)
-                               {
-                                   ...
+                                   samurai::FluxValuePair<cfg> flux;
+                                   flux[0] = ...; // left --> right (direction '+')
+                                   flux[1] = ...; // right --> left (direction '-')
+                                   return flux;
                                };
 
-The argument :code:`flux_value` holds the return value of the function :code:`flux_function` on the same face.
-As an exemple, here is how a conservative scheme can be emulated as a non-conservative one:
+Alternatively, you can also write
 
 .. code::
 
-    my_flux[0].opposite_flux_function = [](auto& flux_value, auto& cells, Field& u)
+    my_flux[0].flux_function = [](auto& cells, Field& u) -> samurai::FluxValuePair<cfg>
                                {
-                                   return -flux_value;
+                                   samurai::FluxValue<cfg> fluxLR = ...; // left --> right (direction '+')
+                                   samurai::FluxValue<cfg> fluxRL = ...; // right --> left (direction '-')
+                                   return {fluxLR, fluxRL};
                                };
 
-Note also that in both flux functions, the stencil cells are given in the same order.
+For instance, conservativity can be enforced by
+
+.. code::
+
+    my_flux[0].flux_function = [](auto& cells, Field& u) -> samurai::FluxValuePair<cfg>
+                               {
+                                   samurai::FluxValue<cfg> flux = ...;
+                                   return {flux, -flux};
+                               };
