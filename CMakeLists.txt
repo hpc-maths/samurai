@@ -43,6 +43,7 @@ option(CPPCHECK "Activate cppcheck" OFF)
 option(IWYU "Activate include-what-you-use" OFF)
 option(SANITIZERS "Activate sanitizers" OFF)
 option(ENABLE_COVERAGE "Activate coverage" OFF)
+option(SAMURAI_ENABLE_MPI "Enable MPI" OFF)
 
 project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
@@ -104,8 +105,6 @@ foreach(DEPENDENCY ${DEPENDENCIES_CONFIGURED})
   find_package(${DEPENDENCY} CONFIG REQUIRED)
 endforeach()
 
-find_package(Boost REQUIRED COMPONENTS serialization mpi)
-
 # Link dependencies:
 target_link_system_libraries(
   samurai
@@ -114,9 +113,19 @@ target_link_system_libraries(
   HighFive
   pugixml::pugixml
   fmt::fmt
-  Boost::serialization
-  Boost::mpi
 )
+
+if(${SAMURAI_ENABLE_MPI})
+  find_package(Boost REQUIRED COMPONENTS serialization mpi)
+  target_link_system_libraries(
+    samurai
+    INTERFACE
+    Boost::serialization
+    Boost::mpi
+  )
+  target_compile_definitions(samurai INTERFACE SAMURAI_ENABLE_MPI)
+endif()
+
 
 target_compile_features(samurai INTERFACE cxx_std_17)
 
