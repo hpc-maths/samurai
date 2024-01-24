@@ -1,4 +1,3 @@
-#include <boost/mpi.hpp>
 #include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
@@ -15,9 +14,8 @@ namespace fs = std::filesystem;
 #include <samurai/memory.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/stencil_field.hpp>
-
-namespace mpi = boost::mpi;
 
 static constexpr std::size_t size = 1;
 
@@ -55,6 +53,8 @@ auto init(Mesh& mesh)
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr std::size_t dim = 2;
     std::size_t min_level     = 4;
     std::size_t max_level     = 6;
@@ -73,7 +73,6 @@ int main(int argc, char* argv[])
 
     CLI11_PARSE(app, argc, argv);
 
-    mpi::environment env;
     mpi::communicator world;
 
     auto output_name = fmt::format("output_{}.log", world.rank());
@@ -125,11 +124,11 @@ int main(int argc, char* argv[])
     double t       = 0.;
     std::size_t nt = 0;
 
-    // samurai::save(std::filesystem::current_path(), fmt::format("advection_{}d_{}_adapt", dim, world.size()), {true, true}, mesh, u);
-    // samurai::save(fmt::format("advection_{}d_{}_adapt", dim, world.size()), mesh, u, rank);
+    samurai::save(std::filesystem::current_path(), fmt::format("advection_{}d_{}_adapt", dim, world.size()), {true, true}, mesh, u);
+    samurai::save(fmt::format("advection_{}d_{}_adapt", dim, world.size()), mesh, u, rank);
 
-    // while (t != Tf)
-    for (std::size_t ite = 0; ite < nite; ++ite)
+    while (t != Tf)
+    // for (std::size_t ite = 0; ite < nite; ++ite)
     {
         t += dt;
         if (t > Tf)
@@ -170,5 +169,6 @@ int main(int argc, char* argv[])
         nt++;
     }
 
+    samurai::finalize();
     return 0;
 }
