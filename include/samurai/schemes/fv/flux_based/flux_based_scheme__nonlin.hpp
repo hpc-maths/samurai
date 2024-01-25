@@ -86,6 +86,8 @@ namespace samurai
             {
                 auto& flux_def = flux_definition()[d];
 
+                auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
+
                 // Same level
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
@@ -97,9 +99,9 @@ namespace samurai
                                                              flux_def.stencil,
                                                              [&](auto& interface_cells, auto& comput_cells)
                                                              {
-                                                                 auto flux_value        = flux_def.flux_function(comput_cells, field);
-                                                                 auto left_cell_contrib = contribution(flux_value, h, h);
-                                                                 decltype(left_cell_contrib) right_cell_contrib = -left_cell_contrib;
+                                                                 auto flux_values        = flux_function(comput_cells, field);
+                                                                 auto left_cell_contrib  = contribution(flux_values[0], h, h);
+                                                                 auto right_cell_contrib = contribution(flux_values[1], h, h);
                                                                  apply_contrib(interface_cells, left_cell_contrib, right_cell_contrib);
                                                              });
                 }
@@ -122,10 +124,9 @@ namespace samurai
                             flux_def.stencil,
                             [&](auto& interface_cells, auto& comput_cells)
                             {
-                                auto flux_value                       = flux_def.flux_function(comput_cells, field);
-                                decltype(flux_value) minus_flux_value = -flux_value;
-                                auto left_cell_contrib                = contribution(flux_value, h_lp1, h_l);
-                                auto right_cell_contrib               = contribution(minus_flux_value, h_lp1, h_lp1);
+                                auto flux_values        = flux_function(comput_cells, field);
+                                auto left_cell_contrib  = contribution(flux_values[0], h_lp1, h_l);
+                                auto right_cell_contrib = contribution(flux_values[1], h_lp1, h_lp1);
                                 apply_contrib(interface_cells, left_cell_contrib, right_cell_contrib);
                             });
                     }
@@ -141,10 +142,9 @@ namespace samurai
                             flux_def.stencil,
                             [&](auto& interface_cells, auto& comput_cells)
                             {
-                                auto flux_value                       = flux_def.flux_function(comput_cells, field);
-                                decltype(flux_value) minus_flux_value = -flux_value;
-                                auto left_cell_contrib                = contribution(flux_value, h_lp1, h_lp1);
-                                auto right_cell_contrib               = contribution(minus_flux_value, h_lp1, h_l);
+                                auto flux_values        = flux_function(comput_cells, field);
+                                auto left_cell_contrib  = contribution(flux_values[0], h_lp1, h_lp1);
+                                auto right_cell_contrib = contribution(flux_values[1], h_lp1, h_l);
                                 apply_contrib(interface_cells, left_cell_contrib, right_cell_contrib);
                             });
                     }
@@ -163,37 +163,38 @@ namespace samurai
             {
                 auto& flux_def = flux_definition()[d];
 
-                for_each_level(
-                    mesh,
-                    [&](auto level)
-                    {
-                        auto h = cell_length(level);
+                auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
 
-                        // Boundary in direction
-                        for_each_boundary_interface___direction(mesh,
-                                                                level,
-                                                                flux_def.direction,
-                                                                flux_def.stencil,
-                                                                [&](auto& cell, auto& comput_cells)
-                                                                {
-                                                                    auto flux_value   = flux_def.flux_function(comput_cells, field);
-                                                                    auto cell_contrib = contribution(flux_value, h, h);
-                                                                    apply_contrib(cell, cell_contrib);
-                                                                });
+                for_each_level(mesh,
+                               [&](auto level)
+                               {
+                                   auto h = cell_length(level);
 
-                        // Boundary in opposite direction
-                        for_each_boundary_interface___opposite_direction(mesh,
-                                                                         level,
-                                                                         flux_def.direction,
-                                                                         flux_def.stencil,
-                                                                         [&](auto& cell, auto& comput_cells)
-                                                                         {
-                                                                             auto flux_value = flux_def.flux_function(comput_cells, field);
-                                                                             decltype(flux_value) minus_flux_value = -flux_value;
-                                                                             auto cell_contrib = contribution(minus_flux_value, h, h);
-                                                                             apply_contrib(cell, cell_contrib);
-                                                                         });
-                    });
+                                   // Boundary in direction
+                                   for_each_boundary_interface___direction(mesh,
+                                                                           level,
+                                                                           flux_def.direction,
+                                                                           flux_def.stencil,
+                                                                           [&](auto& cell, auto& comput_cells)
+                                                                           {
+                                                                               auto flux_values  = flux_function(comput_cells, field);
+                                                                               auto cell_contrib = contribution(flux_values[0], h, h);
+                                                                               apply_contrib(cell, cell_contrib);
+                                                                           });
+
+                                   // Boundary in opposite direction
+                                   for_each_boundary_interface___opposite_direction(
+                                       mesh,
+                                       level,
+                                       flux_def.direction,
+                                       flux_def.stencil,
+                                       [&](auto& cell, auto& comput_cells)
+                                       {
+                                           auto flux_values  = flux_function(comput_cells, field);
+                                           auto cell_contrib = contribution(flux_values[1], h, h);
+                                           apply_contrib(cell, cell_contrib);
+                                       });
+                               });
             }
         }
     };

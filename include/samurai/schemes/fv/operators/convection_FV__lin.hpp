@@ -8,7 +8,7 @@ namespace samurai
     using VelocityVector = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
     template <class Field>
-    auto make_convection(const VelocityVector<Field::dim> velocity)
+    auto make_convection(const VelocityVector<Field::dim>& velocity)
     {
         // static_assert(Field::size == 1, "The field type for the gradient operator must be a scalar field.");
 
@@ -31,7 +31,7 @@ namespace samurai
 
                 if (velocity(d) >= 0) // use the left values
                 {
-                    upwind[d].flux_function = [&](double)
+                    upwind[d].cons_flux_function = [&](double)
                     {
                         // Return type: 2 matrices (left, right) of size output_field_size x field_size.
                         // In this case, of size field_size x field_size.
@@ -53,7 +53,7 @@ namespace samurai
                 }
                 else // use the right values
                 {
-                    upwind[d].flux_function = [&](double)
+                    upwind[d].cons_flux_function = [&](double)
                     {
                         FluxStencilCoeffs<cfg> coeffs;
                         if constexpr (output_field_size == 1)
@@ -98,7 +98,7 @@ namespace samurai
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
 
-                upwind[d].flux_function = [&](const auto& cells)
+                upwind[d].cons_flux_function = [&](const auto& cells)
                 {
                     // Return type: 2 matrices (left, right) of size output_field_size x field_size.
                     // In this case, of size field_size x field_size.

@@ -145,7 +145,7 @@ namespace samurai
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
 
-                K_grad[d].flux_function = [K](double h)
+                K_grad[d].cons_flux_function = [K](double h)
                 {
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
@@ -220,7 +220,7 @@ namespace samurai
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
 
-                K_grad[d].flux_function = [&](const auto& cells)
+                K_grad[d].cons_flux_function = [&](const auto& cells)
                 {
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;

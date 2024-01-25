@@ -21,24 +21,34 @@ namespace samurai
                     // Multiply the flux function by the scalar
                     if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
                     {
-                        multiplied_scheme.flux_definition()[d].flux_function = [=](auto h)
+                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto h)
                         {
-                            return scalar * scheme.flux_definition()[d].flux_function(h);
+                            return scalar * scheme.flux_definition()[d].cons_flux_function(h);
                         };
                     }
                     else if constexpr (cfg::scheme_type == SchemeType::LinearHeterogeneous)
                     {
-                        multiplied_scheme.flux_definition()[d].flux_function = [=](auto& cells)
+                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells)
                         {
-                            return scalar * scheme.flux_definition()[d].flux_function(cells);
+                            return scalar * scheme.flux_definition()[d].cons_flux_function(cells);
                         };
                     }
                     else // SchemeType::NonLinear
                     {
-                        multiplied_scheme.flux_definition()[d].flux_function = [=](auto& cells, auto& field)
+                        if (scheme.flux_definition()[d].cons_flux_function)
                         {
-                            return scalar * scheme.flux_definition()[d].flux_function(cells, field);
-                        };
+                            multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, auto& field)
+                            {
+                                return scalar * scheme.flux_definition()[d].cons_flux_function(cells, field);
+                            };
+                        }
+                        if (scheme.flux_definition()[d].flux_function)
+                        {
+                            multiplied_scheme.flux_definition()[d].flux_function = [=](auto& cells, auto& field)
+                            {
+                                return scalar * scheme.flux_definition()[d].flux_function(cells, field);
+                            };
+                        }
                     }
                 }
             });
@@ -64,25 +74,43 @@ namespace samurai
 
                 if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
                 {
-                    sum_scheme.flux_definition()[d].flux_function = [=](auto h)
+                    sum_scheme.flux_definition()[d].cons_flux_function = [=](auto h)
                     {
-                        return scheme1.flux_definition()[d].flux_function(h) + scheme2.flux_definition()[d].flux_function(h);
+                        return scheme1.flux_definition()[d].cons_flux_function(h) + scheme2.flux_definition()[d].cons_flux_function(h);
                     };
                 }
                 else if constexpr (cfg::scheme_type == SchemeType::LinearHeterogeneous)
                 {
-                    sum_scheme.flux_definition()[d].flux_function = [=](auto& cells)
+                    sum_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells)
                     {
-                        return scheme1.flux_definition()[d].flux_function(cells) + scheme2.flux_definition()[d].flux_function(cells);
+                        return scheme1.flux_definition()[d].cons_flux_function(cells)
+                             + scheme2.flux_definition()[d].cons_flux_function(cells);
                     };
                 }
                 else // SchemeType::NonLinear
                 {
-                    sum_scheme.flux_definition()[d].flux_function = [=](auto& cells, auto& field)
+                    if (scheme1.flux_definition()[d].flux_function && scheme2.flux_definition()[d].flux_function)
                     {
-                        return scheme1.flux_definition()[d].flux_function(cells, field)
-                             + scheme2.flux_definition()[d].flux_function(cells, field);
-                    };
+                        sum_scheme.flux_definition()[d].flux_function = [=](auto& cells, auto& field)
+                        {
+                            return scheme1.flux_definition()[d].flux_function(cells, field)
+                                 + scheme2.flux_definition()[d].flux_function(cells, field);
+                        };
+                        sum_scheme.cons_flux_function = nullptr;
+                    }
+                    else if (scheme1.flux_definition()[d].cons_flux_function && scheme2.flux_definition()[d].cons_flux_function)
+                    {
+                        sum_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, auto& field)
+                        {
+                            return scheme1.flux_definition()[d].cons_flux_function(cells, field)
+                                 + scheme2.flux_definition()[d].cons_flux_function(cells, field);
+                        };
+                        sum_scheme.flux_function = nullptr;
+                    }
+                    else
+                    {
+                        assert(false && "The case where scheme1.flux_function and scheme2.cons_flux_function are set is not implemented.");
+                    }
                 }
             });
         return sum_scheme;

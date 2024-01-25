@@ -21,7 +21,7 @@ namespace samurai
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
 
-                average_coeffs[d].flux_function = [](double)
+                average_coeffs[d].cons_flux_function = [](double)
                 {
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
