@@ -9,6 +9,7 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 
 static constexpr double pi = M_PI;
 
