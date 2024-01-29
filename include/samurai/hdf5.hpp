@@ -641,10 +641,10 @@ namespace samurai
 
                     auto topo                                 = grid.append_child("Topology");
                     topo.append_attribute("TopologyType")     = element_type(derived_type_save::dim).c_str();
-                    topo.append_attribute("NumberOfElements") = connectivity_dataset_size;
+                    topo.append_attribute("NumberOfElements") = connectivity_sizes[rank];
 
                     auto topo_data                           = topo.append_child("DataItem");
-                    topo_data.append_attribute("Dimensions") = connectivity_dataset_size * (1 << dim);
+                    topo_data.append_attribute("Dimensions") = connectivity_sizes[rank] * (1 << dim);
                     topo_data.append_attribute("Format")     = "HDF";
                     topo_data.text()                         = fmt::format("{}.h5:{}/connectivity", m_filename, prefix).data();
 
@@ -652,7 +652,7 @@ namespace samurai
                     geom.append_attribute("GeometryType") = "XYZ";
 
                     auto geom_data                           = geom.append_child("DataItem");
-                    geom_data.append_attribute("Dimensions") = coords_dataset_size * 3;
+                    geom_data.append_attribute("Dimensions") = coords_sizes[rank] * 3;
                     geom_data.append_attribute("Format")     = "HDF";
                     geom_data.text()                         = fmt::format("{}.h5:{}/points", m_filename, prefix).data();
                 }
