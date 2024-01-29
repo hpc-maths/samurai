@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
-#include <boost/mpi.hpp>
+
 #include <iostream>
 
 #include <filesystem>
@@ -10,12 +10,13 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 
 namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    boost::mpi::environment env(argc, argv);
+    samurai::initialize(argc, argv);
 
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     samurai::CellList<dim> cl;
@@ -59,5 +60,6 @@ int main(int argc, char* argv[])
     std::cout << ca << std::endl;
 
     samurai::save(path, filename, ca);
+    samurai::finalize();
     return 0;
 }

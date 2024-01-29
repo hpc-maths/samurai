@@ -346,5 +346,6 @@ int main()
         nb_ite++;
     }
 
+    samurai::finalize();
     return 0;
 }

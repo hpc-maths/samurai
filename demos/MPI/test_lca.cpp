@@ -53,7 +53,9 @@ auto init(Mesh& mesh)
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    // samurai::initialize(argc, argv);
+
+    MPI_Init(&argc, &argv);
 
     constexpr std::size_t dim = 2;
     std::size_t min_level     = 4;
@@ -114,7 +116,8 @@ int main(int argc, char* argv[])
     samurai::save(fmt::format("advection_{}d_{}_init", dim, world.size()), mesh, u, rank);
 
     // samurai::check_duplicate_cells(u);
-    // return 0;
+    // samurai::finalize();
+    return 0;
 
     auto unp1 = samurai::make_field<double, size>("unp1", mesh);
     rank.resize();
@@ -169,6 +172,7 @@ int main(int argc, char* argv[])
         nt++;
     }
 
+    samurai::finalize();
     samurai::finalize();
     return 0;
 }

@@ -344,5 +344,6 @@ int main()
         samurai::save(fmt::format("os_amr_{}", ite), mesh, field);
     }
 
+    samurai::finalize();
     return 0;
 }

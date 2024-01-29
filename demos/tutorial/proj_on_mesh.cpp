@@ -1,4 +1,4 @@
-#include <boost/mpi.hpp>
+
 #include <iostream>
 
 #include <samurai/field.hpp>
@@ -6,6 +6,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 
 template <class Mesh>
 auto init_field(Mesh& mesh, double dec)
@@ -50,7 +51,7 @@ auto init_field(Mesh& mesh, double dec)
 
 int main()
 {
-    boost::mpi::environment env;
+    samurai::initialize();
 
     constexpr std::size_t dim = 3;
     using Config              = samurai::MRConfig<dim>;
@@ -76,5 +77,6 @@ int main()
     samurai::save("solution_src", mesh1, f1);
     samurai::save("solution_dst", mesh2, f2);
 
+    samurai::finalize();
     return 0;
 }

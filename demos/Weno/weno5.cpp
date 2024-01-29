@@ -376,5 +376,6 @@ int main()
         std::swap(field.array(), field_np1.array());
         samurai::save(fmt::format("weno_{}", ite), mesh, field);
     }
+    samurai::finalize();
     return 0;
 }

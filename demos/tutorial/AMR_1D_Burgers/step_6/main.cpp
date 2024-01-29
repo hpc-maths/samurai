@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
-#include <boost/mpi.hpp>
 
 #include <filesystem>
 
@@ -10,6 +9,7 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 
 #include "../step_3/init_sol.hpp"
 #include "../step_3/mesh.hpp"
@@ -37,7 +37,7 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    boost::mpi::environment env(argc, argv);
+    samurai::initialize(argc, argv);
 
     // Simulation parameters
     double cfl         = 0.99;
@@ -130,5 +130,6 @@ int main(int argc, char* argv[])
         }
     }
 
+    samurai::finalize();
     return 0;
 }

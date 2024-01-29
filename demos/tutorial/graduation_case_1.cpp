@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
-#include <boost/mpi.hpp>
 
 #include <filesystem>
 
@@ -15,6 +14,7 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 namespace fs = std::filesystem;
@@ -61,7 +61,7 @@ auto generate_mesh(std::size_t start_level, std::size_t max_level)
 
 int main(int argc, char* argv[])
 {
-    boost::mpi::environment env(argc, argv);
+    samurai::initialize(argc, argv);
 
     constexpr std::size_t dim        = 2;
     std::size_t start_level          = 1;
@@ -161,5 +161,6 @@ int main(int argc, char* argv[])
     }
     samurai::save(path, fmt::format("{}_after_graduation", filename), ca);
 
+    samurai::finalize();
     return 0;
 }

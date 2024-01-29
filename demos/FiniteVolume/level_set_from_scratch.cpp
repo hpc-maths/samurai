@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
-#include <boost/mpi.hpp>
 
 #include <samurai/algorithm/update.hpp>
 #include <samurai/algorithm/utils.hpp>
@@ -12,6 +11,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mesh.hpp>
 #include <samurai/mr/operators.hpp>
+#include <samurai/samurai.hpp>
 
 #include "stencil_field.hpp"
 
@@ -557,7 +557,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    boost::mpi::environment env(argc, argv);
+    samurai::initialize(argc, argv);
 
     constexpr size_t dim = 2;
     using Config         = AMRConfig<dim>;
@@ -680,5 +680,6 @@ int main(int argc, char* argv[])
         }
     }
 
+    samurai::finalize();
     return 0;
 }

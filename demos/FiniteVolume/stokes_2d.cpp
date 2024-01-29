@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
-#include <boost/mpi.hpp>
 
 #include <iostream>
 #include <samurai/hdf5.hpp>
@@ -149,7 +148,7 @@ void configure_solver(Solver& solver)
 
 int main(int argc, char* argv[])
 {
-    boost::mpi::environment env(argc, argv);
+    samurai::initialize(argc, argv);
 
     constexpr std::size_t dim        = 2;
     using Config                     = samurai::MRConfig<dim, 2>;
@@ -598,5 +597,6 @@ int main(int argc, char* argv[])
     }
 
     PetscFinalize();
+    samurai::finalize();
     return 0;
 }

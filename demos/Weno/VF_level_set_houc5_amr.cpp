@@ -330,5 +330,6 @@ int main()
         samurai::save(fmt::format("houc_amr_{}", ite), mesh, field);
     }
 
+    samurai::finalize();
     return 0;
 }

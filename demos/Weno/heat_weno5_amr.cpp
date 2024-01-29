@@ -823,5 +823,6 @@ int main()
         samurai::save(fmt::format("heat_amr_{}d_{}", dim, ite), mesh, field);
     }
 
+    samurai::finalize();
     return 0;
 }

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
-#include <boost/mpi.hpp>
 
 #include <iostream>
 
@@ -14,6 +13,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/memory.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 namespace fs = std::filesystem;
@@ -193,7 +193,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 
 int main(int argc, char* argv[])
 {
-    boost::mpi::environment env(argc, argv);
+    samurai::initialize(argc, argv);
 
     constexpr size_t dim = 2;
 
@@ -260,5 +260,6 @@ int main(int argc, char* argv[])
                            });
     samurai::save(path, filename, mesh_2, level);
 
+    samurai::finalize();
     return 0;
 }

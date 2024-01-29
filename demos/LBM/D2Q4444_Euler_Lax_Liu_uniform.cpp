@@ -9,6 +9,7 @@
 
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/statistics.hpp>
 #include <samurai/uniform_mesh.hpp>
 
@@ -433,5 +434,6 @@ int main(int argc, char* argv[])
     {
         std::cout << options.help() << "\n";
     }
+    samurai::finalize();
     return 0;
 }
