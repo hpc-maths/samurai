@@ -9,6 +9,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
+#include <samurai/samurai.hpp>
 
 #include "Timer.hpp"
 #include "samurai_new/utils.cpp"
