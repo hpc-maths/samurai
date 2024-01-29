@@ -9,6 +9,9 @@
 #include <limits>
 #include <vector>
 
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/vector.hpp>
+
 #include <fmt/color.h>
 #include <fmt/format.h>
 
@@ -21,14 +24,6 @@
 #include "subset/subset_op_base.hpp"
 #include "utils.hpp"
 
-#include <boost/mpi.hpp>
-#include <boost/serialization/serialization.hpp>
-#include <boost/serialization/vector.hpp>
-
-#include <boost/serialization/serialization.hpp>
-#include <boost/serialization/vector.hpp>
-
-namespace mpi = boost::mpi;
 using namespace xt::placeholders;
 
 namespace samurai

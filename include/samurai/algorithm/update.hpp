@@ -87,12 +87,16 @@ namespace samurai
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
-        mpi::communicator world;
-
         auto& mesh = field.mesh();
 
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
         auto min_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].min_level(), mpi::minimum<std::size_t>());
         auto max_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].max_level(), mpi::maximum<std::size_t>());
+#else
+        auto min_level = mesh[mesh_id_t::reference].min_level();
+        auto max_level = mesh[mesh_id_t::reference].max_level();
+#endif
 
         for (std::size_t level = max_level; level > min_level; --level)
         {
@@ -143,8 +147,9 @@ namespace samurai
     }
 
     template <class Field>
-    void update_ghost_subdomains(std::size_t level, Field& field)
+    void update_ghost_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& field)
     {
+#ifdef SAMURAI_WITH_MPI
         // static constexpr std::size_t dim = Field::dim;
         using mesh_t    = typename Field::mesh_t;
         using value_t   = typename Field::value_type;
@@ -197,6 +202,7 @@ namespace samurai
             }
         }
         mpi::wait_all(req.begin(), req.end());
+#endif
     }
 
     template <class Field, class... Fields>
@@ -207,8 +213,9 @@ namespace samurai
     }
 
     template <class Field>
-    void update_ghost_subdomains(Field& field)
+    void update_ghost_subdomains([[maybe_unused]] Field& field)
     {
+#ifdef SAMURAI_WITH_MPI
         using mesh_t    = typename Field::mesh_t;
         using mesh_id_t = typename mesh_t::mesh_id_t;
         mpi::communicator world;
@@ -221,11 +228,13 @@ namespace samurai
         {
             update_ghost_subdomains(level, field);
         }
+#endif
     }
 
     template <class Field>
-    void update_tag_subdomains(std::size_t level, Field& tag, bool erase = false)
+    void update_tag_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& tag, [[maybe_unused]] bool erase = false)
     {
+#ifdef SAMURAI_WITH_MPI
         //  constexpr std::size_t dim = Field::dim;
         using mesh_t    = typename Field::mesh_t;
         using value_t   = typename Field::value_type;
@@ -330,11 +339,13 @@ namespace samurai
             }
         }
         mpi::wait_all(req.begin(), req.end());
+#endif
     }
 
     template <class Field>
-    void check_duplicate_cells(Field& field)
+    void check_duplicate_cells([[maybe_unused]] Field& field)
     {
+#ifdef SAMURAI_WITH_MPI
         // static constexpr std::size_t dim = Field::dim;
         using mesh_t    = typename Field::mesh_t;
         using mesh_id_t = typename mesh_t::mesh_id_t;
@@ -362,11 +373,13 @@ namespace samurai
                 }
             }
         }
+#endif
     }
 
     template <class Field>
-    void keep_only_one_coarse_tag(Field& tag)
+    void keep_only_one_coarse_tag([[maybe_unused]] Field& tag)
     {
+#ifdef SAMURAI_WITH_MPI
         constexpr std::size_t dim = Field::dim;
         using mesh_t              = typename Field::mesh_t;
         using mesh_id_t           = typename mesh_t::mesh_id_t;
@@ -450,6 +463,7 @@ namespace samurai
                 }
             }
         }
+#endif
     }
 
     template <class Field>
@@ -864,7 +878,12 @@ namespace samurai
 
         mesh_t new_mesh = {cl, mesh};
 
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
+#else
         if (mesh == new_mesh)
+#endif
         {
             return true;
         }
@@ -886,8 +905,6 @@ namespace samurai
 
         auto& mesh = field.mesh();
         cl_type cl;
-
-        mpi::communicator world;
 
         for_each_interval(mesh[mesh_id_t::cells],
                           [&](std::size_t level, const auto& interval, const auto& index)
@@ -932,7 +949,12 @@ namespace samurai
 
         mesh_t new_mesh = {cl, mesh};
 
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
         if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
+#else
+        if (mesh == new_mesh)
+#endif
         {
             return true;
         }
@@ -1004,7 +1026,12 @@ namespace samurai
 
         mesh_t new_mesh = {cl, mesh.min_level(), mesh.max_level(), mesh.periodicity()};
 
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
+#else
         if (mesh == new_mesh)
+#endif
         {
             return true;
         }

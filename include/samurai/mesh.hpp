@@ -205,9 +205,12 @@ namespace samurai
         assert(min_level <= max_level);
         m_periodic.fill(false);
 
+#ifdef SAMURAI_WITH_MPI
         partition_mesh(start_level, b);
         // load_balancing();
-
+#else
+        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
+#endif
         construct_subdomain();
         construct_union();
         update_sub_mesh();
@@ -228,7 +231,12 @@ namespace samurai
     {
         assert(min_level <= max_level);
 
+#ifdef SAMURAI_WITH_MPI
+        partition_mesh(start_level, b);
+        // load_balancing();
+#else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
+#endif
 
         construct_subdomain();
         construct_union();
@@ -413,15 +421,11 @@ namespace samurai
     template <class D, class Config>
     inline void Mesh_base<D, Config>::swap(Mesh_base<D, Config>& mesh) noexcept
     {
-        mpi::communicator world;
         using std::swap;
         swap(m_cells, mesh.m_cells);
         swap(m_domain, mesh.m_domain);
         swap(m_subdomain, mesh.m_subdomain);
-        if (world.size() != 1)
-        {
-            swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
-        }
+        swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
         swap(m_max_level, mesh.m_max_level);
         swap(m_min_level, mesh.m_min_level);
@@ -463,6 +467,7 @@ namespace samurai
     template <class D, class Config>
     inline void Mesh_base<D, Config>::update_mesh_neighbour()
     {
+#ifdef SAMURAI_WITH_MPI
         // send/recv the meshes of the neighbouring subdomains
         mpi::communicator world;
         std::vector<mpi::request> req;
@@ -481,6 +486,7 @@ namespace samurai
         }
 
         mpi::wait_all(req.begin(), req.end());
+#endif
     }
 
     template <class D, class Config>
@@ -553,8 +559,9 @@ namespace samurai
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::partition_mesh(std::size_t start_level, const Box<double, dim>& global_box)
+    void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
     {
+#ifdef SAMURAI_WITH_MPI
         using box_t   = Box<value_t, dim>;
         using point_t = typename box_t::point_t;
 
@@ -648,23 +655,13 @@ namespace samurai
                 }
             });
 
-        // int output_rank = 10;
-        // if (rank == output_rank)
-        // {
-        //     std::cout << box << std::endl;
-        //     std::cout << "neighbours: ";
-        //     for (int neighbour : m_neighbouring_ranks)
-        //     {
-        //         std::cout << neighbour << " ";
-        //     }
-        //     std::cout << std::endl;
-        // }
-        // exit(0);
+#endif
     }
 
     template <class D, class Config>
     void Mesh_base<D, Config>::load_balancing()
     {
+#ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         auto rank = world.rank();
 
@@ -714,13 +711,13 @@ namespace samurai
 
             load = static_cast<std::size_t>(load_np1);
         }
-
-        // exit(0);
+#endif
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::load_transfer(const std::vector<double>& load_fluxes)
+    void Mesh_base<D, Config>::load_transfer([[maybe_unused]] const std::vector<double>& load_fluxes)
     {
+#ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         std::cout << world.rank() << ": ";
         for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
@@ -735,6 +732,7 @@ namespace samurai
             std::cout << "--> " << neighbour.rank << ": " << load_fluxes[i_rank] << ", ";
         }
         std::cout << std::endl;
+#endif
     }
 
     template <class D, class Config>

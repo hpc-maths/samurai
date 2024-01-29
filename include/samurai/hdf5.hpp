@@ -30,9 +30,11 @@ namespace fs = std::filesystem;
 
 #include <fmt/core.h>
 
+#ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
 #include <boost/mpi/collectives.hpp>
 namespace mpi = boost::mpi;
+#endif
 
 #include "algorithm.hpp"
 #include "cell.hpp"
@@ -372,16 +374,21 @@ namespace samurai
     template <class D, class Mesh, class... T>
     inline void SaveCellArray<D, Mesh, T...>::save()
     {
-        mpi::communicator world;
-
         if (this->options().by_level)
         {
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
             auto min_level = mpi::all_reduce(world, this->mesh().min_level(), mpi::minimum<std::size_t>());
+            auto max_level = mpi::all_reduce(world, this->mesh().max_level(), mpi::maximum<std::size_t>());
+#else
+            auto min_level = this->mesh().min_level();
+            auto max_level = this->mesh().max_level();
+#endif
             if (min_level > 0)
             {
                 min_level--;
             }
-            auto max_level = mpi::all_reduce(world, this->mesh().max_level(), mpi::maximum<std::size_t>());
+
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
                 auto grid_level                               = this->domain().append_child("Grid");
@@ -503,17 +510,21 @@ namespace samurai
     HighFive::File Hdf5<D>::create_h5file(const fs::path& path, const std::string& filename)
     {
         HighFive::FileAccessProps fapl;
+#ifdef SAMURAI_WITH_MPI
         fapl.add(HighFive::MPIOFileAccess{MPI_COMM_WORLD, MPI_INFO_NULL});
         fapl.add(HighFive::MPIOCollectiveMetadata{});
+#endif
         return HighFive::File(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite, fapl);
     }
 
     template <class D>
     inline Hdf5<D>::~Hdf5()
     {
+#ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
 
         if (world.rank() == 0)
+#endif
         {
             m_doc.save_file(fmt::format("{}.xdmf", (m_path / m_filename).string()).data());
         }
@@ -530,20 +541,28 @@ namespace samurai
     inline void
     Hdf5<D>::save_on_mesh(pugi::xml_node& grid_parent, const std::string& prefix, const Submesh& submesh, const std::string& mesh_name)
     {
+        static constexpr std::size_t dim = derived_type_save::dim;
+
         xt::xtensor<std::size_t, 2> local_connectivity;
         xt::xtensor<double, 2> local_coords;
-        static constexpr std::size_t dim = derived_type_save::dim;
+        std::tie(local_coords, local_connectivity) = extract_coords_and_connectivity(submesh);
+
+#ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
 
         auto rank = static_cast<std::size_t>(world.rank());
         auto size = static_cast<std::size_t>(world.size());
 
-        std::tie(local_coords, local_connectivity) = extract_coords_and_connectivity(submesh);
-
         xt::xtensor<std::size_t, 1> connectivity_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, local_connectivity.shape(0), connectivity_sizes.begin());
         xt::xtensor<std::size_t, 1> coords_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, local_coords.shape(0), coords_sizes.begin());
+#else
+        std::size_t rank = 0;
+        std::size_t size = 1;
+        xt::xtensor_fixed<std::size_t, xt::xshape<1>> connectivity_sizes = {local_connectivity.shape(0)};
+        xt::xtensor_fixed<std::size_t, xt::xshape<1>> coords_sizes = {local_coords.shape(0)};
+#endif
 
         std::vector<std::size_t> connectivity_cumsum(size + 1, 0);
         std::vector<std::size_t> coords_cumsum(size + 1, 0);
@@ -563,8 +582,9 @@ namespace samurai
             std::size_t coords_dataset_size       = (size == 1) ? coords_cumsum.back() : coords_sizes[rank];
 
             auto xfer_props = HighFive::DataTransferProps{};
+#ifdef SAMURAI_WITH_MPI
             xfer_props.add(HighFive::UseCollectiveIO{});
-
+#endif
             if (size == 1)
             {
                 auto connectivity = h5_file.createDataSet<std::size_t>(
@@ -680,17 +700,21 @@ namespace samurai
     template <class Submesh, class Field>
     inline void Hdf5<D>::save_field(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, const Field& field)
     {
+        auto xfer_props = HighFive::DataTransferProps{};
+#ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
 
         auto rank = static_cast<std::size_t>(world.rank());
         auto size = static_cast<std::size_t>(world.size());
-
-        auto xfer_props = HighFive::DataTransferProps{};
         xfer_props.add(HighFive::UseCollectiveIO{});
 
         xt::xtensor<std::size_t, 1> field_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, submesh.nb_cells(), field_sizes.begin());
-
+#else
+        std::size_t rank = 0;
+        std::size_t size = 1;
+        xt::xtensor_fixed<std::size_t, xt::xshape<1>> field_sizes = {submesh.nb_cells()};
+#endif
         std::vector<std::size_t> field_cumsum(size + 1, 0);
         for (std::size_t i = 0; i < size; ++i)
         {
