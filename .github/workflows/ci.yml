@@ -156,28 +156,6 @@ jobs:
           conda info
           conda list
 
-      - name: Clone HighFive
-        uses: actions/checkout@v3
-        with:
-          repository: BlueBrain/HighFive
-          ref: v2.7.1
-          path: highfive
-
-      - name: Configure HighFive
-        shell: bash -l {0}
-        run: |
-          CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
-          highfive \
-          -Bhighfive/build \
-          -GNinja \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
-
-      - name: Install HighFive
-        shell: bash -l {0}
-        run: |
-          cmake --build highfive/build --target install
-
       - name: Configure
         shell: bash -l {0}
         run: |
@@ -209,6 +187,101 @@ jobs:
           cd tests
           pytest -v -s --h5diff
 
+  #
+  # Check linux build with mamba environment
+  #
+  #########################################################
+  linux-mpi-mamba:
+    needs: [pre-commit, cppcheck]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: linux-mpi
+          restore-keys: |
+            linux-mpi
+
+      - name: Mamba and samurai env installation
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: conda/mpi-environment.yml
+          environment-name: samurai-env
+          cache-environment: true
+
+      - name: Petsc installation
+        shell: bash -l {0}
+        run: |
+          conda install -y petsc pkg-config cxx-compiler
+
+      - name: Conda informations
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+
+      # - name: Clone HighFive
+      #   uses: actions/checkout@v3
+      #   with:
+      #     repository: BlueBrain/HighFive
+      #     ref: v2.9.0
+      #     path: highfive
+
+      # - name: Configure HighFive
+      #   shell: bash -l {0}
+      #   run: |
+      #     cmake \
+      #     highfive \
+      #     -Bhighfive/build \
+      #     -GNinja \
+      #     -DCMAKE_BUILD_TYPE=Release \
+      #     -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+
+      # - name: Install HighFive
+      #   shell: bash -l {0}
+      #   run: |
+      #     cmake --build highfive/build --target install
+
+      - name: Configure
+        shell: bash -l {0}
+        run: |
+          cmake \
+              . \
+              -Bbuild \
+              -GNinja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DWITH_MPI=ON \
+              -DBUILD_DEMOS=ON \
+              -DBUILD_TESTS=ON
+
+      - name: Build
+        shell: bash -l {0}
+        run: |
+          cmake --build build --target all
+
+      - name: Test with googletest
+        shell: bash -l {0}
+        run: |
+          cd build
+          ./tests/test_samurai_lib
+
+      - name: Test with pytest
+        shell: bash -l {0}
+        run: |
+          cd tests
+          pytest -v -s --h5diff
+
+      - name: MPI test
+        shell: bash -l {0}
+        run: |
+          cd build
+          mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d
+
   macos-mamba:
     needs: [pre-commit, cppcheck]
     runs-on: macos-12
@@ -236,28 +309,6 @@ jobs:
         run: |
           micromamba info
           micromamba list
-
-      - name: Clone HighFive
-        uses: actions/checkout@v3
-        with:
-          repository: BlueBrain/HighFive
-          ref: v2.7.1
-          path: highfive
-
-      - name: Configure HighFive
-        shell: bash -l {0}
-        run: |
-          CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
-          highfive \
-          -Bhighfive/build \
-          -GNinja \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
-
-      - name: Install HighFive
-        shell: bash -l {0}
-        run: |
-          cmake --build highfive/build --target install
 
       - name: Configure
         shell: bash -l {0}

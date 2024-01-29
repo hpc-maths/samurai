@@ -12,3 +12,5 @@ dependencies:
   - cli11
   - pytest
   - h5py
+  - libboost-mpi
+  - hdf5=*=mpi*
