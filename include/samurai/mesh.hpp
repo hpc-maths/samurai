@@ -49,7 +49,7 @@ namespace samurai
         int rank;
         MeshType mesh;
 
-        MPI_Subdomain(int rank_)
+        explicit MPI_Subdomain(int rank_)
             : rank(rank_)
         {
         }

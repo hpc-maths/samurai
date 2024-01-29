@@ -578,9 +578,6 @@ namespace samurai
 
         if (coords_cumsum.back() != 0)
         {
-            std::size_t connectivity_dataset_size = (size == 1) ? connectivity_sizes.back() : connectivity_sizes[rank];
-            std::size_t coords_dataset_size       = (size == 1) ? coords_cumsum.back() : coords_sizes[rank];
-
             auto xfer_props = HighFive::DataTransferProps{};
 #ifdef SAMURAI_WITH_MPI
             xfer_props.add(HighFive::UseCollectiveIO{});
@@ -589,15 +586,15 @@ namespace samurai
             {
                 auto connectivity = h5_file.createDataSet<std::size_t>(
                     prefix + "/connectivity",
-                    HighFive::DataSpace(std::vector<std::size_t>{connectivity_dataset_size, 1 << dim}));
+                    HighFive::DataSpace(std::vector<std::size_t>{connectivity_sizes[rank], 1 << dim}));
                 auto coords = h5_file.createDataSet<double>(prefix + "/points",
-                                                            HighFive::DataSpace(std::vector<std::size_t>{coords_dataset_size, 3}));
+                                                            HighFive::DataSpace(std::vector<std::size_t>{coords_sizes[rank], 3}));
 
                 auto connectivity_slice = connectivity.select({connectivity_cumsum[rank], 0}, {connectivity_sizes[rank], 1 << dim});
                 local_connectivity += coords_cumsum[rank];
                 connectivity_slice.write_raw(local_connectivity.data(), HighFive::AtomicType<std::size_t>{}, xfer_props);
 
-                auto coords_slice = coords.select({coords_cumsum[rank], 0}, {coords_sizes[rank], 3});
+                auto coords_slice = coords.select({0, 0}, {coords_sizes[rank], 3});
                 coords_slice.write_raw(local_coords.data(), HighFive::AtomicType<double>{}, xfer_props);
             }
             else
