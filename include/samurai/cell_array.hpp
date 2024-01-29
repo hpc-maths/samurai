@@ -15,8 +15,10 @@
 #include "samurai_config.hpp"
 #include "utils.hpp"
 
+#ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
+#endif
 
 namespace samurai
 {
@@ -136,15 +138,17 @@ namespace samurai
 
       private:
 
-        friend class boost::serialization::access;
-
         std::array<lca_type, max_size + 1> m_cells;
+
+#ifdef SAMURAI_WITH_MPI
+        friend class boost::serialization::access;
 
         template <class Archive>
         void serialize(Archive& ar, const unsigned long)
         {
             ar& m_cells;
         }
+#endif
     };
 
     ////////////////////////////////////

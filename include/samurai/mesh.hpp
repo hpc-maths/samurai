@@ -14,11 +14,13 @@
 
 #include "subset/subset_op.hpp"
 
+#ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/vector.hpp>
 
 #include <boost/mpi.hpp>
 #include <boost/mpi/cartesian_communicator.hpp>
 namespace mpi = boost::mpi;
+#endif
 
 namespace samurai
 {
@@ -158,6 +160,7 @@ namespace samurai
         // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
 
+#ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
 
         template <class Archive>
@@ -173,6 +176,7 @@ namespace samurai
             ar& m_min_level;
             ar& m_min_level;
         }
+#endif
     };
 
     template <class D, class Config>

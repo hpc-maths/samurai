@@ -9,8 +9,10 @@
 #include <limits>
 #include <vector>
 
+#ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
+#endif
 
 #include <fmt/color.h>
 #include <fmt/format.h>
@@ -147,6 +149,7 @@ namespace samurai
 
       private:
 
+#ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
 
         template <class Archive>
@@ -162,6 +165,7 @@ namespace samurai
             }
             ar& m_level;
         }
+#endif
 
         /// Recursive construction from a level cell list along dimension > 0
         template <typename TGrid, std::size_t N>
