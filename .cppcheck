@@ -1,5 +1,3 @@
 noExplicitConstructor
 duplInheritedMember
 missingIncludeSystem
-shadowVariable
-knownConditionTrueFalse
