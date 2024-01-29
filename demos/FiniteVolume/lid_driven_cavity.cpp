@@ -10,6 +10,7 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 
 template <class Solver>
 void configure_direct_solver(Solver& solver)
