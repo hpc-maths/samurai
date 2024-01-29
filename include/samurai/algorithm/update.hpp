@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <boost/mpi.hpp>
 #include <xtensor/xfixed.hpp>
 
 #include "../bc.hpp"
@@ -14,7 +13,10 @@
 #include "../subset/subset_op.hpp"
 #include "utils.hpp"
 
+#ifdef SAMURAI_WITH_MPI
+#include <boost/mpi.hpp>
 namespace mpi = boost::mpi;
+#endif
 
 namespace samurai
 {
