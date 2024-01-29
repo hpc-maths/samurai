@@ -10,8 +10,8 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
       - uses: pre-commit/action@v3.0.0
 
   #
@@ -21,10 +21,10 @@ jobs:
   cppcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/ccache
@@ -117,10 +117,10 @@ jobs:
             cc: "clang-15"
             cxx: "clang++-15"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/ccache
@@ -195,10 +195,10 @@ jobs:
     needs: [pre-commit, cppcheck]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/ccache
@@ -226,7 +226,7 @@ jobs:
           conda list
 
       # - name: Clone HighFive
-      #   uses: actions/checkout@v3
+      #   uses: actions/checkout@v4
       #   with:
       #     repository: BlueBrain/HighFive
       #     ref: v2.9.0
@@ -286,7 +286,7 @@ jobs:
     needs: [pre-commit, cppcheck]
     runs-on: macos-12
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Mamba and samurai env installation
         uses: mamba-org/setup-micromamba@v1
         with:
