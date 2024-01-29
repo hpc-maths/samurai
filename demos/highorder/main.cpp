@@ -8,6 +8,7 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
