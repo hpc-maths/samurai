@@ -35,7 +35,7 @@ namespace samurai
         Box<double, 1> box{{0}, {1}};
         using Config       = UniformConfig<1>;
         auto mesh          = UniformMesh<Config>(box, 3);
-        const auto u_const = make_field<double, 1>("uc", mesh);
+        const auto u_const = make_field<double, 1>("uc", mesh, 1.);
 
         auto u = u_const;
         EXPECT_EQ(u.name(), u_const.name());
@@ -44,7 +44,7 @@ namespace samurai
         EXPECT_EQ(&(u.mesh()), &(u_const.mesh()));
 
         auto m              = holder(mesh);
-        const auto u_const1 = make_field<double, 1>("uc", m);
+        const auto u_const1 = make_field<double, 1>("uc", m, 1.);
         auto u1             = u_const1;
         EXPECT_EQ(u1.name(), u_const1.name());
         EXPECT_EQ(u1.array(), u_const1.array());
