@@ -757,6 +757,8 @@ void save_reconstructed(Field& f, FieldFull& f_full, Func&& update_bc_for_level,
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     cxxopts::Options options("lbm_d2q4_3_Euler",
                              "Multi resolution for a D2Q4 LBM scheme for the "
                              "scalar advection equation");

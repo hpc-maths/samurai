@@ -434,6 +434,8 @@ inline auto weno5(CT&&... e)
 
 int main()
 {
+    samurai::initialize();
+
     constexpr std::size_t dim         = 2;
     constexpr std::size_t ghost_width = 3;
     std::size_t start_level           = 7;

@@ -354,6 +354,8 @@ inline auto weno5(CT&&... e)
 
 int main()
 {
+    samurai::initialize();
+
     constexpr std::size_t dim = 2;
     std::size_t start_level   = 6;
     samurai::Box<double, dim> box{

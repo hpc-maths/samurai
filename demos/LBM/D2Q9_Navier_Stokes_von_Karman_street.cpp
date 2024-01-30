@@ -1342,6 +1342,8 @@ void save_solution(Field& f, double eps, std::size_t ite, double lambda, std::st
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     cxxopts::Options options("D2Q9 scheme for the simulation of the Von Karman vortex street", "...");
 
     options.add_options()("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("8"))(

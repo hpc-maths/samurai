@@ -338,6 +338,8 @@ void save_solution(Field& f, std::size_t ite, std::string ext = "")
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     cxxopts::Options options("lbm_d2q4_3_Euler",
                              "Multi resolution for a D2Q4 LBM scheme for the "
                              "scalar advection equation");

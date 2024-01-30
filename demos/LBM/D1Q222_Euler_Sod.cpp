@@ -453,6 +453,8 @@ std::array<double, 6> compute_error(samurai::Field<Config, double, 6>& f, FieldR
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     cxxopts::Options options("lbm_d1q2 vectorial for euler", "...");
 
     options.add_options()("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))(

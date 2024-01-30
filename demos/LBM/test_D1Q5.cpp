@@ -538,6 +538,8 @@ compute_error(samurai::Field<Config, double, 5>& f, FieldR& fR, Func&& update_bc
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     cxxopts::Options options("lbm_d1q5_sw", "");
     options.add_options()("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))(
         "max_level",

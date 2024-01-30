@@ -517,6 +517,8 @@ std::array<double, 2> compute_error(samurai::Field<Config, double, 2>& f, FieldR
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     cxxopts::Options options("lbm_d1q2_burgers", "Multi resolution for a D1Q2 LBM scheme for Burgers equation");
 
     options.add_options()("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))(

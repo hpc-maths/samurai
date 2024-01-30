@@ -652,6 +652,8 @@ bool update_mesh(Field& f, const Tag& tag)
 
 int main()
 {
+    samurai::initialize();
+
     using Config     = AMRConfig<dim>;
     using interval_t = typename Config::interval_t;
 
