@@ -11,7 +11,7 @@ jobs:
     outputs:
       nb_commits: ${{ steps.new_commits.outputs.nb_commits }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - id: new_commits
         run: echo "nb_commits=$(git log --oneline --since '24 hours ago' | wc -l)" >> $GITHUB_OUTPUT
@@ -25,10 +25,10 @@ jobs:
     if: needs.check_new_commit.outputs.nb_commits > 0
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/ccache
@@ -89,10 +89,10 @@ jobs:
         #     compiler: llvm
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.conan/
@@ -194,10 +194,10 @@ jobs:
         #     compiler: llvm
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/vcpkg
@@ -275,7 +275,7 @@ jobs:
     if: needs.check_new_commit.outputs.nb_commits > 0
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Mamba and samurai env installation
         uses: mamba-org/setup-micromamba@v1
         with:

@@ -7,6 +7,7 @@
 #include "../algorithm/graduation.hpp"
 #include "../algorithm/update.hpp"
 #include "../field.hpp"
+#include "../hdf5.hpp"
 #include "../static_algorithm.hpp"
 #include "criteria.hpp"
 #include <type_traits>
@@ -185,6 +186,7 @@ namespace samurai
         {
             // std::cout << "MR mesh adaptation " << i << std::endl;
             m_detail.resize();
+            m_detail.fill(0);
             m_tag.resize();
             m_tag.fill(0);
             if (harten(i, eps, regularity, old_fields, other_fields...))
@@ -253,6 +255,10 @@ namespace samurai
                           m_tag[cell] = static_cast<int>(CellFlag::keep);
                       });
 
+        for (std::size_t level = min_level; level <= max_level; ++level)
+        {
+            update_tag_subdomains(level, m_tag, true);
+        }
         update_ghost_mr(m_fields);
 
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
@@ -275,6 +281,7 @@ namespace samurai
                                            m_tag,
                                            (pow(2.0, regularity_to_use)) * eps_l,
                                            max_level)); // Refinement according to Harten
+            update_tag_subdomains(level, m_tag, true);
         }
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
@@ -286,6 +293,7 @@ namespace samurai
             subset_2.apply_op(keep_around_refine(m_tag));
             subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
             update_tag_periodic(level, m_tag);
+            update_tag_subdomains(level, m_tag);
         }
 
         // FIXME: this graduation doesn't make the same that the lines below:
@@ -310,6 +318,7 @@ namespace samurai
             }
 
             update_tag_periodic(level, m_tag);
+            update_tag_subdomains(level, m_tag);
         }
 
         // REFINEMENT GRADUATION
@@ -319,6 +328,7 @@ namespace samurai
 
             subset_1.apply_op(extend(m_tag));
             update_tag_periodic(level, m_tag);
+            update_tag_subdomains(level, m_tag);
 
             int grad_width = static_cast<int>(mesh_t::config::graduation_width);
             auto stencil   = grad_width * detail::box_dir<dim>();
@@ -333,6 +343,7 @@ namespace samurai
             }
 
             update_tag_periodic(level, m_tag);
+            update_tag_subdomains(level, m_tag);
         }
 
         // Prevents the coarsening of child cells where the parent intersects the boundary.
@@ -363,9 +374,11 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
             update_tag_periodic(level, m_tag);
+            update_tag_subdomains(level, m_tag);
         }
 
         update_ghost_mr(other_fields...);
+        keep_only_one_coarse_tag(m_tag);
 
         if constexpr (keep_previous)
         {

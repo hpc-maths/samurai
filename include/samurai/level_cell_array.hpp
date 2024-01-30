@@ -9,6 +9,11 @@
 #include <limits>
 #include <vector>
 
+#ifdef SAMURAI_WITH_MPI
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/vector.hpp>
+#endif
+
 #include <fmt/color.h>
 #include <fmt/format.h>
 
@@ -20,6 +25,8 @@
 #include "samurai_config.hpp"
 #include "subset/subset_op_base.hpp"
 #include "utils.hpp"
+
+using namespace xt::placeholders;
 
 namespace samurai
 {
@@ -141,6 +148,24 @@ namespace samurai
         auto minmax_indices() const;
 
       private:
+
+#ifdef SAMURAI_WITH_MPI
+        friend class boost::serialization::access;
+
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned long)
+        {
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                ar& m_cells[d];
+            }
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                ar& m_offsets[d];
+            }
+            ar& m_level;
+        }
+#endif
 
         /// Recursive construction from a level cell list along dimension > 0
         template <typename TGrid, std::size_t N>
@@ -737,12 +762,12 @@ namespace samurai
     {
         for (std::size_t d = 0; d < dim; ++d)
         {
-            os << fmt::format(fmt::emphasis::bold, "{:>10}", fmt::format("dim {}", d)) << std::endl;
+            os << fmt::format(disable_color ? fmt::text_style() : fmt::emphasis::bold, "{:>10}", fmt::format("dim {}", d)) << std::endl;
 
             os << fmt::format("{:>20}", "cells = ");
             for (std::size_t ic = 0; ic < m_cells[d].size(); ++ic)
             {
-                os << fmt::format(fmt::emphasis::bold, "{}->", ic);
+                os << fmt::format(disable_color ? fmt::text_style() : fmt::emphasis::bold, "{}->", ic);
                 os << m_cells[d][ic] << " ";
             }
             os << "\n" << std::endl;

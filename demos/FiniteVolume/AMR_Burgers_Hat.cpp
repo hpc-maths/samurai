@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+
 #include <fmt/format.h>
 #include <iostream>
 
@@ -12,6 +13,7 @@
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 
 #include "stencil_field.hpp"
 
@@ -171,6 +173,8 @@ void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
     using Config              = samurai::amr::Config<dim>;
 
@@ -269,5 +273,6 @@ int main(int argc, char* argv[])
             save(path, filename, phi, suffix);
         }
     }
+    samurai::finalize();
     return 0;
 }

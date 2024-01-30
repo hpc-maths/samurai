@@ -268,6 +268,8 @@ void RK4(Field& field, const double dt, std::size_t nbstep, Func&& bc, const dou
 
 int main()
 {
+    samurai::initialize();
+
     constexpr std::size_t dim = 2; // Spatial dimension
     std::size_t max_level     = 8; // Maximum level of resolution
     std::size_t min_level     = 1; // Minimum level of resolution
@@ -346,5 +348,6 @@ int main()
         nb_ite++;
     }
 
+    samurai::finalize();
     return 0;
 }

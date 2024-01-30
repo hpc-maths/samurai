@@ -11,6 +11,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
+#include <samurai/samurai.hpp>
 
 #include "boundary_conditions.hpp"
 #include "prediction_map_2d.hpp"
@@ -1085,6 +1086,8 @@ void save_solution(Field& f, double eps, std::size_t ite, const double gas_const
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     cxxopts::Options options("lbm_d2q5444_RayleighTaylor", "");
 
     options.add_options()("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))(
@@ -1173,5 +1176,6 @@ int main(int argc, char* argv[])
     {
         std::cout << options.help() << "\n";
     }
+    samurai::finalize();
     return 0;
 }

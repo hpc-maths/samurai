@@ -9,6 +9,7 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 
 #include "../step_3/init_sol.hpp"
 #include "../step_3/mesh.hpp"
@@ -36,6 +37,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     // Simulation parameters
     double cfl         = 0.99;
     double Tf          = 1.5;
@@ -127,5 +130,6 @@ int main(int argc, char* argv[])
         }
     }
 
+    samurai::finalize();
     return 0;
 }

@@ -8,6 +8,10 @@
 
 #include <fmt/format.h>
 
+#ifdef SAMURAI_WITH_MPI
+#include <boost/serialization/base_object.hpp>
+#endif
+
 #include "samurai_config.hpp"
 
 namespace samurai
@@ -63,6 +67,19 @@ namespace samurai
         Interval& operator<<=(std::size_t i);
         Interval& operator+=(value_t i);
         Interval& operator-=(value_t i);
+
+#ifdef SAMURAI_WITH_MPI
+        friend class boost::serialization::access;
+
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned int)
+        {
+            ar& start;
+            ar& end;
+            ar& step;
+            ar& index;
+        }
+#endif
     };
 
     /////////////////////////////

@@ -30,4 +30,6 @@ int main()
     ca_box[start_level] = {start_level, box};
 
     std::cout << ca_box << std::endl;
+
+    return 0;
 }

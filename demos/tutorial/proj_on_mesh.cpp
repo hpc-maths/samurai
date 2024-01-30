@@ -1,9 +1,12 @@
+
 #include <iostream>
+
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 
 template <class Mesh>
 auto init_field(Mesh& mesh, double dec)
@@ -48,6 +51,8 @@ auto init_field(Mesh& mesh, double dec)
 
 int main()
 {
+    samurai::initialize();
+
     constexpr std::size_t dim = 3;
     using Config              = samurai::MRConfig<dim>;
     auto box                  = samurai::Box<double, dim>({0., 0., 0.}, {1., 1., 1.});
@@ -72,5 +77,6 @@ int main()
     samurai::save("solution_src", mesh1, f1);
     samurai::save("solution_dst", mesh2, f2);
 
+    samurai::finalize();
     return 0;
 }

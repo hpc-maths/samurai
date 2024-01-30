@@ -3,12 +3,14 @@
 // license that can be found in the LICENSE file.
 
 #include <CLI/CLI.hpp>
+
 #include <iostream>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 
 template <class Solver>
 void configure_direct_solver(Solver& solver)
@@ -91,6 +93,8 @@ void configure_solver(Solver& solver)
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr std::size_t dim        = 2;
     using Config                     = samurai::MRConfig<dim, 1>;
     using Mesh                       = samurai::MRMesh<Config>;
@@ -460,5 +464,6 @@ int main(int argc, char* argv[])
 
     stokes_solver.destroy_petsc_objects();
     PetscFinalize();
+    samurai::finalize();
     return 0;
 }

@@ -9,6 +9,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
+#include <samurai/samurai.hpp>
 
 #include "Timer.hpp"
 #include "samurai_new/utils.cpp"
@@ -118,6 +119,8 @@ template <class Mesh>
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr std::size_t dim = 2;
     using Config              = samurai::amr::Config<dim>;
     using Mesh                = samurai::amr::Mesh<Config>;
@@ -322,5 +325,6 @@ int main(int argc, char* argv[])
     delete test_case;
     PetscFinalize();
 
+    samurai::finalize();
     return 0;
 }

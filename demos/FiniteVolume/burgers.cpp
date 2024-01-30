@@ -7,6 +7,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
 #include <filesystem>
@@ -44,6 +45,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 template <std::size_t dim, std::size_t field_size>
 int main_dim(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     using Config  = samurai::MRConfig<dim>;
     using Box     = samurai::Box<double, dim>;
     using point_t = typename Box::point_t;
@@ -325,6 +328,7 @@ int main_dim(int argc, char* argv[])
                   << std::endl;
     }
 
+    samurai::finalize();
     return 0;
 }
 

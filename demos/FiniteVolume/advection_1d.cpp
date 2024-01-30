@@ -11,6 +11,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/subset_op.hpp>
 
@@ -111,6 +112,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
     using Config              = samurai::MRConfig<dim>;
 
@@ -216,5 +219,6 @@ int main(int argc, char* argv[])
             save(path, filename, u, suffix);
         }
     }
+    samurai::finalize();
     return 0;
 }

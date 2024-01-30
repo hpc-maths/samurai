@@ -14,6 +14,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
+#include <samurai/samurai.hpp>
 
 #include "boundary_conditions.hpp"
 #include "prediction_map_1d.hpp"
@@ -328,6 +329,8 @@ compute_error(samurai::Field<Config, double, 3>& f, FieldR& fR, Func&& update_bc
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     cxxopts::Options options("lbm_d1q3_shallow waters", "...");
 
     options.add_options()("min_level", "minimum level", cxxopts::value<std::size_t>()->default_value("2"))(
@@ -418,5 +421,6 @@ int main(int argc, char* argv[])
         std::cout << options.help() << "\n";
     }
     std::cout << std::endl;
+    samurai::finalize();
     return 0;
 }

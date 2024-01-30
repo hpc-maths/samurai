@@ -14,6 +14,7 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 namespace fs = std::filesystem;
@@ -40,6 +41,8 @@ auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsa
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr std::size_t dim = 2;
     std::size_t min_level     = 1;
     std::size_t max_level     = 7;
@@ -186,5 +189,6 @@ int main(int argc, char* argv[])
 
     samurai::save(path, fmt::format("{}_graduated", filename), ca);
 
+    samurai::finalize();
     return 0;
 }

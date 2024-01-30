@@ -8,6 +8,7 @@
 #include <samurai/cell_list.hpp>
 #include <samurai/field.hpp>
 #include <samurai/operators_base.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/subset/subset_op.hpp>
 
 template <class TInterval>
@@ -49,6 +50,8 @@ inline auto projection(T&& field)
 
 int main()
 {
+    samurai::initialize();
+
     constexpr std::size_t dim = 1;
     samurai::CellList<dim> cl;
     samurai::CellArray<dim> ca;
@@ -109,5 +112,6 @@ int main()
 
     std::cout << u << "\n";
 
+    samurai::finalize();
     return 0;
 }

@@ -10,6 +10,7 @@
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 
 #include "stencil_field.hpp"
 
@@ -246,6 +247,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr std::size_t dim = 2;
     using Config              = samurai::amr::Config<dim, 2>;
 
@@ -369,5 +372,6 @@ int main(int argc, char* argv[])
         }
     }
 
+    samurai::finalize();
     return 0;
 }

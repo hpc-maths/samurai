@@ -43,6 +43,7 @@ option(CPPCHECK "Activate cppcheck" OFF)
 option(IWYU "Activate include-what-you-use" OFF)
 option(SANITIZERS "Activate sanitizers" OFF)
 option(ENABLE_COVERAGE "Activate coverage" OFF)
+option(WITH_MPI "Enable MPI" OFF)
 
 project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
@@ -98,7 +99,7 @@ if(${ENABLE_VCPKG})
 endif()
 
 # Force HIGHFIVE_USE_INSTALL_DEPS option to be true
-option(HIGHFIVE_USE_INSTALL_DEPS "End applications by default use detected dependencies here" ON)
+option(HIGHFIVE_USE_INSTALL_DEPS "End applications by default use detected dependencies here" OFF)
 
 foreach(DEPENDENCY ${DEPENDENCIES_CONFIGURED})
   find_package(${DEPENDENCY} CONFIG REQUIRED)
@@ -113,6 +114,18 @@ target_link_system_libraries(
   pugixml::pugixml
   fmt::fmt
 )
+
+if(${WITH_MPI})
+  find_package(Boost REQUIRED COMPONENTS serialization mpi)
+  target_link_system_libraries(
+    samurai
+    INTERFACE
+    Boost::serialization
+    Boost::mpi
+  )
+  target_compile_definitions(samurai INTERFACE SAMURAI_WITH_MPI)
+endif()
+
 
 target_compile_features(samurai INTERFACE cxx_std_17)
 
@@ -146,7 +159,7 @@ endif()
 
 # Package the project
 package_project(
-  TARGETS samurai project_options project_warnings
+  TARGETS samurai project_options project_warnings libdeps
   INTERFACE_DEPENDENCIES_CONFIGURED ${DEPENDENCIES_CONFIGURED}
   INTERFACE_INCLUDES ${INCLUDE_DIR}
 )

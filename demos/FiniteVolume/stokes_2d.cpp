@@ -1,14 +1,15 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-
 #include <CLI/CLI.hpp>
+
 #include <iostream>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 
 static constexpr double pi = M_PI;
 
@@ -148,8 +149,10 @@ void configure_solver(Solver& solver)
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr std::size_t dim        = 2;
-    using Config                     = samurai::MRConfig<dim, 1>;
+    using Config                     = samurai::MRConfig<dim, 2>;
     using Mesh                       = samurai::MRMesh<Config>;
     using mesh_id_t                  = typename Mesh::mesh_id_t;
     static constexpr bool is_soa     = false;
@@ -595,5 +598,6 @@ int main(int argc, char* argv[])
     }
 
     PetscFinalize();
+    samurai::finalize();
     return 0;
 }

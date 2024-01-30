@@ -57,8 +57,18 @@ namespace samurai
         using Config       = UniformConfig<1>;
         auto mesh1         = UniformMesh<Config>(box, 5);
         auto mesh2         = UniformMesh<Config>(box, 3);
-        const auto u_const = make_field<double, 1>("uc", mesh1);
-        auto u             = make_field<double, 1>("u", mesh2);
+        const auto u_const = make_field<double, 1>("uc",
+                                                   mesh1,
+                                                   [](const auto& coords)
+                                                   {
+                                                       return coords[0];
+                                                   });
+        auto u             = make_field<double, 1>("u",
+                                       mesh2,
+                                       [](const auto& coords)
+                                       {
+                                           return coords[0];
+                                       });
 
         u = u_const;
         EXPECT_EQ(u.name(), u_const.name());
@@ -68,8 +78,18 @@ namespace samurai
 
         auto m1             = holder(mesh1);
         auto m2             = holder(mesh2);
-        const auto u_const1 = make_field<double, 1>("uc", m1);
-        auto u1             = make_field<double, 1>("u", m2);
+        const auto u_const1 = make_field<double, 1>("uc",
+                                                    m1,
+                                                    [](const auto& coords)
+                                                    {
+                                                        return coords[0];
+                                                    });
+        auto u1             = make_field<double, 1>("u",
+                                        m2,
+                                        [](const auto& coords)
+                                        {
+                                            return coords[0];
+                                        });
         u1                  = u_const1;
         EXPECT_EQ(u1.name(), u_const1.name());
         EXPECT_EQ(u1.array(), u_const1.array());

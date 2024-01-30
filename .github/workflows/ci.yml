@@ -10,8 +10,8 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
       - uses: pre-commit/action@v3.0.0
 
   #
@@ -21,10 +21,10 @@ jobs:
   cppcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/ccache
@@ -117,10 +117,10 @@ jobs:
             cc: "clang-15"
             cxx: "clang++-15"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/ccache
@@ -148,7 +148,7 @@ jobs:
       - name: Petsc installation
         shell: bash -l {0}
         run: |
-          conda install -y petsc=3.18 pkg-config
+          conda install -y petsc pkg-config
 
       - name: Conda informations
         shell: bash -l {0}
@@ -187,11 +187,106 @@ jobs:
           cd tests
           pytest -v -s --h5diff
 
+  #
+  # Check linux build with mamba environment
+  #
+  #########################################################
+  linux-mpi-mamba:
+    needs: [pre-commit, cppcheck]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: linux-mpi
+          restore-keys: |
+            linux-mpi
+
+      - name: Mamba and samurai env installation
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: conda/mpi-environment.yml
+          environment-name: samurai-env
+          cache-environment: true
+
+      - name: Petsc installation
+        shell: bash -l {0}
+        run: |
+          conda install -y petsc pkg-config cxx-compiler
+
+      - name: Conda informations
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+
+      # - name: Clone HighFive
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: BlueBrain/HighFive
+      #     ref: v2.9.0
+      #     path: highfive
+
+      # - name: Configure HighFive
+      #   shell: bash -l {0}
+      #   run: |
+      #     cmake \
+      #     highfive \
+      #     -Bhighfive/build \
+      #     -GNinja \
+      #     -DCMAKE_BUILD_TYPE=Release \
+      #     -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+
+      # - name: Install HighFive
+      #   shell: bash -l {0}
+      #   run: |
+      #     cmake --build highfive/build --target install
+
+      - name: Configure
+        shell: bash -l {0}
+        run: |
+          cmake \
+              . \
+              -Bbuild \
+              -GNinja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DWITH_MPI=ON \
+              -DBUILD_DEMOS=ON \
+              -DBUILD_TESTS=ON
+
+      - name: Build
+        shell: bash -l {0}
+        run: |
+          cmake --build build --target all
+
+      - name: Test with googletest
+        shell: bash -l {0}
+        run: |
+          cd build
+          ./tests/test_samurai_lib
+
+      - name: Test with pytest
+        shell: bash -l {0}
+        run: |
+          cd tests
+          pytest -v -s --h5diff
+
+      - name: MPI test
+        shell: bash -l {0}
+        run: |
+          cd build
+          mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d
+
   macos-mamba:
     needs: [pre-commit, cppcheck]
     runs-on: macos-12
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Mamba and samurai env installation
         uses: mamba-org/setup-micromamba@v1
         with:
@@ -203,6 +298,11 @@ jobs:
       #   shell: bash -l {0}
       #   run: |
       #     micromamba install -y petsc=3.18 pkg-config
+
+      - name: Installl cxx compiler
+        shell: bash -l {0}
+        run: |
+          micromamba install -y cxx-compiler
 
       - name: micromamba informations
         shell: bash -l {0}

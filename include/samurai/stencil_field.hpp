@@ -40,6 +40,15 @@ namespace samurai
                  / derived_cast().dx();
         }
 
+        template <class... CT>
+        inline auto operator()(Dim<3>, CT&&... e) const
+        {
+            return (-derived_cast().left_flux(std::forward<CT>(e)...) + derived_cast().right_flux(std::forward<CT>(e)...)
+                    + -derived_cast().down_flux(std::forward<CT>(e)...) + derived_cast().up_flux(std::forward<CT>(e)...)
+                    + -derived_cast().front_flux(std::forward<CT>(e)...) + derived_cast().back_flux(std::forward<CT>(e)...))
+                 / derived_cast().dx();
+        }
+
       protected:
 
         finite_volume() = default;
@@ -119,6 +128,43 @@ namespace samurai
         inline auto up_flux(std::array<double, 2> a, const T& u) const
         {
             return flux(a[1], u(level, i, j), u(level, i, j + 1));
+        }
+
+        // 3D
+        template <class T>
+        inline auto left_flux(std::array<double, 3> a, const T& u) const
+        {
+            return flux(a[0], u(level, i - 1, j, k), u(level, i, j, k));
+        }
+
+        template <class T>
+        inline auto right_flux(std::array<double, 3> a, const T& u) const
+        {
+            return flux(a[0], u(level, i, j, k), u(level, i + 1, j, k));
+        }
+
+        template <class T>
+        inline auto down_flux(std::array<double, 3> a, const T& u) const
+        {
+            return flux(a[1], u(level, i, j - 1, k), u(level, i, j, k));
+        }
+
+        template <class T>
+        inline auto up_flux(std::array<double, 3> a, const T& u) const
+        {
+            return flux(a[1], u(level, i, j, k), u(level, i, j + 1, k));
+        }
+
+        template <class T>
+        inline auto front_flux(std::array<double, 3> a, const T& u) const
+        {
+            return flux(a[2], u(level, i, j, k - 1), u(level, i, j, k));
+        }
+
+        template <class T>
+        inline auto back_flux(std::array<double, 3> a, const T& u) const
+        {
+            return flux(a[2], u(level, i, j, k), u(level, i, j, k + 1));
         }
     };
 

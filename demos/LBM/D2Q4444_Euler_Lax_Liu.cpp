@@ -11,6 +11,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/statistics.hpp>
 
 #include "boundary_conditions.hpp"
@@ -756,6 +757,8 @@ void save_reconstructed(Field& f, FieldFull& f_full, Func&& update_bc_for_level,
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     cxxopts::Options options("lbm_d2q4_3_Euler",
                              "Multi resolution for a D2Q4 LBM scheme for the "
                              "scalar advection equation");
@@ -923,5 +926,6 @@ int main(int argc, char* argv[])
     {
         std::cout << options.help() << "\n";
     }
+    samurai::finalize();
     return 0;
 }

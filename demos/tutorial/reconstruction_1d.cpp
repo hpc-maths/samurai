@@ -12,6 +12,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/uniform_mesh.hpp>
 
 namespace fs = std::filesystem;
@@ -54,8 +55,10 @@ auto init(Mesh& mesh, Case& c)
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr size_t dim                        = 1;
-    constexpr std::size_t max_stencil_width_    = 1;
+    constexpr std::size_t max_stencil_width_    = 2;
     constexpr std::size_t graduation_width_     = 2;
     constexpr std::size_t max_refinement_level_ = samurai::default_config::max_level;
     constexpr std::size_t prediction_order_     = 1;
@@ -136,5 +139,6 @@ int main(int argc, char* argv[])
                                });
     samurai::save(path, fmt::format("uniform_{}", filename), u_reconstruct.mesh(), u_reconstruct, error);
 
+    samurai::finalize();
     return 0;
 }

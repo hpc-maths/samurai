@@ -354,6 +354,8 @@ inline auto weno5(CT&&... e)
 
 int main()
 {
+    samurai::initialize();
+
     constexpr std::size_t dim = 2;
     std::size_t start_level   = 6;
     samurai::Box<double, dim> box{
@@ -376,5 +378,6 @@ int main()
         std::swap(field.array(), field_np1.array());
         samurai::save(fmt::format("weno_{}", ite), mesh, field);
     }
+    samurai::finalize();
     return 0;
 }

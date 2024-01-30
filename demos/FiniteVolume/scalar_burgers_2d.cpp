@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+
 #include <xtensor/xfixed.hpp>
 
 #include <samurai/algorithm.hpp>
@@ -10,6 +11,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/subset_op.hpp>
 
@@ -177,6 +179,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr size_t dim = 2;
     using Config         = samurai::MRConfig<dim>;
 
@@ -270,5 +274,6 @@ int main(int argc, char* argv[])
             save(path, filename, u, suffix);
         }
     }
+    samurai::finalize();
     return 0;
 }

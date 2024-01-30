@@ -8,6 +8,7 @@
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 
 namespace fs = std::filesystem;
 
@@ -23,6 +24,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "amr_1d_burgers_step_0";
@@ -57,5 +60,6 @@ int main(int argc, char* argv[])
 
     samurai::save(path, filename, mesh);
 
+    samurai::finalize();
     return 0;
 }

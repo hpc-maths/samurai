@@ -20,6 +20,11 @@ namespace samurai
         {
         }
 
+        const Mesh& get() const
+        {
+            return m_mesh;
+        }
+
         Mesh& get()
         {
             return m_mesh;

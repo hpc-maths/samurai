@@ -64,7 +64,7 @@ void update_ghost(Field& phi)
     for (std::size_t level = min_level + 1; level <= max_level; ++level)
     {
         auto expr = samurai::intersection(mesh.domain(),
-                                          samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.get_union()[level]))
+                                          samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.get_union()[level - 1]))
                         .on(level);
 
         expr(

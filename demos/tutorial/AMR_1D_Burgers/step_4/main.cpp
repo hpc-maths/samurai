@@ -9,6 +9,7 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
+#include <samurai/samurai.hpp>
 
 #include "../step_3/init_sol.hpp"
 #include "../step_3/mesh.hpp"
@@ -30,6 +31,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     // AMR parameters
     std::size_t start_level = 8;
     std::size_t min_level   = 2;
@@ -84,5 +87,6 @@ int main(int argc, char* argv[])
     samurai::save(path, filename, mesh, phi, level);
     ////////////////////////////////
 
+    samurai::finalize();
     return 0;
 }

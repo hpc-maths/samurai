@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
+
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -112,6 +114,8 @@ class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg>
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr std::size_t dim              = 2;
     constexpr std::size_t stencil_width    = 2;
     constexpr std::size_t graduation_width = 4;
@@ -178,6 +182,7 @@ int main(int argc, char* argv[])
                                                           double radius = 0.4;
                                                           if ((x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5) < radius * radius)
                                                           {
+                                                              samurai::finalize();
                                                               return 0;
                                                           }
                                                           else
@@ -252,7 +257,8 @@ int main(int argc, char* argv[])
         //     j));
         // });
         // samurai::save("test_pred", mesh, f, f_recons, error_f);
-        // return 0;
+        // samurai::finalize();
+        return 0;
 
         auto u = samurai::make_field<double, 1>("u", mesh);
         samurai::make_bc<samurai::Dirichlet>(u,
@@ -334,5 +340,6 @@ int main(int argc, char* argv[])
     }
     PetscFinalize();
 
+    samurai::finalize();
     return 0;
 }

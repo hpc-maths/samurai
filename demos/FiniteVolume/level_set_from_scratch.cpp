@@ -11,6 +11,7 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mesh.hpp>
 #include <samurai/mr/operators.hpp>
+#include <samurai/samurai.hpp>
 
 #include "stencil_field.hpp"
 
@@ -69,6 +70,7 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
   public:
 
     using base_type                  = samurai::Mesh_base<AMRMesh<Config>, Config>;
+    using self_type                  = AMRMesh<Config>;
     using config                     = typename base_type::config;
     static constexpr std::size_t dim = config::dim;
 
@@ -77,6 +79,13 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
     using lcl_type  = typename base_type::lcl_type;
 
     using ca_type = typename base_type::ca_type;
+
+    AMRMesh() = default;
+
+    inline AMRMesh(const cl_type& cl, const self_type& ref_mesh)
+        : base_type(cl, ref_mesh)
+    {
+    }
 
     inline AMRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
         : base_type(cl, min_level, max_level)
@@ -358,7 +367,7 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
                                    }
                                });
 
-    mesh_t new_mesh(cell_list, mesh.min_level(), mesh.max_level());
+    mesh_t new_mesh(cell_list, mesh);
 
     if (new_mesh == mesh)
     {
@@ -400,7 +409,7 @@ inline void amr_prediction(Field& field)
     for (std::size_t level = 1; level <= max_level; ++level)
     {
         auto expr = samurai::intersection(mesh.domain(),
-                                          samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.get_union()[level]))
+                                          samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh.get_union()[level - 1]))
                         .on(level);
 
         expr.apply_op(samurai::prediction<1, false>(field));
@@ -548,6 +557,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     constexpr size_t dim = 2;
     using Config         = AMRConfig<dim>;
 
@@ -669,5 +680,6 @@ int main(int argc, char* argv[])
         }
     }
 
+    samurai::finalize();
     return 0;
 }

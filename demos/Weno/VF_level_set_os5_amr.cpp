@@ -274,6 +274,8 @@ inline auto os5(CT&&... e)
 
 int main()
 {
+    samurai::initialize();
+
     constexpr std::size_t dim         = 2;
     constexpr std::size_t ghost_width = 3;
     std::size_t start_level           = 6;
@@ -344,5 +346,6 @@ int main()
         samurai::save(fmt::format("os_amr_{}", ite), mesh, field);
     }
 
+    samurai::finalize();
     return 0;
 }

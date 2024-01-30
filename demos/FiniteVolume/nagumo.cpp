@@ -7,6 +7,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
+#include <samurai/samurai.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -33,6 +34,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
+    samurai::initialize(argc, argv);
+
     static constexpr std::size_t dim = 1;
     using Config                     = samurai::MRConfig<dim>;
     using Box                        = samurai::Box<double, dim>;
@@ -275,5 +278,6 @@ int main(int argc, char* argv[])
 
     PetscFinalize();
 
+    samurai::finalize();
     return 0;
 }
