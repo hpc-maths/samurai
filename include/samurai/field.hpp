@@ -8,6 +8,7 @@
 #include <array>
 #include <memory>
 #include <stdexcept>
+#include <type_traits>
 
 #include <fmt/format.h>
 
@@ -769,11 +770,27 @@ namespace samurai
         return field_t(name, mesh);
     }
 
+    template <class value_t, std::size_t size, bool SOA = false, class mesh_t>
+    auto make_field(std::string name, mesh_t& mesh, value_t init_value)
+    {
+        using field_t = Field<mesh_t, value_t, size, SOA>;
+        auto field    = field_t(name, mesh);
+        field.fill(init_value);
+        return field;
+    }
+
     template <std::size_t size, bool SOA = false, class mesh_t>
     auto make_field(std::string name, mesh_t& mesh)
     {
         using default_value_t = double;
         return make_field<default_value_t, size, SOA>(name, mesh);
+    }
+
+    template <std::size_t size, bool SOA = false, class mesh_t>
+    auto make_field(std::string name, mesh_t& mesh, double init_value)
+    {
+        using default_value_t = double;
+        return make_field<default_value_t, size, SOA>(name, mesh, init_value);
     }
 
     /**
@@ -809,7 +826,12 @@ namespace samurai
      * @param name Name of the returned Field.
      * @param f Continuous function.
      */
-    template <class value_t, std::size_t size, bool SOA = false, class mesh_t, class Func>
+    template <class value_t,
+              std::size_t size,
+              bool SOA = false,
+              class mesh_t,
+              class Func,
+              typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
     auto make_field(std::string name, mesh_t& mesh, Func&& f)
     {
         auto field = make_field<value_t, size, SOA, mesh_t>(name, mesh);
@@ -823,7 +845,11 @@ namespace samurai
         return field;
     }
 
-    template <std::size_t size, bool SOA = false, class mesh_t, class Func>
+    template <std::size_t size,
+              bool SOA = false,
+              class mesh_t,
+              class Func,
+              typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
     auto make_field(std::string name, mesh_t& mesh, Func&& f)
     {
         using default_value_t = double;
