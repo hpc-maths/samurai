@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
     // where v = velocity
     //       p = pressure
 
-    auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level));
+    auto mesh = Mesh(box, min_level, max_level);
 
     // Fields for the Navier-Stokes equations
     auto velocity     = samurai::make_field<dim, is_soa>("velocity", mesh);
@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
     //               d(i)/dt + conv(i) = 0,       where conv(i) = v.grad(i).
 
     // 2nd mesh
-    auto mesh2 = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level));
+    auto mesh2 = Mesh(box, min_level, max_level);
 
     // Ink data fields
     auto ink     = samurai::make_field<1, is_soa>("ink", mesh2);

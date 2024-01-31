@@ -251,9 +251,9 @@ namespace samurai
                 [&](const auto& interval, const auto& index_yz)
                 {
                     static_nested_loop<dim - 1, 0, 2>(
-                        [&](auto stencil)
+                        [&](auto s)
                         {
-                            lcl[(index_yz << 1) + stencil].add_interval(interval << 1);
+                            lcl[(index_yz << 1) + s].add_interval(interval << 1);
                         });
                     lcl_proj[index_yz].add_interval(interval);
                 });

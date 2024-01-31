@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
     PetscOptionsSetValue(NULL, "-options_left", "off"); // disable warning for unused options
 
     auto box  = samurai::Box<double, dim>({0, 0}, {1, 1});
-    auto mesh = Mesh(box, static_cast<std::size_t>(min_level), static_cast<std::size_t>(max_level));
+    auto mesh = Mesh(box, min_level, max_level);
 
     //--------------------//
     // Stationary problem //

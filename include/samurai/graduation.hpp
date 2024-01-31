@@ -81,9 +81,9 @@ namespace samurai
                                       if (tag[itag])
                                       {
                                           static_nested_loop<dim - 1, 0, 2>(
-                                              [&](auto stencil)
+                                              [&](auto s)
                                               {
-                                                  auto index = 2 * index_yz + stencil;
+                                                  auto index = 2 * index_yz + s;
                                                   cl[level + 1][index].add_interval({2 * i, 2 * i + 2});
                                               });
                                       }

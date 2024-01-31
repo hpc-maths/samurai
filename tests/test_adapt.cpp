@@ -15,7 +15,7 @@ namespace samurai
     using adapt_test_types = ::testing::
         Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 2>, std::integral_constant<std::size_t, 3>>;
 
-    TYPED_TEST_SUITE(adapt_test, adapt_test_types);
+    TYPED_TEST_SUITE(adapt_test, adapt_test_types, );
 
     TYPED_TEST(adapt_test, mutliple_fields)
     {

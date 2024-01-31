@@ -27,8 +27,8 @@ namespace samurai
 
       public:
 
-        explicit Explicit(const scheme_t& scheme)
-            : base_class(scheme)
+        explicit Explicit(const scheme_t& s)
+            : base_class(s)
         {
         }
 
@@ -73,8 +73,8 @@ namespace samurai
 
       public:
 
-        explicit Explicit(const scheme_t& scheme)
-            : base_class(scheme)
+        explicit Explicit(const scheme_t& s)
+            : base_class(s)
         {
         }
 

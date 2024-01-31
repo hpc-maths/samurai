@@ -18,7 +18,7 @@ namespace samurai
     using dim_test_types = ::testing::
         Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 2>, std::integral_constant<std::size_t, 3>>;
 
-    TYPED_TEST_SUITE(dim_test, dim_test_types);
+    TYPED_TEST_SUITE(dim_test, dim_test_types, );
 
     template <class Mesh>
     auto init(Mesh& mesh)
