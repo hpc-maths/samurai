@@ -18,7 +18,8 @@ namespace samurai
         using base_class::dim;
         using base_class::field_size;
         using base_class::output_field_size;
-        using mesh_t = typename base_class::mesh_t;
+        using typename base_class::mesh_id_t;
+        using typename base_class::mesh_t;
 
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
@@ -76,8 +77,6 @@ namespace samurai
         template <class Func>
         void for_each_interior_interface(const mesh_t& mesh, Func&& apply_coeffs) const
         {
-            using mesh_id_t = typename mesh_t::mesh_id_t;
-
             auto min_level = mesh[mesh_id_t::cells].min_level();
             auto max_level = mesh[mesh_id_t::cells].max_level();
 

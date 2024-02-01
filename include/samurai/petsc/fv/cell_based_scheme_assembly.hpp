@@ -43,8 +43,8 @@ namespace samurai
             using stencil_t         = Stencil<scheme_stencil_size, dim>;
             using get_coeffs_func_t = std::function<std::array<local_matrix_t, scheme_stencil_size>(double)>;
 
-            explicit Assembly(const Scheme& scheme)
-                : base_class(scheme)
+            explicit Assembly(const Scheme& s)
+                : base_class(s)
             {
             }
 

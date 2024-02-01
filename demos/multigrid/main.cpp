@@ -103,7 +103,7 @@ template <class Mesh>
     min_level = level - 1;
     max_level = level;
 
-    int i = static_cast<int>(1 << min_level);
+    int i = 1 << min_level;
 
     cl_type cl;
     if constexpr (Mesh::dim == 1)

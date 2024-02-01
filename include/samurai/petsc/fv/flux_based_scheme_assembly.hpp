@@ -41,8 +41,8 @@ namespace samurai
             static constexpr std::size_t output_field_size = cfg_t::output_field_size;
             static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
 
-            explicit Assembly(const Scheme& scheme)
-                : base_class(scheme)
+            explicit Assembly(const Scheme& s)
+                : base_class(s)
             {
                 set_current_insert_mode(ADD_VALUES);
             }
@@ -73,44 +73,47 @@ namespace samurai
                                             auto it_ghost = this->m_ghost_recursion.find(comput_cells[c].index);
                                             if (it_ghost == this->m_ghost_recursion.end())
                                             {
-                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += field_size;
-                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += field_size;
+                                                nnz[static_cast<std::size_t>(
+                                                    this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(field_size);
+                                                nnz[static_cast<std::size_t>(
+                                                    this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(field_size);
                                             }
                                             else
                                             {
                                                 auto& linear_comb = it_ghost->second;
-                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += linear_comb.size()
-                                                                                                                             * field_size;
-                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += linear_comb.size()
-                                                                                                                             * field_size;
+                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(
+                                                    linear_comb.size() * field_size);
+                                                nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(
+                                                    linear_comb.size() * field_size);
                                             }
                                         }
                                     }
                                     else
                                     {
-                                        nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += stencil_size
-                                                                                                                     * field_size;
-                                        nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += stencil_size
-                                                                                                                     * field_size;
+                                        nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(
+                                            stencil_size * field_size);
+                                        nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(
+                                            stencil_size * field_size);
                                     }
                                 }
                             }
                         });
 
-                    for_each_boundary_interface(mesh(),
-                                                flux_def[d].direction,
-                                                flux_def[d].stencil,
-                                                [&](auto& cell, auto&)
-                                                {
-                                                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                                    {
-                                                        for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                                        {
-                                                            nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += stencil_size
-                                                                                                                           * field_size;
-                                                        }
-                                                    }
-                                                });
+                    for_each_boundary_interface(
+                        mesh(),
+                        flux_def[d].direction,
+                        flux_def[d].stencil,
+                        [&](auto& cell, auto&)
+                        {
+                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                            {
+                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                                {
+                                    nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += static_cast<PetscInt>(stencil_size
+                                                                                                                           * field_size);
+                                }
+                            }
+                        });
                 }
             }
 

@@ -25,7 +25,7 @@ namespace samurai
 
             if (level == max_level)
             {
-                double dx = this->dx();
+                double dx_ = this->dx();
                 // // First order one sided
                 // auto dxp = (phi(level, i + 1, j) - phi(level, i    , j))/dx;
                 // auto dxm = (phi(level, i    , j) - phi(level, i - 1, j))/dx;
@@ -34,11 +34,11 @@ namespace samurai
                 // auto dym = (phi(level, i, j    ) - phi(level, i, j - 1))/dx;
 
                 // // Second-order one sided
-                auto dxp = 1. / dx * (.5 * phi(level, i - 2, j) - 2. * phi(level, i - 1, j) + 1.5 * phi(level, i, j));
-                auto dxm = 1. / dx * (-.5 * phi(level, i + 2, j) + 2. * phi(level, i + 1, j) - 1.5 * phi(level, i, j));
+                auto dxp = 1. / dx_ * (.5 * phi(level, i - 2, j) - 2. * phi(level, i - 1, j) + 1.5 * phi(level, i, j));
+                auto dxm = 1. / dx_ * (-.5 * phi(level, i + 2, j) + 2. * phi(level, i + 1, j) - 1.5 * phi(level, i, j));
 
-                auto dyp = 1. / dx * (.5 * phi(level, i, j - 2) - 2. * phi(level, i, j - 1) + 1.5 * phi(level, i, j));
-                auto dym = 1. / dx * (-.5 * phi(level, i, j + 2) + 2. * phi(level, i, j + 1) - 1.5 * phi(level, i, j));
+                auto dyp = 1. / dx_ * (.5 * phi(level, i, j - 2) - 2. * phi(level, i, j - 1) + 1.5 * phi(level, i, j));
+                auto dym = 1. / dx_ * (-.5 * phi(level, i, j + 2) + 2. * phi(level, i, j + 1) - 1.5 * phi(level, i, j));
 
                 auto pos_part = [](auto& a)
                 {

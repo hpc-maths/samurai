@@ -107,7 +107,7 @@ namespace samurai
 
                 for_each_projection_ghost_and_children_cells<std::size_t>(
                     mesh(),
-                    [&](auto, std::size_t ghost, const std::array<std::size_t, number_of_children>& children)
+                    [&](auto, std::size_t ghost, const std::array<std::size_t, static_cast<std::size_t>(number_of_children)>& children)
                     {
                         CellLinearCombination linear_comb;
                         for (auto child : children)
@@ -771,7 +771,7 @@ namespace samurai
 
                     for_each_projection_ghost_and_children_cells<PetscInt>(
                         mesh(),
-                        [&](auto level, PetscInt ghost, const std::array<PetscInt, number_of_children>& children)
+                        [&](auto level, PetscInt ghost, const std::array<PetscInt, static_cast<std::size_t>(number_of_children)>& children)
                         {
                             double h       = cell_length(level);
                             double scaling = 1. / (h * h);

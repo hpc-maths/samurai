@@ -809,7 +809,7 @@ namespace samurai
                       [&](const auto& cell)
                       {
                           const double& h = cell.length;
-                          field[cell]     = gl.quadrature<size>(cell, f) / pow(h, mesh_t::dim);
+                          field[cell]     = gl.template quadrature<size>(cell, f) / pow(h, mesh_t::dim);
                       });
         return field;
     }
