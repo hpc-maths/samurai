@@ -24,7 +24,7 @@ namespace samurai
             using stencil_cells_t = typename CellBasedScheme<cfg, bdry_cfg>::stencil_cells_t;
             using field_t         = typename CellBasedScheme<cfg, bdry_cfg>::field_t;
 
-            multiplied_scheme.scheme_function() = [=](stencil_cells_t& cells, field_t& field)
+            multiplied_scheme.scheme_function() = [=](stencil_cells_t& cells, const field_t& field)
             {
                 return scalar * scheme.scheme_function()(cells, field);
             };
@@ -32,7 +32,7 @@ namespace samurai
             multiplied_scheme.local_scheme_function() = nullptr;
             if (scheme.local_scheme_function())
             {
-                multiplied_scheme.local_scheme_function() = [=](stencil_cells_t& cells, auto& field)
+                multiplied_scheme.local_scheme_function() = [=](stencil_cells_t& cells, const auto& field)
                 {
                     return scalar * scheme.local_scheme_function()(cells, field);
                 };
@@ -41,7 +41,7 @@ namespace samurai
             multiplied_scheme.jacobian_function() = nullptr;
             if (scheme.jacobian_function())
             {
-                multiplied_scheme.jacobian_function() = [=](stencil_cells_t& cells, field_t& field)
+                multiplied_scheme.jacobian_function() = [=](stencil_cells_t& cells, const field_t& field)
                 {
                     return scalar * scheme.jacobian_function()(cells, field);
                 };
@@ -50,7 +50,7 @@ namespace samurai
             multiplied_scheme.local_jacobian_function() = nullptr;
             if (scheme.local_jacobian_function())
             {
-                multiplied_scheme.local_jacobian_function() = [=](stencil_cells_t& cells, auto& field)
+                multiplied_scheme.local_jacobian_function() = [=](stencil_cells_t& cells, const auto& field)
                 {
                     return scalar * scheme.local_jacobian_function()(cells, field);
                 };
@@ -83,7 +83,7 @@ namespace samurai
             addition_scheme.scheme_function() = nullptr;
             if (scheme1.scheme_function() && scheme2.scheme_function())
             {
-                addition_scheme.scheme_function() = [=](stencil_cells_t& cells, field_t& field)
+                addition_scheme.scheme_function() = [=](stencil_cells_t& cells, const field_t& field)
                 {
                     return scheme1.scheme_function()(cells, field) + scheme2.scheme_function()(cells, field);
                 };
@@ -92,7 +92,7 @@ namespace samurai
             addition_scheme.local_scheme_function() = nullptr;
             if (scheme1.local_scheme_function() && scheme2.local_scheme_function())
             {
-                addition_scheme.local_scheme_function() = [=](stencil_cells_t& cells, field_t& field)
+                addition_scheme.local_scheme_function() = [=](stencil_cells_t& cells, const field_t& field)
                 {
                     return scheme1.local_scheme_function()(cells, field) + scheme2.local_scheme_function()(cells, field);
                 };
@@ -101,7 +101,7 @@ namespace samurai
             addition_scheme.jacobian_function() = nullptr;
             if (scheme1.jacobian_function() && scheme2.jacobian_function())
             {
-                addition_scheme.jacobian_function() = [=](stencil_cells_t& cells, field_t& field)
+                addition_scheme.jacobian_function() = [=](stencil_cells_t& cells, const field_t& field)
                 {
                     return scheme1.jacobian_function()(cells, field) + scheme2.jacobian_function()(cells, field);
                 };
@@ -110,7 +110,7 @@ namespace samurai
             addition_scheme.local_jacobian_function() = nullptr;
             if (scheme1.local_jacobian_function() && scheme2.local_jacobian_function())
             {
-                addition_scheme.local_jacobian_function() = [=](stencil_cells_t& cells, field_t& field)
+                addition_scheme.local_jacobian_function() = [=](stencil_cells_t& cells, const field_t& field)
                 {
                     return scheme1.local_jacobian_function()(cells, field) + scheme2.local_jacobian_function()(cells, field);
                 };
@@ -138,7 +138,7 @@ namespace samurai
         addition_scheme.set_name(lin_scheme.name() + " + " + nonlin_scheme.name());
         if constexpr (lin_cfg::scheme_type == SchemeType::LinearHomogeneous)
         {
-            addition_scheme.scheme_function() = [=](stencil_cells_t& cell, field_t& field)
+            addition_scheme.scheme_function() = [=](stencil_cells_t& cell, const field_t& field)
             {
                 auto value = nonlin_scheme.scheme_function()(cell, field);
 
@@ -151,7 +151,7 @@ namespace samurai
             addition_scheme.local_scheme_function() = nullptr;
             if (nonlin_scheme.local_scheme_function())
             {
-                addition_scheme.local_scheme_function() = [=](stencil_cells_t& cell, auto& field)
+                addition_scheme.local_scheme_function() = [=](stencil_cells_t& cell, const auto& field)
                 {
                     auto value = nonlin_scheme.local_scheme_function()(cell, field);
 
@@ -165,7 +165,7 @@ namespace samurai
             addition_scheme.jacobian_function() = nullptr;
             if (nonlin_scheme.jacobian_function())
             {
-                addition_scheme.jacobian_function() = [=](stencil_cells_t& cell, field_t& field)
+                addition_scheme.jacobian_function() = [=](stencil_cells_t& cell, const field_t& field)
                 {
                     auto jac = nonlin_scheme.jacobian_function()(cell, field);
 
@@ -178,7 +178,7 @@ namespace samurai
             addition_scheme.local_jacobian_function() = nullptr;
             if (nonlin_scheme.local_jacobian_function())
             {
-                addition_scheme.local_jacobian_function() = [=](stencil_cells_t& cell, auto& field)
+                addition_scheme.local_jacobian_function() = [=](stencil_cells_t& cell, const auto& field)
                 {
                     auto jac = nonlin_scheme.local_jacobian_function()(cell, field);
 

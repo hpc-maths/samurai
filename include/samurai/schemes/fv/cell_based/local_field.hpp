@@ -30,7 +30,7 @@ namespace samurai
         {
         }
 
-        field_value_type& operator[]([[maybe_unused]] const cell_t& cell)
+        const field_value_type& operator[]([[maybe_unused]] const cell_t& cell) const
         {
             assert(cell.index == m_cell.index);
             return m_value;

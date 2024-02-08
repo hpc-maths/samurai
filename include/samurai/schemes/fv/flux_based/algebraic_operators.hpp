@@ -37,14 +37,14 @@ namespace samurai
                     {
                         if (scheme.flux_definition()[d].cons_flux_function)
                         {
-                            multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, auto& field)
+                            multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, const auto& field)
                             {
                                 return scalar * scheme.flux_definition()[d].cons_flux_function(cells, field);
                             };
                         }
                         if (scheme.flux_definition()[d].flux_function)
                         {
-                            multiplied_scheme.flux_definition()[d].flux_function = [=](auto& cells, auto& field)
+                            multiplied_scheme.flux_definition()[d].flux_function = [=](auto& cells, const auto& field)
                             {
                                 return scalar * scheme.flux_definition()[d].flux_function(cells, field);
                             };
@@ -91,7 +91,7 @@ namespace samurai
                 {
                     if (scheme1.flux_definition()[d].flux_function && scheme2.flux_definition()[d].flux_function)
                     {
-                        sum_scheme.flux_definition()[d].flux_function = [=](auto& cells, auto& field)
+                        sum_scheme.flux_definition()[d].flux_function = [=](auto& cells, const auto& field)
                         {
                             return scheme1.flux_definition()[d].flux_function(cells, field)
                                  + scheme2.flux_definition()[d].flux_function(cells, field);
@@ -100,7 +100,7 @@ namespace samurai
                     }
                     else if (scheme1.flux_definition()[d].cons_flux_function && scheme2.flux_definition()[d].cons_flux_function)
                     {
-                        sum_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, auto& field)
+                        sum_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, const auto& field)
                         {
                             return scheme1.flux_definition()[d].cons_flux_function(cells, field)
                                  + scheme2.flux_definition()[d].cons_flux_function(cells, field);
