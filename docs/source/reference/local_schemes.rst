@@ -83,7 +83,7 @@ The analytical formula of the operator is implemented as a lambda function.
 
 .. code-block:: c++
 
-    A.set_scheme_function([&](auto& cell, auto& field)
+    A.set_scheme_function([&](auto& cell, const auto& field)
     {
         // Local field value
         auto v = field[cell];
@@ -111,7 +111,7 @@ If only explicit applications of the operator shall be used, then this step is o
 
 .. code-block:: c++
 
-    A.set_jacobian_function([&](auto& cell, auto& field)
+    A.set_jacobian_function([&](auto& cell, const auto& field)
     {
         // Local field value
         auto v = field[cell];

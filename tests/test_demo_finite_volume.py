@@ -129,3 +129,63 @@ def test_finite_volume_demo_burgers(config):
            "--cfl", "0.5",
            "--Tf", "0.1"]
     output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_nagumo_imp_diff_imp_react(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--save-final-state-only",
+           "--min-level", "0",
+           "--max-level", "4",
+           "-ksp_type", "preonly",
+           "-pc_type", "lu",
+           "--Tf", "0.1",
+           "--dt", "0.02"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_nagumo_exp_diff_imp_react(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--save-final-state-only",
+           "--min-level", "0",
+           "--max-level", "4",
+           "--explicit-diffusion",
+           "-ksp_type", "preonly",
+           "-pc_type", "lu",
+           "--Tf", "0.01"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_nagumo_imp_diff_exp_react(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--save-final-state-only",
+           "--min-level", "0",
+           "--max-level", "4",
+           "--explicit-reaction",
+           "-ksp_type", "preonly",
+           "-pc_type", "lu",
+           "--Tf", "0.1",
+           "--dt", "0.02"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_nagumo_exp_diff_exp_react(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--save-final-state-only",
+           "--min-level", "0",
+           "--max-level", "4",
+           "--explicit-diffusion",
+           "--explicit-reaction",
+           "--Tf", "0.01"]
+    output = subprocess.run(cmd, check=True, capture_output=True)

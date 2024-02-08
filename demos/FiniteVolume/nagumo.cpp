@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 
     // Time integration
     double Tf  = 1.;
-    double dt  = Tf / 100;
+    double dt  = 0;
     double cfl = 0.95;
 
     // Multiresolution parameters
@@ -164,13 +164,13 @@ int main(int argc, char* argv[])
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
     react.set_scheme_function(
-        [&](const auto& cell, auto& field) //-> samurai::SchemeValue<cfg>
+        [&](const auto& cell, const auto& field) //-> samurai::SchemeValue<cfg>
         {
             auto v = field[cell];
             return k * v * v * (1 - v);
         });
     react.set_jacobian_function(
-        [&](const auto& cell, auto& field)
+        [&](const auto& cell, const auto& field)
         {
             auto v = field[cell];
             return k * (2 * v * (1 - v) - v * v);
@@ -179,6 +179,16 @@ int main(int argc, char* argv[])
     //--------------------//
     //   Time iteration   //
     //--------------------//
+
+    if (dt == 0)
+    {
+        dt = Tf / 100;
+        if (explicit_diffusion)
+        {
+            double dx = samurai::cell_length(max_level);
+            dt        = cfl * (dx * dx) / (pow(2, dim) * D);
+        }
+    }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);

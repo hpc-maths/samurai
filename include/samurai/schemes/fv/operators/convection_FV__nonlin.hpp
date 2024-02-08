@@ -36,7 +36,7 @@ namespace samurai
             };
 
             FluxDefinition<cfg> upwind_f(
-                [f](auto& cells, Field& field)
+                [f](auto& cells, const Field& field)
                 {
                     auto& left  = cells[0];
                     auto& right = cells[1];
@@ -171,7 +171,7 @@ namespace samurai
                         // return f_v;
                     };
 
-                    upwind_f[d].cons_flux_function = [f](auto& cells, Field& field)
+                    upwind_f[d].cons_flux_function = [f](auto& cells, const Field& field)
                     {
                         auto& left  = cells[0];
                         auto& right = cells[1];

@@ -71,8 +71,8 @@ namespace samurai
 
         using flux_value_t      = xt::xtensor_fixed<field_value_type, xt::xshape<cfg::output_field_size>>;
         using flux_value_pair_t = xt::xtensor_fixed<flux_value_t, xt::xshape<2>>;
-        using flux_func         = std::function<flux_value_pair_t(stencil_cells_t&, field_t&)>; // non-conservative
-        using cons_flux_func    = std::function<flux_value_t(stencil_cells_t&, field_t&)>;      // conservative
+        using flux_func         = std::function<flux_value_pair_t(stencil_cells_t&, const field_t&)>; // non-conservative
+        using cons_flux_func    = std::function<flux_value_t(stencil_cells_t&, const field_t&)>;      // conservative
 
         // using flux_jac_t         = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
         // using flux_jacobian_func = std::function<flux_jac_t(stencil_cells_t&, field_t&)>;
@@ -98,7 +98,7 @@ namespace samurai
          */
         flux_func flux_function_as_conservative() const
         {
-            return [&](auto& cells, auto& field)
+            return [&](auto& cells, const auto& field)
             {
                 flux_value_pair_t fluxes;
                 fluxes[0] = cons_flux_function(cells, field);
