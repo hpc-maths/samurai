@@ -151,7 +151,7 @@ Then, we implement the analytical formula of the operator as a lambda function.
 
 .. code-block:: c++
 
-    react.scheme_function() = [&](auto& cell, auto& field)
+    react.scheme_function() = [&](auto& cell, const auto& field)
     {
         auto v = field[cell];
         return k * v * v * (1 - v);

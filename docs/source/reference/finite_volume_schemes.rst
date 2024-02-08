@@ -834,7 +834,7 @@ The flux function is
 
 .. code::
 
-    auto my_flux_function = [](const auto& cells, auto& field)
+    auto my_flux_function = [](const auto& cells, const auto& field)
     {
         samurai::FluxValue<cfg> flux_value;
 
@@ -892,7 +892,7 @@ The associated code yields
                 return f_v;
             };
 
-            f_h[d].cons_flux_function = [f](auto& cells, Field& u)
+            f_h[d].cons_flux_function = [f](auto& cells, const Field& u)
             {
                 auto& L = cells[0];
                 auto& R = cells[1];
@@ -973,7 +973,7 @@ We choose the upwind scheme, and implement:
     samurai::FluxDefinition<cfg> upwind_f;
 
     // x-direction
-    upwind_f[0].cons_flux_function = [f_x](auto& cells, Field& u)
+    upwind_f[0].cons_flux_function = [f_x](auto& cells, const Field& u)
     {
         auto& L = cells[0]; // left
         auto& R = cells[1]; // right
@@ -981,7 +981,7 @@ We choose the upwind scheme, and implement:
     };
 
     // y-direction
-    upwind_f[1].cons_flux_function = [f_y](auto& cells, Field& u)
+    upwind_f[1].cons_flux_function = [f_y](auto& cells, const Field& u)
     {
         auto& B = cells[0]; // bottom
         auto& T = cells[1]; // top
@@ -1011,7 +1011,7 @@ where :math:`u_d` is the :math:`d`-th component of :math:`\mathbf{u}`, the code 
                 return u(d) * u;
             };
 
-            upwind_f[d].cons_flux_function = [f_d](auto& cells, Field& u)
+            upwind_f[d].cons_flux_function = [f_d](auto& cells, const Field& u)
             {
                 auto& L = cells[0];
                 auto& R = cells[1];
@@ -1058,7 +1058,7 @@ The signature is the same as :code:`flux_function`, except that it returns two v
 
     samurai::FluxDefinition<cfg> my_flux;
 
-    my_flux[0].flux_function = [](auto& cells, Field& u)
+    my_flux[0].flux_function = [](auto& cells, const Field& u)
                                {
                                    samurai::FluxValuePair<cfg> flux;
                                    flux[0] = ...; // left --> right (direction '+')
@@ -1070,7 +1070,7 @@ Alternatively, you can also write
 
 .. code::
 
-    my_flux[0].flux_function = [](auto& cells, Field& u) -> samurai::FluxValuePair<cfg>
+    my_flux[0].flux_function = [](auto& cells, const Field& u) -> samurai::FluxValuePair<cfg>
                                {
                                    samurai::FluxValue<cfg> fluxLR = ...; // left --> right (direction '+')
                                    samurai::FluxValue<cfg> fluxRL = ...; // right --> left (direction '-')
@@ -1081,7 +1081,7 @@ For instance, conservativity can be enforced by
 
 .. code::
 
-    my_flux[0].flux_function = [](auto& cells, Field& u) -> samurai::FluxValuePair<cfg>
+    my_flux[0].flux_function = [](auto& cells, const Field& u) -> samurai::FluxValuePair<cfg>
                                {
                                    samurai::FluxValue<cfg> flux = ...;
                                    return {flux, -flux};
