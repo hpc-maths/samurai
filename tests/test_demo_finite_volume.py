@@ -131,9 +131,9 @@ def test_finite_volume_demo_burgers(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
-#@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_nagumo_imp_diff_imp_react(config):
-    cmd = [get_executable(Path("../build/debug/demos/FiniteVolume/"), "finite-volume-nagumo"),
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--save-final-state-only",
@@ -146,9 +146,9 @@ def test_finite_volume_demo_nagumo_imp_diff_imp_react(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
-#@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_nagumo_exp_diff_imp_react(config):
-    cmd = [get_executable(Path("../build/debug/demos/FiniteVolume/"), "finite-volume-nagumo"),
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--save-final-state-only",
@@ -161,9 +161,9 @@ def test_finite_volume_demo_nagumo_exp_diff_imp_react(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
-#@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_nagumo_imp_diff_exp_react(config):
-    cmd = [get_executable(Path("../build/debug/demos/FiniteVolume/"), "finite-volume-nagumo"),
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--save-final-state-only",
@@ -177,9 +177,9 @@ def test_finite_volume_demo_nagumo_imp_diff_exp_react(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
-#@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_nagumo_exp_diff_exp_react(config):
-    cmd = [get_executable(Path("../build/debug/demos/FiniteVolume/"), "finite-volume-nagumo"),
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
            "--path", config['path'],
            '--filename', config['filename'],
            "--save-final-state-only",
