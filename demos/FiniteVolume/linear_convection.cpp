@@ -132,7 +132,7 @@ int main(int argc, char* argv[])
     {
         velocity(1) = -1;
     }
-    auto conv = samurai::make_convection<decltype(u)>(velocity);
+    auto conv = samurai::make_convection_upwind<decltype(u)>(velocity);
 
     //--------------------//
     //   Time iteration   //

@@ -4,7 +4,7 @@
 namespace samurai
 {
     template <class Field>
-    auto make_gradient()
+    auto make_gradient_halfsum()
     {
         static_assert(Field::size == 1, "The field type for the gradient operator must be a scalar field.");
 
@@ -53,7 +53,7 @@ namespace samurai
     template <class Field>
     [[deprecated("Use make_gradient() instead.")]] auto make_gradient_FV()
     {
-        return make_gradient<Field>();
+        return make_gradient_halfsum<Field>();
     }
 
 } // end namespace samurai

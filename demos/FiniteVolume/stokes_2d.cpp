@@ -263,7 +263,7 @@ int main(int argc, char* argv[])
         //             |  Diff  Grad |
         //             | -Div     0  |
         auto diff    = samurai::make_diffusion<VelocityField>();
-        auto grad    = samurai::make_gradient<PressureField>();
+        auto grad    = samurai::make_gradient_halfsum<PressureField>();
         auto div     = samurai::make_divergence<VelocityField>();
         auto zero_op = samurai::make_zero_operator<PressureField>();
 
@@ -423,7 +423,7 @@ int main(int argc, char* argv[])
         //             |  Diff  Grad |
         //             | -Div     0  |
         auto diff    = diff_coeff * samurai::make_diffusion<VelocityField>();
-        auto grad    =              samurai::make_gradient<PressureField>();
+        auto grad    =              samurai::make_gradient_halfsum<PressureField>();
         auto div     =              samurai::make_divergence<VelocityField>();
         auto zero_op =              samurai::make_zero_operator<PressureField>();
         auto id      =              samurai::make_identity<VelocityField>();

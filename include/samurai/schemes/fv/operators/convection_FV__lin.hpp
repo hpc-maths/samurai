@@ -8,7 +8,7 @@ namespace samurai
     using VelocityVector = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
     template <class Field>
-    auto make_convection(const VelocityVector<Field::dim>& velocity)
+    auto make_convection_upwind(const VelocityVector<Field::dim>& velocity)
     {
         // static_assert(Field::size == 1, "The field type for the gradient operator must be a scalar field.");
 
@@ -77,7 +77,7 @@ namespace samurai
     }
 
     template <class Field, class VelocityField>
-    auto make_convection(const VelocityField& velocity_field)
+    auto make_convection_upwind(const VelocityField& velocity_field)
     {
         static_assert(Field::dim == VelocityField::dim && VelocityField::size == VelocityField::dim);
 
