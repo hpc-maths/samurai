@@ -1,5 +1,5 @@
 #pragma once
-#include "divergence_FV__nonlin.hpp"
+#include "flux_divergence.hpp"
 
 namespace samurai
 {
