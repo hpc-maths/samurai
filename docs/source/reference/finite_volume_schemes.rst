@@ -843,7 +843,8 @@ The flux function is
         return flux_value;
     };
 
-Here, the :code:`FluxValue<cfg>` is an array-like structure of size :code:`output_field_size` (defined in :code:`cfg`).
+Here, :code:`FluxValue<cfg>` is an array-like structure of size :code:`cfg::output_field_size`.
+If :code:`cfg::output_field_size = 1`, it collapses to a simple scalar.
 
 .. warning::
 
