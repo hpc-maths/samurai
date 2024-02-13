@@ -130,34 +130,15 @@ int main(int argc, char* argv[])
                                             return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
                                         }
                                     });
-    // auto u    = samurai::make_field<1>("u", mesh);
+
     auto unp1 = samurai::make_field<1>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
     auto u1 = samurai::make_field<1>("u1", mesh);
     auto u2 = samurai::make_field<1>("u2", mesh);
 
-    // u.fill(0);
     unp1.fill(0);
     u1.fill(0);
     u2.fill(0);
-
-    // Initial solution
-    // samurai::for_each_cell(
-    //     mesh,
-    //     [&](auto& cell)
-    //     {
-    //         if constexpr (dim == 1)
-    //         {
-    //             u[cell] = (cell.center(0) >= -0.8 && cell.center(0) <= -0.3) ? 1 : 0;
-    //         }
-    //         else
-    //         {
-    //             u[cell] = (cell.center(0) >= -0.8 && cell.center(0) <= -0.3 && cell.center(1) >= 0.3 && cell.center(1) <= 0.8) ? 1 : 0;
-    //         }
-    //     });
-
-    // Boundary conditions
-    // samurai::make_bc<samurai::Dirichlet>(u, 0.0);
 
     // Convection operator
     samurai::VelocityVector<dim> velocity;
@@ -166,7 +147,6 @@ int main(int argc, char* argv[])
     {
         velocity(1) = -1;
     }
-    // auto conv = samurai::make_convection_upwind<decltype(u)>(velocity);
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
     //--------------------//
