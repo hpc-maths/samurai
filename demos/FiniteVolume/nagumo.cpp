@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann>(u, 0.);
     samurai::make_bc<samurai::Neumann>(unp1, 0.);
 
-    auto diff = samurai::make_diffusion<decltype(u)>(D);
+    auto diff = samurai::make_diffusion_order2<decltype(u)>(D);
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator

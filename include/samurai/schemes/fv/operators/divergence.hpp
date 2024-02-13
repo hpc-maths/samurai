@@ -4,14 +4,14 @@
 namespace samurai
 {
     template <class Field>
-    auto make_divergence()
+    auto make_divergence_order2()
     {
-        static constexpr std::size_t field_size = Field::size;
-        static constexpr std::size_t dim        = Field::dim;
-        static_assert(field_size == dim, "The field type for the divergence operator must have a size equal to the space dimension.");
-
+        static constexpr std::size_t field_size        = Field::size;
+        static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t output_field_size = 1;
         static constexpr std::size_t stencil_size      = 2;
+
+        static_assert(field_size == dim, "The field type for the divergence operator must have a size equal to the space dimension.");
 
         using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
@@ -52,9 +52,9 @@ namespace samurai
     }
 
     template <class Field>
-    [[deprecated("Use make_divergence() instead.")]] auto make_divergence_FV()
+    [[deprecated("Use make_divergence_order2() instead.")]] auto make_divergence()
     {
-        return make_divergence<Field>();
+        return make_divergence_order2<Field>();
     }
 
 } // end namespace samurai

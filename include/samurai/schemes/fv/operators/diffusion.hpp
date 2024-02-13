@@ -129,7 +129,7 @@ namespace samurai
     }
 
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion(const DiffCoeff<Field::dim>& K)
+    auto make_diffusion_order2(const DiffCoeff<Field::dim>& K)
     {
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
@@ -178,23 +178,23 @@ namespace samurai
     }
 
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion(double k)
+    auto make_diffusion_order2(double k)
     {
         DiffCoeff<Field::dim> K;
         K.fill(k);
-        return make_diffusion<Field, dirichlet_enfcmt>(K);
+        return make_diffusion_order2<Field, dirichlet_enfcmt>(K);
     }
 
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion()
+    auto make_diffusion_order2()
     {
-        return make_diffusion<Field, dirichlet_enfcmt>(1.);
+        return make_diffusion_order2<Field, dirichlet_enfcmt>(1.);
     }
 
     template <class Field>
-    auto make_laplacian()
+    auto make_laplacian_order2()
     {
-        return -make_diffusion<Field>();
+        return -make_diffusion_order2<Field>();
     }
 
     /**
@@ -204,7 +204,7 @@ namespace samurai
     template <class field_t,
               class DiffTensorField,
               std::enable_if_t<DiffTensorField::size == 1 && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>, bool> = true>
-    auto make_diffusion(const DiffTensorField& K)
+    auto make_diffusion_order2(const DiffTensorField& K)
     {
         static constexpr std::size_t dim               = field_t::dim;
         static constexpr std::size_t field_size        = field_t::size;

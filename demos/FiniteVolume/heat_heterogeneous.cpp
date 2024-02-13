@@ -139,7 +139,7 @@ int main(int argc, char* argv[])
                                });
     };
 
-    auto diff = samurai::make_diffusion<decltype(u)>(K);
+    auto diff = samurai::make_diffusion_order2<decltype(u)>(K);
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Initial solution: crenel

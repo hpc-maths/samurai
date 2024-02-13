@@ -214,10 +214,10 @@ int main(int argc, char* argv[])
 
     double diff_coeff = 1. / 100;
 
-    auto diff    = samurai::make_diffusion<VelocityField>(diff_coeff); // diff: v ---> -diff_coeff*Lap(v)
-    auto grad    = samurai::make_gradient_halfsum<PressureField>();
+    auto diff    = samurai::make_diffusion_order2<VelocityField>(diff_coeff); // diff: v ---> -diff_coeff*Lap(v)
+    auto grad    = samurai::make_gradient_order2<PressureField>();
     auto conv    = samurai::make_convection_upwind<VelocityField>(); // conv: v ---> v.grad(v)
-    auto div     = samurai::make_divergence<VelocityField>();
+    auto div     = samurai::make_divergence_order2<VelocityField>();
     auto zero_op = samurai::make_zero_operator<PressureField>();
     auto id      = samurai::make_identity<VelocityField>(); // id: v ---> v
 
