@@ -176,6 +176,27 @@ namespace samurai
                                 {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
                         });
                 });
+
+            auto expr_2 = intersection(this->cells()[mesh_id_t::cells][level], this->cells()[mesh_id_t::cells][level]);
+
+            expr_2(
+                [&](const auto& interval, const auto& index_yz)
+                {
+                    if (level - 1 > 0)
+                    {
+                        lcl_type& lcl = cell_list[level - 2];
+
+                        static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                            [&](auto stencil)
+                            {
+                                auto new_interval = (interval >> 1) >> 1;
+                                // std::cout << level - 2 << " " << interval << " " << ((interval >> 1) >> 1) << " " << new_interval
+                                //           << std::endl;
+                                lcl[((index_yz >> 1) >> 1) + stencil].add_interval(
+                                    {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                            });
+                    }
+                });
         }
         this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 

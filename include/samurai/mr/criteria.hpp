@@ -290,6 +290,11 @@ namespace samurai
 
                     xt::masked_view(tag(fine_level, 2 * i), mask)     = static_cast<int>(CellFlag::refine);
                     xt::masked_view(tag(fine_level, 2 * i + 1), mask) = static_cast<int>(CellFlag::refine);
+
+                    auto mask_ghost = (xt::abs(detail(fine_level - 1, i)) > eps); // No normalization
+
+                    xt::masked_view(tag(fine_level, 2 * i), mask_ghost) |= static_cast<int>(CellFlag::keep);
+                    xt::masked_view(tag(fine_level, 2 * i + 1), mask_ghost) |= static_cast<int>(CellFlag::keep);
                 }
                 else
                 {
@@ -335,6 +340,13 @@ namespace samurai
                     xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j), mask)     = static_cast<int>(CellFlag::refine);
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j + 1), mask)     = static_cast<int>(CellFlag::refine);
                     xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j + 1), mask) = static_cast<int>(CellFlag::refine);
+
+                    auto mask_ghost = (xt::abs(detail(fine_level - 1, i, j)) > eps); // No normalization
+
+                    xt::masked_view(tag(fine_level, 2 * i, 2 * j), mask_ghost) |= static_cast<int>(CellFlag::keep);
+                    xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j), mask_ghost) |= static_cast<int>(CellFlag::keep);
+                    xt::masked_view(tag(fine_level, 2 * i, 2 * j + 1), mask_ghost) |= static_cast<int>(CellFlag::keep);
+                    xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j + 1), mask_ghost) |= static_cast<int>(CellFlag::keep);
                 }
                 else
                 {
