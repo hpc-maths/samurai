@@ -178,6 +178,25 @@ namespace samurai
             detail(level + 1, 2 * i) = field(level + 1, 2 * i) - (field(level, i) + qs_i);
 
             detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
+
+            if (level >= 1)
+            {
+                auto even_i = i.even_elements();
+                if (even_i.is_valid())
+                {
+                    auto coarse_even_i    = even_i >> 1;
+                    auto qs_i_2           = xt::eval(Qs_i<order>(field, level - 1, coarse_even_i));
+                    detail(level, even_i) = field(level, even_i) - (field(level - 1, coarse_even_i) + qs_i_2);
+                }
+
+                auto odd_i = i.odd_elements();
+                if (odd_i.is_valid())
+                {
+                    auto coarse_odd_i    = odd_i >> 1;
+                    auto qs_i_2          = xt::eval(Qs_i<order>(field, level - 1, coarse_odd_i));
+                    detail(level, odd_i) = field(level, odd_i) - (field(level - 1, coarse_odd_i) - qs_i_2);
+                }
+            }
         }
 
         template <class T, std::size_t order = T::mesh_t::config::prediction_order>
@@ -208,6 +227,57 @@ namespace samurai
             detail(level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
 
             detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij);
+
+            if (level >= 1)
+            {
+                auto jc = j >> 1;
+                if (j & 1)
+                {
+                    auto even_i = i.even_elements();
+                    if (even_i.is_valid())
+                    {
+                        auto coarse_even_i = even_i >> 1;
+                        auto qs_i          = Qs_i<order>(field, level - 1, coarse_even_i, jc);
+                        auto qs_j          = Qs_j<order>(field, level - 1, coarse_even_i, jc);
+                        auto qs_ij         = Qs_ij<order>(field, level - 1, coarse_even_i, jc);
+
+                        detail(level, even_i, j) = field(level, even_i, j) - (field(level - 1, coarse_even_i, jc) + qs_i - qs_j + qs_ij);
+                    }
+
+                    auto odd_i = i.odd_elements();
+                    if (odd_i.is_valid())
+                    {
+                        auto coarse_odd_i       = odd_i >> 1;
+                        auto qs_i               = Qs_i<order>(field, level - 1, coarse_odd_i, jc);
+                        auto qs_j               = Qs_j<order>(field, level - 1, coarse_odd_i, jc);
+                        auto qs_ij              = Qs_ij<order>(field, level - 1, coarse_odd_i, jc);
+                        detail(level, odd_i, j) = field(level, odd_i, j) - (field(level - 1, coarse_odd_i, jc) - qs_i - qs_j - qs_ij);
+                    }
+                }
+                else
+                {
+                    auto even_i = i.even_elements();
+                    if (even_i.is_valid())
+                    {
+                        auto coarse_even_i = even_i >> 1;
+                        auto qs_i          = Qs_i<order>(field, level - 1, coarse_even_i, jc);
+                        auto qs_j          = Qs_j<order>(field, level - 1, coarse_even_i, jc);
+                        auto qs_ij         = Qs_ij<order>(field, level - 1, coarse_even_i, jc);
+
+                        detail(level, even_i, j) = field(level, even_i, j) - (field(level - 1, coarse_even_i, jc) + qs_i + qs_j - qs_ij);
+                    }
+
+                    auto odd_i = i.odd_elements();
+                    if (odd_i.is_valid())
+                    {
+                        auto coarse_odd_i       = odd_i >> 1;
+                        auto qs_i               = Qs_i<order>(field, level - 1, coarse_odd_i, jc);
+                        auto qs_j               = Qs_j<order>(field, level - 1, coarse_odd_i, jc);
+                        auto qs_ij              = Qs_ij<order>(field, level - 1, coarse_odd_i, jc);
+                        detail(level, odd_i, j) = field(level, odd_i, j) - (field(level - 1, coarse_odd_i, jc) - qs_i + qs_j + qs_ij);
+                    }
+                }
+            }
 
             // This is what is done by Bihari and Harten 1999
             // // It seems the good choice.

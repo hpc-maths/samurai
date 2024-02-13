@@ -1034,7 +1034,7 @@ namespace samurai
                               }
                           });
 
-        mesh_t new_mesh = {cl, mesh.min_level(), mesh.max_level(), mesh.periodicity()};
+        mesh_t new_mesh = {cl, mesh};
 
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
