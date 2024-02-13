@@ -142,19 +142,19 @@ int main(int argc, char* argv[])
     u2.fill(0);
 
     // Initial solution
-    samurai::for_each_cell(
-        mesh,
-        [&](auto& cell)
-        {
-            if constexpr (dim == 1)
-            {
-                u[cell] = (cell.center(0) >= -0.8 && cell.center(0) <= -0.3) ? 1 : 0;
-            }
-            else
-            {
-                u[cell] = (cell.center(0) >= -0.8 && cell.center(0) <= -0.3 && cell.center(1) >= 0.3 && cell.center(1) <= 0.8) ? 1 : 0;
-            }
-        });
+    // samurai::for_each_cell(
+    //     mesh,
+    //     [&](auto& cell)
+    //     {
+    //         if constexpr (dim == 1)
+    //         {
+    //             u[cell] = (cell.center(0) >= -0.8 && cell.center(0) <= -0.3) ? 1 : 0;
+    //         }
+    //         else
+    //         {
+    //             u[cell] = (cell.center(0) >= -0.8 && cell.center(0) <= -0.3 && cell.center(1) >= 0.3 && cell.center(1) <= 0.8) ? 1 : 0;
+    //         }
+    //     });
 
     // Boundary conditions
     // samurai::make_bc<samurai::Dirichlet>(u, 0.0);

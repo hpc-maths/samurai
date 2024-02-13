@@ -124,6 +124,8 @@ namespace samurai
     template <class Field>
     auto make_convection_weno5(const VelocityVector<Field::dim>& velocity)
     {
+        static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
+
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
@@ -131,25 +133,7 @@ namespace samurai
 
         using cfg = FluxConfig<SchemeType::NonLinear, output_field_size, stencil_size, Field>;
 
-        static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
-        static_assert(dim <= 2, "WENO5 is not implemented for dim > 2.");
-
         FluxDefinition<cfg> weno5;
-        if constexpr (dim == 1)
-        {
-            // clang-format off
-            weno5[0].stencil = {{-2}, {-1}, {0}, {1}, {2}, {3}};
-            // clang-format on
-        }
-        else if constexpr (dim == 2)
-        {
-            // clang-format off
-            weno5[0].direction = {1,0};
-            weno5[0].stencil   = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
-            weno5[1].direction = {0,1};
-            weno5[1].stencil   = {{ 0,-2}, { 0,-1}, {0,0}, {0,1}, {0,2}, {0,3}};
-            // clang-format on
-        }
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
@@ -160,6 +144,11 @@ namespace samurai
                 // {
                 //     return velocity(d) * v;
                 // };
+
+                // Stencil creation:
+                //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
+                //        weno5[1].stencil = {{ 0,-2}, { 0,-1}, {0,0}, {0,1}, {0,2}, {0,3}};
+                weno5[d].stencil = line_stencil<dim, d>(-2, -1, 0, 1, 2, 3);
 
                 if (velocity(d) >= 0)
                 {
