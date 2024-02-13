@@ -224,7 +224,7 @@ int main_dim(int argc, char* argv[])
     // using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, /* output_field_size = */ field_size, 2, decltype(u)>;
 
     // samurai::FluxDefinition<cfg> upwind_f(
-    //     [&](auto& v, auto& cells)
+    //     [&](auto& cells, const auto& v)
     //     {
     //         auto& left  = cells[0];
     //         auto& right = cells[1];

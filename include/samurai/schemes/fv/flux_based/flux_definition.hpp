@@ -202,17 +202,7 @@ namespace samurai
 
         FluxDefinition()
         {
-            auto directions = positive_cartesian_directions<dim>();
-            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-                [&](auto integral_constant_d)
-                {
-                    static constexpr int d = decltype(integral_constant_d)::value;
-
-                    DirectionVector<dim> direction = xt::view(directions, d);
-                    m_normal_fluxes[d].direction   = direction;
-                    m_normal_fluxes[d].stencil     = line_stencil_from<dim, d, stencil_size>(-static_cast<int>(stencil_size) / 2 + 1);
-                    m_normal_fluxes[d].cons_flux_function = nullptr; // to be set by the user
-                });
+            set_default(nullptr);
         }
 
         /**
@@ -220,15 +210,26 @@ namespace samurai
          */
         explicit FluxDefinition(typename flux_computation_t::cons_flux_func flux_implem)
         {
-            auto directions = positive_cartesian_directions<dim>();
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                DirectionVector<dim> direction        = xt::view(directions, d);
-                m_normal_fluxes[d].direction          = direction;
-                m_normal_fluxes[d].stencil            = line_stencil_from<dim, d, stencil_size>(-static_cast<int>(stencil_size) / 2 + 1);
-                m_normal_fluxes[d].cons_flux_function = flux_implem;
-            }
+            set_default(flux_implem);
         }
+
+      private:
+
+        void set_default(typename flux_computation_t::cons_flux_func flux_implem)
+        {
+            auto directions = positive_cartesian_directions<dim>();
+            static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
+                [&](auto integral_constant_d)
+                {
+                    static constexpr int d         = decltype(integral_constant_d)::value;
+                    DirectionVector<dim> direction = xt::view(directions, d);
+                    m_normal_fluxes[d].direction   = direction;
+                    m_normal_fluxes[d].stencil     = line_stencil_from<dim, d, stencil_size>(-static_cast<int>(stencil_size) / 2 + 1);
+                    m_normal_fluxes[d].cons_flux_function = flux_implem;
+                });
+        }
+
+      public:
 
         flux_computation_t& operator[](std::size_t d)
         {

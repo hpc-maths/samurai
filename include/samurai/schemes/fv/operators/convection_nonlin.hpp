@@ -1,5 +1,6 @@
 #pragma once
 #include "flux_divergence.hpp"
+#include "weno_impl.hpp"
 
 namespace samurai
 {
@@ -21,173 +22,228 @@ namespace samurai
     template <class Field>
     auto make_convection_upwind()
     {
+        using field_value_t = typename Field::value_type;
+
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
         static constexpr std::size_t stencil_size      = 2;
 
+        static_assert(dim == field_size || field_size == 1,
+                      "make_convection_upwind() is not implemented for this field size in this space dimension.");
+
         using cfg = FluxConfig<SchemeType::NonLinear, output_field_size, stencil_size, Field>;
 
-        if constexpr (field_size == 1)
+        /**
+         * The following commented code is kept as example.
+         * The generalized N-dimensional code (below the comments) is used in practice.
+         */
+        /*
+        if constexpr (dim == 2)
         {
-            auto f = [](auto v) -> FluxValue<cfg>
+            auto f_x = [](auto v)
             {
-                return v * v;
+                FluxValue<cfg> f_v;
+                f_v(0) = v(0) * v(0);
+                f_v(1) = v(0) * v(1);
+                return f_v;
             };
 
-            FluxDefinition<cfg> upwind_f(
-                [f](auto& cells, const Field& field)
+            auto f_y = [](auto v)
+            {
+                FluxValue<cfg> f_v;
+                f_v(0) = v(1) * v(0);
+                f_v(1) = v(1) * v(1);
+                return f_v;
+            };
+
+            FluxDefinition<cfg> upwind;
+            // x-direction
+            upwind[0].cons_flux_function = [f_x](auto& cells, Field& v)
+            {
+                static constexpr std::size_t x = 0;
+                auto& left                     = cells[0];
+                auto& right                    = cells[1];
+                return v[left](x) >= 0 ? f_x(v[left]) : f_x(v[right]);
+            };
+            // y-direction
+            upwind[1].cons_flux_function = [f_y](auto& cells, Field& v)
+            {
+                static constexpr std::size_t y = 1;
+                auto& bottom                   = cells[0];
+                auto& top                      = cells[1];
+                return v[bottom](y) >= 0 ? f_y(v[bottom]) : f_y(v[top]);
+            };
+
+            return make_flux_based_scheme(upwind);
+        }
+        if constexpr (dim == 3)
+        {
+            auto f_x = [](auto v)
+            {
+                FluxValue<cfg> f_v;
+                f_v(0) = v(0) * v(0);
+                f_v(1) = v(0) * v(1);
+                f_v(2) = v(0) * v(2);
+                return f_v;
+            };
+
+            auto f_y = [](auto v)
+            {
+                FluxValue<cfg> f_v;
+                f_v(0) = v(1) * v(0);
+                f_v(1) = v(1) * v(1);
+                f_v(2) = v(1) * v(2);
+                return f_v;
+            };
+
+            auto f_z = [](auto v)
+            {
+                FluxValue<cfg> f_v;
+                f_v(0) = v(2) * v(0);
+                f_v(1) = v(2) * v(1);
+                f_v(2) = v(2) * v(2);
+                return f_v;
+            };
+
+            FluxDefinition<cfg> upwind;
+            // x-direction
+            upwind[0].cons_flux_function = [f_x](auto& cells, Field& v)
+            {
+                static constexpr std::size_t x = 0;
+                auto& left                     = cells[0];
+                auto& right                    = cells[1];
+                return v[left](x) >= 0 ? f_x(v[left]) : f_x(v[right]);
+            };
+            // y-direction
+            upwind[1].cons_flux_function = [f_y](auto& cells, Field& v)
+            {
+                static constexpr std::size_t y = 1;
+                auto& front                    = cells[0];
+                auto& back                     = cells[1];
+                return v[front](y) >= 0 ? f_y(v[front]) : f_y(v[back]);
+            };
+            // z-direction
+            upwind[2].cons_flux_function = [f_z](auto& cells, Field& v)
+            {
+                static constexpr std::size_t z = 2;
+                auto& bottom                   = cells[0];
+                auto& top                      = cells[1];
+                return v[bottom](z) >= 0 ? f_z(v[bottom]) : f_z(v[top]);
+            };
+
+            return make_flux_based_scheme(upwind);
+        }
+        else
+        {*/
+        FluxDefinition<cfg> upwind;
+
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
+            [&](auto integral_constant_d)
+            {
+                static constexpr int d = decltype(integral_constant_d)::value;
+
+                auto f = [](auto u) -> FluxValue<cfg>
+                {
+                    if constexpr (field_size == 1)
+                    {
+                        return u * u;
+                    }
+                    else
+                    {
+                        return u(d) * u;
+                    }
+                };
+
+                upwind[d].cons_flux_function = [f](auto& cells, const Field& field)
                 {
                     auto& left  = cells[0];
                     auto& right = cells[1];
-                    return field[left] >= 0 ? f(field[left]) : f(field[right]);
-                });
 
-            return make_flux_based_scheme(upwind_f);
-        }
-        else if constexpr (field_size == dim)
-        {
-            /**
-             * The following commented code is kept as example.
-             * The generalized N-dimensional code (below the comments) is used in practice.
-             */
-            /*
-                        if constexpr (dim == 2)
-                        {
-                            auto f_x = [](auto v)
-                            {
-                                FluxValue<cfg> f_v;
-                                f_v(0) = v(0) * v(0);
-                                f_v(1) = v(0) * v(1);
-                                return f_v;
-                            };
+                    field_value_t v;
+                    if constexpr (field_size == 1)
+                    {
+                        v = field[left];
+                    }
+                    else
+                    {
+                        v = field[left](d);
+                    }
 
-                            auto f_y = [](auto v)
-                            {
-                                FluxValue<cfg> f_v;
-                                f_v(0) = v(1) * v(0);
-                                f_v(1) = v(1) * v(1);
-                                return f_v;
-                            };
+                    return v >= 0 ? f(field[left]) : f(field[right]);
+                };
+            });
 
-                            FluxDefinition<cfg> upwind_f;
-                            // x-direction
-                            upwind_f[0].cons_flux_function = [f_x](auto& cells, Field& v)
-                            {
-                                static constexpr std::size_t x = 0;
-                                auto& left                     = cells[0];
-                                auto& right                    = cells[1];
-                                return v[left](x) >= 0 ? f_x(v[left]) : f_x(v[right]);
-                            };
-                            // y-direction
-                            upwind_f[1].cons_flux_function = [f_y](auto& cells, Field& v)
-                            {
-                                static constexpr std::size_t y = 1;
-                                auto& bottom                   = cells[0];
-                                auto& top                      = cells[1];
-                                return v[bottom](y) >= 0 ? f_y(v[bottom]) : f_y(v[top]);
-                            };
+        return make_flux_based_scheme(upwind);
+    }
 
-                            return make_flux_based_scheme(upwind_f);
-                        }
-                        if constexpr (dim == 3)
-                        {
-                            auto f_x = [](auto v)
-                            {
-                                FluxValue<cfg> f_v;
-                                f_v(0) = v(0) * v(0);
-                                f_v(1) = v(0) * v(1);
-                                f_v(2) = v(0) * v(2);
-                                return f_v;
-                            };
+    template <class Field>
+    auto make_convection_weno5()
+    {
+        using field_value_t = typename Field::value_type;
 
-                            auto f_y = [](auto v)
-                            {
-                                FluxValue<cfg> f_v;
-                                f_v(0) = v(1) * v(0);
-                                f_v(1) = v(1) * v(1);
-                                f_v(2) = v(1) * v(2);
-                                return f_v;
-                            };
+        static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
-                            auto f_z = [](auto v)
-                            {
-                                FluxValue<cfg> f_v;
-                                f_v(0) = v(2) * v(0);
-                                f_v(1) = v(2) * v(1);
-                                f_v(2) = v(2) * v(2);
-                                return f_v;
-                            };
+        static constexpr std::size_t dim               = Field::dim;
+        static constexpr std::size_t field_size        = Field::size;
+        static constexpr std::size_t output_field_size = field_size;
+        static constexpr std::size_t stencil_size      = 6;
 
-                            FluxDefinition<cfg> upwind_f;
-                            // x-direction
-                            upwind_f[0].cons_flux_function = [f_x](auto& cells, Field& v)
-                            {
-                                static constexpr std::size_t x = 0;
-                                auto& left                     = cells[0];
-                                auto& right                    = cells[1];
-                                return v[left](x) >= 0 ? f_x(v[left]) : f_x(v[right]);
-                            };
-                            // y-direction
-                            upwind_f[1].cons_flux_function = [f_y](auto& cells, Field& v)
-                            {
-                                static constexpr std::size_t y = 1;
-                                auto& front                    = cells[0];
-                                auto& back                     = cells[1];
-                                return v[front](y) >= 0 ? f_y(v[front]) : f_y(v[back]);
-                            };
-                            // z-direction
-                            upwind_f[2].cons_flux_function = [f_z](auto& cells, Field& v)
-                            {
-                                static constexpr std::size_t z = 2;
-                                auto& bottom                   = cells[0];
-                                auto& top                      = cells[1];
-                                return v[bottom](z) >= 0 ? f_z(v[bottom]) : f_z(v[top]);
-                            };
+        static_assert(dim == field_size || field_size == 1,
+                      "make_convection_weno5() is not implemented for this field size in this space dimension.");
 
-                            return make_flux_based_scheme(upwind_f);
-                        }
-                        else
-                        {*/
-            FluxDefinition<cfg> upwind_f;
+        using cfg = FluxConfig<SchemeType::NonLinear, output_field_size, stencil_size, Field>;
 
-            static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-                [&](auto integral_constant_d)
+        FluxDefinition<cfg> weno5;
+
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
+            [&](auto integral_constant_d)
+            {
+                static constexpr int d = decltype(integral_constant_d)::value;
+
+                auto f = [](auto u) -> FluxValue<cfg>
                 {
-                    static constexpr int d = decltype(integral_constant_d)::value;
-
-                    auto f = [](auto v) -> FluxValue<cfg>
+                    if constexpr (field_size == 1)
                     {
-                        return v(d) * v;
-                        // FluxValue<cfg> f_v;
-                        // static_for<0, field_size>::apply( // for (int j=0; j<field_size; j++)
-                        //     [&](auto integral_constant_j)
-                        //     {
-                        //         static constexpr int j = decltype(integral_constant_j)::value;
-
-                        //         f_v[j] = v[d] * v[j];
-                        //         // f_v(j) = v(d) * v(j);
-                        //     });
-                        // return f_v;
-                    };
-
-                    upwind_f[d].cons_flux_function = [f](auto& cells, const Field& field)
+                        return u * u;
+                    }
+                    else
                     {
-                        auto& left  = cells[0];
-                        auto& right = cells[1];
-                        return field[left](d) >= 0 ? f(field[left]) : f(field[right]);
-                    };
-                });
+                        return u(d) * u;
+                    }
+                };
 
-            return make_flux_based_scheme(upwind_f);
-            //}
-        }
+                weno5[d].stencil = line_stencil<dim, d>(-2, -1, 0, 1, 2, 3);
 
-        else
-        {
-            static_assert(dim == field_size || field_size == 1,
-                          "make_convection() is not implemented for this field size in this space dimension.");
-        }
+                weno5[d].cons_flux_function = [f](auto& cells, const Field& u) -> FluxValue<cfg>
+                {
+                    static constexpr std::size_t stencil_center = 2;
+
+                    field_value_t v;
+                    if constexpr (field_size == 1)
+                    {
+                        v = u[cells[stencil_center]];
+                    }
+                    else
+                    {
+                        v = u[cells[stencil_center]](d);
+                    }
+
+                    xt::xtensor_fixed<FluxValue<cfg>, xt::xshape<5>> f_u;
+                    if (v >= 0)
+                    {
+                        f_u = {f(u[cells[0]]), f(u[cells[1]]), f(u[cells[2]]), f(u[cells[3]]), f(u[cells[4]])};
+                    }
+                    else
+                    {
+                        f_u = {f(u[cells[5]]), f(u[cells[4]]), f(u[cells[3]]), f(u[cells[2]]), f(u[cells[1]])};
+                    }
+
+                    return compute_weno5_flux(f_u);
+                };
+            });
+
+        return make_flux_based_scheme(weno5);
     }
 
 } // end namespace samurai

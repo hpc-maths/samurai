@@ -1,6 +1,7 @@
 #pragma once
 #include "../flux_based/flux_based_scheme__lin_het.hpp"
 #include "../flux_based/flux_based_scheme__lin_hom.hpp"
+#include "weno_impl.hpp"
 
 namespace samurai
 {
@@ -79,45 +80,6 @@ namespace samurai
     }
 
     /**
-     * WENO5 implementation.
-     * Based on 'Efficent implementation of Weighted ENO schemes', Jiang and Shu, 1996.
-     */
-    template <class xtensor_t>
-    auto compute_weno5_flux(xtensor_t& f)
-    {
-        static constexpr std::size_t j           = 2; // stencil center in f
-        const typename xtensor_t::value_type eps = 1e-6;
-
-        // clang-format off
-
-        // (2.8) and Table I (r=3)
-        auto q0 =  1./3 * f(j-2) - 7./6 * f(j-1) + 11./6 * f(j);
-        auto q1 = -1./6 * f(j-1) + 5./6 * f(j)   +  1./3 * f(j+1);
-        auto q2 =  1./3 * f(j)   + 5./6 * f(j+1) -  1./6 * f(j+2);
-
-        // (3.2)-(3.4)
-        auto IS0 = 13./12 * pow(f(j-2) - 2*f(j-1) + f(j)  , 2) + 1./4 * pow(  f(j-2) -4*f(j-1) + 3*f(j),   2);
-        auto IS1 = 13./12 * pow(f(j-1) - 2*f(j)   + f(j+1), 2) + 1./4 * pow(  f(j-1)           -   f(j+1), 2);
-        auto IS2 = 13./12 * pow(f(j)   - 2*f(j+1) + f(j+2), 2) + 1./4 * pow(3*f(j)   -4*f(j+1) +   f(j+2), 2);
-
-        // clang-format on
-
-        // (2.16) and Table II (r=3)
-        auto alpha0 = 0.1 * pow((eps + IS0), -2);
-        auto alpha1 = 0.6 * pow((eps + IS1), -2);
-        auto alpha2 = 0.3 * pow((eps + IS2), -2);
-
-        // (2.15)
-        auto sum_alphas = alpha0 + alpha1 + alpha2;
-        auto omega0     = alpha0 / sum_alphas;
-        auto omega1     = alpha1 / sum_alphas;
-        auto omega2     = alpha2 / sum_alphas;
-
-        // (2.10)
-        return omega0 * q0 + omega1 * q1 + omega2 * q2;
-    }
-
-    /**
      * Linear convection, discretized by the WENO5 (Jiang & Shu) scheme.
      * @param velocity: constant velocity vector
      */
@@ -137,15 +99,10 @@ namespace samurai
 
         FluxDefinition<cfg> weno5;
 
-        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto integral_constant_d)
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
-
-                // auto flux_f = [&](auto v) -> FluxValue<cfg>
-                // {
-                //     return velocity(d) * v;
-                // };
 
                 // Stencil creation:
                 //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
@@ -195,7 +152,7 @@ namespace samurai
 
         FluxDefinition<cfg> upwind;
 
-        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto integral_constant_d)
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
@@ -267,7 +224,7 @@ namespace samurai
 
         FluxDefinition<cfg> weno5;
 
-        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto integral_constant_d)
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
