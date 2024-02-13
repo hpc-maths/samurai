@@ -6,3 +6,6 @@
 .VSCodeCounter
 vcpkg*
 __pycache__
+.DS_Store
+.pixi
+.cache
