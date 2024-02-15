@@ -15,11 +15,13 @@
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/subset_op.hpp>
 
+#include <samurai/timers.hpp>
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
 template <class Mesh>
-auto init(Mesh& mesh)
+auto init(Mesh& mesh, const double radius, const double x_center, const double y_center )
 {
     auto u = samurai::make_field<double, 1>("u", mesh);
 
@@ -28,9 +30,9 @@ auto init(Mesh& mesh)
         [&](auto& cell)
         {
             auto center           = cell.center();
-            const double radius   = .2;
-            const double x_center = 0.3;
-            const double y_center = 0.3;
+            // const double radius   = .2;
+            // const double x_center = 0.3;
+            // const double y_center = 0.3;
             if (((center[0] - x_center) * (center[0] - x_center) + (center[1] - y_center) * (center[1] - y_center)) <= radius * radius)
             {
                 u[cell] = 1;
@@ -146,18 +148,23 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
 template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
-    auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto mesh    = u.mesh();
+    auto level_  = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto domain_ = samurai::make_field<int, 1>("domain", mesh);
 
     if (!fs::exists(path))
     {
         fs::create_directory(path);
     }
 
+    boost::mpi::communicator world;
+    int mrank = world.rank();
+
     samurai::for_each_cell(mesh,
                            [&](const auto& cell)
                            {
                                level_[cell] = cell.level;
+                                domain_[ cell ] = mrank;
                            });
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
@@ -171,12 +178,15 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
 
+    Timers myTimers;
+
     constexpr std::size_t dim = 2;
     using Config              = samurai::MRConfig<dim>;
 
     // Simulation parameters
+    double radius = 0.2, x_center = 0.3, y_center = 0.3;
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
-    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {4., 7.};
     std::array<double, dim> a{
         {1, 1}
     };
@@ -230,8 +240,11 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
+    myTimers.start( "make_MRAdapt_init" );
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
+    myTimers.stop( "make_MRAdapt_init" );
+
     save(path, filename, u, "_init");
 
     std::size_t nsave = 1;
@@ -239,7 +252,9 @@ int main(int argc, char* argv[])
 
     while (t != Tf)
     {
+        myTimers.start( "MRadaptation" );
         MRadaptation(mr_epsilon, mr_regularity);
+        myTimers.stop( "MRadaptation" );
 
         t += dt;
         if (t > Tf)
@@ -250,9 +265,16 @@ int main(int argc, char* argv[])
 
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
+        myTimers.start( "update_ghost_mr" );
         samurai::update_ghost_mr(u);
+        myTimers.stop( "update_ghost_mr" );
+
         unp1.resize();
+
+        myTimers.start( "upwind" );
         unp1 = u - dt * samurai::upwind(a, u);
+        myTimers.stop( "upwind" );
+
         if (correction)
         {
             flux_correction(dt, a, u, unp1);
@@ -260,12 +282,18 @@ int main(int argc, char* argv[])
 
         std::swap(u.array(), unp1.array());
 
+        myTimers.start( "I/O" );
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
             const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
         }
+        myTimers.stop( "I/O" );
+
     }
+
+    myTimers.print();
+
     samurai::finalize();
     return 0;
 }
