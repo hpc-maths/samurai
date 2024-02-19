@@ -214,10 +214,10 @@ int main(int argc, char* argv[])
 
     double diff_coeff = 1. / 100;
 
-    auto diff    = samurai::make_diffusion<VelocityField>(diff_coeff); // diff: v ---> -diff_coeff*Lap(v)
-    auto grad    = samurai::make_gradient<PressureField>();
-    auto conv    = samurai::make_convection<VelocityField>(); // conv: v ---> v.grad(v)
-    auto div     = samurai::make_divergence<VelocityField>();
+    auto diff    = samurai::make_diffusion_order2<VelocityField>(diff_coeff); // diff: v ---> -diff_coeff*Lap(v)
+    auto grad    = samurai::make_gradient_order2<PressureField>();
+    auto conv    = samurai::make_convection_upwind<VelocityField>(); // conv: v ---> v.grad(v)
+    auto div     = samurai::make_divergence_order2<VelocityField>();
     auto zero_op = samurai::make_zero_operator<PressureField>();
     auto id      = samurai::make_identity<VelocityField>(); // id: v ---> v
 
@@ -256,7 +256,7 @@ int main(int argc, char* argv[])
     auto MRadaptation2 = samurai::make_MRAdapt(ink);
 
     // Here, 'velocity2' is used as the velocity parameter of the convection operator
-    auto conv2 = samurai::make_convection<InkField>(velocity2);
+    auto conv2 = samurai::make_convection_upwind<InkField>(velocity2);
 
     // Boundary condition
     samurai::make_bc<samurai::Dirichlet>(ink, 0.);

@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
     samurai::initialize(argc, argv);
 
     static constexpr std::size_t dim = 2;
-    using Config                     = samurai::MRConfig<dim>;
+    using Config                     = samurai::MRConfig<dim, 3>;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
@@ -62,8 +62,8 @@ int main(int argc, char* argv[])
     std::string init_sol = "hat";
 
     // Time integration
-    double Tf  = 1.;
-    double dt  = Tf / 100;
+    double Tf  = 3;
+    double dt  = 0;
     double cfl = 0.95;
 
     // Multiresolution parameters
@@ -109,21 +109,36 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    samurai::MRMesh<Config> mesh{box, min_level, max_level};
-
-    auto u    = samurai::make_field<1>("u", mesh);
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    std::array<bool, dim> periodic;
+    periodic.fill(true);
+    samurai::MRMesh<Config> mesh{box, min_level, max_level, periodic};
 
     // Initial solution
-    samurai::for_each_cell(
-        mesh,
-        [&](auto& cell)
-        {
-            u[cell] = (cell.center(0) >= -0.8 && cell.center(0) <= -0.3 && cell.center(1) >= 0.3 && cell.center(1) <= 0.8) ? 1 : 0;
-        });
+    auto u = samurai::make_field<1>("u",
+                                    mesh,
+                                    [](const auto& coords)
+                                    {
+                                        if constexpr (dim == 1)
+                                        {
+                                            auto& x = coords(0);
+                                            return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
+                                        }
+                                        else
+                                        {
+                                            auto& x = coords(0);
+                                            auto& y = coords(1);
+                                            return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                        }
+                                    });
 
-    // Boundary conditions
-    samurai::make_bc<samurai::Dirichlet>(u, 0.0);
+    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    // Intermediary fields for the RK3 scheme
+    auto u1 = samurai::make_field<1>("u1", mesh);
+    auto u2 = samurai::make_field<1>("u2", mesh);
+
+    unp1.fill(0);
+    u1.fill(0);
+    u2.fill(0);
 
     // Convection operator
     samurai::VelocityVector<dim> velocity;
@@ -132,16 +147,19 @@ int main(int argc, char* argv[])
     {
         velocity(1) = -1;
     }
-    auto conv = samurai::make_convection<decltype(u)>(velocity);
+    auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
     //--------------------//
     //   Time iteration   //
     //--------------------//
 
-    double dx             = samurai::cell_length(max_level);
-    auto a                = xt::abs(velocity);
-    double sum_velocities = xt::sum(xt::abs(velocity))();
-    dt                    = cfl * dx / sum_velocities;
+    if (dt == 0)
+    {
+        double dx             = samurai::cell_length(max_level);
+        auto a                = xt::abs(velocity);
+        double sum_velocities = xt::sum(xt::abs(velocity))();
+        dt                    = cfl * dx / sum_velocities;
+    }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
@@ -170,8 +188,19 @@ int main(int argc, char* argv[])
         MRadaptation(mr_epsilon, mr_regularity);
         samurai::update_ghost_mr(u);
         unp1.resize();
+        u1.resize();
+        u2.resize();
+        u1.fill(0);
+        u2.fill(0);
 
-        unp1 = u - dt * conv(u);
+        // unp1 = u - dt * conv(u);
+
+        // TVD-RK3 (SSPRK3)
+        u1 = u - dt * conv(u);
+        samurai::update_ghost_mr(u1);
+        u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
+        samurai::update_ghost_mr(u2);
+        unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());

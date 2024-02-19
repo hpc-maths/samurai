@@ -289,6 +289,41 @@ namespace samurai
         return Stencil<1 + 2 * dim * neighbourhood_width, dim>();
     }
 
+    template <std::size_t dim, std::size_t d, class... Ints>
+    auto line_stencil(Ints... neighbours)
+    {
+        static constexpr std::size_t stencil_size = sizeof...(Ints);
+
+        std::array<int, stencil_size> neighbours_array = {{neighbours...}};
+
+        Stencil<stencil_size, dim> s;
+        s.fill(0);
+        static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
+            [&](auto integral_constant_i)
+            {
+                static constexpr int i = decltype(integral_constant_i)::value;
+
+                s(i, d) = neighbours_array[i];
+            });
+        return s;
+    }
+
+    template <std::size_t dim, std::size_t d, std::size_t stencil_size>
+    auto line_stencil_from(int from)
+    {
+        Stencil<stencil_size, dim> s;
+        s.fill(0);
+        static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
+            [&](auto integral_constant_i)
+            {
+                static constexpr int i = decltype(integral_constant_i)::value;
+
+                s(i, d) = from + i;
+            });
+
+        return s;
+    }
+
     template <std::size_t dim>
     constexpr Stencil<2 * dim, dim> cartesian_directions()
     {

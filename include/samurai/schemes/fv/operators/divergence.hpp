@@ -4,13 +4,14 @@
 namespace samurai
 {
     template <class Field>
-    auto make_gradient()
+    auto make_divergence_order2()
     {
-        static_assert(Field::size == 1, "The field type for the gradient operator must be a scalar field.");
-
+        static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t dim               = Field::dim;
-        static constexpr std::size_t output_field_size = dim;
+        static constexpr std::size_t output_field_size = 1;
         static constexpr std::size_t stencil_size      = 2;
+
+        static_assert(field_size == dim, "The field type for the divergence operator must have a size equal to the space dimension.");
 
         using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_field_size, stencil_size, Field>;
 
@@ -27,9 +28,9 @@ namespace samurai
                     static constexpr std::size_t right = 1;
 
                     // Return value: 2 matrices (left, right) of size output_field_size x field_size.
-                    // In this case, of size dim x 1, i.e. a column vector of size dim.
+                    // In this case, of size 1 x dim, i.e. a row vector of size dim.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (output_field_size == 1)
+                    if constexpr (field_size == 1)
                     {
                         coeffs[left]  = 0.5;
                         coeffs[right] = 0.5;
@@ -38,22 +39,22 @@ namespace samurai
                     {
                         coeffs[left].fill(0);
                         coeffs[right].fill(0);
-                        xt::row(coeffs[left], d)  = 0.5;
-                        xt::row(coeffs[right], d) = 0.5;
+                        xt::col(coeffs[left], d)  = 0.5;
+                        xt::col(coeffs[right], d) = 0.5;
                     }
                     return coeffs;
                 };
             });
 
-        auto grad = make_flux_based_scheme(average_coeffs);
-        grad.set_name("Gradient");
-        return grad;
+        auto div = make_flux_based_scheme(average_coeffs);
+        div.set_name("Divergence");
+        return div;
     }
 
     template <class Field>
-    [[deprecated("Use make_gradient() instead.")]] auto make_gradient_FV()
+    [[deprecated("Use make_divergence_order2() instead.")]] auto make_divergence()
     {
-        return make_gradient<Field>();
+        return make_divergence_order2<Field>();
     }
 
 } // end namespace samurai

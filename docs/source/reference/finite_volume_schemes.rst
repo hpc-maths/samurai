@@ -10,7 +10,7 @@ To enable it, use
 .. code-block:: c++
 
     #include <samurai/schemes/fv.hpp>
-    #include <samurai/petsc.hpp> // optional, necessary for implicit shemes
+    #include <samurai/petsc.hpp> // optional, necessary for implicit schemes
 
 In the Finite Volume method (FVM), the computed values correspond to average values, in control volumes, of the physical variables involved.
 The mathematical system of equations is therefore integrated locally over each control volume :math:`V`.
@@ -167,17 +167,42 @@ The set of cells captured by the stencil will be passed as argument of the flux 
             auto& R2 = cells[3]; // { 2,0}
         };
 
-If the :code:`stencil_size` is set to 2, then a default stencil composed of the origin cell and its neighbour in the relevant Cartesian direction is configured.
-Configuring it explicitly yields
+Helper functions allow you to easily build line stencils (such as the one above) for any direction:
 
 .. code-block:: c++
 
-    my_flux[0].stencil = {{0,0}, {1,0}}; // default value
-    my_flux[0].cons_flux_function = [](auto& cells, ...)
+    // x-direction
+    my_flux[0].stencil = samurai::line_stencil<dim, 0>(-1, 0, 1, 2); // {{-1,0}, {0,0}, {1,0}, {2,0}}
+    // y-direction
+    my_flux[1].stencil = samurai::line_stencil<dim, 1>(-1, 0, 1, 2); // {{0,-1}, {0,0}, {0,1}, {0,2}}
+
+In this code, the second template parameter is the direction index. In the dynamic arguments, :code:`0` still represents the origin cell and the other numbers its neighbours following that direction.
+Alternatively, instead of enumerating the neighbours, you can set only the farthest neighbour in the opposite direction along with the stencil size:
+
+.. code-block:: c++
+
+    // x-direction
+    my_flux[0].stencil = samurai::line_stencil_from<dim, 0, 4>(-1); // {{-1,0}, {0,0}, {1,0}, {2,0}}
+    // y-direction
+    my_flux[1].stencil = samurai::line_stencil_from<dim, 1, 4>(-1); // {{0,-1}, {0,0}, {0,1}, {0,2}}
+
+This code is strictly equivalent to the preceding one. The second template parameter is still the direction index, and the third one is the stencil size.
+The dynamic argument, here :code:`-1`, represents the first neighbour of the sequence.
+
+These helper functions allow you to write :math:`n`-dimensional code through a static loop over the dimensions:
+
+.. code-block:: c++
+
+    samurai::static_for<0, dim>::apply( // for each Cartesian direction 'd'
+        [&](auto integral_constant_d)
         {
-            auto& L = cells[0]; // {0,0}
-            auto& R = cells[1]; // {1,0}
-        };
+            static constexpr int d = decltype(integral_constant_d)::value;
+
+            my_flux[d].stencil = samurai::line_stencil<dim, d>(-1, 0, 1, 2);
+        }
+
+If the stencil is not specified, a the line stencil corresponding to the :code:`stencil_size` stencil is used.
+If :code:`stencil_size` is even, then the selected neighbours are evenly distributed on both sides of the interface. If it is odd, there is one more neighbour in the positive direction.
 
 .. note::
     If the stencil depends on the value of a dynamic parameter (e.g., in the upwind or WENO schemes, the sign of the local velocity component),
@@ -1087,3 +1112,148 @@ For instance, conservativity can be enforced by
                                    samurai::FluxValue<cfg> flux = ...;
                                    return {flux, -flux};
                                };
+
+Available implementations
+-------------------------
+
+The following operators and schemes are available in the framework:
+
+Diffusion
++++++++++
+
+The diffusion operator :math:`-\nabla\cdot(K\nabla u)` is implemented with the classical scheme of order 2.
+It applies to both scalar and vector fields.
+Here are some examples according to the type of coefficient:
+
+- Homogeneous, scalar coefficient:
+
+.. code::
+
+    double K = 10;
+    auto diff = samurai::make_diffusion_order2<FieldType>(K);
+
+- Homogeneous, diagonal tensor coefficient:
+
+.. code::
+
+    static constexpr dim = 2;
+
+    samurai::DiffCoeff<dim> K;
+    K(0) = 1; // x-direction
+    K(1) = 2; // y-direction
+
+    auto diff = samurai::make_diffusion_order2<FieldType>(K);
+
+- Heterogeneous, diagonal tensor coefficient:
+
+.. code::
+
+    static constexpr dim = 2;
+
+    auto K = samurai::make_field<samurai::DiffCoeff<dim>, 1>("K", mesh);
+
+    samurai::for_each_cell(mesh[decltype(mesh)::mesh_id_t::reference],
+            [&](auto& cell)
+            {
+                double x = cell.center(0);
+                K[cell] = x < 0 ? {1, 2} : {2, 1};
+            });
+
+    auto diff = samurai::make_diffusion_order2<FieldType>(K);
+
+- Laplacian operator (equivalent to the diffusion operator with no minus sign and constant coefficient 1):
+
+.. code::
+
+    auto lap = samurai::make_laplacian_order2<FieldType>();
+
+Convection
+++++++++++
+
+The convection operators are accessible via the function :code:`make_convection_SCHEME<FieldType>(...)`, where :code:`SCHEME` must be replaced with the name of desired the discrete scheme.
+Two discrete schemes are implemented: :code:`upwind` and :code:`weno5` (Jiang & Shu).
+The mathematical operator implemented is :math:`\nabla \cdot (a \otimes u)`, which corresponds to :math:`a\cdot\nabla u` if :math:`a` is divergence-free.
+
+- Linear convection with constant velocity:
+
+.. code::
+
+    samurai::VelocityVector<dim> a = {1, -2};
+    auto conv = samurai::make_convection_SCHEME<FieldType>(a);
+
+- Linear convection with a velocity field:
+
+.. code::
+
+    auto a = samurai::make_field<dim>("velocity", mesh); // the size must correspond to the space dimension
+    auto conv = samurai::make_convection_SCHEME<FieldType>(a);
+
+- Non-linear convection :math:`\nabla \cdot (u \otimes u)`:
+
+.. code::
+
+    auto conv = samurai::make_convection_SCHEME<FieldType>();
+
+Gradient
+++++++++
+
+The gradient operator is only implemented for scalar fields with the centered scheme of order 2.
+
+.. code::
+
+    auto grad = samurai::make_gradient_order2<FieldType>();
+
+
+Divergence
+++++++++++
+
+The gradient operator is only implemented for vector fields of size the space dimension, with the centered scheme of order 2.
+
+.. code::
+
+    auto div = samurai::make_divergence_order2<FieldType>();
+
+Identity
+++++++++
+
+The identity operator is only used for the implementation of implicit time stepping schemes.
+Example of the heat equation
+
+.. code::
+
+    auto u    = samurai::make_field<1>("u", mesh);
+    auto unp1 = samurai::make_field<1>("unp1", mesh);
+
+    auto diff = samurai::make_diffusion_order2<decltype(u)>();
+    auto id   = samurai::make_identity<decltype(u)>();
+
+    samurai::petsc::solve(id + dt*diff, unp1, u); // solves the linear equation [id + dt*diff](unp1) = u
+
+Zero operator
++++++++++++++
+
+The zero operator is used to build block matrices where one of the blocks is zero.
+Example of the Stokes system:
+
+.. code::
+
+    // Unknowns
+    auto velocity = samurai::make_field<dim>("velocity", mesh);
+    auto pressure = samurai::make_field<1>("pressure", mesh);
+
+    // Stokes operator
+    auto diff = samurai::make_diffusion_order2<decltype(velocity)>();
+    auto grad = samurai::make_gradient_order2<decltype(pressure)>();
+    auto div  = samurai::make_divergence_order2<decltype(velocity)>();
+    auto zero = samurai::make_zero_operator<decltype(pressure)>();
+
+    auto stokes = samurai::make_block_operator<2, 2>(diff, grad,
+                                                     -div, zero);
+    // Right-hand side
+    auto f = samurai::make_field<dim>("f", mesh);
+    auto z = samurai::make_field<1>("z", mesh, 0.);
+
+    // Linear solver
+    auto stokes_solver = samurai::petsc::make_solver(stokes);
+    stokes_solver.set_unknowns(velocity, pressure);
+    stokes_solver.solve(f, z);

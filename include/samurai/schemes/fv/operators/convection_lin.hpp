@@ -1,17 +1,20 @@
 #pragma once
 #include "../flux_based/flux_based_scheme__lin_het.hpp"
 #include "../flux_based/flux_based_scheme__lin_hom.hpp"
+#include "weno_impl.hpp"
 
 namespace samurai
 {
     template <std::size_t dim>
     using VelocityVector = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
+    /**
+     * Linear convection, discretized by a (linear) upwind scheme.
+     * @param velocity: constant velocity vector
+     */
     template <class Field>
-    auto make_convection(const VelocityVector<Field::dim>& velocity)
+    auto make_convection_upwind(const VelocityVector<Field::dim>& velocity)
     {
-        // static_assert(Field::size == 1, "The field type for the gradient operator must be a scalar field.");
-
         static constexpr std::size_t dim               = Field::dim;
         static constexpr std::size_t field_size        = Field::size;
         static constexpr std::size_t output_field_size = field_size;
@@ -76,8 +79,67 @@ namespace samurai
         return make_flux_based_scheme(upwind);
     }
 
+    /**
+     * Linear convection, discretized by the WENO5 (Jiang & Shu) scheme.
+     * @param velocity: constant velocity vector
+     */
+    template <class Field>
+    auto make_convection_weno5(const VelocityVector<Field::dim>& velocity)
+    {
+        using field_value_t = typename Field::value_type;
+
+        static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
+
+        static constexpr std::size_t dim               = Field::dim;
+        static constexpr std::size_t field_size        = Field::size;
+        static constexpr std::size_t output_field_size = field_size;
+        static constexpr std::size_t stencil_size      = 6;
+
+        using cfg = FluxConfig<SchemeType::NonLinear, output_field_size, stencil_size, Field>;
+
+        FluxDefinition<cfg> weno5;
+
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
+            [&](auto integral_constant_d)
+            {
+                static constexpr int d = decltype(integral_constant_d)::value;
+
+                // Stencil creation:
+                //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
+                //        weno5[1].stencil = {{ 0,-2}, { 0,-1}, {0,0}, {0,1}, {0,2}, {0,3}};
+                weno5[d].stencil = line_stencil<dim, d>(-2, -1, 0, 1, 2, 3);
+
+                if (velocity(d) >= 0)
+                {
+                    weno5[d].cons_flux_function = [&velocity](auto& cells, const Field& u) -> FluxValue<cfg>
+                    {
+                        xt::xtensor_fixed<field_value_t, xt::xshape<5>> f = {u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]};
+                        f *= velocity(d);
+
+                        return compute_weno5_flux(f);
+                    };
+                }
+                else
+                {
+                    weno5[d].cons_flux_function = [&velocity](auto& cells, const Field& u) -> FluxValue<cfg>
+                    {
+                        xt::xtensor_fixed<field_value_t, xt::xshape<5>> f = {u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]};
+                        f *= velocity(d);
+
+                        return compute_weno5_flux(f);
+                    };
+                }
+            });
+
+        return make_flux_based_scheme(weno5);
+    }
+
+    /**
+     * Linear convection, discretized by a (linear) upwind scheme.
+     * @param velocity_field: the velocity field
+     */
     template <class Field, class VelocityField>
-    auto make_convection(const VelocityField& velocity_field)
+    auto make_convection_upwind(const VelocityField& velocity_field)
     {
         static_assert(Field::dim == VelocityField::dim && VelocityField::size == VelocityField::dim);
 
@@ -90,7 +152,7 @@ namespace samurai
 
         FluxDefinition<cfg> upwind;
 
-        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto integral_constant_d)
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
@@ -140,6 +202,60 @@ namespace samurai
             });
 
         return make_flux_based_scheme(upwind);
+    }
+
+    /**
+     * Linear convection, discretized by a WENO5 (Jiang & Shu) scheme.
+     * @param velocity_field: the velocity field
+     */
+    template <class Field, class VelocityField>
+    auto make_convection_weno5(const VelocityField& velocity_field)
+    {
+        using field_value_t = typename Field::value_type;
+
+        static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
+
+        static constexpr std::size_t dim               = Field::dim;
+        static constexpr std::size_t field_size        = Field::size;
+        static constexpr std::size_t output_field_size = field_size;
+        static constexpr std::size_t stencil_size      = 6;
+
+        using cfg = FluxConfig<SchemeType::NonLinear, output_field_size, stencil_size, Field>;
+
+        FluxDefinition<cfg> weno5;
+
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
+            [&](auto integral_constant_d)
+            {
+                static constexpr int d = decltype(integral_constant_d)::value;
+
+                // Stencil creation:
+                //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
+                //        weno5[1].stencil = {{ 0,-2}, { 0,-1}, {0,0}, {0,1}, {0,2}, {0,3}};
+                weno5[d].stencil = line_stencil<dim, d>(-2, -1, 0, 1, 2, 3);
+
+                weno5[d].cons_flux_function = [&velocity_field](auto& cells, const Field& u) -> FluxValue<cfg>
+                {
+                    static constexpr std::size_t stencil_center = 2;
+
+                    auto v = velocity_field[cells[stencil_center]](d);
+
+                    xt::xtensor_fixed<field_value_t, xt::xshape<5>> f;
+                    if (v >= 0)
+                    {
+                        f = {u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]};
+                    }
+                    else
+                    {
+                        f = {u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]};
+                    }
+                    f *= v;
+
+                    return compute_weno5_flux(f);
+                };
+            });
+
+        return make_flux_based_scheme(weno5);
     }
 
 } // end namespace samurai

@@ -258,7 +258,6 @@ int main(int argc, char* argv[])
         // });
         // samurai::save("test_pred", mesh, f, f_recons, error_f);
         // samurai::finalize();
-        return 0;
 
         auto u = samurai::make_field<double, 1>("u", mesh);
         samurai::make_bc<samurai::Dirichlet>(u,

@@ -175,7 +175,7 @@ int main(int argc, char* argv[])
     samurai::DiffCoeff<dim> K;
     K.fill(diff_coeff);
 
-    auto diff = samurai::make_diffusion<decltype(u)>(K);
+    auto diff = samurai::make_diffusion_order2<decltype(u)>(K);
     auto id   = samurai::make_identity<decltype(u)>();
 
     //--------------------//

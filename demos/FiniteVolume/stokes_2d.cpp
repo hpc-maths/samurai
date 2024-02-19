@@ -257,19 +257,17 @@ int main(int argc, char* argv[])
                                                return normal * (1 / pi) * cos(pi * (x + y));
                                            });
 
-        // clang-format off
-
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = samurai::make_diffusion<VelocityField>();
-        auto grad    = samurai::make_gradient<PressureField>();
-        auto div     = samurai::make_divergence<VelocityField>();
+        auto diff    = samurai::make_diffusion_order2<VelocityField>();
+        auto grad    = samurai::make_gradient_order2<PressureField>();
+        auto div     = samurai::make_divergence_order2<VelocityField>();
         auto zero_op = samurai::make_zero_operator<PressureField>();
 
+        // clang-format off
         auto stokes = samurai::make_block_operator<2, 2>(diff, grad,
                                                          -div, zero_op);
-
         // clang-format on
 
         // Right-hand side
@@ -417,16 +415,16 @@ int main(int argc, char* argv[])
                                                return exact_normal_grad_pressure(0, coord);
                                            });
 
-        // clang-format off
-
         // Stokes operator
         //             |  Diff  Grad |
         //             | -Div     0  |
-        auto diff    = diff_coeff * samurai::make_diffusion<VelocityField>();
-        auto grad    =              samurai::make_gradient<PressureField>();
-        auto div     =              samurai::make_divergence<VelocityField>();
-        auto zero_op =              samurai::make_zero_operator<PressureField>();
-        auto id      =              samurai::make_identity<VelocityField>();
+        auto diff    = samurai::make_diffusion_order2<VelocityField>(diff_coeff);
+        auto grad    = samurai::make_gradient_order2<PressureField>();
+        auto div     = samurai::make_divergence_order2<VelocityField>();
+        auto zero_op = samurai::make_zero_operator<PressureField>();
+        auto id      = samurai::make_identity<VelocityField>();
+
+        // clang-format off
 
         // Stokes with backward Euler
         //             | I + dt*Diff    dt*Grad |
