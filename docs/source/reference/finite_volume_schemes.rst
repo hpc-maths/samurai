@@ -10,7 +10,7 @@ To enable it, use
 .. code-block:: c++
 
     #include <samurai/schemes/fv.hpp>
-    #include <samurai/petsc.hpp> // optional, necessary for implicit shemes
+    #include <samurai/petsc.hpp> // optional, necessary for implicit schemes
 
 In the Finite Volume method (FVM), the computed values correspond to average values, in control volumes, of the physical variables involved.
 The mathematical system of equations is therefore integrated locally over each control volume :math:`V`.
@@ -1170,7 +1170,7 @@ Here are some examples according to the type of coefficient:
 Convection
 ++++++++++
 
-The convection operators are accessible via the function :code:`make_convection_SHEME<FieldType>(...)`, where :code:`SHEME` must be replaced with the name of desired the discrete scheme.
+The convection operators are accessible via the function :code:`make_convection_SCHEME<FieldType>(...)`, where :code:`SCHEME` must be replaced with the name of desired the discrete scheme.
 Two discrete schemes are implemented: :code:`upwind` and :code:`weno5` (Jiang & Shu).
 The mathematical operator implemented is :math:`\nabla \cdot (a \otimes u)`, which corresponds to :math:`a\cdot\nabla u` if :math:`a` is divergence-free.
 
