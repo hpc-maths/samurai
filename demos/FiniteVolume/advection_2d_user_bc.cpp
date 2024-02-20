@@ -25,11 +25,21 @@ namespace fs = std::filesystem;
 template <class Field>
 struct Mybc : public samurai::Bc<Field>
 {
-    INIT_BC(Mybc)
+    INIT_BC(Mybc, 2)
 
-    void apply(Field& f, const cell_t& cell_out, const cell_t& cell_in, const value_t& value) const override
+    stencil_t stencil(constant_stencil_size_t) const override
     {
-        f[cell_out] = 2 * value - f[cell_in];
+        // clang-format off
+        return {{0, 0}, {0, 1}};
+        // clang-format on
+    }
+
+    void apply(Field& f, const stencil_cells_t& cells, const value_t& value) const override
+    {
+        static constexpr std::size_t in  = 0;
+        static constexpr std::size_t out = 1;
+
+        f[cells[out]] = 2 * value - f[cells[in]];
     }
 };
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "indices.hpp"
+#include "static_algorithm.hpp"
 
 namespace samurai
 {

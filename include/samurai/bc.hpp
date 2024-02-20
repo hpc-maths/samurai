@@ -14,28 +14,33 @@
 #include <xtensor/xnoalias.hpp>
 #include <xtensor/xview.hpp>
 
+#include "boundary.hpp"
 #include "samurai/cell.hpp"
 #include "samurai_config.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 
-#define INIT_BC(NAME, STENCIL_SIZE)                            \
-    using base_t  = samurai::Bc<Field>;                        \
-    using cell_t  = typename base_t::cell_t;                   \
-    using value_t = typename base_t::value_t;                  \
-    using base_t::Bc;                                          \
-    using base_t::dim;                                         \
-                                                               \
-    static constexpr std::size_t stencil_size_ = STENCIL_SIZE; \
-                                                               \
-    std::unique_ptr<base_t> clone() const override             \
-    {                                                          \
-        return std::make_unique<NAME>(*this);                  \
-    }                                                          \
-                                                               \
-    std::size_t stencil_size() const override                  \
-    {                                                          \
-        return STENCIL_SIZE;                                   \
+#define INIT_BC(NAME, STENCIL_SIZE)                                                     \
+    using base_t  = samurai::Bc<Field>;                                                 \
+    using cell_t  = typename base_t::cell_t;                                            \
+    using value_t = typename base_t::value_t;                                           \
+    using base_t::Bc;                                                                   \
+    using base_t::dim;                                                                  \
+                                                                                        \
+    static constexpr std::size_t stencil_size_ = STENCIL_SIZE;                          \
+                                                                                        \
+    using stencil_t               = samurai::Stencil<stencil_size_, dim>;               \
+    using constant_stencil_size_t = std::integral_constant<std::size_t, stencil_size_>; \
+    using stencil_cells_t         = std::array<cell_t, stencil_size_>;                  \
+                                                                                        \
+    std::unique_ptr<base_t> clone() const override                                      \
+    {                                                                                   \
+        return std::make_unique<NAME>(*this);                                           \
+    }                                                                                   \
+                                                                                        \
+    std::size_t stencil_size() const override                                           \
+    {                                                                                   \
+        return STENCIL_SIZE;                                                            \
     }
 
 namespace samurai
@@ -881,12 +886,12 @@ namespace samurai
     {
         INIT_BC(Dirichlet, 2)
 
-        Stencil<stencil_size_, dim> stencil(std::integral_constant<std::size_t, stencil_size_>) const override
+        stencil_t stencil(constant_stencil_size_t) const override
         {
             return line_stencil<dim, 0>(0, 1);
         }
 
-        void apply(Field& f, const std::array<cell_t, stencil_size_>& cells, const value_t& value) const override
+        void apply(Field& f, const stencil_cells_t& cells, const value_t& value) const override
         {
             static constexpr std::size_t in  = 0;
             static constexpr std::size_t out = 1;
@@ -900,12 +905,12 @@ namespace samurai
     {
         INIT_BC(Neumann, 2)
 
-        Stencil<stencil_size_, dim> stencil(std::integral_constant<std::size_t, stencil_size_>) const override
+        stencil_t stencil(constant_stencil_size_t) const override
         {
             return line_stencil<dim, 0>(0, 1);
         }
 
-        void apply(Field& f, const std::array<cell_t, stencil_size_>& cells, const value_t& value) const override
+        void apply(Field& f, const stencil_cells_t& cells, const value_t& value) const override
         {
             static constexpr std::size_t in  = 0;
             static constexpr std::size_t out = 1;
