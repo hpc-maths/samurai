@@ -601,15 +601,15 @@ namespace samurai
 
         auto get_region() const;
 
-        void update_values(const mesh_t& mesh,
-                           const direction_t& d,
-                           std::size_t level,
-                           const interval_t& i,
-                           xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>> index);
+        // void update_values(const mesh_t& mesh,
+        //                    const direction_t& d,
+        //                    std::size_t level,
+        //                    const interval_t& i,
+        //                    xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>> index);
 
         value_t constant_value();
         value_t value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const;
-        const auto& value() const;
+        // const auto& value() const;
         BCVType get_value_type() const;
 
       private:
@@ -683,52 +683,52 @@ namespace samurai
         return m_region;
     }
 
-    template <class Field>
-    void Bc<Field>::update_values(const mesh_t& mesh,
-                                  const direction_t& dir,
-                                  std::size_t level,
-                                  const interval_t& i,
-                                  xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>> index)
-    {
-        if (p_bcvalue->type() == BCVType::function)
-        {
-            coords_t coords;
-            cell_t cell_in;
+    // template <class Field>
+    // void Bc<Field>::update_values(const mesh_t& mesh,
+    //                               const direction_t& dir,
+    //                               std::size_t level,
+    //                               const interval_t& i,
+    //                               xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>> index)
+    // {
+    //     if (p_bcvalue->type() == BCVType::function)
+    //     {
+    //         coords_t coords;
+    //         cell_t cell_in;
 
-            const double dx = 1. / (1 << level);
+    //         const double dx = 1. / (1 << level);
 
-            cell_in.level = level;
-            auto shift    = dir[0] < 0 ? -dir[0] : -dir[0] + 1;
-            coords[0]     = dx * (i.start + shift);
-            for (std::size_t d = 1; d < dim; ++d)
-            {
-                shift              = dir[d] < 0 ? -dir[d] : -dir[d] + 1;
-                coords[d]          = dx * (index[d - 1] + shift);
-                cell_in.indices[d] = index[d - 1] - dir[d];
-            }
+    //         cell_in.level = level;
+    //         auto shift    = dir[0] < 0 ? -dir[0] : -dir[0] + 1;
+    //         coords[0]     = dx * (i.start + shift);
+    //         for (std::size_t d = 1; d < dim; ++d)
+    //         {
+    //             shift              = dir[d] < 0 ? -dir[d] : -dir[d] + 1;
+    //             coords[d]          = dx * (index[d - 1] + shift);
+    //             cell_in.indices[d] = index[d - 1] - dir[d];
+    //         }
 
-            if constexpr (size == 1)
-            {
-                m_value.resize({i.size()});
-            }
-            else
-            {
-                m_value.resize({i.size(), size});
-            }
+    //         if constexpr (size == 1)
+    //         {
+    //             m_value.resize({i.size()});
+    //         }
+    //         else
+    //         {
+    //             m_value.resize({i.size(), size});
+    //         }
 
-            cell_in.indices[0] = i.start - dir[0];
-            cell_in.index      = mesh.get_index(level, cell_in.indices);
-            cell_in.length     = cell_length(level);
+    //         cell_in.indices[0] = i.start - dir[0];
+    //         cell_in.index      = mesh.get_index(level, cell_in.indices);
+    //         cell_in.length     = cell_length(level);
 
-            for (std::size_t ii = 0; ii < i.size(); ++ii)
-            {
-                xt::view(m_value, ii) = p_bcvalue->get_value(dir, cell_in, coords);
-                coords[0] += dx;
-                ++cell_in.indices[0];
-                ++cell_in.index;
-            }
-        }
-    }
+    //         for (std::size_t ii = 0; ii < i.size(); ++ii)
+    //         {
+    //             xt::view(m_value, ii) = p_bcvalue->get_value(dir, cell_in, coords);
+    //             coords[0] += dx;
+    //             ++cell_in.indices[0];
+    //             ++cell_in.index;
+    //         }
+    //     }
+    // }
 
     template <class Field>
     inline auto Bc<Field>::constant_value() -> value_t
@@ -736,11 +736,11 @@ namespace samurai
         return p_bcvalue->get_value({}, {}, {});
     }
 
-    template <class Field>
-    inline const auto& Bc<Field>::value() const
-    {
-        return m_value;
-    }
+    // template <class Field>
+    // inline const auto& Bc<Field>::value() const
+    // {
+    //     return m_value;
+    // }
 
     template <class Field>
     inline auto Bc<Field>::value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const -> value_t
