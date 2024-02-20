@@ -18,16 +18,26 @@ namespace samurai
     }
 
     template <class Mesh, class Subset, std::size_t stencil_size, class Func>
-    void
-    for_each_stencil_on_boundary(const Mesh& mesh, const Subset& boundary_region, const Stencil<stencil_size, Mesh::dim>& stencil, Func&& func)
+    void for_each_stencil_on_boundary(const Mesh& mesh,
+                                      const Subset& boundary_region,
+                                      std::size_t level,
+                                      const Stencil<stencil_size, Mesh::dim>& stencil,
+                                      Func&& func)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
+        auto bdry = intersection(mesh[mesh_id_t::cells][level], boundary_region).on(level);
+        for_each_stencil(mesh, bdry, stencil, std::forward<Func>(func));
+    }
+
+    template <class Mesh, class Subset, std::size_t stencil_size, class Func>
+    void
+    for_each_stencil_on_boundary(const Mesh& mesh, const Subset& boundary_region, const Stencil<stencil_size, Mesh::dim>& stencil, Func&& func)
+    {
         for_each_level(mesh,
                        [&](std::size_t level)
                        {
-                           auto bdry = intersection(mesh[mesh_id_t::cells][level], boundary_region).on(level);
-                           for_each_stencil(mesh, bdry, stencil, std::forward<Func>(func));
+                           for_each_stencil_on_boundary(mesh, boundary_region, level, stencil, std::forward<Func>(func));
                        });
     }
 

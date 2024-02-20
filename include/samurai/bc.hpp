@@ -19,15 +19,23 @@
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 
-#define INIT_BC(NAME)                              \
-    using base_t  = samurai::Bc<Field>;            \
-    using cell_t  = typename base_t::cell_t;       \
-    using value_t = typename base_t::value_t;      \
-    using base_t::Bc;                              \
-                                                   \
-    std::unique_ptr<base_t> clone() const override \
-    {                                              \
-        return std::make_unique<NAME>(*this);      \
+#define INIT_BC(NAME, STENCIL_SIZE)                            \
+    using base_t  = samurai::Bc<Field>;                        \
+    using cell_t  = typename base_t::cell_t;                   \
+    using value_t = typename base_t::value_t;                  \
+    using base_t::Bc;                                          \
+    using base_t::dim;                                         \
+                                                               \
+    static constexpr std::size_t stencil_size_ = STENCIL_SIZE; \
+                                                               \
+    std::unique_ptr<base_t> clone() const override             \
+    {                                                          \
+        return std::make_unique<NAME>(*this);                  \
+    }                                                          \
+                                                               \
+    std::size_t stencil_size() const override                  \
+    {                                                          \
+        return STENCIL_SIZE;                                   \
     }
 
 namespace samurai
@@ -554,8 +562,38 @@ namespace samurai
         Bc(Bc&& bc) noexcept            = default;
         Bc& operator=(Bc&& bc) noexcept = default;
 
-        virtual std::unique_ptr<Bc> clone() const                                                               = 0;
-        virtual void apply(Field& f, const cell_t& cell_out, const cell_t& cell_in, const value_t& value) const = 0;
+        virtual std::unique_ptr<Bc> clone() const = 0;
+        virtual std::size_t stencil_size() const  = 0;
+
+        virtual void apply(Field&, const std::array<cell_t, 2>&, const value_t&) const
+        {
+            assert(false);
+        }
+
+        virtual void apply(Field&, const std::array<cell_t, 3>&, const value_t&) const
+        {
+            assert(false);
+        }
+
+        virtual void apply(Field&, const std::array<cell_t, 4>&, const value_t&) const
+        {
+            assert(false);
+        }
+
+        virtual Stencil<2, dim> stencil(std::integral_constant<std::size_t, 2>) const
+        {
+            return line_stencil<dim, 0, 2>();
+        }
+
+        virtual Stencil<3, dim> stencil(std::integral_constant<std::size_t, 3>) const
+        {
+            return line_stencil<dim, 0, 3>();
+        }
+
+        virtual Stencil<4, dim> stencil(std::integral_constant<std::size_t, 4>) const
+        {
+            return line_stencil<dim, 0, 4>();
+        }
 
         template <class Region>
         auto on(const Region& region);
@@ -773,21 +811,15 @@ namespace samurai
     //////////////
     // BC Types //
     //////////////
-    template <class Field>
+    template <class Field, std::size_t stencil_size>
     void apply_bc_impl(Bc<Field>& bc, std::size_t level, Field& field)
     {
-        using cell_t                     = typename Bc<Field>::cell_t;
-        using value_t                    = typename cell_t::value_t;
         static constexpr std::size_t dim = Field::dim;
-        constexpr int ghost_width        = std::max(static_cast<int>(Field::mesh_t::config::max_stencil_width),
-                                             static_cast<int>(Field::mesh_t::config::prediction_order));
-
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        auto& mesh      = field.mesh()[mesh_id_t::reference];
 
         auto region     = bc.get_region();
         auto& direction = region.first;
         auto& lca       = region.second;
+        auto stencil_0  = bc.stencil(std::integral_constant<std::size_t, stencil_size>());
         for (std::size_t d = 0; d < direction.size(); ++d)
         {
             bool is_periodic = false;
@@ -801,45 +833,44 @@ namespace samurai
             }
             if (!is_periodic)
             {
-                std::size_t delta_l = lca[d].level() - level;
-                for (int ig = 0; ig < ghost_width; ++ig)
+                int number_of_one = xt::sum(xt::abs(direction[d]))[0];
+                if (number_of_one == 1) // Cartesian direction only, don't treat diagonals
                 {
-                    auto first_layer_ghosts = intersection(intersection(mesh[level], translate(lca[d], (ig + 1) * (direction[d] << delta_l))),
-                                                           translate(mesh[level], (2 * ig + 1) * direction[d]))
-                                                  .on(level);
-                    first_layer_ghosts(
-                        [&](const auto& i, const auto& index)
-                        {
-                            auto cell_out = mesh.get_cell(level, i.start, index);
+                    auto stencil = convert_for_direction(stencil_0, direction[d]);
 
-                            xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index_in = index;
-                            if constexpr (dim > 1)
-                            {
-                                index_in -= (2 * ig + 1) * xt::view(direction[d], xt::range(1, _));
-                            }
-                            auto cell_in = mesh.get_cell(level, i.start - (2 * ig + 1) * direction[d][0], index_in);
-
-                            if (bc.get_value_type() == BCVType::function)
-                            {
-                                bc.update_values(field.mesh(), direction[d], level, i, index);
-                            }
-
-                            for (std::size_t ii = 0; ii < i.size(); ++ii)
-                            {
-                                if (bc.get_value_type() == BCVType::constant)
-                                {
-                                    bc.apply(field, cell_out, cell_in, bc.constant_value());
-                                }
-                                else if (bc.get_value_type() == BCVType::function)
-                                {
-                                    bc.apply(field, cell_out, cell_in, bc.value()[ii]);
-                                }
-                                ++cell_out.indices[0];
-                                ++cell_out.index;
-                                ++cell_in.indices[0];
-                                ++cell_in.index;
-                            }
-                        });
+                    if (bc.get_value_type() == BCVType::constant)
+                    {
+                        auto value = bc.constant_value();
+                        for_each_stencil_on_boundary(field.mesh(),
+                                                     lca[d],
+                                                     level,
+                                                     stencil,
+                                                     [&, value](auto& cells)
+                                                     {
+                                                         bc.apply(field, cells, value);
+                                                     });
+                    }
+                    else if (bc.get_value_type() == BCVType::function)
+                    {
+                        int origin_index = find_stencil_origin(stencil);
+                        assert(origin_index >= 0);
+                        for_each_stencil_on_boundary(field.mesh(),
+                                                     lca[d],
+                                                     level,
+                                                     stencil,
+                                                     [&, origin_index](auto& cells)
+                                                     {
+                                                         auto& cell_in    = cells[static_cast<std::size_t>(origin_index)];
+                                                         auto face_coords = cell_in.face_center(direction[d]);
+                                                         auto value       = bc.value(direction[d], cell_in, face_coords);
+                                                         bc.apply(field, cells, value);
+                                                     });
+                    }
+                    else
+                    {
+                        std::cerr << "Unknown BC type" << std::endl;
+                        exit(EXIT_FAILURE);
+                    }
                 }
             }
         }
@@ -848,23 +879,39 @@ namespace samurai
     template <class Field>
     struct Dirichlet : public Bc<Field>
     {
-        INIT_BC(Dirichlet)
+        INIT_BC(Dirichlet, 2)
 
-        void apply(Field& f, const cell_t& cell_out, const cell_t& cell_in, const value_t& value) const override
+        Stencil<stencil_size_, dim> stencil(std::integral_constant<std::size_t, stencil_size_>) const override
         {
-            f[cell_out] = 2 * value - f[cell_in];
+            return line_stencil<dim, 0>(0, 1);
+        }
+
+        void apply(Field& f, const std::array<cell_t, stencil_size_>& cells, const value_t& value) const override
+        {
+            static constexpr std::size_t in  = 0;
+            static constexpr std::size_t out = 1;
+
+            f[cells[out]] = 2 * value - f[cells[in]];
         }
     };
 
     template <class Field>
     struct Neumann : public Bc<Field>
     {
-        INIT_BC(Neumann)
+        INIT_BC(Neumann, 2)
 
-        void apply(Field& f, const cell_t& cell_out, const cell_t& cell_in, const value_t& value) const override
+        Stencil<stencil_size_, dim> stencil(std::integral_constant<std::size_t, stencil_size_>) const override
         {
-            double dx   = cell_length(cell_out.level);
-            f[cell_out] = dx * value + f[cell_in];
+            return line_stencil<dim, 0>(0, 1);
+        }
+
+        void apply(Field& f, const std::array<cell_t, stencil_size_>& cells, const value_t& value) const override
+        {
+            static constexpr std::size_t in  = 0;
+            static constexpr std::size_t out = 1;
+
+            double dx     = cell_length(cells[out].level);
+            f[cells[out]] = dx * value + f[cells[in]];
         }
     };
 
@@ -873,7 +920,23 @@ namespace samurai
     {
         for (auto& bc : field.get_bc())
         {
-            apply_bc_impl(*bc.get(), level, field);
+            if (bc->stencil_size() == 2)
+            {
+                apply_bc_impl<Field, 2>(*bc.get(), level, field);
+            }
+            else if (bc->stencil_size() == 3)
+            {
+                apply_bc_impl<Field, 3>(*bc.get(), level, field);
+            }
+            else if (bc->stencil_size() == 4)
+            {
+                apply_bc_impl<Field, 4>(*bc.get(), level, field);
+            }
+            else
+            {
+                std::cerr << "The BC stencil size of " << bc->stencil_size() << " is not implemented." << std::endl;
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
