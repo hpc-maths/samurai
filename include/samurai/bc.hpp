@@ -814,10 +814,12 @@ namespace samurai
     {
         static constexpr std::size_t dim = Field::dim;
 
-        auto region     = bc.get_region();
-        auto& direction = region.first;
-        auto& lca       = region.second;
-        auto stencil_0  = bc.stencil(std::integral_constant<std::size_t, stencil_size>());
+        auto region           = bc.get_region();
+        auto& direction       = region.first;
+        auto& lca             = region.second;
+        auto stencil_0        = bc.stencil(std::integral_constant<std::size_t, stencil_size>());
+        bool is_line_stencil_ = is_line_stencil(stencil_0);
+
         for (std::size_t d = 0; d < direction.size(); ++d)
         {
             bool is_periodic = false;
@@ -831,8 +833,9 @@ namespace samurai
             }
             if (!is_periodic)
             {
-                int number_of_one = xt::sum(xt::abs(direction[d]))[0];
-                if (number_of_one == 1) // Cartesian direction only, don't treat diagonals
+                bool is_cartesian_direction = is_cartesian(direction[d]);
+
+                if (is_cartesian_direction || is_line_stencil_) // Treat diagonals only if it's a line stencil
                 {
                     auto stencil = convert_for_direction(stencil_0, direction[d]);
 

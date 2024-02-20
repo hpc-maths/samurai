@@ -17,6 +17,12 @@ namespace samurai
         Stencil<stencil_size, dim> stencil;
     };
 
+    template <class T>
+    bool is_cartesian(const T& direction)
+    {
+        return xt::sum(xt::abs(direction))[0] == 1; // only one non-zero in the vector
+    }
+
     template <std::size_t stencil_size, std::size_t dim>
     int find_stencil_origin(const Stencil<stencil_size, dim>& stencil)
     {
@@ -73,8 +79,7 @@ namespace samurai
                 return i;
             }
         }
-        std::cerr << "The direction is not Cartesian." << std::endl;
-        exit(EXIT_FAILURE);
+        return 0;
     }
 
     template <class Mesh, std::size_t stencil_size>
@@ -345,6 +350,35 @@ namespace samurai
         return line_stencil_from<dim, d, stencil_size>(-static_cast<int>(stencil_size) / 2 + 1);
     }
 
+    template <std::size_t stencil_size, std::size_t dim>
+    bool is_line_stencil([[maybe_unused]] Stencil<stencil_size, dim>& stencil)
+    {
+        if constexpr (dim > 1)
+        {
+            std::size_t dir      = 0;
+            bool direction_found = false;
+            for (std::size_t i = 0; i < stencil_size; ++i)
+            {
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    if (stencil(i, d) != 0)
+                    {
+                        if (!direction_found)
+                        {
+                            dir             = d;
+                            direction_found = true;
+                        }
+                        else if (dir != d) // another direction found
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
     template <std::size_t dim>
     constexpr Stencil<2 * dim, dim> cartesian_directions()
     {
@@ -540,43 +574,35 @@ namespace samurai
     Stencil<stencil_size, dim> convert_for_direction(const Stencil<stencil_size, dim>& stencil_in_x, const DirectionVector<dim>& direction)
     {
         Stencil<stencil_size, dim> stencil_in_d;
-
-        auto d = find_direction_index(direction);
-        if (d == 0 && direction(d) == 1) // direction x
+        if constexpr (dim == 1)
         {
-            stencil_in_d = stencil_in_x;
+            stencil_in_d = -stencil_in_x;
         }
         else
         {
-            if constexpr (dim == 1)
-            {
-                stencil_in_d = -stencil_in_x;
-            }
-            else
-            {
-                // We apply to each vector in the stencil the rotation matrix
-                // that converts the first canonical vector, i.e. {1, 0}, into 'direction'.
+            // We apply to each vector in the stencil the rotation matrix
+            // that converts the first canonical vector, i.e. {1, 0}, into 'direction'.
 
-                // If d is the x-direction, then we choose any other direction (e.g. the next one)
-                // to perform the rotation.
-                d = d == 0 ? d + 1 : d;
+            auto d = find_direction_index(direction);
+            // If d is the x-direction, then we choose any other direction (e.g. the next one)
+            // to perform the rotation.
+            d = d == 0 ? d + 1 : d;
 
-                stencil_in_d = stencil_in_x; // 1 on the diagonal of the rotation matrix
+            stencil_in_d = stencil_in_x; // 1 on the diagonal of the rotation matrix
 
-                int cos = direction(0);
-                int sin = direction(d);
-                static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
-                    [&](auto integral_constant_i)
-                    {
-                        static constexpr int i = decltype(integral_constant_i)::value;
+            int cos = direction(0);
+            int sin = direction(d);
+            static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
+                [&](auto integral_constant_i)
+                {
+                    static constexpr int i = decltype(integral_constant_i)::value;
 
-                        auto v_in_x = xt::view(stencil_in_x, i); // vector in direction x (canonical basis)
-                        auto v_in_d = xt::view(stencil_in_d, i); // vector in direction d (=rotation of v_in_x)
+                    auto v_in_x = xt::view(stencil_in_x, i); // vector in direction x (canonical basis)
+                    auto v_in_d = xt::view(stencil_in_d, i); // vector in direction d (=rotation of v_in_x)
 
-                        v_in_d(0) = cos * v_in_x(0) - sin * v_in_x(d);
-                        v_in_d(d) = sin * v_in_x(0) + cos * v_in_x(d);
-                    });
-            }
+                    v_in_d(0) = cos * v_in_x(0) - sin * v_in_x(d);
+                    v_in_d(d) = sin * v_in_x(0) + cos * v_in_x(d);
+                });
         }
         return stencil_in_d;
     }
