@@ -20,27 +20,38 @@
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 
-#define INIT_BC(NAME, STENCIL_SIZE)                                                     \
-    using base_t  = samurai::Bc<Field>;                                                 \
-    using cell_t  = typename base_t::cell_t;                                            \
-    using value_t = typename base_t::value_t;                                           \
-    using base_t::Bc;                                                                   \
-    using base_t::dim;                                                                  \
-                                                                                        \
-    static constexpr std::size_t stencil_size_ = STENCIL_SIZE;                          \
-                                                                                        \
-    using stencil_t               = samurai::Stencil<stencil_size_, dim>;               \
-    using constant_stencil_size_t = std::integral_constant<std::size_t, stencil_size_>; \
-    using stencil_cells_t         = std::array<cell_t, stencil_size_>;                  \
-                                                                                        \
-    std::unique_ptr<base_t> clone() const override                                      \
-    {                                                                                   \
-        return std::make_unique<NAME>(*this);                                           \
-    }                                                                                   \
-                                                                                        \
-    std::size_t stencil_size() const override                                           \
-    {                                                                                   \
-        return STENCIL_SIZE;                                                            \
+#define INIT_BC(NAME, STENCIL_SIZE)                                                            \
+    using base_t  = samurai::Bc<Field>;                                                        \
+    using cell_t  = typename base_t::cell_t;                                                   \
+    using value_t = typename base_t::value_t;                                                  \
+    using base_t::Bc;                                                                          \
+    using base_t::dim;                                                                         \
+                                                                                               \
+    using stencil_t               = samurai::Stencil<STENCIL_SIZE, dim>;                       \
+    using constant_stencil_size_t = std::integral_constant<std::size_t, STENCIL_SIZE>;         \
+    using stencil_cells_t         = std::array<cell_t, STENCIL_SIZE>;                          \
+                                                                                               \
+    static_assert(STENCIL_SIZE <= base_t::max_stencil_size, "The stencil size is too large."); \
+                                                                                               \
+    std::unique_ptr<base_t> clone() const override                                             \
+    {                                                                                          \
+        return std::make_unique<NAME>(*this);                                                  \
+    }                                                                                          \
+                                                                                               \
+    std::size_t stencil_size() const override                                                  \
+    {                                                                                          \
+        return STENCIL_SIZE;                                                                   \
+    }
+
+#define APPLY_AND_STENCIL_FUNCTIONS(STENCIL_SIZE)                                                       \
+    virtual void apply(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&) const           \
+    {                                                                                                   \
+        assert(false);                                                                                  \
+    }                                                                                                   \
+                                                                                                        \
+    virtual Stencil<STENCIL_SIZE, dim> stencil(std::integral_constant<std::size_t, STENCIL_SIZE>) const \
+    {                                                                                                   \
+        return line_stencil<dim, 0, STENCIL_SIZE>();                                                    \
     }
 
 namespace samurai
@@ -570,35 +581,17 @@ namespace samurai
         virtual std::unique_ptr<Bc> clone() const = 0;
         virtual std::size_t stencil_size() const  = 0;
 
-        virtual void apply(Field&, const std::array<cell_t, 2>&, const value_t&) const
-        {
-            assert(false);
-        }
-
-        virtual void apply(Field&, const std::array<cell_t, 3>&, const value_t&) const
-        {
-            assert(false);
-        }
-
-        virtual void apply(Field&, const std::array<cell_t, 4>&, const value_t&) const
-        {
-            assert(false);
-        }
-
-        virtual Stencil<2, dim> stencil(std::integral_constant<std::size_t, 2>) const
-        {
-            return line_stencil<dim, 0, 2>();
-        }
-
-        virtual Stencil<3, dim> stencil(std::integral_constant<std::size_t, 3>) const
-        {
-            return line_stencil<dim, 0, 3>();
-        }
-
-        virtual Stencil<4, dim> stencil(std::integral_constant<std::size_t, 4>) const
-        {
-            return line_stencil<dim, 0, 4>();
-        }
+        static constexpr std::size_t max_stencil_size = 10;
+        APPLY_AND_STENCIL_FUNCTIONS(1)
+        APPLY_AND_STENCIL_FUNCTIONS(2)
+        APPLY_AND_STENCIL_FUNCTIONS(3)
+        APPLY_AND_STENCIL_FUNCTIONS(4)
+        APPLY_AND_STENCIL_FUNCTIONS(5)
+        APPLY_AND_STENCIL_FUNCTIONS(6)
+        APPLY_AND_STENCIL_FUNCTIONS(7)
+        APPLY_AND_STENCIL_FUNCTIONS(8)
+        APPLY_AND_STENCIL_FUNCTIONS(9)
+        APPLY_AND_STENCIL_FUNCTIONS(10)
 
         template <class Region>
         auto on(const Region& region);
@@ -923,25 +916,20 @@ namespace samurai
     template <class Field>
     void update_bc(std::size_t level, Field& field)
     {
+        static constexpr std::size_t max_stencil_size = Bc<Field>::max_stencil_size;
+
         for (auto& bc : field.get_bc())
         {
-            if (bc->stencil_size() == 2)
-            {
-                apply_bc_impl<Field, 2>(*bc.get(), level, field);
-            }
-            else if (bc->stencil_size() == 3)
-            {
-                apply_bc_impl<Field, 3>(*bc.get(), level, field);
-            }
-            else if (bc->stencil_size() == 4)
-            {
-                apply_bc_impl<Field, 4>(*bc.get(), level, field);
-            }
-            else
-            {
-                std::cerr << "The BC stencil size of " << bc->stencil_size() << " is not implemented." << std::endl;
-                exit(EXIT_FAILURE);
-            }
+            static_for<1, max_stencil_size + 1>::apply( // for (int i=1; i<=max_stencil_size; i++)
+                [&](auto integral_constant_i)
+                {
+                    static constexpr int i = decltype(integral_constant_i)::value;
+
+                    if (bc->stencil_size() == i)
+                    {
+                        apply_bc_impl<Field, i>(*bc.get(), level, field);
+                    }
+                });
         }
     }
 
