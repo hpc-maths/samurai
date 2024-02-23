@@ -812,7 +812,11 @@ namespace samurai
     template <class Field, std::size_t stencil_size>
     void apply_bc_impl(Bc<Field>& bc, std::size_t level, Field& field)
     {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
         static constexpr std::size_t dim = Field::dim;
+
+        auto& mesh = field.mesh();
 
         auto region           = bc.get_region();
         auto& direction       = region.first;
@@ -839,33 +843,62 @@ namespace samurai
                 {
                     auto stencil = convert_for_direction(stencil_0, direction[d]);
 
+                    // 1. Inner cells in the boundary region
+                    auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], lca[d]).on(level);
+
+                    // 2. Inner ghosts in the boundary region that have a neigbouring ghost outside the domain
+                    auto translated_outer_nghbr        = translate(mesh[mesh_id_t::reference][level], -direction[d]);
+                    auto inner_cells_and_ghosts        = intersection(translated_outer_nghbr, lca[d]);
+                    auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
+
                     if (bc.get_value_type() == BCVType::constant)
                     {
                         auto value = bc.constant_value();
-                        for_each_stencil_on_boundary(field.mesh(),
-                                                     lca[d],
-                                                     level,
-                                                     stencil,
-                                                     [&, value](auto& cells)
-                                                     {
-                                                         bc.apply(field, cells, value);
-                                                     });
+                        for_each_stencil(mesh,
+                                         bdry_cells,
+                                         stencil,
+                                         [&, value](auto& cells)
+                                         {
+                                             bc.apply(field, cells, value);
+                                         });
+                        if (is_cartesian_direction)
+                        {
+                            for_each_stencil(mesh,
+                                             inner_ghosts_with_outer_nghbr,
+                                             stencil,
+                                             [&, value](auto& cells)
+                                             {
+                                                 bc.apply(field, cells, value);
+                                             });
+                        }
                     }
                     else if (bc.get_value_type() == BCVType::function)
                     {
                         int origin_index = find_stencil_origin(stencil);
                         assert(origin_index >= 0);
-                        for_each_stencil_on_boundary(field.mesh(),
-                                                     lca[d],
-                                                     level,
-                                                     stencil,
-                                                     [&, origin_index](auto& cells)
-                                                     {
-                                                         auto& cell_in    = cells[static_cast<std::size_t>(origin_index)];
-                                                         auto face_coords = cell_in.face_center(direction[d]);
-                                                         auto value       = bc.value(direction[d], cell_in, face_coords);
-                                                         bc.apply(field, cells, value);
-                                                     });
+                        for_each_stencil(mesh,
+                                         bdry_cells,
+                                         stencil,
+                                         [&, origin_index](auto& cells)
+                                         {
+                                             auto& cell_in    = cells[static_cast<std::size_t>(origin_index)];
+                                             auto face_coords = cell_in.face_center(direction[d]);
+                                             auto value       = bc.value(direction[d], cell_in, face_coords);
+                                             bc.apply(field, cells, value);
+                                         });
+                        if (is_cartesian_direction)
+                        {
+                            for_each_stencil(mesh,
+                                             inner_ghosts_with_outer_nghbr,
+                                             stencil,
+                                             [&, origin_index](auto& cells)
+                                             {
+                                                 auto& cell_in    = cells[static_cast<std::size_t>(origin_index)];
+                                                 auto face_coords = cell_in.face_center(direction[d]);
+                                                 auto value       = bc.value(direction[d], cell_in, face_coords);
+                                                 bc.apply(field, cells, value);
+                                             });
+                        }
                     }
                     else
                     {
