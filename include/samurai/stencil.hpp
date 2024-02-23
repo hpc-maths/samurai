@@ -576,7 +576,7 @@ namespace samurai
         Stencil<stencil_size, dim> stencil_in_d;
         if constexpr (dim == 1)
         {
-            stencil_in_d = -stencil_in_x;
+            stencil_in_d = direction[0] * stencil_in_x;
         }
         else
         {
