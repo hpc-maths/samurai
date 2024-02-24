@@ -273,56 +273,12 @@ namespace samurai
             auto src_shape  = field(level + 1, 2 * i).shape();
             if (xt::same_shape(dest_shape, src_shape))
             {
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i)     = field(level + 1, 2 * i) - (field(level, i) + qs_i);
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
-            }
-            else
-            {
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i) = xt::transpose(field(level + 1, 2 * i) - (field(level, i) + qs_i));
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1) = xt::transpose(field(level + 1, 2 * i + 1)
-                                                                                               - (field(level, i) - qs_i));
-            }
-        }
+    template <std::size_t dim, class TInterval>
+    class compute_detail_on_tuple_op : public field_operator_base<dim, TInterval>
+    {
+      public:
 
-        template <class Ranges, class T1, class T2>
-        inline void compute_detail_impl(Dim<2>, std::size_t index, const Ranges& ranges, T1& detail, const T2& field) const
-        {
-            static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
-            auto qs_i                          = Qs_i<order>(field, level, i, j);
-            auto qs_j                          = Qs_j<order>(field, level, i, j);
-            auto qs_ij                         = Qs_ij<order>(field, level, i, j);
-
-            auto dest_shape = detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j).shape();
-            auto src_shape  = field(level + 1, 2 * i, 2 * j).shape();
-            if (xt::same_shape(dest_shape, src_shape))
-            {
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j) = field(level + 1, 2 * i, 2 * j)
-                                                                                  - (field(level, i, j) + qs_i + qs_j - qs_ij);
-
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j)
-                                                                                      - (field(level, i, j) - qs_i + qs_j + qs_ij);
-
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1)
-                                                                                      - (field(level, i, j) + qs_i - qs_j + qs_ij);
-
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1)
-                                                                                          - (field(level, i, j) - qs_i - qs_j - qs_ij);
-            }
-            else
-            {
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j) = xt::transpose(
-                    field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij));
-
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j) = xt::transpose(
-                    field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij));
-
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i, 2 * j + 1) = xt::transpose(
-                    field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij));
-
-                detail(ranges[index], ranges[index + 1], level + 1, 2 * i + 1, 2 * j + 1) = xt::transpose(
-                    field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij));
-            }
-        }
+        INIT_OPERATOR(compute_detail_on_tuple_op)
 
         template <class Ranges, class T1, class T2>
         inline void compute_detail_impl(Dim<3>, std::size_t index, const Ranges& ranges, T1& detail, const T2& field) const
