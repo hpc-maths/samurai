@@ -19,8 +19,8 @@ namespace samurai
      * maximum operator *
      ********************/
 
-    template <class TInterval>
-    class maximum_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class maximum_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -126,8 +126,8 @@ namespace samurai
      * balance_2to1 operator *
      ****************$$$$$$$$*/
 
-    template <class TInterval>
-    class balance_2to1_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class balance_2to1_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -163,8 +163,8 @@ namespace samurai
      * compute detail operator *
      ***************************/
 
-    template <class TInterval>
-    class compute_detail_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class compute_detail_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -256,8 +256,8 @@ namespace samurai
         return make_field_operator_function<compute_detail_op>(std::forward<T>(detail), std::forward<T>(field));
     }
 
-    template <class TInterval>
-    class compute_detail_on_tuple_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class compute_detail_on_tuple_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -406,7 +406,7 @@ namespace samurai
             }
         }
 
-        template <std::size_t dim, class T1, class T2, std::size_t... Is>
+        template <class T1, class T2, std::size_t... Is>
         inline void compute_detail_impl(Dim<dim>, T1& detail, const T2& fields, std::index_sequence<Is...>) const
         {
             std::array<std::size_t, std::tuple_size_v<T2> + 1> ranges;
@@ -422,7 +422,7 @@ namespace samurai
             (compute_detail_impl(Dim<dim>(), Is, ranges, detail, std::get<Is>(fields)), ...);
         }
 
-        template <std::size_t dim, class T1, class T2>
+        template <class T1, class T2>
         inline void operator()(Dim<dim>, T1& detail, const T2& fields) const
         {
             compute_detail_impl(Dim<dim>(), detail, fields.elements(), std::make_index_sequence<std::tuple_size_v<typename T2::tuple_type>>{});
@@ -439,8 +439,8 @@ namespace samurai
      * compute max detail operator *
      *******************************/
 
-    template <class TInterval>
-    class compute_max_detail_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class compute_max_detail_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -494,8 +494,8 @@ namespace samurai
      * compute max detail operator *
      *******************************/
 
-    template <class TInterval>
-    class compute_max_detail_op_ : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class compute_max_detail_op_ : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -530,8 +530,8 @@ namespace samurai
      * to_coarsen operator *
      ***********************/
 
-    template <class TInterval>
-    class to_coarsen_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class to_coarsen_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -601,8 +601,8 @@ namespace samurai
      * refine_ghost operator *
      *************************/
 
-    template <class TInterval>
-    class refine_ghost_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class refine_ghost_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -640,8 +640,8 @@ namespace samurai
      * enlarge operator *
      ********************/
 
-    template <class TInterval>
-    class enlarge_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class enlarge_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -700,8 +700,8 @@ namespace samurai
      * keep_around_refine operator *
      *******************************/
 
-    template <class TInterval>
-    class keep_around_refine_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class keep_around_refine_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -760,8 +760,8 @@ namespace samurai
      * apply_expr operator *
      ***********************/
 
-    template <class TInterval>
-    class apply_expr_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class apply_expr_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -795,8 +795,8 @@ namespace samurai
     /*******************
      * extend operator *
      *******************/
-    template <class TInterval>
-    class extend_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class extend_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -857,8 +857,8 @@ namespace samurai
      * make_graduation operator *
      ****************************/
 
-    template <class TInterval>
-    class make_graduation_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class make_graduation_op : public field_operator_base<dim, TInterval>
     {
       public:
 

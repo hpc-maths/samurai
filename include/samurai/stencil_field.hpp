@@ -76,9 +76,9 @@ namespace samurai
      * upwind operator *
      *******************/
 
-    template <class TInterval>
-    class upwind_op : public field_operator_base<TInterval>,
-                      public finite_volume<upwind_op<TInterval>>
+    template <std::size_t dim, class TInterval>
+    class upwind_op : public field_operator_base<dim, TInterval>,
+                      public finite_volume<upwind_op<dim, TInterval>>
     {
       public:
 
@@ -177,9 +177,9 @@ namespace samurai
     /*******************
      * upwind operator for the scalar Burgers equation *
      *******************/
-    template <class TInterval>
-    class upwind_scalar_burgers_op : public field_operator_base<TInterval>,
-                                     public finite_volume<upwind_scalar_burgers_op<TInterval>>
+    template <std::size_t dim, class TInterval>
+    class upwind_scalar_burgers_op : public field_operator_base<dim, TInterval>,
+                                     public finite_volume<upwind_scalar_burgers_op<dim, TInterval>>
     {
       public:
 

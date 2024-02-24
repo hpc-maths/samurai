@@ -17,8 +17,8 @@ namespace samurai
     // graduate operator //
     ///////////////////////
 
-    template <class TInterval>
-    class graduate_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class graduate_op : public field_operator_base<dim, TInterval>
     {
       public:
 

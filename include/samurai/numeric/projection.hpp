@@ -12,8 +12,8 @@ namespace samurai
     // projection operator //
     /////////////////////////
 
-    template <class TInterval>
-    class projection_op_ : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class projection_op_ : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -44,8 +44,8 @@ namespace samurai
         }
     };
 
-    template <class TInterval>
-    class variadic_projection_op_ : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class variadic_projection_op_ : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -59,21 +59,21 @@ namespace samurai
         template <class Head, class... Tail>
         inline void operator()(Dim<1>, Head& source, Tail&... sources) const
         {
-            projection_op_<interval_t>(level, i)(Dim<1>{}, source, source);
+            projection_op_<dim, interval_t>(level, i)(Dim<1>{}, source, source);
             this->operator()(Dim<1>{}, sources...);
         }
 
         template <class Head, class... Tail>
         inline void operator()(Dim<2>, Head& source, Tail&... sources) const
         {
-            projection_op_<interval_t>(level, i, j)(Dim<2>{}, source, source);
+            projection_op_<dim, interval_t>(level, i, j)(Dim<2>{}, source, source);
             this->operator()(Dim<2>{}, sources...);
         }
 
         template <class Head, class... Tail>
         inline void operator()(Dim<3>, Head& source, Tail&... sources) const
         {
-            projection_op_<interval_t>(level, i, j, k)(Dim<3>{}, source, source);
+            projection_op_<dim, interval_t>(level, i, j, k)(Dim<3>{}, source, source);
             this->operator()(Dim<3>{}, sources...);
         }
     };

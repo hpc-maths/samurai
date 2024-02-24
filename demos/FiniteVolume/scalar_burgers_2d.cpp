@@ -86,9 +86,9 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
                      i,
                      j) = unp1(level, i, j)
                         + dt / dx
-                              * (samurai::upwind_scalar_burgers_op<interval_t>(level, i, j).right_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level + 1, 2 * i + 1, 2 * j).right_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level + 1, 2 * i + 1, 2 * j + 1).right_flux(k, u));
+                              * (samurai::upwind_scalar_burgers_op<dim, interval_t>(level, i, j).right_flux(k, u)
+                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).right_flux(k, u)
+                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).right_flux(k, u));
             });
 
         stencil = {
@@ -105,11 +105,13 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
                 auto j          = index[0];
                 const double dx = samurai::cell_length(level);
 
-                unp1(level, i, j) = unp1(level, i, j)
-                                  - dt / dx
-                                        * (samurai::upwind_scalar_burgers_op<interval_t>(level, i, j).left_flux(k, u)
-                                           - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level + 1, 2 * i, 2 * j).left_flux(k, u)
-                                           - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level + 1, 2 * i, 2 * j + 1).left_flux(k, u));
+                unp1(level,
+                     i,
+                     j) = unp1(level, i, j)
+                        - dt / dx
+                              * (samurai::upwind_scalar_burgers_op<dim, interval_t>(level, i, j).left_flux(k, u)
+                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i, 2 * j).left_flux(k, u)
+                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).left_flux(k, u));
             });
 
         stencil = {
@@ -129,9 +131,9 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
                      i,
                      j) = unp1(level, i, j)
                         + dt / dx
-                              * (samurai::upwind_scalar_burgers_op<interval_t>(level, i, j).up_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level + 1, 2 * i, 2 * j + 1).up_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level + 1, 2 * i + 1, 2 * j + 1).up_flux(k, u));
+                              * (samurai::upwind_scalar_burgers_op<dim, interval_t>(level, i, j).up_flux(k, u)
+                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).up_flux(k, u)
+                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).up_flux(k, u));
             });
 
         stencil = {
@@ -148,11 +150,13 @@ void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, 
                 auto j          = index[0];
                 const double dx = samurai::cell_length(level);
 
-                unp1(level, i, j) = unp1(level, i, j)
-                                  - dt / dx
-                                        * (samurai::upwind_scalar_burgers_op<interval_t>(level, i, j).down_flux(k, u)
-                                           - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level + 1, 2 * i, 2 * j).down_flux(k, u)
-                                           - 0.5 * samurai::upwind_scalar_burgers_op<interval_t>(level + 1, 2 * i + 1, 2 * j).down_flux(k, u));
+                unp1(level,
+                     i,
+                     j) = unp1(level, i, j)
+                        - dt / dx
+                              * (samurai::upwind_scalar_burgers_op<dim, interval_t>(level, i, j).down_flux(k, u)
+                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i, 2 * j).down_flux(k, u)
+                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).down_flux(k, u));
             });
     }
 }

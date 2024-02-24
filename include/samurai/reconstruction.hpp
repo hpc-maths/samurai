@@ -284,8 +284,8 @@ namespace samurai
         return iter->second;
     }
 
-    template <class TInterval>
-    class reconstruction_op_ : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class reconstruction_op_ : public field_operator_base<dim, TInterval>
     {
       public:
 

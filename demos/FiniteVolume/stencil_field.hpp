@@ -8,9 +8,9 @@
 
 namespace samurai
 {
-    template <class TInterval>
-    class H_wrap_op : public field_operator_base<TInterval>,
-                      public field_expression<H_wrap_op<TInterval>>
+    template <std::size_t dim, class TInterval>
+    class H_wrap_op : public field_operator_base<dim, TInterval>,
+                      public field_expression<H_wrap_op<dim, TInterval>>
     {
       public:
 
@@ -82,9 +82,9 @@ namespace samurai
      * upwind operator for the scalar advection equation with variable velocity
      *******************/
 
-    template <class TInterval>
-    class upwind_variable_op : public field_operator_base<TInterval>,
-                               public finite_volume<upwind_variable_op<TInterval>>
+    template <std::size_t dim, class TInterval>
+    class upwind_variable_op : public field_operator_base<dim, TInterval>,
+                               public finite_volume<upwind_variable_op<dim, TInterval>>
     {
       public:
 
@@ -242,9 +242,9 @@ namespace samurai
         return make_field_operator_function<upwind_variable_op>(std::forward<CT>(e)...);
     }
 
-    template <class TInterval>
-    class upwind_Burgers_op : public field_operator_base<TInterval>,
-                              public finite_volume<upwind_Burgers_op<TInterval>>
+    template <std::size_t dim, class TInterval>
+    class upwind_Burgers_op : public field_operator_base<dim, TInterval>,
+                              public finite_volume<upwind_Burgers_op<dim, TInterval>>
     {
       public:
 

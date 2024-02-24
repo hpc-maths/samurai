@@ -313,8 +313,8 @@ namespace samurai
     // prediction operator //
     /////////////////////////
 
-    template <class TInterval>
-    class prediction_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class prediction_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -363,13 +363,13 @@ namespace samurai
         operator()(Dim<3>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>) const;
     };
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2>
-    inline void prediction_op<TInterval>::operator()(Dim<1>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, 0>,
-                                                     std::integral_constant<bool, true>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<1>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, 0>,
+                                                          std::integral_constant<bool, true>) const
     {
         auto ii = i << 1;
         ii.step = 2;
@@ -378,13 +378,13 @@ namespace samurai
         dest(level + 1, ii + 1) = src(level, i);
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2>
-    inline void prediction_op<TInterval>::operator()(Dim<1>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, 0>,
-                                                     std::integral_constant<bool, false>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<1>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, 0>,
+                                                          std::integral_constant<bool, false>) const
     {
         auto even_i = i.even_elements();
         if (even_i.is_valid())
@@ -401,13 +401,13 @@ namespace samurai
         }
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2, std::size_t order>
-    inline void prediction_op<TInterval>::operator()(Dim<1>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, order>,
-                                                     std::integral_constant<bool, true>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<1>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, order>,
+                                                          std::integral_constant<bool, true>) const
     {
         auto ii = i << 1;
         ii.step = 2;
@@ -418,13 +418,13 @@ namespace samurai
         dest(level + 1, ii + 1) = src(level, i) - qs_i;
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2, std::size_t order>
-    inline void prediction_op<TInterval>::operator()(Dim<1>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, order>,
-                                                     std::integral_constant<bool, false>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<1>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, order>,
+                                                          std::integral_constant<bool, false>) const
     {
         auto qs_i = Qs_i<order>(src, level - 1, i >> 1);
 
@@ -445,13 +445,13 @@ namespace samurai
         }
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2>
-    inline void prediction_op<TInterval>::operator()(Dim<2>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, 0>,
-                                                     std::integral_constant<bool, true>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<2>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, 0>,
+                                                          std::integral_constant<bool, true>) const
     {
         auto ii = i << 1;
         ii.step = 2;
@@ -464,13 +464,13 @@ namespace samurai
         dest(level + 1, ii + 1, jj + 1) = src(level, i, j);
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2>
-    inline void prediction_op<TInterval>::operator()(Dim<2>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, 0>,
-                                                     std::integral_constant<bool, false>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<2>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, 0>,
+                                                          std::integral_constant<bool, false>) const
     {
         if (j & 1)
         {
@@ -506,13 +506,13 @@ namespace samurai
         }
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2, std::size_t order>
-    inline void prediction_op<TInterval>::operator()(Dim<2>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, order>,
-                                                     std::integral_constant<bool, true>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<2>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, order>,
+                                                          std::integral_constant<bool, true>) const
     {
         auto ii = i << 1;
         ii.step = 2;
@@ -529,13 +529,13 @@ namespace samurai
         dest(level + 1, ii + 1, jj + 1) = src(level, i, j) - qs_i - qs_j - qs_ij;
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2, std::size_t order>
-    inline void prediction_op<TInterval>::operator()(Dim<2>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, order>,
-                                                     std::integral_constant<bool, false>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<2>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, order>,
+                                                          std::integral_constant<bool, false>) const
     {
         auto qs_i  = Qs_i<order>(src, level - 1, i >> 1, j >> 1);
         auto qs_j  = Qs_j<order>(src, level - 1, i >> 1, j >> 1);
@@ -629,13 +629,13 @@ namespace samurai
         }
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2>
-    inline void prediction_op<TInterval>::operator()(Dim<3>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, 0>,
-                                                     std::integral_constant<bool, true>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<3>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, 0>,
+                                                          std::integral_constant<bool, true>) const
     {
         auto ii = i << 1;
         ii.step = 2;
@@ -653,13 +653,13 @@ namespace samurai
         dest(level + 1, ii + 1, jj + 1, kk + 1) = src(level, i, j, k);
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2>
-    inline void prediction_op<TInterval>::operator()(Dim<3>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, 0>,
-                                                     std::integral_constant<bool, false>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<3>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, 0>,
+                                                          std::integral_constant<bool, false>) const
     {
         auto even_i = i.even_elements();
         if (even_i.is_valid())
@@ -676,13 +676,13 @@ namespace samurai
         }
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2, std::size_t order>
-    inline void prediction_op<TInterval>::operator()(Dim<3>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, order>,
-                                                     std::integral_constant<bool, true>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<3>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, order>,
+                                                          std::integral_constant<bool, true>) const
     {
         auto ii = i << 1;
         ii.step = 2;
@@ -708,13 +708,13 @@ namespace samurai
         dest(level + 1, ii + 1, jj + 1, kk + 1) = src(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk;
     }
 
-    template <class TInterval>
+    template <std::size_t dim, class TInterval>
     template <class T1, class T2, std::size_t order>
-    inline void prediction_op<TInterval>::operator()(Dim<3>,
-                                                     T1& dest,
-                                                     const T2& src,
-                                                     std::integral_constant<std::size_t, order>,
-                                                     std::integral_constant<bool, false>) const
+    inline void prediction_op<dim, TInterval>::operator()(Dim<3>,
+                                                          T1& dest,
+                                                          const T2& src,
+                                                          std::integral_constant<std::size_t, order>,
+                                                          std::integral_constant<bool, false>) const
     {
         auto qs_i   = Qs_i<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
         auto qs_j   = Qs_j<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
@@ -860,8 +860,8 @@ namespace samurai
         }
     }
 
-    template <class TInterval>
-    class variadic_prediction_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class variadic_prediction_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -879,7 +879,7 @@ namespace samurai
                                Head& source,
                                Tail&... sources) const
         {
-            prediction_op<interval_t>(level, i)(Dim<1>{}, source, source, o, dest);
+            prediction_op<dim, interval_t>(level, i)(Dim<1>{}, source, source, o, dest);
             this->operator()(Dim<1>{}, o, dest, sources...);
         }
 
@@ -890,7 +890,7 @@ namespace samurai
                                Head& source,
                                Tail&... sources) const
         {
-            prediction_op<interval_t>(level, i, j)(Dim<2>{}, source, source, o, dest);
+            prediction_op<dim, interval_t>(level, i, j)(Dim<2>{}, source, source, o, dest);
             this->operator()(Dim<2>{}, o, dest, sources...);
         }
 
@@ -901,7 +901,7 @@ namespace samurai
                                Head& source,
                                Tail&... sources) const
         {
-            prediction_op<interval_t>(level, i, j, k)(Dim<3>{}, source, source, o, dest);
+            prediction_op<dim, interval_t>(level, i, j, k)(Dim<3>{}, source, source, o, dest);
             this->operator()(Dim<3>{}, o, dest, sources...);
         }
     };

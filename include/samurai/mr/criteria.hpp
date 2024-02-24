@@ -13,8 +13,8 @@
 namespace samurai
 {
 
-    template <class TInterval>
-    class to_coarsen_mr_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class to_coarsen_mr_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -185,8 +185,8 @@ namespace samurai
 
     // Uses the details in the way suggested in
     // the paper by Bihari && Harten [1997]
-    template <class TInterval>
-    class to_coarsen_mr_BH_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class to_coarsen_mr_BH_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -262,8 +262,8 @@ namespace samurai
         return make_field_operator_function<to_coarsen_mr_BH_op>(std::forward<CT>(e)...);
     }
 
-    template <class TInterval>
-    class to_refine_mr_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class to_refine_mr_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -438,8 +438,8 @@ namespace samurai
         return make_field_operator_function<to_refine_mr_op>(std::forward<CT>(e)...);
     }
 
-    template <class TInterval>
-    class to_refine_mr_BH_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class to_refine_mr_BH_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -514,8 +514,8 @@ namespace samurai
         return make_field_operator_function<to_refine_mr_BH_op>(std::forward<CT>(e)...);
     }
 
-    template <class TInterval>
-    class max_detail_mr_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class max_detail_mr_op : public field_operator_base<dim, TInterval>
     {
       public:
 
