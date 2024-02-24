@@ -17,8 +17,8 @@ namespace samurai
     // copy operator //
     ///////////////////
 
-    template <class TInterval>
-    class copy_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class copy_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -53,8 +53,8 @@ namespace samurai
     // tag_to_keep operator //
     //////////////////////////
 
-    template <class TInterval>
-    class tag_to_keep_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class tag_to_keep_op : public field_operator_base<dim, TInterval>
     {
       public:
 
@@ -143,8 +143,8 @@ namespace samurai
     // keep_children_together operator //
     /////////////////////////////////////
 
-    template <class TInterval>
-    class keep_children_together_op : public field_operator_base<TInterval>
+    template <std::size_t dim, class TInterval>
+    class keep_children_together_op : public field_operator_base<dim, TInterval>
     {
       public:
 

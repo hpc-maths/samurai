@@ -9,8 +9,8 @@
 #include <samurai/operators_base.hpp>
 #include <samurai/subset/subset_op.hpp>
 
-template <class TInterval>
-class update_boundary_D2Q4_flat_op : public samurai::field_operator_base<TInterval>
+template <std::size_t dim, class TInterval>
+class update_boundary_D2Q4_flat_op : public samurai::field_operator_base<dim, TInterval>
 {
   public:
 
@@ -35,8 +35,8 @@ inline auto update_boundary_D2Q4_flat(T&& field, stencil_t&& stencil)
     return samurai::make_field_operator_function<update_boundary_D2Q4_flat_op>(std::forward<T>(field), std::forward<stencil_t>(stencil));
 }
 
-template <class TInterval>
-class update_boundary_D2Q4_linear_op : public samurai::field_operator_base<TInterval>
+template <std::size_t dim, class TInterval>
+class update_boundary_D2Q4_linear_op : public samurai::field_operator_base<dim, TInterval>
 {
   public:
 

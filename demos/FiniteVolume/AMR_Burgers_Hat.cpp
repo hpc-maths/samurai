@@ -126,9 +126,10 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 template <class Field>
 void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
 {
-    using mesh_t     = typename Field::mesh_t;
-    using mesh_id_t  = typename mesh_t::mesh_id_t;
-    using interval_t = typename mesh_t::interval_t;
+    using mesh_t                     = typename Field::mesh_t;
+    static constexpr std::size_t dim = Field::dim;
+    using mesh_id_t                  = typename mesh_t::mesh_id_t;
+    using interval_t                 = typename mesh_t::interval_t;
 
     auto mesh                   = phi_np1.mesh();
     const std::size_t min_level = mesh[mesh_id_t::cells].min_level();
@@ -151,8 +152,8 @@ void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
             {
                 phi_np1(level, i) = phi_np1(level, i)
                                   + dt / dx_loc
-                                        * (samurai::upwind_Burgers_op<interval_t>(level, i).right_flux(phi_n, dx / dt)
-                                           - samurai::upwind_Burgers_op<interval_t>(level + 1, 2 * i + 1).right_flux(phi_n, dx / dt));
+                                        * (samurai::upwind_Burgers_op<dim, interval_t>(level, i).right_flux(phi_n, dx / dt)
+                                           - samurai::upwind_Burgers_op<dim, interval_t>(level + 1, 2 * i + 1).right_flux(phi_n, dx / dt));
             });
 
         stencil          = {1};
@@ -165,8 +166,8 @@ void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
             {
                 phi_np1(level, i) = phi_np1(level, i)
                                   - dt / dx_loc
-                                        * (samurai::upwind_Burgers_op<interval_t>(level, i).left_flux(phi_n, dx / dt)
-                                           - samurai::upwind_Burgers_op<interval_t>(level + 1, 2 * i).left_flux(phi_n, dx / dt));
+                                        * (samurai::upwind_Burgers_op<dim, interval_t>(level, i).left_flux(phi_n, dx / dt)
+                                           - samurai::upwind_Burgers_op<dim, interval_t>(level + 1, 2 * i).left_flux(phi_n, dx / dt));
             });
     }
 }

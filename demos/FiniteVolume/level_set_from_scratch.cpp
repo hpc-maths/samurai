@@ -115,8 +115,8 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
     }
 };
 
-template <class TInterval>
-class projection_op_ : public samurai::field_operator_base<TInterval>
+template <std::size_t dim, class TInterval>
+class projection_op_ : public samurai::field_operator_base<dim, TInterval>
 {
   public:
 
@@ -456,13 +456,14 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
                 auto j          = index[0];
                 const double dx = samurai::cell_length(level);
 
-                phi_np1(level,
-                        i,
-                        j) = phi_np1(level, i, j)
-                           + dt / dx
-                                 * (samurai::upwind_variable_op<interval_t>(level, i, j).right_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<interval_t>(level + 1, 2 * i + 1, 2 * j).right_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<interval_t>(level + 1, 2 * i + 1, 2 * j + 1).right_flux(u, phi_n, dt));
+                phi_np1(
+                    level,
+                    i,
+                    j) = phi_np1(level, i, j)
+                       + dt / dx
+                             * (samurai::upwind_variable_op<dim, interval_t>(level, i, j).right_flux(u, phi_n, dt)
+                                - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).right_flux(u, phi_n, dt)
+                                - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).right_flux(u, phi_n, dt));
             });
 
         stencil = {
@@ -483,9 +484,9 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
                         i,
                         j) = phi_np1(level, i, j)
                            - dt / dx
-                                 * (samurai::upwind_variable_op<interval_t>(level, i, j).left_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<interval_t>(level + 1, 2 * i, 2 * j).left_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<interval_t>(level + 1, 2 * i, 2 * j + 1).left_flux(u, phi_n, dt));
+                                 * (samurai::upwind_variable_op<dim, interval_t>(level, i, j).left_flux(u, phi_n, dt)
+                                    - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i, 2 * j).left_flux(u, phi_n, dt)
+                                    - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).left_flux(u, phi_n, dt));
             });
 
         stencil = {
@@ -501,13 +502,14 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
                 auto j          = index[0];
                 const double dx = samurai::cell_length(level);
 
-                phi_np1(level,
-                        i,
-                        j) = phi_np1(level, i, j)
-                           + dt / dx
-                                 * (samurai::upwind_variable_op<interval_t>(level, i, j).up_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<interval_t>(level + 1, 2 * i, 2 * j + 1).up_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<interval_t>(level + 1, 2 * i + 1, 2 * j + 1).up_flux(u, phi_n, dt));
+                phi_np1(
+                    level,
+                    i,
+                    j) = phi_np1(level, i, j)
+                       + dt / dx
+                             * (samurai::upwind_variable_op<dim, interval_t>(level, i, j).up_flux(u, phi_n, dt)
+                                - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).up_flux(u, phi_n, dt)
+                                - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).up_flux(u, phi_n, dt));
             });
 
         stencil = {
@@ -528,9 +530,9 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
                         i,
                         j) = phi_np1(level, i, j)
                            - dt / dx
-                                 * (samurai::upwind_variable_op<interval_t>(level, i, j).down_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<interval_t>(level + 1, 2 * i, 2 * j).down_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<interval_t>(level + 1, 2 * i + 1, 2 * j).down_flux(u, phi_n, dt));
+                                 * (samurai::upwind_variable_op<dim, interval_t>(level, i, j).down_flux(u, phi_n, dt)
+                                    - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i, 2 * j).down_flux(u, phi_n, dt)
+                                    - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).down_flux(u, phi_n, dt));
             });
     }
 }

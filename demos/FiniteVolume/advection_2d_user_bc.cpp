@@ -89,9 +89,9 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   + dt / dx
-                                        * (samurai::upwind_op<interval_t>(level, i, j).right_flux(a, u)
-                                           - .5 * samurai::upwind_op<interval_t>(level + 1, 2 * i + 1, 2 * j).right_flux(a, u)
-                                           - .5 * samurai::upwind_op<interval_t>(level + 1, 2 * i + 1, 2 * j + 1).right_flux(a, u));
+                                        * (samurai::upwind_op<dim, interval_t>(level, i, j).right_flux(a, u)
+                                           - .5 * samurai::upwind_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).right_flux(a, u)
+                                           - .5 * samurai::upwind_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).right_flux(a, u));
             });
 
         stencil = {
@@ -110,9 +110,9 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   - dt / dx
-                                        * (samurai::upwind_op<interval_t>(level, i, j).left_flux(a, u)
-                                           - .5 * samurai::upwind_op<interval_t>(level + 1, 2 * i, 2 * j).left_flux(a, u)
-                                           - .5 * samurai::upwind_op<interval_t>(level + 1, 2 * i, 2 * j + 1).left_flux(a, u));
+                                        * (samurai::upwind_op<dim, interval_t>(level, i, j).left_flux(a, u)
+                                           - .5 * samurai::upwind_op<dim, interval_t>(level + 1, 2 * i, 2 * j).left_flux(a, u)
+                                           - .5 * samurai::upwind_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).left_flux(a, u));
             });
 
         stencil = {
@@ -130,9 +130,9 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   + dt / dx
-                                        * (samurai::upwind_op<interval_t>(level, i, j).up_flux(a, u)
-                                           - .5 * samurai::upwind_op<interval_t>(level + 1, 2 * i, 2 * j + 1).up_flux(a, u)
-                                           - .5 * samurai::upwind_op<interval_t>(level + 1, 2 * i + 1, 2 * j + 1).up_flux(a, u));
+                                        * (samurai::upwind_op<dim, interval_t>(level, i, j).up_flux(a, u)
+                                           - .5 * samurai::upwind_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).up_flux(a, u)
+                                           - .5 * samurai::upwind_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).up_flux(a, u));
             });
 
         stencil = {
@@ -151,9 +151,9 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   - dt / dx
-                                        * (samurai::upwind_op<interval_t>(level, i, j).down_flux(a, u)
-                                           - .5 * samurai::upwind_op<interval_t>(level + 1, 2 * i, 2 * j).down_flux(a, u)
-                                           - .5 * samurai::upwind_op<interval_t>(level + 1, 2 * i + 1, 2 * j).down_flux(a, u));
+                                        * (samurai::upwind_op<dim, interval_t>(level, i, j).down_flux(a, u)
+                                           - .5 * samurai::upwind_op<dim, interval_t>(level + 1, 2 * i, 2 * j).down_flux(a, u)
+                                           - .5 * samurai::upwind_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).down_flux(a, u));
             });
     }
 }

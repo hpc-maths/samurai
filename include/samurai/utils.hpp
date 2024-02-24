@@ -67,7 +67,7 @@ namespace samurai
     template <class F, class... CT>
     class field_function;
 
-    template <template <class T> class OP, class... CT>
+    template <template <std::size_t dim, class T> class OP, class... CT>
     class field_operator_function;
 
     namespace detail
@@ -198,7 +198,7 @@ namespace samurai
         {
         };
 
-        template <template <class T> class OP, class... CT>
+        template <template <std::size_t dim, class T> class OP, class... CT>
         struct is_field_function<field_operator_function<OP, CT...>> : std::true_type
         {
         };
