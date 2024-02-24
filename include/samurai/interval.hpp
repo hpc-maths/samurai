@@ -178,11 +178,12 @@ namespace samurai
     template <class TValue, class TIndex>
     inline auto Interval<TValue, TIndex>::operator>>=(std::size_t i) -> Interval&
     {
-        bool add_one = (start != end);
-        bool end_odd = (end & 1);
+        bool add_one    = (start != end);
+        bool end_odd    = (end & 1);
+        bool end_iszero = (end == 0);
         start >>= i;
         end >>= i;
-        if (end_odd || (start == end && add_one))
+        if (end_odd || (start == end && add_one) || (!end_iszero && end == 0))
         {
             ++end;
         }

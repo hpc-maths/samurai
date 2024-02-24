@@ -70,6 +70,39 @@ namespace samurai
         EXPECT_EQ(i1.step, 1);
     }
 
+    TEST(interval, right_shift)
+    {
+        using interval_t = Interval<int, int>;
+        interval_t out;
+
+        interval_t i{0, 9};
+
+        out = i >> 1;
+        EXPECT_EQ(out.start, 0);
+        EXPECT_EQ(out.end, 5);
+
+        out = i >> 2;
+        EXPECT_EQ(out.start, 0);
+        EXPECT_EQ(out.end, 3);
+
+        out = i >> 20;
+        EXPECT_EQ(out.start, 0);
+        EXPECT_EQ(out.end, 1);
+
+        i   = {-9, 2};
+        out = i >> 1;
+        EXPECT_EQ(out.start, -5);
+        EXPECT_EQ(out.end, 1);
+
+        out = i >> 2;
+        EXPECT_EQ(out.start, -3);
+        EXPECT_EQ(out.end, 1);
+
+        out = i >> 10;
+        EXPECT_EQ(out.start, -1);
+        EXPECT_EQ(out.end, 1);
+    }
+
     TEST(interval, ostream)
     {
         Interval<int, int> i{0, 3, 0};
