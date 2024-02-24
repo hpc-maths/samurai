@@ -406,7 +406,7 @@ namespace samurai
             }
         }
 
-        template <std::size_t dim, class T1, class T2, std::size_t... Is>
+        template <class T1, class T2, std::size_t... Is>
         inline void compute_detail_impl(Dim<dim>, T1& detail, const T2& fields, std::index_sequence<Is...>) const
         {
             std::array<std::size_t, std::tuple_size_v<T2> + 1> ranges;
@@ -422,7 +422,7 @@ namespace samurai
             (compute_detail_impl(Dim<dim>(), Is, ranges, detail, std::get<Is>(fields)), ...);
         }
 
-        template <std::size_t dim, class T1, class T2>
+        template <class T1, class T2>
         inline void operator()(Dim<dim>, T1& detail, const T2& fields) const
         {
             compute_detail_impl(Dim<dim>(), detail, fields.elements(), std::make_index_sequence<std::tuple_size_v<typename T2::tuple_type>>{});
