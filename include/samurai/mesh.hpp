@@ -103,21 +103,26 @@ namespace samurai
 
         template <typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
-        const interval_t&
-        get_interval(std::size_t level, const interval_t& interval, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const;
-        const interval_t& get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
+        template <class E>
+        const interval_t& get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const;
+        template <class E>
+        const interval_t& get_interval(std::size_t level, const xt::xexpression<E>& coord) const;
 
         template <typename... T>
         index_t get_index(std::size_t level, value_t i, T... index) const;
-        index_t get_index(std::size_t level, value_t i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& others) const;
-        index_t get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
-        void update_mesh_neighbour();
+        template <class E>
+        index_t get_index(std::size_t level, value_t i, const xt::xexpression<E>& others) const;
+        template <class E>
+        index_t get_index(std::size_t level, const xt::xexpression<E>& coord) const;
 
         template <typename... T>
         cell_t get_cell(std::size_t level, value_t i, T... index) const;
-        cell_t get_cell(std::size_t level, value_t i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const;
-        cell_t get_cell(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
+        template <class E>
+        cell_t get_cell(std::size_t level, value_t i, const xt::xexpression<E>& index) const;
+        template <class E>
+        cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
+        void update_mesh_neighbour();
         void to_stream(std::ostream& os) const;
 
       protected:
@@ -345,16 +350,16 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level,
-                                                   const interval_t& interval,
-                                                   const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const -> const interval_t&
+    template <class E>
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+        -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const
-        -> const interval_t&
+    template <class E>
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const xt::xexpression<E>& coord) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, coord);
     }
@@ -367,41 +372,38 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline auto
-    Mesh_base<D, Config>::get_index(std::size_t level, value_t i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& others) const
-        -> index_t
+    template <class E>
+    inline auto Mesh_base<D, Config>::get_index(std::size_t level, value_t i, const xt::xexpression<E>& others) const -> index_t
     {
         return m_cells[mesh_id_t::reference].get_index(level, i, others);
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::get_index(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const -> index_t
+    template <class E>
+    inline auto Mesh_base<D, Config>::get_index(std::size_t level, const xt::xexpression<E>& coord) const -> index_t
     {
-        using namespace xt::placeholders;
-        xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others = xt::view(coord, xt::range(1, _));
-        return get_index(level, coord[0], others);
+        return m_cells[mesh_id_t::reference].get_index(level, coord);
     }
 
     template <class D, class Config>
     template <typename... T>
     inline auto Mesh_base<D, Config>::get_cell(std::size_t level, value_t i, T... index) const -> cell_t
     {
-        return {level, i, xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>{index...}, get_index(level, i, index...)};
+        return m_cells[mesh_id_t::reference].get_cell(level, i, index...);
     }
 
     template <class D, class Config>
-    inline auto
-    Mesh_base<D, Config>::get_cell(std::size_t level, value_t i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const -> cell_t
+    template <class E>
+    inline auto Mesh_base<D, Config>::get_cell(std::size_t level, value_t i, const xt::xexpression<E>& index) const -> cell_t
     {
-        return {level, i, index, get_index(level, i, index)};
+        return m_cells[mesh_id_t::reference].get_cell(level, i, index);
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::get_cell(std::size_t level, const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const -> cell_t
+    template <class E>
+    inline auto Mesh_base<D, Config>::get_cell(std::size_t level, const xt::xexpression<E>& coord) const -> cell_t
     {
-        using namespace xt::placeholders;
-        xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others = xt::view(coord, xt::range(1, _));
-        return get_cell(level, coord[0], others);
+        return m_cells[mesh_id_t::reference].get_cell(level, coord);
     }
 
     template <class D, class Config>
