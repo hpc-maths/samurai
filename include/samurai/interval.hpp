@@ -22,7 +22,7 @@ namespace samurai
     /////////////////////////
 
     /** @class Interval
-     *  @brief An interval with storage index.
+     *  @brief An interval \f$[\![ a, b [\![\f$ of integral coordinates with step and storage index.
      *
      * The index is used to associate each discrete coordinate @a c within
      * the interval to a value in a storage, at the position given by
@@ -31,6 +31,19 @@ namespace samurai
      * It implies that index may be negative but it allows to shrink
      * the interval (e.g. during a intersection operation) without the need
      * to recalculate the index.
+     *
+     * In the context of finite volume schemes, an interval is mapped to a span
+     * of cells: considering that the cell of index \f$i\f$ and level \f$l\f$
+     * is associated to the real interval
+     * \f$\left[\frac{i}{2^l}, \frac{i + 1}{2^l}\right]\f$,
+     * then an @c Interval \f$[\![ a, b [\![\f$ at level \f$l\f$ is associated to the real
+     * interval \f$\left[\frac{a}{2^l}, \frac{b}{2^l}\right]\f$.
+     *
+     * Thus, any operation like space shifting (using @c + or @c - ),
+     * space scaling (using @c * or @c / ) or level change (using @c >> or
+     * @c << ) applied on an @c Interval should result in the @b smallest
+     * @c Interval that contains the result of the same operation
+     * applied on the real interval.
      *
      * @tparam TValue  The coordinate type (must be signed).
      * @tparam TIndex  The index type (must be signed).
@@ -175,22 +188,58 @@ namespace samurai
         return *this;
     }
 
+    /** @brief Decreases level by given non-negative shift.
+     *
+     * Given an @c Interval \f$[\![ a, b [\![\f$ at level \f$l\f$,
+     * and a non-negative shift \f$i <= l\f$ (subsequent shifts are ignored),
+     * it should return the @b smallest @c Interval \f$[\![ a', b' [\![\f$ at level \f$l - i\f$
+     * such that \f$\left[\frac{a}{2^l}, \frac{b}{2^l}\right] \subseteq \left[\frac{a'}{2^{l - i}}, \frac{b'}{2^{l - i}}\right] \f$.
+     *
+     * This is equivalent to:
+     * - find the greatest integer \f$a'\f$ so that \f$\frac{a'}{2^{l - i}} \le \frac{a}{2^l} \Longleftrightarrow a' = \left \lfloor
+     * \frac{a}{2^i} \right \rfloor\f$,
+     * - find the smallest integer \f$b'\f$ so that \f$\frac{b'}{2^{l - i}} \ge \frac{b}{2^l} \Longleftrightarrow b' = \left \lceil
+     * \frac{b}{2^i}  \right \rceil\f$.
+     *
+     * Using the <a href="https://en.wikipedia.org/wiki/Floor_and_ceiling_functions#Quotients">property</a> that,
+     * for an integer \f$n\f$ and a positive integer \f$m\f$,
+     * \f$ \left\lceil \frac{n}{m} \right\rceil = \left\lfloor \frac{n - 1}{m} \right\rfloor + 1 \f$
+     * then \f$b' = \left\lfloor \frac{b - 1}{2^i} \right\rfloor + 1\f$.
+     *
+     * Since C++20, \f$ \left\lfloor \frac{n}{2^i} \right\rfloor \f$ is equal to <tt>n >> i</tt>,
+     * so that the update of the @c Interval should look like:
+     * @code
+     * start >>= i;
+     * end = ((end - 1) >> i) + 1;
+     * @endcode
+     * Before that, the result on a negative integer is implementation-defined but compilers seem to be
+     * consistent with the C++20 norm.
+     */
     template <class TValue, class TIndex>
     inline auto Interval<TValue, TIndex>::operator>>=(std::size_t i) -> Interval&
     {
-        bool add_one    = (start != end);
-        bool end_odd    = (end & 1);
-        bool end_iszero = (end == 0);
         start >>= i;
-        end >>= i;
-        if (end_odd || (start == end && add_one) || (!end_iszero && end == 0))
-        {
-            ++end;
-        }
+        end  = ((end - 1) >> i) + 1;
         step = 1;
         return *this;
     }
 
+    /** @brief Increases level by given non-negative shift.
+     *
+     * Given an @c Interval \f$[\![ a, b [\![\f$ at level \f$l\f$,
+     * it should return the @b smallest @c Interval \f$[\![ a', b' [\![\f$ at level \f$l + i\f$
+     * such that \f$\left[\frac{a}{2^l}, \frac{b}{2^l}\right] \subseteq \left[\frac{a'}{2^{l + i}}, \frac{b'}{2^{l + i}}\right] \f$.
+     *
+     * This is equivalent to:
+     * - find the greatest integer \f$a'\f$ so that \f$\frac{a'}{2^{l + i}} \le \frac{a}{2^l} \Longleftrightarrow a' = \left \lfloor a 2^i
+     * \right \rfloor = a 2^i\f$,
+     * - find the smallest integer \f$b'\f$ so that \f$\frac{b'}{2^{l + i}} \ge \frac{b}{2^l} \Longleftrightarrow b' = \left \lceil  b 2^i
+     * \right \rceil = b 2^i\f$.
+     *
+     * Since C++20, it is equal to respectively <tt>a << i</tt> and <tt>b << i</tt>.
+     * Before that, the result on a negative integer is undefined but compilers seem to be
+     * consistent with the C++20 norm.
+     */
     template <class TValue, class TIndex>
     inline auto Interval<TValue, TIndex>::operator<<=(std::size_t i) -> Interval&
     {
