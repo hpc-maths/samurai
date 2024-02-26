@@ -67,7 +67,6 @@ namespace samurai
         struct get_fields_type
         {
             using fields_t                     = Field_tuple<TFields...>;
-            using old_fields_t                 = typename fields_t::tuple_type_without_ref;
             using mesh_t                       = typename fields_t::mesh_t;
             static constexpr std::size_t nelem = fields_t::nelem;
             using common_t                     = typename fields_t::common_t;
@@ -77,49 +76,13 @@ namespace samurai
         template <class TField>
         struct get_fields_type<TField>
         {
-            using fields_t     = TField&;
-            using old_fields_t = TField;
-            using mesh_t       = typename TField::mesh_t;
-            using detail_t     = Field<mesh_t, typename TField::value_type, TField::size>;
+            using fields_t = TField&;
+            using mesh_t   = typename TField::mesh_t;
+            using detail_t = Field<mesh_t, typename TField::value_type, TField::size>;
         };
-
-        template <class Mesh, class T>
-        auto copy_fields(Mesh& mesh, const T& field_src)
-        {
-            T field_dst = field_src;
-            field_dst.change_mesh_ptr(mesh);
-            return field_dst;
-        }
-
-        template <class Mesh, class Field>
-        void affect_mesh(Mesh& mesh, Field& field)
-        {
-            field.change_mesh_ptr(mesh);
-        }
-
-        template <class Mesh, class... T, std::size_t... Is>
-        void set_mesh_impl(Mesh& mesh, std::tuple<T...>& t, std::index_sequence<Is...>)
-        {
-            (affect_mesh(mesh, std::get<Is>(t)), ...);
-        }
-
-        template <class Mesh, class... T>
-        void set_mesh(Mesh& mesh, std::tuple<T...>& t)
-        {
-            set_mesh_impl(mesh, t, std::make_index_sequence<sizeof...(T)>{});
-        }
-
-        template <class Mesh, class... T>
-        auto copy_fields(Mesh& mesh, const Field_tuple<T...>& fields_src)
-        {
-            using return_t      = typename Field_tuple<T...>::tuple_type_without_ref;
-            return_t fields_dst = fields_src.elements();
-            set_mesh(mesh, fields_dst);
-            return fields_dst;
-        }
     }
 
-    template <bool keep_previous, class TField, class... TFields>
+    template <class TField, class... TFields>
     class Adapt
     {
       public:
@@ -133,7 +96,6 @@ namespace samurai
 
         using inner_fields_type = detail::get_fields_type<TField, TFields...>;
         using fields_t          = typename inner_fields_type::fields_t;
-        using old_fields_t      = typename inner_fields_type::old_fields_t;
         using mesh_t            = typename inner_fields_type::mesh_t;
         using mesh_id_t         = typename mesh_t::mesh_id_t;
         using detail_t          = typename inner_fields_type::detail_t;
@@ -146,24 +108,24 @@ namespace samurai
         using cl_type       = typename mesh_t::cl_type;
 
         template <class... Fields>
-        bool harten(std::size_t ite, double eps, double regularity, old_fields_t& old_fields, Fields&... other_fields);
+        bool harten(std::size_t ite, double eps, double regularity, Fields&... other_fields);
 
         fields_t m_fields; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         detail_t m_detail;
         tag_t m_tag;
     };
 
-    template <bool keep_previous, class TField, class... TFields>
-    inline Adapt<keep_previous, TField, TFields...>::Adapt(TField& field, TFields&... fields)
+    template <class TField, class... TFields>
+    inline Adapt<TField, TFields...>::Adapt(TField& field, TFields&... fields)
         : m_fields(field, fields...)
         , m_detail("detail", field.mesh())
         , m_tag("tag", field.mesh())
     {
     }
 
-    template <bool keep_previous, class TField, class... TFields>
+    template <class TField, class... TFields>
     template <class... Fields>
-    void Adapt<keep_previous, TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
+    void Adapt<TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
@@ -175,13 +137,6 @@ namespace samurai
         }
         update_ghost_mr(m_fields);
 
-        auto mesh_old = mesh;
-        old_fields_t old_fields;
-        if constexpr (keep_previous)
-        {
-            old_fields = detail::copy_fields(mesh_old, m_fields);
-        }
-
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
             // std::cout << "MR mesh adaptation " << i << std::endl;
@@ -189,7 +144,7 @@ namespace samurai
             m_detail.fill(0);
             m_tag.resize();
             m_tag.fill(0);
-            if (harten(i, eps, regularity, old_fields, other_fields...))
+            if (harten(i, eps, regularity, other_fields...))
             {
                 break;
             }
@@ -236,13 +191,9 @@ namespace samurai
         }
     }
 
-    template <bool keep_previous, class TField, class... TFields>
+    template <class TField, class... TFields>
     template <class... Fields>
-    bool Adapt<keep_previous, TField, TFields...>::harten(std::size_t ite,
-                                                          double eps,
-                                                          double regularity,
-                                                          old_fields_t& old_fields,
-                                                          Fields&... other_fields)
+    bool Adapt<TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh = m_fields.mesh();
 
@@ -380,26 +331,12 @@ namespace samurai
         update_ghost_mr(other_fields...);
         keep_only_one_coarse_tag(m_tag);
 
-        if constexpr (keep_previous)
-        {
-            update_ghost_mr(old_fields);
-            return update_field_mr(std::integral_constant<bool, true>{}, m_tag, m_fields, old_fields, other_fields...);
-        }
-        else
-        {
-            return update_field_mr(std::integral_constant<bool, false>{}, m_tag, m_fields, other_fields...);
-        }
+        return update_field_mr(std::integral_constant<bool, false>{}, m_tag, m_fields, other_fields...);
     }
 
     template <class... TFields>
     auto make_MRAdapt(TFields&... fields)
     {
-        return Adapt<true, TFields...>(fields...);
-    }
-
-    template <bool keep_previous, class... TFields>
-    auto make_MRAdapt(TFields&... fields)
-    {
-        return Adapt<keep_previous, TFields...>(fields...);
+        return Adapt<TFields...>(fields...);
     }
 } // namespace samurai
