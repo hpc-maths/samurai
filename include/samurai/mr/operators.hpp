@@ -340,14 +340,14 @@ namespace samurai
             if (xt::same_shape(dest_shape, src_shape))
             {
                 auto detail_range = detail::make_detail_range<false>(detail, ranges[i_r], ranges[i_r + 1]);
-                compute_detail_op<dim, TInterval> compute_detail(level, i, index);
-                compute_detail(d, detail_range, field);
+                compute_detail_op<dim, TInterval> compute_detail_(level, i, index);
+                compute_detail_(d, detail_range, field);
             }
             else
             {
                 auto detail_range = detail::make_detail_range<true>(detail, ranges[i_r], ranges[i_r + 1]);
-                compute_detail_op<dim, TInterval> compute_detail(level, i, index);
-                compute_detail(d, detail_range, field);
+                compute_detail_op<dim, TInterval> compute_detail_(level, i, index);
+                compute_detail_(d, detail_range, field);
             }
         }
 
