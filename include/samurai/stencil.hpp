@@ -298,7 +298,7 @@ namespace samurai
 
         Stencil<stencil_size, dim> s;
         s.fill(0);
-        static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
+        static_for<0, static_cast<int>(stencil_size)>::apply( // for (int i=0; i<stencil_size; i++)
             [&](auto integral_constant_i)
             {
                 static constexpr int i = decltype(integral_constant_i)::value;
@@ -313,7 +313,7 @@ namespace samurai
     {
         Stencil<stencil_size, dim> s;
         s.fill(0);
-        static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
+        static_for<0, static_cast<int>(stencil_size)>::apply( // for (int i=0; i<stencil_size; i++)
             [&](auto integral_constant_i)
             {
                 static constexpr int i = decltype(integral_constant_i)::value;
