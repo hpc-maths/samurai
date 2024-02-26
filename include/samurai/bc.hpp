@@ -26,6 +26,8 @@
     using value_t = typename base_t::value_t;                                                  \
     using base_t::Bc;                                                                          \
     using base_t::dim;                                                                         \
+    using base_t::apply;                                                                       \
+    using base_t::stencil;                                                                     \
                                                                                                \
     using stencil_t               = samurai::Stencil<STENCIL_SIZE, dim>;                       \
     using constant_stencil_size_t = std::integral_constant<std::size_t, STENCIL_SIZE>;         \
