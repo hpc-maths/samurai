@@ -138,28 +138,28 @@ namespace samurai
     };
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage)
-#define INIT_OPERATOR(NAME)                                                                 \
-    using interval_t    = TInterval;                                                        \
-    using coord_index_t = typename interval_t::coord_index_t;                               \
-                                                                                            \
-    using base          = ::samurai::field_operator_base<dim, interval_t>;                  \
-    using array_index_t = typename base::array_index_t;                                     \
-    using base::i;                                                                          \
-    using base::j;                                                                          \
-    using base::k;                                                                          \
-    using base::level;                                                                      \
-    using base::dx;                                                                         \
-    using base::index;                                                                      \
-                                                                                            \
-    inline NAME(std::size_t level_, const interval_t& interval, const array_index_t& index) \
-        : base(level_, interval, index)                                                     \
-    {                                                                                       \
-    }                                                                                       \
-                                                                                            \
-    template <class... index_t>                                                             \
-    inline NAME(std::size_t level_, const interval_t& interval, const index_t&... index)    \
-        : base(level_, interval, index...)                                                  \
-    {                                                                                       \
+#define INIT_OPERATOR(NAME)                                                                  \
+    using interval_t    = TInterval;                                                         \
+    using coord_index_t = typename interval_t::coord_index_t;                                \
+                                                                                             \
+    using base          = ::samurai::field_operator_base<dim, interval_t>;                   \
+    using array_index_t = typename base::array_index_t;                                      \
+    using base::i;                                                                           \
+    using base::j;                                                                           \
+    using base::k;                                                                           \
+    using base::level;                                                                       \
+    using base::dx;                                                                          \
+    using base::index;                                                                       \
+                                                                                             \
+    inline NAME(std::size_t level_, const interval_t& interval, const array_index_t& index_) \
+        : base(level_, interval, index_)                                                     \
+    {                                                                                        \
+    }                                                                                        \
+                                                                                             \
+    template <class... index_t>                                                              \
+    inline NAME(std::size_t level_, const interval_t& interval, const index_t&... index_)    \
+        : base(level_, interval, index_...)                                                  \
+    {                                                                                        \
     }
     // NOLINTEND(cppcoreguidelines-macro-usage)
 } // namespace samurai
