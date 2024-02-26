@@ -199,7 +199,7 @@ namespace samurai
                         std::copy(to_recv.begin() + count,
                                   to_recv.begin() + count + static_cast<ptrdiff_t>(i.size()),
                                   field(level, i, index).begin());
-                        count += i.size();
+                        count += static_cast<ptrdiff_t>(i.size());
                     });
             }
         }
@@ -291,7 +291,7 @@ namespace samurai
                         {
                             tag(level, i, index) |= neigh_tag;
                         }
-                        count += i.size();
+                        count += static_cast<std::ptrdiff_t>(i.size());
                     });
             }
         }
@@ -336,7 +336,7 @@ namespace samurai
                         xt::xtensor<value_t, 1> neigh_tag = xt::empty_like(tag(level, i, index));
                         std::copy(to_recv.begin() + count, to_recv.begin() + count + static_cast<std::ptrdiff_t>(i.size()), neigh_tag.begin());
                         tag(level, i, index) |= neigh_tag;
-                        count += i.size();
+                        count += static_cast<std::ptrdiff_t>(i.size());
                     });
             }
         }
