@@ -170,37 +170,24 @@ namespace samurai
 
         INIT_OPERATOR(compute_detail_op)
 
-        template <class T, std::size_t order = T::mesh_t::config::prediction_order>
-        inline void operator()(Dim<1>, T& detail, const T& field) const
+        template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
+        inline void operator()(Dim<1>, T1& detail, const T2& field) const
         {
             auto qs_i = xt::eval(Qs_i<order>(field, level, i));
 
-            detail(level + 1, 2 * i) = field(level + 1, 2 * i) - (field(level, i) + qs_i);
-
+            detail(level + 1, 2 * i)     = field(level + 1, 2 * i) - (field(level, i) + qs_i);
             detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
 
             if (level >= 1)
             {
-                auto even_i = i.even_elements();
-                if (even_i.is_valid())
-                {
-                    auto coarse_even_i    = even_i >> 1;
-                    auto qs_i_2           = xt::eval(Qs_i<order>(field, level - 1, coarse_even_i));
-                    detail(level, even_i) = field(level, even_i) - (field(level - 1, coarse_even_i) + qs_i_2);
-                }
-
-                auto odd_i = i.odd_elements();
-                if (odd_i.is_valid())
-                {
-                    auto coarse_odd_i    = odd_i >> 1;
-                    auto qs_i_2          = xt::eval(Qs_i<order>(field, level - 1, coarse_odd_i));
-                    detail(level, odd_i) = field(level, odd_i) - (field(level - 1, coarse_odd_i) - qs_i_2);
-                }
+                prediction_op<dim, TInterval> pred(level, i);
+                pred(Dim<1>{}, detail, field, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, false>{});
+                detail(level, i) = field(level, i) - detail(level, i);
             }
         }
 
-        template <class T, std::size_t order = T::mesh_t::config::prediction_order>
-        inline void operator()(Dim<2>, T& detail, const T& field) const
+        template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
+        inline void operator()(Dim<2>, T1& detail, const T2& field) const
         {
             auto qs_i  = Qs_i<order>(field, level, i, j);
             auto qs_j  = Qs_j<order>(field, level, i, j);
@@ -220,86 +207,21 @@ namespace samurai
             }
 #endif
 
-            detail(level + 1, 2 * i, 2 * j) = field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij);
-
-            detail(level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
-
-            detail(level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
-
+            detail(level + 1, 2 * i, 2 * j)         = field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij);
+            detail(level + 1, 2 * i + 1, 2 * j)     = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
+            detail(level + 1, 2 * i, 2 * j + 1)     = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
             detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij);
 
             if (level >= 1)
             {
-                auto jc = j >> 1;
-                if (j & 1)
-                {
-                    auto even_i = i.even_elements();
-                    if (even_i.is_valid())
-                    {
-                        auto coarse_even_i = even_i >> 1;
-                        auto qs_i          = Qs_i<order>(field, level - 1, coarse_even_i, jc);
-                        auto qs_j          = Qs_j<order>(field, level - 1, coarse_even_i, jc);
-                        auto qs_ij         = Qs_ij<order>(field, level - 1, coarse_even_i, jc);
-
-                        detail(level, even_i, j) = field(level, even_i, j) - (field(level - 1, coarse_even_i, jc) + qs_i - qs_j + qs_ij);
-                    }
-
-                    auto odd_i = i.odd_elements();
-                    if (odd_i.is_valid())
-                    {
-                        auto coarse_odd_i       = odd_i >> 1;
-                        auto qs_i               = Qs_i<order>(field, level - 1, coarse_odd_i, jc);
-                        auto qs_j               = Qs_j<order>(field, level - 1, coarse_odd_i, jc);
-                        auto qs_ij              = Qs_ij<order>(field, level - 1, coarse_odd_i, jc);
-                        detail(level, odd_i, j) = field(level, odd_i, j) - (field(level - 1, coarse_odd_i, jc) - qs_i - qs_j - qs_ij);
-                    }
-                }
-                else
-                {
-                    auto even_i = i.even_elements();
-                    if (even_i.is_valid())
-                    {
-                        auto coarse_even_i = even_i >> 1;
-                        auto qs_i          = Qs_i<order>(field, level - 1, coarse_even_i, jc);
-                        auto qs_j          = Qs_j<order>(field, level - 1, coarse_even_i, jc);
-                        auto qs_ij         = Qs_ij<order>(field, level - 1, coarse_even_i, jc);
-
-                        detail(level, even_i, j) = field(level, even_i, j) - (field(level - 1, coarse_even_i, jc) + qs_i + qs_j - qs_ij);
-                    }
-
-                    auto odd_i = i.odd_elements();
-                    if (odd_i.is_valid())
-                    {
-                        auto coarse_odd_i       = odd_i >> 1;
-                        auto qs_i               = Qs_i<order>(field, level - 1, coarse_odd_i, jc);
-                        auto qs_j               = Qs_j<order>(field, level - 1, coarse_odd_i, jc);
-                        auto qs_ij              = Qs_ij<order>(field, level - 1, coarse_odd_i, jc);
-                        detail(level, odd_i, j) = field(level, odd_i, j) - (field(level - 1, coarse_odd_i, jc) - qs_i + qs_j + qs_ij);
-                    }
-                }
+                prediction_op<dim, TInterval> pred(level, i, j);
+                pred(Dim<2>{}, detail, field, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, false>{});
+                detail(level, i, j) = field(level, i, j) - detail(level, i, j);
             }
-
-            // This is what is done by Bihari and Harten 1999
-            // // It seems the good choice.
-            // detail(level + 1, 2 * i, 2 * j) =
-            //     field(level + 1, 2 * i, 2 * j) -
-            //     (field(level, i, j) - qs_i - qs_j + qs_ij);
-
-            // detail(level + 1, 2 * i + 1, 2 * j) =
-            //     field(level + 1, 2 * i + 1, 2 * j) -
-            //     (field(level, i, j) + qs_i - qs_j - qs_ij);
-
-            // detail(level + 1, 2 * i, 2 * j + 1) =
-            //     field(level + 1, 2 * i, 2 * j + 1) -
-            //     (field(level, i, j) - qs_i + qs_j - qs_ij);
-
-            // detail(level + 1, 2 * i + 1, 2 * j + 1) =
-            //     field(level + 1, 2 * i + 1, 2 * j + 1) -
-            //     (field(level, i, j) + qs_i + qs_j + qs_ij);
         }
 
-        template <class T, std::size_t order = T::mesh_t::config::prediction_order>
-        inline void operator()(Dim<3>, T& detail, const T& field) const
+        template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
+        inline void operator()(Dim<3>, T1& detail, const T2& field) const
         {
             auto qs_i   = Qs_i<order>(field, level, i, j, k);
             auto qs_j   = Qs_j<order>(field, level, i, j, k);
@@ -311,26 +233,27 @@ namespace samurai
 
             detail(level + 1, 2 * i, 2 * j, 2 * k) = field(level + 1, 2 * i, 2 * j, 2 * k)
                                                    - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk);
-
             detail(level + 1, 2 * i + 1, 2 * j, 2 * k) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
                                                        - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk);
-
             detail(level + 1, 2 * i, 2 * j + 1, 2 * k) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
                                                        - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk);
-
             detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
                                                            - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk);
-
             detail(level + 1, 2 * i, 2 * j, 2 * k + 1) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
                                                        - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk);
-
             detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
                                                            - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk);
             detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
                                                            - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk);
-
             detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
                                                                - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk);
+
+            if (level >= 1)
+            {
+                prediction_op<dim, TInterval> pred(level, i, j, k);
+                pred(Dim<3>{}, detail, field, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, false>{});
+                detail(level, i, j, k) = field(level, i, j, k) - detail(level, i, j, k);
+            }
         }
     };
 
@@ -338,6 +261,67 @@ namespace samurai
     inline auto compute_detail(T&& detail, T&& field)
     {
         return make_field_operator_function<compute_detail_op>(std::forward<T>(detail), std::forward<T>(field));
+    }
+
+    namespace detail
+    {
+        template <bool transpose, class Field>
+        class detail_range
+        {
+          public:
+
+            static constexpr std::size_t dim  = Field::dim;
+            static constexpr std::size_t size = Field::size;
+            static constexpr bool is_soa      = Field::is_soa;
+
+            using interval_t    = typename Field::interval_t;
+            using coord_index_t = typename interval_t::coord_index_t;
+            using array_index_t = xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>;
+
+            detail_range(Field& detail, std::size_t beg, std::size_t end)
+                : m_detail(detail)
+                , m_beg(beg)
+                , m_end(end)
+            {
+            }
+
+            template <class... T>
+            auto operator()(std::size_t level, const interval_t& i, const T... index)
+            {
+                if constexpr (transpose)
+                {
+                    return xt::transpose(m_detail(m_beg, m_end, level, i, index...));
+                }
+                else
+                {
+                    return m_detail(m_beg, m_end, level, i, index...);
+                }
+            }
+
+            auto operator()(std::size_t level, const interval_t& i, const array_index_t& index)
+            {
+                if constexpr (transpose)
+                {
+                    return xt::transpose(m_detail(m_beg, m_end, level, i, index));
+                }
+                else
+                {
+                    return m_detail(m_beg, m_end, level, i, index);
+                }
+            }
+
+          private:
+
+            Field& m_detail;
+            std::size_t m_beg;
+            std::size_t m_end;
+        };
+
+        template <bool transpose, class Field>
+        auto make_detail_range(Field& field, std::size_t beg, std::size_t end)
+        {
+            return detail_range<transpose, Field>(field, beg, end);
+        }
     }
 
     template <std::size_t dim, class TInterval>
@@ -348,144 +332,22 @@ namespace samurai
         INIT_OPERATOR(compute_detail_on_tuple_op)
 
         template <class Ranges, class T1, class T2>
-        inline void compute_detail_impl(Dim<1>, std::size_t ir, const Ranges& ranges, T1& detail, const T2& field) const
+        inline void compute_detail_impl(Dim<dim> d, std::size_t i_r, const Ranges& ranges, T1& detail, const T2& field) const
         {
-            static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
-            auto qs_i                          = xt::eval(Qs_i<order>(field, level, i));
+            auto dest_shape = detail(ranges[i_r], ranges[i_r + 1], level + 1, 2 * i, 2 * index).shape();
+            auto src_shape  = field(level + 1, 2 * i, 2 * index).shape();
 
-            auto dest_shape = detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i).shape();
-            auto src_shape  = field(level + 1, 2 * i).shape();
             if (xt::same_shape(dest_shape, src_shape))
             {
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i)     = field(level + 1, 2 * i) - (field(level, i) + qs_i);
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
+                auto detail_range = detail::make_detail_range<false>(detail, ranges[i_r], ranges[i_r + 1]);
+                compute_detail_op<dim, TInterval> compute_detail(level, i, index);
+                compute_detail(d, detail_range, field);
             }
             else
             {
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i) = xt::transpose(field(level + 1, 2 * i) - (field(level, i) + qs_i));
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1) = xt::transpose(field(level + 1, 2 * i + 1)
-                                                                                         - (field(level, i) - qs_i));
-            }
-        }
-
-        template <class Ranges, class T1, class T2>
-        inline void compute_detail_impl(Dim<2>, std::size_t ir, const Ranges& ranges, T1& detail, const T2& field) const
-        {
-            static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
-            auto qs_i                          = Qs_i<order>(field, level, i, j);
-            auto qs_j                          = Qs_j<order>(field, level, i, j);
-            auto qs_ij                         = Qs_ij<order>(field, level, i, j);
-
-            auto dest_shape = detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j).shape();
-            auto src_shape  = field(level + 1, 2 * i, 2 * j).shape();
-            if (xt::same_shape(dest_shape, src_shape))
-            {
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j) = field(level + 1, 2 * i, 2 * j)
-                                                                            - (field(level, i, j) + qs_i + qs_j - qs_ij);
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j)
-                                                                                - (field(level, i, j) - qs_i + qs_j + qs_ij);
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1)
-                                                                                - (field(level, i, j) + qs_i - qs_j + qs_ij);
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1)
-                                                                                    - (field(level, i, j) - qs_i - qs_j - qs_ij);
-            }
-            else
-            {
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j) = xt::transpose(field(level + 1, 2 * i, 2 * j)
-                                                                                            - (field(level, i, j) + qs_i + qs_j - qs_ij));
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j) = xt::transpose(
-                    field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij));
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j + 1) = xt::transpose(
-                    field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij));
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j + 1) = xt::transpose(
-                    field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij));
-            }
-        }
-
-        template <class Ranges, class T1, class T2>
-        inline void compute_detail_impl(Dim<3>, std::size_t ir, const Ranges& ranges, T1& detail, const T2& field) const
-        {
-            static constexpr std::size_t order = T1::mesh_t::config::prediction_order;
-            auto qs_i                          = Qs_i<order>(field, level, i, j, k);
-            auto qs_j                          = Qs_j<order>(field, level, i, j, k);
-            auto qs_k                          = Qs_k<order>(field, level, i, j, k);
-            auto qs_ij                         = Qs_ij<order>(field, level, i, j, k);
-            auto qs_ik                         = Qs_ik<order>(field, level, i, j, k);
-            auto qs_jk                         = Qs_jk<order>(field, level, i, j, k);
-            auto qs_ijk                        = Qs_ijk<order>(field, level, i, j, k);
-
-            auto dest_shape = detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j, 2 * k).shape();
-            auto src_shape  = field(level + 1, 2 * i, 2 * j, 2 * k).shape();
-            if (xt::same_shape(dest_shape, src_shape))
-            {
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j, 2 * k) = field(level + 1, 2 * i, 2 * j, 2 * k)
-                                                                                   - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij
-                                                                                      - qs_ik - qs_jk + qs_ijk);
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j, 2 * k) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
-                                                                                       - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij
-                                                                                          + qs_ik - qs_jk - qs_ijk);
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j + 1, 2 * k) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
-                                                                                       - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij
-                                                                                          - qs_ik + qs_jk - qs_ijk);
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                                                                                           - (field(level, i, j, k) - qs_i - qs_j + qs_k
-                                                                                              - qs_ij + qs_ik + qs_jk + qs_ijk);
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j, 2 * k + 1) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
-                                                                                       - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij
-                                                                                          + qs_ik + qs_jk - qs_ijk);
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                                                                                           - (field(level, i, j, k) - qs_i + qs_j - qs_k
-                                                                                              + qs_ij - qs_ik + qs_jk + qs_ijk);
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
-                                                                                           - (field(level, i, j, k) + qs_i - qs_j - qs_k
-                                                                                              + qs_ij + qs_ik - qs_jk + qs_ijk);
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1,
-                                                                                                       2 * i + 1,
-                                                                                                       2 * j + 1,
-                                                                                                       2 * k + 1)
-                                                                                               - (field(level, i, j, k) - qs_i - qs_j - qs_k
-                                                                                                  - qs_ij - qs_ik - qs_jk - qs_ijk);
-            }
-            else
-            {
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j, 2 * k) = xt::transpose(
-                    field(level + 1, 2 * i, 2 * j, 2 * k) - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk));
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j, 2 * k) = xt::transpose(
-                    field(level + 1, 2 * i + 1, 2 * j, 2 * k) - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk));
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j + 1, 2 * k) = xt::transpose(
-                    field(level + 1, 2 * i, 2 * j + 1, 2 * k) - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk));
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = xt::transpose(
-                    field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                    - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk));
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j, 2 * k + 1) = xt::transpose(
-                    field(level + 1, 2 * i, 2 * j, 2 * k + 1) - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk));
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = xt::transpose(
-                    field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                    - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk));
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = xt::transpose(
-                    field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
-                    - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk));
-
-                detail(ranges[ir], ranges[ir + 1], level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = xt::transpose(
-                    field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
-                    - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk));
+                auto detail_range = detail::make_detail_range<true>(detail, ranges[i_r], ranges[i_r + 1]);
+                compute_detail_op<dim, TInterval> compute_detail(level, i, index);
+                compute_detail(d, detail_range, field);
             }
         }
 
