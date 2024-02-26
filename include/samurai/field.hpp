@@ -257,6 +257,26 @@ namespace samurai
                                 xt::range(item_s, item_e));
             }
 
+            template <class E>
+            inline auto
+            operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index)
+            {
+                auto interval_tmp = this->derived_cast().get_interval("WRITE", level, interval, index);
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step),
+                                xt::range(item_s, item_e));
+            }
+
+            template <class E>
+            inline auto
+            operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+            {
+                auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index);
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step),
+                                xt::range(item_s, item_e));
+            }
+
             void resize()
             {
                 this->derived_cast().m_data.resize({this->derived_cast().mesh().nb_cells(), size});
@@ -353,6 +373,26 @@ namespace samurai
             inline auto operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(item_s, item_e),
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
+            }
+
+            template <class E>
+            inline auto
+            operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index)
+            {
+                auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index);
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(item_s, item_e),
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
+            }
+
+            template <class E>
+            inline auto
+            operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+            {
+                auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index);
                 return xt::view(this->derived_cast().m_data,
                                 xt::range(item_s, item_e),
                                 xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
