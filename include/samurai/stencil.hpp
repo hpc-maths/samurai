@@ -127,6 +127,11 @@ namespace samurai
                 origin_cell.indices[d + 1] = mesh_interval.index[d];
             }
             origin_cell.index = get_index_start(m_mesh, mesh_interval);
+            if (origin_cell.index > 0 && static_cast<std::size_t>(origin_cell.index) > m_mesh.nb_cells())
+            {
+                std::cout << "Cell not found in the mesh: " << origin_cell << std::endl;
+                assert(false);
+            }
 
             for (unsigned int id = 0; id < stencil_size; ++id)
             {
@@ -162,6 +167,11 @@ namespace samurai
                 else
                 {
                     cell.index = get_index_start_translated(m_mesh, mesh_interval, d);
+                    if (cell.index > 0 && static_cast<std::size_t>(cell.index) > m_mesh.nb_cells())
+                    {
+                        std::cout << "Non-existing neighbour for " << origin_cell << " in the direction " << d << std::endl;
+                        assert(false);
+                    }
                 }
             }
         }
