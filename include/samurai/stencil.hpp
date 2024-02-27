@@ -348,7 +348,7 @@ namespace samurai
             {
                 static constexpr std::size_t i = decltype(integral_constant_i)::value;
 
-                s(i, d) = from + i;
+                s(i, d) = from + static_cast<int>(i);
             });
 
         return s;
