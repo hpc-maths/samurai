@@ -1129,7 +1129,6 @@ namespace samurai
     template <class Field>
     void update_bc(Field& field)
     {
-        std::cout << field << std::endl;
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto& mesh      = field.mesh()[mesh_id_t::reference];
 
@@ -1137,7 +1136,6 @@ namespace samurai
         {
             update_bc(level, field);
         }
-        std::cout << field << std::endl;
     }
 
     template <class Field, class... Fields>
