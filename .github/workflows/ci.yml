@@ -168,6 +168,11 @@ jobs:
               -DBUILD_DEMOS=ON \
               -DBUILD_TESTS=ON
 
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+              swap-size-gb: 10
+
       - name: Build
         shell: bash -l {0}
         run: |
@@ -246,15 +251,21 @@ jobs:
       #   shell: bash -l {0}
       #   run: |
       #     cmake --build highfive/build --target install
-      - name: Increase swapfile
-        shell: bash -l {0}
-        run: |
-            sudo swapoff -a
-            sudo fallocate -l 15G /swapfile
-            sudo chmod 600 /swapfile
-            sudo mkswap /swapfile
-            sudo swapon /swapfile
-            sudo swapon --show
+
+      # - name: Increase swapfile
+      #   shell: bash -l {0}
+      #   run: |
+      #       sudo swapoff -a
+      #       sudo fallocate -l 15G /swapfile
+      #       sudo chmod 600 /swapfile
+      #       sudo mkswap /swapfile
+      #       sudo swapon /swapfile
+      #       sudo swapon --show
+
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+              swap-size-gb: 10
 
       - name: Configure
         shell: bash -l {0}
