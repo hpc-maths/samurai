@@ -328,10 +328,10 @@ namespace samurai
 
         Stencil<stencil_size, dim> s;
         s.fill(0);
-        static_for<0, static_cast<int>(stencil_size)>::apply( // for (int i=0; i<stencil_size; i++)
+        static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
             [&](auto integral_constant_i)
             {
-                static constexpr int i = decltype(integral_constant_i)::value;
+                static constexpr std::size_t i = decltype(integral_constant_i)::value;
 
                 s(i, d) = neighbours_array[i];
             });
@@ -343,10 +343,10 @@ namespace samurai
     {
         Stencil<stencil_size, dim> s;
         s.fill(0);
-        static_for<0, static_cast<int>(stencil_size)>::apply( // for (int i=0; i<stencil_size; i++)
+        static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
             [&](auto integral_constant_i)
             {
-                static constexpr int i = decltype(integral_constant_i)::value;
+                static constexpr std::size_t i = decltype(integral_constant_i)::value;
 
                 s(i, d) = from + i;
             });
@@ -605,7 +605,7 @@ namespace samurai
             static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
                 [&](auto integral_constant_i)
                 {
-                    static constexpr int i = decltype(integral_constant_i)::value;
+                    static constexpr std::size_t i = decltype(integral_constant_i)::value;
 
                     auto v_in_x = xt::view(stencil_in_x, i); // vector in direction x (canonical basis)
                     auto v_in_d = xt::view(stencil_in_d, i); // vector in direction d (=rotation of v_in_x)

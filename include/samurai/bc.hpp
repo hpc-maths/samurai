@@ -1079,7 +1079,7 @@ namespace samurai
             static_for<1, max_stencil_size_implemented_BC + 1>::apply( // for (int i=1; i<=max_stencil_size_implemented; i++)
                 [&](auto integral_constant_i)
                 {
-                    static constexpr int i = decltype(integral_constant_i)::value;
+                    static constexpr std::size_t i = decltype(integral_constant_i)::value;
 
                     if (bc->stencil_size() == i)
                     {
@@ -1100,7 +1100,7 @@ namespace samurai
             static_for<2, max_stencil_size_implemented_PE + 1>::apply( // for (int i=2; i<=max_stencil_size_implemented; i++)
                 [&](auto integral_constant_i)
                 {
-                    static constexpr int i = decltype(integral_constant_i)::value;
+                    static constexpr std::size_t i = decltype(integral_constant_i)::value;
 
                     if constexpr (i % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
                     {
