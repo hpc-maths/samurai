@@ -1007,10 +1007,10 @@ namespace samurai
     {
         INIT_BC(PolynomialExtrapolation, stencil_size_)
 
-        static constexpr std::size_t max_stencil_size_implemented = 6;
+        static constexpr std::size_t max_stencil_size_implemented_PE = 6;
 
         static_assert(stencil_size_ % 2 == 0, "stencil_size must be even.");
-        static_assert(stencil_size_ >= 2 && stencil_size_ <= max_stencil_size_implemented);
+        static_assert(stencil_size_ >= 2 && stencil_size_ <= max_stencil_size_implemented_PE);
 
         void apply(Field& u, const stencil_cells_t& cells, const value_t&) const override
         {
@@ -1051,18 +1051,18 @@ namespace samurai
                 u[ghost] = u[cells[0]] - u[cells[1]] * 5.0 + u[cells[2]] * 1.0E+1 - u[cells[3]] * 1.0E+1 + u[cells[4]] * 5.0;
             }
 
-            if (stencil_size_ == 4)
-            {
-                if (u[ghost] != 0)
-                {
-                    for (std::size_t i = 0; i < stencil_size_ - 1; ++i)
-                    {
-                        std::cout << cells[i] << ", value = " << u[cells[i]] << std::endl;
-                    }
-                    std::cout << u[ghost] << std::endl;
-                    std::cout << std::endl;
-                }
-            }
+            // if (stencil_size_ == 4)
+            // {
+            //     if (u[ghost] != 0)
+            //     {
+            //         for (std::size_t i = 0; i < stencil_size_ - 1; ++i)
+            //         {
+            //             std::cout << cells[i] << ", value = " << u[cells[i]] << std::endl;
+            //         }
+            //         std::cout << u[ghost] << std::endl;
+            //         std::cout << std::endl;
+            //     }
+            // }
         }
     };
 
@@ -1091,13 +1091,13 @@ namespace samurai
         }
 
         // Polynomial extrapolation to populate corners and ghosts layers that are not filled by the B.C.
-        static constexpr std::size_t max_stencil_size_implemented_PI = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented;
+        static constexpr std::size_t max_stencil_size_implemented_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
 
         // We populate the ghosts sequentially from the closest to the farthest.
         for (std::size_t ghost_layer = 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
             std::size_t stencil_s = 2 * ghost_layer;
-            static_for<2, max_stencil_size_implemented_PI + 1>::apply( // for (int i=2; i<=max_stencil_size_implemented; i++)
+            static_for<2, max_stencil_size_implemented_PE + 1>::apply( // for (int i=2; i<=max_stencil_size_implemented; i++)
                 [&](auto integral_constant_i)
                 {
                     static constexpr int i = decltype(integral_constant_i)::value;
