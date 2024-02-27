@@ -658,16 +658,12 @@ namespace samurai
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline void Field<mesh_t, value_t, size_, SOA>::to_stream(std::ostream& os) const
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         os << "Field " << m_name << "\n";
         for_each_cell(this->mesh()[mesh_id_t::reference],
                       [&](auto& cell)
                       {
-                          if (std::isnan(this->operator[](cell)))
-                          {
-                              os << "\tlevel: " << cell.level << " coords: " << cell.center() << ", index: " << cell.index
-                                 << " value: " << this->operator[](cell) << "\n";
-                          }
+                          os << "\tlevel: " << cell.level << " coords: " << cell.center() << ", index: " << cell.index
+                             << " value: " << this->operator[](cell) << "\n";
                       });
     }
 
