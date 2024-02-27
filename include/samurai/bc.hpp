@@ -1035,7 +1035,7 @@ namespace samurai
                       P(x=0) = c[2].
             */
 
-            auto& ghost = cells[stencil_size_ - 1];
+            const auto& ghost = cells[stencil_size_ - 1];
 
             // Last coefficient of the polynomial
             if constexpr (stencil_size_ == 2)
