@@ -198,7 +198,7 @@ These helper functions allow you to write :math:`n`-dimensional code through a s
     samurai::static_for<0, dim>::apply( // for each Cartesian direction 'd'
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             my_flux[d].stencil = samurai::line_stencil<dim, d>(-1, 0, 1, 2);
         }
@@ -235,7 +235,7 @@ If the flux functions only differ by the direction index, you can write an :math
     samurai::static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value; // get the static direction index
+                static constexpr std::size_t d = decltype(integral_constant_d)::value; // get the static direction index
 
                 my_flux[d].cons_flux_function = my_flux_function_d;
             });
@@ -576,7 +576,7 @@ This code can be compacted into the :math:`n`-dimensional code
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value; // direction index
+            static constexpr std::size_t d = decltype(integral_constant_d)::value; // direction index
 
             flux[d].cons_flux_function = [](double h)
             {
@@ -675,7 +675,7 @@ The following code corresponds directly to the :math:`n`-dimensional version:
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             flux[d].cons_flux_function = [](double)
             {
@@ -825,7 +825,7 @@ The construction of the operator now reads
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             upwind[d].cons_flux_function = [&](const auto& cells)
             {
@@ -912,7 +912,7 @@ The associated code yields
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             auto f = [](auto v)
             {
@@ -1032,7 +1032,7 @@ where :math:`u_d` is the :math:`d`-th component of :math:`\mathbf{u}`, the code 
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             auto f_d = [](auto u) -> samurai::FluxValue<cfg>
             {

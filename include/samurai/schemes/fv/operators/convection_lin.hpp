@@ -27,7 +27,7 @@ namespace samurai
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
@@ -102,7 +102,7 @@ namespace samurai
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
                 // Stencil creation:
                 //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
@@ -155,7 +155,7 @@ namespace samurai
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
@@ -227,7 +227,7 @@ namespace samurai
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
                 // Stencil creation:
                 //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
