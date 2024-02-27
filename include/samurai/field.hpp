@@ -659,7 +659,7 @@ namespace samurai
     inline void Field<mesh_t, value_t, size_, SOA>::to_stream(std::ostream& os) const
     {
         os << "Field " << m_name << "\n";
-        for_each_cell(this->mesh()[mesh_id_t::reference],
+        for_each_cell(this->mesh(),
                       [&](auto& cell)
                       {
                           os << "\tlevel: " << cell.level << " coords: " << cell.center() << ", index: " << cell.index
