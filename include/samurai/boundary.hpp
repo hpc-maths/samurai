@@ -17,32 +17,6 @@ namespace samurai
         return difference(cells, translate(domain, -one_interval * direction)).on(level);
     }
 
-    // template <class Mesh, class Subset, std::size_t stencil_size, class Func>
-    // void for_each_stencil_on_boundary_cells(const Mesh& mesh,
-    //                                         const Subset& boundary_region,
-    //                                         std::size_t level,
-    //                                         const Stencil<stencil_size, Mesh::dim>& stencil,
-    //                                         Func&& func)
-    // {
-    //     using mesh_id_t = typename Mesh::mesh_id_t;
-
-    //     auto bdry = intersection(mesh[mesh_id_t::reference][level], boundary_region).on(level);
-    //     for_each_stencil(mesh, bdry, stencil, std::forward<Func>(func));
-    // }
-
-    // template <class Mesh, class Subset, std::size_t stencil_size, class Func>
-    // void for_each_stencil_on_boundary_cells(const Mesh& mesh,
-    //                                         const Subset& boundary_region,
-    //                                         const Stencil<stencil_size, Mesh::dim>& stencil,
-    //                                         Func&& func)
-    // {
-    //     for_each_level(mesh,
-    //                    [&](std::size_t level)
-    //                    {
-    //                        for_each_stencil_on_boundary_cells(mesh, boundary_region, level, stencil, std::forward<Func>(func));
-    //                    });
-    // }
-
     template <class Mesh, class Subset, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
                                       const Subset& boundary_region,
