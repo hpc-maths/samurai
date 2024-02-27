@@ -274,7 +274,7 @@ namespace samurai
             }
 
             template <class Coeffs>
-            inline double rhs_coeff(const Coeffs& coeffs, unsigned int field_i, unsigned int field_j) const
+            inline double rhs_coeff(const Coeffs& coeffs, [[maybe_unused]] unsigned int field_i, [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_size == 1 && output_field_size == 1)
                 {
@@ -688,11 +688,6 @@ namespace samurai
 
             void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
             {
-                // ----  Projection stencil size
-                // cell + 2^dim children --> 1+2=3 in 1D
-                //                           1+4=5 in 2D
-                static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
-
                 for_each_projection_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
@@ -705,6 +700,11 @@ namespace samurai
                                                   }
                                                   else
                                                   {
+                                                      // ----  Projection stencil size
+                                                      // cell + 2^dim children --> 1+2=3 in 1D
+                                                      //                           1+4=5 in 2D
+                                                      static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
+
                                                       nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = proj_stencil_size;
                                                   }
                                               }
@@ -713,29 +713,30 @@ namespace samurai
 
             void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
             {
-                // ----  Prediction stencil size
-                // Order 1: cell + hypercube of 3 coarser cells --> 1 + 3= 4 in 1D
-                //                                                  1 + 9=10 in 2D
-                // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
-                //                                                  1 +25=21 in 2D
-                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_order + 1, dim);
+                for_each_prediction_ghost(
+                    mesh(),
+                    [&](const auto& ghost)
+                    {
+                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                        {
+                            if constexpr (ghost_elimination_enabled)
+                            {
+                                nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = static_cast<PetscInt>(
+                                    m_ghost_recursion.at(ghost.index).size());
+                            }
+                            else
+                            {
+                                // ----  Prediction stencil size
+                                // Order 1: cell + hypercube of 3 coarser cells --> 1 + 3= 4 in 1D
+                                //                                                  1 + 9=10 in 2D
+                                // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
+                                //                                                  1 +25=21 in 2D
+                                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_order + 1, dim);
 
-                for_each_prediction_ghost(mesh(),
-                                          [&](const auto& ghost)
-                                          {
-                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                              {
-                                                  if constexpr (ghost_elimination_enabled)
-                                                  {
-                                                      nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = static_cast<PetscInt>(
-                                                          m_ghost_recursion.at(ghost.index).size());
-                                                  }
-                                                  else
-                                                  {
-                                                      nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = pred_stencil_size;
-                                                  }
-                                              }
-                                          });
+                                nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = pred_stencil_size;
+                            }
+                        }
+                    });
             }
 
             virtual void enforce_projection_prediction(Vec& b) const
