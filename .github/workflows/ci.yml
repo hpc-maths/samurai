@@ -163,8 +163,8 @@ jobs:
           CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
               . \
               -Bbuild \
-              -DCMAKE_BUILD_TYPE=Release \
               -GNinja \
+              -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
               -DBUILD_TESTS=ON
 
