@@ -91,31 +91,31 @@ jobs:
             package: "gcc-12 g++-12"
             cc: "gcc-12"
             cxx: "g++-12"
-          # - cpp-version: clang-11
-          #   compiler: "clang"
-          #   package: "clang-11"
-          #   cc: "clang-11"
-          #   cxx: "clang++-11"
-          # - cpp-version: clang-12
-          #   compiler: "clang"
-          #   package: "clang-12"
-          #   cc: "clang-12"
-          #   cxx: "clang++-12"
-          # - cpp-version: clang-13
-          #   compiler: "clang"
-          #   package: "clang-13"
-          #   cc: "clang-13"
-          #   cxx: "clang++-13"
-          # - cpp-version: clang-14
-          #   compiler: "clang"
-          #   package: "clang-14"
-          #   cc: "clang-14"
-          #   cxx: "clang++-14"
-          # - cpp-version: clang-15
-          #   compiler: "clang"
-          #   package: "clang-15"
-          #   cc: "clang-15"
-          #   cxx: "clang++-15"
+          - cpp-version: clang-11
+            compiler: "clang"
+            package: "clang-11"
+            cc: "clang-11"
+            cxx: "clang++-11"
+          - cpp-version: clang-12
+            compiler: "clang"
+            package: "clang-12"
+            cc: "clang-12"
+            cxx: "clang++-12"
+          - cpp-version: clang-13
+            compiler: "clang"
+            package: "clang-13"
+            cc: "clang-13"
+            cxx: "clang++-13"
+          - cpp-version: clang-14
+            compiler: "clang"
+            package: "clang-14"
+            cc: "clang-14"
+            cxx: "clang++-14"
+          - cpp-version: clang-15
+            compiler: "clang"
+            package: "clang-15"
+            cc: "clang-15"
+            cxx: "clang++-15"
     steps:
       - uses: actions/checkout@v4
 
@@ -176,7 +176,7 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-          cmake --build build --parallel 4 --target all
+          cmake --build build --target all --parallel 4
 
       - name: Test with googletest
         shell: bash -l {0}
@@ -196,148 +196,148 @@ jobs:
   # Check linux build with mamba environment
   #
   #########################################################
-  # linux-mpi-mamba:
-  #   #needs: [pre-commit, cppcheck]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
+  linux-mpi-mamba:
+    #needs: [pre-commit, cppcheck]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - name: Cache
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: |
-  #           ~/.cache/ccache
-  #           ~/micromamba-root/envs/samurai-env
-  #         key: linux-mpi
-  #         restore-keys: |
-  #           linux-mpi
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: linux-mpi
+          restore-keys: |
+            linux-mpi
 
-  #     - name: Mamba and samurai env installation
-  #       uses: mamba-org/setup-micromamba@v1
-  #       with:
-  #         environment-file: conda/mpi-environment.yml
-  #         environment-name: samurai-env
-  #         cache-environment: true
+      - name: Mamba and samurai env installation
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: conda/mpi-environment.yml
+          environment-name: samurai-env
+          cache-environment: true
 
-  #     - name: Petsc installation
-  #       shell: bash -l {0}
-  #       run: |
-  #         conda install -y petsc pkg-config cxx-compiler
+      - name: Petsc installation
+        shell: bash -l {0}
+        run: |
+          conda install -y petsc pkg-config cxx-compiler
 
-  #     - name: Conda informations
-  #       shell: bash -l {0}
-  #       run: |
-  #         conda info
-  #         conda list
+      - name: Conda informations
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
 
-  #     # - name: Clone HighFive
-  #     #   uses: actions/checkout@v4
-  #     #   with:
-  #     #     repository: BlueBrain/HighFive
-  #     #     ref: v2.9.0
-  #     #     path: highfive
+      # - name: Clone HighFive
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: BlueBrain/HighFive
+      #     ref: v2.9.0
+      #     path: highfive
 
-  #     # - name: Configure HighFive
-  #     #   shell: bash -l {0}
-  #     #   run: |
-  #     #     cmake \
-  #     #     highfive \
-  #     #     -Bhighfive/build \
-  #     #     -GNinja \
-  #     #     -DCMAKE_BUILD_TYPE=Release \
-  #     #     -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+      # - name: Configure HighFive
+      #   shell: bash -l {0}
+      #   run: |
+      #     cmake \
+      #     highfive \
+      #     -Bhighfive/build \
+      #     -GNinja \
+      #     -DCMAKE_BUILD_TYPE=Release \
+      #     -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 
-  #     # - name: Install HighFive
-  #     #   shell: bash -l {0}
-  #     #   run: |
-  #     #     cmake --build highfive/build --target install
+      # - name: Install HighFive
+      #   shell: bash -l {0}
+      #   run: |
+      #     cmake --build highfive/build --target install
 
-  #     # - name: Set Swap Space
-  #     #   uses: pierotofy/set-swap-space@master
-  #     #   with:
-  #     #         swap-size-gb: 10
+      # - name: Set Swap Space
+      #   uses: pierotofy/set-swap-space@master
+      #   with:
+      #         swap-size-gb: 10
 
-  #     - name: Configure
-  #       shell: bash -l {0}
-  #       run: |
-  #         cmake \
-  #             . \
-  #             -Bbuild \
-  #             -GNinja \
-  #             -DCMAKE_BUILD_TYPE=Release \
-  #             -DWITH_MPI=ON \
-  #             -DBUILD_DEMOS=ON \
-  #             -DBUILD_TESTS=ON
+      - name: Configure
+        shell: bash -l {0}
+        run: |
+          cmake \
+              . \
+              -Bbuild \
+              -GNinja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DWITH_MPI=ON \
+              -DBUILD_DEMOS=ON \
+              -DBUILD_TESTS=ON
 
-  #     - name: Build
-  #       shell: bash -l {0}
-  #       run: |
-  #         cmake --build build --target all
+      - name: Build
+        shell: bash -l {0}
+        run: |
+          cmake --build build --target all --parallel 4
 
-  #     - name: Test with googletest
-  #       shell: bash -l {0}
-  #       run: |
-  #         cd build
-  #         ./tests/test_samurai_lib
+      - name: Test with googletest
+        shell: bash -l {0}
+        run: |
+          cd build
+          ./tests/test_samurai_lib
 
-  #     - name: Test with pytest
-  #       shell: bash -l {0}
-  #       run: |
-  #         cd tests
-  #         pytest -v -s --h5diff
+      - name: Test with pytest
+        shell: bash -l {0}
+        run: |
+          cd tests
+          pytest -v -s --h5diff
 
-  #     - name: MPI test
-  #       shell: bash -l {0}
-  #       run: |
-  #         cd build
-  #         mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d
+      - name: MPI test
+        shell: bash -l {0}
+        run: |
+          cd build
+          mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d
 
-  # macos-mamba:
-  #   needs: [pre-commit, cppcheck]
-  #   runs-on: macos-12
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Mamba and samurai env installation
-  #       uses: mamba-org/setup-micromamba@v1
-  #       with:
-  #         environment-file: conda/environment.yml
-  #         environment-name: samurai-env
-  #         cache-environment: true
+  macos-mamba:
+    #needs: [pre-commit, cppcheck]
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mamba and samurai env installation
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: conda/environment.yml
+          environment-name: samurai-env
+          cache-environment: true
 
-  #     # - name: Petsc installation
-  #     #   shell: bash -l {0}
-  #     #   run: |
-  #     #     micromamba install -y petsc=3.18 pkg-config
+      # - name: Petsc installation
+      #   shell: bash -l {0}
+      #   run: |
+      #     micromamba install -y petsc=3.18 pkg-config
 
-  #     - name: Installl cxx compiler
-  #       shell: bash -l {0}
-  #       run: |
-  #         micromamba install -y cxx-compiler
+      - name: Installl cxx compiler
+        shell: bash -l {0}
+        run: |
+          micromamba install -y cxx-compiler
 
-  #     - name: micromamba informations
-  #       shell: bash -l {0}
-  #       run: |
-  #         micromamba info
-  #         micromamba list
+      - name: micromamba informations
+        shell: bash -l {0}
+        run: |
+          micromamba info
+          micromamba list
 
-  #     - name: Configure
-  #       shell: bash -l {0}
-  #       run: |
-  #         cmake \
-  #             . \
-  #             -Bbuild \
-  #             -GNinja \
-  #             -DCMAKE_BUILD_TYPE=Release \
-  #             -DBUILD_DEMOS=ON \
-  #             -DBUILD_TESTS=ON
+      - name: Configure
+        shell: bash -l {0}
+        run: |
+          cmake \
+              . \
+              -Bbuild \
+              -GNinja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_DEMOS=ON \
+              -DBUILD_TESTS=ON
 
-  #     - name: Build
-  #       shell: bash -l {0}
-  #       run: |
-  #         cmake --build ./build --config Release
+      - name: Build
+        shell: bash -l {0}
+        run: |
+          cmake --build ./build --config Release
 
-  #     - name: Run tests
-  #       shell: bash -l {0}
-  #       run: |
-  #         ./build/tests/test_samurai_lib
-  #         cd tests; pytest --h5diff
+      - name: Run tests
+        shell: bash -l {0}
+        run: |
+          ./build/tests/test_samurai_lib
+          cd tests; pytest --h5diff
