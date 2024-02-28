@@ -14,7 +14,6 @@
 #include <xtensor/xnoalias.hpp>
 #include <xtensor/xview.hpp>
 
-// #include "boundary.hpp"
 #include "samurai/cell.hpp"
 #include "samurai_config.hpp"
 #include "static_algorithm.hpp"
