@@ -662,7 +662,8 @@ namespace samurai
         for_each_cell(this->mesh(),
                       [&](auto& cell)
                       {
-                          os << "\tlevel: " << cell.level << " coords: " << cell.center() << " value: " << this->operator[](cell) << "\n";
+                          os << "\tlevel: " << cell.level << " coords: " << cell.center() << ", index: " << cell.index
+                             << " value: " << this->operator[](cell) << "\n";
                       });
     }
 

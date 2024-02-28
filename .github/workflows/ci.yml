@@ -171,7 +171,7 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-          cmake --build build --target all
+          cmake --build build --target all --parallel 4
 
       - name: Test with googletest
         shell: bash -l {0}
@@ -247,6 +247,11 @@ jobs:
       #   run: |
       #     cmake --build highfive/build --target install
 
+      # - name: Set Swap Space
+      #   uses: pierotofy/set-swap-space@master
+      #   with:
+      #         swap-size-gb: 10
+
       - name: Configure
         shell: bash -l {0}
         run: |
@@ -262,7 +267,7 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-          cmake --build build --target all
+          cmake --build build --target all --parallel 4
 
       - name: Test with googletest
         shell: bash -l {0}

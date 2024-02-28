@@ -19,7 +19,7 @@ namespace samurai
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
                 average_coeffs[d].cons_flux_function = [](double)
                 {

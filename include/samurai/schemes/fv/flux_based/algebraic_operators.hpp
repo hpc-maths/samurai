@@ -13,7 +13,7 @@ namespace samurai
         static_for<0, dim>::apply(
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
                 multiplied_scheme.flux_definition()[d] = scheme.flux_definition()[d];
                 if (scalar != 1)
@@ -70,7 +70,7 @@ namespace samurai
         static_for<0, cfg::dim>::apply(
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
                 if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
                 {

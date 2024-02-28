@@ -149,7 +149,7 @@ namespace samurai
     /**
      * Static for loop
      */
-    template <int Begin, int End>
+    template <std::size_t Begin, std::size_t End>
     struct static_for
     {
         template <typename Lambda>
@@ -157,13 +157,13 @@ namespace samurai
         {
             if (Begin < End)
             {
-                f(std::integral_constant<int, Begin>{});
+                f(std::integral_constant<std::size_t, Begin>{});
                 static_for<Begin + 1, End>::apply(f);
             }
         }
     };
 
-    template <int N>
+    template <std::size_t N>
     struct static_for<N, N>
     {
         template <typename Lambda>

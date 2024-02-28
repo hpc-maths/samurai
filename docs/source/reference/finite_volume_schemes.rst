@@ -117,6 +117,8 @@ Here is an example for the vectorial Laplace operator:
                                     2,                             // stencil_size (for the Laplacian of order 2)
                                     decltype(u)>;                  // input_field_type
 
+.. _stencil-configuration:
+
 Stencil configuration
 +++++++++++++++++++++
 
@@ -196,7 +198,7 @@ These helper functions allow you to write :math:`n`-dimensional code through a s
     samurai::static_for<0, dim>::apply( // for each Cartesian direction 'd'
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             my_flux[d].stencil = samurai::line_stencil<dim, d>(-1, 0, 1, 2);
         }
@@ -233,7 +235,7 @@ If the flux functions only differ by the direction index, you can write an :math
     samurai::static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value; // get the static direction index
+                static constexpr std::size_t d = decltype(integral_constant_d)::value; // get the static direction index
 
                 my_flux[d].cons_flux_function = my_flux_function_d;
             });
@@ -291,7 +293,7 @@ the discrete flux writes as a linear combination of the field values in the sten
 The role of the flux function is to return the coefficients :math:`(c_i)_i`.
 Its implementation looks like
 
-.. code::
+.. code-block:: c++
 
     auto my_flux_function = [](double h)
     {
@@ -574,7 +576,7 @@ This code can be compacted into the :math:`n`-dimensional code
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value; // direction index
+            static constexpr std::size_t d = decltype(integral_constant_d)::value; // direction index
 
             flux[d].cons_flux_function = [](double h)
             {
@@ -673,7 +675,7 @@ The following code corresponds directly to the :math:`n`-dimensional version:
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             flux[d].cons_flux_function = [](double)
             {
@@ -712,7 +714,7 @@ This section refers to operators configured with :code:`SchemeType::LinearHetero
 Heterogeneous operators are meant to implement linear fluxes that depend on parameters that are not constant in the domain of study.
 The flux function resembles that of the :ref:`homogeneous linear operators <lin_homog_operators>`, except that it receives the stencil cells as arguments instead of the sole mesh size.
 
-.. code::
+.. code-block:: c++
 
     auto param = samurai::make_field<...>("param", mesh)
 
@@ -737,7 +739,7 @@ The parameter is captured by reference by the lambda function.
     Consequently, make sure that values are set for your parameters in the ghost cells.
     For a material parameter, you can do, e.g.
 
-    .. code::
+    .. code-block:: c++
 
         samurai::for_each_cell(mesh[decltype(mesh)::mesh_id_t::reference],
             [&](auto& cell)
@@ -754,7 +756,7 @@ The parameter is captured by reference by the lambda function.
 
     For a computed field used as a parameter (like, e.g., a velocity field computed from the Navier-Stokes equation), you can simply update the ghost values by
 
-    .. code::
+    .. code-block:: c++
 
         samurai::update_ghost_mr(param);
 
@@ -787,7 +789,7 @@ where :math:`(\mathbf{a})_d` is the :math:`d`-th component of :math:`\mathbf{a}`
 Here, :math:`\mathbf{a}` is constant heterogeneous.
 We store it in a field of size the space dimension, and set its value for each cell and ghost.
 
-.. code::
+.. code-block:: c++
 
     static constexpr std::size_t dim = 2;
 
@@ -823,7 +825,7 @@ The construction of the operator now reads
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             upwind[d].cons_flux_function = [&](const auto& cells)
             {
@@ -857,7 +859,7 @@ This section refers to operators configured with :code:`SchemeType::NonLinear`.
 Here, the analytical formula computing the flux must be implemented.
 The flux function is
 
-.. code::
+.. code-block:: c++
 
     auto my_flux_function = [](const auto& cells, const auto& field)
     {
@@ -878,7 +880,7 @@ If :code:`cfg::output_field_size = 1`, it collapses to a simple scalar.
     Consequently, make sure that values are set in the ghost cells for the considered field,
     typically with the instruction
 
-    .. code::
+    .. code-block:: c++
 
         samurai::update_ghost_mr(u);
 
@@ -903,14 +905,14 @@ The simple centered scheme writes
 
 The associated code yields
 
-.. code::
+.. code-block:: c++
 
     samurai::FluxDefinition<cfg> f_h;
 
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             auto f = [](auto v)
             {
@@ -935,13 +937,13 @@ The associated code yields
 
 To build the operator, you can use indifferently
 
-.. code::
+.. code-block:: c++
 
     auto my_flux_op = samurai::make_flux_based_scheme(f_h);
 
 or
 
-.. code::
+.. code-block:: c++
 
     auto my_flux_op = samurai::make_divergence(f_h);
 
@@ -974,7 +976,7 @@ Developped in 2D, where :math:`\mathbf{u} := [u\;v]`, it reads
 
 We implement both cases as functions:
 
-.. code::
+.. code-block:: c++
 
     auto f_x = [](auto u)
     {
@@ -994,7 +996,7 @@ We implement both cases as functions:
 
 We choose the upwind scheme, and implement:
 
-.. code::
+.. code-block:: c++
 
     samurai::FluxDefinition<cfg> upwind_f;
 
@@ -1023,14 +1025,14 @@ Now, given that for each direction :math:`d`, we have
 
 where :math:`u_d` is the :math:`d`-th component of :math:`\mathbf{u}`, the code can be generalized in :math:`n` dimensions:
 
-.. code::
+.. code-block:: c++
 
     samurai::FluxDefinition<cfg> upwind_f;
 
     samurai::static_for<0, dim>::apply(
         [&](auto integral_constant_d)
         {
-            static constexpr int d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
             auto f_d = [](auto u) -> samurai::FluxValue<cfg>
             {
@@ -1080,7 +1082,7 @@ non-conservative ones return both values of :math:`\mathcal{F}_h^+(u_h)_{|F}` an
 So far, only non-linear schemes are possible.
 The signature is the same as :code:`flux_function`, except that it returns two values instead of one:
 
-.. code::
+.. code-block:: c++
 
     samurai::FluxDefinition<cfg> my_flux;
 
@@ -1094,7 +1096,7 @@ The signature is the same as :code:`flux_function`, except that it returns two v
 
 Alternatively, you can also write
 
-.. code::
+.. code-block:: c++
 
     my_flux[0].flux_function = [](auto& cells, const Field& u) -> samurai::FluxValuePair<cfg>
                                {
@@ -1105,7 +1107,7 @@ Alternatively, you can also write
 
 For instance, conservativity can be enforced by
 
-.. code::
+.. code-block:: c++
 
     my_flux[0].flux_function = [](auto& cells, const Field& u) -> samurai::FluxValuePair<cfg>
                                {
@@ -1127,16 +1129,16 @@ Here are some examples according to the type of coefficient:
 
 - Homogeneous, scalar coefficient:
 
-.. code::
+.. code-block:: c++
 
     double K = 10;
     auto diff = samurai::make_diffusion_order2<FieldType>(K);
 
 - Homogeneous, diagonal tensor coefficient:
 
-.. code::
+.. code-block:: c++
 
-    static constexpr dim = 2;
+    static constexpr std::size_t dim = 2;
 
     samurai::DiffCoeff<dim> K;
     K(0) = 1; // x-direction
@@ -1146,9 +1148,9 @@ Here are some examples according to the type of coefficient:
 
 - Heterogeneous, diagonal tensor coefficient:
 
-.. code::
+.. code-block:: c++
 
-    static constexpr dim = 2;
+    static constexpr std::size_t dim = 2;
 
     auto K = samurai::make_field<samurai::DiffCoeff<dim>, 1>("K", mesh);
 
@@ -1163,7 +1165,7 @@ Here are some examples according to the type of coefficient:
 
 - Laplacian operator (equivalent to the diffusion operator with no minus sign and constant coefficient 1):
 
-.. code::
+.. code-block:: c++
 
     auto lap = samurai::make_laplacian_order2<FieldType>();
 
@@ -1176,21 +1178,21 @@ The mathematical operator implemented is :math:`\nabla \cdot (a \otimes u)`, whi
 
 - Linear convection with constant velocity:
 
-.. code::
+.. code-block:: c++
 
     samurai::VelocityVector<dim> a = {1, -2};
     auto conv = samurai::make_convection_SCHEME<FieldType>(a);
 
 - Linear convection with a velocity field:
 
-.. code::
+.. code-block:: c++
 
     auto a = samurai::make_field<dim>("velocity", mesh); // the size must correspond to the space dimension
     auto conv = samurai::make_convection_SCHEME<FieldType>(a);
 
 - Non-linear convection :math:`\nabla \cdot (u \otimes u)`:
 
-.. code::
+.. code-block:: c++
 
     auto conv = samurai::make_convection_SCHEME<FieldType>();
 
@@ -1199,7 +1201,7 @@ Gradient
 
 The gradient operator is only implemented for scalar fields with the centered scheme of order 2.
 
-.. code::
+.. code-block:: c++
 
     auto grad = samurai::make_gradient_order2<FieldType>();
 
@@ -1209,7 +1211,7 @@ Divergence
 
 The gradient operator is only implemented for vector fields of size the space dimension, with the centered scheme of order 2.
 
-.. code::
+.. code-block:: c++
 
     auto div = samurai::make_divergence_order2<FieldType>();
 
@@ -1219,7 +1221,7 @@ Identity
 The identity operator is only used for the implementation of implicit time stepping schemes.
 Example of the heat equation
 
-.. code::
+.. code-block:: c++
 
     auto u    = samurai::make_field<1>("u", mesh);
     auto unp1 = samurai::make_field<1>("unp1", mesh);
@@ -1235,7 +1237,7 @@ Zero operator
 The zero operator is used to build block matrices where one of the blocks is zero.
 Example of the Stokes system:
 
-.. code::
+.. code-block:: c++
 
     // Unknowns
     auto velocity = samurai::make_field<dim>("velocity", mesh);

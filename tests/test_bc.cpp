@@ -66,8 +66,12 @@ namespace samurai
                                std::cout << direction << " " << cell << " " << coord << std::endl;
                                return 0;
                            });
-        update_bc(u);
-        EXPECT_EQ(u.get_bc()[0]->value(), xt::zeros<double>({1}));
+
+        using cell_t   = typename decltype(u)::cell_t;
+        using coords_t = typename cell_t::coords_t;
+        cell_t cell;
+        coords_t coords = {0.};
+        EXPECT_EQ(u.get_bc()[0]->value({1}, cell, coords), 0);
     }
 
 }

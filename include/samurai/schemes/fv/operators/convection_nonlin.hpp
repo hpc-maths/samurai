@@ -141,7 +141,7 @@ namespace samurai
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
                 auto f = [](auto u) -> FluxValue<cfg>
                 {
@@ -199,7 +199,7 @@ namespace samurai
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto integral_constant_d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
 
                 auto f = [](auto u) -> FluxValue<cfg>
                 {
