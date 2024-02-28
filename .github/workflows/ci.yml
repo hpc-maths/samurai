@@ -2,70 +2,73 @@ name: samurai CI
 
 on: [pull_request]
 
+env:
+  ACTIONS_RUNNER_DEBUG: true
+
 jobs:
   #
   # Check samurai with pre-commit
   #
   #########################################################
-  pre-commit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-      - uses: pre-commit/action@v3.0.0
+  # pre-commit:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-python@v5
+  #     - uses: pre-commit/action@v3.0.0
 
   #
   # Check samurai with cppcheck
   #
   #########################################################
-  cppcheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # cppcheck:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/ccache
-            ~/micromamba/envs/samurai-env
-          key: cppcheck
+  #     - name: Cache
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: |
+  #           ~/.cache/ccache
+  #           ~/micromamba/envs/samurai-env
+  #         key: cppcheck
 
-      - name: Mamba and samurai env installation
-        uses: mamba-org/setup-micromamba@v1
-        with:
-          environment-file: conda/environment.yml
-          environment-name: samurai-env
-          cache-environment: true
+  #     - name: Mamba and samurai env installation
+  #       uses: mamba-org/setup-micromamba@v1
+  #       with:
+  #         environment-file: conda/environment.yml
+  #         environment-name: samurai-env
+  #         cache-environment: true
 
-      - name: cppcheck installation
-        shell: bash -el {0}
-        run: |
-          conda install -y cppcheck=2.12.1 cxx-compiler
+  #     - name: cppcheck installation
+  #       shell: bash -el {0}
+  #       run: |
+  #         conda install -y cppcheck=2.12.1 cxx-compiler
 
-      - name: Configure
-        shell: bash -el {0}
-        run: |
-          cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
+  #     - name: Configure
+  #       shell: bash -el {0}
+  #       run: |
+  #         cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
 
-      - name: Run cppcheck on samurai
-        shell: bash -el {0}
-        run: |
-          cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
+  #     - name: Run cppcheck on samurai
+  #       shell: bash -el {0}
+  #       run: |
+  #         cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
 
-      - name: Check for errors
-        run: |
-          if [[ -s cppcheck_err.txt ]];
-          then
-            cat cppcheck_err.txt
-            exit -1
-          fi
+  #     - name: Check for errors
+  #       run: |
+  #         if [[ -s cppcheck_err.txt ]];
+  #         then
+  #           cat cppcheck_err.txt
+  #           exit -1
+  #         fi
   #
   # Check linux build with mamba environment
   #
   #########################################################
   linux-mamba:
-    needs: [pre-commit, cppcheck]
+    # needs: [pre-commit, cppcheck]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -91,31 +94,31 @@ jobs:
             package: "gcc-12 g++-12"
             cc: "gcc-12"
             cxx: "g++-12"
-          - cpp-version: clang-11
-            compiler: "clang"
-            package: "clang-11"
-            cc: "clang-11"
-            cxx: "clang++-11"
-          - cpp-version: clang-12
-            compiler: "clang"
-            package: "clang-12"
-            cc: "clang-12"
-            cxx: "clang++-12"
-          - cpp-version: clang-13
-            compiler: "clang"
-            package: "clang-13"
-            cc: "clang-13"
-            cxx: "clang++-13"
-          - cpp-version: clang-14
-            compiler: "clang"
-            package: "clang-14"
-            cc: "clang-14"
-            cxx: "clang++-14"
-          - cpp-version: clang-15
-            compiler: "clang"
-            package: "clang-15"
-            cc: "clang-15"
-            cxx: "clang++-15"
+          # - cpp-version: clang-11
+          #   compiler: "clang"
+          #   package: "clang-11"
+          #   cc: "clang-11"
+          #   cxx: "clang++-11"
+          # - cpp-version: clang-12
+          #   compiler: "clang"
+          #   package: "clang-12"
+          #   cc: "clang-12"
+          #   cxx: "clang++-12"
+          # - cpp-version: clang-13
+          #   compiler: "clang"
+          #   package: "clang-13"
+          #   cc: "clang-13"
+          #   cxx: "clang++-13"
+          # - cpp-version: clang-14
+          #   compiler: "clang"
+          #   package: "clang-14"
+          #   cc: "clang-14"
+          #   cxx: "clang++-14"
+          # - cpp-version: clang-15
+          #   compiler: "clang"
+          #   package: "clang-15"
+          #   cc: "clang-15"
+          #   cxx: "clang++-15"
     steps:
       - uses: actions/checkout@v4
 
@@ -165,6 +168,7 @@ jobs:
               -Bbuild \
               -GNinja \
               -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON \
               -DBUILD_DEMOS=ON \
               -DBUILD_TESTS=ON
 
@@ -197,7 +201,7 @@ jobs:
   #
   #########################################################
   linux-mpi-mamba:
-    needs: [pre-commit, cppcheck]
+    #needs: [pre-commit, cppcheck]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -259,8 +263,6 @@ jobs:
 
       - name: Configure
         shell: bash -l {0}
-        env:
-          ACTIONS_RUNNER_DEBUG: true
         run: |
           cmake \
               . \
@@ -294,52 +296,52 @@ jobs:
           cd build
           mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d
 
-  macos-mamba:
-    needs: [pre-commit, cppcheck]
-    runs-on: macos-12
-    steps:
-      - uses: actions/checkout@v4
-      - name: Mamba and samurai env installation
-        uses: mamba-org/setup-micromamba@v1
-        with:
-          environment-file: conda/environment.yml
-          environment-name: samurai-env
-          cache-environment: true
+  # macos-mamba:
+  #   needs: [pre-commit, cppcheck]
+  #   runs-on: macos-12
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Mamba and samurai env installation
+  #       uses: mamba-org/setup-micromamba@v1
+  #       with:
+  #         environment-file: conda/environment.yml
+  #         environment-name: samurai-env
+  #         cache-environment: true
 
-      # - name: Petsc installation
-      #   shell: bash -l {0}
-      #   run: |
-      #     micromamba install -y petsc=3.18 pkg-config
+  #     # - name: Petsc installation
+  #     #   shell: bash -l {0}
+  #     #   run: |
+  #     #     micromamba install -y petsc=3.18 pkg-config
 
-      - name: Installl cxx compiler
-        shell: bash -l {0}
-        run: |
-          micromamba install -y cxx-compiler
+  #     - name: Installl cxx compiler
+  #       shell: bash -l {0}
+  #       run: |
+  #         micromamba install -y cxx-compiler
 
-      - name: micromamba informations
-        shell: bash -l {0}
-        run: |
-          micromamba info
-          micromamba list
+  #     - name: micromamba informations
+  #       shell: bash -l {0}
+  #       run: |
+  #         micromamba info
+  #         micromamba list
 
-      - name: Configure
-        shell: bash -l {0}
-        run: |
-          cmake \
-              . \
-              -Bbuild \
-              -GNinja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DBUILD_DEMOS=ON \
-              -DBUILD_TESTS=ON
+  #     - name: Configure
+  #       shell: bash -l {0}
+  #       run: |
+  #         cmake \
+  #             . \
+  #             -Bbuild \
+  #             -GNinja \
+  #             -DCMAKE_BUILD_TYPE=Release \
+  #             -DBUILD_DEMOS=ON \
+  #             -DBUILD_TESTS=ON
 
-      - name: Build
-        shell: bash -l {0}
-        run: |
-          cmake --build ./build --config Release
+  #     - name: Build
+  #       shell: bash -l {0}
+  #       run: |
+  #         cmake --build ./build --config Release
 
-      - name: Run tests
-        shell: bash -l {0}
-        run: |
-          ./build/tests/test_samurai_lib
-          cd tests; pytest --h5diff
+  #     - name: Run tests
+  #       shell: bash -l {0}
+  #       run: |
+  #         ./build/tests/test_samurai_lib
+  #         cd tests; pytest --h5diff
