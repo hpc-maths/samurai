@@ -7,65 +7,65 @@ jobs:
   # Check samurai with pre-commit
   #
   #########################################################
-  # pre-commit:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-python@v5
-  #     - uses: pre-commit/action@v3.0.0
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+      - uses: pre-commit/action@v3.0.0
 
   #
   # Check samurai with cppcheck
   #
   #########################################################
-  # cppcheck:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
+  cppcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - name: Cache
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: |
-  #           ~/.cache/ccache
-  #           ~/micromamba/envs/samurai-env
-  #         key: cppcheck
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba/envs/samurai-env
+          key: cppcheck
 
-  #     - name: Mamba and samurai env installation
-  #       uses: mamba-org/setup-micromamba@v1
-  #       with:
-  #         environment-file: conda/environment.yml
-  #         environment-name: samurai-env
-  #         cache-environment: true
+      - name: Mamba and samurai env installation
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: conda/environment.yml
+          environment-name: samurai-env
+          cache-environment: true
 
-  #     - name: cppcheck installation
-  #       shell: bash -el {0}
-  #       run: |
-  #         conda install -y cppcheck=2.12.1 cxx-compiler
+      - name: cppcheck installation
+        shell: bash -el {0}
+        run: |
+          conda install -y cppcheck=2.12.1 cxx-compiler
 
-  #     - name: Configure
-  #       shell: bash -el {0}
-  #       run: |
-  #         cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
+      - name: Configure
+        shell: bash -el {0}
+        run: |
+          cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
 
-  #     - name: Run cppcheck on samurai
-  #       shell: bash -el {0}
-  #       run: |
-  #         cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
+      - name: Run cppcheck on samurai
+        shell: bash -el {0}
+        run: |
+          cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
 
-  #     - name: Check for errors
-  #       run: |
-  #         if [[ -s cppcheck_err.txt ]];
-  #         then
-  #           cat cppcheck_err.txt
-  #           exit -1
-  #         fi
+      - name: Check for errors
+        run: |
+          if [[ -s cppcheck_err.txt ]];
+          then
+            cat cppcheck_err.txt
+            exit -1
+          fi
   #
   # Check linux build with mamba environment
   #
   #########################################################
   linux-mamba:
-    # needs: [pre-commit, cppcheck]
+    needs: [pre-commit, cppcheck]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -168,11 +168,6 @@ jobs:
               -DBUILD_DEMOS=ON \
               -DBUILD_TESTS=ON
 
-      # - name: Set Swap Space
-      #   uses: pierotofy/set-swap-space@master
-      #   with:
-      #         swap-size-gb: 10
-
       - name: Build
         shell: bash -l {0}
         run: |
@@ -197,7 +192,7 @@ jobs:
   #
   #########################################################
   linux-mpi-mamba:
-    #needs: [pre-commit, cppcheck]
+    needs: [pre-commit, cppcheck]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -293,7 +288,7 @@ jobs:
           mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d
 
   macos-mamba:
-    #needs: [pre-commit, cppcheck]
+    needs: [pre-commit, cppcheck]
     runs-on: macos-12
     steps:
       - uses: actions/checkout@v4
