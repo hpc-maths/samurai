@@ -197,6 +197,8 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
+    // Do nothing
+
     double t = t0;
     while (t != Tf)
     {
