@@ -176,7 +176,7 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-          cmake --build build --parallel 8 --target all
+          cmake --build build --parallel 4 --target all
 
       - name: Test with googletest
         shell: bash -l {0}
