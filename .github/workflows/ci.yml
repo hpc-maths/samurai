@@ -164,9 +164,9 @@ jobs:
               . \
               -Bbuild \
               -DCMAKE_BUILD_TYPE=Release \
+              -GNinja \
               -DBUILD_DEMOS=ON \
               -DBUILD_TESTS=ON
-# -GNinja \
 
       # - name: Set Swap Space
       #   uses: pierotofy/set-swap-space@master
@@ -176,7 +176,7 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-          cmake --build build --target all
+          cmake --build build --parallel 8 --target all
 
       - name: Test with googletest
         shell: bash -l {0}
