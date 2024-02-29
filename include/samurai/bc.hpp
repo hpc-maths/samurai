@@ -969,6 +969,19 @@ namespace samurai
 
             const auto& ghost = cells[stencil_size_ - 1];
 
+#ifdef SAMURAI_CHECK_NAN
+            for (std::size_t field_i = 0; field_i < Field::size; field_i++)
+            {
+                for (std::size_t c = 0; c < stencil_size_ - 1; ++c)
+                {
+                    if (std::isnan(field_value(u, cells[c], field_i)))
+                    {
+                        std::cout << "NaN detected when applying polynomial extrapolation on the outer ghosts: " << cells[c] << std::endl;
+                    }
+                }
+            }
+#endif
+
             // Last coefficient of the polynomial
             if constexpr (stencil_size_ == 2)
             {
