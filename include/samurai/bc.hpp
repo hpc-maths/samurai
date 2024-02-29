@@ -976,7 +976,8 @@ namespace samurai
                 {
                     if (std::isnan(field_value(u, cells[c], field_i)))
                     {
-                        std::cout << "NaN detected when applying polynomial extrapolation on the outer ghosts: " << cells[c] << std::endl;
+                        std::cerr << "NaN detected when applying polynomial extrapolation on the outer ghosts: " << cells[c] << std::endl;
+                        assert(false);
                     }
                 }
             }

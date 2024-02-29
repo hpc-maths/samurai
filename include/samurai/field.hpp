@@ -127,7 +127,7 @@ namespace samurai
                 {
                     if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
                     {
-                        std::cout << "READ NaN at level " << level << ", " << interval << std::endl;
+                        std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
                         break;
                     }
                 }
@@ -207,7 +207,7 @@ namespace samurai
                 {
                     if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
                     {
-                        std::cout << "READ NaN at level " << level << ", " << interval << std::endl;
+                        std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
                         break;
                     }
                 }

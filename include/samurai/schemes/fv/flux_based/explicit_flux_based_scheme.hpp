@@ -60,8 +60,9 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                                 if (std::isnan(field_value(input_field, comput_cells[c], field_j)))
                                 {
-                                    std::cout << "NaN detected when computing the flux on the interior interfaces: " << comput_cells[c]
+                                    std::cerr << "NaN detected when computing the flux on the interior interfaces: " << comput_cells[c]
                                               << std::endl;
+                                    assert(false);
                                 }
 #endif
                                 double left_cell_coeff  = this->scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
@@ -89,8 +90,9 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                                 if (std::isnan(field_value(input_field, comput_cells[c], field_j)))
                                 {
-                                    std::cout << "NaN detected when computing the flux on the boundary interfaces: " << comput_cells[c]
+                                    std::cerr << "NaN detected when computing the flux on the boundary interfaces: " << comput_cells[c]
                                               << std::endl;
+                                    assert(false);
                                 }
 #endif
                                 double coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
