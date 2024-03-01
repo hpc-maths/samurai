@@ -705,7 +705,11 @@ namespace samurai
             constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
             Field new_field("new_f", new_mesh);
+#ifdef SAMURAI_CHECK_NAN
+            new_field.fill(std::nan(""));
+#else
             new_field.fill(0);
+#endif
 
             auto& mesh = field.mesh();
 
@@ -737,7 +741,11 @@ namespace samurai
             constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
             Field new_field("new_f", new_mesh);
+#ifdef SAMURAI_CHECK_NAN
+            new_field.fill(std::nan(""));
+#else
             new_field.fill(0);
+#endif
 
             auto& mesh     = field.mesh();
             auto& old_mesh = old_field.mesh();

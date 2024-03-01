@@ -136,11 +136,16 @@ OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
 OPTION(BUILD_DEMOS "samurai build all demos" OFF)
 OPTION(BUILD_TESTS "samurai test suite" OFF)
 OPTION(WITH_STATS "samurai mesh stats" OFF)
+option(SAMURAI_CHECK_NAN "Check NaN in computations" OFF)
 
 if(WITH_STATS)
   find_package(nlohmann_json REQUIRED)
   target_link_libraries(samurai INTERFACE nlohmann_json::nlohmann_json)
   target_compile_definitions(samurai INTERFACE WITH_STATS)
+endif()
+
+if(SAMURAI_CHECK_NAN)
+  target_compile_definitions(samurai INTERFACE SAMURAI_CHECK_NAN)
 endif()
 
 if(BUILD_BENCHMARKS)

@@ -121,6 +121,17 @@ namespace samurai
             inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
+#ifdef SAMURAI_CHECK_NAN
+                for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
+                     i += interval.step)
+                {
+                    if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
+                    {
+                        std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
+                        break;
+                    }
+                }
+#endif
                 return xt::view(this->derived_cast().m_data,
                                 xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
@@ -128,6 +139,9 @@ namespace samurai
             void resize()
             {
                 this->derived_cast().m_data.resize({this->derived_cast().mesh().nb_cells()});
+#ifdef SAMURAI_CHECK_NAN
+                this->derived_cast().m_data.fill(std::nan(""));
+#endif
             }
         };
 
@@ -187,6 +201,17 @@ namespace samurai
             inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
+#ifdef SAMURAI_CHECK_NAN
+                for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
+                     i += interval.step)
+                {
+                    if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
+                    {
+                        std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
+                        break;
+                    }
+                }
+#endif
                 return xt::view(this->derived_cast().m_data,
                                 xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
             }
@@ -659,11 +684,17 @@ namespace samurai
     inline void Field<mesh_t, value_t, size_, SOA>::to_stream(std::ostream& os) const
     {
         os << "Field " << m_name << "\n";
+
+#ifdef SAMURAI_CHECK_NAN
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        for_each_cell(this->mesh()[mesh_id_t::reference],
+#else
         for_each_cell(this->mesh(),
+#endif
                       [&](auto& cell)
                       {
-                          os << "\tlevel: " << cell.level << " coords: " << cell.center() << ", index: " << cell.index
-                             << " value: " << this->operator[](cell) << "\n";
+                          os << "\tlevel: " << cell.level << " coords: " << cell.center() << " index: " << cell.index
+                             << ", value: " << this->operator[](cell) << "\n";
                       });
     }
 
@@ -768,7 +799,11 @@ namespace samurai
     auto make_field(std::string name, mesh_t& mesh)
     {
         using field_t = Field<mesh_t, value_t, size, SOA>;
-        return field_t(name, mesh);
+        field_t f(name, mesh);
+#ifdef SAMURAI_CHECK_NAN
+        f.fill(static_cast<value_t>(std::nan("")));
+#endif
+        return f;
     }
 
     template <class value_t, std::size_t size, bool SOA = false, class mesh_t>
@@ -804,7 +839,11 @@ namespace samurai
     auto make_field(std::string name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
         auto field = make_field<value_t, size, SOA, mesh_t>(name, mesh);
+#ifdef SAMURAI_CHECK_NAN
+        f.fill(std::nan(""));
+#else
         field.fill(0);
+#endif
 
         for_each_cell(mesh,
                       [&](const auto& cell)
@@ -836,7 +875,11 @@ namespace samurai
     auto make_field(std::string name, mesh_t& mesh, Func&& f)
     {
         auto field = make_field<value_t, size, SOA, mesh_t>(name, mesh);
+#ifdef SAMURAI_CHECK_NAN
+        f.fill(std::nan(""));
+#else
         field.fill(0);
+#endif
 
         for_each_cell(mesh,
                       [&](const auto& cell)
