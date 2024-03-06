@@ -18,9 +18,9 @@ class Morton : public SFC<Morton> {
         * return :
         *              x        : unsigned 64bits with splited by 3
         */
-        inline uint64_t splitBy3_2D( uint32_t logical_a ) const {
+        inline SFC_key_t splitBy3_2D( uint32_t logical_a ) const {
 
-            uint64_t x = logical_a & 0xffffffff;
+            SFC_key_t x = logical_a & 0xffffffff;
             x = (x | x << 16) & 0xffff0000ffff;
             x = (x | x << 8) & 0xff00ff00ff00ff;
             x = (x | x << 4) & 0xf0f0f0f0f0f0f0f;
@@ -39,9 +39,9 @@ class Morton : public SFC<Morton> {
         * return :
         *              x        : unsigned 64bits with splited by 3
         */
-        inline uint64_t splitBy3_3D(uint32_t logical_a) const {
+        inline SFC_key_t splitBy3_3D(uint32_t logical_a) const {
 
-            uint64_t x = logical_a & 0x1fffff;
+            SFC_key_t x = logical_a & 0x1fffff;
 
             x = (x | x << 32) & 0x1f00000000ffff;
             x = (x | x << 16) & 0x1f0000ff0000ff;
@@ -65,15 +65,17 @@ class Morton : public SFC<Morton> {
         * Return :
         *             key    : morton key
         */
-        inline SFC_key_t getKey_2D_impl( const Logical_coord & lc ) const {
+        template<class Coord_t>
+        inline SFC_key_t getKey_2D_impl( const Coord_t & lc ) const {
             SFC_key_t la_clef = 0;
-            la_clef |= splitBy3_2D( lc.i ) | splitBy3_2D( lc.j ) << 1;
+            la_clef |= splitBy3_2D( lc( 0 ) ) | splitBy3_2D( lc( 1 ) ) << 1;
             return la_clef;
         }
 
-        inline SFC_key_t getKey_3D_impl( const Logical_coord & lc ) const {
-            uint64_t la_clef = 0;
-            la_clef |= splitBy3_3D( lc.i ) | splitBy3_3D( lc.j ) << 1 | splitBy3_3D( lc.k ) << 2;
+        template<class Coord_t>
+        inline SFC_key_t getKey_3D_impl( const Coord_t & lc ) const {
+            SFC_key_t la_clef = 0;
+            la_clef |= splitBy3_3D( lc( 0 ) ) | splitBy3_3D( lc( 1 ) ) << 1 | splitBy3_3D( lc( 2 ) ) << 2;
             return la_clef;
         }
 
@@ -86,9 +88,9 @@ class Morton : public SFC<Morton> {
         * Return :
         *             lc  (out): 2D/3D logical coordinates
         */
-        inline Logical_coord getCoordinates_impl_2D( const SFC_key_t & clef ) const {
+        inline auto getCoordinates_2D_impl( const SFC_key_t & clef ) const {
 
-            Logical_coord lc {0, 0, 0};
+            xt::xtensor_fixed<uint32_t, xt::xshape<2>> lc = { 0, 0 };
 
             // Extract coord i
             SFC_key_t keyi = clef >> 0;
@@ -98,7 +100,7 @@ class Morton : public SFC<Morton> {
             keyi = (keyi ^ (keyi >> 4))  & 0x00ff00ff00ff00ff;
             keyi = (keyi ^ (keyi >> 8))  & 0x0000ffff0000ffff;
             keyi = (keyi ^ (keyi >> 16)) & 0x00000000ffffffff;
-            lc.i = static_cast<uint32_t>(keyi);
+            lc( 0 ) = static_cast<uint32_t>( keyi );
 
             // extract coord j
             SFC_key_t keyj = clef >> 1;
@@ -108,14 +110,14 @@ class Morton : public SFC<Morton> {
             keyj = (keyj ^ (keyj >> 4))  & 0x00ff00ff00ff00ff;
             keyj = (keyj ^ (keyj >> 8))  & 0x0000ffff0000ffff;
             keyj = (keyj ^ (keyj >> 16)) & 0x00000000ffffffff;
-            lc.j = static_cast<uint32_t>(keyj);
+            lc( 1 ) = static_cast<uint32_t>( keyj );
 
             return lc;
         }
 
-        inline Logical_coord getCoordinates_impl_3D( const SFC_key_t & clef ) const {
+        inline auto getCoordinates_3D_impl( const SFC_key_t & clef ) const {
 
-            Logical_coord lc = {0, 0, 0}; // k=0
+            xt::xtensor_fixed<uint32_t, xt::xshape<3>> lc = { 0, 0, 0 };
 
             // Extract coord i
             SFC_key_t keyi = clef >> 0;
@@ -125,7 +127,7 @@ class Morton : public SFC<Morton> {
             keyi = (keyi ^ (keyi >> 8))  & 0x00ff0000ff0000ff;
             keyi = (keyi ^ (keyi >> 16)) & 0x00ff00000000ffff;
             keyi = (keyi ^ (keyi >> 32)) & 0x1fffff;
-            lc.i = keyi;
+            lc( 0 ) = static_cast<uint32_t>( keyi ); // assert for overflow ?
 
             SFC_key_t keyj = clef >> 1;
             keyj &= 0x1249249249249249;
@@ -134,7 +136,7 @@ class Morton : public SFC<Morton> {
             keyj = (keyj ^ (keyj >> 8))  & 0x00ff0000ff0000ff;
             keyj = (keyj ^ (keyj >> 16)) & 0x00ff00000000ffff;
             keyj = (keyj ^ (keyj >> 32)) & 0x1fffff;
-            lc.j = keyj;
+            lc( 1 ) = static_cast<uint32_t>( keyj );
 
             SFC_key_t keyk = clef >> 2;
             keyk &= 0x1249249249249249;
@@ -143,7 +145,7 @@ class Morton : public SFC<Morton> {
             keyk = (keyk ^ (keyk >> 8))  & 0x00ff0000ff0000ff;
             keyk = (keyk ^ (keyk >> 16)) & 0x00ff00000000ffff;
             keyk = (keyk ^ (keyk >> 32)) & 0x1fffff;
-            lc.k = keyk;
+            lc( 2 ) = static_cast<uint32_t>( keyk );
 
             return lc;
         }
