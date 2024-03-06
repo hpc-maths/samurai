@@ -2,15 +2,14 @@
 
 #include <cstdint>
 
-struct Logical_coord{
-    uint32_t i, j, k;
-};
+#include "assertLogTrace.hpp"
+
+using SFC_key_t = uint64_t;
 
 template<class SFC_Flavor>
 class SFC {
 
     public:
-        using SFC_key_t = uint64_t;
         
         /**
          * 
@@ -18,12 +17,11 @@ class SFC {
          * 2D/3D logical coordinates of cell.
          * 
         */
-        template<int dim, typename...Args>
-        inline SFC_key_t getKey( const Logical_coord & lc, const Args&... kw ) const{
-            // return SFC_Flavor::getKey_impl( lc );
-            if constexpr ( dim == 2 ) return static_cast<const SFC_Flavor*>(this)->getKey_2D_impl( lc, kw... );
-            if constexpr ( dim == 3 ) return static_cast<const SFC_Flavor*>(this)->getKey_3D_impl( lc, kw... );
-        };
+        template<int dim, class Coord_t>
+        inline SFC_key_t getKey( const Coord_t & lc ) const{
+            if constexpr ( dim == 2 ) return static_cast<const SFC_Flavor*>( this )->getKey_2D_impl( lc );
+            if constexpr ( dim == 3 ) return static_cast<const SFC_Flavor*>( this )->getKey_3D_impl( lc );
+        }
 
         /**
          * 
@@ -31,10 +29,9 @@ class SFC {
          * 
         */
         template<int dim>
-        inline Logical_coord getCoordinates( const SFC_key_t & clef ) const{
-            // return SFC_Flavor::getKey_impl( lc );
-            if constexpr ( dim == 2 ) return static_cast<const SFC_Flavor*>(this)->getCoordinates_2D_impl( clef );
-            if constexpr ( dim == 3 ) return static_cast<const SFC_Flavor*>(this)->getCoordinates_3D_impl( clef );
-        };
+        inline auto getCoordinates( const SFC_key_t & clef ) const{
+            if constexpr ( dim == 2 ) return static_cast<const SFC_Flavor*>( this )->getCoordinates_2D_impl( clef );
+            if constexpr ( dim == 3 ) return static_cast<const SFC_Flavor*>( this )->getCoordinates_3D_impl( clef );
+        }
 
 };
