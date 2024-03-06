@@ -30,7 +30,7 @@ struct Mybc : public samurai::Bc<Field>
     stencil_t stencil(constant_stencil_size_t) const override
     {
         // clang-format off
-        return {{0, 0}, {0, 1}};
+        return {{0, 0}, {1, 0}};
         // clang-format on
     }
 
