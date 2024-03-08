@@ -900,6 +900,11 @@ namespace samurai
     {
         INIT_BC(DirichletOrder, 2 * order) // stencil_size = 2*order
 
+        stencil_t stencil(constant_stencil_size_t) const override
+        {
+            return line_stencil<dim, 0, 2 * order>();
+        }
+
         void apply(Field& u, const stencil_cells_t& cells, const value_t& dirichlet_value) const override
         {
             if constexpr (order == 1)
@@ -968,26 +973,15 @@ namespace samurai
     };
 
     template <class Field>
-    using Dirichlet_3 = DirichletOrder<3, Field>;
-
+    using Dirichlet = DirichletOrder<1, Field>;
     template <class Field>
-    struct Dirichlet : public Bc<Field>
-    {
-        INIT_BC(Dirichlet, 2)
-
-        stencil_t stencil(constant_stencil_size_t) const override
-        {
-            return line_stencil<dim, 0>(0, 1);
-        }
-
-        void apply(Field& f, const stencil_cells_t& cells, const value_t& value) const override
-        {
-            static constexpr std::size_t in  = 0;
-            static constexpr std::size_t out = 1;
-
-            f[cells[out]] = 2 * value - f[cells[in]];
-        }
-    };
+    using Dirichlet_1 = DirichletOrder<1, Field>;
+    template <class Field>
+    using Dirichlet_2 = DirichletOrder<2, Field>;
+    template <class Field>
+    using Dirichlet_3 = DirichletOrder<3, Field>;
+    template <class Field>
+    using Dirichlet_4 = DirichletOrder<4, Field>;
 
     template <class Field>
     struct Neumann : public Bc<Field>
