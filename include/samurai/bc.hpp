@@ -30,29 +30,30 @@
         return line_stencil<dim, 0, STENCIL_SIZE>();                                                    \
     }
 
-#define INIT_BC(NAME, STENCIL_SIZE)                                                                        \
-    using base_t  = samurai::Bc<Field>;                                                                    \
-    using cell_t  = typename base_t::cell_t;                                                               \
-    using value_t = typename base_t::value_t;                                                              \
-    using base_t::Bc;                                                                                      \
-    using base_t::dim;                                                                                     \
-    using base_t::apply;                                                                                   \
-    using base_t::stencil;                                                                                 \
-                                                                                                           \
-    using stencil_t               = samurai::Stencil<STENCIL_SIZE, dim>;                                   \
-    using constant_stencil_size_t = std::integral_constant<std::size_t, STENCIL_SIZE>;                     \
-    using stencil_cells_t         = std::array<cell_t, STENCIL_SIZE>;                                      \
-                                                                                                           \
-    static_assert(STENCIL_SIZE <= base_t::max_stencil_size_implemented, "The stencil size is too large."); \
-                                                                                                           \
-    std::unique_ptr<base_t> clone() const override                                                         \
-    {                                                                                                      \
-        return std::make_unique<NAME>(*this);                                                              \
-    }                                                                                                      \
-                                                                                                           \
-    std::size_t stencil_size() const override                                                              \
-    {                                                                                                      \
-        return STENCIL_SIZE;                                                                               \
+#define INIT_BC(NAME, STENCIL_SIZE)                                                                                                \
+    using base_t  = samurai::Bc<Field>;                                                                                            \
+    using cell_t  = typename base_t::cell_t;                                                                                       \
+    using value_t = typename base_t::value_t;                                                                                      \
+    using base_t::base_t;                                                                                                          \
+    using base_t::dim;                                                                                                             \
+    using base_t::apply;                                                                                                           \
+    using base_t::stencil;                                                                                                         \
+                                                                                                                                   \
+    using stencil_t               = samurai::Stencil<STENCIL_SIZE, dim>;                                                           \
+    using constant_stencil_size_t = std::integral_constant<std::size_t, STENCIL_SIZE>;                                             \
+    using stencil_cells_t         = std::array<cell_t, STENCIL_SIZE>;                                                              \
+                                                                                                                                   \
+    static_assert(STENCIL_SIZE <= base_t::max_stencil_size_implemented, "The stencil size is too large.");                         \
+    static_assert(Field::mesh_t::config::ghost_width >= STENCIL_SIZE / 2, "Not enough ghost layers for this boundary condition."); \
+                                                                                                                                   \
+    std::unique_ptr<base_t> clone() const override                                                                                 \
+    {                                                                                                                              \
+        return std::make_unique<NAME>(*this);                                                                                      \
+    }                                                                                                                              \
+                                                                                                                                   \
+    std::size_t stencil_size() const override                                                                                      \
+    {                                                                                                                              \
+        return STENCIL_SIZE;                                                                                                       \
     }
 
 namespace samurai
@@ -826,8 +827,8 @@ namespace samurai
                     __apply_bc_on_subset(bc, field, bdry_cells, stencil, direction[d]);
 
                     // 2. Inner ghosts in the boundary region that have a neigbouring ghost outside the domain
-                    auto translated_outer_nghbr2       = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
-                    auto inner_cells_and_ghosts        = intersection(translated_outer_nghbr2, lca[d]);
+                    auto translated_outer_nghbr        = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
+                    auto inner_cells_and_ghosts        = intersection(translated_outer_nghbr, lca[d]);
                     auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
                     __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction[d]);
@@ -882,10 +883,9 @@ namespace samurai
 
                     // 2. Inner ghosts in the boundary region that have a neigbouring ghost outside the domain
                     {
-                        auto bdry_cells              = intersection(mesh[mesh_id_t::cells][level], lca[d]);
-                        auto translated_outer_nghbr2 = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
-                        // auto translated_outer_nghbr2       = translate(mesh[mesh_id_t::reference][level], -direction[d]);
-                        auto inner_cells_and_ghosts        = intersection(translated_outer_nghbr2, lca[d]).on(level);
+                        auto bdry_cells             = intersection(mesh[mesh_id_t::cells][level], lca[d]);
+                        auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
+                        auto inner_cells_and_ghosts = intersection(translated_outer_nghbr, lca[d]).on(level);
                         auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
                         __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction[d]);
@@ -894,6 +894,81 @@ namespace samurai
             }
         }
     }
+
+    template <std::size_t order, class Field>
+    struct DirichletOrder : public Bc<Field>
+    {
+        INIT_BC(DirichletOrder, 2 * order) // stencil_size = 2*order
+
+        void apply(Field& u, const stencil_cells_t& cells, const value_t& dirichlet_value) const override
+        {
+            if constexpr (order == 1)
+            {
+                //      [0]   [1]
+                //    |_____|.....|
+                //     cell  ghost
+
+                u[cells[1]] = 2 * dirichlet_value - u[cells[0]];
+            }
+            else if constexpr (order == 2)
+            {
+                //     [0]   [1]   [2]   [3]
+                //   |_____|_____|.....|.....|
+                //       cells      ghosts
+
+                // We define a polynomial of degree 2 that passes by 3 points (the 2 cells and the boundary value):
+                //                       p(x) = a*x^2 + b*x + c.
+                // The coefficients a, b, c are found by inverting the Vandermonde matrix obtained by inserting the 3 points into
+                // the polynomial. If we set the abscissa 0 at the center of cells[0], this system reads
+                //                       p( 0 ) = u[cells[0]]
+                //                       p( 1 ) = u[cells[1]]
+                //                       p(3/2) = dirichlet_value.
+                // Then, we want that the ghost values be also located on this polynomial, i.e.
+                //                       u[cells[2]] = p( 2 )
+                //                       u[cells[3]] = p( 3 ).
+
+                u[cells[2]] = 8. / 3. * dirichlet_value + 1. / 3. * u[cells[0]] - 2. * u[cells[1]];
+                u[cells[3]] = 8. * dirichlet_value + 2. * u[cells[0]] - 9. * u[cells[1]];
+            }
+            else if constexpr (order == 3)
+            {
+                //     [0]   [1]   [2]   [3]   [4]   [5]
+                //   |_____|_____|_____|.....|.....|.....|
+                //          cells             ghosts
+
+                // We define a polynomial of degree 3 that passes by 4 points (the 3 cells and the boundary value):
+                //                       p(x) = a*x^3 + b*x^2 + c*x + d.
+                // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 points into
+                // the polynomial. If we set the abscissa 0 at the center of cells[0], this system reads
+                //                       p( 0 ) = u[cells[0]]
+                //                       p( 1 ) = u[cells[1]]
+                //                       p( 2 ) = u[cells[2]]
+                //                       p(5/2) = dirichlet_value.
+                // Then, we want that the ghost values be also located on this polynomial, i.e.
+                //                       u[cells[3]] = p( 3 )
+                //                       u[cells[4]] = p( 4 )
+                //                       u[cells[5]] = p( 5 ).
+
+                u[cells[3]] = 16. / 5. * dirichlet_value - 1. / 5. * u[cells[0]] + u[cells[1]] - 3. * u[cells[2]];
+                u[cells[4]] = 64. / 5. * dirichlet_value - 9. / 5. * u[cells[0]] + 8. * u[cells[1]] - 18. * u[cells[2]];
+                u[cells[5]] = 32. * dirichlet_value - 6. * u[cells[0]] + 25. * u[cells[1]] - 50. * u[cells[2]];
+            }
+            else if constexpr (order == 4)
+            {
+                u[cells[4]] = 128. / 35 * dirichlet_value + 1. / 7 * u[cells[0]] - 4. / 5 * u[cells[1]] + 2 * u[cells[2]] - 4. * u[cells[3]];
+                u[cells[5]] = 128. / 7. * dirichlet_value + 12. / 7. * u[cells[0]] - 9 * u[cells[1]] + 20 * u[cells[2]] - 30 * u[cells[3]];
+                u[cells[6]] = 384. / 7. * dirichlet_value + 50. / 7. * u[cells[0]] - 36 * u[cells[1]] + 75 * u[cells[2]] - 100 * u[cells[3]];
+                u[cells[7]] = 128 * dirichlet_value + 20 * u[cells[0]] - 98 * u[cells[1]] + 196 * u[cells[2]] - 245 * u[cells[3]];
+            }
+            else
+            {
+                static_assert(order <= 4, "The Dirichlet boundary conditions are only implemented up to order 4.");
+            }
+        }
+    };
+
+    template <class Field>
+    using Dirichlet_3 = DirichletOrder<3, Field>;
 
     template <class Field>
     struct Dirichlet : public Bc<Field>
@@ -996,19 +1071,6 @@ namespace samurai
             {
                 u[ghost] = u[cells[0]] - u[cells[1]] * 5.0 + u[cells[2]] * 1.0E+1 - u[cells[3]] * 1.0E+1 + u[cells[4]] * 5.0;
             }
-
-            // if (stencil_size_ == 4)
-            // {
-            //     if (u[ghost] != 0)
-            //     {
-            //         for (std::size_t i = 0; i < stencil_size_ - 1; ++i)
-            //         {
-            //             std::cout << cells[i] << ", value = " << u[cells[i]] << std::endl;
-            //         }
-            //         std::cout << u[ghost] << std::endl;
-            //         std::cout << std::endl;
-            //     }
-            // }
         }
     };
 
@@ -1016,8 +1078,45 @@ namespace samurai
     void update_bc(std::size_t level, Field& field)
     {
         static constexpr std::size_t ghost_width                     = Field::mesh_t::config::ghost_width;
+        static constexpr std::size_t prediction_order                = Field::mesh_t::config::prediction_order;
         static constexpr std::size_t max_stencil_size_implemented_BC = Bc<Field>::max_stencil_size_implemented;
+        static constexpr std::size_t max_stencil_size_implemented_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
 
+        // Step 0:
+        // One level below the boundary cells, there are outer ghosts used for prediction (for the computation of details).
+        // Those ghosts are supposed (for now) to be filled by the boundary conditions.
+        // However, if the B.C. stencil is larger than the prediction stencil, there are not enough ghosts to apply the B.C.
+        // So, in order to make sure that the outer ghosts linked to the detail computation are filled with values,
+        // we start by filling them with polynomial extrapolation.
+        // If the B.C. can, in fact, be applyied, they will overwrite the polynomial extrapolation
+        if constexpr (Field::mesh_t::config::max_stencil_width > prediction_order)
+        {
+            // We populate the ghosts sequentially from the closest to the farthest.
+            for (std::size_t ghost_layer = 1; ghost_layer <= prediction_order; ++ghost_layer)
+            {
+                std::size_t stencil_s = 2 * ghost_layer;
+                static_for<2, std::min(max_stencil_size_implemented_PE, 2 * prediction_order) + 1>::apply(
+                    [&](auto integral_constant_i)
+                    {
+                        static constexpr std::size_t i = decltype(integral_constant_i)::value;
+
+                        if constexpr (i % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
+                        {
+                            if (stencil_s == i)
+                            {
+                                auto& mesh = detail::get_mesh(field.mesh());
+                                PolynomialExtrapolation<Field, i> bc(mesh, ConstantBc<Field>());
+
+                                bool only_fill_corners = false;
+                                apply_extrapolation_bc_impl<Field, i>(bc, level, field, only_fill_corners);
+                            }
+                        }
+                    });
+            }
+        }
+
+        // Step 1:
+        // Apply the B.C. attached to the field by the user
         std::size_t real_max_stencil_size = 0;
 
         for (auto& bc : field.get_bc())
@@ -1036,14 +1135,14 @@ namespace samurai
             real_max_stencil_size = std::max(real_max_stencil_size, bc->stencil_size());
         }
 
+        // Step 3:
         // Polynomial extrapolation to populate corners and ghosts layers that are not filled by the B.C.
-        static constexpr std::size_t max_stencil_size_implemented_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
 
         // We populate the ghosts sequentially from the closest to the farthest.
         for (std::size_t ghost_layer = 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
             std::size_t stencil_s = 2 * ghost_layer;
-            static_for<2, max_stencil_size_implemented_PE + 1>::apply( // for (int i=2; i<=max_stencil_size_implemented; i++)
+            static_for<2, std::min(max_stencil_size_implemented_PE, 2 * ghost_width) + 1>::apply(
                 [&](auto integral_constant_i)
                 {
                     static constexpr std::size_t i = decltype(integral_constant_i)::value;

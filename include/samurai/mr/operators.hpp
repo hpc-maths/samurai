@@ -187,6 +187,20 @@ namespace samurai
             auto qs_j  = Qs_j<order>(field, level, i, j);
             auto qs_ij = Qs_ij<order>(field, level, i, j);
 
+#ifdef SAMURAI_CHECK_NAN
+            if constexpr (T::size == 1)
+            {
+                for (std::size_t ii = 0; ii < i.size(); ++ii)
+                {
+                    if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
+                    {
+                        std::cerr << "NaN detected during the computation of details." << std::endl;
+                        break;
+                    }
+                }
+            }
+#endif
+
             detail(level + 1, 2 * i, 2 * j) = field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij);
 
             detail(level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
