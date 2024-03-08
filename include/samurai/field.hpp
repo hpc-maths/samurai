@@ -432,6 +432,8 @@ namespace samurai
         template <class Bc_derived>
         auto attach_bc(const Bc_derived& bc);
         auto& get_bc();
+        const auto& get_bc() const;
+        void copy_bc_from(const Field& other);
 
         iterator begin();
         const_iterator begin() const;
@@ -594,13 +596,7 @@ namespace samurai
         , m_name(field.m_name)
         , m_data(field.m_data)
     {
-        std::transform(field.p_bc.cbegin(),
-                       field.p_bc.cend(),
-                       std::back_inserter(p_bc),
-                       [](const auto& v)
-                       {
-                           return v->clone();
-                       });
+        copy_bc_from(field);
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
@@ -728,6 +724,24 @@ namespace samurai
     inline auto& Field<mesh_t, value_t, size_, SOA>::get_bc()
     {
         return p_bc;
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline const auto& Field<mesh_t, value_t, size_, SOA>::get_bc() const
+    {
+        return p_bc;
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    void Field<mesh_t, value_t, size_, SOA>::copy_bc_from(const Field<mesh_t, value_t, size_, SOA>& other)
+    {
+        std::transform(other.get_bc().cbegin(),
+                       other.get_bc().cend(),
+                       std::back_inserter(p_bc),
+                       [](const auto& v)
+                       {
+                           return v->clone();
+                       });
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>

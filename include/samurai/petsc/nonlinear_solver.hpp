@@ -169,13 +169,7 @@ namespace samurai
                 copy(x, x_field); // This is really bad... TODO: create a field constructor that takes a double*
 
                 // Transfer B.C. to the new field (required to be able to apply the explicit scheme)
-                std::transform(assembly.unknown().get_bc().cbegin(),
-                               assembly.unknown().get_bc().cend(),
-                               std::back_inserter(x_field.get_bc()),
-                               [](const auto& v)
-                               {
-                                   return v->clone();
-                               });
+                x_field.copy_bc_from(assembly.unknown());
 
                 // Apply explicit scheme
                 update_ghost_mr(x_field);
@@ -199,13 +193,7 @@ namespace samurai
 
                 // Transfer B.C. to the new field,
                 // so that the assembly process has B.C. to enforce in the matrix
-                std::transform(assembly.unknown().get_bc().cbegin(),
-                               assembly.unknown().get_bc().cend(),
-                               std::back_inserter(x_field.get_bc()),
-                               [](const auto& v)
-                               {
-                                   return v->clone();
-                               });
+                x_field.copy_bc_from(assembly.unknown());
                 update_bc(x_field); // Not sure if necessary
 
                 // Save unknown...
