@@ -67,7 +67,7 @@ auto init_velocity(Mesh& mesh)
 
     samurai::make_bc<samurai::Neumann>(u, 0., 0.);
 
-    // samurai::make_bc<samurai::Dirichlet>(u, [PI](auto& coords)
+    // samurai::make_bc<samurai::Dirichlet<1>>(u, [PI](auto& coords)
     // {
     //     return xt::xtensor_fixed<double, xt::xshape<2>>{
     //         -std::pow(std::sin(PI*coords[0]), 2.) *

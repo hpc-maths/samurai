@@ -15,7 +15,7 @@ namespace samurai
         auto mesh                        = UniformMesh<config>({{0}, {1}}, 4);
         auto u                           = make_field<double, 1>("u", mesh);
 
-        make_bc<Dirichlet>(u);
+        make_bc<Dirichlet<1>>(u);
         EXPECT_EQ(u.get_bc()[0]->constant_value(), 0.);
     }
 
@@ -26,7 +26,7 @@ namespace samurai
         auto mesh                        = UniformMesh<config>({{0}, {1}}, 4);
         auto u                           = make_field<double, 4>("u", mesh);
 
-        make_bc<Dirichlet>(u);
+        make_bc<Dirichlet<1>>(u);
         EXPECT_EQ(u.get_bc()[0]->constant_value(), xt::zeros<double>({4}));
     }
 
@@ -37,7 +37,7 @@ namespace samurai
         auto mesh                        = UniformMesh<config>({{0}, {1}}, 4);
         auto u                           = make_field<double, 1>("u", mesh);
 
-        make_bc<Dirichlet>(u, 2);
+        make_bc<Dirichlet<1>>(u, 2);
         EXPECT_EQ(u.get_bc()[0]->constant_value(), 2);
     }
 
@@ -48,7 +48,7 @@ namespace samurai
         auto mesh                        = UniformMesh<config>({{0}, {1}}, 4);
         auto u                           = make_field<double, 4>("u", mesh);
 
-        make_bc<Dirichlet>(u, 1., 2., 3., 4.);
+        make_bc<Dirichlet<1>>(u, 1., 2., 3., 4.);
         xt::xtensor<double, 1> expected({1, 2, 3, 4});
         EXPECT_EQ(u.get_bc()[0]->constant_value(), expected);
     }
@@ -60,12 +60,12 @@ namespace samurai
         auto mesh                        = MRMesh<config>({{0}, {1}}, 2, 4);
         auto u                           = make_field<double, 1>("u", mesh);
 
-        make_bc<Dirichlet>(u,
-                           [](const auto& direction, const auto& cell, const auto& coord)
-                           {
-                               std::cout << direction << " " << cell << " " << coord << std::endl;
-                               return 0;
-                           });
+        make_bc<Dirichlet<1>>(u,
+                              [](const auto& direction, const auto& cell, const auto& coord)
+                              {
+                                  std::cout << direction << " " << cell << " " << coord << std::endl;
+                                  return 0;
+                              });
 
         using cell_t   = typename decltype(u)::cell_t;
         using coords_t = typename cell_t::coords_t;

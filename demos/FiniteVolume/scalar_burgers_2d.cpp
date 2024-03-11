@@ -49,7 +49,7 @@ auto init(Mesh& mesh)
             }
         });
 
-    samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
     return u;
 }

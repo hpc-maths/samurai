@@ -188,12 +188,12 @@ int main(int argc, char* argv[])
     samurai::DirectionVector<dim> right  = {1, 0};
     samurai::DirectionVector<dim> bottom = {0, -1};
     samurai::DirectionVector<dim> top    = {0, 1};
-    samurai::make_bc<samurai::Dirichlet>(velocity, 1., 0.)->on(top);
-    samurai::make_bc<samurai::Dirichlet>(velocity, 0., 0.)->on(left, bottom, right);
+    samurai::make_bc<samurai::Dirichlet<1>>(velocity, 1., 0.)->on(top);
+    samurai::make_bc<samurai::Dirichlet<1>>(velocity, 0., 0.)->on(left, bottom, right);
 
     // Boundary conditions (n+1)
-    samurai::make_bc<samurai::Dirichlet>(velocity_np1, 1., 0.)->on(top);
-    samurai::make_bc<samurai::Dirichlet>(velocity_np1, 0., 0.)->on(left, bottom, right);
+    samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1, 1., 0.)->on(top);
+    samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1, 0., 0.)->on(left, bottom, right);
     samurai::make_bc<samurai::Neumann>(pressure_np1, 0.);
 
     // Initial condition
@@ -263,7 +263,7 @@ int main(int argc, char* argv[])
     auto conv2 = samurai::make_convection_weno5<InkField>(velocity2);
 
     // Boundary condition
-    samurai::make_bc<samurai::Dirichlet_3>(ink, 0.);
+    samurai::make_bc<samurai::Dirichlet<3>>(ink, 0.);
 
     // Initial condition
     samurai::for_each_cell(mesh2,

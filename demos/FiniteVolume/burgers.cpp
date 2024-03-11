@@ -190,25 +190,25 @@ int main_dim(int argc, char* argv[])
     // Boundary conditions
     if (dim == 1 && init_sol == "linear")
     {
-        samurai::make_bc<samurai::Dirichlet>(u,
-                                             [&](const auto&, const auto&, const auto& coord)
-                                             {
-                                                 return exact_solution(coord, 0);
-                                             });
+        samurai::make_bc<samurai::Dirichlet<3>>(u,
+                                                [&](const auto&, const auto&, const auto& coord)
+                                                {
+                                                    return exact_solution(coord, 0);
+                                                });
     }
     else
     {
         if constexpr (field_size == 1)
         {
-            samurai::make_bc<samurai::Dirichlet_3>(u, 0.0);
+            samurai::make_bc<samurai::Dirichlet<3>>(u, 0.0);
         }
         else if constexpr (field_size == 2)
         {
-            samurai::make_bc<samurai::Dirichlet_3>(u, 0.0, 0.0);
+            samurai::make_bc<samurai::Dirichlet<3>>(u, 0.0, 0.0);
         }
         else if constexpr (field_size == 3)
         {
-            samurai::make_bc<samurai::Dirichlet_3>(u, 0.0, 0.0, 0.0);
+            samurai::make_bc<samurai::Dirichlet<3>>(u, 0.0, 0.0, 0.0);
         }
     }
 
@@ -258,11 +258,11 @@ int main_dim(int argc, char* argv[])
         if (dim == 1 && init_sol == "linear")
         {
             u.get_bc().clear();
-            samurai::make_bc<samurai::Dirichlet>(u,
-                                                 [&](const auto&, const auto&, const auto& coord)
-                                                 {
-                                                     return exact_solution(coord, t - dt);
-                                                 });
+            samurai::make_bc<samurai::Dirichlet<3>>(u,
+                                                    [&](const auto&, const auto&, const auto& coord)
+                                                    {
+                                                        return exact_solution(coord, t - dt);
+                                                    });
         }
 
         // RK3 time scheme

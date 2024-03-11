@@ -260,14 +260,14 @@ int main(int argc, char* argv[])
         // samurai::finalize();
 
         auto u = samurai::make_field<double, 1>("u", mesh);
-        samurai::make_bc<samurai::Dirichlet>(u,
-                                             [](const auto&, const auto&, const auto& coord)
-                                             {
-                                                 const auto& x = coord[0];
-                                                 const auto& y = coord[1];
-                                                 // return 0.;
-                                                 return exp(x * y * y);
-                                             });
+        samurai::make_bc<samurai::Dirichlet<2>>(u,
+                                                [](const auto&, const auto&, const auto& coord)
+                                                {
+                                                    const auto& x = coord[0];
+                                                    const auto& y = coord[1];
+                                                    // return 0.;
+                                                    return exp(x * y * y);
+                                                });
         u.fill(0);
 
         HighOrderDiffusion<decltype(u)> diff;

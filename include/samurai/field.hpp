@@ -901,7 +901,7 @@ namespace samurai
     {
         auto field = make_field<value_t, size, SOA, mesh_t>(name, mesh);
 #ifdef SAMURAI_CHECK_NAN
-        f.fill(std::nan(""));
+        field.fill(std::nan(""));
 #else
         field.fill(0);
 #endif

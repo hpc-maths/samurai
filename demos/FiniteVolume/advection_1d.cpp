@@ -176,9 +176,9 @@ int main(int argc, char* argv[])
     {
         const xt::xtensor_fixed<int, xt::xshape<1>> left{-1};
         const xt::xtensor_fixed<int, xt::xshape<1>> right{1};
-        samurai::make_bc<samurai::Dirichlet>(u, 0.)->on(left, right);
+        samurai::make_bc<samurai::Dirichlet<1>>(u, 0.)->on(left, right);
         // same as (just to test OnDirection instead of Everywhere)
-        // samurai::make_bc<samurai::Dirichlet>(u, 0.);
+        // samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     }
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 

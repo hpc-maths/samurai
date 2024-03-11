@@ -223,7 +223,7 @@ int main(int argc, char* argv[])
     auto solution = samurai::make_field<double, field_size, is_soa>("solution", mesh);
 
     // Boundary conditions
-    samurai::make_bc<samurai::Dirichlet>(solution, test_case->dirichlet());
+    samurai::make_bc<samurai::Dirichlet<1>>(solution, test_case->dirichlet());
     //  Other possibilities:
     /*samurai::DirectionVector<dim> left   = {-1, 0};
     samurai::DirectionVector<dim> right  = {1, 0};
@@ -231,7 +231,7 @@ int main(int argc, char* argv[])
     samurai::DirectionVector<dim> top    = {0, 1};
     if constexpr (dim == 2)
     {
-        samurai::make_bc<samurai::Dirichlet>(solution, test_case->dirichlet())->on(left, right);
+        samurai::make_bc<samurai::Dirichlet<1>>(solution, test_case->dirichlet())->on(left, right);
         samurai::make_bc<samurai::Neumann>(solution, test_case->neumann())->on(bottom, top);
     }*/
 

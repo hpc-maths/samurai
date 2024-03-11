@@ -238,15 +238,15 @@ int main(int argc, char* argv[])
         using PressureField = decltype(pressure);
 
         // Boundary conditions
-        samurai::make_bc<samurai::Dirichlet>(velocity,
-                                             [](const auto&, const auto&, const auto& coord)
-                                             {
-                                                 const auto& x = coord[0];
-                                                 const auto& y = coord[1];
-                                                 double v_x    = 1 / (pi * pi) * sin(pi * (x + y));
-                                                 double v_y    = -v_x;
-                                                 return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-                                             });
+        samurai::make_bc<samurai::Dirichlet<1>>(velocity,
+                                                [](const auto&, const auto&, const auto& coord)
+                                                {
+                                                    const auto& x = coord[0];
+                                                    const auto& y = coord[1];
+                                                    double v_x    = 1 / (pi * pi) * sin(pi * (x + y));
+                                                    double v_y    = -v_x;
+                                                    return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
+                                                });
 
         samurai::make_bc<samurai::Neumann>(pressure,
                                            [](const auto&, const auto&, const auto& coord)
@@ -404,11 +404,11 @@ int main(int argc, char* argv[])
         auto zero = samurai::make_field<1, is_soa>("zero", mesh);
 
         // Boundary conditions
-        samurai::make_bc<samurai::Dirichlet>(velocity_np1,
-                                             [&](const auto&, const auto&, const auto& coord)
-                                             {
-                                                 return exact_velocity(0, coord);
-                                             });
+        samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1,
+                                                [&](const auto&, const auto&, const auto& coord)
+                                                {
+                                                    return exact_velocity(0, coord);
+                                                });
         samurai::make_bc<samurai::Neumann>(pressure_np1,
                                            [&](const auto&, const auto&, const auto& coord)
                                            {
@@ -497,11 +497,11 @@ int main(int argc, char* argv[])
 
             // Boundary conditions
             velocity_np1.get_bc().clear();
-            samurai::make_bc<samurai::Dirichlet>(velocity_np1,
-                                                 [&](const auto&, const auto&, const auto& coord)
-                                                 {
-                                                     return exact_velocity(t_np1, coord);
-                                                 });
+            samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1,
+                                                    [&](const auto&, const auto&, const auto& coord)
+                                                    {
+                                                        return exact_velocity(t_np1, coord);
+                                                    });
             pressure_np1.get_bc().clear();
             samurai::make_bc<samurai::Neumann>(pressure_np1,
                                                [&](const auto&, const auto&, const auto& coord)

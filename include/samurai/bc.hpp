@@ -721,6 +721,9 @@ namespace samurai
         }
     }
 
+    /**
+     * Boundary condition as a function
+     */
     template <template <class> class bc_type, class Field>
     auto make_bc(Field& field, typename FunctionBc<Field>::function_t func)
     {
@@ -728,6 +731,18 @@ namespace samurai
         return field.attach_bc(bc_type<Field>(mesh, FunctionBc<Field>(func)));
     }
 
+    template <class bc_type, class Field>
+    auto make_bc(Field& field, typename FunctionBc<Field>::function_t func)
+    {
+        using bc_impl = typename bc_type::template impl_t<Field>;
+
+        auto& mesh = detail::get_mesh(field.mesh());
+        return field.attach_bc(bc_impl(mesh, FunctionBc<Field>(func)));
+    }
+
+    /**
+     * Boundary condition as a default constant
+     */
     template <template <class> class bc_type, class Field>
     auto make_bc(Field& field)
     {
@@ -735,6 +750,18 @@ namespace samurai
         return field.attach_bc(bc_type<Field>(mesh, ConstantBc<Field>()));
     }
 
+    template <class bc_type, class Field>
+    auto make_bc(Field& field)
+    {
+        using bc_impl = typename bc_type::template impl_t<Field>;
+
+        auto& mesh = detail::get_mesh(field.mesh());
+        return field.attach_bc(bc_impl(mesh, ConstantBc<Field>()));
+    }
+
+    /**
+     * Boundary condition as a constant
+     */
     template <template <class> class bc_type, class Field, class... T>
     auto make_bc(Field& field, typename Field::value_type v1, T... v)
     {
@@ -746,6 +773,21 @@ namespace samurai
 
         auto& mesh = detail::get_mesh(field.mesh());
         return field.attach_bc(bc_type<Field>(mesh, ConstantBc<Field>(v1, v...)));
+    }
+
+    template <class bc_type, class Field, class... T>
+    auto make_bc(Field& field, typename Field::value_type v1, T... v)
+    {
+        static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<typename Field::value_type, T...>>,
+                      "The constant value type must be the same as the field value_type");
+        static_assert(Field::size == sizeof...(T) + 1,
+                      "The number of constant values should be equal to the "
+                      "number of element in the field");
+
+        using bc_impl = typename bc_type::template impl_t<Field>;
+
+        auto& mesh = detail::get_mesh(field.mesh());
+        return field.attach_bc(bc_impl(mesh, ConstantBc<Field>(v1, v...)));
     }
 
     //////////////
@@ -896,9 +938,9 @@ namespace samurai
     }
 
     template <std::size_t order, class Field>
-    struct DirichletOrder : public Bc<Field>
+    struct DirichletImpl : public Bc<Field>
     {
-        INIT_BC(DirichletOrder, 2 * order) // stencil_size = 2*order
+        INIT_BC(DirichletImpl, 2 * order) // stencil_size = 2*order
 
         stencil_t stencil(constant_stencil_size_t) const override
         {
@@ -972,16 +1014,14 @@ namespace samurai
         }
     };
 
-    template <class Field>
-    using Dirichlet = DirichletOrder<1, Field>;
-    template <class Field>
-    using Dirichlet_1 = DirichletOrder<1, Field>;
-    template <class Field>
-    using Dirichlet_2 = DirichletOrder<2, Field>;
-    template <class Field>
-    using Dirichlet_3 = DirichletOrder<3, Field>;
-    template <class Field>
-    using Dirichlet_4 = DirichletOrder<4, Field>;
+    template <std::size_t order_ = 1>
+    struct Dirichlet
+    {
+        static constexpr std::size_t order = order_;
+
+        template <class Field>
+        using impl_t = DirichletImpl<order, Field>;
+    };
 
     template <class Field>
     struct Neumann : public Bc<Field>

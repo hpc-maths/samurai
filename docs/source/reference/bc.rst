@@ -19,7 +19,7 @@ We give here a first use of edge conditions in |project| where we put the same c
 
     auto u = samurai::make_field<double, 1>("my_field", mesh);
 
-    samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    samurai::make_bc<samurai::Dirichlet<>>(u, 0.);
 
 The number of parameters in the ``make_bc`` function depends on the size of the field. Here, the field size is $1$ so we have just one value to define.
 
@@ -29,7 +29,7 @@ Let's take an example where the field size is different to :math:`1`:
 
     auto u = samurai::make_field<double, 3>("my_field", mesh);
 
-    samurai::make_bc<samurai::Dirichlet>(u, 1., 2., 3.);
+    samurai::make_bc<samurai::Dirichlet<>>(u, 1., 2., 3.);
 
 Since we have a field of size :math:`3`, we have to define three values: one for each component. We said here that we want :cpp:class:`Dirichlet` boundary condition on each boundary of the domain with constant values: :math:`1` for the first component of the field, :math:`2` for the second component of the field, ...
 
@@ -50,7 +50,7 @@ If we want to impose boundary conditions which depend on the boundary coordinate
 
     auto u = samurai::make_field<double, 1>("my_field", mesh);
 
-    samurai::make_bc<Dirichlet>(
+    samurai::make_bc<Dirichlet<>>(
         u,
         [](const auto& direction, const auto& cell_in, const auto& coord)
         {
@@ -79,10 +79,10 @@ If we want to impose boundary conditions on a domain face, we can define a direc
     auto u = samurai::make_field<double, 1>("my_field", mesh);
 
     const xt::xtensor_fixed<int, xt::xshape<1>> left{-1};
-    samurai::make_bc<samurai::Dirichlet>(u, -1.)->on(left);
+    samurai::make_bc<samurai::Dirichlet<>>(u, -1.)->on(left);
 
     const xt::xtensor_fixed<int, xt::xshape<1>> right{1};
-    samurai::make_bc<samurai::Dirichlet>(u, 1.)->on(right);
+    samurai::make_bc<samurai::Dirichlet<>>(u, 1.)->on(right);
 
 
 Define your own boundary
