@@ -1014,33 +1014,45 @@ namespace samurai
         }
     };
 
-    template <std::size_t order_ = 1>
+    template <std::size_t order = 1>
     struct Dirichlet
     {
-        static constexpr std::size_t order = order_;
-
         template <class Field>
         using impl_t = DirichletImpl<order, Field>;
     };
 
-    template <class Field>
-    struct Neumann : public Bc<Field>
+    template <std::size_t order, class Field>
+    struct NeumannImpl : public Bc<Field>
     {
-        INIT_BC(Neumann, 2)
+        INIT_BC(NeumannImpl, 2 * order) // stencil_size = 2*order
 
         stencil_t stencil(constant_stencil_size_t) const override
         {
-            return line_stencil<dim, 0>(0, 1);
+            return line_stencil<dim, 0, 2 * order>();
         }
 
         void apply(Field& f, const stencil_cells_t& cells, const value_t& value) const override
         {
-            static constexpr std::size_t in  = 0;
-            static constexpr std::size_t out = 1;
+            if constexpr (order == 1)
+            {
+                static constexpr std::size_t in  = 0;
+                static constexpr std::size_t out = 1;
 
-            double dx     = cell_length(cells[out].level);
-            f[cells[out]] = dx * value + f[cells[in]];
+                double dx     = cell_length(cells[out].level);
+                f[cells[out]] = dx * value + f[cells[in]];
+            }
+            else
+            {
+                static_assert(order <= 1, "The Neumann boundary conditions are only implemented at the first order.");
+            }
         }
+    };
+
+    template <std::size_t order = 1>
+    struct Neumann
+    {
+        template <class Field>
+        using impl_t = NeumannImpl<order, Field>;
     };
 
     template <class Field, std::size_t stencil_size_>

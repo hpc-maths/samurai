@@ -113,7 +113,7 @@ namespace samurai
         using output_field_t = Field<mesh_t, field_value_type, output_field_size, input_field_t::is_soa>;
 
         using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
-        using neumann_t   = Neumann<field_t>;
+        using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;
 
         using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
         using bdry_stencil_coeffs_t     = typename directional_bdry_config_t::bdry_equation_config_t::stencil_coeffs_t;

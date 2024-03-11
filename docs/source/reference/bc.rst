@@ -39,7 +39,7 @@ If we want to set another boundary condition, we just change the type :cpp:class
 
     auto u = samurai::make_field<double, 1>("my_field", mesh);
 
-    samurai::make_bc<samurai::Neumann>(u, 0.);
+    samurai::make_bc<samurai::Neumann<>>(u, 0.);
 
 Boundary using a function
 -------------------------

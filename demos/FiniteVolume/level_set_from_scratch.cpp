@@ -158,7 +158,7 @@ auto init_level_set(Mesh& mesh)
                                phi[cell] = std::sqrt(std::pow(x - x_center, 2.) + std::pow(y - y_center, 2.)) - radius;
                            });
 
-    samurai::make_bc<samurai::Neumann>(phi, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(phi, 0.);
 
     return phi;
 }
@@ -183,7 +183,7 @@ auto init_velocity(Mesh& mesh)
                                u[cell][1] = std::pow(std::sin(PI * y), 2.) * std::sin(2. * PI * x);
                            });
 
-    samurai::make_bc<samurai::Neumann>(u, 0., 0.);
+    samurai::make_bc<samurai::Neumann<1>>(u, 0., 0.);
     // samurai::make_bc<samurai::Dirichlet<1>>(u, [PI](auto& coords)
     // {
     //     return xt::xtensor_fixed<double, xt::xshape<2>>{
@@ -668,7 +668,7 @@ int main(int argc, char* argv[])
             // TVD-RK2
             update_ghosts(phi, u);
             auto phihat = samurai::make_field<double, 1>("phi", mesh);
-            samurai::make_bc<samurai::Neumann>(phihat, 0.);
+            samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
             phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
             update_ghosts(phihat, u);
             phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, max_level));

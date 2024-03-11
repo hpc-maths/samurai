@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
     // Boundary conditions (n+1)
     samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1, 1., 0.)->on(top);
     samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1, 0., 0.)->on(left, bottom, right);
-    samurai::make_bc<samurai::Neumann>(pressure_np1, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(pressure_np1, 0.);
 
     // Initial condition
     velocity.fill(0);

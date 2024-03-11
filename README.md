@@ -101,7 +101,7 @@ The following steps describe how to solve this problem with samurai. It is impor
 
     ```cpp
     auto u = samurai::make_field<double, 1>("u", mesh);
-    samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     ```
 
 - Initialization of this field

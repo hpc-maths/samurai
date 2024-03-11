@@ -232,7 +232,7 @@ int main(int argc, char* argv[])
     if constexpr (dim == 2)
     {
         samurai::make_bc<samurai::Dirichlet<1>>(solution, test_case->dirichlet())->on(left, right);
-        samurai::make_bc<samurai::Neumann>(solution, test_case->neumann())->on(bottom, top);
+        samurai::make_bc<samurai::Neumann<1>>(solution, test_case->neumann())->on(bottom, top);
     }*/
 
     //---------------------//
