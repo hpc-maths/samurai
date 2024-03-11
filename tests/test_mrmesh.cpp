@@ -108,13 +108,9 @@ namespace samurai
         cl[0][{0}].add_interval({0, 4});
         cl[0][{1}].add_interval({0, 1});
         cl[0][{1}].add_interval({3, 4});
-
         cl[1][{2}].add_interval({2, 6});
 
         Mesh_t mesh( cl, 0, 2 );
-
-        std::cerr << "\t> Before merge : " << std::endl;
-        std::cerr << mesh << std::endl;
         ASSERT_EQ( mesh.nb_cells( Mesh_t::mesh_id_t::cells ), 10 );
 
         samurai::CellList<dim> to_add_cl;
@@ -122,16 +118,44 @@ namespace samurai
 
         CellArray_t to_add_ca = { to_add_cl, false };
 
-        std::cerr << "\t> To merge : " << std::endl;
-        std::cerr << to_add_ca << std::endl;
-
         mesh.merge( to_add_ca );
 
-        std::cerr << "\t> After merge : " << std::endl;
-        std::cerr << mesh << std::endl;
-
+        // technically not sufficient to be sure the merge was done properly
         ASSERT_EQ( mesh.nb_cells( Mesh_t::mesh_id_t::cells ), 14 );
 
     }
+
+    TEST(mrmesh, test_remove){
+
+        constexpr int dim = 2;
+
+        using Config = samurai::MRConfig<dim>;
+        using Mesh_t = samurai::MRMesh<Config>;
+        using CellArray_t = Mesh_t::ca_type;
+
+        samurai::CellList<dim> cl;
+        cl[0][{0}].add_interval({0, 4});
+        cl[0][{1}].add_interval({0, 1});
+        cl[0][{1}].add_interval({3, 4});
+        cl[1][{2}].add_interval({2, 6});
+        cl[1][{3}].add_interval({2, 6});
+
+        Mesh_t mesh( cl, 0, 2 );
+        ASSERT_EQ( mesh.nb_cells( Mesh_t::mesh_id_t::cells ), 14 );
+
+        samurai::CellList<dim> to_rm_cl;
+        to_rm_cl[0][{1}].add_interval({3,4}); 
+        to_rm_cl[1][{3}].add_interval({2, 6});
+        
+        CellArray_t to_rm_ca = { to_rm_cl, false };
+
+        mesh.remove( to_rm_ca );
+
+        // technically not sufficient to be sure the remove was done properly
+        ASSERT_EQ( mesh.nb_cells( Mesh_t::mesh_id_t::cells ), 9 );
+
+    }
+
+
 
 }
