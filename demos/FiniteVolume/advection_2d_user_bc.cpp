@@ -27,19 +27,22 @@ struct Mybc : public samurai::Bc<Field>
 {
     INIT_BC(Mybc, 2)
 
-    stencil_t stencil(constant_stencil_size_t) const override
+    stencil_t get_stencil(constant_stencil_size_t) const override
     {
         // clang-format off
         return {{0, 0}, {0, 1}};
         // clang-format on
     }
 
-    void apply(Field& f, const stencil_cells_t& cells, const value_t& value) const override
+    apply_function_t get_apply_function(constant_stencil_size_t) const override
     {
-        static constexpr std::size_t in  = 0;
-        static constexpr std::size_t out = 1;
+        return [](Field& f, const stencil_cells_t& cells, const value_t& value)
+        {
+            static constexpr std::size_t in  = 0;
+            static constexpr std::size_t out = 1;
 
-        f[cells[out]] = 2 * value - f[cells[in]];
+            f[cells[out]] = 2 * value - f[cells[in]];
+        };
     }
 };
 

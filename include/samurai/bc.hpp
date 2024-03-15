@@ -19,15 +19,19 @@
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 
-#define APPLY_AND_STENCIL_FUNCTIONS(STENCIL_SIZE)                                                       \
-    virtual void apply(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&) const           \
-    {                                                                                                   \
-        assert(false);                                                                                  \
-    }                                                                                                   \
-                                                                                                        \
-    virtual Stencil<STENCIL_SIZE, dim> stencil(std::integral_constant<std::size_t, STENCIL_SIZE>) const \
-    {                                                                                                   \
-        return line_stencil<dim, 0, STENCIL_SIZE>();                                                    \
+#define APPLY_AND_STENCIL_FUNCTIONS(STENCIL_SIZE)                                                                               \
+    using apply_function_##STENCIL_SIZE = std::function<void(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)>; \
+    virtual apply_function_##STENCIL_SIZE get_apply_function(std::integral_constant<std::size_t, STENCIL_SIZE>) const           \
+    {                                                                                                                           \
+        return [](Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)                                              \
+        {                                                                                                                       \
+            assert(false);                                                                                                      \
+        };                                                                                                                      \
+    }                                                                                                                           \
+                                                                                                                                \
+    virtual Stencil<STENCIL_SIZE, dim> get_stencil(std::integral_constant<std::size_t, STENCIL_SIZE>) const                     \
+    {                                                                                                                           \
+        return line_stencil<dim, 0, STENCIL_SIZE>();                                                                            \
     }
 
 #define INIT_BC(NAME, STENCIL_SIZE)                                                                                                \
@@ -36,12 +40,13 @@
     using value_t = typename base_t::value_t;                                                                                      \
     using base_t::base_t;                                                                                                          \
     using base_t::dim;                                                                                                             \
-    using base_t::apply;                                                                                                           \
-    using base_t::stencil;                                                                                                         \
+    using base_t::get_apply_function;                                                                                              \
+    using base_t::get_stencil;                                                                                                     \
                                                                                                                                    \
     using stencil_t               = samurai::Stencil<STENCIL_SIZE, dim>;                                                           \
     using constant_stencil_size_t = std::integral_constant<std::size_t, STENCIL_SIZE>;                                             \
     using stencil_cells_t         = std::array<cell_t, STENCIL_SIZE>;                                                              \
+    using apply_function_t        = std::function<void(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)>;          \
                                                                                                                                    \
     static_assert(STENCIL_SIZE <= base_t::max_stencil_size_implemented, "The stencil size is too large.");                         \
     static_assert(Field::mesh_t::config::ghost_width >= STENCIL_SIZE / 2, "Not enough ghost layers for this boundary condition."); \
@@ -797,6 +802,7 @@ namespace samurai
     void
     __apply_bc_on_subset(Bc<Field>& bc, Field& field, Subset& subset, const Stencil<stencil_size, Field::dim>& stencil, const Vector& direction)
     {
+        auto apply_bc = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>());
         if (bc.get_value_type() == BCVType::constant)
         {
             auto value = bc.constant_value();
@@ -805,7 +811,7 @@ namespace samurai
                              stencil,
                              [&, value](auto& cells)
                              {
-                                 bc.apply(field, cells, value);
+                                 apply_bc(field, cells, value);
                              });
         }
         else if (bc.get_value_type() == BCVType::function)
@@ -820,7 +826,7 @@ namespace samurai
                                  auto& cell_in    = cells[static_cast<std::size_t>(origin_index)];
                                  auto face_coords = cell_in.face_center(direction);
                                  auto value       = bc.value(direction, cell_in, face_coords);
-                                 bc.apply(field, cells, value);
+                                 apply_bc(field, cells, value);
                              });
         }
         else
@@ -842,7 +848,7 @@ namespace samurai
         auto region     = bc.get_region();
         auto& direction = region.first;
         auto& lca       = region.second;
-        auto stencil_0  = bc.stencil(std::integral_constant<std::size_t, stencil_size>());
+        auto stencil_0  = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
 
         for (std::size_t d = 0; d < direction.size(); ++d)
         {
@@ -891,7 +897,7 @@ namespace samurai
         auto region     = bc.get_region();
         auto& direction = region.first;
         auto& lca       = region.second;
-        auto stencil_0  = bc.stencil(std::integral_constant<std::size_t, stencil_size>());
+        auto stencil_0  = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
         // bool is_line_stencil_ = is_line_stencil(stencil_0);
 
         for (std::size_t d = 0; d < direction.size(); ++d)
@@ -942,75 +948,81 @@ namespace samurai
     {
         INIT_BC(DirichletImpl, 2 * order) // stencil_size = 2*order
 
-        stencil_t stencil(constant_stencil_size_t) const override
+        stencil_t get_stencil(constant_stencil_size_t) const override
         {
             return line_stencil<dim, 0, 2 * order>();
         }
 
-        void apply(Field& u, const stencil_cells_t& cells, const value_t& dirichlet_value) const override
+        apply_function_t get_apply_function(constant_stencil_size_t) const override
         {
-            if constexpr (order == 1)
+            return [](Field& u, const stencil_cells_t& cells, const value_t& dirichlet_value)
             {
-                //      [0]   [1]
-                //    |_____|.....|
-                //     cell  ghost
+                if constexpr (order == 1)
+                {
+                    //      [0]   [1]
+                    //    |_____|.....|
+                    //     cell  ghost
 
-                u[cells[1]] = 2 * dirichlet_value - u[cells[0]];
-            }
-            else if constexpr (order == 2)
-            {
-                //     [0]   [1]   [2]   [3]
-                //   |_____|_____|.....|.....|
-                //       cells      ghosts
+                    u[cells[1]] = 2 * dirichlet_value - u[cells[0]];
+                }
+                else if constexpr (order == 2)
+                {
+                    //     [0]   [1]   [2]   [3]
+                    //   |_____|_____|.....|.....|
+                    //       cells      ghosts
 
-                // We define a polynomial of degree 2 that passes by 3 points (the 2 cells and the boundary value):
-                //                       p(x) = a*x^2 + b*x + c.
-                // The coefficients a, b, c are found by inverting the Vandermonde matrix obtained by inserting the 3 points into
-                // the polynomial. If we set the abscissa 0 at the center of cells[0], this system reads
-                //                       p( 0 ) = u[cells[0]]
-                //                       p( 1 ) = u[cells[1]]
-                //                       p(3/2) = dirichlet_value.
-                // Then, we want that the ghost values be also located on this polynomial, i.e.
-                //                       u[cells[2]] = p( 2 )
-                //                       u[cells[3]] = p( 3 ).
+                    // We define a polynomial of degree 2 that passes by 3 points (the 2 cells and the boundary value):
+                    //                       p(x) = a*x^2 + b*x + c.
+                    // The coefficients a, b, c are found by inverting the Vandermonde matrix obtained by inserting the 3 points into
+                    // the polynomial. If we set the abscissa 0 at the center of cells[0], this system reads
+                    //                       p( 0 ) = u[cells[0]]
+                    //                       p( 1 ) = u[cells[1]]
+                    //                       p(3/2) = dirichlet_value.
+                    // Then, we want that the ghost values be also located on this polynomial, i.e.
+                    //                       u[cells[2]] = p( 2 )
+                    //                       u[cells[3]] = p( 3 ).
 
-                u[cells[2]] = 8. / 3. * dirichlet_value + 1. / 3. * u[cells[0]] - 2. * u[cells[1]];
-                u[cells[3]] = 8. * dirichlet_value + 2. * u[cells[0]] - 9. * u[cells[1]];
-            }
-            else if constexpr (order == 3)
-            {
-                //     [0]   [1]   [2]   [3]   [4]   [5]
-                //   |_____|_____|_____|.....|.....|.....|
-                //          cells             ghosts
+                    u[cells[2]] = 8. / 3. * dirichlet_value + 1. / 3. * u[cells[0]] - 2. * u[cells[1]];
+                    u[cells[3]] = 8. * dirichlet_value + 2. * u[cells[0]] - 9. * u[cells[1]];
+                }
+                else if constexpr (order == 3)
+                {
+                    //     [0]   [1]   [2]   [3]   [4]   [5]
+                    //   |_____|_____|_____|.....|.....|.....|
+                    //          cells             ghosts
 
-                // We define a polynomial of degree 3 that passes by 4 points (the 3 cells and the boundary value):
-                //                       p(x) = a*x^3 + b*x^2 + c*x + d.
-                // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 points into
-                // the polynomial. If we set the abscissa 0 at the center of cells[0], this system reads
-                //                       p( 0 ) = u[cells[0]]
-                //                       p( 1 ) = u[cells[1]]
-                //                       p( 2 ) = u[cells[2]]
-                //                       p(5/2) = dirichlet_value.
-                // Then, we want that the ghost values be also located on this polynomial, i.e.
-                //                       u[cells[3]] = p( 3 )
-                //                       u[cells[4]] = p( 4 )
-                //                       u[cells[5]] = p( 5 ).
+                    // We define a polynomial of degree 3 that passes by 4 points (the 3 cells and the boundary value):
+                    //                       p(x) = a*x^3 + b*x^2 + c*x + d.
+                    // The coefficients a, b, c, d are found by inverting the Vandermonde matrix obtained by inserting the 4 points into
+                    // the polynomial. If we set the abscissa 0 at the center of cells[0], this system reads
+                    //                       p( 0 ) = u[cells[0]]
+                    //                       p( 1 ) = u[cells[1]]
+                    //                       p( 2 ) = u[cells[2]]
+                    //                       p(5/2) = dirichlet_value.
+                    // Then, we want that the ghost values be also located on this polynomial, i.e.
+                    //                       u[cells[3]] = p( 3 )
+                    //                       u[cells[4]] = p( 4 )
+                    //                       u[cells[5]] = p( 5 ).
 
-                u[cells[3]] = 16. / 5. * dirichlet_value - 1. / 5. * u[cells[0]] + u[cells[1]] - 3. * u[cells[2]];
-                u[cells[4]] = 64. / 5. * dirichlet_value - 9. / 5. * u[cells[0]] + 8. * u[cells[1]] - 18. * u[cells[2]];
-                u[cells[5]] = 32. * dirichlet_value - 6. * u[cells[0]] + 25. * u[cells[1]] - 50. * u[cells[2]];
-            }
-            else if constexpr (order == 4)
-            {
-                u[cells[4]] = 128. / 35 * dirichlet_value + 1. / 7 * u[cells[0]] - 4. / 5 * u[cells[1]] + 2 * u[cells[2]] - 4. * u[cells[3]];
-                u[cells[5]] = 128. / 7. * dirichlet_value + 12. / 7. * u[cells[0]] - 9 * u[cells[1]] + 20 * u[cells[2]] - 30 * u[cells[3]];
-                u[cells[6]] = 384. / 7. * dirichlet_value + 50. / 7. * u[cells[0]] - 36 * u[cells[1]] + 75 * u[cells[2]] - 100 * u[cells[3]];
-                u[cells[7]] = 128 * dirichlet_value + 20 * u[cells[0]] - 98 * u[cells[1]] + 196 * u[cells[2]] - 245 * u[cells[3]];
-            }
-            else
-            {
-                static_assert(order <= 4, "The Dirichlet boundary conditions are only implemented up to order 4.");
-            }
+                    u[cells[3]] = 16. / 5. * dirichlet_value - 1. / 5. * u[cells[0]] + u[cells[1]] - 3. * u[cells[2]];
+                    u[cells[4]] = 64. / 5. * dirichlet_value - 9. / 5. * u[cells[0]] + 8. * u[cells[1]] - 18. * u[cells[2]];
+                    u[cells[5]] = 32. * dirichlet_value - 6. * u[cells[0]] + 25. * u[cells[1]] - 50. * u[cells[2]];
+                }
+                else if constexpr (order == 4)
+                {
+                    u[cells[4]] = 128. / 35 * dirichlet_value + 1. / 7 * u[cells[0]] - 4. / 5 * u[cells[1]] + 2 * u[cells[2]]
+                                - 4. * u[cells[3]];
+                    u[cells[5]] = 128. / 7. * dirichlet_value + 12. / 7. * u[cells[0]] - 9 * u[cells[1]] + 20 * u[cells[2]]
+                                - 30 * u[cells[3]];
+                    u[cells[6]] = 384. / 7. * dirichlet_value + 50. / 7. * u[cells[0]] - 36 * u[cells[1]] + 75 * u[cells[2]]
+                                - 100 * u[cells[3]];
+                    u[cells[7]] = 128 * dirichlet_value + 20 * u[cells[0]] - 98 * u[cells[1]] + 196 * u[cells[2]] - 245 * u[cells[3]];
+                }
+                else
+                {
+                    static_assert(order <= 4, "The Dirichlet boundary conditions are only implemented up to order 4.");
+                }
+            };
         }
     };
 
@@ -1026,25 +1038,28 @@ namespace samurai
     {
         INIT_BC(NeumannImpl, 2 * order) // stencil_size = 2*order
 
-        stencil_t stencil(constant_stencil_size_t) const override
+        stencil_t get_stencil(constant_stencil_size_t) const override
         {
             return line_stencil<dim, 0, 2 * order>();
         }
 
-        void apply(Field& f, const stencil_cells_t& cells, const value_t& value) const override
+        apply_function_t get_apply_function(constant_stencil_size_t) const override
         {
-            if constexpr (order == 1)
+            return [](Field& f, const stencil_cells_t& cells, const value_t& value)
             {
-                static constexpr std::size_t in  = 0;
-                static constexpr std::size_t out = 1;
+                if constexpr (order == 1)
+                {
+                    static constexpr std::size_t in  = 0;
+                    static constexpr std::size_t out = 1;
 
-                double dx     = cell_length(cells[out].level);
-                f[cells[out]] = dx * value + f[cells[in]];
-            }
-            else
-            {
-                static_assert(order <= 1, "The Neumann boundary conditions are only implemented at the first order.");
-            }
+                    double dx     = cell_length(cells[out].level);
+                    f[cells[out]] = dx * value + f[cells[in]];
+                }
+                else
+                {
+                    static_assert(order <= 1, "The Neumann boundary conditions are only implemented at the first order.");
+                }
+            };
         }
     };
 
@@ -1065,58 +1080,61 @@ namespace samurai
         static_assert(stencil_size_ % 2 == 0, "stencil_size must be even.");
         static_assert(stencil_size_ >= 2 && stencil_size_ <= max_stencil_size_implemented_PE);
 
-        void apply(Field& u, const stencil_cells_t& cells, const value_t&) const override
+        apply_function_t get_apply_function(constant_stencil_size_t) const override
         {
-            /*
-                            u[0]  u[1]  u[2]   ?
-                          |_____|_____│_____|_____|
-                cell index   0     1     2     3     (the ghost to fill is always at the last index in 'cell')
-                       x =  -3    -2    -1     0     (we arbitrarily set the coordinate x for the extrapolation
-                                                      such that the ghost is at x=0)
+            return [](Field& u, const stencil_cells_t& cells, const value_t&)
+            {
+                /*
+                                u[0]  u[1]  u[2]   ?
+                              |_____|_____│_____|_____|
+                    cell index   0     1     2     3     (the ghost to fill is always at the last index in 'cell')
+                           x =  -3    -2    -1     0     (we arbitrarily set the coordinate x for the extrapolation
+                                                          such that the ghost is at x=0)
 
-                We search the coefficients c[i] of the polynomial P
-                      P(x) = c[0]x^2 + c[1]x + c[2]
-                that passes by all the known u[i]. (Note that deg(P) = stencil_size_ - 2)
+                    We search the coefficients c[i] of the polynomial P
+                          P(x) = c[0]x^2 + c[1]x + c[2]
+                    that passes by all the known u[i]. (Note that deg(P) = stencil_size_ - 2)
 
-                We inverse the Vandermonde system
-                    │ (-3)^2  -3  1 │ │c[0]│   │u[0]│
-                    │ (-2)^2  -2  1 │ │c[1]│ = │u[1]│.
-                    │ (-1)^2  -1  1 │ │c[2]│   │u[2]│
-                This step is done using a symbolic calculus tool.
+                    We inverse the Vandermonde system
+                        │ (-3)^2  -3  1 │ │c[0]│   │u[0]│
+                        │ (-2)^2  -2  1 │ │c[1]│ = │u[1]│.
+                        │ (-1)^2  -1  1 │ │c[2]│   │u[2]│
+                    This step is done using a symbolic calculus tool.
 
-                To get the value at x=0, we actually just need c[2]:
-                      P(x=0) = c[2].
-            */
+                    To get the value at x=0, we actually just need c[2]:
+                          P(x=0) = c[2].
+                */
 
-            const auto& ghost = cells[stencil_size_ - 1];
+                const auto& ghost = cells[stencil_size_ - 1];
 
 #ifdef SAMURAI_CHECK_NAN
-            for (std::size_t field_i = 0; field_i < Field::size; field_i++)
-            {
-                for (std::size_t c = 0; c < stencil_size_ - 1; ++c)
+                for (std::size_t field_i = 0; field_i < Field::size; field_i++)
                 {
-                    if (std::isnan(field_value(u, cells[c], field_i)))
+                    for (std::size_t c = 0; c < stencil_size_ - 1; ++c)
                     {
-                        std::cerr << "NaN detected when applying polynomial extrapolation on the outer ghosts: " << cells[c] << std::endl;
-                        assert(false);
+                        if (std::isnan(field_value(u, cells[c], field_i)))
+                        {
+                            std::cerr << "NaN detected when applying polynomial extrapolation on the outer ghosts: " << cells[c] << std::endl;
+                            assert(false);
+                        }
                     }
                 }
-            }
 #endif
 
-            // Last coefficient of the polynomial
-            if constexpr (stencil_size_ == 2)
-            {
-                u[ghost] = u[cells[0]];
-            }
-            else if constexpr (stencil_size_ == 4)
-            {
-                u[ghost] = u[cells[0]] - u[cells[1]] * 3.0 + u[cells[2]] * 3.0;
-            }
-            else if constexpr (stencil_size_ == 6)
-            {
-                u[ghost] = u[cells[0]] - u[cells[1]] * 5.0 + u[cells[2]] * 1.0E+1 - u[cells[3]] * 1.0E+1 + u[cells[4]] * 5.0;
-            }
+                // Last coefficient of the polynomial
+                if constexpr (stencil_size_ == 2)
+                {
+                    u[ghost] = u[cells[0]];
+                }
+                else if constexpr (stencil_size_ == 4)
+                {
+                    u[ghost] = u[cells[0]] - u[cells[1]] * 3.0 + u[cells[2]] * 3.0;
+                }
+                else if constexpr (stencil_size_ == 6)
+                {
+                    u[ghost] = u[cells[0]] - u[cells[1]] * 5.0 + u[cells[2]] * 1.0E+1 - u[cells[3]] * 1.0E+1 + u[cells[4]] * 5.0;
+                }
+            };
         }
     };
 
