@@ -44,6 +44,7 @@ option(IWYU "Activate include-what-you-use" OFF)
 option(SANITIZERS "Activate sanitizers" OFF)
 option(ENABLE_COVERAGE "Activate coverage" OFF)
 option(WITH_MPI "Enable MPI" OFF)
+option(WITH_OPENMP "Enable OpenMP" OFF)
 
 project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
@@ -114,6 +115,16 @@ target_link_system_libraries(
   pugixml::pugixml
   fmt::fmt
 )
+
+if(${WITH_OPENMP})
+  find_package(OpenMP)
+  if(OpenMP_CXX_FOUND)
+      target_link_libraries(samurai INTERFACE OpenMP::OpenMP_CXX)
+      target_compile_definitions(samurai INTERFACE SAMURAI_WITH_OPENMP)
+  else()
+      message(FATAL_ERROR "OpenMP not found")
+  endif()
+endif()
 
 if(${WITH_MPI})
   find_package(Boost REQUIRED COMPONENTS serialization mpi)

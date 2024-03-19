@@ -129,8 +129,10 @@ namespace samurai
 
         void apply(output_field_t& output_field, input_field_t& input_field) const override
         {
+            static constexpr bool parallel = true;
+
             // Interior interfaces
-            scheme().for_each_interior_interface(
+            scheme().template for_each_interior_interface<parallel>( // We need the 'template' keyword...
                 input_field,
                 [&](const auto& interface_cells, auto& left_cell_contrib, auto& right_cell_contrib)
                 {
@@ -144,7 +146,7 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            scheme().for_each_boundary_interface(
+            scheme().template for_each_boundary_interface<parallel>( // We need the 'template' keyword...
                 input_field,
                 [&](const auto& cell, auto& contrib)
                 {
