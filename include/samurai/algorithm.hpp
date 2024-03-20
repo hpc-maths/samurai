@@ -4,6 +4,9 @@
 
 #pragma once
 
+#ifdef SAMURAI_WITH_OPENMP
+#include <omp.h>
+#endif
 #include <type_traits>
 
 #include "cell.hpp"
@@ -151,6 +154,37 @@ namespace samurai
                 mesh_interval.index = index;
                 f(mesh_interval);
             });
+    }
+
+    template <class MeshIntervalType, class SetType, class Func>
+    inline void parallel_for_each_meshinterval(SetType& set, Func&& f)
+    {
+#pragma omp parallel
+#pragma omp single nowait
+        set(
+            [&](const auto& i, const auto& index)
+            {
+#pragma omp task
+                {
+                    MeshIntervalType mesh_interval(set.level());
+                    mesh_interval.i     = i;
+                    mesh_interval.index = index;
+                    f(mesh_interval);
+                }
+            });
+    }
+
+    template <class MeshIntervalType, bool parallel, class SetType, class Func>
+    inline void for_each_meshinterval(SetType& set, Func&& f)
+    {
+        if constexpr (parallel)
+        {
+            parallel_for_each_meshinterval<MeshIntervalType>(set, std::forward<Func>(f));
+        }
+        else
+        {
+            for_each_meshinterval<MeshIntervalType>(set, std::forward<Func>(f));
+        }
     }
 
     //////////////////////////////////

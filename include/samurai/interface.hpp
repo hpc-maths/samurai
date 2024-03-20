@@ -77,7 +77,7 @@ namespace samurai
      * Iterates over the interfaces of same level only (no level jump).
      * Same parameters as the preceding function.
      */
-    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    template <bool parallel = false, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface___same_level(const Mesh& mesh,
                                                   std::size_t level,
                                                   Vector direction,
@@ -89,25 +89,42 @@ namespace samurai
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
 
         Stencil<2, dim> interface_stencil = in_out_stencil<dim>(direction);
-        auto interface_it                 = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it            = make_stencil_iterator(mesh, comput_stencil);
 
         auto& cells        = mesh[mesh_id_t::cells][level];
         auto shifted_cells = translate(cells, -direction);
         auto intersect     = intersection(cells, shifted_cells);
 
-        for_each_meshinterval<mesh_interval_t>(intersect,
-                                               [&](auto mesh_interval)
-                                               {
-                                                   interface_it.init(mesh_interval);
-                                                   comput_stencil_it.init(mesh_interval);
-                                                   for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
-                                                   {
-                                                       f(interface_it.cells(), comput_stencil_it.cells());
-                                                       interface_it.move_next();
-                                                       comput_stencil_it.move_next();
-                                                   }
-                                               });
+#ifdef SAMURAI_WITH_OPENMP
+        std::size_t num_threads = static_cast<std::size_t>(omp_get_max_threads());
+        std::vector<IteratorStencil<Mesh, 2>> interface_its;
+        std::vector<IteratorStencil<Mesh, comput_stencil_size>> comput_stencil_its;
+        for (std::size_t i = 0; i < num_threads; ++i)
+        {
+            interface_its.push_back(make_stencil_iterator(mesh, interface_stencil));
+            comput_stencil_its.push_back(make_stencil_iterator(mesh, comput_stencil));
+        }
+#else
+        auto interface_it      = make_stencil_iterator(mesh, interface_stencil);
+        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
+#endif
+
+        for_each_meshinterval<mesh_interval_t, parallel>(intersect,
+                                                         [&](auto mesh_interval)
+                                                         {
+#ifdef SAMURAI_WITH_OPENMP
+                                                             std::size_t thread      = static_cast<std::size_t>(omp_get_thread_num());
+                                                             auto& interface_it      = interface_its[thread];
+                                                             auto& comput_stencil_it = comput_stencil_its[thread];
+#endif
+                                                             interface_it.init(mesh_interval);
+                                                             comput_stencil_it.init(mesh_interval);
+                                                             for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
+                                                             {
+                                                                 f(interface_it.cells(), comput_stencil_it.cells());
+                                                                 interface_it.move_next();
+                                                                 comput_stencil_it.move_next();
+                                                             }
+                                                         });
     }
 
     /**
@@ -261,32 +278,18 @@ namespace samurai
      *       'comput cells' is the set of cells/ghosts defined by @param comput_stencil
      *                      (typically, the inner cell and the outside ghost).
      */
-    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    template <bool parallel = false, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void
     for_each_boundary_interface(const Mesh& mesh, Vector direction, const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil, Func&& f)
     {
         for_each_level(mesh,
                        [&](auto level)
                        {
-                           for_each_boundary_interface(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+                           for_each_boundary_interface<parallel>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
                        });
     }
 
-    /**
-     * Same as the preceding function, but for @param level only.
-     */
-    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void for_each_boundary_interface(const Mesh& mesh,
-                                     std::size_t level,
-                                     Vector direction,
-                                     const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
-                                     Func&& f)
-    {
-        for_each_boundary_interface___direction(mesh, level, direction, comput_stencil, std::forward<Func>(f));
-        for_each_boundary_interface___opposite_direction(mesh, level, direction, comput_stencil, std::forward<Func>(f));
-    }
-
-    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    template <bool parallel = false, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void for_each_boundary_interface___direction(const Mesh& mesh,
                                                  std::size_t level,
                                                  Vector direction,
@@ -297,25 +300,42 @@ namespace samurai
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
 
         Stencil<2, dim> interface_stencil = in_out_stencil<dim>(direction);
-        auto interface_it                 = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it            = make_stencil_iterator(mesh, comput_stencil);
+
+#ifdef SAMURAI_WITH_OPENMP
+        std::size_t num_threads = static_cast<std::size_t>(omp_get_max_threads());
+        std::vector<IteratorStencil<Mesh, 2>> interface_its;
+        std::vector<IteratorStencil<Mesh, comput_stencil_size>> comput_stencil_its;
+        for (std::size_t i = 0; i < num_threads; ++i)
+        {
+            interface_its.push_back(make_stencil_iterator(mesh, interface_stencil));
+            comput_stencil_its.push_back(make_stencil_iterator(mesh, comput_stencil));
+        }
+#else
+        auto interface_it      = make_stencil_iterator(mesh, interface_stencil);
+        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
+#endif
 
         auto bdry = boundary(mesh, level, direction);
-        for_each_meshinterval<mesh_interval_t>(bdry,
-                                               [&](auto mesh_interval)
-                                               {
-                                                   interface_it.init(mesh_interval);
-                                                   comput_stencil_it.init(mesh_interval);
-                                                   for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
-                                                   {
-                                                       f(interface_it.cells()[0], comput_stencil_it.cells());
-                                                       interface_it.move_next();
-                                                       comput_stencil_it.move_next();
-                                                   }
-                                               });
+        for_each_meshinterval<mesh_interval_t, parallel>(bdry,
+                                                         [&](auto mesh_interval)
+                                                         {
+#ifdef SAMURAI_WITH_OPENMP
+                                                             std::size_t thread      = static_cast<std::size_t>(omp_get_thread_num());
+                                                             auto& interface_it      = interface_its[thread];
+                                                             auto& comput_stencil_it = comput_stencil_its[thread];
+#endif
+                                                             interface_it.init(mesh_interval);
+                                                             comput_stencil_it.init(mesh_interval);
+                                                             for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
+                                                             {
+                                                                 f(interface_it.cells()[0], comput_stencil_it.cells());
+                                                                 interface_it.move_next();
+                                                                 comput_stencil_it.move_next();
+                                                             }
+                                                         });
     }
 
-    template <class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    template <bool parallel = false, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
     void for_each_boundary_interface___opposite_direction(const Mesh& mesh,
                                                           std::size_t level,
                                                           Vector direction,
@@ -324,7 +344,21 @@ namespace samurai
     {
         Vector opposite_direction                        = -direction;
         decltype(comput_stencil) opposite_comput_stencil = comput_stencil - direction;
-        for_each_boundary_interface___direction(mesh, level, opposite_direction, opposite_comput_stencil, std::forward<Func>(f));
+        for_each_boundary_interface___direction<parallel>(mesh, level, opposite_direction, opposite_comput_stencil, std::forward<Func>(f));
+    }
+
+    /**
+     * Same as the preceding function, but for @param level only.
+     */
+    template <bool parallel = false, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface(const Mesh& mesh,
+                                     std::size_t level,
+                                     Vector direction,
+                                     const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                     Func&& f)
+    {
+        for_each_boundary_interface___direction<parallel>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+        for_each_boundary_interface___opposite_direction<parallel>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
     }
 
 }
