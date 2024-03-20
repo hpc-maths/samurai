@@ -115,8 +115,8 @@ int main(int argc, char* argv[])
     auto u    = samurai::make_field<1>("u", mesh);
     auto unp1 = samurai::make_field<1>("unp1", mesh);
 
-    samurai::make_bc<samurai::Neumann>(u, 0.);
-    samurai::make_bc<samurai::Neumann>(unp1, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(u, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(unp1, 0.);
 
     auto K = samurai::make_field<samurai::DiffCoeff<dim>, 1>("K", mesh);
 

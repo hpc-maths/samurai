@@ -19,7 +19,7 @@ We give here a first use of edge conditions in |project| where we put the same c
 
     auto u = samurai::make_field<double, 1>("my_field", mesh);
 
-    samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    samurai::make_bc<samurai::Dirichlet<>>(u, 0.);
 
 The number of parameters in the ``make_bc`` function depends on the size of the field. Here, the field size is $1$ so we have just one value to define.
 
@@ -29,7 +29,7 @@ Let's take an example where the field size is different to :math:`1`:
 
     auto u = samurai::make_field<double, 3>("my_field", mesh);
 
-    samurai::make_bc<samurai::Dirichlet>(u, 1., 2., 3.);
+    samurai::make_bc<samurai::Dirichlet<>>(u, 1., 2., 3.);
 
 Since we have a field of size :math:`3`, we have to define three values: one for each component. We said here that we want :cpp:class:`Dirichlet` boundary condition on each boundary of the domain with constant values: :math:`1` for the first component of the field, :math:`2` for the second component of the field, ...
 
@@ -39,7 +39,7 @@ If we want to set another boundary condition, we just change the type :cpp:class
 
     auto u = samurai::make_field<double, 1>("my_field", mesh);
 
-    samurai::make_bc<samurai::Neumann>(u, 0.);
+    samurai::make_bc<samurai::Neumann<>>(u, 0.);
 
 Boundary using a function
 -------------------------
@@ -50,7 +50,7 @@ If we want to impose boundary conditions which depend on the boundary coordinate
 
     auto u = samurai::make_field<double, 1>("my_field", mesh);
 
-    samurai::make_bc<Dirichlet>(
+    samurai::make_bc<Dirichlet<>>(
         u,
         [](const auto& direction, const auto& cell_in, const auto& coord)
         {
@@ -79,10 +79,10 @@ If we want to impose boundary conditions on a domain face, we can define a direc
     auto u = samurai::make_field<double, 1>("my_field", mesh);
 
     const xt::xtensor_fixed<int, xt::xshape<1>> left{-1};
-    samurai::make_bc<samurai::Dirichlet>(u, -1.)->on(left);
+    samurai::make_bc<samurai::Dirichlet<>>(u, -1.)->on(left);
 
     const xt::xtensor_fixed<int, xt::xshape<1>> right{1};
-    samurai::make_bc<samurai::Dirichlet>(u, 1.)->on(right);
+    samurai::make_bc<samurai::Dirichlet<>>(u, 1.)->on(right);
 
 
 Define your own boundary
@@ -90,8 +90,8 @@ Define your own boundary
 
 It's possible to describe your own boundary condition as it is done for :cpp:class:`samurai::Dirichlet` and :cpp:class:`samurai::Neumann`. For that, you have to define a class which is based on :cpp:class:`samurai::Bc` and which defines
 
-- a method called :code:`stencil` defining the stencil used to implement the condition,
-- a method called :code:`apply` explaining how to impose the boundary condition by populate the ghost cells.
+- a method called :code:`get_stencil` defining the stencil used to implement the condition,
+- a method called :code:`get_apply_function` explaining how to impose the boundary condition by populate the ghost cells.
 
 Let's take the example of a Dirichlet condition to better understand how it works.
 
@@ -102,23 +102,26 @@ Let's take the example of a Dirichlet condition to better understand how it work
     {
         INIT_BC(Dirichlet, 2)
 
-        stencil_t stencil(constant_stencil_size_t) const override
+        stencil_t get_stencil(constant_stencil_size_t) const override
         {
             return line_stencil<dim, 0>(0, 1);
         }
 
-        void apply(Field& f, const stencil_cells_t& cells, const value_t& value) const override
+        apply_function_t get_apply_function(constant_stencil_size_t) const override
         {
-            static constexpr std::size_t in  = 0;
-            static constexpr std::size_t out = 1;
+            return [](Field& f, const stencil_cells_t& cells, const value_t& value)
+            {
+                static constexpr std::size_t in  = 0;
+                static constexpr std::size_t out = 1;
 
-            f[cells[out]] = 2 * value - f[cells[in]];
+                f[cells[out]] = 2 * value - f[cells[in]];
+            };
         }
     };
 
 `INIT_BC` is a macro which defines some useful types and a methods. Its first argument is the name of the class, its second one is the stencil size, i.e. the number of cells to capture.
 
-The :code:`stencil` method must return the stencil that allows to manage the boundary condition in the x-direction, i.e. for the boundary on the right.
+The :code:`get_stencil` method must return the stencil that allows to manage the boundary condition in the x-direction, i.e. for the boundary on the right.
 The stencil employed for the other directions will be deduced from this one by rotating it.
 The instuction :code:`line_stencil<dim, 0>(0, 1)` builds a stencil of two cells in the x-direction.
 In 2D, it yields :code:`{{0,0}, {1,0}}`.
@@ -126,7 +129,7 @@ The origin cell in the stencil (coordinates :code:`{0,0}`) always captures the i
 Here, we capture the origin cell and its right neighbour, which is the ghost cell we want to populate.
 Refer to section :ref:`stencil configuration <stencil-configuration>` for more detail on how to build a stencil.
 
-The parameters of the `apply` method are fixed and as follows:
+The parameters of the function returned by `get_apply_function` are fixed and as follows:
 
 - `f` is the field where the boundary conditions are applied (where the ghosts will be updated).
 - `cells` is of type `std::array<samurai::Cell, stencil_size>`. It is the array of cells captured by the stencil.

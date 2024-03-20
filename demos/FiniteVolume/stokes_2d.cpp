@@ -238,24 +238,24 @@ int main(int argc, char* argv[])
         using PressureField = decltype(pressure);
 
         // Boundary conditions
-        samurai::make_bc<samurai::Dirichlet>(velocity,
-                                             [](const auto&, const auto&, const auto& coord)
-                                             {
-                                                 const auto& x = coord[0];
-                                                 const auto& y = coord[1];
-                                                 double v_x    = 1 / (pi * pi) * sin(pi * (x + y));
-                                                 double v_y    = -v_x;
-                                                 return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-                                             });
+        samurai::make_bc<samurai::Dirichlet<1>>(velocity,
+                                                [](const auto&, const auto&, const auto& coord)
+                                                {
+                                                    const auto& x = coord[0];
+                                                    const auto& y = coord[1];
+                                                    double v_x    = 1 / (pi * pi) * sin(pi * (x + y));
+                                                    double v_y    = -v_x;
+                                                    return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
+                                                });
 
-        samurai::make_bc<samurai::Neumann>(pressure,
-                                           [](const auto&, const auto&, const auto& coord)
-                                           {
-                                               const auto& x = coord[0];
-                                               const auto& y = coord[1];
-                                               int normal    = (x == 0 || y == 0) ? -1 : 1;
-                                               return normal * (1 / pi) * cos(pi * (x + y));
-                                           });
+        samurai::make_bc<samurai::Neumann<1>>(pressure,
+                                              [](const auto&, const auto&, const auto& coord)
+                                              {
+                                                  const auto& x = coord[0];
+                                                  const auto& y = coord[1];
+                                                  int normal    = (x == 0 || y == 0) ? -1 : 1;
+                                                  return normal * (1 / pi) * cos(pi * (x + y));
+                                              });
 
         // Stokes operator
         //             |  Diff  Grad |
@@ -404,16 +404,16 @@ int main(int argc, char* argv[])
         auto zero = samurai::make_field<1, is_soa>("zero", mesh);
 
         // Boundary conditions
-        samurai::make_bc<samurai::Dirichlet>(velocity_np1,
-                                             [&](const auto&, const auto&, const auto& coord)
-                                             {
-                                                 return exact_velocity(0, coord);
-                                             });
-        samurai::make_bc<samurai::Neumann>(pressure_np1,
-                                           [&](const auto&, const auto&, const auto& coord)
-                                           {
-                                               return exact_normal_grad_pressure(0, coord);
-                                           });
+        samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1,
+                                                [&](const auto&, const auto&, const auto& coord)
+                                                {
+                                                    return exact_velocity(0, coord);
+                                                });
+        samurai::make_bc<samurai::Neumann<1>>(pressure_np1,
+                                              [&](const auto&, const auto&, const auto& coord)
+                                              {
+                                                  return exact_normal_grad_pressure(0, coord);
+                                              });
 
         // Stokes operator
         //             |  Diff  Grad |
@@ -497,17 +497,17 @@ int main(int argc, char* argv[])
 
             // Boundary conditions
             velocity_np1.get_bc().clear();
-            samurai::make_bc<samurai::Dirichlet>(velocity_np1,
-                                                 [&](const auto&, const auto&, const auto& coord)
-                                                 {
-                                                     return exact_velocity(t_np1, coord);
-                                                 });
+            samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1,
+                                                    [&](const auto&, const auto&, const auto& coord)
+                                                    {
+                                                        return exact_velocity(t_np1, coord);
+                                                    });
             pressure_np1.get_bc().clear();
-            samurai::make_bc<samurai::Neumann>(pressure_np1,
-                                               [&](const auto&, const auto&, const auto& coord)
-                                               {
-                                                   return exact_normal_grad_pressure(t_np1, coord);
-                                               });
+            samurai::make_bc<samurai::Neumann<1>>(pressure_np1,
+                                                  [&](const auto&, const auto&, const auto& coord)
+                                                  {
+                                                      return exact_normal_grad_pressure(t_np1, coord);
+                                                  });
 
             // Update solver
             if (mesh_has_changed || dt_has_changed)

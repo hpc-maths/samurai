@@ -216,7 +216,7 @@ int main(int argc, char* argv[])
     samurai::amr::Mesh<Config> mesh(box, start_level, min_level, max_level);
 
     auto phi = init_solution(mesh);
-    samurai::make_bc<samurai::Neumann>(phi, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(phi, 0.);
 
     auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
 

@@ -47,7 +47,7 @@ int main_dim(int argc, char* argv[])
 {
     samurai::initialize(argc, argv);
 
-    using Config  = samurai::MRConfig<dim>;
+    using Config  = samurai::MRConfig<dim, 3>;
     using Box     = samurai::Box<double, dim>;
     using point_t = typename Box::point_t;
 
@@ -113,6 +113,8 @@ int main_dim(int argc, char* argv[])
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
     auto u    = samurai::make_field<field_size>("u", mesh);
+    auto u1   = samurai::make_field<field_size>("u1", mesh);
+    auto u2   = samurai::make_field<field_size>("u2", mesh);
     auto unp1 = samurai::make_field<field_size>("unp1", mesh);
 
     // Initial solution
@@ -188,52 +190,33 @@ int main_dim(int argc, char* argv[])
     // Boundary conditions
     if (dim == 1 && init_sol == "linear")
     {
-        samurai::make_bc<samurai::Dirichlet>(u,
-                                             [&](const auto&, const auto&, const auto& coord)
-                                             {
-                                                 return exact_solution(coord, 0);
-                                             });
+        samurai::make_bc<samurai::Dirichlet<3>>(u,
+                                                [&](const auto&, const auto&, const auto& coord)
+                                                {
+                                                    return exact_solution(coord, 0);
+                                                });
     }
     else
     {
         if constexpr (field_size == 1)
         {
-            samurai::make_bc<samurai::Dirichlet>(u, 0.0);
+            samurai::make_bc<samurai::Dirichlet<3>>(u, 0.0);
         }
         else if constexpr (field_size == 2)
         {
-            samurai::make_bc<samurai::Dirichlet>(u, 0.0, 0.0);
+            samurai::make_bc<samurai::Dirichlet<3>>(u, 0.0, 0.0);
         }
         else if constexpr (field_size == 3)
         {
-            samurai::make_bc<samurai::Dirichlet>(u, 0.0, 0.0, 0.0);
+            samurai::make_bc<samurai::Dirichlet<3>>(u, 0.0, 0.0, 0.0);
         }
     }
 
+    u1.copy_bc_from(u);
+    u2.copy_bc_from(u);
+
     double cst = dim == 1 ? 0.5 : 1; // if dim == 1, we want f(u) = (1/2)*u^2
-    auto conv  = cst * samurai::make_convection_upwind<decltype(u)>();
-
-    /**
-     * The following is another implementation of the convection operator (here in 1D):
-     */
-    // auto f = [](double x)
-    // {
-    //     return pow(x, 2) / 2;
-    // };
-
-    // using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, /* output_field_size = */ field_size, 2, decltype(u)>;
-
-    // samurai::FluxDefinition<cfg> upwind_f(
-    //     [&](auto& cells, const auto& v)
-    //     {
-    //         auto& left  = cells[0];
-    //         auto& right = cells[1];
-    //         return v[left] >= 0 ? f(v[left]) : f(v[right]);                        // upwind
-    //         // return (f(v[left]) + f(v[right])) / 2;                              // average
-    //         // return (f(v[left]) + f(v[right] - lambda*(v[right] - v[left])) / 2; // rusanov
-    //     });
-
-    // auto conv = samurai::make_divergence(upwind_f);
+    auto conv  = cst * samurai::make_convection_weno5<decltype(u)>();
 
     //--------------------//
     //   Time iteration   //
@@ -267,21 +250,28 @@ int main_dim(int argc, char* argv[])
 
         // Mesh adaptation
         MRadaptation(mr_epsilon, mr_regularity);
-        samurai::update_ghost_mr(u);
+        u1.resize();
+        u2.resize();
         unp1.resize();
 
         // Boundary conditions
         if (dim == 1 && init_sol == "linear")
         {
             u.get_bc().clear();
-            samurai::make_bc<samurai::Dirichlet>(u,
-                                                 [&](const auto&, const auto&, const auto& coord)
-                                                 {
-                                                     return exact_solution(coord, t - dt);
-                                                 });
+            samurai::make_bc<samurai::Dirichlet<3>>(u,
+                                                    [&](const auto&, const auto&, const auto& coord)
+                                                    {
+                                                        return exact_solution(coord, t - dt);
+                                                    });
         }
 
-        unp1 = u - dt * conv(u);
+        // RK3 time scheme
+        samurai::update_ghost_mr(u);
+        u1 = u - dt * conv(u);
+        samurai::update_ghost_mr(u1);
+        u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
+        samurai::update_ghost_mr(u2);
+        unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());

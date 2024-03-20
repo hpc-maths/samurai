@@ -121,19 +121,26 @@ namespace samurai
             inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
+                auto data         = xt::view(this->derived_cast().m_data,
+                                     xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
 #ifdef SAMURAI_CHECK_NAN
-                for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
-                     i += interval.step)
+                if (xt::any(xt::isnan(data)))
                 {
-                    if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
+                    for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
+                         i += interval.step)
                     {
-                        std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
-                        break;
+                        if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
+                        {
+                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
+                            auto ii   = i - interval_tmp.index;
+                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
+                            std::cerr << "READ NaN in " << cell << std::endl;
+                            break;
+                        }
                     }
                 }
 #endif
-                return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
+                return data;
             }
 
             void resize()
@@ -201,19 +208,17 @@ namespace samurai
             inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
+                auto data         = xt::view(this->derived_cast().m_data,
+                                     xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
 #ifdef SAMURAI_CHECK_NAN
-                for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
-                     i += interval.step)
+
+                if (xt::any(xt::isnan(data)))
                 {
-                    if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
-                    {
-                        std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
-                        break;
-                    }
+                    // std::cout << data << std::endl;
+                    std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
                 }
 #endif
-                return xt::view(this->derived_cast().m_data,
-                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
+                return data;
             }
 
             template <class... T>
@@ -255,6 +260,9 @@ namespace samurai
             void resize()
             {
                 this->derived_cast().m_data.resize({this->derived_cast().mesh().nb_cells(), size});
+#ifdef SAMURAI_CHECK_NAN
+                this->derived_cast().m_data.fill(std::nan(""));
+#endif
             }
         };
 
@@ -353,6 +361,9 @@ namespace samurai
             void resize()
             {
                 this->derived_cast().m_data.resize({size, this->derived_cast().mesh().nb_cells()});
+#ifdef SAMURAI_CHECK_NAN
+                this->derived_cast().m_data.fill(std::nan(""));
+#endif
             }
         };
 
@@ -421,6 +432,8 @@ namespace samurai
         template <class Bc_derived>
         auto attach_bc(const Bc_derived& bc);
         auto& get_bc();
+        const auto& get_bc() const;
+        void copy_bc_from(const Field& other);
 
         iterator begin();
         const_iterator begin() const;
@@ -583,13 +596,7 @@ namespace samurai
         , m_name(field.m_name)
         , m_data(field.m_data)
     {
-        std::transform(field.p_bc.cbegin(),
-                       field.p_bc.cend(),
-                       std::back_inserter(p_bc),
-                       [](const auto& v)
-                       {
-                           return v->clone();
-                       });
+        copy_bc_from(field);
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
@@ -717,6 +724,24 @@ namespace samurai
     inline auto& Field<mesh_t, value_t, size_, SOA>::get_bc()
     {
         return p_bc;
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    inline const auto& Field<mesh_t, value_t, size_, SOA>::get_bc() const
+    {
+        return p_bc;
+    }
+
+    template <class mesh_t, class value_t, std::size_t size_, bool SOA>
+    void Field<mesh_t, value_t, size_, SOA>::copy_bc_from(const Field<mesh_t, value_t, size_, SOA>& other)
+    {
+        std::transform(other.get_bc().cbegin(),
+                       other.get_bc().cend(),
+                       std::back_inserter(p_bc),
+                       [](const auto& v)
+                       {
+                           return v->clone();
+                       });
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
@@ -876,7 +901,7 @@ namespace samurai
     {
         auto field = make_field<value_t, size, SOA, mesh_t>(name, mesh);
 #ifdef SAMURAI_CHECK_NAN
-        f.fill(std::nan(""));
+        field.fill(std::nan(""));
 #else
         field.fill(0);
 #endif

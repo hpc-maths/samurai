@@ -95,10 +95,14 @@ int main(int argc, char* argv[])
 {
     samurai::initialize(argc, argv);
 
-    constexpr std::size_t dim        = 2;
-    using Config                     = samurai::MRConfig<dim, 1>;
-    using Mesh                       = samurai::MRMesh<Config>;
-    using mesh_id_t                  = typename Mesh::mesh_id_t;
+    constexpr std::size_t dim = 2;
+    using Config              = samurai::MRConfig<dim, 2>;
+    using Mesh                = samurai::MRMesh<Config>;
+    using mesh_id_t           = typename Mesh::mesh_id_t;
+
+    using Config2 = samurai::MRConfig<dim, 3>;
+    using Mesh2   = samurai::MRMesh<Config2>;
+
     static constexpr bool is_soa     = false;
     static constexpr bool monolithic = true;
 
@@ -184,13 +188,13 @@ int main(int argc, char* argv[])
     samurai::DirectionVector<dim> right  = {1, 0};
     samurai::DirectionVector<dim> bottom = {0, -1};
     samurai::DirectionVector<dim> top    = {0, 1};
-    samurai::make_bc<samurai::Dirichlet>(velocity, 1., 0.)->on(top);
-    samurai::make_bc<samurai::Dirichlet>(velocity, 0., 0.)->on(left, bottom, right);
+    samurai::make_bc<samurai::Dirichlet<1>>(velocity, 1., 0.)->on(top);
+    samurai::make_bc<samurai::Dirichlet<1>>(velocity, 0., 0.)->on(left, bottom, right);
 
     // Boundary conditions (n+1)
-    samurai::make_bc<samurai::Dirichlet>(velocity_np1, 1., 0.)->on(top);
-    samurai::make_bc<samurai::Dirichlet>(velocity_np1, 0., 0.)->on(left, bottom, right);
-    samurai::make_bc<samurai::Neumann>(pressure_np1, 0.);
+    samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1, 1., 0.)->on(top);
+    samurai::make_bc<samurai::Dirichlet<1>>(velocity_np1, 0., 0.)->on(left, bottom, right);
+    samurai::make_bc<samurai::Neumann<1>>(pressure_np1, 0.);
 
     // Initial condition
     velocity.fill(0);
@@ -242,7 +246,7 @@ int main(int argc, char* argv[])
     //               d(i)/dt + conv(i) = 0,       where conv(i) = v.grad(i).
 
     // 2nd mesh
-    auto mesh2 = Mesh(box, min_level, max_level);
+    auto mesh2 = Mesh2(box, 1, max_level);
 
     // Ink data fields
     auto ink     = samurai::make_field<1, is_soa>("ink", mesh2);
@@ -256,10 +260,10 @@ int main(int argc, char* argv[])
     auto MRadaptation2 = samurai::make_MRAdapt(ink);
 
     // Here, 'velocity2' is used as the velocity parameter of the convection operator
-    auto conv2 = samurai::make_convection_upwind<InkField>(velocity2);
+    auto conv2 = samurai::make_convection_weno5<InkField>(velocity2);
 
     // Boundary condition
-    samurai::make_bc<samurai::Dirichlet>(ink, 0.);
+    samurai::make_bc<samurai::Dirichlet<3>>(ink, 0.);
 
     // Initial condition
     samurai::for_each_cell(mesh2,
@@ -359,6 +363,7 @@ int main(int argc, char* argv[])
         }
 
         // Solve Stokes system
+        samurai::update_ghost_mr(velocity);
         rhs = velocity - dt * conv(velocity);
         zero.fill(0);
         stokes_solver.solve(rhs, zero);
@@ -372,6 +377,7 @@ int main(int argc, char* argv[])
         samurai::transfer(velocity_np1, velocity2);
 
         // Ink convection
+        samurai::update_ghost_mr(ink);
         samurai::update_ghost_mr(velocity2);
         ink_np1 = ink - dt * conv2(ink);
 

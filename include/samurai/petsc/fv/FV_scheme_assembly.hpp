@@ -46,8 +46,8 @@ namespace samurai
             static constexpr DirichletEnforcement dirichlet_enfcmt = bdry_cfg_t::dirichlet_enfcmt;
             using cell_t                                           = Cell<dim, interval_t>;
 
-            using dirichlet_t = Dirichlet<field_t>;
-            using neumann_t   = Neumann<field_t>;
+            using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
+            using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;
 
             using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
 

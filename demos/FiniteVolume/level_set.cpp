@@ -40,7 +40,7 @@ auto init_level_set(Mesh& mesh)
                                phi[cell] = std::sqrt(std::pow(x - x_center, 2.) + std::pow(y - y_center, 2.)) - radius;
                            });
 
-    samurai::make_bc<samurai::Neumann>(phi, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(phi, 0.);
 
     return phi;
 }
@@ -65,9 +65,9 @@ auto init_velocity(Mesh& mesh)
                                u[cell][1] = std::pow(std::sin(PI * y), 2.) * std::sin(2. * PI * x);
                            });
 
-    samurai::make_bc<samurai::Neumann>(u, 0., 0.);
+    samurai::make_bc<samurai::Neumann<1>>(u, 0., 0.);
 
-    // samurai::make_bc<samurai::Dirichlet>(u, [PI](auto& coords)
+    // samurai::make_bc<samurai::Dirichlet<1>>(u, [PI](auto& coords)
     // {
     //     return xt::xtensor_fixed<double, xt::xshape<2>>{
     //         -std::pow(std::sin(PI*coords[0]), 2.) *
@@ -300,7 +300,7 @@ int main(int argc, char* argv[])
 
     auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
     auto phihat = samurai::make_field<double, 1>("phi", mesh);
-    samurai::make_bc<samurai::Neumann>(phihat, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
     auto tag = samurai::make_field<int, 1>("tag", mesh);
 
     const xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil_grad{

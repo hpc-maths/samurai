@@ -126,7 +126,6 @@ def test_finite_volume_demo_burgers(config):
            "--min-level", "1",
            "--max-level", "4",
            "--init-sol", "hat",
-           "--cfl", "0.5",
            "--Tf", "0.1"]
     output = subprocess.run(cmd, check=True, capture_output=True)
 

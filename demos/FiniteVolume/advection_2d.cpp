@@ -227,7 +227,7 @@ int main(int argc, char* argv[])
     double t             = 0.;
 
     auto u = init(mesh);
-    samurai::make_bc<samurai::Dirichlet>(u, 0.);
+    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
