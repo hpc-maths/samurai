@@ -10,6 +10,12 @@ namespace samurai
         LinearHomogeneous
     };
 
+    enum class Get
+    {
+        Cells,
+        Intervals
+    };
+
     /**
      * Matrix type
      */

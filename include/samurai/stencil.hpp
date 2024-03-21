@@ -98,6 +98,7 @@ namespace samurai
         const Stencil<stencil_size, dim> m_stencil; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         std::array<cell_t, stencil_size> m_cells;
         unsigned int m_origin_cell;
+        const mesh_interval_t* m_mesh_interval = nullptr;
 
       public:
 
@@ -112,6 +113,8 @@ namespace samurai
 
         void init(const mesh_interval_t& mesh_interval)
         {
+            m_mesh_interval = &mesh_interval;
+
             double length = cell_length(mesh_interval.level);
             for (cell_t& cell : m_cells)
             {
@@ -176,7 +179,12 @@ namespace samurai
             }
         }
 
-        void move_next()
+        inline auto interval()
+        {
+            return m_mesh_interval->i;
+        }
+
+        inline void move_next()
         {
             for (cell_t& cell : m_cells)
             {
@@ -185,7 +193,7 @@ namespace samurai
             }
         }
 
-        std::array<cell_t, stencil_size>& cells()
+        inline std::array<cell_t, stencil_size>& cells()
         {
             return m_cells;
         }

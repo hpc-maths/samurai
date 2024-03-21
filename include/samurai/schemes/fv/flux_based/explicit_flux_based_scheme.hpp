@@ -19,6 +19,7 @@ namespace samurai
         using scheme_t              = typename base_class::scheme_t;
         using input_field_t         = typename base_class::input_field_t;
         using output_field_t        = typename base_class::output_field_t;
+        using value_t               = typename input_field_t::value_type;
         using flux_stencil_coeffs_t = typename scheme_t::flux_stencil_coeffs_t;
         using base_class::scheme;
 
@@ -47,30 +48,60 @@ namespace samurai
             // MatMult(A, vec_f, vec_res);
 
             // Interior interfaces
-            scheme().for_each_interior_interface(
+            scheme().template for_each_interior_interface<Run::Parallel, Get::Intervals>(
                 input_field.mesh(),
-                [&](const auto& interface_cells, const auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
+                [&](auto& interface, auto& comput_stencil, auto& left_cell_coeffs, auto& right_cell_coeffs)
                 {
+                    auto left_cell_index_init  = interface.cells()[0].index;
+                    auto right_cell_index_init = interface.cells()[1].index;
+
+                    using index_t = decltype(left_cell_index_init);
+
+                    // const value_t* input_field_data = input_field.array().data();
+                    // value_t* output_field_data      = output_field.array().data();
+
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
                         for (std::size_t field_j = 0; field_j < field_size; ++field_j)
                         {
                             for (std::size_t c = 0; c < stencil_size; ++c)
                             {
+                                auto left_cell_coeff  = this->scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
+                                auto right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
 #ifdef SAMURAI_CHECK_NAN
-                                if (std::isnan(field_value(input_field, comput_cells[c], field_j)))
+                                for (std::size_t ii = 0; ii < interface.interval().size(); ++ii)
                                 {
-                                    std::cerr << "NaN detected when computing the flux on the interior interfaces: " << comput_cells[c]
-                                              << std::endl;
-                                    assert(false);
+                                    if (std::isnan(field_value(input_field, comput_stencil.cells()[c], field_j)))
+                                    {
+                                        std::cerr << "NaN detected when computing the flux on the interior interfaces: "
+                                                  << comput_stencil.cells()[c] << std::endl;
+                                        assert(false);
+                                    }
+                                    comput_stencil.move_next();
                                 }
 #endif
-                                double left_cell_coeff  = this->scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
-                                double right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
-                                field_value(output_field, interface_cells[0], field_i) += left_cell_coeff
-                                                                                        * field_value(input_field, comput_cells[c], field_j);
-                                field_value(output_field, interface_cells[1], field_i) += right_cell_coeff
-                                                                                        * field_value(input_field, comput_cells[c], field_j);
+                                index_t comput_index_init = comput_stencil.cells()[c].index;
+
+// linear(left_cell_index_init: 1, right_cell_index_init:1)
+#pragma omp simd // aligned(input_field_data, output_field_data)
+                                for (index_t ii = 0; ii < static_cast<index_t>(interface.interval().size()); ++ii)
+                                {
+                                    // output_field_data[left_cell_index_init + ii] += left_cell_coeff
+                                    //                                               * input_field_data[comput_index_init + ii];
+                                    field_value(output_field,
+                                                left_cell_index_init + ii,
+                                                field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                                }
+
+#pragma omp simd // aligned(input_field_data, output_field_data)
+                                for (index_t ii = 0; ii < static_cast<index_t>(interface.interval().size()); ++ii)
+                                {
+                                    // output_field_data[right_cell_index_init + ii] += right_cell_coeff
+                                    //                                                * input_field_data[comput_index_init + ii];
+                                    field_value(output_field,
+                                                right_cell_index_init + ii,
+                                                field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                                }
                             }
                         }
                     }
@@ -95,7 +126,7 @@ namespace samurai
                                     assert(false);
                                 }
 #endif
-                                double coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
+                                auto coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
                                 field_value(output_field, cell, field_i) += coeff * field_value(input_field, comput_cells[c], field_j);
                             }
                         }
@@ -129,10 +160,8 @@ namespace samurai
 
         void apply(output_field_t& output_field, input_field_t& input_field) const override
         {
-            static constexpr bool parallel = true;
-
             // Interior interfaces
-            scheme().template for_each_interior_interface<parallel>( // We need the 'template' keyword...
+            scheme().template for_each_interior_interface<Run::Parallel>( // We need the 'template' keyword...
                 input_field,
                 [&](const auto& interface_cells, auto& left_cell_contrib, auto& right_cell_contrib)
                 {
@@ -146,7 +175,7 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            scheme().template for_each_boundary_interface<parallel>( // We need the 'template' keyword...
+            scheme().template for_each_boundary_interface<Run::Parallel>( // We need the 'template' keyword...
                 input_field,
                 [&](const auto& cell, auto& contrib)
                 {
