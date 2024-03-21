@@ -74,7 +74,7 @@ namespace samurai
         /**
          * Iterates for each interior interface and returns (in lambda parameters) the scheme coefficients.
          */
-        template <bool parallel = false, class Func>
+        template <Run run_type = Run::Sequential, class Func>
         void for_each_interior_interface(input_field_t& field, Func&& apply_contrib) const
         {
             auto& mesh = field.mesh();
@@ -93,7 +93,7 @@ namespace samurai
                 {
                     auto h = cell_length(level);
 
-                    for_each_interior_interface___same_level<parallel>(
+                    for_each_interior_interface___same_level<run_type>(
                         mesh,
                         level,
                         flux_def.direction,
@@ -156,7 +156,7 @@ namespace samurai
         /**
          * Iterates for each boundary interface and returns (in lambda parameters) the scheme coefficients.
          */
-        template <bool parallel = false, class Func>
+        template <Run run_type = Run::Sequential, class Func>
         void for_each_boundary_interface(input_field_t& field, Func&& apply_contrib) const
         {
             auto& mesh = field.mesh();
@@ -173,7 +173,7 @@ namespace samurai
                         auto h = cell_length(level);
 
                         // Boundary in direction
-                        for_each_boundary_interface___direction<parallel>(mesh,
+                        for_each_boundary_interface___direction<run_type>(mesh,
                                                                           level,
                                                                           flux_def.direction,
                                                                           flux_def.stencil,
@@ -185,7 +185,7 @@ namespace samurai
                                                                           });
 
                         // Boundary in opposite direction
-                        for_each_boundary_interface___opposite_direction<parallel>(mesh,
+                        for_each_boundary_interface___opposite_direction<run_type>(mesh,
                                                                                    level,
                                                                                    flux_def.direction,
                                                                                    flux_def.stencil,

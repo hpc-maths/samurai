@@ -27,6 +27,12 @@ namespace samurai
     template <class F, class... CT>
     class subset_operator;
 
+    enum class Run
+    {
+        Sequential,
+        Parallel
+    };
+
     ///////////////////////////////////
     // for_each_level implementation //
     ///////////////////////////////////
@@ -174,10 +180,10 @@ namespace samurai
             });
     }
 
-    template <class MeshIntervalType, bool parallel, class SetType, class Func>
+    template <class MeshIntervalType, Run run_type, class SetType, class Func>
     inline void for_each_meshinterval(SetType& set, Func&& f)
     {
-        if constexpr (parallel)
+        if constexpr (run_type == Run::Parallel)
         {
             parallel_for_each_meshinterval<MeshIntervalType>(set, std::forward<Func>(f));
         }
