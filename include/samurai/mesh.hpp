@@ -330,11 +330,11 @@ namespace samurai
 
         m_cells[mesh_id_t::cells] = {cl, false};
 
-        update_mesh_neighbour(); // required to do that here ??
         construct_subdomain();   // required ?
         construct_union();       // required ?
         update_sub_mesh();       // perform MPI allReduce calls
         renumbering();           // required ?
+        update_mesh_neighbour(); // required to do that here ??
     }
 
     template <class D, class Config>
@@ -721,7 +721,6 @@ namespace samurai
         //             m_mpi_neighbourhood.push_back(neighbour(shift));
         //         }
         //     });
-
 #endif
     }
 
@@ -758,7 +757,11 @@ namespace samurai
         // remove cells
         cl_type cl;
         size_t diff_ncells = 0;
+<<<<<<< HEAD
         for (size_t ilvl = refmesh.min_level(); ilvl <= refmesh.max_level(); ++ilvl)
+=======
+        for (int ilvl = refmesh.min_level(); ilvl <= refmesh.max_level(); ++ilvl)
+>>>>>>> fa278dd (remove load balancing from mesh class + add merge & remove functions)
         {
             auto diff = samurai::difference(refmesh[ilvl], lca[ilvl]);
 
