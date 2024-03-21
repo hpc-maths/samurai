@@ -288,16 +288,41 @@ namespace samurai
     }
 
     template <class Field>
-    auto& field_value(Field& f, const typename Field::cell_t& cell, [[maybe_unused]] std::size_t field_i)
+    inline auto& field_value(Field& f, const typename Field::cell_t& cell, [[maybe_unused]] std::size_t field_i)
+    {
+        return field_value(f, cell.index, field_i);
+    }
+
+    template <class Field>
+    inline auto& field_value(Field& f, const typename Field::index_t& cell_index, [[maybe_unused]] std::size_t field_i)
     {
         if constexpr (Field::size == 1)
         {
-            return f[cell];
+            return f[cell_index];
         }
         else
         {
-            return f[cell][field_i];
+            return f[cell_index][field_i];
         }
     }
+
+    // template <class Field>
+    // inline auto&
+    // field_value(typename Field::value_type* data, const typename Field::index_t& cell_index, [[maybe_unused]] std::size_t field_i)
+    // {
+    //     if constexpr (Field::size == 1)
+    //     {
+    //         return *data[cell_index];
+    //     }
+    //     else if constexpr (Field::is_soa)
+    //     {
+    //         static_assert(Field::size == 1 || !Field::is_soa, "field_value() is not implemented for SOA fields");
+    //         return *data[field_i /*  *n_cells */ + cell_index];
+    //     }
+    //     else
+    //     {
+    //         return *data[cell_index * Field::size + field_i];
+    //     }
+    // }
 
 } // namespace samurai
