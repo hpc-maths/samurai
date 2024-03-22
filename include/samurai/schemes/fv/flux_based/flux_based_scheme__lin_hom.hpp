@@ -154,7 +154,7 @@ namespace samurai
         /**
          * Iterates for each boundary interface and returns (in lambda parameters) the scheme coefficients.
          */
-        template <class Func>
+        template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Func>
         void for_each_boundary_interface(const mesh_t& mesh, Func&& apply_coeffs) const
         {
             for (std::size_t d = 0; d < dim; ++d)
@@ -169,26 +169,28 @@ namespace samurai
                                    // Boundary in direction
                                    auto flux_coeffs = flux_def.cons_flux_function(h);
                                    auto cell_coeffs = contribution(flux_coeffs, h, h);
-                                   for_each_boundary_interface___direction(mesh,
-                                                                           level,
-                                                                           flux_def.direction,
-                                                                           flux_def.stencil,
-                                                                           [&](auto& cell, auto& comput_cells)
-                                                                           {
-                                                                               apply_coeffs(cell, comput_cells, cell_coeffs);
-                                                                           });
+                                   for_each_boundary_interface___direction<run_type, get_type>(
+                                       mesh,
+                                       level,
+                                       flux_def.direction,
+                                       flux_def.stencil,
+                                       [&](auto& cell, auto& comput_cells)
+                                       {
+                                           apply_coeffs(cell, comput_cells, cell_coeffs);
+                                       });
 
                                    // Boundary in opposite direction
                                    decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
                                    cell_coeffs                             = contribution(minus_flux_coeffs, h, h);
-                                   for_each_boundary_interface___opposite_direction(mesh,
-                                                                                    level,
-                                                                                    flux_def.direction,
-                                                                                    flux_def.stencil,
-                                                                                    [&](auto& cell, auto& comput_cells)
-                                                                                    {
-                                                                                        apply_coeffs(cell, comput_cells, cell_coeffs);
-                                                                                    });
+                                   for_each_boundary_interface___opposite_direction<run_type, get_type>(
+                                       mesh,
+                                       level,
+                                       flux_def.direction,
+                                       flux_def.stencil,
+                                       [&](auto& cell, auto& comput_cells)
+                                       {
+                                           apply_coeffs(cell, comput_cells, cell_coeffs);
+                                       });
                                });
             }
         }
