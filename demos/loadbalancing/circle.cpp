@@ -24,6 +24,18 @@
 #include <cassert>
 #include <algorithm>
 
+template <class Mesh>
+auto getLevel(Mesh& mesh)
+{
+    auto level = samurai::make_field<int, 1>("level", mesh);
+
+    samurai::for_each_cell( mesh, [&]( auto & cell ) {
+        level[ cell ] = static_cast<int>( cell.level );
+    });
+
+    return level;
+}
+
 template <int dim, class Mesh>
 auto init(Mesh& mesh, const double radius, const double x_center, const double y_center )
 {
@@ -55,7 +67,12 @@ auto init(Mesh& mesh, const double radius, const double x_center, const double y
 template <int dim, class Mesh, class Coord_t>
 auto initMultiCircles(Mesh& mesh, const std::vector<double> &radius, const std::vector<Coord_t> & centers )
 {
+    std::cerr << "\t> [InitMultiCircle] Entering ... " << std::endl;
     auto u = samurai::make_field<double, 1>("u", mesh);
+
+    samurai::for_each_cell( mesh, [&](auto& cell) {
+        u[ cell ] = 0.;
+    });
 
     samurai::for_each_cell( mesh, [&](auto& cell) {
         auto cc = cell.center();
@@ -68,9 +85,9 @@ auto initMultiCircles(Mesh& mesh, const std::vector<double> &radius, const std::
             }
 
             if ( rad <= radius[ icerc ] * radius[ icerc ]) {
-                u[ cell ] += 1;
+                u[ cell ] += 1.;
             } else {
-                u[ cell ] += 0;
+                u[ cell ] += 0.;
             }
         }
 
@@ -93,9 +110,9 @@ int main( int argc, char * argv[] ){
 
     double radius = 0.2, x_center = 0.5, y_center = 0.5;
     int niterBench = 1;
+    bool multi = false;
 
     CLI::App app{"Load balancing test"};
-    app.add_option("--ndomains", ndomains, "Number of desired domains")->capture_default_str()->group("Simulation parameters");
     app.add_option("--nbIterLB", nbIterLoadBalancing, "Number of desired lb iteration")
         ->capture_default_str()->group("Simulation parameters");
     app.add_option("--niterBench", niterBench, "Number of iteration for bench")->capture_default_str()->group("Simulation parameters");
@@ -111,6 +128,7 @@ int main( int argc, char * argv[] ){
     app.add_option("--radius", radius, "Bubble radius")->capture_default_str()->group("Simulation parameters");
     app.add_option("--xcenter", x_center, "Bubble x-axis center")->capture_default_str()->group("Simulation parameters");
     app.add_option("--ycenter", y_center, "Bubble y-axis center")->capture_default_str()->group("Simulation parameters");
+    app.add_flag("--multi", multi, "Multiple bubles")->group("Simulation parameters");
     
     CLI11_PARSE(app, argc, argv);
 
@@ -128,9 +146,22 @@ int main( int argc, char * argv[] ){
 
     boost::mpi::communicator world;
 
+    ndomains = static_cast<int>( world.size() );
+
+    std::vector<double> bubles_r;
+    std::vector<std::array<double, dim>> bubles_c;
+
+    if( multi ) {
+        bubles_r = { 0.2, 0.1, 0.05};
+        bubles_c = {{0.2, 0.2}, {0.5, 0.5}, {0.8, 0.8}};
+    }else{
+        bubles_r = { 0.25};
+        bubles_c = {{0.5, 0.5}};
+    }
+
     if( world.rank() == 0 ) std::cerr << "\t> Testing Diffusion_LoadBalancer_interval " << std::endl;
 
-    { // load balancing cells by cells using gravity loadbalancer
+    { // load balancing cells by cells using interface propagation
 
         Timers myTimers;
 
@@ -143,19 +174,19 @@ int main( int argc, char * argv[] ){
 
         Mesh_t mesh(box, minLevel, maxLevel);
 
-        std::vector<std::array<double, dim>> bubles_c = {{0.2, 0.2}, {0.5, 0.5}, {0.8, 0.8}};
+        // auto u = init<dim>( mesh, radius, x_center, y_center );
 
-        auto u = init<dim>( mesh, radius, x_center, y_center );
-
-        // auto u = initMultiCircles<dim>( mesh, {0.2, 0.1, 0.05}, bubles_c );
+        auto u   = initMultiCircles<dim>( mesh, bubles_r, bubles_c );
 
         samurai::make_bc<samurai::Dirichlet>(u, 0.);
         auto mradapt = samurai::make_MRAdapt( u );
         mradapt( mr_epsilon, mr_regularity );
 
+        auto lvl = getLevel( mesh );
+
         myTimers.stop("InitMesh");
 
-        samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh );
+        samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh, lvl );
 
         myTimers.start( "balance_DIF_inter" );
         Diffusion_LoadBalancer_interval<dim> _diff_lb;
@@ -166,11 +197,15 @@ int main( int argc, char * argv[] ){
         }
         myTimers.stop( "balance_DIF_inter" );
 
-        _diff_lb.evaluate_balancing( mesh );
+        std::string _stats = fmt::format( "stats_diff_interval_process_{}", world.rank() );
+        samurai::Statistics s ( _stats );
+        s( "stats", mesh );
 
         {
             Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
-            auto u2 = init<dim>( newmesh, radius, x_center, y_center );
+            // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
+            auto u2 = initMultiCircles<dim>( newmesh,bubles_r, bubles_c );
+            
             
             samurai::save( "init2_circle_"+std::to_string( ndomains)+"_domains", newmesh, u2 );
 
@@ -210,7 +245,7 @@ int main( int argc, char * argv[] ){
 
     if( world.rank() == 0 ) std::cerr << "\t> Testing Diffusion_LoadBalancer_cell " << std::endl;
 
-    { // load balancing cells by cells using gravity loadbalancer
+    { // load balancing cells by cells using gravity
 
         Timers myTimers;
 
@@ -223,10 +258,10 @@ int main( int argc, char * argv[] ){
 
         Mesh_t mesh(box, minLevel, maxLevel);
 
-        std::vector<std::array<double, dim>> bubles_c = {{0.2, 0.2}, {0.5, 0.5}, {0.8, 0.8}};
-
-        auto u = init<dim>( mesh, radius, x_center, y_center );
-        // auto u = initMultiCircles<dim>( mesh, {0.2, 0.1, 0.05}, bubles_c );
+        // auto u = init<dim>( mesh, radius, x_center, y_center );
+        auto u   = initMultiCircles<dim>( mesh, bubles_r, bubles_c );
+        auto lvl = getLevel( mesh );
+        // auto u = initMultiCircles<dim>( mesh,bubles_r, bubles_c );
 
         samurai::make_bc<samurai::Dirichlet>(u, 0.);
         auto mradapt = samurai::make_MRAdapt( u );
@@ -234,7 +269,7 @@ int main( int argc, char * argv[] ){
 
         myTimers.stop("InitMesh");
 
-        samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh );
+        // samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh, lvl );
 
         myTimers.start( "balance_DIF_cell" );
         Diffusion_LoadBalancer_cell<dim> _diff_lb_c;
@@ -245,11 +280,14 @@ int main( int argc, char * argv[] ){
         }
         myTimers.stop( "balance_DIF_cell" );
 
-        _diff_lb_c.evaluate_balancing( mesh );
+        std::string _stats = fmt::format( "stats_diff_gravity_process_{}", world.rank() );
+        samurai::Statistics s ( _stats );
+        s( "stats", mesh );
 
         {
             Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
-            auto u2 = init<dim>( newmesh, radius, x_center, y_center );
+            // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
+            auto u2 = initMultiCircles<dim>( newmesh, bubles_r, bubles_c );
             
             samurai::save( "init2_circle_"+std::to_string( ndomains)+"_domains", newmesh, u2 );
 
@@ -286,7 +324,7 @@ int main( int argc, char * argv[] ){
 
     if( world.rank() == 0 ) std::cerr << "\t> Testing Morton_LoadBalancer_interval " << std::endl;
 
-    { // load balancing cells by cells using gravity loadbalancer
+    { // load balancing using SFC morton
 
         Timers myTimers;
 
@@ -299,10 +337,10 @@ int main( int argc, char * argv[] ){
 
         Mesh_t mesh(box, minLevel, maxLevel);
 
-        std::vector<std::array<double, dim>> bubles_c = {{0.2, 0.2}, {0.5, 0.5}, {0.8, 0.8}};
-
-        auto u = init<dim>( mesh, radius, x_center, y_center );
-        // auto u = initMultiCircles<dim>( mesh, {0.2, 0.1, 0.05}, bubles_c );
+        // auto u = init<dim>( mesh, radius, x_center, y_center );
+        auto u   = initMultiCircles<dim>( mesh, bubles_r, bubles_c );
+        auto lvl = getLevel( mesh );
+        // auto u = initMultiCircles<dim>( mesh,bubles_r, bubles_c );
 
         samurai::make_bc<samurai::Dirichlet>(u, 0.);
         auto mradapt = samurai::make_MRAdapt( u );
@@ -310,7 +348,7 @@ int main( int argc, char * argv[] ){
 
         myTimers.stop("InitMesh");
 
-        samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh );
+        // samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh, lvl );
 
         myTimers.start( "balance_Morton_cell" );
         SFC_LoadBalancer_interval<dim, Morton> loadb_morton;
@@ -321,11 +359,14 @@ int main( int argc, char * argv[] ){
         }
         myTimers.stop( "balance_Morton_cell" );
 
-        loadb_morton.evaluate_balancing( mesh );
+        std::string _stats = fmt::format( "stats_sfc_morton_process_{}", world.rank() );
+        samurai::Statistics s ( _stats );
+        s( "stats", mesh );
 
         {
             Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
-            auto u2 = init<dim>( newmesh, radius, x_center, y_center );
+            // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
+            auto u2 = initMultiCircles<dim>( newmesh, bubles_r, bubles_c );
             
             samurai::save( "init2_circle_"+std::to_string( ndomains)+"_domains", newmesh, u2 );
 
@@ -360,7 +401,7 @@ int main( int argc, char * argv[] ){
 
      if( world.rank() == 0 ) std::cerr << "\t> Testing Morton_LoadBalancer_interval " << std::endl;
 
-    { // load balancing cells by cells using gravity loadbalancer
+    { // load balancing using SFC hilbert
 
         Timers myTimers;
 
@@ -373,18 +414,17 @@ int main( int argc, char * argv[] ){
 
         Mesh_t mesh(box, minLevel, maxLevel);
 
-        std::vector<std::array<double, dim>> bubles_c = {{0.2, 0.2}, {0.5, 0.5}, {0.8, 0.8}};
+        // auto u = init<dim>( mesh, radius, x_center, y_center );
+        auto u   = initMultiCircles<dim>( mesh, bubles_r, bubles_c );
+        auto lvl = getLevel( mesh );
 
-        auto u = init<dim>( mesh, radius, x_center, y_center );
-        // auto u = initMultiCircles<dim>( mesh, {0.2, 0.1, 0.05}, bubles_c );
-
-        samurai::make_bc<samurai::Dirichlet>(u, 0.);
+        samurai::make_bc<samurai::Dirichlet>(u, 0.);    
         auto mradapt = samurai::make_MRAdapt( u );
         mradapt( mr_epsilon, mr_regularity );
 
         myTimers.stop("InitMesh");
 
-        samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh );
+        // samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh, lvl );
 
         myTimers.start( "balance_Hilbert_cell" );
         SFC_LoadBalancer_interval<dim, Hilbert> loadb_hilbert;
@@ -395,12 +435,14 @@ int main( int argc, char * argv[] ){
         }
         myTimers.stop( "balance_Hilbert_cell" );
 
-        loadb_hilbert.evaluate_balancing( mesh );
+        std::string _stats = fmt::format( "stats_sfc_hilbert_process_{}", world.rank() );
+        samurai::Statistics s ( _stats );
+        s( "stats", mesh );
 
         {
             Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
-            auto u2 = init<dim>( newmesh, radius, x_center, y_center );
-            
+            // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
+            auto u2 = initMultiCircles<dim>( newmesh, bubles_r, bubles_c );
             samurai::save( "init2_circle_"+std::to_string( ndomains)+"_domains", newmesh, u2 );
 
             auto conv = samurai::make_convection<decltype(u2)>(velocity);
