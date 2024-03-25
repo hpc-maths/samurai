@@ -586,7 +586,7 @@ namespace samurai
         static constexpr std::size_t fine   = (index_coarse_cell + 1) % 2;
 
         std::size_t m_direction_index;
-        IteratorStencil<Mesh, 2> m_coarse_it;
+        IteratorStencil<Mesh, 1> m_coarse_it;
         const IteratorStencil<Mesh, stencil_size>* m_fine_it;
         std::array<cell_t, 2> m_cells;
         std::size_t m_ii = 0;
@@ -627,7 +627,7 @@ namespace samurai
             m_ii++;
         }
 
-        inline std::array<cell_t, stencil_size>& cells()
+        inline const auto& cells() const
         {
             return m_cells;
         }
