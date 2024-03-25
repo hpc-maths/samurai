@@ -34,6 +34,122 @@ namespace samurai
         {
         }
 
+      private:
+
+        template <class InterfaceType, class StencilType, class Coeffs>
+        void _apply_contribution_in_sequential_context(output_field_t& output_field,
+                                                       input_field_t& input_field,
+                                                       InterfaceType& interface,
+                                                       StencilType& stencil,
+                                                       Coeffs& left_cell_coeffs,
+                                                       Coeffs& right_cell_coeffs) const
+        {
+            const auto& i = interface.interval();
+
+            auto left_cell_index_init  = interface.cells()[0].index;
+            auto right_cell_index_init = interface.cells()[1].index;
+
+            using index_t = decltype(left_cell_index_init);
+
+            for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+            {
+                for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                {
+                    for (std::size_t c = 0; c < stencil_size; ++c)
+                    {
+                        index_t comput_index_init = stencil.cells()[c].index;
+
+                        auto left_cell_coeff  = this->scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
+                        auto right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
+
+#pragma omp simd
+                        for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                        {
+                            // output_field_data[left_cell_index_init + ii] += left_cell_coeff * input_field_data[comput_index_init + ii];
+                            field_value(output_field,
+                                        left_cell_index_init + ii,
+                                        field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                        }
+#pragma omp simd
+                        for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                        {
+                            // output_field_data[right_cell_index_init + ii] += right_cell_coeff * input_field_data[comput_index_init + ii];
+                            field_value(output_field,
+                                        right_cell_index_init + ii,
+                                        field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                        }
+                    }
+                }
+            }
+        }
+
+        template <class InterfaceType, class StencilType, class Coeffs>
+        void _apply_contribution_in_parallel_context(output_field_t& output_field,
+                                                     input_field_t& input_field,
+                                                     InterfaceType& interface,
+                                                     StencilType& stencil,
+                                                     Coeffs& left_cell_coeffs,
+                                                     Coeffs& right_cell_coeffs) const
+        {
+            const auto& i = interface.interval();
+
+            auto left_cell_index_init  = interface.cells()[0].index;
+            auto right_cell_index_init = interface.cells()[1].index;
+
+            using index_t = decltype(left_cell_index_init);
+
+            for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+            {
+                // We first accumulate the contributions in a SIMD fashion into local vectors,
+                // and then we add the results to the field in an atomic fashion.
+
+                std::vector<value_t> left_contributions(i.size(), 0);
+                std::vector<value_t> right_contributions(i.size(), 0);
+
+                for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                {
+                    for (std::size_t c = 0; c < stencil_size; ++c)
+                    {
+                        index_t comput_index_init = stencil.cells()[c].index;
+
+                        auto left_cell_coeff  = this->scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
+                        auto right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
+
+#pragma omp simd
+                        for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                        {
+                            left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff
+                                                                              * field_value(input_field, comput_index_init + ii, field_j);
+                        }
+#pragma omp simd
+                        for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                        {
+                            right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff
+                                                                               * field_value(input_field, comput_index_init + ii, field_j);
+                        }
+                    }
+                }
+
+                // Here, the non-SIMD loops of atomic instructions are more efficient than opening a critical section and
+                // execute SIMD loops.
+
+                // clang-format off
+                for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                {
+                    #pragma omp atomic update
+                    field_value(output_field, left_cell_index_init + ii, field_i) += left_contributions[static_cast<std::size_t>(ii)];
+                }
+                for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                {
+                    #pragma omp atomic update
+                    field_value(output_field, right_cell_index_init + ii, field_i) += right_contributions[static_cast<std::size_t>(ii)];
+                }
+                // clang-format on
+            }
+        }
+
+      public:
+
         void apply(output_field_t& output_field, input_field_t& input_field) const override
         {
             /**
@@ -52,63 +168,23 @@ namespace samurai
                 input_field.mesh(),
                 [&](auto& interface, auto& stencil, auto& left_cell_coeffs, auto& right_cell_coeffs)
                 {
-                    auto left_cell_index_init  = interface.cells()[0].index;
-                    auto right_cell_index_init = interface.cells()[1].index;
-
-                    using index_t = decltype(left_cell_index_init);
-
-                    // const value_t* input_field_data = input_field.array().data();
-                    // value_t* output_field_data      = output_field.array().data();
-
-                    for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+#ifdef SAMURAI_WITH_OPENMP
+                    if (omp_get_max_threads() > 1)
                     {
-                        for (std::size_t field_j = 0; field_j < field_size; ++field_j)
-                        {
-                            for (std::size_t c = 0; c < stencil_size; ++c)
-                            {
-                                auto left_cell_coeff  = this->scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
-                                auto right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
-#ifdef SAMURAI_CHECK_NAN
-                                for (std::size_t ii = 0; ii < interface.interval().size(); ++ii)
-                                {
-                                    if (std::isnan(field_value(input_field, stencil.cells()[c], field_j)))
-                                    {
-                                        std::cerr
-                                            << "NaN detected when computing the flux on the interior interfaces: " << stencil.cells()[c]
-                                            << std::endl;
-                                        assert(false);
-                                    }
-                                    stencil.move_next();
-                                }
-#endif
-                                index_t comput_index_init = stencil.cells()[c].index;
-
-#pragma omp critical(add_linear_contribution)
-                                {
-                                // linear(left_cell_index_init: 1, right_cell_index_init:1)
-#pragma omp simd // aligned(input_field_data, output_field_data)
-                                    for (index_t ii = 0; ii < static_cast<index_t>(interface.interval().size()); ++ii)
-                                    {
-                                        // output_field_data[left_cell_index_init + ii] += left_cell_coeff
-                                        //                                               * input_field_data[comput_index_init + ii];
-                                        field_value(output_field,
-                                                    left_cell_index_init + ii,
-                                                    field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
-                                    }
-
-#pragma omp simd // aligned(input_field_data, output_field_data)
-                                    for (index_t ii = 0; ii < static_cast<index_t>(interface.interval().size()); ++ii)
-                                    {
-                                        // output_field_data[right_cell_index_init + ii] += right_cell_coeff
-                                        //                                                * input_field_data[comput_index_init + ii];
-                                        field_value(output_field,
-                                                    right_cell_index_init + ii,
-                                                    field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
-                                    }
-                                }
-                            }
-                        }
+                        _apply_contribution_in_parallel_context(output_field, input_field, interface, stencil, left_cell_coeffs, right_cell_coeffs);
                     }
+                    else
+                    {
+                        _apply_contribution_in_sequential_context(output_field,
+                                                                  input_field,
+                                                                  interface,
+                                                                  stencil,
+                                                                  left_cell_coeffs,
+                                                                  right_cell_coeffs);
+                    }
+#else
+                    _apply_contribution_in_sequential_context(output_field, input_field, interface, stencil, left_cell_coeffs, right_cell_coeffs);
+#endif
                 });
 
             // Boundary interfaces
@@ -138,13 +214,13 @@ namespace samurai
 
                                 using index_t = decltype(cell_index_init);
 
-#pragma omp simd
+                            // clang-format off
+                                #pragma omp simd
                                 for (index_t ii = 0; ii < static_cast<index_t>(stencil.interval().size()); ++ii)
                                 {
-                                    field_value(output_field,
-                                                cell_index_init + ii,
-                                                field_i) += coeff * field_value(input_field, comput_index_init + ii, field_j);
+                                    field_value(output_field, cell_index_init + ii, field_i) += coeff * field_value(input_field, comput_index_init + ii, field_j);
                                 }
+                                // clang-format on
                             }
                         }
                     }
@@ -184,12 +260,13 @@ namespace samurai
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                     {
-#pragma omp atomic update
-                        field_value(output_field, interface_cells[0], field_i) += this->scheme().flux_value_cmpnent(left_cell_contrib,
-                                                                                                                    field_i);
-#pragma omp atomic update
-                        field_value(output_field, interface_cells[1], field_i) += this->scheme().flux_value_cmpnent(right_cell_contrib,
-                                                                                                                    field_i);
+                    // clang-format off
+                        #pragma omp atomic update
+                        field_value(output_field, interface_cells[0], field_i) += this->scheme().flux_value_cmpnent(left_cell_contrib, field_i);
+
+                        #pragma omp atomic update
+                        field_value(output_field, interface_cells[1], field_i) += this->scheme().flux_value_cmpnent(right_cell_contrib, field_i);
+                        // clang-format on
                     }
                 });
 
