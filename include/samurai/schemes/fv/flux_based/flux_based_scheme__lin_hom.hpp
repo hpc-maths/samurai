@@ -105,49 +105,50 @@ namespace samurai
                 }
 
                 // Level jumps (level -- level+1)
-                // for (std::size_t level = min_level; level < max_level; ++level)
-                // {
-                //     auto h_l                                = cell_length(level);
-                //     auto h_lp1                              = cell_length(level + 1);
-                //     auto flux_coeffs                        = flux_def.cons_flux_function(h_lp1); // flux computed at level l+1
-                //     decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
+                for (std::size_t level = min_level; level < max_level; ++level)
+                {
+                    auto h_l                                = cell_length(level);
+                    auto h_lp1                              = cell_length(level + 1);
+                    auto flux_coeffs                        = flux_def.cons_flux_function(h_lp1); // flux computed at level l+1
+                    decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
 
-                //     //         |__|   l+1
-                //     //    |____|      l
-                //     //    --------->
-                //     //    direction
-                //     {
-                //         auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_l);
-                //         auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_lp1);
+                    //         |__|   l+1
+                    //    |____|      l
+                    //    --------->
+                    //    direction
+                    {
+                        auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_l);
+                        auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_lp1);
 
-                //         for_each_interior_interface___level_jump_direction(
-                //             mesh,
-                //             level,
-                //             flux_def.direction,
-                //             flux_def.stencil,
-                //             [&](auto& interface_cells, auto& comput_cells)
-                //             {
-                //                 apply_coeffs(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
-                //             });
-                //     } //    |__|        l+1
-                //     //       |____|   l
-                //     //    --------->
-                //     //    direction
-                //     {
-                //         auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_lp1);
-                //         auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_l);
+                        for_each_interior_interface___level_jump_direction<Run::Sequential, get_type>(
+                            mesh,
+                            level,
+                            flux_def.direction,
+                            flux_def.stencil,
+                            [&](auto& interface, auto& stencil)
+                            {
+                                apply_coeffs(interface, stencil, left_cell_coeffs, right_cell_coeffs);
+                            });
+                    }
+                    //    |__|        l+1
+                    //       |____|   l
+                    //    --------->
+                    //    direction
+                    {
+                        auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_lp1);
+                        auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_l);
 
-                //         for_each_interior_interface___level_jump_opposite_direction(
-                //             mesh,
-                //             level,
-                //             flux_def.direction,
-                //             flux_def.stencil,
-                //             [&](auto& interface_cells, auto& comput_cells)
-                //             {
-                //                 apply_coeffs(interface_cells, comput_cells, left_cell_coeffs, right_cell_coeffs);
-                //             });
-                //     }
-                // }
+                        for_each_interior_interface___level_jump_opposite_direction<Run::Sequential, get_type>(
+                            mesh,
+                            level,
+                            flux_def.direction,
+                            flux_def.stencil,
+                            [&](auto& interface, auto& stencil)
+                            {
+                                apply_coeffs(interface, stencil, left_cell_coeffs, right_cell_coeffs);
+                            });
+                    }
+                }
             }
         }
 

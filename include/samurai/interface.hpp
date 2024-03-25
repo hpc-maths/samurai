@@ -132,23 +132,19 @@ namespace samurai
                                                             const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
                                                             Func&& f)
     {
-        static constexpr std::size_t dim = Mesh::dim;
-        using mesh_id_t                  = typename Mesh::mesh_id_t;
-        using mesh_interval_t            = typename Mesh::mesh_interval_t;
-        using cell_t                     = Cell<dim, typename Mesh::interval_t>;
+        using mesh_id_t       = typename Mesh::mesh_id_t;
+        using mesh_interval_t = typename Mesh::mesh_interval_t;
 
         if (level >= mesh.max_level())
         {
             return;
         }
 
-        Stencil<1, dim> coarse_cell_stencil = center_only_stencil<dim>();
-        auto coarse_it                      = make_stencil_iterator(mesh, coarse_cell_stencil);
-
         auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
 
         int direction_index_int = find(comput_stencil, direction);
         auto direction_index    = static_cast<std::size_t>(direction_index_int);
+        auto interface_it       = make_leveljump_iterator<0>(comput_stencil_it, direction_index);
 
         auto& coarse_cells = mesh[mesh_id_t::cells][level];
         auto& fine_cells   = mesh[mesh_id_t::cells][level + 1];
@@ -156,39 +152,28 @@ namespace samurai
         auto shifted_fine_cells = translate(fine_cells, -direction);
         auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
 
-        for_each_meshinterval<mesh_interval_t, run_type>(
-            fine_intersect,
-            [&](auto fine_mesh_interval)
-            {
-                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i >> 1, fine_mesh_interval.index >> 1);
+        static_assert(run_type == Run::Sequential);
 
-                comput_stencil_it.init(fine_mesh_interval);
-                coarse_it.init(coarse_mesh_interval);
+        for_each_meshinterval<mesh_interval_t, run_type>(fine_intersect,
+                                                         [&](auto fine_mesh_interval)
+                                                         {
+                                                             comput_stencil_it.init(fine_mesh_interval);
+                                                             interface_it.init(fine_mesh_interval);
 
-                if constexpr (get_type == Get::Intervals)
-                {
-                    // f(coarse_it, comput_stencil_it);
-                    std::cout << "Not implemented" << std::endl;
-                    exit(EXIT_FAILURE);
-                }
-                else if constexpr (get_type == Get::Cells)
-                {
-                    for (std::size_t ii = 0; ii < fine_mesh_interval.i.size(); ++ii)
-                    {
-                        std::array<cell_t, 2> interface_cells;
-                        interface_cells[0] = coarse_it.cells()[0];
-                        interface_cells[1] = comput_stencil_it.cells()[direction_index];
-
-                        f(interface_cells, comput_stencil_it.cells());
-                        comput_stencil_it.move_next();
-
-                        if (ii % 2 == 1)
-                        {
-                            coarse_it.move_next();
-                        }
-                    }
-                }
-            });
+                                                             if constexpr (get_type == Get::Intervals)
+                                                             {
+                                                                 f(interface_it, comput_stencil_it);
+                                                             }
+                                                             else if constexpr (get_type == Get::Cells)
+                                                             {
+                                                                 for (std::size_t ii = 0; ii < fine_mesh_interval.i.size(); ++ii)
+                                                                 {
+                                                                     f(interface_it.cells(), comput_stencil_it.cells());
+                                                                     interface_it.move_next();
+                                                                     comput_stencil_it.move_next();
+                                                                 }
+                                                             }
+                                                         });
     }
 
     /**
@@ -214,15 +199,11 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t                  = typename Mesh::mesh_id_t;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
-        using cell_t                     = Cell<dim, typename Mesh::interval_t>;
 
         if (level >= mesh.max_level())
         {
             return;
         }
-
-        Stencil<1, dim> coarse_cell_stencil = center_only_stencil<dim>();
-        auto coarse_it                      = make_stencil_iterator(mesh, coarse_cell_stencil);
 
         Stencil<comput_stencil_size, dim> minus_comput_stencil = comput_stencil - direction;
         Vector minus_direction                                 = -direction;
@@ -230,45 +211,35 @@ namespace samurai
         auto minus_direction_index                             = static_cast<std::size_t>(minus_direction_index_int);
         auto minus_comput_stencil_it                           = make_stencil_iterator(mesh, minus_comput_stencil);
 
+        auto interface_it = make_leveljump_iterator<1>(minus_comput_stencil_it, minus_direction_index);
+
         auto& coarse_cells = mesh[mesh_id_t::cells][level];
         auto& fine_cells   = mesh[mesh_id_t::cells][level + 1];
 
         auto shifted_fine_cells = translate(fine_cells, direction);
         auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
 
-        for_each_meshinterval<mesh_interval_t, run_type>(
-            fine_intersect,
-            [&](auto fine_mesh_interval)
-            {
-                mesh_interval_t coarse_mesh_interval(level, fine_mesh_interval.i >> 1, fine_mesh_interval.index >> 1);
+        static_assert(run_type == Run::Sequential);
+        for_each_meshinterval<mesh_interval_t, run_type>(fine_intersect,
+                                                         [&](auto fine_mesh_interval)
+                                                         {
+                                                             minus_comput_stencil_it.init(fine_mesh_interval);
+                                                             interface_it.init(fine_mesh_interval);
 
-                minus_comput_stencil_it.init(fine_mesh_interval);
-                coarse_it.init(coarse_mesh_interval);
-
-                if constexpr (get_type == Get::Intervals)
-                {
-                    // f(coarse_it, minus_comput_stencil_it);
-                    std::cout << "Not implemented" << std::endl;
-                    exit(EXIT_FAILURE);
-                }
-                else if constexpr (get_type == Get::Cells)
-                {
-                    for (std::size_t ii = 0; ii < fine_mesh_interval.i.size(); ++ii)
-                    {
-                        std::array<cell_t, 2> interface_cells;
-                        interface_cells[0] = minus_comput_stencil_it.cells()[minus_direction_index];
-                        interface_cells[1] = coarse_it.cells()[0];
-
-                        f(interface_cells, minus_comput_stencil_it.cells());
-                        minus_comput_stencil_it.move_next();
-
-                        if (ii % 2 == 1)
-                        {
-                            coarse_it.move_next();
-                        }
-                    }
-                }
-            });
+                                                             if constexpr (get_type == Get::Intervals)
+                                                             {
+                                                                 f(interface_it, minus_comput_stencil_it);
+                                                             }
+                                                             else if constexpr (get_type == Get::Cells)
+                                                             {
+                                                                 for (std::size_t ii = 0; ii < fine_mesh_interval.i.size(); ++ii)
+                                                                 {
+                                                                     f(interface_it.cells(), minus_comput_stencil_it.cells());
+                                                                     interface_it.move_next();
+                                                                     minus_comput_stencil_it.move_next();
+                                                                 }
+                                                             }
+                                                         });
     }
 
     /**
