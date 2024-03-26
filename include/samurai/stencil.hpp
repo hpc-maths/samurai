@@ -587,7 +587,7 @@ namespace samurai
 
         std::size_t m_direction_index;
         IteratorStencil<Mesh, 1> m_coarse_it;
-        const IteratorStencil<Mesh, stencil_size>* m_fine_it;
+        const IteratorStencil<Mesh, stencil_size>* m_fine_it = nullptr;
         std::array<cell_t, 2> m_cells;
         std::size_t m_ii = 0;
 
@@ -608,6 +608,8 @@ namespace samurai
 
             m_cells[coarse] = m_coarse_it.cells()[0];
             m_cells[fine]   = m_fine_it->cells()[m_direction_index];
+
+            m_ii = 0;
         }
 
         inline auto& interval() const
