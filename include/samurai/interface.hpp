@@ -81,8 +81,8 @@ namespace samurai
             comput_stencil_its.push_back(make_stencil_iterator(mesh, comput_stencil));
         }
 #else
-        auto interface_it      = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
+        auto interface_it            = make_stencil_iterator(mesh, interface_stencil);
+        auto comput_stencil_it       = make_stencil_iterator(mesh, comput_stencil);
 #endif
 
         for_each_meshinterval<mesh_interval_t, run_type>(intersect,
@@ -140,23 +140,38 @@ namespace samurai
             return;
         }
 
-        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
-
-        int direction_index_int = find(comput_stencil, direction);
-        auto direction_index    = static_cast<std::size_t>(direction_index_int);
-        auto interface_it       = make_leveljump_iterator<0>(comput_stencil_it, direction_index);
-
         auto& coarse_cells = mesh[mesh_id_t::cells][level];
         auto& fine_cells   = mesh[mesh_id_t::cells][level + 1];
 
         auto shifted_fine_cells = translate(fine_cells, -direction);
         auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
 
-        static_assert(run_type == Run::Sequential);
+        int direction_index_int = find(comput_stencil, direction);
+        auto direction_index    = static_cast<std::size_t>(direction_index_int);
+#ifdef SAMURAI_WITH_OPENMP
+        std::size_t num_threads = static_cast<std::size_t>(omp_get_max_threads());
+        std::vector<IteratorStencil<Mesh, comput_stencil_size>> comput_stencil_its;
+        comput_stencil_its.reserve(num_threads);
+        std::vector<LevelJumpIterator<0, Mesh, comput_stencil_size>> interface_its;
+        interface_its.reserve(num_threads);
+        for (std::size_t i = 0; i < num_threads; ++i)
+        {
+            comput_stencil_its.emplace_back(mesh, comput_stencil);
+            interface_its.emplace_back(comput_stencil_its[i], direction_index);
+        }
+#else
+        auto comput_stencil_it       = make_stencil_iterator(mesh, comput_stencil);
+        auto interface_it            = make_leveljump_iterator<0>(comput_stencil_it, direction_index);
+#endif
 
         for_each_meshinterval<mesh_interval_t, run_type>(fine_intersect,
                                                          [&](auto fine_mesh_interval)
                                                          {
+#ifdef SAMURAI_WITH_OPENMP
+                                                             std::size_t thread      = static_cast<std::size_t>(omp_get_thread_num());
+                                                             auto& interface_it      = interface_its[thread];
+                                                             auto& comput_stencil_it = comput_stencil_its[thread];
+#endif
                                                              comput_stencil_it.init(fine_mesh_interval);
                                                              interface_it.init(fine_mesh_interval);
 
@@ -205,24 +220,41 @@ namespace samurai
             return;
         }
 
-        Stencil<comput_stencil_size, dim> minus_comput_stencil = comput_stencil - direction;
-        Vector minus_direction                                 = -direction;
-        int minus_direction_index_int                          = find(minus_comput_stencil, minus_direction);
-        auto minus_direction_index                             = static_cast<std::size_t>(minus_direction_index_int);
-        auto minus_comput_stencil_it                           = make_stencil_iterator(mesh, minus_comput_stencil);
-
-        auto interface_it = make_leveljump_iterator<1>(minus_comput_stencil_it, minus_direction_index);
-
         auto& coarse_cells = mesh[mesh_id_t::cells][level];
         auto& fine_cells   = mesh[mesh_id_t::cells][level + 1];
 
         auto shifted_fine_cells = translate(fine_cells, direction);
         auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
 
-        static_assert(run_type == Run::Sequential);
+        Stencil<comput_stencil_size, dim> minus_comput_stencil = comput_stencil - direction;
+        Vector minus_direction                                 = -direction;
+        int minus_direction_index_int                          = find(minus_comput_stencil, minus_direction);
+        auto minus_direction_index                             = static_cast<std::size_t>(minus_direction_index_int);
+
+#ifdef SAMURAI_WITH_OPENMP
+        std::size_t num_threads = static_cast<std::size_t>(omp_get_max_threads());
+        std::vector<IteratorStencil<Mesh, comput_stencil_size>> comput_stencil_its;
+        comput_stencil_its.reserve(num_threads);
+        std::vector<LevelJumpIterator<1, Mesh, comput_stencil_size>> interface_its;
+        interface_its.reserve(num_threads);
+        for (std::size_t i = 0; i < num_threads; ++i)
+        {
+            comput_stencil_its.emplace_back(mesh, minus_comput_stencil);
+            interface_its.emplace_back(comput_stencil_its[i], minus_direction_index);
+        }
+#else
+        auto minus_comput_stencil_it = make_stencil_iterator(mesh, minus_comput_stencil);
+        auto interface_it            = make_leveljump_iterator<1>(minus_comput_stencil_it, minus_direction_index);
+#endif
+
         for_each_meshinterval<mesh_interval_t, run_type>(fine_intersect,
                                                          [&](auto fine_mesh_interval)
                                                          {
+#ifdef SAMURAI_WITH_OPENMP
+                                                             std::size_t thread            = static_cast<std::size_t>(omp_get_thread_num());
+                                                             auto& interface_it            = interface_its[thread];
+                                                             auto& minus_comput_stencil_it = comput_stencil_its[thread];
+#endif
                                                              minus_comput_stencil_it.init(fine_mesh_interval);
                                                              interface_it.init(fine_mesh_interval);
 
@@ -312,8 +344,8 @@ namespace samurai
             comput_stencil_its.push_back(make_stencil_iterator(mesh, comput_stencil));
         }
 #else
-        auto interface_it      = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
+        auto interface_it            = make_stencil_iterator(mesh, interface_stencil);
+        auto comput_stencil_it       = make_stencil_iterator(mesh, comput_stencil);
 #endif
 
         auto bdry = boundary(mesh, level, direction);
