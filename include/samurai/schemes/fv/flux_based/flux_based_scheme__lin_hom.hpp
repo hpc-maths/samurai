@@ -120,7 +120,7 @@ namespace samurai
                         auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_l);
                         auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_lp1);
 
-                        for_each_interior_interface___level_jump_direction<Run::Sequential, get_type>(
+                        for_each_interior_interface___level_jump_direction<run_type, get_type>(
                             mesh,
                             level,
                             flux_def.direction,
@@ -138,7 +138,7 @@ namespace samurai
                         auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_lp1);
                         auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_l);
 
-                        for_each_interior_interface___level_jump_opposite_direction<Run::Sequential, get_type>(
+                        for_each_interior_interface___level_jump_opposite_direction<run_type, get_type>(
                             mesh,
                             level,
                             flux_def.direction,

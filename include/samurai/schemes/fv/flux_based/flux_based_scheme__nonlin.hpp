@@ -118,7 +118,7 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface___level_jump_direction(
+                        for_each_interior_interface___level_jump_direction<run_type>(
                             mesh,
                             level,
                             flux_def.direction,
@@ -136,7 +136,7 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface___level_jump_opposite_direction(
+                        for_each_interior_interface___level_jump_opposite_direction<run_type>(
                             mesh,
                             level,
                             flux_def.direction,
