@@ -42,10 +42,12 @@ namespace samurai
                                                        Coeffs& left_cell_coeffs,
                                                        Coeffs& right_cell_coeffs) const
         {
-            const auto& i = interface.interval();
+            const auto& i    = interface.interval();
+            auto& left_cell  = interface.cells()[0];
+            auto& right_cell = interface.cells()[1];
 
-            auto left_cell_index_init  = interface.cells()[0].index;
-            auto right_cell_index_init = interface.cells()[1].index;
+            auto left_cell_index_init  = left_cell.index;
+            auto right_cell_index_init = right_cell.index;
 
             using index_t = decltype(left_cell_index_init);
 
@@ -60,22 +62,55 @@ namespace samurai
                         auto left_cell_coeff  = this->scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
                         auto right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
 
-#pragma omp simd
-                        for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                        // clang-format off
+                        if (left_cell.level == right_cell.level || i.size() == 1) // if same level, or a jump in the x-direction (<=> i.size()=1)
                         {
-                            // output_field_data[left_cell_index_init + ii] += left_cell_coeff * input_field_data[comput_index_init + ii];
-                            field_value(output_field,
-                                        left_cell_index_init + ii,
-                                        field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                            {
+                                field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            }
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                            {
+                                field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            }
                         }
-#pragma omp simd
-                        for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                        else if (left_cell.level < right_cell.level)
                         {
-                            // output_field_data[right_cell_index_init + ii] += right_cell_coeff * input_field_data[comput_index_init + ii];
-                            field_value(output_field,
-                                        right_cell_index_init + ii,
-                                        field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            // Level jump:
+                            // The fine interval is even (exept in the x-direction, handled by the preceding if).
+                            // We always have i.size() fine cells for i.size()/2 coarse cells.
+                            assert(i.size() % 2 == 0);
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii) // iteration on the coarse cells
+                            {
+                                field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
+                                                                                               + left_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
+                            }
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii) // iteration on the fine cells
+                            {
+                                field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            }
                         }
+                        else // if (left_cell.level > right_cell.level)
+                        {
+                            // Same as above, the other way around.
+                            assert(i.size() % 2 == 0);
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                            {
+                                field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            }
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii)
+                            {
+                                field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
+                                                                                                + right_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
+                            }
+                        }
+                        // clang-format on
                     }
                 }
             }
@@ -89,20 +124,28 @@ namespace samurai
                                                      Coeffs& left_cell_coeffs,
                                                      Coeffs& right_cell_coeffs) const
         {
-            const auto& i = interface.interval();
+            const auto& i    = interface.interval();
+            auto& left_cell  = interface.cells()[0];
+            auto& right_cell = interface.cells()[1];
 
-            auto left_cell_index_init  = interface.cells()[0].index;
-            auto right_cell_index_init = interface.cells()[1].index;
+            auto left_cell_index_init  = left_cell.index;
+            auto right_cell_index_init = right_cell.index;
+
+            auto n_left_cells  = (i.size() == 1 || left_cell.level >= right_cell.level) ? i.size() : i.size() / 2;
+            auto n_right_cells = (i.size() == 1 || left_cell.level <= right_cell.level) ? i.size() : i.size() / 2;
 
             using index_t = decltype(left_cell_index_init);
+
+            std::vector<value_t> left_contributions(n_left_cells, 0);
+            std::vector<value_t> right_contributions(n_right_cells, 0);
 
             for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
             {
                 // We first accumulate the contributions in a SIMD fashion into local vectors,
                 // and then we add the results to the field in an atomic fashion.
 
-                std::vector<value_t> left_contributions(i.size(), 0);
-                std::vector<value_t> right_contributions(i.size(), 0);
+                std::fill(left_contributions.begin(), left_contributions.end(), 0);
+                std::fill(right_contributions.begin(), right_contributions.end(), 0);
 
                 for (std::size_t field_j = 0; field_j < field_size; ++field_j)
                 {
@@ -113,18 +156,55 @@ namespace samurai
                         auto left_cell_coeff  = this->scheme().cell_coeff(left_cell_coeffs, c, field_i, field_j);
                         auto right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
 
-#pragma omp simd
-                        for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                        // clang-format off
+                        if (left_cell.level == right_cell.level || i.size() == 1) // if same level, or a jump in the x-direction (<=> i.size()=1)
                         {
-                            left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff
-                                                                              * field_value(input_field, comput_index_init + ii, field_j);
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                            {
+                                left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            }
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                            {
+                                right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            }
                         }
-#pragma omp simd
-                        for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                        else if (left_cell.level < right_cell.level)
                         {
-                            right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff
-                                                                               * field_value(input_field, comput_index_init + ii, field_j);
+                            // Level jump:
+                            // The fine interval is even (exept in the x-direction, handled by the preceding if).
+                            // We always have i.size() fine cells for i.size()/2 coarse cells.
+                            assert(i.size() % 2 == 0);
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii) // iteration on the coarse cells
+                            {
+                                left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
+                                                                                  + left_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
+                            }
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii) // iteration on the fine cells
+                            {
+                                right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            }
                         }
+                        else // if (left_cell.level > right_cell.level)
+                        {
+                            // Same as above, the other way around.
+                            assert(i.size() % 2 == 0);
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                            {
+                                left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
+                            }
+                            #pragma omp simd
+                            for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii)
+                            {
+                                right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
+                                                                                   + right_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
+                            }
+                        }
+                        // clang-format on
                     }
                 }
 
@@ -132,12 +212,12 @@ namespace samurai
                 // execute SIMD loops.
 
                 // clang-format off
-                for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                for (index_t ii = 0; ii < static_cast<index_t>(left_contributions.size()); ++ii)
                 {
                     #pragma omp atomic update
                     field_value(output_field, left_cell_index_init + ii, field_i) += left_contributions[static_cast<std::size_t>(ii)];
                 }
-                for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
+                for (index_t ii = 0; ii < static_cast<index_t>(right_contributions.size()); ++ii)
                 {
                     #pragma omp atomic update
                     field_value(output_field, right_cell_index_init + ii, field_i) += right_contributions[static_cast<std::size_t>(ii)];
