@@ -19,25 +19,26 @@
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 
-#define APPLY_AND_STENCIL_FUNCTIONS(STENCIL_SIZE)                                                                               \
-    using apply_function_##STENCIL_SIZE = std::function<void(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)>; \
-    virtual apply_function_##STENCIL_SIZE get_apply_function(std::integral_constant<std::size_t, STENCIL_SIZE>) const           \
-    {                                                                                                                           \
-        return [](Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)                                              \
-        {                                                                                                                       \
-            assert(false);                                                                                                      \
-        };                                                                                                                      \
-    }                                                                                                                           \
-                                                                                                                                \
-    virtual Stencil<STENCIL_SIZE, dim> get_stencil(std::integral_constant<std::size_t, STENCIL_SIZE>) const                     \
-    {                                                                                                                           \
-        return line_stencil<dim, 0, STENCIL_SIZE>();                                                                            \
+#define APPLY_AND_STENCIL_FUNCTIONS(STENCIL_SIZE)                                                                                         \
+    using apply_function_##STENCIL_SIZE = std::function<void(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)>;           \
+    virtual apply_function_##STENCIL_SIZE get_apply_function(std::integral_constant<std::size_t, STENCIL_SIZE>, const direction_t&) const \
+    {                                                                                                                                     \
+        return [](Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)                                                        \
+        {                                                                                                                                 \
+            assert(false);                                                                                                                \
+        };                                                                                                                                \
+    }                                                                                                                                     \
+                                                                                                                                          \
+    virtual Stencil<STENCIL_SIZE, dim> get_stencil(std::integral_constant<std::size_t, STENCIL_SIZE>) const                               \
+    {                                                                                                                                     \
+        return line_stencil<dim, 0, STENCIL_SIZE>();                                                                                      \
     }
 
 #define INIT_BC(NAME, STENCIL_SIZE)                                                                                                \
-    using base_t  = samurai::Bc<Field>;                                                                                            \
-    using cell_t  = typename base_t::cell_t;                                                                                       \
-    using value_t = typename base_t::value_t;                                                                                      \
+    using base_t      = samurai::Bc<Field>;                                                                                        \
+    using cell_t      = typename base_t::cell_t;                                                                                   \
+    using value_t     = typename base_t::value_t;                                                                                  \
+    using direction_t = typename base_t::direction_t;                                                                              \
     using base_t::base_t;                                                                                                          \
     using base_t::dim;                                                                                                             \
     using base_t::get_apply_function;                                                                                              \
@@ -802,7 +803,7 @@ namespace samurai
     void
     __apply_bc_on_subset(Bc<Field>& bc, Field& field, Subset& subset, const Stencil<stencil_size, Field::dim>& stencil, const Vector& direction)
     {
-        auto apply_bc = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>());
+        auto apply_bc = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>(), direction);
         if (bc.get_value_type() == BCVType::constant)
         {
             auto value = bc.constant_value();
@@ -953,7 +954,7 @@ namespace samurai
             return line_stencil<dim, 0, 2 * order>();
         }
 
-        apply_function_t get_apply_function(constant_stencil_size_t) const override
+        apply_function_t get_apply_function(constant_stencil_size_t, const direction_t&) const override
         {
             return [](Field& u, const stencil_cells_t& cells, const value_t& dirichlet_value)
             {
@@ -1043,7 +1044,7 @@ namespace samurai
             return line_stencil<dim, 0, 2 * order>();
         }
 
-        apply_function_t get_apply_function(constant_stencil_size_t) const override
+        apply_function_t get_apply_function(constant_stencil_size_t, const direction_t&) const override
         {
             return [](Field& f, const stencil_cells_t& cells, const value_t& value)
             {
@@ -1080,7 +1081,7 @@ namespace samurai
         static_assert(stencil_size_ % 2 == 0, "stencil_size must be even.");
         static_assert(stencil_size_ >= 2 && stencil_size_ <= max_stencil_size_implemented_PE);
 
-        apply_function_t get_apply_function(constant_stencil_size_t) const override
+        apply_function_t get_apply_function(constant_stencil_size_t, const direction_t&) const override
         {
             return [](Field& u, const stencil_cells_t& cells, const value_t&)
             {

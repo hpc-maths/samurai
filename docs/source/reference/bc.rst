@@ -107,7 +107,7 @@ Let's take the example of a Dirichlet condition to better understand how it work
             return line_stencil<dim, 0>(0, 1);
         }
 
-        apply_function_t get_apply_function(constant_stencil_size_t) const override
+        apply_function_t get_apply_function(constant_stencil_size_t, const direction_t&) const override
         {
             return [](Field& f, const stencil_cells_t& cells, const value_t& value)
             {
