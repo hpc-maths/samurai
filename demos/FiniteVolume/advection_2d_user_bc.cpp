@@ -34,7 +34,7 @@ struct Mybc : public samurai::Bc<Field>
         // clang-format on
     }
 
-    apply_function_t get_apply_function(constant_stencil_size_t) const override
+    apply_function_t get_apply_function(constant_stencil_size_t, const direction_t&) const override
     {
         return [](Field& f, const stencil_cells_t& cells, const value_t& value)
         {
