@@ -1269,7 +1269,6 @@ namespace samurai
                             // Otherwise, we populate the Cartesian directions as well, by polynomial extrapolation.
                             bool only_fill_corners = ghost_layer <= real_max_stencil_size / 2;
                             apply_extrapolation_bc_impl<Field, i>(bc, level, field, only_fill_corners);
-                            // apply_extrapolation_bc_impl__OLD<Field, i>(bc, level, field, only_fill_corners);
                         }
                     }
                 });
