@@ -157,25 +157,28 @@ namespace samurai
         this->cells()[mesh_id_t::cells_and_ghosts] = {cell_list, false};
 
         // Add cells for the MRA
-        for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
+        if (this->max_level() != this->min_level())
         {
-            auto expr = difference(intersection(this->cells()[mesh_id_t::cells_and_ghosts][level], this->subdomain()),
-                                   this->get_union()[level])
-                            .on(level);
+            for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
+            {
+                auto expr = difference(intersection(this->cells()[mesh_id_t::cells_and_ghosts][level], this->subdomain()),
+                                       this->get_union()[level])
+                                .on(level);
 
-            expr(
-                [&](const auto& interval, const auto& index_yz)
-                {
-                    lcl_type& lcl = cell_list[level - 1];
+                expr(
+                    [&](const auto& interval, const auto& index_yz)
+                    {
+                        lcl_type& lcl = cell_list[level - 1];
 
-                    static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
-                        [&](auto stencil)
-                        {
-                            auto new_interval = interval >> 1;
-                            lcl[(index_yz >> 1) + stencil].add_interval(
-                                {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
-                        });
-                });
+                        static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                            [&](auto stencil)
+                            {
+                                auto new_interval = interval >> 1;
+                                lcl[(index_yz >> 1) + stencil].add_interval(
+                                    {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                            });
+                    });
+            }
         }
         this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
