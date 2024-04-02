@@ -961,12 +961,12 @@ namespace samurai
 
                         if (!diagonals_only || !is_cartesian_direction)
                         {
-                            if (number_of_one == 1)
+                            if (is_cartesian_direction)
                             {
                                 auto subset = difference(domain, translate(domain, -one_interval * dir));
                                 __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset);
                             }
-                            else if (number_of_one > 1)
+                            else
                             {
                                 if constexpr (dim == 2)
                                 {
@@ -988,68 +988,6 @@ namespace samurai
                     }
                 }
             });
-    }
-
-    template <class Field, std::size_t stencil_size>
-    void apply_extrapolation_bc_impl__OLD(Bc<Field>& bc, std::size_t level, Field& field, bool diagonals_only)
-    {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-
-        static constexpr std::size_t dim = Field::dim;
-
-        auto& mesh = field.mesh();
-
-        auto region     = bc.get_region();
-        auto& direction = region.first;
-        auto& lca       = region.second;
-        auto stencil_0  = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
-        // bool is_line_stencil_ = is_line_stencil(stencil_0);
-
-        for (std::size_t d = 0; d < direction.size(); ++d)
-        {
-            bool is_periodic = false;
-            for (std::size_t i = 0; i < dim; ++i)
-            {
-                if (direction[d](i) != 0 && field.mesh().is_periodic(i))
-                {
-                    is_periodic = true;
-                    break;
-                }
-            }
-            if (!is_periodic)
-            {
-                bool is_cartesian_direction = is_cartesian(direction[d]);
-
-                if (!diagonals_only || !is_cartesian_direction)
-                {
-                    auto stencil = convert_for_direction(stencil_0, direction[d]);
-
-                    // std::cout << "apply_extrapolation_bc_impl__OLD on dir " << direction[d] << std::endl;
-
-                    // 1. Inner cells in the boundary region
-                    {
-                        auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], lca[d]);
-                        // We need to check that the furthest ghost exists. It's not always the case for large stencils!
-                        auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
-                        auto cells                  = intersection(translated_outer_nghbr, bdry_cells).on(level);
-
-                        // std::cout << "      cells: ";
-                        __apply_bc_on_subset(bc, field, cells, stencil, direction[d]);
-                    }
-
-                    // 2. Inner ghosts in the boundary region that have a neigbouring ghost outside the domain
-                    {
-                        auto bdry_cells             = intersection(mesh[mesh_id_t::cells][level], lca[d]);
-                        auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
-                        auto inner_cells_and_ghosts = intersection(translated_outer_nghbr, lca[d]).on(level);
-                        auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
-
-                        // std::cout << "      ghosts: ";
-                        __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction[d]);
-                    }
-                }
-            }
-        }
     }
 
     template <std::size_t order, class Field>
@@ -1282,8 +1220,6 @@ namespace samurai
 
                                 bool only_fill_corners = false;
                                 apply_extrapolation_bc_impl<Field, i>(bc, level, field, only_fill_corners);
-                                // apply_extrapolation_bc_impl__OLD<Field, i>(bc, level, field, only_fill_corners);
-                                //  std::cout << "------------------------------" << std::endl;
                             }
                         }
                     });
