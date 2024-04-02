@@ -45,7 +45,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             
             using Config  = samurai::MRConfig<dim>;
             using Mesh_t  = samurai::MRMesh<Config>;
-            using cell_t  = typename Mesh_t::cell_t;
             using inter_t = samurai::Interval<int, long long>;
             using CellList_t      = typename Mesh_t::cl_type;
             using CellArray_t     = samurai::CellArray<dim>;

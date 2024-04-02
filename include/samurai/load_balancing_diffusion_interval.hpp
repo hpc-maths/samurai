@@ -82,13 +82,9 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
         template<class Mesh_t>
         void load_balance_impl( Mesh_t & mesh ){
 
-            using interval_t      = typename Mesh_t::interval_t;
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
             using CellList_t      = typename Mesh_t::cl_type;
             using CellArray_t     = samurai::CellArray<dim>;
-            using mesh_id_t       = typename Mesh_t::mesh_id_t;
-            using Coord_t         = xt::xtensor_fixed<double, xt::xshape<dim>>;
-            using Cell_t          = typename Mesh_t::cell_t;
 
             boost::mpi::communicator world;
 
