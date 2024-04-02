@@ -20,14 +20,12 @@ namespace samurai
             , save_all(save_all)
             , icurrent(0)
         {
-            std::cerr << "\t> Constucteur [Statistics] " << std::endl;
         }
 
         template <class Mesh>
         void operator()( std::string test_case, Mesh& mesh )
         {
 
-            std::cerr << "\t> Constucteur [operator()] " << std::endl;
 
             icurrent++;
             using mesh_id_t = typename Mesh::mesh_id_t;
