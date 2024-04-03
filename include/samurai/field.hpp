@@ -674,9 +674,6 @@ namespace samurai
         return *this;
     }
 
-    template <class value_t, std::size_t size, bool SOA, class mesh_t>
-    auto make_field(std::string name, mesh_t& mesh);
-
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     template <class... T>
     inline auto
