@@ -824,7 +824,11 @@ namespace samurai
             if (d > 0)
             {
                 os << fmt::format("{:>20}", "offsets = ");
-                os << fmt::format("{}\n", fmt::join(m_offsets[d - 1], " ")) << std::endl;
+                for (std::size_t io = 0; io < m_offsets[d - 1].size(); ++io)
+                {
+                    os << fmt::format("({}: {}) ", io, m_offsets[d - 1][io]);
+                }
+                os << std::endl;
             }
         }
     }
