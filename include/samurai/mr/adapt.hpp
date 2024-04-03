@@ -82,7 +82,7 @@ namespace samurai
         };
     }
 
-    template <class TField, class... TFields>
+    template <bool enlarge_, class TField, class... TFields>
     class Adapt
     {
       public:
@@ -102,6 +102,7 @@ namespace samurai
         using tag_t             = Field<mesh_t, int, 1>;
 
         static constexpr std::size_t dim = mesh_t::dim;
+        static constexpr bool enlarge    = enlarge_;
 
         using interval_t    = typename mesh_t::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
@@ -115,17 +116,17 @@ namespace samurai
         tag_t m_tag;
     };
 
-    template <class TField, class... TFields>
-    inline Adapt<TField, TFields...>::Adapt(TField& field, TFields&... fields)
+    template <bool enlarge, class TField, class... TFields>
+    inline Adapt<enlarge, TField, TFields...>::Adapt(TField& field, TFields&... fields)
         : m_fields(field, fields...)
         , m_detail("detail", field.mesh())
         , m_tag("tag", field.mesh())
     {
     }
 
-    template <class TField, class... TFields>
+    template <bool enlarge, class TField, class... TFields>
     template <class... Fields>
-    void Adapt<TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
+    void Adapt<enlarge, TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
@@ -191,9 +192,9 @@ namespace samurai
         }
     }
 
-    template <class TField, class... TFields>
+    template <bool enlarge, class TField, class... TFields>
     template <class... Fields>
-    bool Adapt<TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
+    bool Adapt<enlarge, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh = m_fields.mesh();
 
@@ -238,11 +239,16 @@ namespace samurai
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
             auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
-            auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
 
-            subset_2.apply_op(enlarge(m_tag));
             subset_2.apply_op(keep_around_refine(m_tag));
-            subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
+
+            if constexpr (enlarge)
+            {
+                auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
+                subset_2.apply_op(enlarge(m_tag));
+                subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
+            }
+
             update_tag_periodic(level, m_tag);
             update_tag_subdomains(level, m_tag);
         }
@@ -337,6 +343,12 @@ namespace samurai
     template <class... TFields>
     auto make_MRAdapt(TFields&... fields)
     {
-        return Adapt<TFields...>(fields...);
+        return Adapt<false, TFields...>(fields...);
+    }
+
+    template <bool enlarge, class... TFields>
+    auto make_MRAdapt(TFields&... fields)
+    {
+        return Adapt<enlarge, TFields...>(fields...);
     }
 } // namespace samurai
