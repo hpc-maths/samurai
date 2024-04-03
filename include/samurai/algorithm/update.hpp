@@ -13,6 +13,8 @@
 #include "../subset/subset_op.hpp"
 #include "utils.hpp"
 
+using namespace xt::placeholders;
+
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
 namespace mpi = boost::mpi;
@@ -103,6 +105,7 @@ namespace samurai
         for (std::size_t level = max_level; level > min_level; --level)
         {
             update_ghost_subdomains(level, field, other_fields...);
+            update_ghost_periodic(level, field, other_fields...);
 
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
@@ -473,11 +476,13 @@ namespace samurai
     {
         using mesh_id_t           = typename Field::mesh_t::mesh_id_t;
         using config              = typename Field::mesh_t::config;
+        using lca_type            = typename Field::mesh_t::lca_type;
         using interval_value_t    = typename Field::interval_t::value_t;
         constexpr std::size_t dim = Field::dim;
 
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
-        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil_dir;
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> min_corner;
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> max_corner;
         auto& mesh       = field.mesh();
         auto domain      = mesh.domain();
         auto min_indices = domain.min_indices();
@@ -489,62 +494,44 @@ namespace samurai
             if (mesh.is_periodic(d))
             {
                 stencil.fill(0);
-                stencil[d] = max_indices[d] - min_indices[d];
+                stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
 
-                stencil_dir.fill(0);
-                stencil_dir[d] = stencil[d] + (config::ghost_width << delta_l);
+                min_corner[d] = (min_indices[d] >> delta_l);
+                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+                for (std::size_t dd = 0; dd < dim; ++dd)
+                {
+                    if (dd != d)
+                    {
+                        min_corner[dd] = (min_indices[dd] >> delta_l) - config::ghost_width;
+                        max_corner[dd] = (max_indices[dd] >> delta_l) + config::ghost_width;
+                    }
+                }
 
-                auto set1 = intersection(mesh[mesh_id_t::reference][level],
-                                         expand(translate(domain, stencil_dir), (config::ghost_width << delta_l)))
-                                .on(level);
+                lca_type lca1{
+                    level,
+                    Box<interval_value_t, dim>{min_corner, max_corner}
+                };
+
+                auto set1 = intersection(mesh[mesh_id_t::reference][level], lca1);
                 set1(
                     [&](const auto& i, const auto& index)
                     {
-                        if constexpr (dim == 1)
-                        {
-                            field(level, i) = field(level, i - (stencil[0] >> delta_l));
-                        }
-                        else if constexpr (dim == 2)
-                        {
-                            auto j             = index[0];
-                            field(level, i, j) = field(level, i - (stencil[0] >> delta_l), j - (stencil[1] >> delta_l));
-                        }
-                        else if constexpr (dim == 3)
-                        {
-                            auto j                = index[0];
-                            auto k                = index[1];
-                            field(level, i, j, k) = field(level,
-                                                          i - (stencil[0] >> delta_l),
-                                                          j - (stencil[1] >> delta_l),
-                                                          k - (stencil[2] >> delta_l));
-                        }
+                        field(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _))) = field(level, i, index);
                     });
 
-                auto set2 = intersection(mesh[mesh_id_t::reference][level],
-                                         expand(translate(domain, -stencil_dir), (config::ghost_width << delta_l)))
-                                .on(level);
+                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l);
+                lca_type lca2{
+                    level,
+                    Box<interval_value_t, dim>{min_corner, max_corner}
+                };
+
+                auto set2 = intersection(mesh[mesh_id_t::reference][level], lca2);
 
                 set2(
                     [&](const auto& i, const auto& index)
                     {
-                        if constexpr (dim == 1)
-                        {
-                            field(level, i) = field(level, i + (stencil[0] >> delta_l));
-                        }
-                        else if constexpr (dim == 2)
-                        {
-                            auto j             = index[0];
-                            field(level, i, j) = field(level, i + (stencil[0] >> delta_l), j + (stencil[1] >> delta_l));
-                        }
-                        else if constexpr (dim == 3)
-                        {
-                            auto j                = index[0];
-                            auto k                = index[1];
-                            field(level, i, j, k) = field(level,
-                                                          i + (stencil[0] >> delta_l),
-                                                          j + (stencil[1] >> delta_l),
-                                                          k + (stencil[2] >> delta_l));
-                        }
+                        field(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _))) = field(level, i, index);
                     });
             }
         }
@@ -583,11 +570,13 @@ namespace samurai
     {
         using mesh_id_t           = typename Tag::mesh_t::mesh_id_t;
         using config              = typename Tag::mesh_t::config;
+        using lca_type            = typename Tag::mesh_t::lca_type;
         using interval_value_t    = typename Tag::interval_t::value_t;
         constexpr std::size_t dim = Tag::dim;
 
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
-        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil_dir;
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> min_corner;
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> max_corner;
 
         auto& mesh = tag.mesh();
 
@@ -601,73 +590,45 @@ namespace samurai
             if (mesh.is_periodic(d))
             {
                 stencil.fill(0);
-                stencil[d] = max_indices[d] - min_indices[d];
+                stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
 
-                stencil_dir.fill(0);
-                stencil_dir[d] = stencil[d] + (config::ghost_width << delta_l);
+                min_corner[d] = (min_indices[d] >> delta_l);
+                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+                for (std::size_t dd = 0; dd < dim; ++dd)
+                {
+                    if (dd != d)
+                    {
+                        min_corner[dd] = (min_indices[dd] >> delta_l) - config::ghost_width;
+                        max_corner[dd] = (max_indices[dd] >> delta_l) + config::ghost_width;
+                    }
+                }
 
-                auto set1 = intersection(mesh[mesh_id_t::reference][level],
-                                         expand(translate(domain, stencil_dir), (config::ghost_width << delta_l)))
-                                .on(level);
+                lca_type lca1{
+                    level,
+                    Box<interval_value_t, dim>{min_corner, max_corner}
+                };
+
+                auto set1 = intersection(mesh[mesh_id_t::reference][level], lca1);
                 set1(
                     [&](const auto& i, const auto& index)
                     {
-                        if constexpr (dim == 1)
-                        {
-                            tag(level, i) |= tag(level, i - (stencil[0] >> delta_l));
-                            tag(level, i - (stencil[0] >> delta_l)) |= tag(level, i);
-                        }
-                        else if constexpr (dim == 2)
-                        {
-                            auto j = index[0];
-                            tag(level, i, j) |= tag(level, i - (stencil[0] >> delta_l), j - (stencil[1] >> delta_l));
-                            tag(level, i - (stencil[0] >> delta_l), j - (stencil[1] >> delta_l)) |= tag(level, i, j);
-                        }
-                        else if constexpr (dim == 3)
-                        {
-                            auto j = index[0];
-                            auto k = index[1];
-                            tag(level, i, j, k) |= tag(level,
-                                                       i - (stencil[0] >> delta_l),
-                                                       j - (stencil[1] >> delta_l),
-                                                       k - (stencil[2] >> delta_l));
-                            tag(level, i - (stencil[0] >> delta_l), j - (stencil[1] >> delta_l), k - (stencil[2] >> delta_l)) |= tag(level,
-                                                                                                                                     i,
-                                                                                                                                     j,
-                                                                                                                                     k);
-                        }
+                        tag(level, i, index) |= tag(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _)));
+                        tag(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _))) |= tag(level, i, index);
                     });
 
-                auto set2 = intersection(mesh[mesh_id_t::reference][level],
-                                         expand(translate(domain, -stencil_dir), (config::ghost_width << delta_l)))
-                                .on(level);
+                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l);
+                lca_type lca2{
+                    level,
+                    Box<interval_value_t, dim>{min_corner, max_corner}
+                };
+                auto set2 = intersection(mesh[mesh_id_t::reference][level], lca2);
+
                 set2(
                     [&](const auto& i, const auto& index)
                     {
-                        if constexpr (dim == 1)
-                        {
-                            tag(level, i) |= tag(level, i + (stencil[0] >> delta_l));
-                            tag(level, i + (stencil[0] >> delta_l)) |= tag(level, i);
-                        }
-                        else if constexpr (dim == 2)
-                        {
-                            auto j = index[0];
-                            tag(level, i, j) |= tag(level, i + (stencil[0] >> delta_l), j + (stencil[1] >> delta_l));
-                            tag(level, i + (stencil[0] >> delta_l), j + (stencil[1] >> delta_l)) |= tag(level, i, j);
-                        }
-                        else if constexpr (dim == 3)
-                        {
-                            auto j = index[0];
-                            auto k = index[1];
-                            tag(level, i, j, k) |= tag(level,
-                                                       i + (stencil[0] >> delta_l),
-                                                       j + (stencil[1] >> delta_l),
-                                                       k + (stencil[2] >> delta_l));
-                            tag(level, i + (stencil[0] >> delta_l), j + (stencil[1] >> delta_l), k + (stencil[2] >> delta_l)) |= tag(level,
-                                                                                                                                     i,
-                                                                                                                                     j,
-                                                                                                                                     k);
-                        }
+                        tag(level, i, index) |= tag(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _)));
+                        tag(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _))) |= tag(level, i, index);
                     });
             }
         }
@@ -734,66 +695,6 @@ namespace samurai
             std::swap(field.array(), new_field.array());
         }
 
-        template <class Mesh, class Field>
-        void update_fields_with_old(Mesh& new_mesh, Field& old_field, Field& field)
-        {
-            using mesh_id_t                  = typename Mesh::mesh_id_t;
-            constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
-
-            Field new_field("new_f", new_mesh);
-#ifdef SAMURAI_CHECK_NAN
-            new_field.fill(std::nan(""));
-#else
-            new_field.fill(0);
-#endif
-
-            auto& mesh     = field.mesh();
-            auto& old_mesh = old_field.mesh();
-
-            auto min_level = mesh.min_level();
-            auto max_level = mesh.max_level();
-
-            for (std::size_t level = min_level; level <= max_level; ++level)
-            {
-                auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
-                set.apply_op(copy(new_field, field));
-            }
-
-            for (std::size_t level = min_level + 1; level <= max_level; ++level)
-            {
-                auto set_coarsen = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level - 1]).on(level - 1);
-                set_coarsen.apply_op(projection(new_field, field));
-
-                auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
-                set_refine.apply_op(prediction<pred_order, true>(new_field, field));
-            }
-
-            for (std::size_t level = 1; level <= max_level; ++level)
-            {
-                auto subset = intersection(intersection(old_mesh[mesh_id_t::cells][level],
-                                                        difference(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level])),
-                                           mesh[mesh_id_t::cells][level - 1])
-                                  .on(level);
-
-                subset.apply_op(copy(new_field, old_field));
-            }
-
-            std::swap(field.array(), new_field.array());
-            std::swap(old_field.array(), new_field.array());
-        }
-
-        template <class Mesh, class Old_fields, class Fields, std::size_t... Is>
-        void update_fields_with_old(Mesh& new_mesh, Old_fields& old_fields, Fields& fields, std::index_sequence<Is...>)
-        {
-            (update_fields_with_old(new_mesh, std::get<Is>(old_fields), std::get<Is>(fields)), ...);
-        }
-
-        template <class Mesh, class Old_fields, class... T>
-        void update_fields_with_old(Mesh& new_mesh, Old_fields& old_fields, Field_tuple<T...>& fields)
-        {
-            update_fields_with_old(new_mesh, old_fields, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
-        }
-
         template <class Mesh, class Fields, std::size_t... Is>
         void update_fields(Mesh& new_mesh, Fields& fields, std::index_sequence<Is...>)
         {
@@ -816,20 +717,6 @@ namespace samurai
         template <class Mesh>
         void update_fields(Mesh&)
         {
-        }
-
-        template <class Mesh, class Field>
-        void swap_mesh(Mesh& new_mesh, Field& old_field, Field& field)
-        {
-            field.mesh().swap(new_mesh);
-            old_field.mesh().swap(new_mesh);
-        }
-
-        template <class Mesh, class Old_fields, class... T>
-        void swap_mesh(Mesh& new_mesh, Old_fields& old_fields, Field_tuple<T...>& fields)
-        {
-            fields.mesh().swap(new_mesh);
-            std::get<0>(old_fields).mesh().swap(new_mesh);
         }
     }
 
@@ -903,85 +790,8 @@ namespace samurai
         return false;
     }
 
-    template <class Tag, class Field, class Old_field, class... Fields>
-    bool update_field_mr(std::integral_constant<bool, true>, const Tag& tag, Field& field, Old_field& old_field, Fields&... other_fields)
-    {
-        using mesh_t                     = typename Field::mesh_t;
-        static constexpr std::size_t dim = mesh_t::dim;
-        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        using interval_t                 = typename mesh_t::interval_t;
-        using value_t                    = typename interval_t::value_t;
-        using cl_type                    = typename Field::mesh_t::cl_type;
-
-        auto& mesh = field.mesh();
-        cl_type cl;
-
-        for_each_interval(mesh[mesh_id_t::cells],
-                          [&](std::size_t level, const auto& interval, const auto& index)
-                          {
-                              auto itag = interval.start + interval.index;
-                              for (value_t i = interval.start; i < interval.end; ++i)
-                              {
-                                  if (tag[itag] & static_cast<int>(CellFlag::refine))
-                                  {
-                                      if (level < mesh.max_level())
-                                      {
-                                          static_nested_loop<dim - 1, 0, 2>(
-                                              [&](const auto& stencil)
-                                              {
-                                                  auto new_index = 2 * index + stencil;
-                                                  cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});
-                                              });
-                                      }
-                                      else
-                                      {
-                                          cl[level][index].add_point(i);
-                                      }
-                                  }
-                                  else if (tag[itag] & static_cast<int>(CellFlag::keep))
-                                  {
-                                      cl[level][index].add_point(i);
-                                  }
-                                  else if (tag[itag] & static_cast<int>(CellFlag::coarsen))
-                                  {
-                                      if (level > mesh.min_level())
-                                      {
-                                          cl[level - 1][index >> 1].add_point(i >> 1);
-                                      }
-                                      else
-                                      {
-                                          cl[level][index].add_point(i);
-                                      }
-                                  }
-                                  itag++;
-                              }
-                          });
-
-        mesh_t new_mesh = {cl, mesh};
-
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
-#else
-        if (mesh == new_mesh)
-#endif
-        {
-            return true;
-        }
-
-        new_mesh.update_mesh_neighbour();
-        detail::update_fields(new_mesh, other_fields...);
-        detail::update_fields_with_old(new_mesh, old_field, field);
-
-        detail::swap_mesh(new_mesh, old_field, field);
-        // field.mesh().swap(new_mesh);
-        // std::get<0>(old_field).mesh().swap(new_mesh);
-
-        return false;
-    }
-
     template <class Tag, class Field, class... Fields>
-    bool update_field_mr(std::integral_constant<bool, false>, const Tag& tag, Field& field, Fields&... other_fields)
+    bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
     {
         using mesh_t                     = typename Field::mesh_t;
         static constexpr std::size_t dim = mesh_t::dim;
@@ -1046,12 +856,9 @@ namespace samurai
             return true;
         }
 
-        detail::update_fields(new_mesh, other_fields...);
-        detail::update_fields(new_mesh, field);
+        detail::update_fields(new_mesh, field, other_fields...);
 
-        // detail::swap_mesh(new_mesh, old_field, field);
         field.mesh().swap(new_mesh);
-        // std::get<0>(old_field).mesh().swap(new_mesh);
 
         return false;
     }

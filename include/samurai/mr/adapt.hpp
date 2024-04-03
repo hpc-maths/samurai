@@ -309,15 +309,15 @@ namespace samurai
         //                     |
         //   level l     |-----------|
         //
-        for (std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
-        {
-            auto set = difference(mesh[mesh_id_t::reference][level], mesh.domain()).on(level);
-            set(
-                [&](const auto& i, const auto& index)
-                {
-                    m_tag(level, i, index) = static_cast<int>(CellFlag::keep);
-                });
-        }
+        // for (std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
+        // {
+        //     auto set = difference(mesh[mesh_id_t::reference][level], mesh.domain()).on(level);
+        //     set(
+        //         [&](const auto& i, const auto& index)
+        //         {
+        //             m_tag(level, i, index) = static_cast<int>(CellFlag::keep);
+        //         });
+        // }
 
         for (std::size_t level = max_level; level > 0; --level)
         {
@@ -331,7 +331,7 @@ namespace samurai
         update_ghost_mr(other_fields...);
         keep_only_one_coarse_tag(m_tag);
 
-        return update_field_mr(std::integral_constant<bool, false>{}, m_tag, m_fields, other_fields...);
+        return update_field_mr(m_tag, m_fields, other_fields...);
     }
 
     template <class... TFields>

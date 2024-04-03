@@ -48,7 +48,7 @@ namespace samurai
         // static_cast<int>(graduation_width) - 1,
         //                                                      static_cast<int>(max_stencil_width)),
         //                                             static_cast<int>(prediction_order));
-        static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width), 2 * static_cast<int>(prediction_order));
+        static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width), static_cast<int>(prediction_order));
         using interval_t                 = TInterval;
         using mesh_id_t                  = MRMeshId;
     };
@@ -530,26 +530,109 @@ namespace samurai
             // }
         }
 
-        template <class Config>
-        template <typename... T>
-        inline xt::xtensor<bool, 1> MRMesh<Config>::exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const
+        for (std::size_t level = 0; level < max_level; ++level)
         {
-            using coord_index_t      = typename interval_t::coord_index_t;
-            const auto& lca          = this->cells()[type][level];
-            std::size_t size         = interval.size() / interval.step;
-            xt::xtensor<bool, 1> out = xt::empty<bool>({size});
-            std::size_t iout         = 0;
-            for (coord_index_t i = interval.start; i < interval.end; i += interval.step)
+            lcl_type& lcl = cell_list[level + 1];
+            lcl_type lcl_proj{level};
+            auto expr = intersection(this->cells()[mesh_id_t::all_cells][level], this->get_union()[level]);
+
+            expr(
+                [&](const auto& interval, const auto& index_yz)
+                {
+                    static_nested_loop<dim - 1, 0, 2>(
+                        [&](auto s)
+                        {
+                            lcl[(index_yz << 1) + s].add_interval(interval << 1);
+                        });
+                    lcl_proj[index_yz].add_interval(interval);
+                });
+            this->cells()[mesh_id_t::all_cells][level + 1] = lcl;
+            this->cells()[mesh_id_t::proj_cells][level]    = lcl_proj;
+        }
+
+        // add ghosts for periodicity
+        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
+        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> min_corner;
+        xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> max_corner;
+
+        auto& domain     = this->domain();
+        auto min_indices = domain.min_indices();
+        auto max_indices = domain.max_indices();
+
+        for (std::size_t level = this->cells()[mesh_id_t::reference].min_level(); level <= this->cells()[mesh_id_t::reference].max_level();
+             ++level)
+        {
+            std::size_t delta_l = domain.level() - level;
+            lcl_type& lcl       = cell_list[level];
+
+            for (std::size_t d = 0; d < dim; ++d)
             {
-                auto row = find(lca, {i, index...});
-                if (row == -1)
+                if (this->is_periodic(d))
                 {
-                    out[iout++] = false;
+                    stencil.fill(0);
+                    stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+
+                    min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                    max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+                    for (std::size_t dd = 0; dd < dim; ++dd)
+                    {
+                        if (dd != d)
+                        {
+                            min_corner[dd] = (min_indices[dd] >> delta_l) - config::ghost_width;
+                            max_corner[dd] = (max_indices[dd] >> delta_l) + config::ghost_width;
+                        }
+                    }
+
+                    lca_type lca1{
+                        level,
+                        Box<typename interval_t::value_t, dim>{min_corner, max_corner}
+                    };
+
+                    auto set1 = intersection(this->cells()[mesh_id_t::reference][level], lca1);
+                    set1(
+                        [&](const auto& i, const auto& index_yz)
+                        {
+                            lcl[index_yz + xt::view(stencil, xt::range(1, _))].add_interval(i + stencil[0]);
+                        });
+
+                    min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
+                    max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                    lca_type lca2{
+                        level,
+                        Box<typename interval_t::value_t, dim>{min_corner, max_corner}
+                    };
+
+                    auto set2 = intersection(this->cells()[mesh_id_t::reference][level], lca2);
+                    set2(
+                        [&](const auto& i, const auto& index_yz)
+                        {
+                            lcl[index_yz - xt::view(stencil, xt::range(1, _))].add_interval(i - stencil[0]);
+                        });
                 }
-                else
-                {
-                    out[iout++] = true;
-                }
+                this->cells()[mesh_id_t::all_cells][level] = {lcl};
+            }
+        }
+    }
+
+    template <class Config>
+    template <typename... T>
+    inline xt::xtensor<bool, 1> MRMesh<Config>::exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const
+    {
+        using coord_index_t      = typename interval_t::coord_index_t;
+        const auto& lca          = this->cells()[type][level];
+        std::size_t size         = interval.size() / interval.step;
+        xt::xtensor<bool, 1> out = xt::empty<bool>({size});
+        std::size_t iout         = 0;
+        for (coord_index_t i = interval.start; i < interval.end; i += interval.step)
+        {
+            auto row = find(lca, {i, index...});
+            if (row == -1)
+            {
+                out[iout++] = false;
+            }
+            else
+            {
+                out[iout++] = true;
             }
             return out;
         }
