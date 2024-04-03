@@ -330,37 +330,38 @@ namespace samurai
             }
             return out;
         }
-    } // namespace samurai
+    }
+} // namespace samurai
 
-    template <>
-    struct fmt::formatter<samurai::MRMeshId> : formatter<string_view>
+template <>
+struct fmt::formatter<samurai::MRMeshId> : formatter<string_view>
+{
+    // parse is inherited from formatter<string_view>.
+    template <typename FormatContext>
+    auto format(samurai::MRMeshId c, FormatContext& ctx)
     {
-        // parse is inherited from formatter<string_view>.
-        template <typename FormatContext>
-        auto format(samurai::MRMeshId c, FormatContext& ctx)
+        string_view name = "unknown";
+        switch (c)
         {
-            string_view name = "unknown";
-            switch (c)
-            {
-                case samurai::MRMeshId::cells:
-                    name = "cells";
-                    break;
-                case samurai::MRMeshId::cells_and_ghosts:
-                    name = "cells and ghosts";
-                    break;
-                case samurai::MRMeshId::proj_cells:
-                    name = "projection cells";
-                    break;
-                case samurai::MRMeshId::union_cells:
-                    name = "union cells";
-                    break;
-                case samurai::MRMeshId::all_cells:
-                    name = "all cells";
-                    break;
-                case samurai::MRMeshId::count:
-                    name = "count";
-                    break;
-            }
-            return formatter<string_view>::format(name, ctx);
+            case samurai::MRMeshId::cells:
+                name = "cells";
+                break;
+            case samurai::MRMeshId::cells_and_ghosts:
+                name = "cells and ghosts";
+                break;
+            case samurai::MRMeshId::proj_cells:
+                name = "projection cells";
+                break;
+            case samurai::MRMeshId::union_cells:
+                name = "union cells";
+                break;
+            case samurai::MRMeshId::all_cells:
+                name = "all cells";
+                break;
+            case samurai::MRMeshId::count:
+                name = "count";
+                break;
         }
-    };
+        return formatter<string_view>::format(name, ctx);
+    }
+};
