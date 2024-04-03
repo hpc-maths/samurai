@@ -10,6 +10,9 @@
 #include <stdexcept>
 #include <type_traits>
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 #include <fmt/format.h>
 
 #include <xtensor/xtensor.hpp>
@@ -670,6 +673,9 @@ namespace samurai
         return *this;
     }
 
+    template <class value_t, std::size_t size, bool SOA, class mesh_t>
+    auto make_field(std::string name, mesh_t& mesh);
+
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     template <class... T>
     inline auto
@@ -680,6 +686,24 @@ namespace samurai
 
         if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
         {
+            using mesh_id_t  = typename mesh_t::mesh_id_t;
+            auto coords      = make_field<int, dim, false>("coordinates", this->mesh());
+            auto level_field = make_field<std::size_t, 1, false>("level", this->mesh());
+            for_each_cell(this->mesh()[mesh_id_t::reference],
+                          [&](auto& cell)
+                          {
+                              if constexpr (dim == 1)
+                              {
+                                  coords[cell] = cell.indices[0];
+                              }
+                              else
+                              {
+                                  coords[cell] = cell.indices;
+                              }
+                              level_field[cell] = cell.level;
+                          });
+            save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
+            (std::cout << ... << index) << std::endl;
             throw std::out_of_range(fmt::format("{} FIELD ERROR on level {}: try to find interval {}", rw, level, interval));
         }
 
