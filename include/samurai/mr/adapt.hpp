@@ -223,7 +223,7 @@ namespace samurai
             std::size_t exponent = dim * (max_level - level);
             double eps_l         = eps / (1 << exponent);
 
-            double regularity_to_use = std::min(regularity, 3.0) + dim;
+            double regularity_to_use = regularity + dim;
 
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
