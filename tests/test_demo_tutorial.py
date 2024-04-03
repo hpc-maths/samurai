@@ -85,8 +85,8 @@ def test_burgers(step, config):
     'extra',
     [
         ['--case', 'abs'],
-        ['--case', 'exp'],
-        ['--case', 'tanh'],
+        ['--case', 'exp', '--mr-reg', '10'],
+        ['--case', 'tanh', '--mr-reg', '10'],
     ]
 )
 def test_reconstruction(exec, extra, config):

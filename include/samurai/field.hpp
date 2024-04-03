@@ -23,6 +23,7 @@ namespace fs = std::filesystem;
 #include "cell.hpp"
 #include "cell_array.hpp"
 #include "field_expression.hpp"
+// #include "hdf5.hpp"
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
 
@@ -686,23 +687,23 @@ namespace samurai
 
         if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
         {
-            using mesh_id_t  = typename mesh_t::mesh_id_t;
-            auto coords      = make_field<int, dim, false>("coordinates", this->mesh());
-            auto level_field = make_field<std::size_t, 1, false>("level", this->mesh());
-            for_each_cell(this->mesh()[mesh_id_t::reference],
-                          [&](auto& cell)
-                          {
-                              if constexpr (dim == 1)
-                              {
-                                  coords[cell] = cell.indices[0];
-                              }
-                              else
-                              {
-                                  coords[cell] = cell.indices;
-                              }
-                              level_field[cell] = cell.level;
-                          });
-            save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
+            // using mesh_id_t  = typename mesh_t::mesh_id_t;
+            // auto coords      = make_field<int, dim, false>("coordinates", this->mesh());
+            // auto level_field = make_field<std::size_t, 1, false>("level", this->mesh());
+            // for_each_cell(this->mesh()[mesh_id_t::reference],
+            //               [&](auto& cell)
+            //               {
+            //                   if constexpr (dim == 1)
+            //                   {
+            //                       coords[cell] = cell.indices[0];
+            //                   }
+            //                   else
+            //                   {
+            //                       coords[cell] = cell.indices;
+            //                   }
+            //                   level_field[cell] = cell.level;
+            //               });
+            // save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
             (std::cout << ... << index) << std::endl;
             throw std::out_of_range(fmt::format("{} FIELD ERROR on level {}: try to find interval {}", rw, level, interval));
         }

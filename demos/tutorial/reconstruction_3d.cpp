@@ -54,6 +54,34 @@ auto init(Mesh& mesh, Case& c)
                                            break;
                                    }
                                });
+
+    switch (c)
+    {
+        case Case::abs:
+            samurai::make_bc<samurai::Dirichlet<1>>(u,
+                                                    [](auto, auto, const auto& coords)
+                                                    {
+                                                        return std::abs(coords[0]) + std::abs(coords[1]) + std::abs(coords[2]);
+                                                    });
+            break;
+        case Case::exp:
+            samurai::make_bc<samurai::Dirichlet<1>>(
+                u,
+                [](auto, auto, const auto& coords)
+                {
+                    return std::exp(-100 * (coords[0] * coords[0] + coords[1] * coords[1] + coords[2] * coords[2]));
+                });
+            break;
+        case Case::tanh:
+            samurai::make_bc<samurai::Dirichlet<1>>(
+                u,
+                [](auto, auto, const auto& coords)
+                {
+                    return std::tanh(50 * (std::abs(coords[0]) + std::abs(coords[1]) + std::abs(coords[2]))) - 1;
+                });
+            break;
+    }
+
     return u;
 }
 
