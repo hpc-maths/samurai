@@ -12,6 +12,7 @@
 #include <samurai/load_balancing_sfc.hpp>
 #include <samurai/load_balancing_diffusion_interval.hpp>
 #include <samurai/load_balancing_diffusion_cell.hpp>
+#include <samurai/load_balancing_void.hpp>
 
 #include <samurai/mr/mesh.hpp>
 #include <samurai/box.hpp>
@@ -96,12 +97,12 @@ auto initMultiCircles(Mesh& mesh, const std::vector<double> &radius, const std::
 }
 
 template<class Mesh_t, class Field_t, class Conv_t>
-void upWind(int niterBench, const Mesh_t & mesh, Field_t & u2, Field_t & unp1, double dt, Conv_t & conv) {
+void upWind(int niter_benchmark, const Mesh_t & mesh, Field_t & u2, Field_t & unp1, double dt, Conv_t & conv) {
 
-    for(int i=0; i<niterBench; ++i){
+    for(int i=0; i<niter_benchmark; ++i){
         auto c = conv(u2);
         samurai::for_each_interval( mesh, [&](std::size_t level, const auto& i, const auto & index ){
-            for(int ii=i.index+i.start; ii<i.index+i.end; ++ii){
+            for(int64_t ii=i.index+i.start; ii<i.index+i.end; ++ii){
                 unp1[ ii ] = u2[ ii ] - dt * c[ii];
             }
         }
@@ -110,33 +111,126 @@ void upWind(int niterBench, const Mesh_t & mesh, Field_t & u2, Field_t & unp1, d
     }
 }
 
+template<int dim>
+struct Config_test_load_balancing {
+    int niter_benchmark   = 1;
+    int niter_loadbalance = 1; // number of iteration of load balancing
+    int ndomains          = 1; // number of partition (mpi processes)
+    int rank              = 0; // current mpi rank
+    std::size_t minlevel  = 2;
+    std::size_t maxlevel  = 4;
+    double dt             = 0.1;
+    double mr_regularity  = 1.0;
+    double mr_epsilon     = 2.e-4;
+    xt::xtensor_fixed<double, xt::xshape<dim>> minCorner = {0., 0., 0.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> maxCorner = {1., 1., 1.};
+    std::vector<double> bubles_r;                 // bubles radius
+    std::vector<std::array<double, 3>> bubles_c;  // bubles centers
+};
+
+template<int dim, class Load_Balancer_t, typename Vel_t>
+Timers benchmark_loadbalancing( struct Config_test_load_balancing<dim> & conf, Load_Balancer_t && lb, Vel_t & velocity ){
+    
+    using Config    = samurai::MRConfig<dim>;
+    using Mesh_t    = samurai::MRMesh<Config>;
+    using mesh_id_t = typename Mesh_t::mesh_id_t;
+
+    Timers myTimers;
+
+    /**
+     * Initialize AMR mesh with spherical buble 
+    */
+
+    samurai::Box<double, dim> box( conf.minCorner, conf.maxCorner );
+
+    Mesh_t mesh( box, conf.minlevel, conf.maxlevel );
+
+    // auto u = init<dim>( mesh, radius, x_center, y_center );
+    myTimers.start("InitMesh");
+    auto u = initMultiCircles<dim>( mesh, conf.bubles_r, conf.bubles_c );
+    myTimers.stop("InitMesh");
+
+    auto lvl = getLevel( mesh );
+
+    samurai::make_bc<samurai::Dirichlet>( u, 0. );
+
+    myTimers.start("mradapt");
+    auto mradapt = samurai::make_MRAdapt( u );
+    mradapt( conf.mr_epsilon, conf.mr_regularity );
+    myTimers.stop("mradapt");
+
+    // samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh, lvl );
+
+    myTimers.start( lb.getName() );
+    for(int lb_iter=0; lb_iter<conf.niter_loadbalance; ++lb_iter ){
+        lb.load_balance( mesh );
+        auto s_ = fmt::format( "{}_{}_iter_{}", lb.getName(), conf.ndomains, lb_iter);
+        samurai::save( s_ , mesh );
+    }
+    myTimers.stop( lb.getName() );
+
+    std::string _stats = fmt::format( "stats_{}_process_{}", lb.getName(), conf.rank );
+    samurai::Statistics s ( _stats );
+    s( "stats", mesh );
+
+    {
+        Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
+        // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
+        auto u2 = initMultiCircles<dim>( newmesh, conf.bubles_r, conf.bubles_c );
+        samurai::save( "init2_circle_"+std::to_string( conf.ndomains )+"_domains", newmesh, u2 );
+
+        auto conv = samurai::make_convection<decltype(u2)>( velocity );
+
+        // myTimers.start( "update_ghost_mr" );
+        // for(int i=0; i<niterBench; ++i){
+        //     samurai::update_ghost_mr(u2);
+        // }           
+        // myTimers.stop( "update_ghost_mr" );
+
+        auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
+
+        myTimers.start( "upwind" );
+        // for(int i=0; i<niterBench; ++i){
+        //     unp1 = u2 - dt *  conv( u2 );
+        // }
+        upWind( conf.niter_benchmark, mesh, u2, unp1, conf.dt, conv );
+        myTimers.stop( "upwind" );
+
+        
+        // auto mradapt = samurai::make_MRAdapt( u2 );
+
+        // myTimers.start( "mradapt" );
+        // mradapt( mr_epsilon, mr_regularity );
+        // myTimers.stop( "mradapt" );
+
+    }
+
+    return myTimers;
+}
+
 int main( int argc, char * argv[] ){
 
     samurai::initialize(argc, argv);
 
-    constexpr int dim = 3;
-    int ndomains = 1, nbIterLoadBalancing = 2;
-    std::size_t minLevel = 2, maxLevel = 8;
-    double mr_regularity = 1.0, mr_epsilon = 2.e-4;
-    xt::xtensor_fixed<double, xt::xshape<dim>> minCorner = {0., 0., 0.};
-    xt::xtensor_fixed<double, xt::xshape<dim>> maxCorner = {1., 1., 1.};
+    constexpr int    dim = 2;
+    constexpr double cfl = 0.5;
+
+    struct Config_test_load_balancing<dim> conf;
+
     std::string filename = "ld_mesh_init";
 
     double radius = 0.2, x_center = 0.5, y_center = 0.5;
-    int niterBench = 1;
     bool multi = false;
 
     CLI::App app{"Load balancing test"};
-    app.add_option("--nbIterLB", nbIterLoadBalancing, "Number of desired lb iteration")
-        ->capture_default_str()->group("Simulation parameters");
-    app.add_option("--niterBench", niterBench, "Number of iteration for bench")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-corner", minCorner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--max-corner", maxCorner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", minLevel, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", maxLevel, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
+    app.add_option("--nbIterLB", conf.niter_loadbalance, "Number of desired lb iteration")
+                   ->capture_default_str()->group("Simulation parameters");
+    app.add_option("--niterBench", conf.niter_benchmark, "Number of iteration for bench")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--min-level", conf.minlevel, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--max-level", conf.maxlevel, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--mr-eps", conf.mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
         ->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-reg", mr_regularity,"The regularity criteria used by the multiresolution to "
+    app.add_option("--mr-reg", conf.mr_regularity,"The regularity criteria used by the multiresolution to "
                    "adapt the mesh")->capture_default_str()->group("Multiresolution");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
     app.add_option("--radius", radius, "Bubble radius")->capture_default_str()->group("Simulation parameters");
@@ -146,431 +240,67 @@ int main( int argc, char * argv[] ){
     
     CLI11_PARSE(app, argc, argv);
 
-    double cfl = 0.5;
-    double dt  = cfl / (1 << maxLevel);
+    conf.dt = cfl / ( 1 << conf.maxlevel );
 
     // Convection operator
     samurai::VelocityVector<dim> velocity;
-    velocity.fill(1);
-    velocity(1) = -1;
+    velocity.fill( 1 );
+    velocity( 1 ) = -1;
 
     using Config    = samurai::MRConfig<dim>;
     using Mesh_t    = samurai::MRMesh<Config>;
     using mesh_id_t = typename Mesh_t::mesh_id_t;
 
     boost::mpi::communicator world;
-
-    ndomains = static_cast<int>( world.size() );
-
-    std::vector<double> bubles_r;
-    std::vector<std::array<double, 3>> bubles_c;
+    conf.rank     = world.rank();
+    conf.ndomains = static_cast<int>( world.size() );
 
     if( multi ) {
-        bubles_r = { 0.2, 0.1, 0.05};
-        bubles_c = {{0.2, 0.2, 0.2}, {0.5, 0.5, 0.5}, {0.8, 0.8, 0.8}};
+        conf.bubles_r = { 0.2, 0.1, 0.05};
+        conf.bubles_c = {{ 0.2, 0.2, 0.2 }, { 0.5, 0.5, 0.5 }, { 0.8, 0.8, 0.8 }};
     }else{
-        bubles_r = { 0.15};
-        bubles_c = {{0.25, 0.25, 0.5}};
+        conf.bubles_r = { radius };
+        conf.bubles_c = {{ x_center, y_center, 0.5 }};
     }
 
-    if( world.rank() == 0 ) std::cerr << "\t> Testing Diffusion_LoadBalancer_interval " << std::endl;
+    if( conf.rank == 0 ) std::cerr << "\n\t> Testing 'Interval propagation load balancer' " << std::endl;
 
-    if( world.size() > 1 ) { // load balancing cells by cells using interface propagation
-
-        Timers myTimers;
-
-        /**
-         * Initialize AMR mesh with spherical buble 
-        */
-        myTimers.start("InitMesh");
-
-        samurai::Box<double, dim> box( minCorner, maxCorner );
-
-        Mesh_t mesh(box, minLevel, maxLevel);
-
-        // auto u = init<dim>( mesh, radius, x_center, y_center );
-
-        auto u   = initMultiCircles<dim>( mesh, bubles_r, bubles_c );
-
-        samurai::make_bc<samurai::Dirichlet>(u, 0.);
-        auto mradapt = samurai::make_MRAdapt( u );
-        mradapt( mr_epsilon, mr_regularity );
-
-        auto lvl = getLevel( mesh );
-
-        myTimers.stop("InitMesh");
-
-        samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh, lvl );
-
-        myTimers.start( "balance_DIF_inter" );
-        Diffusion_LoadBalancer_interval<dim> _diff_lb;
-        for(size_t lb_iter=0; lb_iter<nbIterLoadBalancing; ++lb_iter ){
-            _diff_lb.load_balance( mesh );
-            auto s_ = fmt::format("balance_diffusion_interval_{}_iter_{}", ndomains, lb_iter);
-            samurai::save( s_ , mesh );
-        }
-        myTimers.stop( "balance_DIF_inter" );
-
-        std::string _stats = fmt::format( "stats_diff_interval_process_{}", world.rank() );
-        samurai::Statistics s ( _stats );
-        s( "stats", mesh );
-
-        {
-            Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
-            // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
-            auto u2 = initMultiCircles<dim>( newmesh, bubles_r, bubles_c );
-            
-            samurai::save( "init2_circle_"+std::to_string( ndomains)+"_domains", newmesh, u2 );
-
-            auto conv = samurai::make_convection<decltype(u2)>(velocity);
-
-            // myTimers.start( "update_ghost_mr" );
-            // for(int i=0; i<niterBench; ++i){
-            // samurai::update_ghost_mr(u2);
-            // }           
-            // myTimers.stop( "update_ghost_mr" );
-
-            auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
-
-            myTimers.start( "upwind" );
-            upWind( niterBench, mesh, u2, unp1, dt, conv );
-            // for(int i=0; i<niterBench; ++i){
-            //     samurai::for_each_interval( mesh, [&](std::size_t level, const auto& i, const auto & index ){
-            //         for(int ii=i.index+i.start; ii<i.index+i.end; ++ii){
-            //             unp1[ ii ] = u2[ ii ] - dt * 2;
-            //         }
-            //     }
-            //     );
-            //     // unp1 = u2 - dt * 2; // conv( u2 );
-            // }
-            myTimers.stop( "upwind" );
-
-            
-            // auto mradapt = samurai::make_MRAdapt( u2 );
-
-            // myTimers.start( "mradapt" );
-            // mradapt( mr_epsilon, mr_regularity );
-            // myTimers.stop( "mradapt" );
-
-        }
-
-        
-
-        myTimers.print();
-    
+    if( conf.ndomains > 1 ) { // load balancing cells by cells using interface propagation
+        auto times = benchmark_loadbalancing( conf, std::move( Diffusion_LoadBalancer_interval<dim> () ), velocity );
+        times.print();
+        world.barrier();
     }
 
-    
-    world.barrier();
+    if( conf.rank == 0 ) std::cerr << "\n\t> Testing 'Gravity-based cell exchange' load balancer' " << std::endl;
 
-    if( world.rank() == 0 ) std::cerr << "\t> Testing Diffusion_LoadBalancer_cell " << std::endl;
-
-    if( world.size() > 1 ) { // load balancing cells by cells using gravity
-
-        Timers myTimers;
-
-        /**
-         * Initialize AMR mesh with spherical buble 
-        */
-        myTimers.start("InitMesh");
-
-        samurai::Box<double, dim> box( minCorner, maxCorner );
-
-        Mesh_t mesh(box, minLevel, maxLevel);
-
-        // auto u = init<dim>( mesh, radius, x_center, y_center );
-        auto u   = initMultiCircles<dim>( mesh, bubles_r, bubles_c );
-        auto lvl = getLevel( mesh );
-        // auto u = initMultiCircles<dim>( mesh,bubles_r, bubles_c );
-
-        samurai::make_bc<samurai::Dirichlet>(u, 0.);
-        auto mradapt = samurai::make_MRAdapt( u );
-        mradapt( mr_epsilon, mr_regularity );
-
-        myTimers.stop("InitMesh");
-
-        // samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh, lvl );
-
-        myTimers.start( "balance_DIF_cell" );
-        Diffusion_LoadBalancer_cell<dim> _diff_lb_c;
-        for(int lb_iter=0; lb_iter<nbIterLoadBalancing; ++lb_iter ){
-            _diff_lb_c.load_balance( mesh );
-            auto s_ = fmt::format("balance_diffusion_cell_{}_iter_{}", ndomains, lb_iter);
-            samurai::save( s_ , mesh );
-        }
-        myTimers.stop( "balance_DIF_cell" );
-
-        std::string _stats = fmt::format( "stats_diff_gravity_process_{}", world.rank() );
-        samurai::Statistics s ( _stats );
-        s( "stats", mesh );
-
-        {
-            Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
-            // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
-            auto u2 = initMultiCircles<dim>( newmesh, bubles_r, bubles_c );
-            
-            samurai::save( "init2_circle_"+std::to_string( ndomains)+"_domains", newmesh, u2 );
-
-            auto conv = samurai::make_convection<decltype(u2)>(velocity);
-
-            // myTimers.start( "update_ghost_mr" );
-            // for(int i=0; i<niterBench; ++i){
-            //     samurai::update_ghost_mr(u2);
-            // }           
-            // myTimers.stop( "update_ghost_mr" );
-
-            auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
-
-            myTimers.start( "upwind" );
-            upWind( niterBench, mesh, u2, unp1, dt, conv );
-            // for(int i=0; i<niterBench; ++i){
-            //     unp1 = u2 - dt *  conv( u2 );
-            // }
-            myTimers.stop( "upwind" );
-
-            
-            // auto mradapt = samurai::make_MRAdapt( u2 );
-
-            // myTimers.start( "mradapt" );
-            // mradapt( mr_epsilon, mr_regularity );
-            // myTimers.stop( "mradapt" );
-
-        }
-
-        myTimers.print();
-    
+    if( conf.ndomains > 1 ) { // load balancing cells by cells using gravity
+        auto times = benchmark_loadbalancing( conf, std::move( Diffusion_LoadBalancer_cell<dim> () ), velocity );
+        times.print();
+        world.barrier();
     }
 
-    world.barrier();
+    if( conf.rank == 0 ) std::cerr << "\n\t> Testing Morton_LoadBalancer_interval " << std::endl;
 
-    if( world.rank() == 0 ) std::cerr << "\t> Testing Morton_LoadBalancer_interval " << std::endl;
-
-    if( world.size() > 1 ) { // load balancing using SFC morton
-
-        Timers myTimers;
-
-        /**
-         * Initialize AMR mesh with spherical buble 
-        */
-        myTimers.start("InitMesh");
-
-        samurai::Box<double, dim> box( minCorner, maxCorner );
-
-        Mesh_t mesh(box, minLevel, maxLevel);
-
-        // auto u = init<dim>( mesh, radius, x_center, y_center );
-        auto u   = initMultiCircles<dim>( mesh, bubles_r, bubles_c );
-        auto lvl = getLevel( mesh );
-        // auto u = initMultiCircles<dim>( mesh,bubles_r, bubles_c );
-
-        samurai::make_bc<samurai::Dirichlet>(u, 0.);
-        auto mradapt = samurai::make_MRAdapt( u );
-        mradapt( mr_epsilon, mr_regularity );
-
-        myTimers.stop("InitMesh");
-
-        // samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh, lvl );
-
-        myTimers.start( "balance_Morton_cell" );
-        SFC_LoadBalancer_interval<dim, Morton> loadb_morton;
-        for(int lb_iter=0; lb_iter<nbIterLoadBalancing; ++lb_iter ){
-            loadb_morton.load_balance( mesh );
-            auto s_ = fmt::format("balance_morton_cell_{}_iter_{}", ndomains, lb_iter);
-            samurai::save( s_ , mesh );
-        }
-        myTimers.stop( "balance_Morton_cell" );
-
-        std::string _stats = fmt::format( "stats_sfc_morton_process_{}", world.rank() );
-        samurai::Statistics s ( _stats );
-        s( "stats", mesh );
-
-        {
-            Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
-            // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
-            auto u2 = initMultiCircles<dim>( newmesh, bubles_r, bubles_c );
-            
-            samurai::save( "init2_circle_"+std::to_string( ndomains)+"_domains", newmesh, u2 );
-
-            auto conv = samurai::make_convection<decltype(u2)>(velocity);
-
-            // myTimers.start( "update_ghost_mr" );
-            // for(int i=0; i<niterBench; ++i){
-            //     samurai::update_ghost_mr(u2);
-            // }           
-            // myTimers.stop( "update_ghost_mr" );
-
-            auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
-
-            myTimers.start( "upwind" );
-            // for(int i=0; i<niterBench; ++i){
-            //     unp1 = u2 - dt *  conv( u2 );
-            // }
-            upWind( niterBench, mesh, u2, unp1, dt, conv );
-            myTimers.stop( "upwind" );
-
-            
-            // auto mradapt = samurai::make_MRAdapt( u2 );
-
-            // myTimers.start( "mradapt" );
-            // mradapt( mr_epsilon, mr_regularity );
-            // myTimers.stop( "mradapt" );
-
-        }
-
-        myTimers.print();
-    
+    if( conf.ndomains > 1 ) { // load balancing using SFC morton
+        auto times = benchmark_loadbalancing( conf, std::move( SFC_LoadBalancer_interval<dim, Morton> () ), velocity );
+        times.print();
+        world.barrier();
     }
 
-    if( world.rank() == 0 ) std::cerr << "\t> Testing Hilbert_LoadBalancer_interval " << std::endl;
+    if( conf.rank == 0 ) std::cerr << "\n\t> Testing Hilbert_LoadBalancer_interval " << std::endl;
 
-    if( world.size() > 1 ) { // load balancing using SFC hilbert
-
-        Timers myTimers;
-
-        /**
-         * Initialize AMR mesh with spherical buble 
-        */
-        myTimers.start("InitMesh");
-
-        samurai::Box<double, dim> box( minCorner, maxCorner );
-
-        Mesh_t mesh(box, minLevel, maxLevel);
-
-        // auto u = init<dim>( mesh, radius, x_center, y_center );
-        auto u   = initMultiCircles<dim>( mesh, bubles_r, bubles_c );
-        auto lvl = getLevel( mesh );
-
-        samurai::make_bc<samurai::Dirichlet>(u, 0.);    
-        auto mradapt = samurai::make_MRAdapt( u );
-        mradapt( mr_epsilon, mr_regularity );
-
-        myTimers.stop("InitMesh");
-
-        // samurai::save( "init_circle_"+std::to_string( ndomains)+"_domains", mesh, lvl );
-
-        myTimers.start( "balance_Hilbert_cell" );
-        SFC_LoadBalancer_interval<dim, Hilbert> loadb_hilbert;
-        for(int lb_iter=0; lb_iter<nbIterLoadBalancing; ++lb_iter ){
-            loadb_hilbert.load_balance( mesh );
-            auto s_ = fmt::format("balance_hilbert_interval_{}_iter_{}", ndomains, lb_iter);
-            samurai::save( s_ , mesh );
-        }
-        myTimers.stop( "balance_Hilbert_cell" );
-
-        std::string _stats = fmt::format( "stats_sfc_hilbert_process_{}", world.rank() );
-        samurai::Statistics s ( _stats );
-        s( "stats", mesh );
-
-        {
-            Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
-            // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
-            auto u2 = initMultiCircles<dim>( newmesh, bubles_r, bubles_c );
-            samurai::save( "init2_circle_"+std::to_string( ndomains)+"_domains", newmesh, u2 );
-
-            auto conv = samurai::make_convection<decltype(u2)>(velocity);
-
-            // myTimers.start( "update_ghost_mr" );
-            // for(int i=0; i<niterBench; ++i){
-            //     samurai::update_ghost_mr(u2);
-            // }           
-            // myTimers.stop( "update_ghost_mr" );
-
-            auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
-
-            myTimers.start( "upwind" );
-            // for(int i=0; i<niterBench; ++i){
-            //     unp1 = u2 - dt *  conv( u2 );
-            // }
-            upWind( niterBench, mesh, u2, unp1, dt, conv );
-            myTimers.stop( "upwind" );
-
-            
-            // auto mradapt = samurai::make_MRAdapt( u2 );
-
-            // myTimers.start( "mradapt" );
-            // mradapt( mr_epsilon, mr_regularity );
-            // myTimers.stop( "mradapt" );
-
-        }
-
-        myTimers.print();
-    
+    if( conf.ndomains > 1 ) { // load balancing using SFC hilbert
+        auto times = benchmark_loadbalancing( conf, std::move( SFC_LoadBalancer_interval<dim, Morton> () ), velocity );
+        times.print();
+        world.barrier();
     }
 
-     if( world.rank() == 0 ) std::cerr << "\t> Testing no loadbalancing (initial partitionning) " << std::endl;
+     if( conf.rank == 0 ) std::cerr << "\t> Testing no loadbalancing (initial partitionning) " << std::endl;
 
-    { // load balancing using SFC hilbert
-
-        Timers myTimers;
-
-        myTimers.start("global");
-
-        /**
-         * Initialize AMR mesh with spherical buble 
-        */
-        myTimers.start("InitMesh");
-
-        samurai::Box<double, dim> box( minCorner, maxCorner );
-
-        Mesh_t mesh(box, minLevel, maxLevel);
-
-        // auto u = init<dim>( mesh, radius, x_center, y_center );
-        auto u   = initMultiCircles<dim>( mesh, bubles_r, bubles_c );
-        auto lvl = getLevel( mesh );
-
-        samurai::make_bc<samurai::Dirichlet>(u, 0.);    
-        auto mradapt = samurai::make_MRAdapt( u );
-        mradapt( mr_epsilon, mr_regularity );
-
-        myTimers.stop("InitMesh");
-
-        std::string _stats = fmt::format( "stats_no_loadbalancing_process_{}", world.rank() );
-
-        myTimers.start("io");
-        samurai::Statistics s ( _stats );
-        s( "stats", mesh );
-        myTimers.stop("io");
-
-        {
-            myTimers.start("stuff");
-            Mesh_t newmesh( mesh[mesh_id_t::cells], mesh );
-            // auto u2 = init<dim>( newmesh, radius, x_center, y_center );
-
-
-            auto u2 = initMultiCircles<dim>( newmesh, bubles_r, bubles_c );
-            samurai::save( "init2_circle_"+std::to_string( ndomains)+"_domains", newmesh, u2 );
-
-            auto conv = samurai::make_convection<decltype(u2)>(velocity);
-
-            // myTimers.start( "update_ghost_mr" );
-            // for(int i=0; i<niterBench; ++i){
-            //     samurai::update_ghost_mr(u2);
-            // }           
-            // myTimers.stop( "update_ghost_mr" );
-
-            auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
-
-            myTimers.stop("stuff");
-
-            myTimers.start( "upwind" );
-            // for(int i=0; i<niterBench; ++i){
-            //     unp1 = u2 - dt * conv( u2 );
-            // }
-            upWind( niterBench, mesh, u2, unp1, dt, conv );
-            myTimers.stop( "upwind" );
-
-            
-            // auto mradapt = samurai::make_MRAdapt( u2 );
-
-            // myTimers.start( "mradapt" );
-            // mradapt( mr_epsilon, mr_regularity );
-            // myTimers.stop( "mradapt" );
-        }
-
-        myTimers.stop("global");
-
-        myTimers.print();
-    
+    { 
+        auto times = benchmark_loadbalancing( conf, std::move( Void_LoadBalancer<dim> () ), velocity );
+        times.print();
+        world.barrier();
     }
 
     samurai::finalize();
