@@ -4,20 +4,6 @@
 
 #include "load_balancing.hpp"
 
-template<class SFC_type_t>
-class SFC_LoadBalancer_cells : public samurai::LoadBalancer<SFC_LoadBalancer_cells<SFC_type_t>> {
-
-    private:
-        SFC_type_t _sfc;
-
-    public:
-        template<class Mesh>
-        void load_balance_impl( Mesh & mesh ){
-            _sfc.getIndex( 1, 2 );
-        }
-
-};
-
 template<int dim, class SFC_type_t>
 class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_interval<dim, SFC_type_t>> {
 
