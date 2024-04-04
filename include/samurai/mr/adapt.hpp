@@ -218,6 +218,7 @@ namespace samurai
             auto subset = intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level + 1]).on(level);
             subset.apply_op(compute_detail(m_detail, m_fields));
         }
+        update_ghost_subdomains(m_detail);
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {

@@ -237,6 +237,8 @@ namespace samurai
                 this->cells()[mesh_id_t::proj_cells][level]    = lcl_proj;
             }
 
+            this->update_mesh_neighbour();
+
             // add ghosts for periodicity
             xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
             xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> min_corner;
@@ -296,8 +298,8 @@ namespace samurai
                             {
                                 lcl[index_yz - xt::view(stencil, xt::range(1, _))].add_interval(i - stencil[0]);
                             });
+                        this->cells()[mesh_id_t::all_cells][level] = {lcl};
                     }
-                    this->cells()[mesh_id_t::all_cells][level] = {lcl};
                 }
             }
         }
