@@ -70,7 +70,7 @@ class Hilbert : public SFC<Hilbert> {
             for(size_t idim=0; idim<dim; ++idim )
                 _transposed( idim ) = c( idim );
 
-            uint32_t m = 1 << ( _nbits - 1 );
+            uint32_t m = 1U << ( _nbits - 1 );
 
             uint32_t q = m;
             while( q > 1 ){
@@ -136,6 +136,8 @@ class Hilbert : public SFC<Hilbert> {
     //         q <<= 1
 
     public:
+
+        inline std::string getName() const { return "Hilbert"; }
 
         template<class Coord_t>
         inline SFC_key_t getKey_2D_impl( const Coord_t & lc ) const {

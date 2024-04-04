@@ -34,4 +34,7 @@ class SFC {
             if constexpr ( dim == 3 ) return static_cast<const SFC_Flavor*>( this )->getCoordinates_3D_impl( clef );
         }
 
+        inline auto getName() const -> std::string {
+            return static_cast<const SFC_Flavor*>( this )->getName();
+        }
 };

@@ -56,6 +56,8 @@ class Morton : public SFC<Morton> {
 
     public:
 
+        inline std::string getName() const { return "Morton"; }
+
         /*
         * Return the morton index from logical coordinate (i,j) or (i,j,k)
         *
