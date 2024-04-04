@@ -40,6 +40,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 #endif
         };
 
+        inline std::string getName() const { return "SFC_" + _sfc.getName() + "_LB"; }
+
         template<class Mesh>
         void load_balance_impl( Mesh & mesh ){
             
@@ -114,7 +116,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
             // compute load to transfer to neighbour rank-1, rank+1
             int neighbour_rank_prev = -1, neighbour_rank_next = -1;
-            int transfer_load_prev, transfer_load_next;
+            int transfer_load_prev = 0, transfer_load_next = 0;
 
             // define neighbour processes for load-balancing, not geometrical neighbour !
             if( _rank > 0 ) { 

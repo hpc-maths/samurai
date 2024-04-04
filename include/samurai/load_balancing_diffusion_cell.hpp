@@ -43,6 +43,8 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
 #endif
         }
 
+        inline std::string getName() const { return "Gravity_LB"; } 
+
         template<class Mesh_t>
         void load_balance_impl( Mesh_t & mesh ){
 

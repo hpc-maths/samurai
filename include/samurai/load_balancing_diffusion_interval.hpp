@@ -79,6 +79,8 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
 #endif
         }
 
+        inline std::string getName() const { return "Interface_Prop_LB"; } 
+
         template<class Mesh_t>
         void load_balance_impl( Mesh_t & mesh ){
 
