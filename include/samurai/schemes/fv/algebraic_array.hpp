@@ -22,12 +22,12 @@ namespace samurai
         {
         }
 
-        AlgebraicArray(const std::array<T, size>& a)
+        explicit AlgebraicArray(const std::array<T, size>& a)
             : _a(a)
         {
         }
 
-        AlgebraicArray(std::array<T, size>&& a)
+        explicit AlgebraicArray(std::array<T, size>&& a)
             : _a(std::move(a))
         {
         }
@@ -44,12 +44,12 @@ namespace samurai
             }
         }
 
-        template <class xt>
-        AlgebraicArray(const xt& other)
+        template <class... T2>
+        AlgebraicArray(xt::xfunction<T2...> xt)
         {
             for (std::size_t i = 0; i < size; ++i)
             {
-                this->_a[i] = other(i);
+                this->_a[i] = xt(i);
             }
         }
 
