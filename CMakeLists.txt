@@ -47,7 +47,7 @@ option(WITH_MPI "Enable MPI" OFF)
 option(WITH_OPENMP "Enable OpenMP" OFF)
 
 set(FLUX_CONTAINER_LIST array xtensor)
-set(FLUX_CONTAINER "array" CACHE STRING "Container to store fluxes: ${FLUX_CONTAINER_LIST}")
+set(FLUX_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FLUX_CONTAINER_LIST}")
 set_property(CACHE FLUX_CONTAINER PROPERTY STRINGS ${FLUX_CONTAINER_LIST})
 
 project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
