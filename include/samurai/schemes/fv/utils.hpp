@@ -11,6 +11,10 @@ namespace samurai
         LinearHomogeneous
     };
 
+    template <class value_type, std::size_t size>
+    // using Array = xt::xtensor_fixed<value_type, xt::xshape<size>>;
+    using Array = AlgebraicArray<value_type, size>;
+
     /**
      * Matrix type
      */
@@ -34,8 +38,7 @@ namespace samurai
         template <class value_type, std::size_t size>
         struct FixedCollapsableVector
         {
-            // using Type = xt::xtensor_fixed<value_type, xt::xshape<size>>;
-            using Type = AlgebraicArray<value_type, size>;
+            using Type = Array<value_type, size>;
         };
 
         /**

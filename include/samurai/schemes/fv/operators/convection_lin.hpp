@@ -111,9 +111,8 @@ namespace samurai
                 {
                     weno5[d].cons_flux_function = [&velocity](auto& cells, const Field& u) -> FluxValue<cfg>
                     {
-                        AlgebraicArray<FluxValue<cfg>, 5> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
+                        Array<FluxValue<cfg>, 5> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
                         f *= velocity(d);
-
                         return compute_weno5_flux(f);
                     };
                 }
@@ -121,9 +120,8 @@ namespace samurai
                 {
                     weno5[d].cons_flux_function = [&velocity](auto& cells, const Field& u) -> FluxValue<cfg>
                     {
-                        AlgebraicArray<FluxValue<cfg>, 5> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
+                        Array<FluxValue<cfg>, 5> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
                         f *= velocity(d);
-
                         return compute_weno5_flux(f);
                     };
                 }
@@ -238,13 +236,13 @@ namespace samurai
 
                     if (v >= 0)
                     {
-                        AlgebraicArray<FluxValue<cfg>, 5> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
+                        Array<FluxValue<cfg>, 5> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
                         f *= v;
                         return compute_weno5_flux(f);
                     }
                     else
                     {
-                        AlgebraicArray<FluxValue<cfg>, 5> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
+                        Array<FluxValue<cfg>, 5> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
                         f *= v;
                         return compute_weno5_flux(f);
                     }

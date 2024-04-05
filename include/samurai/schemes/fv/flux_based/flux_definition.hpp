@@ -70,7 +70,7 @@ namespace samurai
         using stencil_cells_t = std::array<cell_t, cfg::stencil_size>;
 
         using flux_value_t      = CollapsVector<field_value_type, cfg::output_field_size>;
-        using flux_value_pair_t = xt::xtensor_fixed<flux_value_t, xt::xshape<2>>;
+        using flux_value_pair_t = CollapsVector<flux_value_t, 2>;
         using flux_func         = std::function<flux_value_pair_t(stencil_cells_t&, const field_t&)>; // non-conservative
         using cons_flux_func    = std::function<flux_value_t(stencil_cells_t&, const field_t&)>;      // conservative
 

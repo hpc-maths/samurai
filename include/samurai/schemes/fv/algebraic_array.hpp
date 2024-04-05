@@ -53,6 +53,11 @@ namespace samurai
             }
         }
 
+        auto& array()
+        {
+            return _a;
+        }
+
         T& operator()(std::size_t i)
         {
             return _a[i];
@@ -82,36 +87,94 @@ namespace samurai
             }
         }
 
-        template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
-        auto& operator*=(NumberType s)
+        auto& operator+=(const AlgebraicArray<T, size>& other)
         {
             for (std::size_t i = 0; i < size; ++i)
             {
-                _a[i] *= s;
+                _a[i] += other._a[i];
+            }
+            return *this;
+        }
+
+        auto& operator*=(const AlgebraicArray<T, size>& other)
+        {
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                _a[i] *= other._a[i];
+            }
+            return *this;
+        }
+
+        auto& operator-=(const AlgebraicArray<T, size>& other)
+        {
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                _a[i] -= other._a[i];
+            }
+            return *this;
+        }
+
+        auto& operator/=(const AlgebraicArray<T, size>& other)
+        {
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                _a[i] /= other._a[i];
             }
             return *this;
         }
 
         template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
-        auto& operator+=(NumberType s)
+        auto& operator+=(NumberType scalar)
         {
             for (std::size_t i = 0; i < size; ++i)
             {
-                _a[i] += s;
+                _a[i] += scalar;
             }
             return *this;
+        }
+
+        template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
+        auto& operator*=(NumberType scalar)
+        {
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                _a[i] *= scalar;
+            }
+            return *this;
+        }
+
+        template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
+        auto& operator-=(NumberType scalar)
+        {
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                _a[i] -= scalar;
+            }
+            return *this;
+        }
+
+        template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
+        auto& operator/=(NumberType scalar)
+        {
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                _a[i] /= scalar;
+            }
+            return *this;
+        }
+
+        void fill(T value)
+        {
+            _a.fill(value);
         }
     };
 
     template <class NumberType, class T, std::size_t size>
     auto operator*(NumberType scalar, const AlgebraicArray<T, size>& a)
     {
-        AlgebraicArray<T, size> a2;
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            a2[i] = scalar * a[i];
-        }
-        return a2;
+        AlgebraicArray<T, size> b(a);
+        b *= scalar;
+        return b;
     }
 
     template <class T, std::size_t size, class NumberType>
@@ -120,26 +183,34 @@ namespace samurai
         return scalar * a;
     }
 
+    template <class NumberType, class T, std::size_t size>
+    AlgebraicArray<T, size>&& operator*(NumberType scalar, AlgebraicArray<T, size>&& a)
+    {
+        a *= scalar;
+        return std::move(a);
+    }
+
+    template <class T, std::size_t size, class NumberType>
+    AlgebraicArray<T, size>&& operator*(AlgebraicArray<T, size>&& a, NumberType scalar)
+    {
+        a *= scalar;
+        return std::move(a);
+    }
+
     template <class T, std::size_t size, class NumberType>
     auto operator/(const AlgebraicArray<T, size>& a, NumberType scalar)
     {
-        AlgebraicArray<T, size> a2;
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            a2[i] = a[i] / scalar;
-        }
-        return a2;
+        AlgebraicArray<T, size> b(a);
+        b /= scalar;
+        return b;
     }
 
     template <class NumberType, class T, std::size_t size>
     auto operator+(NumberType scalar, const AlgebraicArray<T, size>& a)
     {
-        AlgebraicArray<T, size> a2;
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            a2[i] = scalar + a[i];
-        }
-        return a2;
+        AlgebraicArray<T, size> b(a);
+        b += scalar;
+        return b;
     }
 
     template <class T, std::size_t size, class NumberType>
@@ -151,44 +222,60 @@ namespace samurai
     template <class T, std::size_t size>
     auto operator+(const AlgebraicArray<T, size>& a, const AlgebraicArray<T, size>& b)
     {
-        AlgebraicArray<T, size> c;
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            c[i] = a[i] + b[i];
-        }
+        AlgebraicArray<T, size> c(a);
+        c += b;
         return c;
+    }
+
+    template <class T, std::size_t size>
+    AlgebraicArray<T, size>&& operator+(const AlgebraicArray<T, size>& a, AlgebraicArray<T, size>&& b)
+    {
+        b += a;
+        return std::move(b);
+    }
+
+    template <class T, std::size_t size>
+    AlgebraicArray<T, size>&& operator+(AlgebraicArray<T, size>&& a, const AlgebraicArray<T, size>& b)
+    {
+        a += b;
+        return std::move(a);
+    }
+
+    template <class T, std::size_t size>
+    auto operator+(AlgebraicArray<T, size>&& a, AlgebraicArray<T, size>&& b)
+    {
+        a += b;
+        return std::move(a);
     }
 
     template <class T, std::size_t size>
     auto operator-(const AlgebraicArray<T, size>& a, const AlgebraicArray<T, size>& b)
     {
-        AlgebraicArray<T, size> c;
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            c[i] = a[i] - b[i];
-        }
+        AlgebraicArray<T, size> c(a);
+        c -= b;
         return c;
+    }
+
+    template <class T, std::size_t size>
+    AlgebraicArray<T, size>&& operator-(AlgebraicArray<T, size>&& a, const AlgebraicArray<T, size>& b)
+    {
+        a -= b;
+        return std::move(a);
     }
 
     template <class T, std::size_t size>
     auto operator*(const AlgebraicArray<T, size>& a, const AlgebraicArray<T, size>& b)
     {
-        AlgebraicArray<T, size> c;
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            c[i] = a[i] * b[i];
-        }
+        AlgebraicArray<T, size> c(a);
+        c *= b;
         return c;
     }
 
     template <class T, std::size_t size>
     auto operator/(const AlgebraicArray<T, size>& a, const AlgebraicArray<T, size>& b)
     {
-        AlgebraicArray<T, size> c;
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            c[i] = a[i] / b[i];
-        }
+        AlgebraicArray<T, size> c(a);
+        c /= b;
         return c;
     }
 
@@ -207,6 +294,16 @@ namespace samurai
             b[i] = std::pow(a[i], exponent);
         }
         return b;
+    }
+
+    template <class T, std::size_t size, class NumberType>
+    AlgebraicArray<T, size>&& pow(AlgebraicArray<T, size>&& a, NumberType exponent)
+    {
+        for (std::size_t i = 0; i < size; ++i)
+        {
+            a[i] = std::pow(a[i], exponent);
+        }
+        return std::move(a);
     }
 
     template <class NumberType1,
