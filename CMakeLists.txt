@@ -46,6 +46,10 @@ option(ENABLE_COVERAGE "Activate coverage" OFF)
 option(WITH_MPI "Enable MPI" OFF)
 option(WITH_OPENMP "Enable OpenMP" OFF)
 
+set(FLUX_CONTAINER_LIST array xtensor)
+set(FLUX_CONTAINER "array" CACHE STRING "Container to store fluxes: ${FLUX_CONTAINER_LIST}")
+set_property(CACHE FLUX_CONTAINER PROPERTY STRINGS ${FLUX_CONTAINER_LIST})
+
 project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
 SET(FEATURES)
@@ -171,6 +175,12 @@ if(BUILD_DEMOS)
   add_subdirectory(demos)
 else()
   add_subdirectory(demos EXCLUDE_FROM_ALL)
+endif()
+
+if(NOT FLUX_CONTAINER IN_LIST FLUX_CONTAINER_LIST)
+    message(FATAL_ERROR "FLUX_CONTAINER must be one of: ${FLUX_CONTAINER_LIST}")
+else()
+    target_compile_definitions(samurai INTERFACE FLUX_CONTAINER_${FLUX_CONTAINER})
 endif()
 
 # Package the project

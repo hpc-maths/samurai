@@ -17,8 +17,11 @@ namespace samurai
     namespace data_structure
     {
         template <class value_type, std::size_t size>
-        // using Array = xt::xtensor_fixed<value_type, xt::xshape<size>>;
+#ifdef FLUX_CONTAINER_xtensor
+        using Array = xt::xtensor_fixed<value_type, xt::xshape<size>>;
+#else
         using Array = AlgebraicArray<value_type, size>;
+#endif
 
         template <class value_type, std::size_t rows, std::size_t cols>
         using Matrix = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;
