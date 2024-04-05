@@ -45,7 +45,7 @@ namespace samurai
         }
 
         template <class... T2>
-        AlgebraicArray(xt::xfunction<T2...> xt)
+        AlgebraicArray(xt::xfunction<T2...> xt) // cppcheck-suppress noExplicitConstructor
         {
             for (std::size_t i = 0; i < size; ++i)
             {
