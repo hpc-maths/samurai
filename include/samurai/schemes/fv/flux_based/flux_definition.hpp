@@ -129,7 +129,7 @@ namespace samurai
 
         using stencil_cells_t       = std::array<cell_t, cfg::stencil_size>;
         using flux_coeff_matrix_t   = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
+        using flux_stencil_coeffs_t = Array<flux_coeff_matrix_t, cfg::stencil_size>;
         using cons_flux_func        = std::function<flux_stencil_coeffs_t(stencil_cells_t&)>;
 
         cons_flux_func cons_flux_function = nullptr;
@@ -152,7 +152,7 @@ namespace samurai
         static constexpr std::size_t field_size = field_t::size;
 
         using flux_coeff_matrix_t   = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using flux_stencil_coeffs_t = xt::xtensor_fixed<flux_coeff_matrix_t, xt::xshape<cfg::stencil_size>>;
+        using flux_stencil_coeffs_t = Array<flux_coeff_matrix_t, cfg::stencil_size>;
         using cons_flux_func        = std::function<flux_stencil_coeffs_t(double)>;
 
         /**
