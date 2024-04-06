@@ -3,6 +3,7 @@
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/samurai.hpp>
 
 namespace samurai
 {
@@ -19,6 +20,8 @@ namespace samurai
 
     TYPED_TEST(adapt_test, mutliple_fields)
     {
+        ::samurai::initialize();
+
         static constexpr std::size_t dim = TypeParam::value;
         using config                     = MRConfig<dim>;
         auto mesh                        = MRMesh<config>({xt::zeros<double>({dim}), xt::ones<double>({dim})}, 2, 4);
@@ -28,5 +31,6 @@ namespace samurai
 
         auto adapt = make_MRAdapt(u_1, u_2, u_3);
         adapt(1e-4, 2);
+        ::samurai::finalize();
     }
 }
