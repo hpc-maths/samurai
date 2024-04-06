@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.0](https://github.com/hpc-maths/samurai/compare/v0.11.0...v0.12.0) (2024-04-06)
+
+
+### Features
+
+* multi resolution adaptation ([#171](https://github.com/hpc-maths/samurai/issues/171)) ([60d5892](https://github.com/hpc-maths/samurai/commit/60d5892e79fe59bb5b42dea29d050bce185cd1c7))
+* the direction provided in the boundary conditions ([#183](https://github.com/hpc-maths/samurai/issues/183)) ([8bcb601](https://github.com/hpc-maths/samurai/commit/8bcb601d7cbf23036ca7acfe475847b2173505ec))
+
+
+### Performance Improvements
+
+* Add MR ghosts only if level_min != level_max ([#185](https://github.com/hpc-maths/samurai/issues/185)) ([57d5b73](https://github.com/hpc-maths/samurai/commit/57d5b733328f1eebf9bbff38b7150af12748346a))
+* dynamic regions in extrapolation ([#184](https://github.com/hpc-maths/samurai/issues/184)) ([16eef37](https://github.com/hpc-maths/samurai/commit/16eef37379d47c6b2d1c9ade329383b488b74eeb))
+
 ## [0.11.0](https://github.com/hpc-maths/samurai/compare/v0.10.0...v0.11.0) (2024-03-20)
 
 
