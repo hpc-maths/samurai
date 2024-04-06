@@ -31,7 +31,7 @@ class H5File:
         if not os.path.exists(ref_path):
             os.mkdir(ref_path)
         for file in os.listdir(current_path):
-            if file.startswith(filename) and file.endswith('.h5'):
+            if file.startswith(filename) and (file.endswith('.h5') or file.endswith('.xdmf')):
                 shutil.copyfile(os.path.join(current_path, file), os.path.abspath(os.path.join(ref_path, file)))
 
     @classmethod

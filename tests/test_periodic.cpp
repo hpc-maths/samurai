@@ -45,7 +45,7 @@ namespace samurai
     TYPED_TEST(dim_test, periodic)
     {
         static constexpr std::size_t dim = TypeParam::value;
-        using Config                     = MRConfig<dim, 2>;
+        using Config                     = MRConfig<dim, 1>;
 
         // Simulation parameters
         xt::xtensor_fixed<double, xt::xshape<dim>> min_corner, max_corner;
@@ -54,7 +54,7 @@ namespace samurai
 
         // Multiresolution parameters
         std::size_t min_level = 2, max_level = 5;
-        double mr_epsilon    = 2.e-4; // Threshold used by multiresolution
+        double mr_epsilon    = 1.e-4; // Threshold used by multiresolution
         double mr_regularity = 1.;    // Regularity guess for multiresolution
 
         Box<double, dim> box(min_corner, max_corner);
@@ -94,16 +94,9 @@ namespace samurai
                                   {
                                       unp1(level, i) = u(level, i - 1);
                                   }
-                                  else if constexpr (dim == 2)
+                                  else
                                   {
-                                      auto j            = index[0];
-                                      unp1(level, i, j) = u(level, i - 1, j - 1);
-                                  }
-                                  else if constexpr (dim == 3)
-                                  {
-                                      auto j               = index[0];
-                                      auto k               = index[1];
-                                      unp1(level, i, j, k) = u(level, i - 1, j - 1, k - 1);
+                                      unp1(level, i, index) = u(level, i - 1, index - 1);
                                   }
                               });
 

@@ -10,6 +10,9 @@
 #include <stdexcept>
 #include <type_traits>
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 #include <fmt/format.h>
 
 #include <xtensor/xtensor.hpp>
@@ -20,6 +23,7 @@
 #include "cell.hpp"
 #include "cell_array.hpp"
 #include "field_expression.hpp"
+// #include "hdf5.hpp"
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
 
@@ -257,6 +261,26 @@ namespace samurai
                                 xt::range(item_s, item_e));
             }
 
+            template <class E>
+            inline auto
+            operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index)
+            {
+                auto interval_tmp = this->derived_cast().get_interval("WRITE", level, interval, index);
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step),
+                                xt::range(item_s, item_e));
+            }
+
+            template <class E>
+            inline auto
+            operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+            {
+                auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index);
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step),
+                                xt::range(item_s, item_e));
+            }
+
             void resize()
             {
                 this->derived_cast().m_data.resize({this->derived_cast().mesh().nb_cells(), size});
@@ -353,6 +377,26 @@ namespace samurai
             inline auto operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index...);
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(item_s, item_e),
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
+            }
+
+            template <class E>
+            inline auto
+            operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index)
+            {
+                auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index);
+                return xt::view(this->derived_cast().m_data,
+                                xt::range(item_s, item_e),
+                                xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
+            }
+
+            template <class E>
+            inline auto
+            operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+            {
+                auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index);
                 return xt::view(this->derived_cast().m_data,
                                 xt::range(item_s, item_e),
                                 xt::range(interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step));
@@ -640,6 +684,24 @@ namespace samurai
 
         if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
         {
+            // using mesh_id_t  = typename mesh_t::mesh_id_t;
+            // auto coords      = make_field<int, dim, false>("coordinates", this->mesh());
+            // auto level_field = make_field<std::size_t, 1, false>("level", this->mesh());
+            // for_each_cell(this->mesh()[mesh_id_t::reference],
+            //               [&](auto& cell)
+            //               {
+            //                   if constexpr (dim == 1)
+            //                   {
+            //                       coords[cell] = cell.indices[0];
+            //                   }
+            //                   else
+            //                   {
+            //                       coords[cell] = cell.indices;
+            //                   }
+            //                   level_field[cell] = cell.level;
+            //               });
+            // save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
+            (std::cout << ... << index) << std::endl;
             throw std::out_of_range(fmt::format("{} FIELD ERROR on level {}: try to find interval {}", rw, level, interval));
         }
 

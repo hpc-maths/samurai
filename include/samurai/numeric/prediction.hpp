@@ -752,10 +752,10 @@ namespace samurai
                                              - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
                                              - xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
                                              - xt::view(qs_k, xt::range(0, safe_subs<int>(qs_k.shape()[0], dec_odd)))
-                                             - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
-                    -xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)));
-                    -xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)));
-                    -xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
+                                             - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)))
+                                             - xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)))
+                                             - xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)))
+                                             - xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
                 }
             }
             else
@@ -784,10 +784,10 @@ namespace samurai
                                              - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
                                              + xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
                                              - xt::view(qs_k, xt::range(0, safe_subs<int>(qs_k.shape()[0], dec_odd)))
-                                             + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
-                    -xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)));
-                    +xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)));
-                    +xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
+                                             + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)))
+                                             - xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)))
+                                             + xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)))
+                                             + xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
                 }
             }
         }
@@ -819,10 +819,10 @@ namespace samurai
                                              - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
                                              - xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
                                              + xt::view(qs_k, xt::range(0, safe_subs<int>(qs_k.shape()[0], dec_odd)))
-                                             - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
-                    +xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)));
-                    +xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)));
-                    +xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
+                                             - xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)))
+                                             + xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)))
+                                             + xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)))
+                                             + xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
                 }
             }
             else
@@ -851,10 +851,10 @@ namespace samurai
                                              - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)))
                                              + xt::view(qs_j, xt::range(0, safe_subs<int>(qs_j.shape()[0], dec_odd)))
                                              + xt::view(qs_k, xt::range(0, safe_subs<int>(qs_k.shape()[0], dec_odd)))
-                                             + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)));
-                    +xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)));
-                    -xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)));
-                    -xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
+                                             + xt::view(qs_ij, xt::range(0, safe_subs<int>(qs_ij.shape()[0], dec_odd)))
+                                             + xt::view(qs_ik, xt::range(0, safe_subs<int>(qs_ik.shape()[0], dec_odd)))
+                                             - xt::view(qs_jk, xt::range(0, safe_subs<int>(qs_jk.shape()[0], dec_odd)))
+                                             - xt::view(qs_ijk, xt::range(0, safe_subs<int>(qs_ijk.shape()[0], dec_odd)));
                 }
             }
         }

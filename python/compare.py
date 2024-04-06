@@ -50,11 +50,11 @@ index2 = np.argsort( np.asarray([ c.tobytes() for c in cells2 ]) )
 if np.any(cells1.shape != cells2.shape):
     print("shape are not compatibles")
     print(f"{cells1.shape} vs {cells2.shape}")
-    sys.exit()
+    sys.exit(f"files {args.file1}.h5 and {args.file2}.h5 are different")
 
 if np.any(cells1[index1] != cells2[index2]):
     print("cells are not the same")
-    sys.exit()
+    sys.exit(f"files {args.file1}.h5 and {args.file2}.h5 are different")
 
 field1 = construct_fields(mesh1)
 field2 = construct_fields(mesh2)
@@ -63,12 +63,12 @@ tol = 1e-7
 for field in field1.keys():
     if not field in field2.keys():
         print(f"{field} is not in second file")
-        sys.exit()
+        sys.exit(f"files {args.file1}.h5 and {args.file2}.h5 are different")
 
-    # if np.any(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol):
-    if np.any(field1[field][:][index1] != field2[field][:][index2]):
-        # ind = np.where(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol)
-        ind = np.where(field1[field][:][index1] != field2[field][:][index2])
+    if np.any(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol):
+    # if np.any(field1[field][:][index1] != field2[field][:][index2]):
+        ind = np.where(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol)
+        # ind = np.where(field1[field][:][index1] != field2[field][:][index2])
         print(field1[field][:][index1[ind]], field2[field][:][index2[ind]])
         print(cells1[index1[ind]], cells2[index2[ind]])
         # print(np.abs(field1[field][:][index1[ind]]-field2[field][:][index2[ind]]))

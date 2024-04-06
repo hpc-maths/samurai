@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Quadrilateral" NumberOfElements="28456">
+                <DataItem Dimensions="113824" Format="HDF">test_finite_volume_demo_finite-volume-scalar-burgers-2d-0.001.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="90483" Format="HDF">test_finite_volume_demo_finite-volume-scalar-burgers-2d-0.001.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="u" Center="Cell">
+                <DataItem Dimensions="28456" Format="HDF" Precision="8">test_finite_volume_demo_finite-volume-scalar-burgers-2d-0.001.h5:/mesh/fields/u</DataItem>
+            </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="28456" Format="HDF" Precision="8">test_finite_volume_demo_finite-volume-scalar-burgers-2d-0.001.h5:/mesh/fields/level</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>
