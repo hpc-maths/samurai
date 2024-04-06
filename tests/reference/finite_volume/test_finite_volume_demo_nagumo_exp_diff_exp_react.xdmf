@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Polyline" NumberOfElements="127">
+                <DataItem Dimensions="254" Format="HDF">test_finite_volume_demo_nagumo_exp_diff_exp_react.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="384" Format="HDF">test_finite_volume_demo_nagumo_exp_diff_exp_react.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="u" Center="Cell">
+                <DataItem Dimensions="127" Format="HDF" Precision="8">test_finite_volume_demo_nagumo_exp_diff_exp_react.h5:/mesh/fields/u</DataItem>
+            </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="127" Format="HDF" Precision="8">test_finite_volume_demo_nagumo_exp_diff_exp_react.h5:/mesh/fields/level</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>

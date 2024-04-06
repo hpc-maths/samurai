@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Quadrilateral" NumberOfElements="27034">
+                <DataItem Dimensions="108136" Format="HDF">test_finite_volume_demo_finite-volume-advection-2d-0.01_init.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="86007" Format="HDF">test_finite_volume_demo_finite-volume-advection-2d-0.01_init.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="u" Center="Cell">
+                <DataItem Dimensions="27034" Format="HDF" Precision="8">test_finite_volume_demo_finite-volume-advection-2d-0.01_init.h5:/mesh/fields/u</DataItem>
+            </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="27034" Format="HDF" Precision="8">test_finite_volume_demo_finite-volume-advection-2d-0.01_init.h5:/mesh/fields/level</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>
