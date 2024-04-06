@@ -301,7 +301,7 @@ namespace samurai
             }
 
             update_tag_periodic(level, m_tag);
-            update_tag_subdomains(level, m_tag);
+            update_tag_subdomains<false>(level, m_tag);
         }
 
         // Prevents the coarsening of child cells where the parent intersects the boundary.
