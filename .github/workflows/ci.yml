@@ -225,33 +225,6 @@ jobs:
           conda info
           conda list
 
-      # - name: Clone HighFive
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: BlueBrain/HighFive
-      #     ref: v2.9.0
-      #     path: highfive
-
-      # - name: Configure HighFive
-      #   shell: bash -l {0}
-      #   run: |
-      #     cmake \
-      #     highfive \
-      #     -Bhighfive/build \
-      #     -GNinja \
-      #     -DCMAKE_BUILD_TYPE=Release \
-      #     -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
-
-      # - name: Install HighFive
-      #   shell: bash -l {0}
-      #   run: |
-      #     cmake --build highfive/build --target install
-
-      # - name: Set Swap Space
-      #   uses: pierotofy/set-swap-space@master
-      #   with:
-      #         swap-size-gb: 10
-
       - name: Configure
         shell: bash -l {0}
         run: |
@@ -267,25 +240,21 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-          cmake --build build --target all --parallel 4
-
-      - name: Test with googletest
-        shell: bash -l {0}
-        run: |
-          cd build
-          ./tests/test_samurai_lib
-
-      - name: Test with pytest
-        shell: bash -l {0}
-        run: |
-          cd tests
-          pytest -v -s --h5diff
+          cmake --build build --target finite-volume-advection-2d --parallel 4
 
       - name: MPI test
         shell: bash -l {0}
         run: |
           cd build
+          mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d
+          mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d
+          mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d
           mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d
+          mpiexec -n 9 ./demos/FiniteVolume/finite-volume-advection-2d
+          python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_2
+          python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_3
+          python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_4
+          python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_9
 
   macos-mamba:
     needs: [pre-commit, cppcheck]
