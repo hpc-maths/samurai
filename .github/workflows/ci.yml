@@ -250,7 +250,7 @@ jobs:
           mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
           mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
           mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
-          mpiexec -n 9 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.01
+          mpiexec -n 9 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
           python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_2
           python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_3
           python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_4
@@ -258,7 +258,7 @@ jobs:
 
   macos-mamba:
     needs: [pre-commit, cppcheck]
-    runs-on: macos-12
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - name: Mamba and samurai env installation
