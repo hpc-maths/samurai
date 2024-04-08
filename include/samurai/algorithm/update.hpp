@@ -505,8 +505,8 @@ namespace samurai
                 stencil.fill(0);
                 stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
 
-                min_corner[d] = (min_indices[d] >> delta_l);
-                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                max_corner[d] = (min_indices[d] >> delta_l);
                 for (std::size_t dd = 0; dd < dim; ++dd)
                 {
                     if (dd != d)
@@ -525,11 +525,11 @@ namespace samurai
                 set1(
                     [&](const auto& i, const auto& index)
                     {
-                        field(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _))) = field(level, i, index);
+                        field(level, i, index) = field(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _)));
                     });
 
-                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
-                max_corner[d] = (max_indices[d] >> delta_l);
+                min_corner[d] = (max_indices[d] >> delta_l);
+                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
                 lca_type lca2{
                     level,
                     Box<interval_value_t, dim>{min_corner, max_corner}
@@ -540,7 +540,7 @@ namespace samurai
                 set2(
                     [&](const auto& i, const auto& index)
                     {
-                        field(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _))) = field(level, i, index);
+                        field(level, i, index) = field(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _)));
                     });
             }
         }
@@ -601,8 +601,8 @@ namespace samurai
                 stencil.fill(0);
                 stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
 
-                min_corner[d] = (min_indices[d] >> delta_l);
-                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                max_corner[d] = (min_indices[d] >> delta_l);
                 for (std::size_t dd = 0; dd < dim; ++dd)
                 {
                     if (dd != d)
@@ -625,8 +625,8 @@ namespace samurai
                         tag(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _))) |= tag(level, i, index);
                     });
 
-                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
-                max_corner[d] = (max_indices[d] >> delta_l);
+                min_corner[d] = (max_indices[d] >> delta_l);
+                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
                 lca_type lca2{
                     level,
                     Box<interval_value_t, dim>{min_corner, max_corner}
