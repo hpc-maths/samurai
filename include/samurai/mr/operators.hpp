@@ -194,7 +194,7 @@ namespace samurai
             auto qs_ij = Qs_ij<order>(field, level, i, j);
 
 #ifdef SAMURAI_CHECK_NAN
-            if constexpr (T::size == 1)
+            if constexpr (T1::size == 1)
             {
                 for (std::size_t ii = 0; ii < i.size(); ++ii)
                 {
