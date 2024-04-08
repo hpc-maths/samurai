@@ -62,7 +62,7 @@ namespace samurai
             }
         }
 
-        AlgebraicArray(T value)
+        AlgebraicArray(T value) // cppcheck-suppress noExplicitConstructor
         {
             _a.fill(value);
         }
