@@ -53,6 +53,20 @@ namespace samurai
             }
         }
 
+        template <class... T2>
+        AlgebraicArray(xt::xview<T2...> xt) // cppcheck-suppress noExplicitConstructor
+        {
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                this->_a[i] = xt(i);
+            }
+        }
+
+        AlgebraicArray(T value)
+        {
+            _a.fill(value);
+        }
+
         auto& array()
         {
             return _a;
@@ -76,6 +90,12 @@ namespace samurai
         const T& operator[](std::size_t i) const
         {
             return _a[i];
+        }
+
+        template <class xt>
+        auto operator=(T value)
+        {
+            fill(value);
         }
 
         template <class xt>
