@@ -121,11 +121,12 @@ int main(int argc, char* argv[])
     double mr_epsilon    = 1e-1; // Threshold used by multiresolution
     double mr_regularity = 3;    // Regularity guess for multiresolution
 
-    std::size_t nfiles      = 50;
+    std::size_t nfiles      = 0;
     bool export_velocity    = false;
     bool export_reconstruct = false;
 
-    fs::path path = fs::current_path();
+    fs::path path        = fs::current_path();
+    std::string filename = "ldc_ink";
 
     CLI::App app{"Lid-driven cavity"};
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
@@ -139,6 +140,7 @@ int main(int argc, char* argv[])
     app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     app.add_flag("--export-velocity", export_velocity, "Export velocity field")->capture_default_str()->group("Ouput");
@@ -301,15 +303,18 @@ int main(int argc, char* argv[])
     double sum_max_velocities = 2;
     dt                        = cfl * dx / sum_max_velocities;
 
-    double dt_save    = dt; // Tf/static_cast<double>(nfiles);
+    double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
 
-    if (export_velocity)
+    if (nfiles != 1)
     {
-        samurai::save(path, fmt::format("ldc_velocity_ite_{}", nsave), velocity.mesh(), velocity);
+        if (export_velocity)
+        {
+            samurai::save(path, fmt::format("ldc_velocity_ite_{}", nsave), velocity.mesh(), velocity);
+        }
+        samurai::save(path, fmt::format("ldc_ink_ite_{}", nsave), ink.mesh(), ink);
+        nsave++;
     }
-    samurai::save(path, fmt::format("ldc_ink_ite_{}", nsave), ink.mesh(), ink);
-    nsave++;
 
     bool mesh_has_changed = false;
     bool dt_has_changed   = false;
@@ -390,7 +395,15 @@ int main(int argc, char* argv[])
         // Save the results
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            samurai::save(path, fmt::format("ldc_ink_ite_{}", nsave), ink.mesh(), ink);
+            if (nfiles != 1)
+            {
+                samurai::save(path, fmt::format("ldc_ink_ite_{}", nsave), ink.mesh(), ink);
+            }
+            else
+            {
+                samurai::save(path, filename, ink.mesh(), ink);
+            }
+
             if (export_reconstruct)
             {
                 samurai::update_bc(ink);

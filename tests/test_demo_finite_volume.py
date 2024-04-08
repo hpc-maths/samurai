@@ -188,3 +188,15 @@ def test_finite_volume_demo_nagumo_exp_diff_exp_react(config):
            "--explicit-reaction",
            "--Tf", "0.01"]
     output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_lid_driven_cavity(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-lid-driven-cavity"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--nfiles", "1",
+           "--min-level", "3",
+           "--max-level", "6",
+           "--Tf", "0.03"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
