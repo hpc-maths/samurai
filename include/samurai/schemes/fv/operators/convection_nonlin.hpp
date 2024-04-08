@@ -229,17 +229,16 @@ namespace samurai
                         v = u[cells[stencil_center]](d);
                     }
 
-                    xt::xtensor_fixed<FluxValue<cfg>, xt::xshape<5>> f_u;
                     if (v >= 0)
                     {
-                        f_u = {f(u[cells[0]]), f(u[cells[1]]), f(u[cells[2]]), f(u[cells[3]]), f(u[cells[4]])};
+                        std::array<FluxValue<cfg>, 5> f_u = {f(u[cells[0]]), f(u[cells[1]]), f(u[cells[2]]), f(u[cells[3]]), f(u[cells[4]])};
+                        return compute_weno5_flux(f_u);
                     }
                     else
                     {
-                        f_u = {f(u[cells[5]]), f(u[cells[4]]), f(u[cells[3]]), f(u[cells[2]]), f(u[cells[1]])};
+                        std::array<FluxValue<cfg>, 5> f_u = {f(u[cells[5]]), f(u[cells[4]]), f(u[cells[3]]), f(u[cells[2]]), f(u[cells[1]])};
+                        return compute_weno5_flux(f_u);
                     }
-
-                    return compute_weno5_flux(f_u);
                 };
             });
 

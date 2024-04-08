@@ -112,21 +112,36 @@ namespace samurai
     /**
      * Iterates over the elements of a tuple
      */
-    template <std::size_t Index = 0,                                                 // start iteration at 0 index
-              typename TTuple,                                                       // the tuple type
-              std::size_t Size = std::tuple_size_v<std::remove_reference_t<TTuple>>, // tuple size
-              typename TCallable,                                                    // the callable to be invoked for each tuple item
-              typename... TArgs                                                      // other arguments to be passed to the callable
-              >
-    void for_each(TTuple&& tuple, TCallable&& callable, TArgs&&... args)
+    template <std::size_t Index = 0, // start iteration at 0 index
+              typename TCallable,    // the callable to be invoked for each tuple item
+              typename... TupleTypes>
+    void for_each(const std::tuple<TupleTypes...>& tuple, TCallable&& callable)
     {
+        constexpr std::size_t Size = std::tuple_size_v<std::remove_reference_t<std::tuple<TupleTypes...>>>;
         if constexpr (Index < Size)
         {
-            std::invoke(callable, args..., std::get<Index>(tuple));
+            std::invoke(callable, std::get<Index>(tuple));
 
             if constexpr (Index + 1 < Size)
             {
-                for_each<Index + 1>(std::forward<TTuple>(tuple), std::forward<TCallable>(callable), std::forward<TArgs>(args)...);
+                for_each<Index + 1>(tuple, std::forward<TCallable>(callable));
+            }
+        }
+    }
+
+    template <std::size_t Index = 0, // start iteration at 0 index
+              typename TCallable,    // the callable to be invoked for each tuple item
+              typename... TupleTypes>
+    void for_each(std::tuple<TupleTypes...>& tuple, TCallable&& callable)
+    {
+        constexpr std::size_t Size = std::tuple_size_v<std::remove_reference_t<std::tuple<TupleTypes...>>>;
+        if constexpr (Index < Size)
+        {
+            std::invoke(callable, std::get<Index>(tuple));
+
+            if constexpr (Index + 1 < Size)
+            {
+                for_each<Index + 1>(tuple, std::forward<TCallable>(callable));
             }
         }
     }

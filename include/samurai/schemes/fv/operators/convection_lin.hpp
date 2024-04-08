@@ -86,8 +86,6 @@ namespace samurai
     template <class Field>
     auto make_convection_weno5(const VelocityVector<Field::dim>& velocity)
     {
-        using field_value_t = typename Field::value_type;
-
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
         static constexpr std::size_t dim               = Field::dim;
@@ -113,9 +111,8 @@ namespace samurai
                 {
                     weno5[d].cons_flux_function = [&velocity](auto& cells, const Field& u) -> FluxValue<cfg>
                     {
-                        xt::xtensor_fixed<field_value_t, xt::xshape<5>> f = {u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]};
+                        Array<FluxValue<cfg>, 5> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
                         f *= velocity(d);
-
                         return compute_weno5_flux(f);
                     };
                 }
@@ -123,9 +120,8 @@ namespace samurai
                 {
                     weno5[d].cons_flux_function = [&velocity](auto& cells, const Field& u) -> FluxValue<cfg>
                     {
-                        xt::xtensor_fixed<field_value_t, xt::xshape<5>> f = {u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]};
+                        Array<FluxValue<cfg>, 5> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
                         f *= velocity(d);
-
                         return compute_weno5_flux(f);
                     };
                 }
@@ -211,8 +207,6 @@ namespace samurai
     template <class Field, class VelocityField>
     auto make_convection_weno5(const VelocityField& velocity_field)
     {
-        using field_value_t = typename Field::value_type;
-
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
         static constexpr std::size_t dim               = Field::dim;
@@ -240,18 +234,18 @@ namespace samurai
 
                     auto v = velocity_field[cells[stencil_center]](d);
 
-                    xt::xtensor_fixed<field_value_t, xt::xshape<5>> f;
                     if (v >= 0)
                     {
-                        f = {u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]};
+                        Array<FluxValue<cfg>, 5> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
+                        f *= v;
+                        return compute_weno5_flux(f);
                     }
                     else
                     {
-                        f = {u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]};
+                        Array<FluxValue<cfg>, 5> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
+                        f *= v;
+                        return compute_weno5_flux(f);
                     }
-                    f *= v;
-
-                    return compute_weno5_flux(f);
                 };
             });
 

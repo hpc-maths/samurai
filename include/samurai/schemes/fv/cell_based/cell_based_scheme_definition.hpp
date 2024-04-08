@@ -87,7 +87,7 @@ namespace samurai
 
         using stencil_cells_t = CollapsArray<cell_t, cfg::scheme_stencil_size>;
 
-        using scheme_value_t = CollapsVector<field_value_type, cfg::output_field_size>;
+        using scheme_value_t = CollapsArray<field_value_type, cfg::output_field_size>;
         using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, const field_t&)>;
 
         using jac_coeffs_t         = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;

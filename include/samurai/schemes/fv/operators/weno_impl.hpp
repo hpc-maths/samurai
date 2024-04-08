@@ -1,4 +1,6 @@
 #pragma once
+#include <math.h>
+#include <type_traits>
 
 namespace samurai
 {
@@ -21,10 +23,10 @@ namespace samurai
      * WENO5 implementation.
      * Based on 'Efficent implementation of Weighted ENO schemes', Jiang and Shu, 1996.
      */
-    template <class xtensor_t>
-    auto compute_weno5_flux(xtensor_t& f)
+    template <class stencil_values>
+    auto compute_weno5_flux(stencil_values& f)
     {
-        using value_type = typename xtensor_t::value_type;
+        using value_type = typename stencil_values::value_type;
         // using scalar_type = std::conditional_t<std::is_floating_point_v<value_type>, value_type, typename value_type::value_type>;
         using scalar_type = typename detail::ScalarType<value_type>::Type;
 
@@ -34,14 +36,14 @@ namespace samurai
         // clang-format off
 
         // (2.8) and Table I (r=3)
-        auto q0 =  1./3 * f(j-2) - 7./6 * f(j-1) + 11./6 * f(j);
-        auto q1 = -1./6 * f(j-1) + 5./6 * f(j)   +  1./3 * f(j+1);
-        auto q2 =  1./3 * f(j)   + 5./6 * f(j+1) -  1./6 * f(j+2);
+        auto q0 =  1./3 * f[j-2] - 7./6 * f[j-1] + 11./6 * f[j  ];
+        auto q1 = -1./6 * f[j-1] + 5./6 * f[j  ] +  1./3 * f[j+1];
+        auto q2 =  1./3 * f[j  ] + 5./6 * f[j+1] -  1./6 * f[j+2];
 
         // (3.2)-(3.4)
-        auto IS0 = 13./12 * pow(f(j-2) - 2*f(j-1) + f(j)  , 2) + 1./4 * pow(  f(j-2) -4*f(j-1) + 3*f(j),   2);
-        auto IS1 = 13./12 * pow(f(j-1) - 2*f(j)   + f(j+1), 2) + 1./4 * pow(  f(j-1)           -   f(j+1), 2);
-        auto IS2 = 13./12 * pow(f(j)   - 2*f(j+1) + f(j+2), 2) + 1./4 * pow(3*f(j)   -4*f(j+1) +   f(j+2), 2);
+        auto IS0 = 13./12 * pow(f[j-2] - 2*f[j-1] + f[j  ], 2) + 1./4 * pow(  f[j-2] -4*f[j-1] + 3*f[j  ], 2);
+        auto IS1 = 13./12 * pow(f[j-1] - 2*f[j  ] + f[j+1], 2) + 1./4 * pow(  f[j-1]           -   f[j+1], 2);
+        auto IS2 = 13./12 * pow(f[j  ] - 2*f[j+1] + f[j+2], 2) + 1./4 * pow(3*f[j  ] -4*f[j+1] +   f[j+2], 2);
 
         // clang-format on
 

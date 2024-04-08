@@ -1,4 +1,5 @@
 #pragma once
+#include "algebraic_array.hpp"
 #include <xtensor/xfixed.hpp>
 
 namespace samurai
@@ -11,14 +12,27 @@ namespace samurai
     };
 
     /**
-     * Matrix type
+     * Actual data structures used
      */
+    namespace data_structure
+    {
+        template <class value_type, std::size_t size>
+#ifdef FLUX_CONTAINER_xtensor
+        using Array = xt::xtensor_fixed<value_type, xt::xshape<size>>;
+#else
+        using Array = AlgebraicArray<value_type, size>;
+#endif
+
+        template <class value_type, std::size_t rows, std::size_t cols>
+        using Matrix = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;
+    }
+
     namespace detail
     {
         template <class value_type, std::size_t rows, std::size_t cols>
         struct FixedCollapsableMatrix
         {
-            using Type = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;
+            using Type = data_structure::Matrix<value_type, rows, cols>;
         };
 
         /**
@@ -31,35 +45,26 @@ namespace samurai
         };
 
         template <class value_type, std::size_t size>
-        struct FixedCollapsableVector
+        struct FixedCollapsableArray
         {
-            using Type = xt::xtensor_fixed<value_type, xt::xshape<size>>;
+            using Type = data_structure::Array<value_type, size>;
         };
 
         /**
          * Template specialization: if size=1, then just a scalar coefficient
          */
         template <class value_type>
-        struct FixedCollapsableVector<value_type, 1>
+        struct FixedCollapsableArray<value_type, 1>
         {
             using Type = value_type;
         };
-
-        template <class T, std::size_t size>
-        struct FixedCollapsableArray
-        {
-            using Type = std::array<T, size>;
-        };
-
-        /**
-         * Template specialization: if size=1, then just the object
-         */
-        template <class T>
-        struct FixedCollapsableArray<T, 1>
-        {
-            using Type = T;
-        };
     }
+
+    template <class value_type, std::size_t size>
+    using Array = data_structure::Array<value_type, size>;
+
+    template <class value_type, std::size_t rows, std::size_t cols>
+    using Matrix = data_structure::Matrix<value_type, rows, cols>;
 
     /**
      * Collapsable, fixed-size matrix: reduces to a scalar if rows = cols = 1.
@@ -68,16 +73,10 @@ namespace samurai
     using CollapsMatrix = typename detail::FixedCollapsableMatrix<value_type, rows, cols>::Type;
 
     /**
-     * Collapsable, fixed size vector: reduces to a scalar if size = 1.
+     * Collapsable, fixed size array: reduces to a scalar if size = 1.
      */
     template <class value_type, std::size_t size>
-    using CollapsVector = typename detail::FixedCollapsableVector<value_type, size>::Type;
-
-    /**
-     * Collapsable fixed size array: reduces to the object if size = 1.
-     */
-    template <class T, std::size_t size>
-    using CollapsArray = typename detail::FixedCollapsableArray<T, size>::Type;
+    using CollapsArray = typename detail::FixedCollapsableArray<value_type, size>::Type;
 
     template <class matrix_type>
     matrix_type eye()
@@ -129,9 +128,9 @@ namespace samurai
     template <class value_type, std::size_t rows, std::size_t cols, class vector_type>
     auto mat_vec(const xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>& A, const vector_type& x)
     {
-        // 'vector_type' can be an xt::view or a CollapsVector
+        // 'vector_type' can be an xt::view or a CollapsArray
 
-        CollapsVector<value_type, rows> res = zeros<CollapsMatrix<value_type, rows, cols>>();
+        CollapsArray<value_type, rows> res = zeros<CollapsMatrix<value_type, rows, cols>>();
         if constexpr (rows == 1 && cols == 1)
         {
             res = A * x;

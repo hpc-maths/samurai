@@ -51,8 +51,8 @@ namespace samurai
 
         flux_stencil_coeffs_t contribution(const flux_stencil_coeffs_t& flux_coeffs, double h_face, double h_cell) const
         {
-            double face_measure = pow(h_face, dim - 1);
-            double cell_measure = pow(h_cell, dim);
+            double face_measure = std::pow(h_face, dim - 1);
+            double cell_measure = std::pow(h_cell, dim);
             return (face_measure / cell_measure) * flux_coeffs;
         }
 

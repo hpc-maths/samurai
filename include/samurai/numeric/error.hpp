@@ -76,13 +76,13 @@ namespace samurai
     template <std::size_t order>
     double compute_error_bound_hidden_constant(double h, double error)
     {
-        return error / pow(h, order);
+        return error / std::pow(h, order);
     }
 
     template <std::size_t order>
     double theoretical_error_bound(double hidden_constant, double h)
     {
-        return hidden_constant * pow(h, order);
+        return hidden_constant * std::pow(h, order);
     }
 
     inline double convergence_order(double h1, double error1, double h2, double error2)
