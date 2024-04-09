@@ -58,6 +58,21 @@ namespace samurai
         {
             using Type = value_type;
         };
+
+        template <class value_type, std::size_t size>
+        struct FixedCollapsableStdArray
+        {
+            using Type = std::array<value_type, size>;
+        };
+
+        /**
+         * Template specialization: if size=1, then just a scalar coefficient
+         */
+        template <class value_type>
+        struct FixedCollapsableStdArray<value_type, 1>
+        {
+            using Type = value_type;
+        };
     }
 
     template <class value_type, std::size_t size>
@@ -71,12 +86,17 @@ namespace samurai
      */
     template <class value_type, std::size_t rows, std::size_t cols>
     using CollapsMatrix = typename detail::FixedCollapsableMatrix<value_type, rows, cols>::Type;
-
     /**
      * Collapsable, fixed size array: reduces to a scalar if size = 1.
      */
     template <class value_type, std::size_t size>
     using CollapsArray = typename detail::FixedCollapsableArray<value_type, size>::Type;
+
+    /**
+     * Collapsable, fixed size array: reduces to a scalar if size = 1.
+     */
+    template <class value_type, std::size_t size>
+    using CollapsStdArray = typename detail::FixedCollapsableStdArray<value_type, size>::Type;
 
     template <class matrix_type>
     matrix_type eye()
