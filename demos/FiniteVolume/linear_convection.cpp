@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "linear_convection_" + std::to_string(dim) + "D";
-    std::size_t nfiles   = 50;
+    std::size_t nfiles   = 0;
 
     CLI::App app{"Finite volume example for the heat equation in 1d"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
@@ -164,9 +164,9 @@ int main(int argc, char* argv[])
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
 
-    // double dt_save    = Tf / static_cast<double>(nfiles);
+    double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
-
+    if (nfiles != 1)
     {
         std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
         save(path, filename, u, suffix);
@@ -206,10 +206,17 @@ int main(int argc, char* argv[])
         std::swap(u.array(), unp1.array());
 
         // Save the result
-        // if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
+        if (nfiles == 0 || t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-            save(path, filename, u, suffix);
+            if (nfiles != 1)
+            {
+                std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+                save(path, filename, u, suffix);
+            }
+            else
+            {
+                save(path, filename, u);
+            }
         }
 
         std::cout << std::endl;
