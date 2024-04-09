@@ -164,26 +164,19 @@ namespace samurai
     /**
      * Static for loop
      */
-    template <std::size_t Begin, std::size_t End>
+    template <std::size_t begin, std::size_t end>
     struct static_for
     {
-        template <typename Lambda>
-        static inline constexpr void apply(Lambda&& f)
+        template <typename lambda_t, std::size_t... Is>
+        static inline constexpr void apply_impl(lambda_t&& f, std::integer_sequence<std::size_t, Is...>)
         {
-            if (Begin < End)
-            {
-                f(std::integral_constant<std::size_t, Begin>{});
-                static_for<Begin + 1, End>::apply(f);
-            }
+            (f(std::integral_constant<std::size_t, Is + begin>{}), ...);
         }
-    };
 
-    template <std::size_t N>
-    struct static_for<N, N>
-    {
-        template <typename Lambda>
-        static inline constexpr void apply(Lambda&&)
+        template <typename lambda_t>
+        static inline constexpr void apply(lambda_t&& f)
         {
+            apply_impl(std::forward<lambda_t>(f), std::make_integer_sequence<std::size_t, end - begin>());
         }
     };
 } // namespace samurai
