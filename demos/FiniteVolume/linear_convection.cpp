@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
     samurai::initialize(argc, argv);
 
     static constexpr std::size_t dim = 2;
-    using Config                     = samurai::MRConfig<dim, 4>; // Only 3 ghosts should be required. Bug in periodic?
+    using Config                     = samurai::MRConfig<dim, 3>;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
