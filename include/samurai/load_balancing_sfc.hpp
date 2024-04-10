@@ -12,6 +12,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         int _ndomains;
         int _rank;
 
+        const double TRANSFER_PERCENT = 0.42;
+
     public:
 
         SFC_LoadBalancer_interval() {
@@ -50,16 +52,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             logs.open( "log_" + std::to_string( _rank ) + ".dat", std::ofstream::app );
             logs << "# New load balancing (load_balancing_sfc)" << std::endl;
 
-            auto & currentMesh = mesh[ Mesh_t::mesh_id_t::cells ];
-
             // SFC key (used for implicit sorting through map mechanism)
             std::map<SFC_key_t, Data_t> sfc_map;
-
-            // FIXME: should a parameter of the function to adjust level ?
-            int sfc_max_level = currentMesh.max_level();
-
-            // boundaries of keys in current process
-            SFC_key_t min=std::numeric_limits<SFC_key_t>::max(), max=std::numeric_limits<SFC_key_t>::min();
 
             size_t ninterval = 0;
             samurai::for_each_interval( mesh, [&]( std::size_t level, const auto& inter, const auto& index ){
@@ -107,14 +101,14 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             // define neighbour processes for load-balancing, not geometrical neighbour !
             if( _rank > 0 ) { 
                 neighbour_rank_prev = _rank - 1;
-                // transfer 50 % max of difference
-                transfer_load_prev = - ( my_load_i - load_interval[ neighbour_rank_prev ] ) * 0.5;
+                // transfer TRANSFER_PERCENT % max of difference
+                transfer_load_prev = - static_cast<int>( ( my_load_i - load_interval[ neighbour_rank_prev ] ) * TRANSFER_PERCENT );
             }
 
             if( _rank < _ndomains - 1 ) { 
                 neighbour_rank_next = _rank + 1;
-                // transfer 50 % max of difference
-                transfer_load_next = - ( my_load_i - load_interval[ neighbour_rank_next ] ) * 0.5;
+                // transfer TRANSFER_PERCENT % max of difference
+                transfer_load_next = - static_cast<int>( ( my_load_i - load_interval[ neighbour_rank_next ] ) * TRANSFER_PERCENT );
             }
 
             logs << "Neighbour prev : " << neighbour_rank_prev << ", loads : " << transfer_load_prev << std::endl;
