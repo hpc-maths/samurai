@@ -75,7 +75,7 @@ namespace samurai{
         if constexpr ( elem == BalanceElement_t::CELL ) { 
             // cell-based load without weight.
             samurai::for_each_interval( current_mesh, 
-                                    [&]( std::size_t level, const auto& interval, const auto& index ){
+                                    [&]( [[maybe_unused]] std::size_t level, const auto& interval, [[maybe_unused]] const auto& index ){
                 current_process_load += interval.size(); 
             });
         } else {
@@ -363,13 +363,13 @@ namespace samurai{
         samurai::for_each_cell( mesh, [&]( auto & cell ){
 
             // all cells equals
-            constexpr double wght = 1.;
+            // constexpr double wght = 1.;
 
             // higher weight for large cells
             // double wght = 1. / static_cast<double>( 1 << cell.level );
 
             // higher weight for small cells 
-            // double wght = 1. / static_cast<double>( 1 << ( mesh.max_level() - cell.level ) );
+            double wght = 1. / static_cast<double>( 1 << ( mesh.max_level() - cell.level ) );
 
             auto cc = cell.center();
 
@@ -506,7 +506,6 @@ namespace samurai{
         
         for( int nbi=0; nbi<n_neighbours; ++nbi ){
 
-            auto neighbour_rank = neighbourhood[ nbi ].rank;
             auto neighbour_mesh = neighbourhood[ nbi ].mesh[ mesh_id_t::cells ];
 
             for( size_t ist=0; ist<dirs.size(); ++ist ){
@@ -839,313 +838,313 @@ namespace samurai{
  * 
  * This does not require to have the graph.
 */
-template<int dim, class SFC_t, class Mesh, class Field_t>
-void perform_load_balancing_SFC( Mesh & mesh, int ndomains, Field_t & fake_mpi_rank ) {
+// template<int dim, class SFC_t, class Mesh, class Field_t>
+// void perform_load_balancing_SFC( Mesh & mesh, int ndomains, Field_t & fake_mpi_rank ) {
 
-    using Config = samurai::MRConfig<dim>;
-    using Mesh_t    = samurai::MRMesh<Config>;
-    using cell_t    = typename Mesh_t::cell_t;
+//     using Config = samurai::MRConfig<dim>;
+//     using Mesh_t    = samurai::MRMesh<Config>;
+//     using cell_t    = typename Mesh::cell_t;
 
-    SFC<SFC_t> sfc;
+//     SFC<SFC_t> sfc;
 
-    // SFC key (used for implicit sorting through map mechanism)
-    std::map<SFC_key_t, cell_t> sfc_map;
+//     // SFC key (used for implicit sorting through map mechanism)
+//     std::map<SFC_key_t, cell_t> sfc_map;
 
-    int sfc_max_level = mesh.max_level(); // for now but remember must <= 21 for Morton
+//     int sfc_max_level = mesh.max_level(); // for now but remember must <= 21 for Morton
 
-    SFC_key_t min=std::numeric_limits<SFC_key_t>::max(), max=std::numeric_limits<SFC_key_t>::min();
+//     SFC_key_t min=std::numeric_limits<SFC_key_t>::max(), max=std::numeric_limits<SFC_key_t>::min();
 
-    samurai::for_each_cell( mesh, [&]( const auto & cell ){
+//     samurai::for_each_cell( mesh, [&]( const auto & cell ){
 
-        // ij coordinate of cell
-        double dxmax = samurai::cell_length( sfc_max_level );
+//         // ij coordinate of cell
+//         double dxmax = samurai::cell_length( sfc_max_level );
 
-        auto tmp = cell.center() / dxmax;
+//         auto tmp = cell.center() / dxmax;
 
-        xt::xtensor_fixed<uint32_t, xt::xshape<dim>> ij = { static_cast<uint32_t>( tmp( 0 ) ),
-                                                            static_cast<uint32_t>( tmp( 1 ) ) };
+//         xt::xtensor_fixed<uint32_t, xt::xshape<dim>> ij = { static_cast<uint32_t>( tmp( 0 ) ),
+//                                                             static_cast<uint32_t>( tmp( 1 ) ) };
         
-        auto key = sfc.template getKey<dim>( ij );
-        // std::cerr << "\t> Coord (" << ij( 0 ) << ", " << ij( 1 ) << ") ----> " << key << std::endl;
+//         auto key = sfc.template getKey<dim>( ij );
+//         // std::cerr << "\t> Coord (" << ij( 0 ) << ", " << ij( 1 ) << ") ----> " << key << std::endl;
 
-        sfc_map[ key ] = cell ;
+//         sfc_map[ key ] = cell ;
 
-    });
+//     });
 
-    size_t nbcells_tot   = mesh.nb_cells( Mesh::mesh_id_t::cells ); //load -balancing on leaves
-    size_t ncellsPerProc = std::floor( nbcells_tot / ndomains );
+//     size_t nbcells_tot   = mesh.nb_cells( Mesh::mesh_id_t::cells ); //load -balancing on leaves
+//     size_t ncellsPerProc = std::floor( nbcells_tot / ndomains );
 
-    // std::cerr << "\n\t> Morton index [" << min << ", " << max << "]" << std::endl;
-    std::cerr << "\t> Total number of cells : " << nbcells_tot << std::endl;
-    std::cout << "\t> Perfect load-balancing (weight-cell = 1.) : " << static_cast<size_t>( nbcells_tot / ndomains ) 
-              << " / MPI" << std::endl;
+//     // std::cerr << "\n\t> Morton index [" << min << ", " << max << "]" << std::endl;
+//     std::cerr << "\t> Total number of cells : " << nbcells_tot << std::endl;
+//     std::cout << "\t> Perfect load-balancing (weight-cell = 1.) : " << static_cast<size_t>( nbcells_tot / ndomains ) 
+//               << " / MPI" << std::endl;
 
 
-    size_t cindex = 0;
-    for(const auto & item : sfc_map ) {
-        auto sfc_key = item.first;
+//     size_t cindex = 0;
+//     for(const auto & item : sfc_map ) {
+//         auto sfc_key = item.first;
 
-        int fake_rank = std::floor( cindex / ncellsPerProc );
-        if ( fake_rank >= ndomains ) fake_rank = ndomains - 1;
+//         int fake_rank = std::floor( cindex / ncellsPerProc );
+//         if ( fake_rank >= ndomains ) fake_rank = ndomains - 1;
 
-        fake_mpi_rank[ item.second ] = fake_rank;
-        cindex ++;
-    }
+//         fake_mpi_rank[ item.second ] = fake_rank;
+//         cindex ++;
+//     }
 
-}
+// }
 
-enum Interval_CellPosition { FIRST, LAST };
+// enum Interval_CellPosition { FIRST, LAST };
 
-template<int dim, class Mesh, class Field_t>
-void perform_load_balancing_SFC_Interval( Mesh & mesh, int ndomains, Field_t & fake_mpi_rank, const Interval_CellPosition &icp ) {
+// template<int dim, class Mesh, class Field_t>
+// void perform_load_balancing_SFC_Interval( Mesh & mesh, int ndomains, Field_t & fake_mpi_rank, const Interval_CellPosition &icp ) {
 
-    using inter_t = samurai::Interval<int, long long>;
+//     using inter_t = samurai::Interval<int, long long>;
 
-    struct Data {
-        size_t level;
-        inter_t interval;
-        xt::xtensor_fixed<samurai::default_config::value_t, xt::xshape<dim - 1>> indices;
-    };
+//     struct Data {
+//         size_t level;
+//         inter_t interval;
+//         xt::xtensor_fixed<samurai::default_config::value_t, xt::xshape<dim - 1>> indices;
+//     };
 
-    // SFC key (used for implicit sorting through map mechanism)
-    std::map<SFC_key_t, Data> sfc_map;
+//     // SFC key (used for implicit sorting through map mechanism)
+//     std::map<SFC_key_t, Data> sfc_map;
 
-    SFC<Morton> sfc;
-    int sfc_max_level = mesh.max_level(); // for now but remember must <= 21 for Morton
+//     SFC<Morton> sfc;
+//     int sfc_max_level = mesh.max_level(); // for now but remember must <= 21 for Morton
 
-    SFC_key_t min=std::numeric_limits<SFC_key_t>::max(), max=std::numeric_limits<SFC_key_t>::min();
+//     SFC_key_t min=std::numeric_limits<SFC_key_t>::max(), max=std::numeric_limits<SFC_key_t>::min();
 
-    size_t ninterval = 0;
-    samurai::for_each_interval( mesh, [&]( std::size_t level, const auto& inter, const auto& index ){
+//     size_t ninterval = 0;
+//     samurai::for_each_interval( mesh, [&]( std::size_t level, const auto& inter, const auto& index ){
 
-        // get Logical coordinate or first cell
-        xt::xtensor_fixed<int, xt::xshape<dim>> icell;
+//         // get Logical coordinate or first cell
+//         xt::xtensor_fixed<int, xt::xshape<dim>> icell;
         
-        icp == Interval_CellPosition::LAST ? icell( 0 ) = inter.end - 1 : icell( 0 ) = inter.start;
+//         icp == Interval_CellPosition::LAST ? icell( 0 ) = inter.end - 1 : icell( 0 ) = inter.start;
 
-        for(int idim=0; idim<dim-1; ++idim){
-            icell( idim + 1 ) = index( idim );
-        }
+//         for(int idim=0; idim<dim-1; ++idim){
+//             icell( idim + 1 ) = index( idim );
+//         }
 
-        // convert logical coordinate to max level logical coordinates
-        for( int idim=0; idim<dim; ++idim ){
-            icell( idim ) = icell( idim ) << ( mesh.max_level() - level );
-        }
+//         // convert logical coordinate to max level logical coordinates
+//         for( int idim=0; idim<dim; ++idim ){
+//             icell( idim ) = icell( idim ) << ( mesh.max_level() - level );
+//         }
 
-        xt::xtensor_fixed<uint32_t, xt::xshape<dim>> ijk;
+//         xt::xtensor_fixed<uint32_t, xt::xshape<dim>> ijk;
         
-        if constexpr ( dim == 2 ) ijk = { static_cast<uint32_t>( icell( 0 ) ), 
-                                          static_cast<uint32_t>( icell( 1 ) ) };
+//         if constexpr ( dim == 2 ) ijk = { static_cast<uint32_t>( icell( 0 ) ), 
+//                                           static_cast<uint32_t>( icell( 1 ) ) };
         
-        if constexpr ( dim == 3 ) ijk = { static_cast<uint32_t>( icell( 0 ) ), 
-                                          static_cast<uint32_t>( icell( 1 ) ),
-                                          static_cast<uint32_t>( icell( 2 ) ) };
+//         if constexpr ( dim == 3 ) ijk = { static_cast<uint32_t>( icell( 0 ) ), 
+//                                           static_cast<uint32_t>( icell( 1 ) ),
+//                                           static_cast<uint32_t>( icell( 2 ) ) };
         
-        sfc_map[ sfc.getKey<dim>( ijk ) ] = { level, inter, index };
+//         sfc_map[ sfc.getKey<dim>( ijk ) ] = { level, inter, index };
 
-        ninterval ++;
-    });
+//         ninterval ++;
+//     });
 
-    size_t ninterPerProc = std::floor( ninterval / ndomains );
+//     size_t ninterPerProc = std::floor( ninterval / ndomains );
 
-    // std::cerr << "\n\t> Morton index [" << min << ", " << max << "]" << std::endl;
-    std::cerr << "\t> Total number of interval : " << ninterval << std::endl;
-    std::cout << "\t> Perfect load-balancing (weight-interval = 1.) : " << static_cast<size_t>( ninterPerProc ) 
-              << " / MPI" << std::endl;
+//     // std::cerr << "\n\t> Morton index [" << min << ", " << max << "]" << std::endl;
+//     std::cerr << "\t> Total number of interval : " << ninterval << std::endl;
+//     std::cout << "\t> Perfect load-balancing (weight-interval = 1.) : " << static_cast<size_t>( ninterPerProc ) 
+//               << " / MPI" << std::endl;
 
 
-    size_t cindex = 0;
-    for(const auto & item : sfc_map ) {
-        int fake_rank = std::floor( cindex / ninterPerProc );
-        if ( fake_rank >= ndomains ) fake_rank = ndomains - 1;
+//     size_t cindex = 0;
+//     for(const auto & item : sfc_map ) {
+//         int fake_rank = std::floor( cindex / ninterPerProc );
+//         if ( fake_rank >= ndomains ) fake_rank = ndomains - 1;
 
-        fake_mpi_rank( item.second.level, item.second.interval, item.second.indices ) = fake_rank;
+//         fake_mpi_rank( item.second.level, item.second.interval, item.second.indices ) = fake_rank;
 
-        cindex ++;
-    }
+//         cindex ++;
+//     }
 
-}
+// }
 
-/**
- * 
- * Global contains the global mesh. Since this is a toy function, it contains the union of all mesh.
- * meshes contains the mesh of each MPI process ( or let say the mesh of neighbour processes ...)
- * 
-*/
-template<int dim, class AMesh_t, class Field_t>
-void perform_load_balancing_diffusion( AMesh_t & global, std::vector<AMesh_t> & meshes, int ndomains, 
-                                       const std::vector<samurai::MPI_Load_Balance> & all, Field_t & fake_mpi_rank ) {
+// /**
+//  * 
+//  * Global contains the global mesh. Since this is a toy function, it contains the union of all mesh.
+//  * meshes contains the mesh of each MPI process ( or let say the mesh of neighbour processes ...)
+//  * 
+// */
+// template<int dim, class AMesh_t, class Field_t>
+// void perform_load_balancing_diffusion( AMesh_t & global, std::vector<AMesh_t> & meshes, int ndomains, 
+//                                        const std::vector<samurai::MPI_Load_Balance> & all, Field_t & fake_mpi_rank ) {
 
-    using CellList_t = typename AMesh_t::cl_type;
+//     using CellList_t = typename AMesh_t::cl_type;
 
-    struct Coord_t { xt::xtensor_fixed<double, xt::xshape<dim>> coord; };
+//     struct Coord_t { xt::xtensor_fixed<double, xt::xshape<dim>> coord; };
 
-    std::vector<Coord_t> barycenters ( ndomains );
+//     std::vector<Coord_t> barycenters ( ndomains );
 
-    { // compute barycenter of current domains ( here, all domains since with simulate multiple MPI domains)
+//     { // compute barycenter of current domains ( here, all domains since with simulate multiple MPI domains)
 
-        int maxlevel = 4;
-        for( size_t m_=0; m_ < meshes.size(); ++m_ ) {
+//         int maxlevel = 4;
+//         for( size_t m_=0; m_ < meshes.size(); ++m_ ) {
 
-            double wght_tot = 0.;
-            samurai::for_each_cell( meshes[ m_ ], [&]( const auto & cell ) {
+//             double wght_tot = 0.;
+//             samurai::for_each_cell( meshes[ m_ ], [&]( const auto & cell ) {
                 
-                // [OPTIMIZATION] precompute weight as array
-                double wght = 1. / ( 1 << ( maxlevel - cell.level ) );
+//                 // [OPTIMIZATION] precompute weight as array
+//                 double wght = 1. / ( 1 << ( maxlevel - cell.level ) );
 
-                const auto cc = cell.center();
+//                 const auto cc = cell.center();
 
-                barycenters[ m_ ].coord( 0 ) += cc( 0 ) * wght;
-                barycenters[ m_ ].coord( 1 ) += cc( 1 ) * wght;
-                if constexpr ( dim == 3 ) { barycenters[ m_ ].coord( 2 ) += cc( 2 ) * wght; }
+//                 barycenters[ m_ ].coord( 0 ) += cc( 0 ) * wght;
+//                 barycenters[ m_ ].coord( 1 ) += cc( 1 ) * wght;
+//                 if constexpr ( dim == 3 ) { barycenters[ m_ ].coord( 2 ) += cc( 2 ) * wght; }
 
-                wght_tot += wght;
+//                 wght_tot += wght;
 
-            });
+//             });
 
-            barycenters[ m_ ].coord( 0 ) /= wght_tot;
-            barycenters[ m_ ].coord( 1 ) /= wght_tot;
-            if constexpr ( dim == 3 ) barycenters[ m_ ].coord( 2 ) /= wght_tot;
+//             barycenters[ m_ ].coord( 0 ) /= wght_tot;
+//             barycenters[ m_ ].coord( 1 ) /= wght_tot;
+//             if constexpr ( dim == 3 ) barycenters[ m_ ].coord( 2 ) /= wght_tot;
 
-            std::cerr << "\t> Domain # " << m_ << ", bc : {" << barycenters[ m_ ].coord( 0 ) << ", "
-                      << barycenters[ m_ ].coord( 1 ) << "}" << std::endl;
+//             std::cerr << "\t> Domain # " << m_ << ", bc : {" << barycenters[ m_ ].coord( 0 ) << ", "
+//                       << barycenters[ m_ ].coord( 1 ) << "}" << std::endl;
 
-        }
+//         }
 
-    }
+//     }
 
-    std::vector<CellList_t> new_meshes( ndomains );
-    std::vector<CellList_t> exchanged( ndomains );
+//     std::vector<CellList_t> new_meshes( ndomains );
+//     std::vector<CellList_t> exchanged( ndomains );
 
-    for( std::size_t m_ = 0; m_ < meshes.size(); ++m_ ){ // over each domains 
+//     for( std::size_t m_ = 0; m_ < meshes.size(); ++m_ ){ // over each domains 
 
-        std::cerr << "\t> Working on domains # " << m_ << std::endl;
+//         std::cerr << "\t> Working on domains # " << m_ << std::endl;
 
-        // auto dist = samurai::make_field<int, 1>( "rank", meshes[ m_ ] );
+//         // auto dist = samurai::make_field<int, 1>( "rank", meshes[ m_ ] );
 
-        // id des neighbours dans le tableau de la structure MPI_Load_Balance
-        // attention différent du rank mpi !
-        std::vector<std::size_t> id_send; 
+//         // id des neighbours dans le tableau de la structure MPI_Load_Balance
+//         // attention différent du rank mpi !
+//         std::vector<std::size_t> id_send; 
 
-        int n_neighbours = static_cast<int>( all[ m_ ].neighbour.size() );
-        for(std::size_t nbi = 0; nbi<n_neighbours; ++nbi ){
+//         int n_neighbours = static_cast<int>( all[ m_ ].neighbour.size() );
+//         for(std::size_t nbi = 0; nbi<n_neighbours; ++nbi ){
 
-            auto nbi_rank         = all[ m_ ].neighbour[ nbi ];
-            int nbCellsToTransfer = all[ m_ ].fluxes[ nbi ];
+//             auto nbi_rank         = all[ m_ ].neighbour[ nbi ];
+//             int nbCellsToTransfer = all[ m_ ].fluxes[ nbi ];
 
-            std::cerr << "\t\t> Neighbour rank : " << nbi_rank << std::endl;
-            std::cerr << "\t\t> Neighbour flux : " << all[ m_ ].fluxes[ nbi ] << std::endl;
+//             std::cerr << "\t\t> Neighbour rank : " << nbi_rank << std::endl;
+//             std::cerr << "\t\t> Neighbour flux : " << all[ m_ ].fluxes[ nbi ] << std::endl;
 
-            if( nbCellsToTransfer < 0 ){
+//             if( nbCellsToTransfer < 0 ){
 
-                id_send.emplace_back( nbi );
+//                 id_send.emplace_back( nbi );
 
-                // Logical_coord_t stencil; 
-                // { // Compute the stencil or normalized direction to neighbour
-                //     Coord_t tmp;
-                //     double n2 = 0;
-                //     for(int idim = 0; idim<dim; ++idim ){
-                //         tmp.coord[ idim ] = barycenters[ nbi_rank ].coord( idim )- barycenters[ m_ ].coord( idim );
-                //         n2 += tmp.coord( idim ) * tmp.coord( idim );
-                //     }
+//                 // Logical_coord_t stencil; 
+//                 // { // Compute the stencil or normalized direction to neighbour
+//                 //     Coord_t tmp;
+//                 //     double n2 = 0;
+//                 //     for(int idim = 0; idim<dim; ++idim ){
+//                 //         tmp.coord[ idim ] = barycenters[ nbi_rank ].coord( idim )- barycenters[ m_ ].coord( idim );
+//                 //         n2 += tmp.coord( idim ) * tmp.coord( idim );
+//                 //     }
 
-                //     n2 = std::sqrt( n2 );
+//                 //     n2 = std::sqrt( n2 );
                     
-                //     for(int idim = 0; idim<dim; ++idim ){
-                //         tmp.coord( idim ) /= n2;
-                //         stencil.coord( idim ) = static_cast<int>( tmp.coord( idim ) / 0.5 );
-                //     }
+//                 //     for(int idim = 0; idim<dim; ++idim ){
+//                 //         tmp.coord( idim ) /= n2;
+//                 //         stencil.coord( idim ) = static_cast<int>( tmp.coord( idim ) / 0.5 );
+//                 //     }
 
-                //     std::cerr << "\t\t> stencil for neighbour # " << nbi_rank << " : ";
-                //     for(size_t idim=0; idim<dim; ++idim ){
-                //         std::cerr << stencil.coord( idim ) << ",";
-                //     }
-                //     std::cerr << std::endl;
-                // }
+//                 //     std::cerr << "\t\t> stencil for neighbour # " << nbi_rank << " : ";
+//                 //     for(size_t idim=0; idim<dim; ++idim ){
+//                 //         std::cerr << stencil.coord( idim ) << ",";
+//                 //     }
+//                 //     std::cerr << std::endl;
+//                 // }
 
-            }
-        }
+//             }
+//         }
 
-        std::cerr << "\t\t> Number RECV : " << id_send.size() << std::endl;
+//         std::cerr << "\t\t> Number RECV : " << id_send.size() << std::endl;
         
-        std::vector<int> already_given( n_neighbours, 0 );
+//         std::vector<int> already_given( n_neighbours, 0 );
 
-        for_each_interval( meshes[ m_ ], [&]( std::size_t level, const auto& interval, const auto& index ){
-            Coord_t ibar;
+//         for_each_interval( meshes[ m_ ], [&]( std::size_t level, const auto& interval, const auto& index ){
+//             Coord_t ibar;
             
-            std::cerr << "\t\t> Interval [" << interval.start << ", " << interval.end << "[" << std::endl;
+//             std::cerr << "\t\t> Interval [" << interval.start << ", " << interval.end << "[" << std::endl;
 
-            double dm = 1. / (1 << level );
-            ibar.coord( 0 ) = ( (interval.end - interval.start) * 0.5 + interval.start ) * dm ;
-            ibar.coord( 1 ) = ( index( 1 ) * dm ) + dm * 0.5;
-            if constexpr ( dim == 3 ) ibar( 2 ) = ( index( 2 ) * dm ) + dm * 0.5;
+//             double dm = 1. / (1 << level );
+//             ibar.coord( 0 ) = ( (interval.end - interval.start) * 0.5 + interval.start ) * dm ;
+//             ibar.coord( 1 ) = ( index( 1 ) * dm ) + dm * 0.5;
+//             if constexpr ( dim == 3 ) ibar( 2 ) = ( index( 2 ) * dm ) + dm * 0.5;
 
-            std::cerr << "\t\t\t> level " << level << " center @ {" << ibar.coord(0) << ", " << ibar.coord(1) << "}" << std::endl;
+//             std::cerr << "\t\t\t> level " << level << " center @ {" << ibar.coord(0) << ", " << ibar.coord(1) << "}" << std::endl;
 
-            // find which neighbour will potentially receive this interval
-            int winner_id      = -1; // keep it to current if still negative
-            double winner_dist = std::numeric_limits<double>::max();
-            for( int nbi=0; nbi<id_send.size(); ++ nbi ){
+//             // find which neighbour will potentially receive this interval
+//             int winner_id      = -1; // keep it to current if still negative
+//             double winner_dist = std::numeric_limits<double>::max();
+//             for( int nbi=0; nbi<id_send.size(); ++ nbi ){
 
-                auto neighbour_rank = all[ m_ ].neighbour[ id_send[ nbi ] ];
+//                 auto neighbour_rank = all[ m_ ].neighbour[ id_send[ nbi ] ];
 
-                double dist = 0.0;
-                for( int idim=0; idim < dim; ++idim){
-                    double d = barycenters[ m_ ].coord( idim ) - barycenters[ neighbour_rank ].coord( idim );
-                    dist += d * d;
-                }
-                dist = std::sqrt( dist );
+//                 double dist = 0.0;
+//                 for( int idim=0; idim < dim; ++idim){
+//                     double d = barycenters[ m_ ].coord( idim ) - barycenters[ neighbour_rank ].coord( idim );
+//                     dist += d * d;
+//                 }
+//                 dist = std::sqrt( dist );
 
-                std::cerr << "\t\t\t> Dist to neighbour #" << neighbour_rank << " : " << dist << " vs " << winner_dist << std::endl;
-                std::cerr << "\t\t\t> Already given to this neighbour " << already_given[ neighbour_rank ] << std::endl;
-                std::cerr << "\t\t\t> NbCells of this interval " << interval.size() << std::endl;
-                std::cerr << "\t\t\t> fluxes for this neighbour : " << all[ m_ ].fluxes[ id_send[ nbi ] ] << std::endl;
+//                 std::cerr << "\t\t\t> Dist to neighbour #" << neighbour_rank << " : " << dist << " vs " << winner_dist << std::endl;
+//                 std::cerr << "\t\t\t> Already given to this neighbour " << already_given[ neighbour_rank ] << std::endl;
+//                 std::cerr << "\t\t\t> NbCells of this interval " << interval.size() << std::endl;
+//                 std::cerr << "\t\t\t> fluxes for this neighbour : " << all[ m_ ].fluxes[ id_send[ nbi ] ] << std::endl;
 
-                if( dist < winner_dist && 
-                    already_given[ neighbour_rank ] + interval.size() <= (- all[ m_ ].fluxes[ id_send[ nbi ] ]) ){
+//                 if( dist < winner_dist && 
+//                     already_given[ neighbour_rank ] + interval.size() <= (- all[ m_ ].fluxes[ id_send[ nbi ] ]) ){
                     
-                    winner_id   = id_send[ nbi ];
-                    winner_dist = dist;
-                }
+//                     winner_id   = id_send[ nbi ];
+//                     winner_dist = dist;
+//                 }
 
-            }
+//             }
 
-            if( winner_id >= 0 ){
-                auto neighbour_rank = all[ m_ ].neighbour[ winner_id ];
-                std::cerr << "\t> Interval given to process " << neighbour_rank << " + ncells : " << interval.size() << std::endl;
-                exchanged[ neighbour_rank ][ level ][ index ].add_interval( interval );
-                already_given[ neighbour_rank ] += interval.size();
-            }else{
-                new_meshes[ m_ ][ level ][ index ].add_interval( interval );
-            }
+//             if( winner_id >= 0 ){
+//                 auto neighbour_rank = all[ m_ ].neighbour[ winner_id ];
+//                 std::cerr << "\t> Interval given to process " << neighbour_rank << " + ncells : " << interval.size() << std::endl;
+//                 exchanged[ neighbour_rank ][ level ][ index ].add_interval( interval );
+//                 already_given[ neighbour_rank ] += interval.size();
+//             }else{
+//                 new_meshes[ m_ ][ level ][ index ].add_interval( interval );
+//             }
 
-        });
+//         });
 
 
-        meshes[ m_ ] = { new_meshes[ m_ ], true };
+//         meshes[ m_ ] = { new_meshes[ m_ ], true };
 
-    }
+//     }
 
-    for( std::size_t m_ = 0; m_ < meshes.size(); ++m_ ){ // over each domains 
-        for( int level=global.min_level(); level<=global.max_level(); ++level ) {
-            auto intersect = intersection( global[ level ], meshes[ m_ ][ level ]);
+//     for( std::size_t m_ = 0; m_ < meshes.size(); ++m_ ){ // over each domains 
+//         for( int level=global.min_level(); level<=global.max_level(); ++level ) {
+//             auto intersect = intersection( global[ level ], meshes[ m_ ][ level ]);
 
-            intersect([&]( auto & i, auto & index ) {
-                fake_mpi_rank( level, i, index ) = static_cast<int>( m_ );
-            });
-        }
+//             intersect([&]( auto & i, auto & index ) {
+//                 fake_mpi_rank( level, i, index ) = static_cast<int>( m_ );
+//             });
+//         }
 
-        AMesh_t tmp = { exchanged[ m_], true };
-        for( int level=global.min_level(); level<=global.max_level(); ++level ) {
-            auto intersect = intersection( global[ level ], tmp[ level ]);
+//         AMesh_t tmp = { exchanged[ m_], true };
+//         for( int level=global.min_level(); level<=global.max_level(); ++level ) {
+//             auto intersect = intersection( global[ level ], tmp[ level ]);
 
-            intersect([&]( auto & i, auto & index ) {
-                fake_mpi_rank( level, i, index ) = static_cast<int>( m_ );
-            });
-        }
-    }
+//             intersect([&]( auto & i, auto & index ) {
+//                 fake_mpi_rank( level, i, index ) = static_cast<int>( m_ );
+//             });
+//         }
+//     }
 
-}
+// }
 
 // template<class AMesh_t, class Field_t, int dim>
 // void perform_load_balancing_diffusion( AMesh_t & global, int ndomains,  const std::vector<MPI_Load_Balance> & all, Field_t & fake_mpi_rank ) {
