@@ -757,13 +757,16 @@ namespace samurai
         // remove cells
         cl_type cl;
         size_t diff_ncells = 0;
-<<<<<<< HEAD
         for (size_t ilvl = refmesh.min_level(); ilvl <= refmesh.max_level(); ++ilvl)
-=======
-        for (int ilvl = refmesh.min_level(); ilvl <= refmesh.max_level(); ++ilvl)
->>>>>>> fa278dd (remove load balancing from mesh class + add merge & remove functions)
         {
             auto diff = samurai::difference(refmesh[ilvl], lca[ilvl]);
+
+            diff(
+                [&](auto& interval, auto& index)
+                {
+                    cl[ilvl][index].add_interval(interval);
+                    diff_ncells += interval.size();
+                });
 
             diff(
                 [&](auto& interval, auto& index)
