@@ -695,7 +695,7 @@ namespace samurai{
                 int maxlevel_check = std::min( static_cast<int>( meshA_.max_level() ),
                                                static_cast<int>( level ) + 1 );
 
-                for(int projlevel=minlevel_check; projlevel<=maxlevel_check; ++projlevel ){
+                for(size_t projlevel=minlevel_check; projlevel<=maxlevel_check; ++projlevel ){
 
                     // translate meshB_ in "dir" direction
                     auto set = translate( meshB_[ level ], stencil );

@@ -138,7 +138,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 // double winner_dist = std::numeric_limits<double>::max();
                 // double winner_dist = samurai::getDistance<dim, fdist>( cell, barycenter ) / loads[ world.rank() ];
                 
-                double coeff_current = currentSV / loads[ world.rank() ];
+                double coeff_current = currentSV / loads[ static_cast<size_t>( world.rank() ) ];
                 double winner_dist = samurai::getDistance<dim, fdist>( cc, barycenter ) * coeff_current;
 
                 // select the neighbour
