@@ -724,7 +724,7 @@ namespace samurai
         // remove cells 
         cl_type cl;
         size_t diff_ncells = 0;
-        for( int ilvl=refmesh.min_level(); ilvl<=refmesh.max_level(); ++ilvl ) {
+        for( size_t ilvl=refmesh.min_level(); ilvl<=refmesh.max_level(); ++ilvl ) {
 
             auto diff = samurai::difference( refmesh[ ilvl ], lca[ ilvl ] );
 
