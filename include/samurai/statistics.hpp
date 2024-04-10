@@ -4,7 +4,6 @@
 
 #include <fstream>
 
-#define WITH_STATS
 #if defined(WITH_STATS)
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
