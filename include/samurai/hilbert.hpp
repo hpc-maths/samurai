@@ -147,7 +147,6 @@ class Hilbert : public SFC<Hilbert> {
             assert( lc( 0 ) >= 0 );
             assert( lc( 1 ) >= 0 );
 
-            constexpr SFC_key_t one = static_cast<SFC_key_t>( 1 );
             constexpr int dim = 2;
             constexpr int _nbits = sizeof( lc( 0 ) ) * 8;
 
@@ -185,7 +184,6 @@ class Hilbert : public SFC<Hilbert> {
             assert( lc( 1 ) >= 0 );
             assert( lc( 2 ) >= 0 );
 
-            constexpr SFC_key_t one = static_cast<SFC_key_t>( 1 );
             constexpr int dim = 3;
             constexpr int _nbits = sizeof( lc( 0 ) ) * 8;
 
