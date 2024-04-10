@@ -7,6 +7,7 @@
 #include <samurai/samurai.hpp>
 #include <samurai/timers.hpp>
 #include <samurai/field.hpp>
+#include <samurai/algorithm/update.hpp>
 
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_sfc.hpp>
@@ -101,7 +102,7 @@ void upWind(int niter_benchmark, const Mesh_t & mesh, Field_t & u2, Field_t & un
 
     for(int i=0; i<niter_benchmark; ++i){
         auto c = conv(u2);
-        samurai::for_each_interval( mesh, [&](std::size_t level, const auto& i, const auto & index ){
+        samurai::for_each_interval( mesh, [&]( [[maybe_unused]] std::size_t level, const auto& i, [[maybe_unused]] const auto & index ){
             for(int64_t ii=i.index+i.start; ii<i.index+i.end; ++ii){
                 unp1[ ii ] = u2[ ii ] - dt * c[ii];
             }
@@ -181,11 +182,11 @@ Timers benchmark_loadbalancing( struct Config_test_load_balancing<dim> & conf, L
 
         auto conv = samurai::make_convection<decltype(u2)>( velocity );
 
-        // myTimers.start( "update_ghost_mr" );
-        // for(int i=0; i<niterBench; ++i){
-        //     samurai::update_ghost_mr(u2);
-        // }           
-        // myTimers.stop( "update_ghost_mr" );
+        myTimers.start( "update_ghost_mr" );
+        for(int i=0; i<conf.niter_benchmark; ++i){
+            // samurai::update_ghost_mr( u2 );
+        }           
+        myTimers.stop( "update_ghost_mr" );
 
         auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
 
@@ -247,10 +248,6 @@ int main( int argc, char * argv[] ){
     velocity.fill( 1 );
     velocity( 1 ) = -1;
 
-    using Config    = samurai::MRConfig<dim>;
-    using Mesh_t    = samurai::MRMesh<Config>;
-    using mesh_id_t = typename Mesh_t::mesh_id_t;
-
     boost::mpi::communicator world;
     conf.rank     = world.rank();
     conf.ndomains = static_cast<int>( world.size() );
@@ -266,7 +263,7 @@ int main( int argc, char * argv[] ){
     if( conf.rank == 0 ) std::cerr << "\n\t> Testing 'Interval propagation load balancer' " << std::endl;
 
     if( conf.ndomains > 1 ) { // load balancing cells by cells using interface propagation
-        auto times = benchmark_loadbalancing( conf, std::move( Diffusion_LoadBalancer_interval<dim> () ), velocity );
+        auto times = benchmark_loadbalancing( conf, Diffusion_LoadBalancer_interval<dim> (), velocity );
         times.print();
         world.barrier();
     }
@@ -274,7 +271,7 @@ int main( int argc, char * argv[] ){
     if( conf.rank == 0 ) std::cerr << "\n\t> Testing 'Gravity-based cell exchange' load balancer' " << std::endl;
 
     if( conf.ndomains > 1 ) { // load balancing cells by cells using gravity
-        auto times = benchmark_loadbalancing( conf, std::move( Diffusion_LoadBalancer_cell<dim> () ), velocity );
+        auto times = benchmark_loadbalancing( conf, Diffusion_LoadBalancer_cell<dim> (), velocity );
         times.print();
         world.barrier();
     }
@@ -282,7 +279,7 @@ int main( int argc, char * argv[] ){
     if( conf.rank == 0 ) std::cerr << "\n\t> Testing Morton_LoadBalancer_interval " << std::endl;
 
     if( conf.ndomains > 1 ) { // load balancing using SFC morton
-        auto times = benchmark_loadbalancing( conf, std::move( SFC_LoadBalancer_interval<dim, Morton> () ), velocity );
+        auto times = benchmark_loadbalancing( conf, SFC_LoadBalancer_interval<dim, Morton> (), velocity );
         times.print();
         world.barrier();
     }
@@ -290,7 +287,7 @@ int main( int argc, char * argv[] ){
     if( conf.rank == 0 ) std::cerr << "\n\t> Testing Hilbert_LoadBalancer_interval " << std::endl;
 
     if( conf.ndomains > 1 ) { // load balancing using SFC hilbert
-        auto times = benchmark_loadbalancing( conf, std::move( SFC_LoadBalancer_interval<dim, Morton> () ), velocity );
+        auto times = benchmark_loadbalancing( conf, SFC_LoadBalancer_interval<dim, Hilbert> (), velocity );
         times.print();
         world.barrier();
     }
@@ -298,12 +295,12 @@ int main( int argc, char * argv[] ){
      if( conf.rank == 0 ) std::cerr << "\t> Testing no loadbalancing (initial partitionning) " << std::endl;
 
     { 
-        auto times = benchmark_loadbalancing( conf, std::move( Void_LoadBalancer<dim> () ), velocity );
+        auto times = benchmark_loadbalancing( conf, Void_LoadBalancer<dim> (), velocity );
         times.print();
         world.barrier();
     }
 
     samurai::finalize();
 
-    return EXIT_SUCCESS;
+    return 0;
 }

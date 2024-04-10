@@ -187,9 +187,6 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             // for( auto & it : repartition ){
             for( auto it = repartition.begin(); it != repartition.end(); it++ ){
 
-                auto nrank = neighbourhood[ it->second.rank ].rank;
-                auto lvl   = it->second.cell.level;
-
                 // shouldn't we give it to the second closest neighbour ?!
                 if( given_[ it->second.rank ] + 1 <= ( - fluxes[ it->second.rank ] ) ){
                     

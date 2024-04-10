@@ -153,7 +153,8 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
 
                 { // check emptyness of interface, if it is empty, then set fluxes for this neighbour to 0
                     size_t nelement = 0;
-                    samurai::for_each_interval( interface, [&]( std::size_t level, const auto & interval, const auto & index ){
+                    samurai::for_each_interval( interface, [&]( [[maybe_unused]] std::size_t level, [[maybe_unused]] const auto & interval, 
+                                                                [[maybe_unused]] const auto & index ){
                         nelement += 1;
                     });
 
@@ -237,7 +238,6 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
             using CellList_t      = typename Mesh_t::cl_type;
             using CellArray_t     = samurai::CellArray<dim>;
             using mesh_id_t       = typename Mesh_t::mesh_id_t;
-            using Coord_t         = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
             boost::mpi::communicator world;
 
