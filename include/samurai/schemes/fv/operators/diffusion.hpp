@@ -175,6 +175,9 @@ namespace samurai
         return make_diffusion__<cfg, dirichlet_enfcmt>(K_grad);
     }
 
+    /**
+     * Diffusion operator with a different coefficient for each field component
+     */
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
     auto make_multi_diffusion_order2(const DiffCoeff<Field::size>& K)
     {
@@ -225,8 +228,8 @@ namespace samurai
                     {
                         for (std::size_t i = 0; i < field_size; ++i)
                         {
-                            coeffs[left](i) *= -K(i);
-                            coeffs[right](i) *= -K(i);
+                            coeffs[left](i, i) *= -K(i);
+                            coeffs[right](i, i) *= -K(i);
                         }
                     }
                     return coeffs;
