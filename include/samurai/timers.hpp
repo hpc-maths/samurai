@@ -153,11 +153,11 @@ class Timers {
                 total_perc += timer.second.elapsed * 100.0 / total_ptime;
             }
 
-            std::string msg = "------------------------";
-            std::cout << "\t" << std::setw(setwSize) << msg << std::setw(setwSize) << msg
-                    << std::setw(setwSize) << msg << std::endl;
-            std::cout << "\t" << std::setw(setwSize) << "Total" << std::setw(setwSize) << total_ptime
-                    << std::setw(setwSize) << total_perc << std::endl;
+            // std::string msg = "------------------------";
+            // std::cout << "\t" << std::setw(setwSize) << msg << std::setw(setwSize) << msg
+            //         << std::setw(setwSize) << msg << std::endl;
+            // std::cout << "\t" << std::setw(setwSize) << "Total" << std::setw(setwSize) << total_ptime
+            //         << std::setw(setwSize) << total_perc << std::endl;
 
             std::flush(std::cout);
         }
