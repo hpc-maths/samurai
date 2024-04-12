@@ -113,10 +113,8 @@ namespace samurai
         }
     };
 
-    template <std::size_t dim>
-    using DiffCoeff = xt::xtensor_fixed<double, xt::xshape<dim>>;
-
-    // using DiffusionTensor = detail::LocalMatrix<double, dim, dim>;
+    template <std::size_t size>
+    using DiffCoeff = xt::xtensor_fixed<double, xt::xshape<size>>;
 
     /**
      * Linear homogeneous diffusion
@@ -171,6 +169,69 @@ namespace samurai
                     // Minus sign because we want -Laplacian
                     coeffs[left] *= -K(d);
                     coeffs[right] *= -K(d);
+                    return coeffs;
+                };
+            });
+        return make_diffusion__<cfg, dirichlet_enfcmt>(K_grad);
+    }
+
+    /**
+     * Diffusion operator with a different coefficient for each field component
+     */
+    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
+    auto make_multi_diffusion_order2(const DiffCoeff<Field::size>& K)
+    {
+        static constexpr std::size_t dim               = Field::dim;
+        static constexpr std::size_t field_size        = Field::size;
+        static constexpr std::size_t output_field_size = field_size;
+        static constexpr std::size_t stencil_size      = 2;
+
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_field_size, stencil_size, Field>;
+
+        FluxDefinition<cfg> K_grad;
+
+        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+            [&](auto integral_constant_d)
+            {
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+
+                K_grad[d].cons_flux_function = [K](double h)
+                {
+                    static constexpr std::size_t left  = 0;
+                    static constexpr std::size_t right = 1;
+
+                    // Return value: 2 matrices (left, right) of size output_field_size x field_size.
+                    // In this case, of size field_size x field_size.
+                    FluxStencilCoeffs<cfg> coeffs;
+                    if constexpr (field_size == 1)
+                    {
+                        coeffs[left]  = -1 / h;
+                        coeffs[right] = 1 / h;
+                    }
+                    else
+                    {
+                        coeffs[left].fill(0);
+                        coeffs[right].fill(0);
+                        for (std::size_t i = 0; i < field_size; ++i)
+                        {
+                            coeffs[left](i, i)  = -1 / h;
+                            coeffs[right](i, i) = 1 / h;
+                        }
+                    }
+                    // Minus sign because we want -Laplacian
+                    if constexpr (field_size == 1)
+                    {
+                        coeffs[left] *= -K(0);
+                        coeffs[right] *= -K(0);
+                    }
+                    else
+                    {
+                        for (std::size_t i = 0; i < field_size; ++i)
+                        {
+                            coeffs[left](i, i) *= -K(i);
+                            coeffs[right](i, i) *= -K(i);
+                        }
+                    }
                     return coeffs;
                 };
             });
