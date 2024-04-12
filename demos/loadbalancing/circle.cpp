@@ -26,6 +26,8 @@
 #include <cassert>
 #include <algorithm>
 
+#include <vector>
+
 template <class Mesh>
 auto getLevel(Mesh& mesh)
 {
@@ -118,8 +120,8 @@ struct Config_test_load_balancing {
     int niter_loadbalance = 1; // number of iteration of load balancing
     int ndomains          = 1; // number of partition (mpi processes)
     int rank              = 0; // current mpi rank
-    std::size_t minlevel  = 2;
-    std::size_t maxlevel  = 4;
+    std::size_t minlevel  = 6;
+    std::size_t maxlevel  = 8;
     double dt             = 0.1;
     double mr_regularity  = 1.0;
     double mr_epsilon     = 2.e-4;
@@ -181,27 +183,31 @@ Timers benchmark_loadbalancing( struct Config_test_load_balancing<dim> & conf, L
         samurai::save( "init2_circle_"+std::to_string( conf.ndomains )+"_domains", newmesh, u2 );
 
         auto conv = samurai::make_convection<decltype(u2)>( velocity );
+        auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
+
+        // myTimers.start( "update_ghost_mr_bf" );
+        // for(int i=0; i<conf.niter_benchmark; ++i){
+        //     samurai::update_ghost_mr( u2 );
+        // }           
+        // myTimers.stop( "update_ghost_mr_bf" );
+
+        myTimers.start( "upwind" );
+        for(int i=0; i<conf.niter_benchmark; ++i){
+            unp1 = u2 - conf.dt *  conv( u2 );
+        }
+        // upWind( conf.niter_benchmark, mesh, u2, unp1, conf.dt, conv );
+        myTimers.stop( "upwind" );
 
         myTimers.start( "update_ghost_mr" );
         for(int i=0; i<conf.niter_benchmark; ++i){
-            // samurai::update_ghost_mr( u2 );
+            samurai::update_ghost_mr( u2 );
         }           
         myTimers.stop( "update_ghost_mr" );
-
-        auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
-
-        myTimers.start( "upwind" );
-        // for(int i=0; i<niterBench; ++i){
-        //     unp1 = u2 - dt *  conv( u2 );
-        // }
-        upWind( conf.niter_benchmark, mesh, u2, unp1, conf.dt, conv );
-        myTimers.stop( "upwind" );
-
         
         // auto mradapt = samurai::make_MRAdapt( u2 );
 
         // myTimers.start( "mradapt" );
-        // mradapt( mr_epsilon, mr_regularity );
+        // mradapt( conf.mr_epsilon, conf.mr_regularity );
         // myTimers.stop( "mradapt" );
 
     }
@@ -224,9 +230,9 @@ int main( int argc, char * argv[] ){
     bool multi = false;
 
     CLI::App app{"Load balancing test"};
-    app.add_option("--nbIterLB", conf.niter_loadbalance, "Number of desired lb iteration")
+    app.add_option("--iter-loadbalance", conf.niter_loadbalance, "Number of desired lb iteration")
                    ->capture_default_str()->group("Simulation parameters");
-    app.add_option("--niterBench", conf.niter_benchmark, "Number of iteration for bench")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--iter-bench", conf.niter_benchmark, "Number of iteration for bench")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", conf.minlevel, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", conf.maxlevel, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", conf.mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")

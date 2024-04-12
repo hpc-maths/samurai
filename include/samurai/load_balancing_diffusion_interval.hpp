@@ -101,7 +101,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
 
             // get loads from everyone
             std::vector<int> loads;
-            int my_load = static_cast<int>( cmptLoad<samurai::BalanceElement_t::INTERVAL>( mesh ) );
+            int my_load = static_cast<int>( samurai::cmptLoad<samurai::BalanceElement_t::INTERVAL>( mesh ) );
             boost::mpi::all_gather( world, my_load, loads );
 
             std::vector<mpi_subdomain_t> & neighbourhood = mesh.mpi_neighbourhood();
@@ -125,17 +125,19 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
             while( ! balancing_done ){
              
                 // select neighbour to which we needs to sent the more load
-                int requester = -1;
+                bool neighbour_found = false;
+                std::size_t requester   = 0;
                 int requested_load = 0;
-                for(size_t nbi=0; nbi<n_neighbours; ++nbi ){
+                for(std::size_t nbi=0; nbi<n_neighbours; ++nbi ){
                     if( new_fluxes[ nbi ] >= 0 ) continue;
                     if( - new_fluxes[ nbi ] > requested_load ){
-                        requested_load = - new_fluxes[ nbi ];
-                        requester      = static_cast<int>( nbi );
+                        requested_load  = - new_fluxes[ nbi ];
+                        requester       = nbi;
+                        neighbour_found = true;
                     }
                 }
 
-                if( requester < 0 ){
+                if( ! neighbour_found ){
                     { // debug 
                         logs << "No more neighbour found " << std::endl;
                     }
@@ -149,7 +151,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
                 }
 
                 // select interval for this neighbour by moving in cartesian direction by one 
-                auto interface = cmptInterface<dim, samurai::Direction_t::FACE>( mesh, neighbourhood[ requester ].mesh );
+                auto interface = samurai::cmptInterface<dim, samurai::Direction_t::FACE>( mesh, neighbourhood[ requester ].mesh );
 
                 { // check emptyness of interface, if it is empty, then set fluxes for this neighbour to 0
                     size_t nelement = 0;
@@ -225,8 +227,8 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
             mesh.update_mesh_neighbour();
 
             // update neighbour connectivity
-            auto requireNextIter = samurai::discover_neighbour<dim>( mesh );
-            requireNextIter = samurai::discover_neighbour<dim>( mesh );
+            samurai::discover_neighbour<dim>( mesh );
+            samurai::discover_neighbour<dim>( mesh );
 
         }
 
@@ -257,7 +259,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
             std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::INTERVAL>( mesh );
 
             {
-                logs << "load : " << cmptLoad<samurai::BalanceElement_t::INTERVAL>( mesh ) << std::endl;
+                logs << "load : " << samurai::cmptLoad<samurai::BalanceElement_t::INTERVAL>( mesh ) << std::endl;
                 logs << "nneighbours : " << n_neighbours << std::endl;
                 logs << "neighbours : ";
                 for( size_t in=0; in<neighbourhood.size(); ++in )
@@ -272,15 +274,15 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
             // domaines en eux mêmes !
 
             // Interface for each neighbour as cell_array
-            auto interface = _computeCartesianInterface<dim, samurai::Direction_t::FACE>( mesh );
+            auto interface = samurai::_computeCartesianInterface<dim, samurai::Direction_t::FACE>( mesh );
 
             // compute some point of reference in mesh and interval-based interface
             // Coord_t barycenter = _cmpIntervalBarycenter( mesh[ mesh_id_t::cells ] );
-            Coord_t barycenter = _cmpCellBarycenter<dim>( mesh[ mesh_id_t::cells ] );
+            Coord_t barycenter = samurai::_cmpCellBarycenter<dim>( mesh[ mesh_id_t::cells ] );
             logs << "Domain barycenter : " << fmt::format( " barycenter : ({}, {})", barycenter(0), barycenter(1) ) << std::endl;
 
             std::vector<double> invloads;
-            double my_load = static_cast<double>( cmptLoad<samurai::BalanceElement_t::INTERVAL>( mesh ) );
+            double my_load = static_cast<double>( samurai::cmptLoad<samurai::BalanceElement_t::INTERVAL>( mesh ) );
             boost::mpi::all_gather( world, my_load, invloads );
             for(size_t il=0; il<invloads.size(); ++il ){
                 invloads[ il ] = 1. / invloads[ il ];
@@ -292,7 +294,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
             for(size_t nbi=0; nbi<n_neighbours; ++nbi ){
                 // barycenter_interface_neighbours[ nbi ] = _cmpIntervalBarycenter( interface[ nbi ] );
                 // barycenter_interface_neighbours[ nbi ] = _cmpCellBarycenter<dim>( interface[ nbi ] );
-                barycenter_neighbours[ nbi ] = _cmpCellBarycenter<dim>( neighbourhood[ nbi ].mesh[ mesh_id_t::cells ] );
+                barycenter_neighbours[ nbi ] = samurai::_cmpCellBarycenter<dim>( neighbourhood[ nbi ].mesh[ mesh_id_t::cells ] );
 
                 // debug
                 // auto s_ = fmt::format( "Barycenter neighbour : ({}, {})", 
