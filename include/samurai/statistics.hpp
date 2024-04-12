@@ -14,10 +14,10 @@ namespace samurai
 #if defined(WITH_STATS)
     struct Statistics
     {
-        Statistics( const std::string & filename, int save_all = 10)
+        Statistics( const std::string & filename, std::size_t save_all = 10)
             : _outfile( filename )
-            , save_all(save_all)
             , icurrent(0)
+            , save_all(save_all)
         {
         }
 
@@ -115,7 +115,7 @@ namespace samurai
         std::string _outfile;
         json stats;
         std::size_t icurrent;
-        int save_all;
+        std::size_t save_all;
     };
 
 #else
