@@ -17,10 +17,10 @@
 namespace samurai{
     
     struct MPI_Load_Balance {
-        size_t _load;
+        int32_t _load;
         std::vector<int> neighbour;
-        std::vector<size_t> load;
-        std::vector<int> fluxes;
+        std::vector<int32_t> load;
+        std::vector<int32_t> fluxes;
     };
 
     enum Distance_t       { L1, L2, LINF, GRAVITY };
@@ -64,13 +64,13 @@ namespace samurai{
      * mesh_id_t::cells to only consider leaves. 
     */
     template<BalanceElement_t elem, class Mesh_t>
-    static size_t cmptLoad( const Mesh_t & mesh ) {
+    static std::size_t cmptLoad( const Mesh_t & mesh ) {
 
         using mesh_id_t = typename Mesh_t::mesh_id_t;
 
         const auto & current_mesh = mesh[ mesh_id_t::cells ];
 
-        size_t current_process_load = 0;
+        std::size_t current_process_load = 0;
         
         if constexpr ( elem == BalanceElement_t::CELL ) { 
             // cell-based load without weight.
@@ -80,7 +80,7 @@ namespace samurai{
             });
         } else {
             // interval-based load without weight
-            for( size_t level=current_mesh.min_level(); level<=current_mesh.max_level(); ++level ){
+            for( std::size_t level=current_mesh.min_level(); level<=current_mesh.max_level(); ++level ){
                 current_process_load += current_mesh[ level ].shape()[ 0 ]; // only in x-axis ;
             }
         }
@@ -129,11 +129,11 @@ namespace samurai{
         int my_load_new = my_load;
         for( std::size_t n_i = 0; n_i < n_neighbours; ++n_i ){
 
-            int neighbour_rank  = neighbourhood[ n_i ].rank;
+            std::size_t neighbour_rank  = static_cast<std::size_t>( neighbourhood[ n_i ].rank );
             int neighbour_load  = loads[ neighbour_rank ];
             double diff_load    = static_cast<double>( neighbour_load - my_load );
 
-            size_t nb_neighbours_neighbour = neighbourhood_n_neighbours[ neighbour_rank ];
+            std::size_t nb_neighbours_neighbour = neighbourhood_n_neighbours[ neighbour_rank ];
 
             double weight = 1. / static_cast<double>( std::max( n_neighbours, nb_neighbours_neighbour ) + 1 );
 
@@ -201,8 +201,8 @@ namespace samurai{
                 static_cast<Flavor *>(this)->load_balance_impl( mesh, kw... );
             }
 
-            template<class Mesh, typename...Args>
-            void evaluate_balancing( Mesh & mesh, Args&... kw ) const {
+            template<class Mesh>
+            void evaluate_balancing( Mesh & mesh ) const {
 
                 boost::mpi::communicator world;
 
@@ -255,7 +255,8 @@ namespace samurai{
         using base_stencil = xt::xtensor_fixed<int, xt::xshape<dim>>;
 
         xt::xtensor_fixed<base_stencil, xt::xshape<2*dim>> stencils;
-        for( int ist=0; ist<2*dim; ++ist ){
+        std::size_t nstencils = static_cast<std::size_t>( 2 * dim );
+        for( std::size_t ist=0; ist<nstencils; ++ist ){
             stencils[ ist ].fill( 0 );
             stencils[ ist ][ ist / 2 ] = 1 - ( ist % 2 ) * 2;
         }
@@ -395,7 +396,7 @@ namespace samurai{
      * Params:
      *          leveldiff : max level difference. For 2:1 balance, leveldiff = 1
     */
-    template<int dim, Direction_t dir, int leveldiff = 1, class Mesh_t>
+    template<int dim, Direction_t dir, size_t leveldiff = 1, class Mesh_t>
     static auto cmptInterface( Mesh_t & mesh, Mesh_t & omesh ){
 
         using CellList_t  = typename Mesh_t::cl_type;
@@ -415,18 +416,15 @@ namespace samurai{
             
             const auto & stencil = dirs[ ist ];
 
-            // size_t nbCellsIntersection = 0;
-            // size_t nbIntervalIntersection = 0;
             size_t minlevel = otherMesh.min_level();
             size_t maxlevel = otherMesh.max_level();
 
             for( size_t level=minlevel; level<=maxlevel; ++level ) {
 
                 // for each level we need to check level -1 / 0 / +1
-                int minlevel_check = std::max( static_cast<int>( currentMesh.min_level() ),
-                                               static_cast<int>( level ) - leveldiff );
-                int maxlevel_check = std::min( static_cast<int>( currentMesh.max_level() ),
-                                               static_cast<int>( level ) + leveldiff );
+                std::size_t minlevel_check = static_cast<std::size_t>( std::max( static_cast<int>( currentMesh.min_level() ),
+                                             static_cast<int>( level ) - static_cast<int>( leveldiff ) ) );
+                std::size_t maxlevel_check = std::min( currentMesh.max_level(), level + leveldiff );
 
                 for(size_t projlevel=minlevel_check; projlevel<=maxlevel_check; ++projlevel ){
 
@@ -435,7 +433,7 @@ namespace samurai{
                     auto intersect = intersection( set, currentMesh[ projlevel ] ).on( projlevel );
 
                     size_t nbInter_ = 0, nbCells = 0;
-                    intersect([&]( auto & interval, auto & index ) {
+                    intersect([&]( auto & interval, [[maybe_unused]] auto & index ) {
                         nbInter_ += 1;
                         nbCells  += interval.size();
                     });
@@ -494,7 +492,7 @@ namespace samurai{
 
         // give access to geometricaly neighbour process rank and mesh
         std::vector<mpi_subdomain_t> & neighbourhood = mesh.mpi_neighbourhood();
-        int n_neighbours = static_cast<int>( neighbourhood.size() );
+        std::size_t n_neighbours = neighbourhood.size();
 
         std::vector<CellList_t> interface( n_neighbours );
 
@@ -504,7 +502,7 @@ namespace samurai{
         // looks like using only FACE is better than using DIAG or FACE_AND_DIAG
         auto dirs = getDirection<dim, dir>();
         
-        for( int nbi=0; nbi<n_neighbours; ++nbi ){
+        for( std::size_t nbi=0; nbi<n_neighbours; ++nbi ){
 
             auto neighbour_mesh = neighbourhood[ nbi ].mesh[ mesh_id_t::cells ];
 
@@ -512,26 +510,23 @@ namespace samurai{
                 
                 const auto & stencil = dirs[ ist ];
 
-                size_t nbCellsIntersection = 0, nbIntervalIntersection = 0;
                 size_t minlevel = neighbour_mesh.min_level();
                 size_t maxlevel = neighbour_mesh.max_level();
 
                 for( size_t level=minlevel; level<=maxlevel; ++level ) {
 
                     // for each level we need to check level -1 / 0 / +1
-                    int minlevel_check = std::max( static_cast<int>( currentMesh.min_level() ),
-                                                    static_cast<int>( level ) - 1 );
-                    int maxlevel_check = std::min( static_cast<int>( currentMesh.max_level() ),
-                                                    static_cast<int>( level ) + 1 );
+                    std::size_t minlevel_check = static_cast<std::size_t>( std::max( static_cast<int>( currentMesh.min_level() ),  static_cast<int>( level ) - 1 ) );
+                    std::size_t maxlevel_check = std::min( currentMesh.max_level() , level + static_cast<std::size_t>( 1 ) );
 
-                    for(size_t projlevel=minlevel_check; projlevel<=maxlevel_check; ++projlevel ){
+                    for(std::size_t projlevel=minlevel_check; projlevel<=maxlevel_check; ++projlevel ){
 
                         // translate neighbour from dir (hopefully to current) all direction are tested
                         auto set = translate( neighbour_mesh[ level ], stencil );
                         auto intersect = intersection( set, currentMesh[ projlevel ] ).on( projlevel );
 
                         size_t nbInter_ = 0, nbCells_ = 0;
-                        intersect([&]( auto & interval, auto & index ) {
+                        intersect([&]( auto & interval, [[maybe_unused]] auto & index ) {
                             nbInter_ += 1;
                             nbCells_ += interval.size();
                         });
@@ -558,9 +553,6 @@ namespace samurai{
                             }
                         }
 
-                        nbCellsIntersection    = nbCells_ ;
-                        nbIntervalIntersection = nbInter_ ;
-
                     }
 
                 }
@@ -570,7 +562,7 @@ namespace samurai{
         }
 
         std::vector<CellArray_t> interface_( n_neighbours );
-        for(size_t nbi=0; nbi<n_neighbours; ++ nbi ){
+        for(std::size_t nbi=0; nbi<n_neighbours; ++ nbi ){
             interface_[ nbi ] = { interface[ nbi ], true };
         }
 
@@ -589,9 +581,9 @@ namespace samurai{
 
             // number of cells 
             // supposing each cell has a cost of 1. ( no level dependency )
-            size_t load = all[ irank ]._load;
+            int32_t load = all[ irank ]._load;
 
-            int n_neighbours = all[ irank ].neighbour.size();
+            std::size_t n_neighbours = all[ irank ].neighbour.size();
             
             {
                 std::cerr << "[compute_load_balancing_fluxes] Process # " << irank << " load : " << load << std::endl;
@@ -623,20 +615,20 @@ namespace samurai{
                 // mpi::all_gather(world, m_mpi_neighbourhood.size(), nb_neighbours);
 
                 // load of current process
-                int64_t load_np1 = load;
+                int32_t load_np1 = load;
 
                 // compute updated load for current process based on its neighbourhood
                 for (std::size_t j_rank = 0; j_rank < n_neighbours; ++j_rank){
 
-                    auto neighbour_rank = all[ irank ].neighbour[ j_rank ];
+                    auto neighbour_rank = static_cast<std::size_t>( all[ irank ].neighbour[ j_rank ] );
                     auto neighbour_load = all[ irank ].load[ j_rank ];
-                    int64_t diff_load = neighbour_load - load;
+                    auto diff_load = neighbour_load - load;
 
-                    int nb_neighbours_neighbour = all[ neighbour_rank ].neighbour.size();
+                    std::size_t nb_neighbours_neighbour = all[ neighbour_rank ].neighbour.size();
 
-                    double weight = 1. / ( std::max( n_neighbours, nb_neighbours_neighbour ) + 1 );
+                    double weight = 1. / static_cast<double>( std::max( n_neighbours, nb_neighbours_neighbour ) + 1 );
 
-                    int64_t transfertLoad = static_cast<int64_t>( std::lround( weight * diff_load ) );
+                    int32_t transfertLoad = static_cast<int32_t>( std::lround( weight * static_cast<double>( diff_load ) ) );
 
                     all[ irank].fluxes[ j_rank ] += transfertLoad;
 
@@ -654,7 +646,7 @@ namespace samurai{
 
                 // load_transfer( load_fluxes );
 
-                load = static_cast<std::size_t>(load_np1);
+                load = load_np1;
             }
 
         }
@@ -683,32 +675,28 @@ namespace samurai{
             
             const auto & stencil = dirs[ ist ];
 
-            size_t nbIntervalIntersection = 0;
             size_t minlevel = meshB_.min_level();
             size_t maxlevel = meshB_.max_level();
 
             for( size_t level=minlevel; level<=maxlevel; ++level ) {
 
                 // for each level we need to check level -1 / 0 / +1
-                int minlevel_check = std::max( static_cast<int>( meshA_.min_level() ),
-                                               static_cast<int>( level ) - 1 );
-                int maxlevel_check = std::min( static_cast<int>( meshA_.max_level() ),
-                                               static_cast<int>( level ) + 1 );
+                std::size_t minlevel_check = static_cast<std::size_t>( std::max( static_cast<int>( meshA_.min_level() ),
+                                               static_cast<int>( level ) - 1 ) );
+                std::size_t maxlevel_check = std::min( meshA_.max_level(), level + static_cast<std::size_t>( 1 ) );
 
-                for(size_t projlevel=minlevel_check; projlevel<=maxlevel_check; ++projlevel ){
+                for(std::size_t projlevel=minlevel_check; projlevel<=maxlevel_check; ++projlevel ){
 
                     // translate meshB_ in "dir" direction
                     auto set = translate( meshB_[ level ], stencil );
                     auto intersect = intersection( set, meshA_[ projlevel ] ).on( projlevel );
 
                     size_t nbInter_ = 0;
-                    intersect([&]( auto & interval, auto & index ) {
+                    intersect([&]( [[maybe_unused]] auto & interval, [[maybe_unused]] auto & index ) {
                         nbInter_ += 1;
                     });
 
                     if( nbInter_ > 0 ) return true;
-
-                    nbIntervalIntersection += nbInter_ ;
 
                 }
 
@@ -724,7 +712,7 @@ namespace samurai{
      * Discover new neighbour connection that might arise during load balancing
     */
     template <int dim, class Mesh_t>
-    bool discover_neighbour( Mesh_t & mesh ) {
+    void discover_neighbour( Mesh_t & mesh ) {
 
         using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
 
@@ -737,9 +725,8 @@ namespace samurai{
 
         // give access to geometricaly neighbour process rank and mesh
         std::vector<mpi_subdomain_t> & neighbourhood = mesh.mpi_neighbourhood();
-        int n_neighbours = static_cast<int>( neighbourhood.size() );
 
-        bool requireGeneralUpdate = false;
+        // bool requireGeneralUpdate = false;
 
         std::vector<bool> keepNeighbour( neighbourhood.size(), true );
 
@@ -752,7 +739,7 @@ namespace samurai{
             keepNeighbour[ nbi ] = intersectionExists<dim, Direction_t::FACE_AND_DIAG>( mesh, neighbourhood[ nbi ].mesh );
 
             // require update if a connection is lost
-            requireGeneralUpdate = requireGeneralUpdate || ( ! keepNeighbour[ nbi ] );
+            // requireGeneralUpdate = requireGeneralUpdate || ( ! keepNeighbour[ nbi ] );
 
             if( ! keepNeighbour[ nbi ] ){
                 logs << fmt::format("Loosing neighbour connection with {}", neighbourhood[ nbi ].rank) << std::endl;
@@ -802,7 +789,7 @@ namespace samurai{
                     logs << "\t\t> New neighbour detected : " <<  _rcv_neighbour_list[ in ] << std::endl;
 
                     _tmp[ _rcv_neighbour_list[ in ] ] = true;
-                    requireGeneralUpdate = requireGeneralUpdate || true;
+                    // requireGeneralUpdate = requireGeneralUpdate || true;
                 }
             }
 
@@ -827,7 +814,7 @@ namespace samurai{
         // gather neighbour mesh
         mesh.update_mesh_neighbour();
 
-        return requireGeneralUpdate;
+        // return requireGeneralUpdate;
     }
 
 } // namespace samurai
