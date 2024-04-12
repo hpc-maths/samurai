@@ -26,7 +26,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             _ndomains = 1;
             _rank     = 0;
 #endif
-        };
+        }
 
         inline std::string getName() const { return "SFC_" + _sfc.getName() + "_LB"; }
 
@@ -69,7 +69,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
                 // convert logical coordinate to max level logical coordinates
                 for( int idim=0; idim<dim; ++idim ){
-                    icell( idim ) = icell( idim ) << ( mesh.max_level() - level );
+                    icell( idim ) = icell( idim ) << ( mesh.max_level() - level + 1 );
                 }
 
                 // this is where think can get nasty,  we expect indices to be positive values !!
@@ -91,7 +91,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             logs << "Boundaries [" << interval[ 0 ] << ", " << interval[ 1 ] << "]" << std::endl;
 
             std::vector<int> load_interval;
-            int my_load_i = static_cast<int>( cmptLoad<samurai::BalanceElement_t::INTERVAL>( mesh ) );
+            int my_load_i = static_cast<int>( samurai::cmptLoad<samurai::BalanceElement_t::INTERVAL>( mesh ) );
             boost::mpi::all_gather( world, my_load_i, load_interval );
 
             // compute load to transfer to neighbour rank-1, rank+1
@@ -102,13 +102,13 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             if( _rank > 0 ) { 
                 neighbour_rank_prev = _rank - 1;
                 // transfer TRANSFER_PERCENT % max of difference
-                transfer_load_prev = - static_cast<int>( ( my_load_i - load_interval[ neighbour_rank_prev ] ) * TRANSFER_PERCENT );
+                transfer_load_prev = - static_cast<int>( ( my_load_i - load_interval[ static_cast<std::size_t>( neighbour_rank_prev ) ] ) * TRANSFER_PERCENT );
             }
 
             if( _rank < _ndomains - 1 ) { 
                 neighbour_rank_next = _rank + 1;
                 // transfer TRANSFER_PERCENT % max of difference
-                transfer_load_next = - static_cast<int>( ( my_load_i - load_interval[ neighbour_rank_next ] ) * TRANSFER_PERCENT );
+                transfer_load_next = - static_cast<int>( ( my_load_i - load_interval[ static_cast<std::size_t>( neighbour_rank_next ) ] ) * TRANSFER_PERCENT );
             }
 
             logs << "Neighbour prev : " << neighbour_rank_prev << ", loads : " << transfer_load_prev << std::endl;
@@ -186,8 +186,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             mesh.update_mesh_neighbour();
 
             // update neighbour connectivity
-            auto requireNextIter = samurai::discover_neighbour<dim>( mesh );
-            requireNextIter = samurai::discover_neighbour<dim>( mesh );
+            samurai::discover_neighbour<dim>( mesh );
+            samurai::discover_neighbour<dim>( mesh );
 
 
         }

@@ -53,7 +53,6 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             using CellArray_t     = samurai::CellArray<dim>;
             using Cell_t          = typename Mesh_t::cell_t;
             using mesh_id_t       = typename Mesh_t::mesh_id_t;
-            using Coord_t         = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
             boost::mpi::communicator world;
 
@@ -65,10 +64,10 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             // give access to rank & mesh of neighbour
             std::vector<mpi_subdomain_t> & neighbourhood = mesh.mpi_neighbourhood();
             
-            size_t n_neighbours = neighbourhood.size();
+            std::size_t n_neighbours = neighbourhood.size();
 
             std::vector<double> loads;
-            double my_load = static_cast<double>( cmptLoad<samurai::BalanceElement_t::CELL>( mesh ) );
+            double my_load = static_cast<double>( samurai::cmptLoad<samurai::BalanceElement_t::CELL>( mesh ) );
             boost::mpi::all_gather( world, my_load, loads );
 
             // get the load to neighbours (geometrical neighbour)
@@ -90,11 +89,11 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             // domaines en eux mêmes !
 
             // Interface for each neighbour as cell_array
-            auto interface = _computeCartesianInterface<dim, samurai::Direction_t::FACE_AND_DIAG>( mesh );
+            auto interface = samurai::_computeCartesianInterface<dim, samurai::Direction_t::FACE_AND_DIAG>( mesh );
 
             // compute some point of reference in mesh and interval-based interface
             // Coord_t barycenter = _cmpIntervalBarycenter( mesh[ mesh_id_t::cells ] );
-            Coord_t barycenter = _cmpCellBarycenter<dim>( mesh[ mesh_id_t::cells ] );
+            Coord_t barycenter = samurai::_cmpCellBarycenter<dim>( mesh[ mesh_id_t::cells ] );
             logs << "Domain barycenter : " << fmt::format( " barycenter : ({}, {})", barycenter(0), barycenter(1) ) << std::endl;
 
             // std::vector<Coord_t> barycenter_interface_neighbours( n_neighbours );
@@ -104,7 +103,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             for(size_t nbi=0; nbi<n_neighbours; ++nbi ){
                 // barycenter_interface_neighbours[ nbi ] = _cmpIntervalBarycenter( interface[ nbi ] );
                 // barycenter_interface_neighbours[ nbi ] = _cmpCellBarycenter<dim>( interface[ nbi ] );
-                barycenter_neighbours[ nbi ] = _cmpCellBarycenter<dim>( neighbourhood[ nbi ].mesh[ mesh_id_t::cells ] );
+                barycenter_neighbours[ nbi ] = samurai::_cmpCellBarycenter<dim>( neighbourhood[ nbi ].mesh[ mesh_id_t::cells ] );
                 
                 sv[ nbi ] = getSurfaceOrVolume( neighbourhood[ nbi ].mesh );
 
@@ -142,9 +141,9 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 double winner_dist = samurai::getDistance<dim, fdist>( cc, barycenter ) * coeff_current;
 
                 // select the neighbour
-                for( size_t ni=0; ni<n_neighbours; ++ni ){ // for each neighbour
+                for( std::size_t ni=0; ni<n_neighbours; ++ni ){ // for each neighbour
 
-                    auto neighbour_rank = neighbourhood[ ni ].rank;
+                    auto neighbour_rank = static_cast<std::size_t>( neighbourhood[ ni ].rank );
 
                     if( fluxes[ ni ] >= 0 ) continue; // skip neighbour that will recv
 
@@ -159,7 +158,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                     // double dist = std::max( d1, d2 );
 
                     if( dist < winner_dist ){
-                        winner_id   = ni;
+                        winner_id   = static_cast<int>( ni );
                         winner_dist = dist;
                     }
                     
@@ -187,21 +186,23 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             // for( auto & it : repartition ){
             for( auto it = repartition.begin(); it != repartition.end(); it++ ){
 
+                std::size_t rank = static_cast<std::size_t>( it->second.rank );
+
                 // shouldn't we give it to the second closest neighbour ?!
-                if( given_[ it->second.rank ] + 1 <= ( - fluxes[ it->second.rank ] ) ){
+                if( given_[ rank ] + 1 <= ( - fluxes[ rank ] ) ){
                     
                     if constexpr ( dim == 3 ) {
                         auto i = it->second.cell.indices[ 0 ];
                         auto j = it->second.cell.indices[ 1 ];
                         auto k = it->second.cell.indices[ 2 ];
-                        cl_to_send[ it->second.rank ][ it->second.cell.level ][ { j, k } ].add_point( i );
+                        cl_to_send[ rank ][ it->second.cell.level ][ { j, k } ].add_point( i );
                     }else{
                         auto i = it->second.cell.indices[ 0 ];
                         auto j = it->second.cell.indices[ 1 ];
-                        cl_to_send[ it->second.rank ][ it->second.cell.level ][ { j } ].add_point( i );
+                        cl_to_send[ rank ][ it->second.cell.level ][ { j } ].add_point( i );
                     }
 
-                    given_[ it->second.rank ] += 1;
+                    given_[ rank ] += 1;
 
                 }
 
@@ -249,12 +250,9 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             mesh.update_mesh_neighbour();
 
             // discover neighbours, since it might have changed
-            bool requireNextIter = true; 
             
-            // while( requireNextIter ){
-                requireNextIter = samurai::discover_neighbour<dim>( mesh );
-                requireNextIter = samurai::discover_neighbour<dim>( mesh );
-            // }
+            samurai::discover_neighbour<dim>( mesh );
+            samurai::discover_neighbour<dim>( mesh );
 
         }
         
