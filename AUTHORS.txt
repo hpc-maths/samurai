@@ -17,8 +17,3 @@ Scientific contributors, in last name alphabetical order:
     Loic Gouarin
     Marc Massot
     Pierre Matalon
-
-Other contributors (bug, doc, etc), in last name alphabetical order:
-
-    Nicolas Grenier
-    Denis Roland
