@@ -4,6 +4,17 @@
     "applicationCategory": "scientific computing",
     "author": [
         {
+            "id": "https://orcid.org/0000-0001-8823-7667",
+            "type": "Person",
+            "affiliation": {
+                "type": "Organization",
+                "name": "CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris, 91128 Palaiseau Cedex, France"
+            },
+            "email": "thomas.bellotti@polytechnique.edu",
+            "familyName": "Bellotti",
+            "givenName": "Thomas"
+        },
+        {
             "id": "https://orcid.org/0000-0003-4761-9989",
             "type": "Person",
             "affiliation": {
@@ -15,17 +26,6 @@
             "givenName": "Loic"
         },
         {
-            "id": "https://orcid.org/0000-0002-4288-2289",
-            "type": "Person",
-            "affiliation": {
-                "type": "Organization",
-                "name": "CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris, 91128 Palaiseau Cedex, France"
-            },
-            "email": "pierre.matalon@polytechnique.edu",
-            "familyName": "Matalon",
-            "givenName": "Pierre"
-        },
-        {
             "id": "https://orcid.org/0000-0001-8823-7667",
             "type": "Person",
             "affiliation": {
@@ -35,6 +35,17 @@
             "email": "marc.massot@polytechnique.edu",
             "familyName": "Massot",
             "givenName": "Marc"
+        },
+        {
+            "id": "https://orcid.org/0000-0002-4288-2289",
+            "type": "Person",
+            "affiliation": {
+                "type": "Organization",
+                "name": "CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris, 91128 Palaiseau Cedex, France"
+            },
+            "email": "pierre.matalon@polytechnique.edu",
+            "familyName": "Matalon",
+            "givenName": "Pierre"
         }
     ],
     "dateCreated": "2018-12-01",
