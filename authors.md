@@ -1,0 +1,17 @@
+# This is the list of samurai's significant contributors.
+#
+# This does not necessarily list everyone who has contributed code,
+# especially since many employees of one corporation may be contributing.
+# To see the full list of contributors, see the revision history in
+# source control.
+
+Development contributors, in last name alphabetical order:
+
+    Loic Gouarin
+    Pierre Matalon
+
+Scientific contributors, in last name alphabetical order:
+
+    Loic Gouarin
+    Marc Massot
+    Pierre Matalon
