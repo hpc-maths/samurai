@@ -1,0 +1,71 @@
+{
+    "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+    "type": "SoftwareSourceCode",
+    "applicationCategory": "scientific computing",
+    "author": [
+        {
+            "id": "https://orcid.org/0000-0001-8823-7667",
+            "type": "Person",
+            "affiliation": {
+                "type": "Organization",
+                "name": "CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris, 91128 Palaiseau Cedex, France"
+            },
+            "email": "thomas.bellotti@polytechnique.edu",
+            "familyName": "Bellotti",
+            "givenName": "Thomas"
+        },
+        {
+            "id": "https://orcid.org/0000-0003-4761-9989",
+            "type": "Person",
+            "affiliation": {
+                "type": "Organization",
+                "name": "CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris, 91128 Palaiseau Cedex, France"
+            },
+            "email": "loic.gouarin@polytechnique.edu",
+            "familyName": "Gouarin",
+            "givenName": "Loic"
+        },
+        {
+            "id": "https://orcid.org/0000-0001-8823-7667",
+            "type": "Person",
+            "affiliation": {
+                "type": "Organization",
+                "name": "CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris, 91128 Palaiseau Cedex, France"
+            },
+            "email": "marc.massot@polytechnique.edu",
+            "familyName": "Massot",
+            "givenName": "Marc"
+        },
+        {
+            "id": "https://orcid.org/0000-0002-4288-2289",
+            "type": "Person",
+            "affiliation": {
+                "type": "Organization",
+                "name": "CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris, 91128 Palaiseau Cedex, France"
+            },
+            "email": "pierre.matalon@polytechnique.edu",
+            "familyName": "Matalon",
+            "givenName": "Pierre"
+        }
+    ],
+    "dateCreated": "2018-12-01",
+    "dateModified": "2024-04-06",
+    "datePublished": "2023-04-18",
+    "description": "The use of mesh adaptation methods in numerical simulation allows to drastically reduce the memory footprint and the computational costs. There are different kinds of methods: AMR patch-based, AMR cell-based, multiresolution cell-based or point-based, ...\n\nDifferent open source software is available to the community to manage mesh adaptation: AMReX for patch-based AMR, p4est and pablo for cell-based adaptation.\n\nThe strength of samurai is that it allows to implement all the above mentioned mesh adaptation methods from the same data structure. The mesh is represented as intervals and a set algebra allows to efficiently search for subsets among these intervals. Samurai also offers a flexible and pleasant interface to easily implement numerical methods.",
+    "downloadUrl": "https://github.com/hpc-maths/samurai/releases",
+    "keywords": [
+        "mesh adaptation",
+        "PDE",
+        "AMR",
+        "multiresolution"
+    ],
+    "license": "https://spdx.org/licenses/BSD-3-Clause",
+    "name": "samurai",
+    "operatingSystem": [
+        "Linux",
+        "Windows",
+        "MacOS"
+    ],
+    "programmingLanguage": "C++",
+    "version": "0.12.0"
+}
