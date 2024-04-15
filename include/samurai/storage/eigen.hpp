@@ -85,43 +85,45 @@ namespace samurai
     template <class value_t, bool SOA>
     auto view(eigen_container<value_t, 1, SOA>& container, const range_t<Eigen::Index>& range)
     {
-        return container.data().middleRows(range.start, range.end - range.start + 1);
-    }
-
-    template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
-    auto view(eigen_container<value_t, size, false>& container, const range_t<Eigen::Index>& range)
-    {
-        return container.data().middleRows(range.start, range.end - range.start + 1);
+        return container.data()(Eigen::seq(range.start, range.end - 1, range.step));
     }
 
     template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
     auto view(eigen_container<value_t, size, true>& container, const range_t<Eigen::Index>& range)
     {
-        return container.data().middleCols(range.start, range.end - range.start + 1);
+        return container.data()(Eigen::all, Eigen::seq(range.start, range.end - 1, range.step));
+    }
+
+    template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
+    auto view(eigen_container<value_t, size, false>& container, const range_t<Eigen::Index>& range)
+    {
+        return container.data()(Eigen::seq(range.start, range.end - 1, range.step), Eigen::all);
     }
 
     template <class value_t, std::size_t size>
     auto view(eigen_container<value_t, size, true>& container, const range_t<Eigen::Index>& range_item, const range_t<Eigen::Index>& range)
     {
-        return container.data().block(range_item.start, range.start, range_item.end - range_item.start + 1, range.end - range.start + 1);
+        return container.data()(Eigen::seq(range_item.start, range_item.end - 1, range_item.step),
+                                Eigen::seq(range.start, range.end - 1, range.step));
     }
 
     template <class value_t, std::size_t size>
     auto view(eigen_container<value_t, size, false>& container, const range_t<Eigen::Index>& range_item, const range_t<Eigen::Index>& range)
     {
-        return container.data().block(range.start, range_item.start, range.end - range.start + 1, range_item.end - range_item.start + 1);
+        return container.data()(Eigen::seq(range.start, range.end - 1, range.step),
+                                Eigen::seq(range_item.start, range_item.end - 1, range_item.step));
     }
 
     template <class value_t, std::size_t size>
     auto view(eigen_container<value_t, size, true>& container, std::size_t item, const range_t<Eigen::Index>& range)
     {
-        return container.data().block(item, range.start, 1, range.end - range.start + 1);
+        return container.data()(item, Eigen::seq(range.start, range.end - 1, range.step));
     }
 
     template <class value_t, std::size_t size>
     auto view(eigen_container<value_t, size, false>& container, std::size_t item, const range_t<Eigen::Index>& range)
     {
-        return container.data().block(range.start, item, range.end - range.start + 1, 1);
+        return container.data()(Eigen::seq(range.start, range.end - 1, range.step), item);
     }
 
 }
