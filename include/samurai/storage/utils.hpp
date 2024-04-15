@@ -10,5 +10,6 @@ namespace samurai
     {
         T start;
         T end;
+        T step = 1;
     };
 }
