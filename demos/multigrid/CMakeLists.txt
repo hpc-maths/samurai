@@ -5,5 +5,5 @@ if (PETSC_FOUND)
 
     add_executable(multigrid main.cpp)
 
-    target_link_libraries(multigrid samurai ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+    target_link_libraries(multigrid samurai ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
 endif()
