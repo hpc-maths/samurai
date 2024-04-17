@@ -30,8 +30,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
         inline std::string getName() const { return "SFC_" + _sfc.getName() + "_LB"; }
 
-        template<class Mesh>
-        void load_balance_impl( Mesh & mesh ){
+        template<class Mesh, class... Fields>
+        void load_balance_impl( Mesh & mesh, Fields&... data ){
             
             using Config  = samurai::MRConfig<dim>;
             using Mesh_t  = samurai::MRMesh<Config>;
@@ -43,6 +43,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                 size_t level;
                 inter_t interval;
                 xt::xtensor_fixed<samurai::default_config::value_t, xt::xshape<dim - 1>> indices;
+                bool given;
             };
 
             boost::mpi::communicator world;
@@ -78,7 +79,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                     ijk( idim ) = static_cast<uint32_t>( icell( idim ) );
                 }
                 
-                sfc_map[ _sfc.template getKey<dim>( ijk ) ] = { level, inter, index };
+                sfc_map[ _sfc.template getKey<dim>( ijk ) ] = { level, inter, index, false };
 
                 ninterval ++;
             });
@@ -111,8 +112,15 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                 transfer_load_next = - static_cast<int>( ( my_load_i - load_interval[ static_cast<std::size_t>( neighbour_rank_next ) ] ) * TRANSFER_PERCENT );
             }
 
-            logs << "Neighbour prev : " << neighbour_rank_prev << ", loads : " << transfer_load_prev << std::endl;
-            logs << "Neighbour next : " << neighbour_rank_next << ", loads : " << transfer_load_next << std::endl;
+            logs << "Neighbour prev : " << neighbour_rank_prev << ", transfer of loads : " << transfer_load_prev << std::endl;
+            logs << "Neighbour next : " << neighbour_rank_next << ", transfer of loads : " << transfer_load_next << std::endl;
+
+            /**
+             * In this section we update the current process mesh data based on what is sent and receive
+             * 
+            */
+
+            CellList_t new_cl; // this will contains the final mesh of the current process
 
             // need send data to prev neighbour
             if( neighbour_rank_prev >= 0 && transfer_load_prev != 0 ){
@@ -125,6 +133,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                     for (auto iter = sfc_map.begin(); iter != sfc_map.end(); ++iter) {
                         if( transfer_load_prev < 0 && my_load_i > 0 ){
                             cl_to_send[ iter->second.level][ iter->second.indices ].add_interval( iter->second.interval );
+                            iter->second.given = true; // flag for "interval" has been sent
                             my_load_i -= 1;
                             transfer_load_prev += 1;
                             niter_send ++;
@@ -133,17 +142,30 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                         }
                     }
 
-                    logs << "\t> Sending " << niter_send << " interval to " << neighbour_rank_prev << std::endl;
-
                     CellArray_t ca_to_send = { cl_to_send, false };
+
+                    logs << "\t> Sending nbCells {" << ca_to_send.nb_cells() << "} to process : " << neighbour_rank_prev << std::endl;
+
                     world.send( neighbour_rank_prev, 42, ca_to_send );
-                    mesh.remove( ca_to_send );
+
+                    // auto new_mesh = samurai::load_balance::remove( mesh, ca_to_send );
+                    // logs << "\t> New mesh : " << new_mesh.nb_cells() << std::endl;
+
+                    // mesh.remove( ca_to_send );
 
                 }else{
                     // need recv
                     CellArray_t ca_to_rcv;
                     world.recv( neighbour_rank_prev, 42, ca_to_rcv );
-                    mesh.merge( ca_to_rcv );
+
+                    logs << "\t> Receiving nbCells {" << ca_to_rcv.nb_cells() << "} from process : " << neighbour_rank_prev << std::endl;
+
+                    // mesh.merge( ca_to_rcv );
+                    // add to CL what we just receive
+                    samurai::for_each_interval( ca_to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
+                        new_cl[ level ][ index ].add_interval( interval );
+                    });
+                    
                 }
 
             }
@@ -158,6 +180,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                     for (auto iter = sfc_map.rbegin(); iter != sfc_map.rend(); ++iter) {
                         if( transfer_load_next < 0 && my_load_i > 0 ){
                             cl_to_send[ iter->second.level][ iter->second.indices ].add_interval( iter->second.interval );
+                            iter->second.given = true;
                             my_load_i -= 1;
                             transfer_load_next += 1;
                             niter_send ++;
@@ -166,20 +189,46 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                         }
                     }
 
-                    logs << "\t> Sending " << niter_send << " interval to " << neighbour_rank_next << std::endl;
-
                     CellArray_t ca_to_send = { cl_to_send, false };
+
+                    logs << "\t> Sending nbCells {" << ca_to_send.nb_cells() << "} to process : " << neighbour_rank_next << std::endl;
+
                     world.send( neighbour_rank_next, 42, ca_to_send );
+                    
+                    // auto new_mesh = samurai::load_balance::remove( mesh, ca_to_send );
+                    // logs << "\t> New mesh : " << new_mesh.nb_cells() << std::endl;
+
                     mesh.remove( ca_to_send );
 
                 }else{
                     // need recv
                     CellArray_t ca_to_rcv;
                     world.recv( neighbour_rank_next, 42, ca_to_rcv );
-                    mesh.merge( ca_to_rcv );
+
+                    logs << "\t> Receiving nbCells {" << ca_to_rcv.nb_cells() << "} from process : " << neighbour_rank_next << std::endl;
+
+                    // mesh.merge( ca_to_rcv );
+                    // add to CL what we just receive
+                    samurai::for_each_interval( ca_to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
+                        new_cl[ level ][ index ].add_interval( interval );
+                    });
+
                 }
 
             }
+
+            // last loop over the map to add what is left
+            for (auto iter = sfc_map.rbegin(); iter != sfc_map.rend(); ++iter) {
+                if( ! iter->second.given ){
+                    new_cl[ iter->second.level][ iter->second.indices ].add_interval( iter->second.interval );
+                }
+            }
+
+            Mesh_t new_mesh = { new_cl, false };
+
+            // new_cl is built
+
+            // NOW build a new MRMesh. This require to dev. a new constructor with the discover_neighbour ?
 
 
             // update neighbour mesh - this should end up with the same result but .. 
