@@ -251,8 +251,8 @@ namespace samurai{
         public:
 
             template<class Mesh, typename...Args>
-            void load_balance( Mesh & mesh, Args&... kw ){
-                static_cast<Flavor *>(this)->load_balance_impl( mesh, kw... );
+            Mesh load_balance( Mesh & mesh, Args&... kw ){
+                return static_cast<Flavor *>(this)->load_balance_impl( mesh, kw... );
             }
 
             template<class Mesh>
