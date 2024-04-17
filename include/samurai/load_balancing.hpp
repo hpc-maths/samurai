@@ -15,6 +15,60 @@
 #include <samurai/statistics.hpp>
 
 namespace samurai{
+
+    namespace load_balance {
+        
+        template <class Mesh_t, class CellArray_t>
+        Mesh_t merge( Mesh_t & mesh, const CellArray_t & lca ) {
+            using cl_type = typename Mesh_t::cl_type;
+
+            auto & refmesh = mesh[ Mesh_t::mesh_id_t::cells ];
+
+            auto minlevel = std::min( refmesh.min_level(), lca.min_level() );
+            auto maxlevel = std::max( refmesh.max_level(), lca.max_level() );
+
+            cl_type cl;
+            for( size_t ilvl=minlevel; ilvl<=maxlevel; ++ilvl ) {
+
+                auto un = samurai::union_( refmesh[ ilvl ], lca[ ilvl ] );
+
+                un([&]( auto & interval, auto & indices ) {
+                    cl[ ilvl ][ indices ].add_interval( interval );
+                });
+            }
+
+            return Mesh_t( cl, minlevel, maxlevel );
+
+        }
+
+        template <class Mesh_t, class CellArray_t>
+        Mesh_t remove( Mesh_t & mesh, CellArray_t & lca ) {
+            using cl_type = typename Mesh_t::cl_type;
+
+            auto & refmesh = mesh[ Mesh_t::mesh_id_t::cells ];
+
+            auto minlevel = std::min( refmesh.min_level(), lca.min_level() );
+            auto maxlevel = std::max( refmesh.max_level(), lca.max_level() );
+
+            // remove cells 
+            cl_type cl;
+            size_t diff_ncells = 0;
+            for( size_t ilvl=minlevel; ilvl<=maxlevel; ++ilvl ) {
+
+                auto diff = samurai::difference( refmesh[ ilvl ], lca[ ilvl ] );
+
+                diff([&]( auto & interval, auto & index ) {
+                    cl[ ilvl ][ index ].add_interval( interval );
+                    diff_ncells += interval.size(); 
+                });
+
+            }
+
+            // new mesh for current process
+            return Mesh_t( cl, minlevel, maxlevel );
+        }
+
+    }
     
     struct MPI_Load_Balance {
         int32_t _load;
