@@ -77,6 +77,8 @@ namespace samurai
         MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
+        // Used for load balancing
+        MRMesh( const cl_type & cl, std::size_t min_level, std::size_t max_level, std::vector<mpi_subdomain_t> & neighbourhood );
 
         void update_sub_mesh_impl();
 
@@ -114,6 +116,13 @@ namespace samurai
                                   std::size_t max_level,
                                   const std::array<bool, dim>& periodic)
         : base_type(b, max_level, min_level, max_level, periodic)
+    {
+    }
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh( const cl_type & cl, std::size_t min_level, std::size_t max_level, 
+                                    std::vector<mpi_subdomain_t> & neighbourhood)
+        : base_type(cl, min_level, max_level, neighbourhood )
     {
     }
 
@@ -357,7 +366,7 @@ struct fmt::formatter<samurai::MRMeshId> : formatter<string_view>
 {
     // parse is inherited from formatter<string_view>.
     template <typename FormatContext>
-    auto format(samurai::MRMeshId c, FormatContext& ctx)
+    auto format(samurai::MRMeshId c, FormatContext& ctx) const
     {
         string_view name = "unknown";
         switch (c)
