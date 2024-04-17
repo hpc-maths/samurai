@@ -159,6 +159,10 @@ namespace samurai
                   double approx_box_tol = lca_type::default_approx_box_tol,
                   double scaling_factor = 0);
 
+        // Used for load balancing
+        Mesh_base( const cl_type & cl, std::size_t min_level, std::size_t max_level, 
+                   std::vector<mpi_subdomain_t> & neighbourhood );
+
         derived_type& derived_cast() & noexcept;
         const derived_type& derived_cast() const& noexcept;
         derived_type derived_cast() && noexcept;
@@ -342,6 +346,23 @@ namespace samurai
         construct_union();
         update_sub_mesh();
         renumbering();
+    }
+
+    template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base( const cl_type & cl, std::size_t min_level, std::size_t max_level, 
+                   std::vector<mpi_subdomain_t> & neighbourhood ): m_min_level( min_level), m_max_level( max_level),
+                                                                   m_mpi_neighbourhood( neighbourhood ){
+        
+        // What to do with m_periodic ? 
+        // what to do with m_domain ?                                        
+        
+        m_cells[mesh_id_t::cells] = {cl, false};
+
+        update_mesh_neighbour();  // required to do that here ??
+        construct_subdomain();    // required ? 
+        construct_union();        // required ? 
+        update_sub_mesh();        // perform MPI allReduce calls
+        renumbering();            // required ? 
     }
 
     template <class D, class Config>
