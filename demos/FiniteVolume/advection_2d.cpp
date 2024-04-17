@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
 
     // Multiresolution parameters
     std::size_t min_level = 4;
-    std::size_t max_level = 10;
+    std::size_t max_level = 6;
     double mr_epsilon     = 2.e-4; // Threshold used by multiresolution
     double mr_regularity  = 1.;    // Regularity guess for multiresolution
     bool correction       = false;
@@ -267,7 +267,7 @@ int main(int argc, char* argv[])
         if( nt % 20 == 0 && nt > 1 ){
             std::cout << "\t> Load balancing mesh ... " <<  std::endl;
             myTimers.start("load-balancing");
-            balancer.load_balance( mesh );
+            auto new_mesh = balancer.load_balance( mesh );
             myTimers.stop("load-balancing");
             
             unp1.resize();

@@ -31,7 +31,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         inline std::string getName() const { return "SFC_" + _sfc.getName() + "_LB"; }
 
         template<class Mesh, class... Fields>
-        void load_balance_impl( Mesh & mesh, Fields&... data ){
+        Mesh load_balance_impl( Mesh & mesh, Fields&... data ){
             
             using Config  = samurai::MRConfig<dim>;
             using Mesh_t  = samurai::MRMesh<Config>;
@@ -86,10 +86,9 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
             assert( ninterval == sfc_map.size() );
 
-            // Key boundaries of current process
-            SFC_key_t interval[ 2 ] = { sfc_map.begin()->first, sfc_map.rbegin()->first };
-
-            logs << "Boundaries [" << interval[ 0 ] << ", " << interval[ 1 ] << "]" << std::endl;
+            // Key boundaries of current process - unused for now
+            // SFC_key_t interval[ 2 ] = { sfc_map.begin()->first, sfc_map.rbegin()->first };
+            // logs << "Boundaries [" << interval[ 0 ] << ", " << interval[ 1 ] << "]" << std::endl;
 
             std::vector<int> load_interval;
             int my_load_i = static_cast<int>( samurai::cmptLoad<samurai::BalanceElement_t::INTERVAL>( mesh ) );
@@ -224,20 +223,15 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                 }
             }
 
-            Mesh_t new_mesh = { new_cl, false };
-
-            // new_cl is built
-
-            // NOW build a new MRMesh. This require to dev. a new constructor with the discover_neighbour ?
-
-
-            // update neighbour mesh - this should end up with the same result but .. 
-            mesh.update_mesh_neighbour();
+            Mesh_t new_mesh( new_cl, mesh.min_level(), mesh.max_level(), mesh.mpi_neighbourhood() ); 
+            // mesh.update_mesh_neighbour(); done already in new_mesh constructor
 
             // update neighbour connectivity
-            samurai::discover_neighbour<dim>( mesh );
-            samurai::discover_neighbour<dim>( mesh );
+            samurai::discover_neighbour<dim>( new_mesh );
+            samurai::discover_neighbour<dim>( new_mesh );
 
+
+            return new_mesh;
 
         }
 
