@@ -16,6 +16,9 @@
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/subset_op.hpp>
 
+#include <samurai/load_balancing.hpp>
+#include <samurai/load_balancing_sfc.hpp>
+
 #include <samurai/timers.hpp>
 
 #include <filesystem>
@@ -158,8 +161,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
         fs::create_directory(path);
     }
 
-    boost::mpi::communicator world;
-    int mrank = world.rank();
+    int mrank = 0;
 
     samurai::for_each_cell(mesh,
                            [&](const auto& cell)
@@ -169,6 +171,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
+    mrank = world.rank();
     samurai::save(path, fmt::format("{}_size_{}{}", filename, world.size(), suffix), mesh, u, level_);
 #else
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
@@ -187,11 +190,11 @@ int main(int argc, char* argv[])
     // Simulation parameters
     double radius = 0.2, x_center = 0.3, y_center = 0.3;
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
-    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {4., 7.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {4., 4.};
     std::array<double, dim> a{
         {1, 1}
     };
-    double Tf  = .1;
+    double Tf  = .9;
     double cfl = 0.5;
 
     // Multiresolution parameters
@@ -242,7 +245,7 @@ int main(int argc, char* argv[])
     const double dt_save = Tf / static_cast<double>(nfiles);
     double t             = 0.;
 
-    auto u = init(mesh);
+    auto u = init( mesh, radius, x_center, y_center );
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
@@ -256,8 +259,21 @@ int main(int argc, char* argv[])
     std::size_t nsave = 1;
     std::size_t nt    = 0;
 
+    SFC_LoadBalancer_interval<dim, Morton> balancer;
+
     while (t != Tf)
     {
+
+        if( nt % 20 == 0 && nt > 1 ){
+            std::cout << "\t> Load balancing mesh ... " <<  std::endl;
+            myTimers.start("load-balancing");
+            balancer.load_balance( mesh );
+            myTimers.stop("load-balancing");
+            
+            unp1.resize();
+            u.resize();
+        }
+
         myTimers.start( "MRadaptation" );
         MRadaptation(mr_epsilon, mr_regularity);
         myTimers.stop( "MRadaptation" );
@@ -289,9 +305,10 @@ int main(int argc, char* argv[])
         std::swap(u.array(), unp1.array());
 
         myTimers.start( "I/O" );
-        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
-        {
-            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+        // if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf || true )
+        if( nt % 20 == 0 ) {
+            // const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            const std::string suffix = fmt::format("_ite_{}", nt);
             save(path, filename, u, suffix);
         }
         myTimers.stop( "I/O" );
