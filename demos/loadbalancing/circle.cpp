@@ -155,7 +155,7 @@ Timers benchmark_loadbalancing( struct Config_test_load_balancing<dim> & conf, L
 
     auto lvl = getLevel( mesh );
 
-    samurai::make_bc<samurai::Dirichlet>( u, 0. );
+    samurai::make_bc<samurai::Dirichlet<1>>( u, 0. );
 
     myTimers.start("mradapt");
     auto mradapt = samurai::make_MRAdapt( u );
@@ -182,7 +182,7 @@ Timers benchmark_loadbalancing( struct Config_test_load_balancing<dim> & conf, L
         auto u2 = initMultiCircles<dim>( newmesh, conf.bubles_r, conf.bubles_c );
         samurai::save( "init2_circle_"+std::to_string( conf.ndomains )+"_domains", newmesh, u2 );
 
-        auto conv = samurai::make_convection<decltype(u2)>( velocity );
+        auto conv = samurai::make_convection_upwind<decltype(u2)>( velocity );
         auto unp1 = samurai::make_field<double, 1>("unp1", newmesh);
 
         // myTimers.start( "update_ghost_mr_bf" );
@@ -298,7 +298,7 @@ int main( int argc, char * argv[] ){
         world.barrier();
     }
 
-     if( conf.rank == 0 ) std::cerr << "\t> Testing no loadbalancing (initial partitionning) " << std::endl;
+     if( conf.rank == 0 ) std::cerr << "\n\t> Testing no loadbalancing (initial partitionning) " << std::endl;
 
     { 
         auto times = benchmark_loadbalancing( conf, Void_LoadBalancer<dim> (), velocity );
