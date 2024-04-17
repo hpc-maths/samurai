@@ -269,7 +269,7 @@ namespace samurai
         construct_subdomain();
         m_domain = m_subdomain;
         construct_union();
-        update_sub_mesh();
+        update_sub_mesh(); // MPI AllReduce inside
         renumbering();
         update_mesh_neighbour();
     }
@@ -606,7 +606,8 @@ namespace samurai
         int product_of_sizes     = 1;
         for (std::size_t d = 0; d < dim - 1; ++d)
         {
-            sizes[d] = static_cast<int>(floor(pow(size, 1. / dim) * global_box.length()[d] / length_harmonic_avg));
+            sizes[d] = std::max( static_cast<int>(floor(pow(size, 1. / dim) * global_box.length()[d] / length_harmonic_avg)), 1 );
+
             product_of_sizes *= sizes[d];
         }
         sizes[dim - 1] = size / product_of_sizes;
@@ -737,7 +738,6 @@ namespace samurai
 
         // new mesh for current process
         refmesh = { cl, false };
-                
     }
 
     template <class D, class Config>
