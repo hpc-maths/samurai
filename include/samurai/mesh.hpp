@@ -125,9 +125,8 @@ namespace samurai
         void update_mesh_neighbour();
         void to_stream(std::ostream& os) const;
 
-
-        void merge( ca_type & lca );
-        void remove( ca_type & lca );
+        void merge(ca_type& lca);
+        void remove(ca_type& lca);
 
       protected:
 
@@ -135,7 +134,7 @@ namespace samurai
 
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
-        Mesh_base( const ca_type &ca, const self_type & ref_mesh);
+        Mesh_base(const ca_type& ca, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b,
@@ -145,8 +144,7 @@ namespace samurai
                   const std::array<bool, dim>& periodic);
 
         // Used for load balancing
-        Mesh_base( const cl_type & cl, std::size_t min_level, std::size_t max_level, 
-                   std::vector<mpi_subdomain_t> & neighbourhood );
+        Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level, std::vector<mpi_subdomain_t>& neighbourhood);
 
         derived_type& derived_cast() & noexcept;
         const derived_type& derived_cast() const& noexcept;
@@ -182,11 +180,11 @@ namespace samurai
             {
                 ar& m_cells[id];
             }
-            ar& m_domain;
-            ar& m_subdomain;
-            ar& m_union;
-            ar& m_min_level;
-            ar& m_min_level;
+            ar & m_domain;
+            ar & m_subdomain;
+            ar & m_union;
+            ar & m_min_level;
+            ar & m_min_level;
         }
 #endif
     };
@@ -307,28 +305,35 @@ namespace samurai
     {
         m_cells[mesh_id_t::cells] = ca;
 
-        update_mesh_neighbour();
         construct_subdomain();
         construct_union();
         update_sub_mesh();
         renumbering();
+        update_mesh_neighbour();
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base( const cl_type & cl, std::size_t min_level, std::size_t max_level, 
-                   std::vector<mpi_subdomain_t> & neighbourhood ): m_min_level( min_level), m_max_level( max_level),
-                                                                   m_mpi_neighbourhood( neighbourhood ){
-        
-        // What to do with m_periodic ? 
-        // what to do with m_domain ?                                        
-        
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl,
+                                           std::size_t min_level,
+                                           std::size_t max_level,
+                                           std::vector<mpi_subdomain_t>& neighbourhood)
+        : m_min_level(min_level)
+        , m_max_level(max_level)
+        , m_mpi_neighbourhood(neighbourhood)
+    {
+        m_periodic.fill(false);
+        assert(min_level <= max_level);
+
+        // what to do with m_domain ?
+        m_domain = m_subdomain;
+
         m_cells[mesh_id_t::cells] = {cl, false};
 
-        update_mesh_neighbour();  // required to do that here ??
-        construct_subdomain();    // required ? 
-        construct_union();        // required ? 
-        update_sub_mesh();        // perform MPI allReduce calls
-        renumbering();            // required ? 
+        update_mesh_neighbour(); // required to do that here ??
+        construct_subdomain();   // required ?
+        construct_union();       // required ?
+        update_sub_mesh();       // perform MPI allReduce calls
+        renumbering();           // required ?
     }
 
     template <class D, class Config>
@@ -394,8 +399,9 @@ namespace samurai
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
-        -> const interval_t&
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level,
+                                                   const interval_t& interval,
+                                                   const xt::xexpression<E>& index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }
@@ -609,7 +615,8 @@ namespace samurai
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box) {
+    void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
+    {
 #ifdef SAMURAI_WITH_MPI
         using box_t   = Box<value_t, dim>;
         using point_t = typename box_t::point_t;
@@ -627,7 +634,7 @@ namespace samurai
         int product_of_sizes     = 1;
         for (std::size_t d = 0; d < dim - 1; ++d)
         {
-            sizes[d] = std::max( static_cast<int>(floor(pow(size, 1. / dim) * global_box.length()[d] / length_harmonic_avg)), 1 );
+            sizes[d] = std::max(static_cast<int>(floor(pow(size, 1. / dim) * global_box.length()[d] / length_harmonic_avg)), 1);
 
             product_of_sizes *= sizes[d];
         }
@@ -673,7 +680,7 @@ namespace samurai
             }
         }
         box_t subdomain_box                          = {min_corner, max_corner};
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box}; 
+        this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
 
         m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
         for (int ir = 0; ir < size; ++ir)
@@ -713,52 +720,57 @@ namespace samurai
                     m_mpi_neighbourhood.push_back(neighbour(shift));
                 }
             });
-        
+
 #endif
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::merge( ca_type & lca ) {
+    void Mesh_base<D, Config>::merge(ca_type& lca)
+    {
         // merge received cells
 
-        auto & refmesh = this->m_cells[ mesh_id_t::cells ];
+        auto& refmesh = this->m_cells[mesh_id_t::cells];
 
-        auto minlevel = std::min( refmesh.min_level(), lca.min_level() );
-        auto maxlevel = std::max( refmesh.max_level(), lca.max_level() );
+        auto minlevel = std::min(refmesh.min_level(), lca.min_level());
+        auto maxlevel = std::max(refmesh.max_level(), lca.max_level());
 
         cl_type cl;
-        for( size_t ilvl=minlevel; ilvl<=maxlevel; ++ilvl ) {
+        for (size_t ilvl = minlevel; ilvl <= maxlevel; ++ilvl)
+        {
+            auto un = samurai::union_(refmesh[ilvl], lca[ilvl]);
 
-            auto un = samurai::union_( refmesh[ ilvl ], lca[ ilvl ] );
-
-            un([&]( auto & interval, auto & indices ) {
-                cl[ ilvl ][ indices ].add_interval( interval );
-            });
+            un(
+                [&](auto& interval, auto& indices)
+                {
+                    cl[ilvl][indices].add_interval(interval);
+                });
         }
 
-        refmesh = { cl, false };
+        refmesh = {cl, false};
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::remove( ca_type & lca) {
-        auto & refmesh = this->m_cells[ mesh_id_t::cells ];
+    void Mesh_base<D, Config>::remove(ca_type& lca)
+    {
+        auto& refmesh = this->m_cells[mesh_id_t::cells];
 
-        // remove cells 
+        // remove cells
         cl_type cl;
         size_t diff_ncells = 0;
-        for( size_t ilvl=refmesh.min_level(); ilvl<=refmesh.max_level(); ++ilvl ) {
+        for (size_t ilvl = refmesh.min_level(); ilvl <= refmesh.max_level(); ++ilvl)
+        {
+            auto diff = samurai::difference(refmesh[ilvl], lca[ilvl]);
 
-            auto diff = samurai::difference( refmesh[ ilvl ], lca[ ilvl ] );
-
-            diff([&]( auto & interval, auto & index ) {
-                cl[ ilvl ][ index ].add_interval( interval );
-                diff_ncells += interval.size(); 
-            });
-
+            diff(
+                [&](auto& interval, auto& index)
+                {
+                    cl[ilvl][index].add_interval(interval);
+                    diff_ncells += interval.size();
+                });
         }
 
         // new mesh for current process
-        refmesh = { cl, false };
+        refmesh = {cl, false};
     }
 
     template <class D, class Config>
