@@ -25,7 +25,7 @@
 namespace fs = std::filesystem;
 
 template <class Mesh>
-auto init(Mesh& mesh, const double radius, const double x_center, const double y_center )
+auto init(Mesh& mesh, const double radius, const double x_center, const double y_center)
 {
     auto u = samurai::make_field<double, 1>("u", mesh);
 
@@ -33,7 +33,7 @@ auto init(Mesh& mesh, const double radius, const double x_center, const double y
         mesh,
         [&](auto& cell)
         {
-            auto center           = cell.center();
+            auto center = cell.center();
             // const double radius   = .2;
             // const double x_center = 0.3;
             // const double y_center = 0.3;
@@ -166,8 +166,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     samurai::for_each_cell(mesh,
                            [&](const auto& cell)
                            {
-                               level_[cell] = cell.level;
-                                domain_[ cell ] = mrank;
+                               level_[cell]  = cell.level;
+                               domain_[cell] = mrank;
                            });
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
@@ -245,14 +245,14 @@ int main(int argc, char* argv[])
     const double dt_save = Tf / static_cast<double>(nfiles);
     double t             = 0.;
 
-    auto u = init( mesh, radius, x_center, y_center );
+    auto u = init(mesh, radius, x_center, y_center);
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
-    myTimers.start( "make_MRAdapt_init" );
+    myTimers.start("make_MRAdapt_init");
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
-    myTimers.stop( "make_MRAdapt_init" );
+    myTimers.stop("make_MRAdapt_init");
 
     save(path, filename, u, "_init");
 
@@ -263,20 +263,23 @@ int main(int argc, char* argv[])
 
     while (t != Tf)
     {
-
-        if( nt % 20 == 0 && nt > 1 ){
-            std::cout << "\t> Load balancing mesh ... " <<  std::endl;
+        if (nt % 20 == 0 && nt > 1)
+        {
+            std::cout << "\t> Load balancing mesh ... " << std::endl;
             myTimers.start("load-balancing");
-            auto new_mesh = balancer.load_balance( mesh );
+            balancer.load_balance(mesh, u);
             myTimers.stop("load-balancing");
-            
-            unp1.resize();
-            u.resize();
+
+            // const std::string suffix = fmt::format("_loadbalanced_{}", nt);
+            // save(path, filename, u, suffix);
+
+            // samurai::finalize();
+            // return 0;
         }
 
-        myTimers.start( "MRadaptation" );
+        myTimers.start("MRadaptation");
         MRadaptation(mr_epsilon, mr_regularity);
-        myTimers.stop( "MRadaptation" );
+        myTimers.stop("MRadaptation");
 
         t += dt;
         if (t > Tf)
@@ -287,15 +290,15 @@ int main(int argc, char* argv[])
 
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
-        myTimers.start( "update_ghost_mr" );
+        myTimers.start("update_ghost_mr");
         samurai::update_ghost_mr(u);
-        myTimers.stop( "update_ghost_mr" );
+        myTimers.stop("update_ghost_mr");
 
         unp1.resize();
 
-        myTimers.start( "upwind" );
+        myTimers.start("upwind");
         unp1 = u - dt * samurai::upwind(a, u);
-        myTimers.stop( "upwind" );
+        myTimers.stop("upwind");
 
         if (correction)
         {
@@ -304,15 +307,15 @@ int main(int argc, char* argv[])
 
         std::swap(u.array(), unp1.array());
 
-        myTimers.start( "I/O" );
+        myTimers.start("I/O");
         // if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf || true )
-        if( nt % 20 == 0 ) {
+        if (nt % 20 == 0)
+        {
             // const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             const std::string suffix = fmt::format("_ite_{}", nt);
             save(path, filename, u, suffix);
         }
-        myTimers.stop( "I/O" );
-
+        myTimers.stop("I/O");
     }
 
     myTimers.print();
