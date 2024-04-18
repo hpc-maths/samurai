@@ -874,13 +874,6 @@ namespace samurai
                     cl[ilvl][index].add_interval(interval);
                     diff_ncells += interval.size();
                 });
-
-            diff(
-                [&](auto& interval, auto& index)
-                {
-                    cl[ilvl][index].add_interval(interval);
-                    diff_ncells += interval.size();
-                });
         }
 
         // new mesh for current process
