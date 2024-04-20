@@ -26,13 +26,16 @@ namespace fs = std::filesystem;
 // #include "hdf5.hpp"
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
-#include "storage/xtensor.hpp"
+
+#include "storage/eigen.hpp"
+
+// #include "storage/xtensor.hpp"
 
 namespace samurai
 {
 
     template <class value_t, std::size_t size = 1, bool SOA = false>
-    using field_data_storage_t = xtensor_container<value_t, size, SOA>;
+    using field_data_storage_t = eigen_container<value_t, size, SOA>;
 
     template <class mesh_t, class value_t, std::size_t size = 1, bool SOA = false>
     class Field;
