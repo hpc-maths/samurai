@@ -99,7 +99,7 @@ namespace samurai
         template <std::size_t... I, class... T>
         inline auto evaluate(std::index_sequence<I...>, T&&... t) const
         {
-            return xt::eval(m_f(std::get<I>(m_e).operator()(std::forward<T>(t)...)...));
+            return m_f(std::get<I>(m_e).operator()(std::forward<T>(t)...)...);
         }
 
         const auto& arguments() const
@@ -119,13 +119,6 @@ namespace samurai
         : m_e(std::forward<CTA>(e)...)
         , m_f(std::forward<Func>(f))
     {
-    }
-
-    template <class F, class... E>
-    inline auto make_field_function(E&&... e) noexcept
-    {
-        using type = field_function<F, E...>;
-        return type(F(), std::forward<E>(e)...);
     }
 } // namespace samurai
 
