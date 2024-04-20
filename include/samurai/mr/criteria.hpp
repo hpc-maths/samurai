@@ -35,10 +35,20 @@ namespace samurai
                 if constexpr (size == 1)
                 {
                     // auto mask = xt::abs(detail(level, 2*i))/maxd < eps;
-                    auto mask = xt::abs(detail(fine_level, 2 * i)) < eps; // NO normalization
+                    auto mask = eval(abs(detail(fine_level, 2 * i)) < eps); // NO normalization
 
-                    xt::masked_view(tag(fine_level, 2 * i), mask)     = static_cast<int>(CellFlag::coarsen);
-                    xt::masked_view(tag(fine_level, 2 * i + 1), mask) = static_cast<int>(CellFlag::coarsen);
+                    apply_on_masked(tag(fine_level, 2 * i),
+                                    mask,
+                                    [](auto& e)
+                                    {
+                                        e = static_cast<int>(CellFlag::coarsen);
+                                    });
+                    apply_on_masked(tag(fine_level, 2 * i + 1),
+                                    mask,
+                                    [](auto& e)
+                                    {
+                                        e = static_cast<int>(CellFlag::coarsen);
+                                    });
                 }
                 else
                 {
@@ -273,7 +283,7 @@ namespace samurai
         {
             if constexpr (size == 1)
             {
-                return xt::eval(xt::abs(detail_view) > eps); // No normalization
+                return eval(abs(detail_view) > eps); // No normalization
             }
             else
             {
@@ -292,8 +302,18 @@ namespace samurai
             static_nested_loop<dim - 1, 0, 2>(
                 [&](auto stencil)
                 {
-                    xt::masked_view(tag(fine_level, 2 * i, 2 * index + stencil), mask_ghost) |= static_cast<int>(CellFlag::keep);
-                    xt::masked_view(tag(fine_level, 2 * i + 1, 2 * index + stencil), mask_ghost) |= static_cast<int>(CellFlag::keep);
+                    apply_on_masked(tag(fine_level, 2 * i, 2 * index + stencil),
+                                    mask_ghost,
+                                    [](auto& e)
+                                    {
+                                        e |= static_cast<int>(CellFlag::keep);
+                                    });
+                    apply_on_masked(tag(fine_level, 2 * i + 1, 2 * index + stencil),
+                                    mask_ghost,
+                                    [](auto& e)
+                                    {
+                                        e |= static_cast<int>(CellFlag::keep);
+                                    });
                 });
 
             if (fine_level < max_level)
@@ -304,7 +324,12 @@ namespace samurai
                         for (int ii = 0; ii < 2; ++ii)
                         {
                             auto mask = get_mask<size>(detail(fine_level, 2 * i + ii, 2 * index + stencil), eps, detail.is_soa);
-                            xt::masked_view(tag(fine_level, 2 * i + ii, 2 * index + stencil), mask) = static_cast<int>(CellFlag::refine);
+                            apply_on_masked(tag(fine_level, 2 * i + ii, 2 * index + stencil),
+                                            mask,
+                                            [](auto& e)
+                                            {
+                                                e = static_cast<int>(CellFlag::refine);
+                                            });
                         }
                     });
             }
