@@ -10,6 +10,7 @@
 #include <xtensor/xview.hpp>
 
 #include "../operators_base.hpp"
+#include "../storage/utils.hpp"
 
 namespace samurai
 {
@@ -151,9 +152,9 @@ namespace samurai
         inline auto operator()(std::integral_constant<std::size_t, slim>, std::size_t level, const interval_t& i, const index_t... index)
         {
             using coord_index_t = typename interval_t::coord_index_t;
-            return xt::eval(m_c[slim - 1]
-                            * (m_e(std::integral_constant<std::size_t, slim>{}, level, i + static_cast<coord_index_t>(slim), index...)
-                               - m_e(std::integral_constant<std::size_t, slim>{}, level, i - static_cast<coord_index_t>(slim), index...)));
+            return eval(m_c[slim - 1]
+                        * (m_e(std::integral_constant<std::size_t, slim>{}, level, i + static_cast<coord_index_t>(slim), index...)
+                           - m_e(std::integral_constant<std::size_t, slim>{}, level, i - static_cast<coord_index_t>(slim), index...)));
         }
 
         T m_e;
@@ -432,7 +433,7 @@ namespace samurai
         {
             auto coarse_even_i  = even_i >> 1;
             auto dec_even       = (i.start & 1) ? 1 : 0;
-            dest(level, even_i) = src(level - 1, coarse_even_i) + xt::view(qs_i, xt::range(dec_even, qs_i.shape()[0]));
+            dest(level, even_i) = src(level - 1, coarse_even_i) + view(qs_i, range(dec_even, qs_i.size()));
         }
 
         auto odd_i = i.odd_elements();
@@ -440,7 +441,7 @@ namespace samurai
         {
             auto coarse_odd_i  = odd_i >> 1;
             auto dec_odd       = (i.end & 1) ? 1 : 0;
-            dest(level, odd_i) = src(level - 1, coarse_odd_i) - xt::view(qs_i, xt::range(0, safe_subs<int>(qs_i.shape()[0], dec_odd)));
+            dest(level, odd_i) = src(level - 1, coarse_odd_i) - view(qs_i, range(0, safe_subs<int>(qs_i.size(), dec_odd)));
         }
     }
 
