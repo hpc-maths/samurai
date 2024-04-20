@@ -149,4 +149,64 @@ namespace samurai
         return xt::view(container.data(), xt::range(range.start, range.end, range.step), item);
     }
 
+    template <class D>
+    auto eval(const xt::xexpression<D>& exp)
+    {
+        return xt::eval(exp);
+    }
+
+    template <class T1, class T2>
+    auto range(const T1& start, const T2& end)
+    {
+        return xt::range(start, end);
+    }
+
+    template <class T>
+    auto range(const T& start)
+    {
+        using namespace xt::placeholders;
+        return xt::range(start, _);
+    }
+
+    template <class D, class Range>
+    auto view(const xt::xcontainer<D>& container, const Range& range)
+    {
+        return xt::view(container, range);
+    }
+
+    template <class D>
+    auto abs(const xt::xcontainer<D>& exp)
+    {
+        return xt::abs(exp);
+    }
+
+    template <class D>
+    auto sum(const xt::xcontainer<D>& exp)
+    {
+        return xt::sum(exp);
+    }
+
+    template <class D>
+    auto operator>(const xt::xcontainer<D>& exp, double x)
+    {
+        return exp > x;
+    }
+
+    template <class D>
+    auto operator<(const xt::xcontainer<D>& exp, double x)
+    {
+        return exp < x;
+    }
+
+    template <class DST, class CRIT, class FUNC>
+    void apply_on_masked(xt::xexpression<DST>&& dst, const xt::xexpression<CRIT>& criteria, FUNC&& func)
+    {
+        for (std::size_t i = 0; i < criteria.derived_cast().size(); ++i)
+        {
+            if (criteria.derived_cast()(i))
+            {
+                func(dst.derived_cast()(i));
+            }
+        }
+    }
 }
