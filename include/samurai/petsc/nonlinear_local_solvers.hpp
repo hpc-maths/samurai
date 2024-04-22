@@ -163,9 +163,9 @@ namespace samurai
 #else
                 std::size_t n_threads = 1;
 #endif
-                std::vector<std::array<field_value_t, n>> x_data_list(n_threads);
+                // std::vector<std::array<field_value_t, n>> x_data_list(n_threads);
                 std::vector<SNES> snes_list(n_threads);
-                //  // std::vector<CellContextForPETSc> context_list;
+                // std::vector<CellContextForPETSc> context_list(n_threads);
                 std::vector<Mat> J_list(n_threads);
                 // std::vector<Vec> b_list(n_threads);
                 // std::vector<Vec> x_list(n_threads);
@@ -174,9 +174,8 @@ namespace samurai
                 for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
                 {
                     // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
-                    //  SNES snes;
-                    //_configure_solver(snes_list[thread_num]);
-                    //  snes_list.push_back(snes);
+
+                    SNESCreate(PETSC_COMM_SELF, &snes_list[thread_num]);
 
                     // context_list.push_back({&m_scheme, nullptr});
 
@@ -203,14 +202,10 @@ namespace samurai
                                            // std::cout << "[" << thread_num << "] level " << cell.level << ", cell " << cell.index <<
                                            // std::endl;
 
-                                           // SNES snes = snes_list[thread_num];
-                                           SNES snes;
-                                           Mat& J = J_list[thread_num];
+                                           SNES& snes = snes_list[thread_num];
+                                           Mat& J     = J_list[thread_num];
                                            Vec x;
                                            Vec b;
-
-                                           SNESCreate(PETSC_COMM_SELF, &snes);
-                                           // MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &J);
 
                                            if constexpr (n > 1 && field_t::is_soa)
                                            {
@@ -231,9 +226,6 @@ namespace samurai
                                            CellContextForPETSc ctx{&m_scheme, &cell};
 
                                            // Non-linear function
-                                           // std::cout << "[" << thread_num << "] configuration snes = " << snes << ", ctx = " << &ctx
-                                           // << std::endl;
-
                                            // Vec r;
                                            // VecCreateSeq(PETSC_COMM_SELF, n, &r);
                                            SNESSetFunction(snes, nullptr, PETSC_nonlinear_function, &ctx);
@@ -242,7 +234,6 @@ namespace samurai
 
                                            SNESSetFromOptions(snes);
 
-                                           // std::cout << "[" << thread_num << "] solve_system(snes) = " << snes << std::endl;
                                            solve_system(snes, b, x);
 
                                            if constexpr (n > 1 && field_t::is_soa)
@@ -250,8 +241,6 @@ namespace samurai
                                                copy(x, unknown(), cell);
                                            }
 
-                                           // MatDestroy(&J);
-                                           SNESDestroy(&snes);
                                            VecDestroy(&x);
                                            VecDestroy(&b);
                                        });
@@ -261,7 +250,7 @@ namespace samurai
                 {
                     // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
                     MatDestroy(&J_list[thread_num]);
-                    // SNESDestroy(&snes_list[thread_num]);
+                    SNESDestroy(&snes_list[thread_num]);
                     // VecDestroy(&b_list[thread_num]);
                     // VecDestroy(&x_list[thread_num]);
                 }
