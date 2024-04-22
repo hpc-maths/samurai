@@ -12,10 +12,11 @@ namespace samurai
         template <class Scheme>
         class NonLinearLocalSolvers
         {
-            using scheme_t = Scheme;
-            using field_t  = typename scheme_t::field_t;
-            using mesh_t   = typename field_t::mesh_t;
-            using cell_t   = Cell<mesh_t::dim, typename mesh_t::interval_t>;
+            using scheme_t      = Scheme;
+            using field_t       = typename scheme_t::field_t;
+            using mesh_t        = typename field_t::mesh_t;
+            using field_value_t = typename field_t::value_type;
+            using cell_t        = Cell<mesh_t::dim, typename mesh_t::interval_t>;
 
           protected:
 
@@ -157,59 +158,73 @@ namespace samurai
                 static constexpr PetscInt n = field_t::size;
                 // MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &m_J);
 
+#ifdef SAMURAI_WITH_OPENMP
                 std::size_t n_threads = static_cast<std::size_t>(omp_get_max_threads());
-                std::vector<std::array<typename field_t::value_type, n>> x_(n_threads);
-                // std::vector<SNES> snes_list(n_threads);
-                // // std::vector<CellContextForPETSc> context_list;
-                // std::vector<Mat> J(n_threads);
-                // std::vector<Vec> b(n_threads);
-                // std::vector<Vec> x(n_threads);
+#else
+                std::size_t n_threads = 1;
+#endif
+                std::vector<std::array<field_value_t, n>> x_data_list(n_threads);
+                std::vector<SNES> snes_list(n_threads);
+                //  // std::vector<CellContextForPETSc> context_list;
+                std::vector<Mat> J_list(n_threads);
+                // std::vector<Vec> b_list(n_threads);
+                // std::vector<Vec> x_list(n_threads);
 
                 // #pragma omp parallel // for
-                //                 // for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
-                //                 {
-                //                     std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
-                //                     // SNES snes;
-                //                     _configure_solver(snes_list[thread_num]);
-                //                     // snes_list.push_back(snes);
+                for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
+                {
+                    // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
+                    //  SNES snes;
+                    //_configure_solver(snes_list[thread_num]);
+                    //  snes_list.push_back(snes);
 
-                //                     // context_list.push_back({&m_scheme, nullptr});
+                    // context_list.push_back({&m_scheme, nullptr});
 
-                //                     // Non-linear function
-                //                     // SNESSetFunction(snes, nullptr, PETSC_nonlinear_function, &context_list[i]);
-                //                     // std::cout << "[" << i << "] configuration snes = " << snes << ", ctx = " << &context_list[i] <<
-                //                     std::endl;
-                //                     // // Jacobian matrix
-                //                     // SNESSetJacobian(snes, m_J, m_J, PETSC_jacobian_function, &context_list[i]);
+                    // Non-linear function
+                    // SNESSetFunction(snes, nullptr, PETSC_nonlinear_function, &context_list[i]);
+                    // std::cout << "[" << i << "] configuration snes = " << snes << ", ctx = " << &context_list[i] << std::endl;
+                    // // Jacobian matrix
+                    // SNESSetJacobian(snes, m_J, m_J, PETSC_jacobian_function, &context_list[i]);
 
-                //                     MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &J[thread_num]);
+                    MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &J_list[thread_num]);
 
-                //                     // Vec b;
-                //                     VecCreateSeq(PETSC_COMM_SELF, n, &b[thread_num]);
-                //                     // Vec x;
-                //                     VecCreateSeq(PETSC_COMM_SELF, n, &x[thread_num]);
-                //                 }
+                    // Vec b;
+                    // VecCreateSeq(PETSC_COMM_SELF, n, &b_list[thread_num]);
+                    // Vec x;
+                    // VecCreateSeq(PETSC_COMM_SELF, n, &x_list[thread_num]);
+                    // VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, PETSC_NULL_SCALAR, &x_list[thread_num]);
+                }
 
                 parallel_for_each_cell(unknown().mesh(),
                                        [&](auto& cell)
                                        {
-                                           // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
+                                           std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
 
                                            // std::cout << "[" << thread_num << "] level " << cell.level << ", cell " << cell.index <<
                                            // std::endl;
 
                                            // SNES snes = snes_list[thread_num];
                                            SNES snes;
-                                           Mat J;
-                                           Vec b;
+                                           Mat& J = J_list[thread_num];
                                            Vec x;
+                                           Vec b;
 
-                                           //_configure_solver(snes);
                                            SNESCreate(PETSC_COMM_SELF, &snes);
+                                           // MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &J);
 
-                                           MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &J);
-                                           VecCreateSeq(PETSC_COMM_SELF, n, &b);
-                                           VecCreateSeq(PETSC_COMM_SELF, n, &x);
+                                           if constexpr (n > 1 && field_t::is_soa)
+                                           {
+                                               VecCreateSeq(PETSC_COMM_SELF, n, &x);
+                                               copy(unknown(), cell, x);
+
+                                               VecCreateSeq(PETSC_COMM_SELF, n, &b);
+                                               copy(rhs, cell, b);
+                                           }
+                                           else
+                                           {
+                                               x = create_petsc_vector_from(unknown(), cell);
+                                               b = create_petsc_vector_from(rhs, cell);
+                                           }
 
                                            // CellContextForPETSc& ctx = context_list[thread_num];
                                            // ctx.cell                 = &cell;
@@ -227,33 +242,29 @@ namespace samurai
 
                                            SNESSetFromOptions(snes);
 
-                                           // #pragma omp critical
-                                           copy(rhs, cell, b);
-                                           // #pragma omp critical
-                                           copy(unknown(), cell, x);
-
                                            // std::cout << "[" << thread_num << "] solve_system(snes) = " << snes << std::endl;
-                                           // #pragma omp critical
                                            solve_system(snes, b, x);
 
-                                           // #pragma omp critical
-                                           copy(x, unknown(), cell);
+                                           if constexpr (n > 1 && field_t::is_soa)
+                                           {
+                                               copy(x, unknown(), cell);
+                                           }
 
-                                           MatDestroy(&J);
+                                           // MatDestroy(&J);
                                            SNESDestroy(&snes);
-                                           VecDestroy(&b);
                                            VecDestroy(&x);
+                                           VecDestroy(&b);
                                        });
 
                 // #pragma omp parallel // for
-                //                 // for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
-                //                 {
-                //                     std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
-                //                     MatDestroy(&J[thread_num]);
-                //                     SNESDestroy(&snes_list[thread_num]);
-                //                     VecDestroy(&b[thread_num]);
-                //                     VecDestroy(&x[thread_num]);
-                //                 }
+                for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
+                {
+                    // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
+                    MatDestroy(&J_list[thread_num]);
+                    // SNESDestroy(&snes_list[thread_num]);
+                    // VecDestroy(&b_list[thread_num]);
+                    // VecDestroy(&x_list[thread_num]);
+                }
             }
 
           private:
