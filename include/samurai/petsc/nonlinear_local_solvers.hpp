@@ -21,8 +21,7 @@ namespace samurai
 
             field_t* m_unknown = nullptr;
             scheme_t m_scheme;
-            SNES m_snes = nullptr;
-            Mat m_J     = nullptr;
+            Mat m_J = nullptr;
 
             bool m_is_set_up = false;
 
@@ -46,7 +45,7 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
 
-                _configure_solver(m_snes);
+                //_configure_solver(m_snes);
             }
 
             virtual ~NonLinearLocalSolvers()
@@ -58,16 +57,16 @@ namespace samurai
 
             void _destroy_petsc_objects()
             {
-                if (m_J)
-                {
-                    MatDestroy(&m_J);
-                    m_J = nullptr;
-                }
-                if (m_snes)
-                {
-                    SNESDestroy(&m_snes);
-                    m_snes = nullptr;
-                }
+                // if (m_J)
+                // {
+                //     MatDestroy(&m_J);
+                //     m_J = nullptr;
+                // }
+                // if (m_snes)
+                // {
+                //     SNESDestroy(&m_snes);
+                //     m_snes = nullptr;
+                // }
             }
 
           public:
@@ -82,8 +81,8 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
-                    this->m_unknown   = other.m_unknown;
-                    this->m_snes      = other.m_snes;
+                    this->m_unknown = other.m_unknown;
+                    // this->m_snes      = other.m_snes;
                     this->m_J         = other.m_J;
                     this->m_is_set_up = other.m_is_set_up;
                 }
@@ -95,22 +94,17 @@ namespace samurai
                 if (this != &other)
                 {
                     this->destroy_petsc_objects();
-                    this->m_unknown   = other.m_unknown;
-                    this->m_snes      = other.m_snes;
+                    this->m_unknown = other.m_unknown;
+                    // this->m_snes      = other.m_snes;
                     this->m_J         = other.m_J;
                     this->m_is_set_up = other.m_is_set_up;
                     other.m_unknown   = nullptr;
-                    other.m_snes      = nullptr; // Prevent SNES destruction when 'other' object is destroyed
+                    // other.m_snes      = nullptr; // Prevent SNES destruction when 'other' object is destroyed
                     other.m_J         = nullptr;
                     other.m_is_set_up = false;
                 }
                 return *this;
             }
-
-            // SNES& Snes()
-            // {
-            //     return m_snes;
-            // }
 
             bool is_set_up()
             {
@@ -130,15 +124,6 @@ namespace samurai
             field_t& unknown()
             {
                 return *m_unknown;
-            }
-
-          private:
-
-            static void _configure_solver(SNES& snes)
-            {
-                SNESCreate(PETSC_COMM_SELF, &snes);
-                SNESSetType(snes, SNESNEWTONLS);
-                SNESSetFromOptions(snes);
             }
 
           protected:
@@ -168,49 +153,127 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
                 static_assert(scheme_t::cfg_t::output_field_size == field_t::size);
-                PetscInt n = field_t::size;
-                MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &m_J);
 
-                Vec b;
-                VecCreateSeq(PETSC_COMM_SELF, n, &b);
-                Vec x;
-                VecCreateSeq(PETSC_COMM_SELF, n, &x);
+                static constexpr PetscInt n = field_t::size;
+                // MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &m_J);
 
-                for_each_cell(unknown().mesh(),
-                              [&](auto& cell)
-                              {
-                                  CellContextForPETSc ctx = {&m_scheme, &cell};
+                std::size_t n_threads = static_cast<std::size_t>(omp_get_max_threads());
+                std::vector<std::array<typename field_t::value_type, n>> x_(n_threads);
+                // std::vector<SNES> snes_list(n_threads);
+                // // std::vector<CellContextForPETSc> context_list;
+                // std::vector<Mat> J(n_threads);
+                // std::vector<Vec> b(n_threads);
+                // std::vector<Vec> x(n_threads);
 
-                                  // Non-linear function
-                                  SNESSetFunction(m_snes, nullptr, PETSC_nonlinear_function, &ctx);
+                // #pragma omp parallel // for
+                //                 // for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
+                //                 {
+                //                     std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
+                //                     // SNES snes;
+                //                     _configure_solver(snes_list[thread_num]);
+                //                     // snes_list.push_back(snes);
 
-                                  // Jacobian matrix
-                                  SNESSetJacobian(m_snes, m_J, m_J, PETSC_jacobian_function, &ctx);
+                //                     // context_list.push_back({&m_scheme, nullptr});
 
-                                  copy(rhs, cell, b);
-                                  copy(unknown(), cell, x);
+                //                     // Non-linear function
+                //                     // SNESSetFunction(snes, nullptr, PETSC_nonlinear_function, &context_list[i]);
+                //                     // std::cout << "[" << i << "] configuration snes = " << snes << ", ctx = " << &context_list[i] <<
+                //                     std::endl;
+                //                     // // Jacobian matrix
+                //                     // SNESSetJacobian(snes, m_J, m_J, PETSC_jacobian_function, &context_list[i]);
 
-                                  solve_system(m_snes, b, x);
+                //                     MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &J[thread_num]);
 
-                                  copy(x, unknown(), cell);
-                              });
+                //                     // Vec b;
+                //                     VecCreateSeq(PETSC_COMM_SELF, n, &b[thread_num]);
+                //                     // Vec x;
+                //                     VecCreateSeq(PETSC_COMM_SELF, n, &x[thread_num]);
+                //                 }
 
-                VecDestroy(&b);
-                VecDestroy(&x);
+                parallel_for_each_cell(unknown().mesh(),
+                                       [&](auto& cell)
+                                       {
+                                           // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
+
+                                           // std::cout << "[" << thread_num << "] level " << cell.level << ", cell " << cell.index <<
+                                           // std::endl;
+
+                                           // SNES snes = snes_list[thread_num];
+                                           SNES snes;
+                                           Mat J;
+                                           Vec b;
+                                           Vec x;
+
+                                           //_configure_solver(snes);
+                                           SNESCreate(PETSC_COMM_SELF, &snes);
+
+                                           MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &J);
+                                           VecCreateSeq(PETSC_COMM_SELF, n, &b);
+                                           VecCreateSeq(PETSC_COMM_SELF, n, &x);
+
+                                           // CellContextForPETSc& ctx = context_list[thread_num];
+                                           // ctx.cell                 = &cell;
+                                           CellContextForPETSc ctx{&m_scheme, &cell};
+
+                                           // Non-linear function
+                                           // std::cout << "[" << thread_num << "] configuration snes = " << snes << ", ctx = " << &ctx
+                                           // << std::endl;
+
+                                           // Vec r;
+                                           // VecCreateSeq(PETSC_COMM_SELF, n, &r);
+                                           SNESSetFunction(snes, nullptr, PETSC_nonlinear_function, &ctx);
+                                           // Jacobian matrix
+                                           SNESSetJacobian(snes, J, J, PETSC_jacobian_function, &ctx);
+
+                                           SNESSetFromOptions(snes);
+
+                                           // #pragma omp critical
+                                           copy(rhs, cell, b);
+                                           // #pragma omp critical
+                                           copy(unknown(), cell, x);
+
+                                           // std::cout << "[" << thread_num << "] solve_system(snes) = " << snes << std::endl;
+                                           // #pragma omp critical
+                                           solve_system(snes, b, x);
+
+                                           // #pragma omp critical
+                                           copy(x, unknown(), cell);
+
+                                           MatDestroy(&J);
+                                           SNESDestroy(&snes);
+                                           VecDestroy(&b);
+                                           VecDestroy(&x);
+                                       });
+
+                // #pragma omp parallel // for
+                //                 // for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
+                //                 {
+                //                     std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
+                //                     MatDestroy(&J[thread_num]);
+                //                     SNESDestroy(&snes_list[thread_num]);
+                //                     VecDestroy(&b[thread_num]);
+                //                     VecDestroy(&x[thread_num]);
+                //                 }
             }
 
           private:
 
             static PetscErrorCode PETSC_nonlinear_function(SNES /*snes*/, Vec x, Vec f, void* ctx)
             {
-                auto petsc_ctx = reinterpret_cast<CellContextForPETSc*>(ctx);
-                auto& scheme   = *petsc_ctx->scheme;
-                auto& cell     = *petsc_ctx->cell;
+                // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
+                //  std::cout << "[" << thread_num << "] PETSC_nonlinear_function: snes = " << snes << ", ctx=" << ctx << std::endl;
+
+                CellContextForPETSc* petsc_ctx = reinterpret_cast<CellContextForPETSc*>(ctx);
+                auto& scheme                   = *petsc_ctx->scheme;
+                auto& cell                     = *petsc_ctx->cell;
 
                 // Wrap a LocalField structure around the data of the Petsc vector x
                 const PetscScalar* x_data;
+                // #pragma omp critical
+                //               {
                 VecGetArrayRead(x, &x_data);
                 LocalField<field_t> x_field(cell, x_data);
+                VecRestoreArrayRead(x, &x_data);
 
                 // PetscScalar* f_data;
                 // VecGetArray(f, &f_data);
@@ -220,9 +283,10 @@ namespace samurai
                 auto f_field = scheme.scheme_definition().local_scheme_function(cell, x_field);
 
                 copy(f_field, f);
+                //          }
 
-                VecRestoreArrayRead(x, &x_data);
-                // VecRestoreArray(f, &f_data);
+                // VecRestoreArrayRead(x, &x_data);
+                //  VecRestoreArray(f, &f_data);
                 return 0; // PETSC_SUCCESS
             }
 
@@ -306,18 +370,10 @@ namespace samurai
                 solve(rhs);
             }
 
-            int iterations()
-            {
-                PetscInt n_iterations;
-                SNESGetIterationNumber(m_snes, &n_iterations);
-                return n_iterations;
-            }
-
             virtual void reset()
             {
                 destroy_petsc_objects();
                 m_is_set_up = false;
-                _configure_solver(m_snes);
             }
         };
 
