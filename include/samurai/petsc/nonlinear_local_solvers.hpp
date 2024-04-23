@@ -22,9 +22,6 @@ namespace samurai
 
             field_t* m_unknown = nullptr;
             scheme_t m_scheme;
-            Mat m_J = nullptr;
-
-            bool m_is_set_up = false;
 
           public:
 
@@ -45,47 +42,15 @@ namespace samurai
                     assert(false && "Undefined 'local_jacobian_function'");
                     exit(EXIT_FAILURE);
                 }
-
-                //_configure_solver(m_snes);
-            }
-
-            virtual ~NonLinearLocalSolvers()
-            {
-                _destroy_petsc_objects();
-            }
-
-          private:
-
-            void _destroy_petsc_objects()
-            {
-                // if (m_J)
-                // {
-                //     MatDestroy(&m_J);
-                //     m_J = nullptr;
-                // }
-                // if (m_snes)
-                // {
-                //     SNESDestroy(&m_snes);
-                //     m_snes = nullptr;
-                // }
             }
 
           public:
-
-            virtual void destroy_petsc_objects()
-            {
-                _destroy_petsc_objects();
-            }
 
             NonLinearLocalSolvers& operator=(const NonLinearLocalSolvers& other)
             {
                 if (this != &other)
                 {
-                    this->destroy_petsc_objects();
                     this->m_unknown = other.m_unknown;
-                    // this->m_snes      = other.m_snes;
-                    this->m_J         = other.m_J;
-                    this->m_is_set_up = other.m_is_set_up;
                 }
                 return *this;
             }
@@ -94,22 +59,10 @@ namespace samurai
             {
                 if (this != &other)
                 {
-                    this->destroy_petsc_objects();
                     this->m_unknown = other.m_unknown;
-                    // this->m_snes      = other.m_snes;
-                    this->m_J         = other.m_J;
-                    this->m_is_set_up = other.m_is_set_up;
-                    other.m_unknown   = nullptr;
-                    // other.m_snes      = nullptr; // Prevent SNES destruction when 'other' object is destroyed
-                    other.m_J         = nullptr;
-                    other.m_is_set_up = false;
+                    other.m_unknown = nullptr;
                 }
                 return *this;
-            }
-
-            bool is_set_up()
-            {
-                return m_is_set_up;
             }
 
             auto& scheme()
@@ -126,13 +79,6 @@ namespace samurai
             {
                 return *m_unknown;
             }
-
-          protected:
-
-            // virtual void configure_solver()
-            // {
-            //     _configure_solver();
-            // }
 
           private:
 
@@ -156,42 +102,21 @@ namespace samurai
                 static_assert(scheme_t::cfg_t::output_field_size == field_t::size);
 
                 static constexpr PetscInt n = field_t::size;
-                // MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &m_J);
 
 #ifdef SAMURAI_WITH_OPENMP
                 std::size_t n_threads = static_cast<std::size_t>(omp_get_max_threads());
 #else
                 std::size_t n_threads = 1;
 #endif
-                // std::vector<std::array<field_value_t, n>> x_data_list(n_threads);
                 std::vector<SNES> snes_list(n_threads);
-                // std::vector<CellContextForPETSc> context_list(n_threads);
                 std::vector<Mat> J_list(n_threads);
-                // std::vector<Vec> b_list(n_threads);
-                // std::vector<Vec> x_list(n_threads);
+                std::vector<Vec> r_list(n_threads);
 
-                // #pragma omp parallel // for
                 for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
                 {
-                    // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
-
                     SNESCreate(PETSC_COMM_SELF, &snes_list[thread_num]);
-
-                    // context_list.push_back({&m_scheme, nullptr});
-
-                    // Non-linear function
-                    // SNESSetFunction(snes, nullptr, PETSC_nonlinear_function, &context_list[i]);
-                    // std::cout << "[" << i << "] configuration snes = " << snes << ", ctx = " << &context_list[i] << std::endl;
-                    // // Jacobian matrix
-                    // SNESSetJacobian(snes, m_J, m_J, PETSC_jacobian_function, &context_list[i]);
-
                     MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &J_list[thread_num]);
-
-                    // Vec b;
-                    // VecCreateSeq(PETSC_COMM_SELF, n, &b_list[thread_num]);
-                    // Vec x;
-                    // VecCreateSeq(PETSC_COMM_SELF, n, &x_list[thread_num]);
-                    // VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, PETSC_NULL_SCALAR, &x_list[thread_num]);
+                    VecCreateSeq(PETSC_COMM_SELF, n, &r_list[thread_num]);
                 }
 
                 parallel_for_each_cell(unknown().mesh(),
@@ -199,11 +124,9 @@ namespace samurai
                                        {
                                            std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
 
-                                           // std::cout << "[" << thread_num << "] level " << cell.level << ", cell " << cell.index <<
-                                           // std::endl;
-
                                            SNES& snes = snes_list[thread_num];
                                            Mat& J     = J_list[thread_num];
+                                           Vec& r     = r_list[thread_num];
                                            Vec x;
                                            Vec b;
 
@@ -221,17 +144,9 @@ namespace samurai
                                                b = create_petsc_vector_from(rhs, cell);
                                            }
 
-                                           // CellContextForPETSc& ctx = context_list[thread_num];
-                                           // ctx.cell                 = &cell;
                                            CellContextForPETSc ctx{&m_scheme, &cell};
-
-                                           // Non-linear function
-                                           // Vec r;
-                                           // VecCreateSeq(PETSC_COMM_SELF, n, &r);
-                                           SNESSetFunction(snes, nullptr, PETSC_nonlinear_function, &ctx);
-                                           // Jacobian matrix
+                                           SNESSetFunction(snes, r, PETSC_nonlinear_function, &ctx);
                                            SNESSetJacobian(snes, J, J, PETSC_jacobian_function, &ctx);
-
                                            SNESSetFromOptions(snes);
 
                                            solve_system(snes, b, x);
@@ -245,32 +160,24 @@ namespace samurai
                                            VecDestroy(&b);
                                        });
 
-                // #pragma omp parallel // for
                 for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
                 {
-                    // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
                     MatDestroy(&J_list[thread_num]);
+                    VecDestroy(&r_list[thread_num]);
                     SNESDestroy(&snes_list[thread_num]);
-                    // VecDestroy(&b_list[thread_num]);
-                    // VecDestroy(&x_list[thread_num]);
                 }
             }
 
           private:
 
-            static PetscErrorCode PETSC_nonlinear_function(SNES /*snes*/, Vec x, Vec f, void* ctx)
+            static PetscErrorCode PETSC_nonlinear_function(SNES, Vec x, Vec f, void* ctx)
             {
-                // std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
-                //  std::cout << "[" << thread_num << "] PETSC_nonlinear_function: snes = " << snes << ", ctx=" << ctx << std::endl;
-
                 CellContextForPETSc* petsc_ctx = reinterpret_cast<CellContextForPETSc*>(ctx);
                 auto& scheme                   = *petsc_ctx->scheme;
                 auto& cell                     = *petsc_ctx->cell;
 
                 // Wrap a LocalField structure around the data of the Petsc vector x
                 const PetscScalar* x_data;
-                // #pragma omp critical
-                //               {
                 VecGetArrayRead(x, &x_data);
                 LocalField<field_t> x_field(cell, x_data);
                 VecRestoreArrayRead(x, &x_data);
@@ -283,14 +190,13 @@ namespace samurai
                 auto f_field = scheme.scheme_definition().local_scheme_function(cell, x_field);
 
                 copy(f_field, f);
-                //          }
 
                 // VecRestoreArrayRead(x, &x_data);
                 //  VecRestoreArray(f, &f_data);
                 return 0; // PETSC_SUCCESS
             }
 
-            static PetscErrorCode PETSC_jacobian_function(SNES /*snes*/, Vec x, Mat jac, Mat B, void* ctx)
+            static PetscErrorCode PETSC_jacobian_function(SNES, Vec x, Mat jac, Mat B, void* ctx)
             {
                 // Here, jac = B = this.m_J
 
@@ -368,12 +274,6 @@ namespace samurai
             {
                 set_unknown(unknown);
                 solve(rhs);
-            }
-
-            virtual void reset()
-            {
-                destroy_petsc_objects();
-                m_is_set_up = false;
             }
         };
 
