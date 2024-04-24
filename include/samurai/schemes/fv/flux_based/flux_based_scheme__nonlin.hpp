@@ -93,7 +93,7 @@ namespace samurai
                 {
                     auto h = cell_length(level);
 
-                    for_each_interior_interface___same_level<run_type>(
+                    for_each_interior_interface__same_level<run_type>(
                         mesh,
                         level,
                         flux_def.direction,
@@ -118,7 +118,7 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface___level_jump_direction<run_type>(
+                        for_each_interior_interface__level_jump_direction<run_type>(
                             mesh,
                             level,
                             flux_def.direction,
@@ -136,7 +136,7 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface___level_jump_opposite_direction<run_type>(
+                        for_each_interior_interface__level_jump_opposite_direction<run_type>(
                             mesh,
                             level,
                             flux_def.direction,
@@ -173,28 +173,28 @@ namespace samurai
                         auto h = cell_length(level);
 
                         // Boundary in direction
-                        for_each_boundary_interface___direction<run_type>(mesh,
-                                                                          level,
-                                                                          flux_def.direction,
-                                                                          flux_def.stencil,
-                                                                          [&](auto& cell, auto& comput_cells)
-                                                                          {
-                                                                              auto flux_values  = flux_function(comput_cells, field);
-                                                                              auto cell_contrib = contribution(flux_values[0], h, h);
-                                                                              apply_contrib(cell, cell_contrib);
-                                                                          });
+                        for_each_boundary_interface__direction<run_type>(mesh,
+                                                                         level,
+                                                                         flux_def.direction,
+                                                                         flux_def.stencil,
+                                                                         [&](auto& cell, auto& comput_cells)
+                                                                         {
+                                                                             auto flux_values  = flux_function(comput_cells, field);
+                                                                             auto cell_contrib = contribution(flux_values[0], h, h);
+                                                                             apply_contrib(cell, cell_contrib);
+                                                                         });
 
                         // Boundary in opposite direction
-                        for_each_boundary_interface___opposite_direction<run_type>(mesh,
-                                                                                   level,
-                                                                                   flux_def.direction,
-                                                                                   flux_def.stencil,
-                                                                                   [&](auto& cell, auto& comput_cells)
-                                                                                   {
-                                                                                       auto flux_values = flux_function(comput_cells, field);
-                                                                                       auto cell_contrib = contribution(flux_values[1], h, h);
-                                                                                       apply_contrib(cell, cell_contrib);
-                                                                                   });
+                        for_each_boundary_interface__opposite_direction<run_type>(mesh,
+                                                                                  level,
+                                                                                  flux_def.direction,
+                                                                                  flux_def.stencil,
+                                                                                  [&](auto& cell, auto& comput_cells)
+                                                                                  {
+                                                                                      auto flux_values = flux_function(comput_cells, field);
+                                                                                      auto cell_contrib = contribution(flux_values[1], h, h);
+                                                                                      apply_contrib(cell, cell_contrib);
+                                                                                  });
                     });
             }
         }

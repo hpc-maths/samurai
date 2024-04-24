@@ -5,61 +5,15 @@
 namespace samurai
 {
     /**
-     * Iterates over the interfaces of the mesh in the chosen direction.
-     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
-     *                   In 2D: {1,0} to browse vertical interfaces, {0,1} to browse horizontal interfaces.
-     *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& interface_cells, auto& comput_cells)
-     * where
-     *       'interface_cells' is an array containing the two real cells on both sides of the interface,
-     *       'comput_cells'    is an array containing the two cells that must be used for the computation.
-     * If there is no level jump, then 'interface_cells' = 'comput_cells'.
-     * In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
-     * while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
-     */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, class Func>
-    void for_each_interior_interface(const Mesh& mesh, Vector direction, Func&& f)
-    {
-        static constexpr std::size_t dim = Mesh::dim;
-
-        Stencil<2, dim> comput_stencil = in_out_stencil<dim>(direction);
-        for_each_interior_interface<run_type, get_type>(mesh, direction, comput_stencil, std::forward<Func>(f));
-    }
-
-    /**
-     * This function does the same as the preceding one, but allows to define the computational stencil.
-     * @param comput_stencil defines the set of cells returned in the callback function.
-     * If no stencil is defined (--> preceding function), then the default is {{0,0}, direction},
-     * i.e. the current cell and its neighbour in the desired @param direction.
-     *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& interface_cells, auto& comput_cells)
-     * where
-     *       'interface_cells' is an array containing the two real cells on both sides of the interface (might be of different levels),
-     *       'comput_cells'    is an array containing the set of cells/ghosts defined by @param comput_stencil (all of same level).
-     */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void
-    for_each_interior_interface(const Mesh& mesh, Vector direction, const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil, Func&& f)
-    {
-        for_each_level(mesh,
-                       [&](auto level)
-                       {
-                           for_each_interior_interface<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
-                       });
-    }
-
-    /**
      * Iterates over the interfaces of same level only (no level jump).
      * Same parameters as the preceding function.
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void for_each_interior_interface___same_level(const Mesh& mesh,
-                                                  std::size_t level,
-                                                  Vector direction,
-                                                  const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
-                                                  Func&& f)
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_interior_interface__same_level(const Mesh& mesh,
+                                                 std::size_t level,
+                                                 const DirectionVector<Mesh::dim>& direction,
+                                                 const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                 Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t                  = typename Mesh::mesh_id_t;
@@ -125,12 +79,12 @@ namespace samurai
      * where
      *       'interface_cells' = [cell_{l}, cell_{l+1}].
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void for_each_interior_interface___level_jump_direction(const Mesh& mesh,
-                                                            std::size_t level,
-                                                            Vector direction,
-                                                            const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
-                                                            Func&& f)
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_interior_interface__level_jump_direction(const Mesh& mesh,
+                                                           std::size_t level,
+                                                           const DirectionVector<Mesh::dim>& direction,
+                                                           const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                           Func&& f)
     {
         using mesh_id_t       = typename Mesh::mesh_id_t;
         using mesh_interval_t = typename Mesh::mesh_interval_t;
@@ -204,12 +158,12 @@ namespace samurai
      * where
      *       'interface_cells' = [cell_{l+1}, cell_{l}].
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void for_each_interior_interface___level_jump_opposite_direction(const Mesh& mesh,
-                                                                     std::size_t level,
-                                                                     Vector direction,
-                                                                     const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
-                                                                     Func&& f)
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_interior_interface__level_jump_opposite_direction(const Mesh& mesh,
+                                                                    std::size_t level,
+                                                                    const DirectionVector<Mesh::dim>& direction,
+                                                                    const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                                    Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t                  = typename Mesh::mesh_id_t;
@@ -227,7 +181,7 @@ namespace samurai
         auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
 
         Stencil<comput_stencil_size, dim> minus_comput_stencil = comput_stencil - direction;
-        Vector minus_direction                                 = -direction;
+        DirectionVector<dim> minus_direction                   = -direction;
         int minus_direction_index_int                          = find(minus_comput_stencil, minus_direction);
         auto minus_direction_index                             = static_cast<std::size_t>(minus_direction_index_int);
 
@@ -275,9 +229,11 @@ namespace samurai
     }
 
     /**
-     * This function does the same as the preceding one, but on one level only.
+     * Iterates over the interior interfaces of the mesh level in the chosen direction.
      * @param level: the browsed interfaces will be defined by two cells of same level,
      *               or one cell of that level and another one level higher.
+     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
+     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
      *
      * The provided callback @param f has the following signature:
      *           void f(auto& interface_cells, auto& comput_cells)
@@ -285,49 +241,104 @@ namespace samurai
      *       'interface_cells' is an array containing the two real cells on both sides of the interface (might be of different levels).
      *       'comput_cells'    is an array containing the set of cells/ghosts defined by @param comput_stencil (all of same level).
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface(const Mesh& mesh,
                                      std::size_t level,
-                                     Vector direction,
+                                     const DirectionVector<Mesh::dim>& direction,
                                      const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
                                      Func&& f)
     {
-        for_each_interior_interface___same_level<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
-        for_each_interior_interface___level_jump_direction<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
-        for_each_interior_interface___level_jump_opposite_direction<run_type, get_type>(mesh,
-                                                                                        level,
-                                                                                        direction,
-                                                                                        comput_stencil,
-                                                                                        std::forward<Func>(f));
+        for_each_interior_interface__same_level<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+        for_each_interior_interface__level_jump_direction<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+        for_each_interior_interface__level_jump_opposite_direction<run_type, get_type>(mesh,
+                                                                                       level,
+                                                                                       direction,
+                                                                                       comput_stencil,
+                                                                                       std::forward<Func>(f));
     }
 
     /**
-     * Iterates over the boundary interface in @param direction and its opposite direction.
+     * Iterates over the interior interfaces of the mesh in the chosen direction.
+     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
+     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
+     * @param comput_stencil: the computational stencil, defining the set of cells (of same level)
+     *                        captured in second argument of the callback function.
      *
      * The provided callback @param f has the following signature:
-     *           void f(auto& cell, auto& comput_cells)
+     *           void f(auto& interface_cells, auto& comput_cells)
      * where
-     *       'cell'         is the inner cell at the boundary.
-     *       'comput cells' is the set of cells/ghosts defined by @param comput_stencil
-     *                      (typically, the inner cell and the outside ghost).
+     *       'interface_cells' is an array containing the two real cells on both sides of the interface (might be of different levels),
+     *       'comput_cells'    is an array containing the set of cells/ghosts defined by @param comput_stencil (all of same level).
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void
-    for_each_boundary_interface(const Mesh& mesh, Vector direction, const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil, Func&& f)
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_interior_interface(const Mesh& mesh,
+                                     const DirectionVector<Mesh::dim>& direction,
+                                     const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                     Func&& f)
     {
         for_each_level(mesh,
                        [&](auto level)
                        {
-                           for_each_boundary_interface<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+                           for_each_interior_interface<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
                        });
     }
 
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void for_each_boundary_interface___direction(const Mesh& mesh,
-                                                 std::size_t level,
-                                                 Vector direction,
-                                                 const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
-                                                 Func&& f)
+    /**
+     * Iterates over the interior interfaces of the mesh in the chosen direction.
+     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
+     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& interface_cells, auto& comput_cells)
+     * where
+     *       'interface_cells' is an array containing the two real cells on both sides of the interface,
+     *       'comput_cells'    is an array containing the two cells that must be used for the computation.
+     * If there is no level jump, then 'interface_cells' = 'comput_cells'.
+     * In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
+     * while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
+     */
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Func>
+    void for_each_interior_interface(const Mesh& mesh, const DirectionVector<Mesh::dim>& direction, Func&& f)
+    {
+        static constexpr std::size_t dim = Mesh::dim;
+
+        Stencil<2, dim> comput_stencil = in_out_stencil<dim>(direction);
+        for_each_interior_interface<run_type, get_type>(mesh, direction, comput_stencil, std::forward<Func>(f));
+    }
+
+    /**
+     * Iterates over the interior interfaces of the mesh.
+     * The provided callback @param f has the following signature:
+     *           void f(auto& interface_cells, auto& comput_cells)
+     * where
+     *       'interface_cells' is an array containing the two real cells on both sides of the interface,
+     *       'comput_cells'    is an array containing the two cells that must be used for the computation.
+     * If there is no level jump, then 'interface_cells' = 'comput_cells'.
+     * In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
+     * while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
+     */
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Func>
+    void for_each_interior_interface(const Mesh& mesh, Func&& f)
+    {
+        static constexpr std::size_t dim = Mesh::dim;
+
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            DirectionVector<Mesh::dim> direction;
+            direction.fill(0);
+            direction[d] = 1;
+            for_each_interior_interface<run_type, get_type>(mesh, direction, std::forward<Func>(f));
+        }
+    }
+
+    //----------------------------------------------------------------------------------------------------------------------------------
+
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface__direction(const Mesh& mesh,
+                                                std::size_t level,
+                                                const DirectionVector<Mesh::dim>& direction,
+                                                const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
@@ -375,34 +386,115 @@ namespace samurai
                                                          });
     }
 
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void for_each_boundary_interface___opposite_direction(const Mesh& mesh,
-                                                          std::size_t level,
-                                                          Vector direction,
-                                                          const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
-                                                          Func&& f)
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface__opposite_direction(const Mesh& mesh,
+                                                         std::size_t level,
+                                                         const DirectionVector<Mesh::dim>& direction,
+                                                         const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                         Func&& f)
     {
-        Vector opposite_direction                        = -direction;
+        DirectionVector<Mesh::dim> opposite_direction    = -direction;
         decltype(comput_stencil) opposite_comput_stencil = comput_stencil - direction;
-        for_each_boundary_interface___direction<run_type, get_type>(mesh,
-                                                                    level,
-                                                                    opposite_direction,
-                                                                    opposite_comput_stencil,
-                                                                    std::forward<Func>(f));
+        for_each_boundary_interface__direction<run_type, get_type>(mesh,
+                                                                   level,
+                                                                   opposite_direction,
+                                                                   opposite_comput_stencil,
+                                                                   std::forward<Func>(f));
+    }
+
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface__direction(const Mesh& mesh,
+                                                const DirectionVector<Mesh::dim>& direction,
+                                                const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                Func&& f)
+    {
+        for_each_level(
+            mesh,
+            [&](auto level)
+            {
+                for_each_boundary_interface__direction<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+            });
+    }
+
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface__both_directions(const Mesh& mesh,
+                                                      std::size_t level,
+                                                      const DirectionVector<Mesh::dim>& direction,
+                                                      const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                      Func&& f)
+    {
+        for_each_boundary_interface__direction<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+        for_each_boundary_interface__opposite_direction<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
     }
 
     /**
-     * Same as the preceding function, but for @param level only.
+     * Iterates over the boundary interfaces in a given direction and its opposite direction.
+     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
+     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
+     * @param comput_stencil: the computational stencil, defining the set of cells (of same level)
+     *                        captured in second argument of the callback function.
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& cell, auto& comput_cells)
+     * where
+     *       'cell'         is the inner cell at the boundary.
+     *       'comput cells' is the set of cells/ghosts defined by @param comput_stencil.
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Vector, std::size_t comput_stencil_size, class Func>
-    void for_each_boundary_interface(const Mesh& mesh,
-                                     std::size_t level,
-                                     Vector direction,
-                                     const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
-                                     Func&& f)
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface__both_directions(const Mesh& mesh,
+                                                      const DirectionVector<Mesh::dim>& direction,
+                                                      const Stencil<comput_stencil_size, Mesh::dim>& comput_stencil,
+                                                      Func&& f)
     {
-        for_each_boundary_interface___direction<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
-        for_each_boundary_interface___opposite_direction<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+        for_each_level(
+            mesh,
+            [&](auto level)
+            {
+                for_each_boundary_interface__both_directions<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+            });
+    }
+
+    /**
+     * Iterates over the boundary interfaces in a given direction and its opposite direction.
+     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
+     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& cell, auto& comput_cells)
+     * where
+     *       'cell'         is the inner cell at the boundary.
+     *       'comput cells' is the array containing the inner cell and the outside ghost.
+     */
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface__both_directions(const Mesh& mesh, const DirectionVector<Mesh::dim>& direction, Func&& f)
+    {
+        static constexpr std::size_t dim = Mesh::dim;
+
+        Stencil<2, dim> comput_stencil = in_out_stencil<dim>(direction);
+        for_each_boundary_interface__both_directions<run_type, get_type>(mesh, direction, comput_stencil, std::forward<Func>(f));
+    }
+
+    /**
+     * Iterates over the boundary interfaces.
+     *
+     * The provided callback @param f has the following signature:
+     *           void f(auto& cell, auto& comput_cells)
+     * where
+     *       'cell'         is the inner cell at the boundary.
+     *       'comput cells' is the array containing the inner cell and the outside ghost.
+     */
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    void for_each_boundary_interface(const Mesh& mesh, Func&& f)
+    {
+        static constexpr std::size_t dim = Mesh::dim;
+
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            DirectionVector<Mesh::dim> direction;
+            direction.fill(0);
+            direction[d] = 1;
+            for_each_boundary_interface<run_type, get_type>(mesh, direction, std::forward<Func>(f));
+        }
     }
 
 }
