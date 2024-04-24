@@ -465,7 +465,7 @@ namespace samurai
      *       'cell'         is the inner cell at the boundary.
      *       'comput cells' is the array containing the inner cell and the outside ghost.
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Func>
     void for_each_boundary_interface__both_directions(const Mesh& mesh, const DirectionVector<Mesh::dim>& direction, Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
@@ -483,7 +483,7 @@ namespace samurai
      *       'cell'         is the inner cell at the boundary.
      *       'comput cells' is the array containing the inner cell and the outside ghost.
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Func>
     void for_each_boundary_interface(const Mesh& mesh, Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
