@@ -12,6 +12,25 @@ namespace samurai
         template <class Scheme>
         class NonLinearLocalSolvers
         {
+            // clang-format off
+
+#define SAMURAI_STRINGIFY(x) #x
+#define SAMURAI_VERSIONIFY(M, m, v) SAMURAI_STRINGIFY(M.m.v)
+
+
+#ifdef SAMURAI_WITH_OPENMP
+    #if !PetscDefined(HAVE_THREADSAFETY)
+        #pragma message("To enable OpenMP for independent non-linear systems, PETSc must be configured with option --with-threadsafety.")
+    #endif
+    #if PETSC_VERSION_LT(3, 20, 6)
+        #pragma message("To enable OpenMP for independent non-linear systems, upgrade PETSc to version 3.20.6 or upper (current version: " SAMURAI_VERSIONIFY(PETSC_VERSION_MAJOR, PETSC_VERSION_MINOR, PETSC_VERSION_SUBMINOR) ")")
+    #endif
+    #if PetscDefined(HAVE_THREADSAFETY) && PETSC_VERSION_GE(3, 20, 6)
+        #define ENABLE_PARALLEL_NONLINEAR_SOLVES
+    #endif
+#endif
+            // clang-format on
+
             using scheme_t      = Scheme;
             using field_t       = typename scheme_t::field_t;
             using mesh_t        = typename field_t::mesh_t;
@@ -103,7 +122,7 @@ namespace samurai
 
                 static constexpr PetscInt n = field_t::size;
 
-#ifdef SAMURAI_WITH_OPENMP
+#ifdef ENABLE_PARALLEL_NONLINEAR_SOLVES
                 std::size_t n_threads = static_cast<std::size_t>(omp_get_max_threads());
 #else
                 std::size_t n_threads = 1;
@@ -119,46 +138,51 @@ namespace samurai
                     VecCreateSeq(PETSC_COMM_SELF, n, &r_list[thread_num]);
                 }
 
-                parallel_for_each_cell(unknown().mesh(),
-                                       [&](auto& cell)
-                                       {
-                                           std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
+#ifdef ENABLE_PARALLEL_NONLINEAR_SOLVES
+                parallel_for_each_cell(
+#else
+                for_each_cell(
+#endif
+                    unknown().mesh(),
+                    [&](auto& cell)
+                    {
+                        std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
 
-                                           SNES& snes = snes_list[thread_num];
-                                           Mat& J     = J_list[thread_num];
-                                           Vec& r     = r_list[thread_num];
-                                           Vec x;
-                                           Vec b;
+                        SNES& snes = snes_list[thread_num];
+                        Mat& J     = J_list[thread_num];
+                        Vec& r     = r_list[thread_num];
+                        Vec x;
+                        Vec b;
 
-                                           if constexpr (n > 1 && field_t::is_soa)
-                                           {
-                                               VecCreateSeq(PETSC_COMM_SELF, n, &x);
-                                               copy(unknown(), cell, x);
+                        if constexpr (n > 1 && field_t::is_soa)
+                        {
+                            VecCreateSeq(PETSC_COMM_SELF, n, &x);
+                            copy(unknown(), cell, x);
 
-                                               VecCreateSeq(PETSC_COMM_SELF, n, &b);
-                                               copy(rhs, cell, b);
-                                           }
-                                           else
-                                           {
-                                               x = create_petsc_vector_from(unknown(), cell);
-                                               b = create_petsc_vector_from(rhs, cell);
-                                           }
+                            VecCreateSeq(PETSC_COMM_SELF, n, &b);
+                            copy(rhs, cell, b);
+                        }
+                        else
+                        {
+                            x = create_petsc_vector_from(unknown(), cell);
+                            b = create_petsc_vector_from(rhs, cell);
+                        }
 
-                                           CellContextForPETSc ctx{&m_scheme, &cell};
-                                           SNESSetFunction(snes, r, PETSC_nonlinear_function, &ctx);
-                                           SNESSetJacobian(snes, J, J, PETSC_jacobian_function, &ctx);
-                                           SNESSetFromOptions(snes);
+                        CellContextForPETSc ctx{&m_scheme, &cell};
+                        SNESSetFunction(snes, r, PETSC_nonlinear_function, &ctx);
+                        SNESSetJacobian(snes, J, J, PETSC_jacobian_function, &ctx);
+                        SNESSetFromOptions(snes);
 
-                                           solve_system(snes, b, x);
+                        solve_system(snes, b, x);
 
-                                           if constexpr (n > 1 && field_t::is_soa)
-                                           {
-                                               copy(x, unknown(), cell);
-                                           }
+                        if constexpr (n > 1 && field_t::is_soa)
+                        {
+                            copy(x, unknown(), cell);
+                        }
 
-                                           VecDestroy(&x);
-                                           VecDestroy(&b);
-                                       });
+                        VecDestroy(&x);
+                        VecDestroy(&b);
+                    });
 
                 for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
                 {

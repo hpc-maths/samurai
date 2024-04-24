@@ -12,7 +12,7 @@
 #include "mesh_holder.hpp"
 #include "mesh_interval.hpp"
 
-// #include "schemes/fv/Timer.hpp"
+#include "schemes/fv/Timer.hpp"
 
 namespace samurai
 {
@@ -227,8 +227,8 @@ namespace samurai
         using cell_t        = Cell<dim, TInterval>;
         using index_value_t = typename cell_t::value_t;
 
-        // Timer timer;
-        // timer.Start();
+        Timer timer;
+        timer.Start();
 
 #pragma omp parallel
 #pragma omp single nowait
@@ -254,8 +254,8 @@ namespace samurai
             }
         }
         // #pragma omp taskwait
-        // timer.Stop();
-        // std::cout << "     time: " << timer.Elapsed(); // << std::endl;
+        timer.Stop();
+        std::cout << "     time: " << timer.Elapsed(); // << std::endl;
     }
 
     template <std::size_t dim, class TInterval, class Func, class F, class... CT>

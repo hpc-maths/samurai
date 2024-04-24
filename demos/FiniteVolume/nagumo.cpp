@@ -35,10 +35,11 @@ int main(int argc, char* argv[])
 {
     samurai::initialize(argc, argv);
 
-    static constexpr std::size_t dim = 1;
-    using Config                     = samurai::MRConfig<dim>;
-    using Box                        = samurai::Box<double, dim>;
-    using point_t                    = typename Box::point_t;
+    static constexpr std::size_t dim        = 2; // back to 1 before pushing
+    static constexpr std::size_t field_size = 2; // back to 1 before pushing
+    using Config                            = samurai::MRConfig<dim>;
+    using Box                               = samurai::Box<double, dim>;
+    using point_t                           = typename Box::point_t;
 
     std::cout << "------------------------- Nagumo -------------------------" << std::endl;
 
@@ -127,7 +128,7 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    auto u = samurai::make_field<1>("u", mesh);
+    auto u = samurai::make_field<field_size>("u", mesh);
 
     double z0 = left_box / 5;    // wave initial position
     double c  = sqrt(k * D / 2); // wave velocity
@@ -150,26 +151,26 @@ int main(int argc, char* argv[])
                                u[cell] = exact_solution(cell.center(0), 0);
                            });
 
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto unp1 = samurai::make_field<field_size>("unp1", mesh);
 
-    samurai::make_bc<samurai::Neumann<1>>(u, 0.);
-    samurai::make_bc<samurai::Neumann<1>>(unp1, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(u);
+    samurai::make_bc<samurai::Neumann<1>>(unp1);
 
     auto diff = samurai::make_diffusion_order2<decltype(u)>(D);
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator
-    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, 1, decltype(u)>;
+    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, field_size, decltype(u)>;
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
     react.set_scheme_function(
-        [&](const auto& cell, const auto& field) //-> samurai::SchemeValue<cfg>
+        [&](const auto& cell, const auto& field) -> samurai::SchemeValue<cfg>
         {
             auto v = field[cell];
             return k * v * v * (1 - v);
         });
     react.set_jacobian_function(
-        [&](const auto& cell, const auto& field)
+        [&](const auto& cell, const auto& field) -> samurai::JacobianMatrix<cfg>
         {
             auto v = field[cell];
             return k * (2 * v * (1 - v) - v * v);
@@ -198,7 +199,7 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
-    auto rhs = samurai::make_field<1>("rhs", mesh);
+    auto rhs = samurai::make_field<field_size>("rhs", mesh);
 
     double t = 0;
     while (t != Tf)
