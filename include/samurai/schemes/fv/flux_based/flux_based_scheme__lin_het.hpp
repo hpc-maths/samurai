@@ -89,7 +89,7 @@ namespace samurai
                 {
                     auto h = cell_length(level);
 
-                    for_each_interior_interface___same_level(
+                    for_each_interior_interface__same_level(
                         mesh,
                         level,
                         flux_def.direction,
@@ -114,7 +114,7 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface___level_jump_direction(
+                        for_each_interior_interface__level_jump_direction(
                             mesh,
                             level,
                             flux_def.direction,
@@ -133,7 +133,7 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface___level_jump_opposite_direction(
+                        for_each_interior_interface__level_jump_opposite_direction(
                             mesh,
                             level,
                             flux_def.direction,
@@ -167,19 +167,19 @@ namespace samurai
                                    auto h = cell_length(level);
 
                                    // Boundary in direction
-                                   for_each_boundary_interface___direction(mesh,
-                                                                           level,
-                                                                           flux_def.direction,
-                                                                           flux_def.stencil,
-                                                                           [&](auto& cell, auto& comput_cells)
-                                                                           {
-                                                                               auto flux_coeffs = flux_def.cons_flux_function(comput_cells);
-                                                                               auto cell_contrib = contribution(flux_coeffs, h, h);
-                                                                               apply_coeffs(cell, comput_cells, cell_contrib);
-                                                                           });
+                                   for_each_boundary_interface__direction(mesh,
+                                                                          level,
+                                                                          flux_def.direction,
+                                                                          flux_def.stencil,
+                                                                          [&](auto& cell, auto& comput_cells)
+                                                                          {
+                                                                              auto flux_coeffs  = flux_def.cons_flux_function(comput_cells);
+                                                                              auto cell_contrib = contribution(flux_coeffs, h, h);
+                                                                              apply_coeffs(cell, comput_cells, cell_contrib);
+                                                                          });
 
                                    // Boundary in opposite direction
-                                   for_each_boundary_interface___opposite_direction(
+                                   for_each_boundary_interface__opposite_direction(
                                        mesh,
                                        level,
                                        flux_def.direction,
