@@ -34,11 +34,9 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         return "SFC_" + _sfc.getName() + "_LB";
     }
 
-    template <class Mesh, class... Fields>
-    Mesh load_balance_impl(Mesh& mesh, Fields&... data)
+    template <class Mesh_t, class... Fields>
+    Mesh_t load_balance_impl(Mesh_t& mesh, Fields&... data)
     {
-        using Config      = samurai::MRConfig<dim>;
-        using Mesh_t      = samurai::MRMesh<Config>;
         using inter_t     = samurai::Interval<int, long long>;
         using CellList_t  = typename Mesh_t::cl_type;
         using CellArray_t = samurai::CellArray<dim>;
