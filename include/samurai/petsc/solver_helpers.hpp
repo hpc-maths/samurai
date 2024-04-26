@@ -4,6 +4,8 @@
 #include "nonlinear_local_solvers.hpp"
 #include "nonlinear_solver.hpp"
 
+#include "zero_block_assembly.hpp"
+
 namespace samurai
 {
     namespace petsc
