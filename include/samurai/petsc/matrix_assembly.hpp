@@ -144,7 +144,7 @@ namespace samurai
              * @brief Inserts the coefficent into a preallocated matrix and
              * performs the assembly.
              */
-            virtual void assemble_matrix(Mat& A)
+            virtual void assemble_matrix(Mat& A, bool final_assembly = true)
             {
                 assemble_scheme(A);
                 if (m_include_bc)
@@ -169,8 +169,11 @@ namespace samurai
                     PetscBool is_spd = matrix_is_spd() ? PETSC_TRUE : PETSC_FALSE;
                     MatSetOption(A, MAT_SPD, is_spd);
 
-                    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-                    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                    if (final_assembly)
+                    {
+                        MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+                        MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                    }
                 }
             }
 
@@ -280,10 +283,25 @@ namespace samurai
                 "Either the required file has not been included, or the Assembly class has not been specialized for this type of scheme.");
         };
 
+        // If Scheme already implements MatrixAssembly, then Assembly<Scheme> is defined as Scheme itself.
+        // Since it can't be done by a 'using' instruction (-> partial specialization error),
+        // we use a trick: Assembly<Scheme> inherits from Scheme.
+        template <class Scheme>
+        class Assembly<Scheme, std::enable_if_t<std::is_base_of_v<MatrixAssembly, Scheme>>> : public Scheme
+        {
+        };
+
         template <class Scheme>
         auto make_assembly(const Scheme& s)
         {
-            return Assembly<Scheme>(s);
+            if constexpr (std::is_base_of_v<MatrixAssembly, Scheme>)
+            {
+                return *reinterpret_cast<const Assembly<Scheme>*>(&s);
+            }
+            else
+            {
+                return Assembly<Scheme>(s);
+            }
         }
 
     } // end namespace petsc

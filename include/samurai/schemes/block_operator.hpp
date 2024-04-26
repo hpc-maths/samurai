@@ -77,8 +77,8 @@ namespace samurai
                                  {
                                      if constexpr (!std::is_same_v<std::decay_t<decltype(u)>, typename std::decay_t<decltype(op)>::field_t>)
                                      {
-                                         std::cerr << "unknown " << i << " (named '" << u.name() << "') is not compatible with the scheme ("
-                                                   << row << ", " << col << ") (named '" << op.name() << "')" << std::endl;
+                                         std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", " << col
+                                                   << ") (named '" << op.name() << "')" << std::endl;
                                          assert(false);
                                          exit(EXIT_FAILURE);
                                      }

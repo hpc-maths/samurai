@@ -86,6 +86,12 @@ namespace samurai
                          });
             }
 
+            template <std::size_t row, std::size_t col>
+            auto& get()
+            {
+                return std::get<row * cols + col>(m_assembly_ops);
+            }
+
             template <class... Fields>
             void set_unknowns(Fields&... unknowns)
             {
@@ -112,8 +118,8 @@ namespace samurai
                                     }
                                     else
                                     {
-                                        std::cerr << "unknown " << i << " (named '" << u.name() << "') is not compatible with the scheme ("
-                                                  << row << ", " << col << ") (named '" << op.name() << "')" << std::endl;
+                                        std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", " << col
+                                                  << ") (named '" << op.name() << "')" << std::endl;
                                         assert(false);
                                         exit(EXIT_FAILURE);
                                     }
@@ -370,6 +376,27 @@ namespace samurai
                             row_shift += op.matrix_rows();
                         }
                     });
+                check_sizes();
+            }
+
+            void check_sizes()
+            {
+                // This code checks only rows. cols: TODO
+                PetscInt n_matrix_rows = 0;
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (col == 0)
+                        {
+                            n_matrix_rows = op.matrix_rows();
+                        }
+                        else if (op.matrix_rows() != n_matrix_rows)
+                        {
+                            std::cerr << "Assembly failure: incompatible number of rows of block (" << row << ", " << col
+                                      << "): " << op.matrix_rows() << " (expected " << n_matrix_rows << ")" << std::endl;
+                            exit(EXIT_FAILURE);
+                        }
+                    });
             }
 
           public:
@@ -469,6 +496,7 @@ namespace samurai
                         {
                             op.set_current_insert_mode(insert_mode);
                         }
+                        // std::cout << "assemble_scheme (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;
                         op.assemble_scheme(A);
                         insert_mode = op.current_insert_mode();
                     });
@@ -665,6 +693,12 @@ namespace samurai
             {
                 return NestedBlockAssembly<rows_, cols_, Operators...>(block_op);
             }
+        }
+
+        template <std::size_t rows_, std::size_t cols_, class... Operators>
+        auto make_assembly(const BlockOperator<rows_, cols_, Operators...>& block_op)
+        {
+            return make_assembly<true>(block_op);
         }
 
         /**
