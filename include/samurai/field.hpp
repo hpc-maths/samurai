@@ -26,15 +26,15 @@ namespace fs = std::filesystem;
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
 
-#include "storage/eigen.hpp"
+// #include "storage/eigen.hpp"
 
-// #include "storage/xtensor.hpp"
+#include "storage/xtensor.hpp"
 
 namespace samurai
 {
 
     template <class value_t, std::size_t size = 1, bool SOA = false>
-    using field_data_storage_t = eigen_container<value_t, size, SOA>;
+    using field_data_storage_t = xtensor_container<value_t, size, SOA>;
 
     template <class mesh_t, class value_t, std::size_t size = 1, bool SOA = false>
     class Field;
@@ -550,7 +550,7 @@ namespace samurai
         for_each_interval(this->mesh(),
                           [&](std::size_t level, const auto& i, const auto& index)
                           {
-                              (*this)(level, i, index) = e.derived_cast()(level, i, index);
+                              noalias((*this)(level, i, index)) = e.derived_cast()(level, i, index);
                           });
         return *this;
     }

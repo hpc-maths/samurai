@@ -71,24 +71,29 @@ namespace samurai
 
             if (fine_level > min_lev)
             {
-                // auto maxd = xt::view(max_detail, level);
-
                 if constexpr (size == 1)
                 {
-                    // auto mask = (xt::abs(detail(level, 2*i  ,   2*j))/maxd <
-                    // eps) &&
-                    //             (xt::abs(detail(level, 2*i+1,   2*j))/maxd <
-                    //             eps) && (xt::abs(detail(level, 2*i  ,
-                    //             2*j+1))/maxd < eps) && (xt::abs(detail(level,
-                    //             2*i+1, 2*j+1))/maxd < eps);
-                    auto mask = (xt::abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
-                             && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps)
-                             && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps);
+                    auto mask = eval((abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
+                                     && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps)
+                                     && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps));
 
-                    xt::masked_view(tag(fine_level, 2 * i, 2 * j), mask)         = static_cast<int>(CellFlag::coarsen);
-                    xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j), mask)     = static_cast<int>(CellFlag::coarsen);
-                    xt::masked_view(tag(fine_level, 2 * i, 2 * j + 1), mask)     = static_cast<int>(CellFlag::coarsen);
-                    xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j + 1), mask) = static_cast<int>(CellFlag::coarsen);
+                    static_nested_loop<dim - 1, 0, 2>(
+                        [&](auto stencil)
+                        {
+                            for (int ii = 0; ii < 2; ++ii)
+                            {
+                                apply_on_masked(tag(fine_level, 2 * i + ii, 2 * index + stencil),
+                                                mask,
+                                                [](auto& e)
+                                                {
+                                                    e = static_cast<int>(CellFlag::coarsen);
+                                                });
+                            }
+                        });
+                    // xt::masked_view(tag(fine_level, 2 * i, 2 * j), mask)         = static_cast<int>(CellFlag::coarsen);
+                    // xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j), mask)     = static_cast<int>(CellFlag::coarsen);
+                    // xt::masked_view(tag(fine_level, 2 * i, 2 * j + 1), mask)     = static_cast<int>(CellFlag::coarsen);
+                    // xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j + 1), mask) = static_cast<int>(CellFlag::coarsen);
                 }
                 else
                 {
