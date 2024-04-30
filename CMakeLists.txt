@@ -101,7 +101,7 @@ target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_
   "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 # Find dependencies:
-set(DEPENDENCIES_CONFIGURED xtensor HighFive pugixml fmt)
+set(DEPENDENCIES_CONFIGURED xtensor Eigen3 HighFive pugixml fmt)
 
 if(${ENABLE_VCPKG})
   list(APPEND DEPENDENCIES_CONFIGURED hdf5)
@@ -122,6 +122,7 @@ target_link_system_libraries(
   HighFive
   pugixml::pugixml
   fmt::fmt
+  Eigen3::Eigen
 )
 
 if(${WITH_OPENMP})
