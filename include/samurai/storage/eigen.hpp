@@ -182,6 +182,23 @@ namespace samurai
         return exp.derived().eval();
     }
 
+    template <class D>
+    auto shape(const Eigen::EigenBase<D>& exp, std::size_t axis)
+    {
+        assert(axis < 2);
+        if (axis == 0)
+        {
+            return exp.derived().rows();
+        }
+        return exp.derived().cols();
+    }
+
+    template <class D>
+    auto noalias(const Eigen::EigenBase<D>& exp)
+    {
+        return exp;
+    }
+
     template <class T1, class T2>
     auto range(const T1& start, const T2& end)
     {
