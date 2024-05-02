@@ -16,6 +16,8 @@ namespace samurai
             bool m_assemble_proj_pred               = true;
             bool m_set_1_on_diag_for_useless_ghosts = true;
 
+            InsertMode m_current_insert_mode = INSERT_VALUES;
+
           protected:
 
             bool m_is_block             = false; // is a block in a monolithic block matrix
@@ -109,6 +111,22 @@ namespace samurai
                 return m_col_shift;
             }
 
+            /**
+             * @brief Returns the number of matrix rows.
+             */
+            virtual PetscInt matrix_rows() const
+            {
+                return m_rows;
+            }
+
+            /**
+             * @brief Returns the number of matrix columns.
+             */
+            virtual PetscInt matrix_cols() const
+            {
+                return m_cols;
+            }
+
             void set_matrix_rows(PetscInt rows)
             {
                 m_rows = rows;
@@ -117,6 +135,16 @@ namespace samurai
             void set_matrix_cols(PetscInt cols)
             {
                 m_cols = cols;
+            }
+
+            InsertMode current_insert_mode() const
+            {
+                return m_current_insert_mode;
+            }
+
+            virtual void set_current_insert_mode(InsertMode insert_mode)
+            {
+                m_current_insert_mode = insert_mode;
             }
 
             /**
@@ -204,22 +232,6 @@ namespace samurai
             {
                 // std::cout << "Destruction of '" << name() << "'" << std::endl;
                 m_is_deleted = true;
-            }
-
-            /**
-             * @brief Returns the number of matrix rows.
-             */
-            virtual PetscInt matrix_rows() const
-            {
-                return m_rows;
-            }
-
-            /**
-             * @brief Returns the number of matrix columns.
-             */
-            virtual PetscInt matrix_cols() const
-            {
-                return m_cols;
             }
 
             /**

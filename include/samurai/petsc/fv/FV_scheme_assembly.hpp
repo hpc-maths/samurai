@@ -56,9 +56,8 @@ namespace samurai
           protected:
 
             const Scheme* m_scheme;
-            field_t* m_unknown               = nullptr;
-            std::size_t m_n_cells            = 0;
-            InsertMode m_current_insert_mode = INSERT_VALUES;
+            field_t* m_unknown    = nullptr;
+            std::size_t m_n_cells = 0;
             std::vector<bool> m_is_row_empty;
 
             // Ghost recursion
@@ -194,16 +193,6 @@ namespace samurai
             PetscInt matrix_cols() const override
             {
                 return static_cast<PetscInt>(m_n_cells * field_size);
-            }
-
-            InsertMode current_insert_mode() const
-            {
-                return m_current_insert_mode;
-            }
-
-            void set_current_insert_mode(InsertMode insert_mode)
-            {
-                m_current_insert_mode = insert_mode;
             }
 
             // Global data index

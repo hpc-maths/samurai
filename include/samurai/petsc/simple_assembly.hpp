@@ -16,8 +16,7 @@ namespace samurai
 
           private:
 
-            UnknownField* m_unknown          = nullptr;
-            InsertMode m_current_insert_mode = INSERT_VALUES;
+            UnknownField* m_unknown = nullptr;
 
           public:
 
@@ -29,16 +28,6 @@ namespace samurai
             void set_unknown(UnknownField& unknown)
             {
                 m_unknown = &unknown;
-            }
-
-            InsertMode current_insert_mode() const
-            {
-                return m_current_insert_mode;
-            }
-
-            void set_current_insert_mode(InsertMode insert_mode)
-            {
-                m_current_insert_mode = insert_mode;
             }
 
             void sparsity_pattern_boundary(std::vector<PetscInt>&) const override
