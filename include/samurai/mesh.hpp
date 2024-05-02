@@ -256,6 +256,7 @@ namespace samurai
         update_sub_mesh();
         renumbering();
         update_mesh_neighbour();
+        update_mesh_neighbour();
     }
 
     template <class D, class Config>
@@ -705,21 +706,21 @@ namespace samurai
         //     return neighbour_rank;
         // };
 
-        static_nested_loop<dim, -1, 2>(
-            [&](auto& shift)
-            {
-                if (xt::any(shift))
-                {
-                    for (std::size_t d = 0; d < dim; ++d)
-                    {
-                        if (coords[d] + shift[d] < 0 || coords[d] + shift[d] >= sizes[d])
-                        {
-                            return;
-                        }
-                    }
-                    m_mpi_neighbourhood.push_back(neighbour(shift));
-                }
-            });
+        // static_nested_loop<dim, -1, 2>(
+        //     [&](auto& shift)
+        //     {
+        //         if (xt::any(shift))
+        //         {
+        //             for (std::size_t d = 0; d < dim; ++d)
+        //             {
+        //                 if (coords[d] + shift[d] < 0 || coords[d] + shift[d] >= sizes[d])
+        //                 {
+        //                     return;
+        //                 }
+        //             }
+        //             m_mpi_neighbourhood.push_back(neighbour(shift));
+        //         }
+        //     });
 
 #endif
     }
