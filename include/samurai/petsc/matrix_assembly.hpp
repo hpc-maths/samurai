@@ -21,7 +21,7 @@ namespace samurai
           protected:
 
             bool m_is_block             = false; // is a block in a monolithic block matrix
-            bool m_fit_block_dimensions = false;
+            bool m_fit_block_dimensions = false; // computes dimensions according to the block's position
             PetscInt m_row_shift        = 0;
             PetscInt m_col_shift        = 0;
             PetscInt m_rows             = 0;

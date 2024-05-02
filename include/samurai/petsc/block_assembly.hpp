@@ -1,7 +1,7 @@
 #pragma once
 #include "../schemes/block_operator.hpp"
-#include "matrix_assembly.hpp"
 #include "utils.hpp"
+#include "zero_block_assembly.hpp"
 
 namespace samurai
 {
@@ -106,26 +106,30 @@ namespace samurai
                     [&](auto& op, auto row, auto col)
                     {
                         std::size_t i = 0;
-                        for_each(
-                            unknowns,
-                            [&](auto& u)
-                            {
-                                if (col == i)
-                                {
-                                    if constexpr (std::is_same_v<std::decay_t<decltype(u)>, typename std::decay_t<decltype(op)>::scheme_t::field_t>)
-                                    {
-                                        op.set_unknown(u);
-                                    }
-                                    else
-                                    {
-                                        std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", " << col
-                                                  << ") (named '" << op.name() << "')" << std::endl;
-                                        assert(false);
-                                        exit(EXIT_FAILURE);
-                                    }
-                                }
-                                i++;
-                            });
+                        for_each(unknowns,
+                                 [&](auto& u)
+                                 {
+                                     if (col == i)
+                                     {
+                                         // Verify type compatibility only if scheme_t != void (used for ZeroBlock)
+                                         if constexpr (!std::is_same_v<typename std::decay_t<decltype(op)>::scheme_t, void>)
+                                         {
+                                             if constexpr (std::is_same_v<std::decay_t<decltype(u)>,
+                                                                          typename std::decay_t<decltype(op)>::scheme_t::field_t>)
+                                             {
+                                                 op.set_unknown(u);
+                                             }
+                                             else
+                                             {
+                                                 std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", "
+                                                           << col << ") (named '" << op.name() << "')" << std::endl;
+                                                 assert(false);
+                                                 exit(EXIT_FAILURE);
+                                             }
+                                         }
+                                     }
+                                     i++;
+                                 });
                     });
             }
 
