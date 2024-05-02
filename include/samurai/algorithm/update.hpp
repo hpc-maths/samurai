@@ -109,10 +109,16 @@ namespace samurai
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
         }
-        update_ghost_subdomains(field);
 
+        if (min_level > 0)
+        {
+            update_bc(min_level - 1, field, other_fields...);
+            update_ghost_periodic(min_level - 1, field, other_fields...);
+            update_ghost_subdomains(min_level - 1, field, other_fields...);
+        }
         update_bc(min_level, field, other_fields...);
         update_ghost_periodic(min_level, field, other_fields...);
+        update_ghost_subdomains(min_level, field, other_fields...);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {

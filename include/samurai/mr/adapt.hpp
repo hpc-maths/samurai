@@ -285,7 +285,7 @@ namespace samurai
 
             subset_1.apply_op(extend(m_tag));
             update_tag_periodic(level, m_tag);
-            update_tag_subdomains(level, m_tag);
+            update_tag_subdomains<false>(level, m_tag);
 
             int grad_width = static_cast<int>(mesh_t::config::graduation_width);
             auto stencil   = grad_width * detail::box_dir<dim>();
@@ -302,6 +302,7 @@ namespace samurai
             update_tag_periodic(level, m_tag);
             update_tag_subdomains<false>(level, m_tag);
         }
+        update_tag_subdomains<false>(min_level, m_tag);
 
         // Prevents the coarsening of child cells where the parent intersects the boundary.
         //
@@ -331,7 +332,8 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
             update_tag_periodic(level, m_tag);
-            update_tag_subdomains(level, m_tag);
+            // update_tag_subdomains(level, m_tag);
+            update_tag_subdomains<false>(level, m_tag);
         }
 
         update_ghost_mr(other_fields...);
