@@ -53,5 +53,15 @@ namespace samurai
             }
         };
 
+        template <>
+        class Assembly<int> : public ZeroBlock
+        {
+        };
+
+        auto make_assembly(const int&)
+        {
+            return Assembly<int>();
+        }
+
     } // end namespace petsc
 } // end namespace samurai

@@ -69,7 +69,7 @@ namespace samurai
             for_each_operator(
                 [&](auto& op, auto row, auto col)
                 {
-                    using op_field_t = typename std::decay_t<decltype(op)>::field_t;
+                    using operator_t = std::decay_t<decltype(op)>;
 
                     std::size_t i = 0;
                     for_each(unknown_tuple,
@@ -77,9 +77,10 @@ namespace samurai
                              {
                                  if (col == i)
                                  {
-                                     // Verify type compatibility only if op_field_t != void (used for ZeroBlock)
-                                     if constexpr (!std::is_same_v<op_field_t, void>)
+                                     // Verify type compatibility only if not ZeroBlock
+                                     if constexpr (!std::is_same_v<operator_t, int>)
                                      {
+                                         using op_field_t = typename operator_t::field_t;
                                          if constexpr (!std::is_same_v<std::decay_t<decltype(u)>, op_field_t>)
                                          {
                                              std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", " << col
