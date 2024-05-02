@@ -267,6 +267,7 @@ namespace samurai
         construct_union();
         update_sub_mesh();
         renumbering();
+        update_mesh_neighbour();
     }
 
     template <class D, class Config>
@@ -280,11 +281,53 @@ namespace samurai
     {
         m_cells[mesh_id_t::cells] = {cl, false};
 
-        update_mesh_neighbour();
         construct_subdomain();
         construct_union();
         update_sub_mesh();
         renumbering();
+        update_mesh_neighbour();
+    }
+
+    template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
+        : m_domain(ref_mesh.m_domain)
+        , m_min_level(ref_mesh.m_min_level)
+        , m_max_level(ref_mesh.m_max_level)
+        , m_periodic(ref_mesh.m_periodic)
+        , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
+
+    {
+        m_cells[mesh_id_t::cells] = ca;
+
+        construct_subdomain();
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+    }
+
+    template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl,
+                                           std::size_t min_level,
+                                           std::size_t max_level,
+                                           std::vector<mpi_subdomain_t>& neighbourhood)
+        : m_min_level(min_level)
+        , m_max_level(max_level)
+        , m_mpi_neighbourhood(neighbourhood)
+    {
+        m_periodic.fill(false);
+        assert(min_level <= max_level);
+
+        // what to do with m_domain ?
+        m_domain = m_subdomain;
+
+        m_cells[mesh_id_t::cells] = {cl, false};
+
+        construct_subdomain();   // required ?
+        construct_union();       // required ?
+        update_sub_mesh();       // perform MPI allReduce calls
+        renumbering();           // required ?
+        update_mesh_neighbour(); // required to do that here ??
     }
 
     template <class D, class Config>
