@@ -14,14 +14,14 @@ namespace samurai
             using scheme_t = int;  // deactivate compatibility test in block_operator.tie_unknowns()
             using field_t  = void; // deactivate compatibility test during assembly
 
-            Assembly(int value)
+            explicit Assembly(int value)
             {
                 if (value != 0)
                 {
                     std::cerr << "Unimplemented Assembly(" << value << ")" << std::endl;
                     exit(EXIT_FAILURE);
                 }
-                this->set_fit_block_dimensions(true);
+                this->fit_block_dimensions(true);
             }
 
             void sparsity_pattern_scheme(std::vector<PetscInt>&) const override

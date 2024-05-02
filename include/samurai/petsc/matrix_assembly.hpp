@@ -44,7 +44,7 @@ namespace samurai
                 return m_include_bc;
             }
 
-            void include_bc_if(bool include)
+            void include_bc(bool include)
             {
                 m_include_bc = include;
             }
@@ -54,7 +54,7 @@ namespace samurai
                 return m_assemble_proj_pred;
             }
 
-            void assemble_proj_pred_if(bool assemble)
+            void assemble_proj_pred(bool assemble)
             {
                 m_assemble_proj_pred = assemble;
             }
@@ -64,12 +64,12 @@ namespace samurai
                 return m_set_1_on_diag_for_useless_ghosts;
             }
 
-            void set_1_on_diag_for_useless_ghosts_if(bool value)
+            void must_set_1_on_diag_for_useless_ghosts(bool value)
             {
                 m_set_1_on_diag_for_useless_ghosts = value;
             }
 
-            virtual void set_is_block(bool is_block)
+            virtual void is_block(bool is_block)
             {
                 m_is_block = is_block;
             }
@@ -79,7 +79,7 @@ namespace samurai
                 return m_is_block;
             }
 
-            void set_fit_block_dimensions(bool value)
+            void fit_block_dimensions(bool value)
             {
                 m_fit_block_dimensions = value;
             }
@@ -90,15 +90,15 @@ namespace samurai
             }
 
             template <class int_type>
-            void set_row_shift(int_type row_shift)
+            void row_shift(int_type shift)
             {
-                m_row_shift = static_cast<PetscInt>(row_shift);
+                m_row_shift = static_cast<PetscInt>(shift);
             }
 
             template <class int_type>
-            void set_col_shift(int_type col_shift)
+            void col_shift(int_type shift)
             {
-                m_col_shift = static_cast<PetscInt>(col_shift);
+                m_col_shift = static_cast<PetscInt>(shift);
             }
 
             PetscInt row_shift() const

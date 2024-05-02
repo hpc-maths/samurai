@@ -78,14 +78,14 @@ namespace samurai
                          });
             }
 
-            void set_is_block(bool is_block) override
+            void is_block(bool is_block) override
             {
-                MatrixAssembly::set_is_block(is_block);
+                MatrixAssembly::is_block(is_block);
 
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             op.set_is_block(is_block);
+                             op.is_block(is_block);
                          });
             }
 

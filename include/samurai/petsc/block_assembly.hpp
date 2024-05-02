@@ -36,9 +36,9 @@ namespace samurai
                     [&](auto& op, auto row, auto col)
                     {
                         bool diagonal_block = (row == col);
-                        op.set_1_on_diag_for_useless_ghosts_if(diagonal_block);
-                        op.include_bc_if(diagonal_block);
-                        op.assemble_proj_pred_if(diagonal_block);
+                        op.must_set_1_on_diag_for_useless_ghosts(diagonal_block);
+                        op.include_bc(diagonal_block);
+                        op.assemble_proj_pred(diagonal_block);
                     });
             }
 
@@ -359,7 +359,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        op.set_is_block(true);
+                        op.is_block(true);
                     });
             }
 
@@ -445,8 +445,8 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto col)
                     {
-                        op.set_row_shift(row_shift);
-                        op.set_col_shift(col_shift);
+                        op.row_shift(row_shift);
+                        op.col_shift(col_shift);
                         col_shift += op.matrix_cols();
                         if (col == cols - 1)
                         {
