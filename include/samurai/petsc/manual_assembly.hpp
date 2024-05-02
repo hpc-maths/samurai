@@ -7,11 +7,11 @@ namespace samurai
     {
 
         template <class UnknownField>
-        class SimpleAssembly : public MatrixAssembly
+        class ManualAssembly : public MatrixAssembly
         {
           public:
 
-            using scheme_t = SimpleAssembly<UnknownField>;
+            using scheme_t = ManualAssembly<UnknownField>;
             using field_t  = UnknownField;
 
           private:
