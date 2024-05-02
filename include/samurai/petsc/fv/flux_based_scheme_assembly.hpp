@@ -99,7 +99,7 @@ namespace samurai
                             }
                         });
 
-                    for_each_boundary_interface(
+                    for_each_boundary_interface__both_directions(
                         mesh(),
                         flux_def[d].direction,
                         flux_def[d].stencil,
