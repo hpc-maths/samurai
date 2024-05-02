@@ -8,17 +8,9 @@ namespace samurai
         template <class Field>
         struct ZeroBlock : public SimpleAssembly<Field>
         {
-            std::size_t rows;
-            std::size_t cols;
-
-            PetscInt matrix_rows() const override
+            ZeroBlock()
             {
-                return static_cast<PetscInt>(rows);
-            }
-
-            PetscInt matrix_cols() const override
-            {
-                return static_cast<PetscInt>(cols);
+                this->set_fit_block_dimensions(true);
             }
 
             void sparsity_pattern_scheme(std::vector<PetscInt>&) const override

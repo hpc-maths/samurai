@@ -18,9 +18,12 @@ namespace samurai
 
           protected:
 
-            bool m_is_block      = false; // is a block in a monolithic block matrix
-            PetscInt m_row_shift = 0;
-            PetscInt m_col_shift = 0;
+            bool m_is_block             = false; // is a block in a monolithic block matrix
+            bool m_fit_block_dimensions = false;
+            PetscInt m_row_shift        = 0;
+            PetscInt m_col_shift        = 0;
+            PetscInt m_rows             = 0;
+            PetscInt m_cols             = 0;
 
           public:
 
@@ -74,6 +77,16 @@ namespace samurai
                 return m_is_block;
             }
 
+            void set_fit_block_dimensions(bool value)
+            {
+                m_fit_block_dimensions = value;
+            }
+
+            bool fit_block_dimensions() const
+            {
+                return m_fit_block_dimensions;
+            }
+
             template <class int_type>
             void set_row_shift(int_type row_shift)
             {
@@ -94,6 +107,16 @@ namespace samurai
             PetscInt col_shift() const
             {
                 return m_col_shift;
+            }
+
+            void set_matrix_rows(PetscInt rows)
+            {
+                m_rows = rows;
+            }
+
+            void set_matrix_cols(PetscInt cols)
+            {
+                m_cols = cols;
             }
 
             /**
@@ -186,11 +209,18 @@ namespace samurai
             /**
              * @brief Returns the number of matrix rows.
              */
-            virtual PetscInt matrix_rows() const = 0;
+            virtual PetscInt matrix_rows() const
+            {
+                return m_rows;
+            }
+
             /**
              * @brief Returns the number of matrix columns.
              */
-            virtual PetscInt matrix_cols() const = 0;
+            virtual PetscInt matrix_cols() const
+            {
+                return m_cols;
+            }
 
             /**
              * @brief Sets the sparsity pattern of the matrix for the interior of the domain (cells only).
