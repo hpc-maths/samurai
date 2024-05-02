@@ -208,6 +208,7 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
     std::size_t nfiles   = 1;
+    int nt_loadbalance = 10; // nombre d'iteratio entre les equilibrages
 
     CLI::App app{"Finite volume example for the advection equation in 2d "
                  "using multiresolution"};
@@ -218,6 +219,7 @@ int main(int argc, char* argv[])
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--nt-loadbalance", nt_loadbalance, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
@@ -263,18 +265,16 @@ int main(int argc, char* argv[])
 
     while (t != Tf)
     {
-        if (nt % 20 == 0 && nt > 1)
+        if (nt % nt_loadbalance == 0 && nt > 1 )
         {
             std::cout << "\t> Load balancing mesh ... " << std::endl;
+
             myTimers.start("load-balancing");
             balancer.load_balance(mesh, u);
             myTimers.stop("load-balancing");
 
-            // const std::string suffix = fmt::format("_loadbalanced_{}", nt);
-            // save(path, filename, u, suffix);
-
-            // samurai::finalize();
-            // return 0;
+            std::string suffix = fmt::format("_loadbalanced_bf_{}", nt);
+            save( path, filename, u, suffix);
         }
 
         myTimers.start("MRadaptation");
@@ -308,11 +308,9 @@ int main(int argc, char* argv[])
         std::swap(u.array(), unp1.array());
 
         myTimers.start("I/O");
-        // if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf || true )
-        if (nt % 20 == 0)
+        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf || true )
         {
-            // const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-            const std::string suffix = fmt::format("_ite_{}", nt);
+            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
         }
         myTimers.stop("I/O");
