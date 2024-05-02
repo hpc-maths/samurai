@@ -1,18 +1,26 @@
 #pragma once
-#include "simple_assembly.hpp"
+#include "matrix_assembly.hpp"
 
 namespace samurai
 {
     namespace petsc
     {
-        // template <class Field>
-        struct ZeroBlock : public MatrixAssembly //: public SimpleAssembly<Field>
+        /**
+         * Zero block
+         */
+        template <>
+        struct Assembly<int> : public MatrixAssembly
         {
-            using scheme_t = void; // deactivate compatibility test during assembly
+            using scheme_t = int;  // deactivate compatibility test in block_operator.tie_unknowns()
             using field_t  = void; // deactivate compatibility test during assembly
 
-            ZeroBlock()
+            Assembly(int value)
             {
+                if (value != 0)
+                {
+                    std::cerr << "Unimplemented Assembly(" << value << ")" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
                 this->set_fit_block_dimensions(true);
             }
 
@@ -52,16 +60,6 @@ namespace samurai
             {
             }
         };
-
-        template <>
-        class Assembly<int> : public ZeroBlock
-        {
-        };
-
-        auto make_assembly(const int&)
-        {
-            return Assembly<int>();
-        }
 
     } // end namespace petsc
 } // end namespace samurai

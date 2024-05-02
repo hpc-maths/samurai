@@ -17,7 +17,6 @@ namespace samurai
           private:
 
             const scheme_t* m_sum_scheme;
-            field_t* m_unknown = nullptr;
 
             std::tuple<Assembly<Operators>...> m_assembly_ops;
 

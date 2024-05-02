@@ -111,8 +111,8 @@ namespace samurai
                                  {
                                      if (col == i)
                                      {
-                                         // Verify type compatibility only if scheme_t != void (used for ZeroBlock)
-                                         if constexpr (!std::is_same_v<typename std::decay_t<decltype(op)>::scheme_t, void>)
+                                         // Verify type compatibility only if scheme_t != void (used for zero block)
+                                         if constexpr (!std::is_same_v<typename std::decay_t<decltype(op)>::scheme_t, int>)
                                          {
                                              if constexpr (std::is_same_v<std::decay_t<decltype(u)>,
                                                                           typename std::decay_t<decltype(op)>::scheme_t::field_t>)
