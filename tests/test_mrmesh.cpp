@@ -1,11 +1,9 @@
 #include <gtest/gtest.h>
-#include <xtensor/xarray.hpp>
-#include <xtensor/xfixed.hpp>
 
 #include <samurai/hdf5.hpp>
-#include <samurai/interval.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/subset/subset_op.hpp>
 
 #include <vector>
 
@@ -153,6 +151,95 @@ namespace samurai
 
         // technically not sufficient to be sure the remove was done properly
         ASSERT_EQ(mesh.nb_cells(Mesh_t::mesh_id_t::cells), 9);
+    }
+
+    TEST(mrmesh, test_construct_subdomain)
+    {
+        constexpr int dim = 2;
+
+        using Config     = samurai::MRConfig<dim>;
+        using Mesh_t     = samurai::MRMesh<Config>;
+
+        samurai::CellList<dim> cl;
+        cl[0][{0}].add_interval({0, 4});
+        cl[0][{1}].add_interval({0, 1});
+        cl[0][{1}].add_interval({3, 4});
+        cl[0][{2}].add_interval({0, 1});
+        cl[0][{2}].add_interval({3, 4});
+
+        cl[1][{2}].add_interval({2, 6});
+        cl[1][{3}].add_interval({2, 6});
+        cl[1][{4}].add_interval({2, 4});
+        cl[1][{4}].add_interval({5, 6});
+        cl[1][{5}].add_interval({2, 6});
+        cl[1][{6}].add_interval({6, 8});
+        cl[1][{7}].add_interval({6, 7});
+
+        Mesh_t mesh( cl, 0, 1);
+
+        bool intersect_found = false;
+        const auto & subdom = mesh.subdomain();
+        for(std::size_t level=mesh.min_level(); level<mesh.max_level(); ++level ){
+            auto intersect = difference( mesh[Mesh_t::mesh_id_t::cells][level], subdom ).on(level);
+            size_t ninter = 0;
+            intersect( [&]([[maybe_unused]]const auto & interval, [[maybe_unused]]const auto & index ){
+                ninter += 1;
+            });
+
+            if( ninter >  0) { intersect_found = true; }
+        }
+
+        ASSERT_FALSE( intersect_found );
+
+    }
+
+    TEST(mrmesh, test_construct_union)
+    {
+        constexpr int dim = 2;
+
+        using Config = samurai::MRConfig<dim>;
+        using Mesh_t = samurai::MRMesh<Config>;
+        using cl_t   = Mesh_t::cl_type;
+        using ca_t   = Mesh_t::ca_type;
+
+        Mesh_t mesh( getInitState<dim>(), 0, 2);
+
+        auto un = mesh.get_union();
+
+        ASSERT_EQ( un[ 0 ].nb_cells(), 5);
+        {
+            cl_t cl;
+            cl[0][{1}].add_interval({1,3});
+            cl[0][{2}].add_interval({1,3});
+            cl[0][{3}].add_interval({3,4});
+            ca_t ca = { cl, false };
+            auto tmp_ = samurai::difference( ca[0], un[0] );
+            
+            size_t ni = 0;
+            tmp_( [&]([[maybe_unused]]const auto & interval, [[maybe_unused]]const auto & index){
+                ni +=1;
+            });
+            ASSERT_EQ( ni, 0);
+        }
+
+        ASSERT_EQ( un[ 1 ].nb_cells(), 2);
+        {
+            cl_t cl;
+            cl[1][{4}].add_interval({4,5});
+            cl[1][{7}].add_interval({7,8});
+            ca_t ca = { cl, false };
+            auto tmp_ = samurai::difference( ca[1], un[1] );
+            
+            size_t ni = 0;
+            tmp_( [&]([[maybe_unused]]const auto & interval, [[maybe_unused]]const auto & index){
+                ni +=1;
+            });
+            ASSERT_EQ( ni, 0);
+        }
+
+        ASSERT_EQ( un[ 2 ].nb_cells(), 0);
+
+
     }
 
 }
