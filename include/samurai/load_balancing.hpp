@@ -300,12 +300,7 @@ namespace samurai
             boost::mpi::communicator world;
 
             Field_t new_field("new_f", new_mesh);
-
-#ifdef SAMURAI_CHECK_NAN
-            new_field.fill(std::nan(""));
-#else
             new_field.fill(0);
-#endif
 
             auto& mesh = field.mesh();
 
@@ -361,7 +356,7 @@ namespace samurai
                         auto in_interface = intersection(neighbour.mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
 
                         in_interface(
-                            [&](const auto& i, const auto& index)
+                            [&]( [[maybe_unused]]const auto& i, [[maybe_unused]]const auto& index)
                             {
                                 isintersect = true;
                             });
