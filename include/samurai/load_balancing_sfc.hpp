@@ -35,7 +35,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
     }
 
     template <class Mesh_t, class... Fields>
-    Mesh_t load_balance_impl(Mesh_t& mesh, Fields&... data)
+    Mesh_t load_balance_impl( Mesh_t& mesh )
     {
         using inter_t     = samurai::Interval<int, long long>;
         using CellList_t  = typename Mesh_t::cl_type;
