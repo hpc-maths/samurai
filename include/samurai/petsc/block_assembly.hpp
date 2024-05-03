@@ -157,6 +157,25 @@ namespace samurai
                     });
                 return names;
             }
+
+            void check_create_vector_ambiguity() const
+            {
+                static_assert(
+                    rows == cols,
+                    "Function 'create_vector()' is ambiguous in this context, because the block matrix is not square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead.");
+
+                // All the diagonal blocks must be square.
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == col && op.matrix_rows() != op.matrix_cols())
+                        {
+                            std::cerr << "Function 'create_vector()' is ambiguous in this context, because the block (" << row << ", " << col
+                                      << ") is not square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead." << std::endl;
+                            exit(EXIT_FAILURE);
+                        }
+                    });
+            }
         };
 
         /**
@@ -325,15 +344,31 @@ namespace samurai
                                      if (row == 0 && col == i)
                                      {
                                          x_blocks[col] = create_petsc_vector_from(f);
-                                         PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), f.name().c_str());
+                                         //  if constexpr (has_name<decltype(f)>())
+                                         //  {
+                                         //      PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), f.name().c_str());
+                                         //  }
                                      }
                                  });
                              i++;
                          });
                 Vec x;
                 VecCreateNest(PETSC_COMM_SELF, cols, NULL, x_blocks.data(), &x);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "applicable fields");
                 return x;
+            }
+
+            template <class... Fields>
+            Vec create_vector(const std::tuple<Fields&...>& fields) const
+            {
+                this->check_create_vector_ambiguity();
+                return create_applicable_vector(fields);
+            }
+
+            template <class... Fields>
+            Vec create_vector(const Fields&... fields) const
+            {
+                auto tuple = block_operator().tie_unknowns(fields...);
+                return create_vector(tuple);
             }
         };
 
@@ -652,8 +687,21 @@ namespace samurai
                                  });
                              i++;
                          });
-                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "applied fields");
                 return x;
+            }
+
+            template <class... Fields>
+            Vec create_vector(const std::tuple<Fields&...>& fields) const
+            {
+                this->check_create_vector_ambiguity();
+                return create_applicable_vector(fields);
+            }
+
+            template <class... Fields>
+            Vec create_vector(const Fields&... fields) const
+            {
+                auto tuple = block_operator().tie_unknowns(fields...);
+                return create_vector(tuple);
             }
 
             void enforce_bc(Vec& b) const
