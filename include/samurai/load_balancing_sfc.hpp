@@ -34,7 +34,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         return "SFC_" + _sfc.getName() + "_LB";
     }
 
-    template <class Mesh_t, class... Fields>
+    template <class Mesh_t>
     Mesh_t load_balance_impl( Mesh_t& mesh )
     {
         using inter_t     = samurai::Interval<int, long long>;
@@ -79,7 +79,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                                            icell(idim) = icell(idim) << (mesh.max_level() - level + 1);
                                        }
 
-                                       // this is where think can get nasty,  we expect indices to be positive values !!
+                                       // this is where things can get nasty,  we expect indices to be positive values !!
                                        xt::xtensor_fixed<uint32_t, xt::xshape<dim>> ijk;
                                        for (size_t idim = 0; idim < dim; ++idim)
                                        {
@@ -125,10 +125,9 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         logs << "Neighbour prev : " << neighbour_rank_prev << ", transfer of loads : " << transfer_load_prev << std::endl;
         logs << "Neighbour next : " << neighbour_rank_next << ", transfer of loads : " << transfer_load_next << std::endl;
 
-        /**
-         * In this section we update the current process mesh data based on what is sent and receive
-         *
-         */
+        /* ---------------------------------------------------------------------------------------------------------- */
+        /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
+        /* ---------------------------------------------------------------------------------------------------------- */
 
         CellList_t new_cl; // this will contains the final mesh of the current process
 
@@ -239,7 +238,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             }
         }
 
-        // last loop over the map to add what is left
+        // last loop over the map to add what wasn't given to another process
         for (auto iter = sfc_map.rbegin(); iter != sfc_map.rend(); ++iter)
         {
             if (!iter->second.given)
@@ -248,13 +247,11 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             }
         }
 
-        Mesh_t new_mesh(new_cl, mesh);
+        /* ---------------------------------------------------------------------------------------------------------- */
+        /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
+        /* ---------------------------------------------------------------------------------------------------------- */
 
-        logs << "\t> Number of cells in OLD mesh(mesh_id_t::cells) : " << mesh.nb_cells(Mesh_t::mesh_id_t::cells) << std::endl;
-        logs << "\t> Number of cells in NEW mesh(mesh_id_t::cells) : " << new_mesh.nb_cells(Mesh_t::mesh_id_t::cells) << std::endl;
-
-        logs << "\t> Number of cells in OLD mesh(mesh_id_t::all) : " << mesh.nb_cells() << std::endl;
-        logs << "\t> Number of cells in NEW mesh(mesh_id_t::all) : " << new_mesh.nb_cells() << std::endl;
+        Mesh_t new_mesh( new_cl, mesh );
 
         // update neighbour connectivity
         // samurai::discover_neighbour<dim>(new_mesh);
