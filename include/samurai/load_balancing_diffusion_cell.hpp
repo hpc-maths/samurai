@@ -46,7 +46,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
         inline std::string getName() const { return "Gravity_LB"; } 
 
         template<class Mesh_t>
-        void load_balance_impl( Mesh_t & mesh ){
+        Mesh_t load_balance_impl( Mesh_t & mesh ){
 
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
             using CellList_t      = typename Mesh_t::cl_type;
@@ -214,7 +214,11 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                           << " : " << ca_to_send[ nbi ].nb_cells() << std::endl;
             }
 
-            // actual data transfer occurs here 
+            /* ---------------------------------------------------------------------------------------------------------- */
+            /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
+            /* ---------------------------------------------------------------------------------------------------------- */
+
+            CellList_t new_cl, need_remove;
             for(size_t ni=0; ni<n_neighbours; ++ni ){
                 
                 if( fluxes [ ni ] == 0 ) continue; 
@@ -226,9 +230,15 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                     logs << "Receiving data from # " << neighbourhood[ ni ].rank
                          << ", nbCells : " << to_rcv.nb_cells() << std::endl;
 
-                    logs << "Merging cells, before : " << mesh.nb_cells( mesh_id_t::cells ) << std::endl;
-                    mesh.merge( to_rcv );
-                    logs << "Merging cells, after : " << mesh.nb_cells( mesh_id_t::cells ) << std::endl;
+                    // old strategy: modifying the current mesh - not working, breaks some internals 
+                    // mesh.merge( to_rcv );
+
+                    // new strategy: build a whole new mesh from a cl_t
+                    samurai::for_each_interval(to_rcv,
+                            [&](std::size_t level, const auto& interval, const auto& index)
+                            {
+                                new_cl[ level ][ index ].add_interval( interval );
+                            });
 
                 }else{ // send data to 
                     world.send( neighbourhood[ ni ].rank, 42, ca_to_send[ ni ] );
@@ -236,24 +246,39 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                     logs << "Sending data to # " << neighbourhood[ ni ].rank 
                          << ", nbCells : " << ca_to_send[ ni ].nb_cells() << std::endl;
 
-                    logs << "Removing cells, before : " << mesh.nb_cells( mesh_id_t::cells ) << std::endl;
+                    // old strategy: modifying the current mesh - not working, breaks some internals 
+                    // mesh.remove( ca_to_send[ ni ] );
 
-                    mesh.remove( ca_to_send[ ni ] );
-
-                    logs << "Removing cells, after : " << mesh.nb_cells( mesh_id_t::cells ) << std::endl;
+                    samurai::for_each_interval(ca_to_send[ ni ],
+                            [&](std::size_t level, const auto& interval, const auto& index)
+                            {
+                                need_remove[ level ][ index ].add_interval( interval );
+                            });
 
                 }
             }
 
-            // update neighbourhood
-            // send current process mesh to neighbour and get neighbour mesh
-            mesh.update_mesh_neighbour();
+            /* ---------------------------------------------------------------------------------------------------------- */
+            /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
+            /* ---------------------------------------------------------------------------------------------------------- */
+
+            // add to new_cl interval that were not sent
+            CellArray_t need_remove_ca = { need_remove }; // to optimize
+            for( size_t level=mesh.min_level(); level<=mesh.max_level(); ++level ){
+                auto diff = samurai::difference( mesh[ mesh_id_t::cells ][ level ], need_remove_ca[ level ] );
+
+                diff([&]( auto & interval, auto & index ){
+                    new_cl[ level ][ index ].add_interval( interval );
+                });
+            }
+
+            Mesh_t new_mesh( new_cl, mesh );
 
             // discover neighbours, since it might have changed
+            // samurai::discover_neighbour<dim>( new_mesh );
+            // samurai::discover_neighbour<dim>( new_mesh );
             
-            samurai::discover_neighbour<dim>( mesh );
-            samurai::discover_neighbour<dim>( mesh );
-
+            return new_mesh;
         }
         
 };
