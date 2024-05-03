@@ -677,7 +677,7 @@ namespace samurai
                 for_each(fields,
                          [&](auto& f)
                          {
-                             for_each_assembly_op(
+                             this->for_each_assembly_op(
                                  [&](auto& op, auto row, auto col)
                                  {
                                      if (row == 0 && col == i)
