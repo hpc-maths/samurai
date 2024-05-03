@@ -16,6 +16,15 @@ namespace samurai
             return v;
         }
 
+        template <class T, std::size_t N, xt::layout_type L, class A>
+        Vec create_petsc_vector_from(const xt::xtensor<T, N, L, A>& f)
+        {
+            Vec v;
+            auto n = static_cast<PetscInt>(f.size());
+            VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, f.data(), &v);
+            return v;
+        }
+
         template <class Field>
         void copy(Field& f, Vec& v)
         {
@@ -30,7 +39,7 @@ namespace samurai
         }
 
         template <class Field>
-        void copy(Field& f, Vec& v, PetscInt shift)
+        void copy(const Field& f, Vec& v, PetscInt shift)
         {
             auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::size);
 
@@ -41,6 +50,22 @@ namespace samurai
             for (PetscInt i = 0; i < n; ++i)
             {
                 double value = f.array().data()[i];
+                VecSetValue(v, shift + i, value, INSERT_VALUES);
+            }
+        }
+
+        template <class T, std::size_t N, xt::layout_type L, class A>
+        void copy(const xt::xtensor<T, N, L, A>& f, Vec& v, PetscInt shift)
+        {
+            auto n = static_cast<PetscInt>(f.size());
+
+            PetscInt n_vec;
+            VecGetSize(v, &n_vec);
+            assert(shift + n <= n_vec);
+
+            for (PetscInt i = 0; i < n; ++i)
+            {
+                double value = f.data()[i];
                 VecSetValue(v, shift + i, value, INSERT_VALUES);
             }
         }

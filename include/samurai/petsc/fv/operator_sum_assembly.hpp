@@ -62,11 +62,6 @@ namespace samurai
                 return *m_sum_scheme;
             }
 
-            // InsertMode current_insert_mode() const
-            // {
-            //     return std::get<0>(m_assembly_ops).current_insert_mode();
-            // }
-
             void set_current_insert_mode(InsertMode insert_mode) override
             {
                 MatrixAssembly::set_current_insert_mode(insert_mode);

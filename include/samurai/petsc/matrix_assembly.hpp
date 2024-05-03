@@ -328,6 +328,8 @@ namespace samurai
         // If Scheme already implements MatrixAssembly, then Assembly<Scheme> is defined as Scheme itself.
         // Since it can't be done by a 'using' instruction (-> partial specialization error),
         // we use a trick: Assembly<Scheme> inherits from Scheme.
+        // In order to ensure the conversion also the other way around, we use a 'reinterpret_cast'
+        // in the function make_assembly() below.
         template <class Scheme>
         class Assembly<Scheme, std::enable_if_t<std::is_base_of_v<MatrixAssembly, Scheme>>> : public Scheme
         {
