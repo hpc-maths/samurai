@@ -202,7 +202,7 @@ namespace samurai
                 MatCreateNest(PETSC_COMM_SELF, rows, PETSC_IGNORE, cols, PETSC_IGNORE, m_blocks.data(), &A);
             }
 
-            void assemble_matrix(Mat& A)
+            void assemble_matrix(Mat& A, bool final_assembly = true)
             {
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
@@ -210,8 +210,11 @@ namespace samurai
                         // std::cout << "assemble_matrix (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;
                         op.assemble_matrix(block(row, col));
                     });
-                MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-                MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                if (final_assembly)
+                {
+                    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+                    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                }
             }
 
             void reset()
