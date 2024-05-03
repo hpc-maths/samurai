@@ -56,9 +56,8 @@ namespace samurai
           protected:
 
             const Scheme* m_scheme;
-            field_t* m_unknown               = nullptr;
-            std::size_t m_n_cells            = 0;
-            InsertMode m_current_insert_mode = INSERT_VALUES;
+            field_t* m_unknown    = nullptr;
+            std::size_t m_n_cells = 0;
             std::vector<bool> m_is_row_empty;
 
             // Ghost recursion
@@ -196,16 +195,6 @@ namespace samurai
                 return static_cast<PetscInt>(m_n_cells * field_size);
             }
 
-            InsertMode current_insert_mode() const
-            {
-                return m_current_insert_mode;
-            }
-
-            void set_current_insert_mode(InsertMode insert_mode)
-            {
-                m_current_insert_mode = insert_mode;
-            }
-
             // Global data index
             inline PetscInt col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
             {
@@ -239,38 +228,14 @@ namespace samurai
                 }
             }
 
-            template <class CellT>
-            inline PetscInt col_index(const CellT& cell, [[maybe_unused]] unsigned int field_j) const
+            inline PetscInt col_index(const cell_t& cell, unsigned int field_j) const
             {
-                if constexpr (field_size == 1)
-                {
-                    return m_col_shift + static_cast<PetscInt>(cell.index);
-                }
-                else if constexpr (field_t::is_soa)
-                {
-                    return m_col_shift + static_cast<PetscInt>(field_j * static_cast<index_t>(m_n_cells) + cell.index);
-                }
-                else
-                {
-                    return m_col_shift + static_cast<PetscInt>(cell.index * static_cast<index_t>(field_size) + field_j);
-                }
+                return col_index(static_cast<PetscInt>(cell.index), field_j);
             }
 
-            template <class CellT>
-            inline PetscInt row_index(const CellT& cell, [[maybe_unused]] unsigned int field_i) const
+            inline PetscInt row_index(const cell_t& cell, unsigned int field_i) const
             {
-                if constexpr (output_field_size == 1)
-                {
-                    return m_row_shift + static_cast<PetscInt>(cell.index);
-                }
-                else if constexpr (field_t::is_soa)
-                {
-                    return m_row_shift + static_cast<PetscInt>(field_i * static_cast<index_t>(m_n_cells) + cell.index);
-                }
-                else
-                {
-                    return m_row_shift + static_cast<PetscInt>(cell.index * static_cast<index_t>(output_field_size) + field_i);
-                }
+                return row_index(static_cast<PetscInt>(cell.index), field_i);
             }
 
             template <class Coeffs>

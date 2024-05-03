@@ -16,11 +16,16 @@ namespace samurai
             bool m_assemble_proj_pred               = true;
             bool m_set_1_on_diag_for_useless_ghosts = true;
 
+            InsertMode m_current_insert_mode = INSERT_VALUES;
+
           protected:
 
-            bool m_is_block      = false; // is a block in a monolithic block matrix
-            PetscInt m_row_shift = 0;
-            PetscInt m_col_shift = 0;
+            bool m_is_block             = false; // is a block in a monolithic block matrix
+            bool m_fit_block_dimensions = false; // computes dimensions according to the block's position
+            PetscInt m_row_shift        = 0;
+            PetscInt m_col_shift        = 0;
+            PetscInt m_rows             = 0;
+            PetscInt m_cols             = 0;
 
           public:
 
@@ -39,7 +44,7 @@ namespace samurai
                 return m_include_bc;
             }
 
-            void include_bc_if(bool include)
+            void include_bc(bool include)
             {
                 m_include_bc = include;
             }
@@ -49,7 +54,7 @@ namespace samurai
                 return m_assemble_proj_pred;
             }
 
-            void assemble_proj_pred_if(bool assemble)
+            void assemble_proj_pred(bool assemble)
             {
                 m_assemble_proj_pred = assemble;
             }
@@ -59,12 +64,12 @@ namespace samurai
                 return m_set_1_on_diag_for_useless_ghosts;
             }
 
-            void set_1_on_diag_for_useless_ghosts_if(bool value)
+            void must_set_1_on_diag_for_useless_ghosts(bool value)
             {
                 m_set_1_on_diag_for_useless_ghosts = value;
             }
 
-            virtual void set_is_block(bool is_block)
+            virtual void is_block(bool is_block)
             {
                 m_is_block = is_block;
             }
@@ -74,16 +79,26 @@ namespace samurai
                 return m_is_block;
             }
 
-            template <class int_type>
-            void set_row_shift(int_type row_shift)
+            void fit_block_dimensions(bool value)
             {
-                m_row_shift = static_cast<PetscInt>(row_shift);
+                m_fit_block_dimensions = value;
+            }
+
+            bool fit_block_dimensions() const
+            {
+                return m_fit_block_dimensions;
             }
 
             template <class int_type>
-            void set_col_shift(int_type col_shift)
+            void row_shift(int_type shift)
             {
-                m_col_shift = static_cast<PetscInt>(col_shift);
+                m_row_shift = static_cast<PetscInt>(shift);
+            }
+
+            template <class int_type>
+            void col_shift(int_type shift)
+            {
+                m_col_shift = static_cast<PetscInt>(shift);
             }
 
             PetscInt row_shift() const
@@ -94,6 +109,42 @@ namespace samurai
             PetscInt col_shift() const
             {
                 return m_col_shift;
+            }
+
+            /**
+             * @brief Returns the number of matrix rows.
+             */
+            virtual PetscInt matrix_rows() const
+            {
+                return m_rows;
+            }
+
+            /**
+             * @brief Returns the number of matrix columns.
+             */
+            virtual PetscInt matrix_cols() const
+            {
+                return m_cols;
+            }
+
+            void set_matrix_rows(PetscInt rows)
+            {
+                m_rows = rows;
+            }
+
+            void set_matrix_cols(PetscInt cols)
+            {
+                m_cols = cols;
+            }
+
+            InsertMode current_insert_mode() const
+            {
+                return m_current_insert_mode;
+            }
+
+            virtual void set_current_insert_mode(InsertMode insert_mode)
+            {
+                m_current_insert_mode = insert_mode;
             }
 
             /**
@@ -144,7 +195,7 @@ namespace samurai
              * @brief Inserts the coefficent into a preallocated matrix and
              * performs the assembly.
              */
-            virtual void assemble_matrix(Mat& A)
+            virtual void assemble_matrix(Mat& A, bool final_assembly = true)
             {
                 assemble_scheme(A);
                 if (m_include_bc)
@@ -169,8 +220,11 @@ namespace samurai
                     PetscBool is_spd = matrix_is_spd() ? PETSC_TRUE : PETSC_FALSE;
                     MatSetOption(A, MAT_SPD, is_spd);
 
-                    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-                    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                    if (final_assembly)
+                    {
+                        MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+                        MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                    }
                 }
             }
 
@@ -179,15 +233,6 @@ namespace samurai
                 // std::cout << "Destruction of '" << name() << "'" << std::endl;
                 m_is_deleted = true;
             }
-
-            /**
-             * @brief Returns the number of matrix rows.
-             */
-            virtual PetscInt matrix_rows() const = 0;
-            /**
-             * @brief Returns the number of matrix columns.
-             */
-            virtual PetscInt matrix_cols() const = 0;
 
             /**
              * @brief Sets the sparsity pattern of the matrix for the interior of the domain (cells only).
@@ -280,10 +325,27 @@ namespace samurai
                 "Either the required file has not been included, or the Assembly class has not been specialized for this type of scheme.");
         };
 
+        // If Scheme already implements MatrixAssembly, then Assembly<Scheme> is defined as Scheme itself.
+        // Since it can't be done by a 'using' instruction (-> partial specialization error),
+        // we use a trick: Assembly<Scheme> inherits from Scheme.
+        // In order to ensure the conversion also the other way around, we use a 'reinterpret_cast'
+        // in the function make_assembly() below.
+        template <class Scheme>
+        class Assembly<Scheme, std::enable_if_t<std::is_base_of_v<MatrixAssembly, Scheme>>> : public Scheme
+        {
+        };
+
         template <class Scheme>
         auto make_assembly(const Scheme& s)
         {
-            return Assembly<Scheme>(s);
+            if constexpr (std::is_base_of_v<MatrixAssembly, Scheme>)
+            {
+                return *reinterpret_cast<const Assembly<Scheme>*>(&s);
+            }
+            else
+            {
+                return Assembly<Scheme>(s);
+            }
         }
 
     } // end namespace petsc

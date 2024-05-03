@@ -17,7 +17,6 @@ namespace samurai
           private:
 
             const scheme_t* m_sum_scheme;
-            field_t* m_unknown = nullptr;
 
             std::tuple<Assembly<Operators>...> m_assembly_ops;
 
@@ -63,13 +62,10 @@ namespace samurai
                 return *m_sum_scheme;
             }
 
-            InsertMode current_insert_mode() const
+            void set_current_insert_mode(InsertMode insert_mode) override
             {
-                return std::get<0>(m_assembly_ops).current_insert_mode();
-            }
+                MatrixAssembly::set_current_insert_mode(insert_mode);
 
-            void set_current_insert_mode(InsertMode insert_mode)
-            {
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
@@ -77,14 +73,14 @@ namespace samurai
                          });
             }
 
-            void set_is_block(bool is_block) override
+            void is_block(bool is_block) override
             {
-                MatrixAssembly::set_is_block(is_block);
+                MatrixAssembly::is_block(is_block);
 
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             op.set_is_block(is_block);
+                             op.is_block(is_block);
                          });
             }
 

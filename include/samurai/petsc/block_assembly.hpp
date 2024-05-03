@@ -1,7 +1,7 @@
 #pragma once
 #include "../schemes/block_operator.hpp"
-#include "matrix_assembly.hpp"
 #include "utils.hpp"
+#include "zero_block_assembly.hpp"
 
 namespace samurai
 {
@@ -36,9 +36,9 @@ namespace samurai
                     [&](auto& op, auto row, auto col)
                     {
                         bool diagonal_block = (row == col);
-                        op.set_1_on_diag_for_useless_ghosts_if(diagonal_block);
-                        op.include_bc_if(diagonal_block);
-                        op.assemble_proj_pred_if(diagonal_block);
+                        op.must_set_1_on_diag_for_useless_ghosts(diagonal_block);
+                        op.include_bc(diagonal_block);
+                        op.assemble_proj_pred(diagonal_block);
                     });
             }
 
@@ -86,6 +86,12 @@ namespace samurai
                          });
             }
 
+            template <std::size_t row, std::size_t col>
+            auto& get()
+            {
+                return std::get<row * cols + col>(m_assembly_ops);
+            }
+
             template <class... Fields>
             void set_unknowns(Fields&... unknowns)
             {
@@ -100,26 +106,30 @@ namespace samurai
                     [&](auto& op, auto row, auto col)
                     {
                         std::size_t i = 0;
-                        for_each(
-                            unknowns,
-                            [&](auto& u)
-                            {
-                                if (col == i)
-                                {
-                                    if constexpr (std::is_same_v<std::decay_t<decltype(u)>, typename std::decay_t<decltype(op)>::scheme_t::field_t>)
-                                    {
-                                        op.set_unknown(u);
-                                    }
-                                    else
-                                    {
-                                        std::cerr << "unknown " << i << " (named '" << u.name() << "') is not compatible with the scheme ("
-                                                  << row << ", " << col << ") (named '" << op.name() << "')" << std::endl;
-                                        assert(false);
-                                        exit(EXIT_FAILURE);
-                                    }
-                                }
-                                i++;
-                            });
+                        for_each(unknowns,
+                                 [&](auto& u)
+                                 {
+                                     if (col == i)
+                                     {
+                                         // Verify type compatibility only if scheme_t != void (used for zero block)
+                                         if constexpr (!std::is_same_v<typename std::decay_t<decltype(op)>::scheme_t, int>)
+                                         {
+                                             if constexpr (std::is_same_v<std::decay_t<decltype(u)>,
+                                                                          typename std::decay_t<decltype(op)>::scheme_t::field_t>)
+                                             {
+                                                 op.set_unknown(u);
+                                             }
+                                             else
+                                             {
+                                                 std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", "
+                                                           << col << ") (named '" << op.name() << "')" << std::endl;
+                                                 assert(false);
+                                                 exit(EXIT_FAILURE);
+                                             }
+                                         }
+                                     }
+                                     i++;
+                                 });
                     });
             }
 
@@ -146,6 +156,25 @@ namespace samurai
                         }
                     });
                 return names;
+            }
+
+            void check_create_vector_ambiguity() const
+            {
+                static_assert(
+                    rows == cols,
+                    "Function 'create_vector()' is ambiguous in this context, because the block matrix is not square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead.");
+
+                // All the diagonal blocks must be square.
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == col && op.matrix_rows() != op.matrix_cols())
+                        {
+                            std::cerr << "Function 'create_vector()' is ambiguous in this context, because the block (" << row << ", " << col
+                                      << ") is not square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead." << std::endl;
+                            exit(EXIT_FAILURE);
+                        }
+                    });
             }
         };
 
@@ -192,7 +221,7 @@ namespace samurai
                 MatCreateNest(PETSC_COMM_SELF, rows, PETSC_IGNORE, cols, PETSC_IGNORE, m_blocks.data(), &A);
             }
 
-            void assemble_matrix(Mat& A)
+            void assemble_matrix(Mat& A, bool final_assembly = true)
             {
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
@@ -200,8 +229,11 @@ namespace samurai
                         // std::cout << "assemble_matrix (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;
                         op.assemble_matrix(block(row, col));
                     });
-                MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-                MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                if (final_assembly)
+                {
+                    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+                    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                }
             }
 
             void reset()
@@ -312,15 +344,31 @@ namespace samurai
                                      if (row == 0 && col == i)
                                      {
                                          x_blocks[col] = create_petsc_vector_from(f);
-                                         PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), f.name().c_str());
+                                         //  if constexpr (has_name<decltype(f)>())
+                                         //  {
+                                         //      PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), f.name().c_str());
+                                         //  }
                                      }
                                  });
                              i++;
                          });
                 Vec x;
                 VecCreateNest(PETSC_COMM_SELF, cols, NULL, x_blocks.data(), &x);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "applicable fields");
                 return x;
+            }
+
+            template <class... Fields>
+            Vec create_vector(const std::tuple<Fields&...>& fields) const
+            {
+                this->check_create_vector_ambiguity();
+                return create_applicable_vector(fields);
+            }
+
+            template <class... Fields>
+            Vec create_vector(const Fields&... fields) const
+            {
+                auto tuple = block_operator().tie_unknowns(fields...);
+                return create_vector(tuple);
             }
         };
 
@@ -349,20 +397,94 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        op.set_is_block(true);
+                        op.is_block(true);
                     });
             }
 
             void reset() override
             {
+                for_each_assembly_op(
+                    [&](auto& op, auto, auto)
+                    {
+                        op.reset();
+                    });
+
+                // Check compatibility of dimensions and set dimensions for blocks that must fit into the matrix
+                // - rows:
+                for (std::size_t r = 0; r < rows; r++)
+                {
+                    PetscInt block_rows = 0;
+                    for_each_assembly_op(
+                        [&](auto& op, auto row, auto)
+                        {
+                            if (row == r)
+                            {
+                                if (block_rows == 0 && !op.fit_block_dimensions())
+                                {
+                                    block_rows = op.matrix_rows();
+                                }
+                            }
+                        });
+                    for_each_assembly_op(
+                        [&](auto& op, auto row, auto col)
+                        {
+                            if (row == r)
+                            {
+                                if (op.fit_block_dimensions())
+                                {
+                                    op.set_matrix_rows(block_rows);
+                                }
+                                else if (op.matrix_rows() != block_rows)
+                                {
+                                    std::cerr << "Assembly failure: incompatible number of rows of block (" << row << ", " << col
+                                              << "): " << op.matrix_rows() << " (expected " << block_rows << ")" << std::endl;
+                                    exit(EXIT_FAILURE);
+                                }
+                            }
+                        });
+                }
+                // - cols:
+                for (std::size_t c = 0; c < cols; c++)
+                {
+                    PetscInt block_cols = 0;
+                    for_each_assembly_op(
+                        [&](auto& op, auto, auto col)
+                        {
+                            if (col == c)
+                            {
+                                if (block_cols == 0 && !op.fit_block_dimensions())
+                                {
+                                    block_cols = op.matrix_cols();
+                                }
+                            }
+                        });
+                    for_each_assembly_op(
+                        [&](auto& op, auto row, auto col)
+                        {
+                            if (col == c)
+                            {
+                                if (op.fit_block_dimensions())
+                                {
+                                    op.set_matrix_cols(block_cols);
+                                }
+                                else if (op.matrix_cols() != block_cols)
+                                {
+                                    std::cerr << "Assembly failure: incompatible number of columns of block (" << row << ", " << col
+                                              << "): " << op.matrix_cols() << " (expected " << block_cols << ")" << std::endl;
+                                    exit(EXIT_FAILURE);
+                                }
+                            }
+                        });
+                }
+
+                // Set row_shift and col_shift
                 PetscInt row_shift = 0;
                 PetscInt col_shift = 0;
                 for_each_assembly_op(
                     [&](auto& op, auto, auto col)
                     {
-                        op.reset();
-                        op.set_row_shift(row_shift);
-                        op.set_col_shift(col_shift);
+                        op.row_shift(row_shift);
+                        op.col_shift(col_shift);
                         col_shift += op.matrix_cols();
                         if (col == cols - 1)
                         {
@@ -469,6 +591,7 @@ namespace samurai
                         {
                             op.set_current_insert_mode(insert_mode);
                         }
+                        // std::cout << "assemble_scheme (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;
                         op.assemble_scheme(A);
                         insert_mode = op.current_insert_mode();
                     });
@@ -554,7 +677,7 @@ namespace samurai
                 for_each(fields,
                          [&](auto& f)
                          {
-                             for_each_assembly_op(
+                             this->for_each_assembly_op(
                                  [&](auto& op, auto row, auto col)
                                  {
                                      if (row == 0 && col == i)
@@ -564,8 +687,21 @@ namespace samurai
                                  });
                              i++;
                          });
-                PetscObjectSetName(reinterpret_cast<PetscObject>(x), "applied fields");
                 return x;
+            }
+
+            template <class... Fields>
+            Vec create_vector(const std::tuple<Fields&...>& fields) const
+            {
+                this->check_create_vector_ambiguity();
+                return create_applicable_vector(fields);
+            }
+
+            template <class... Fields>
+            Vec create_vector(const Fields&... fields) const
+            {
+                auto tuple = block_operator().tie_unknowns(fields...);
+                return create_vector(tuple);
             }
 
             void enforce_bc(Vec& b) const
@@ -665,6 +801,12 @@ namespace samurai
             {
                 return NestedBlockAssembly<rows_, cols_, Operators...>(block_op);
             }
+        }
+
+        template <std::size_t rows_, std::size_t cols_, class... Operators>
+        auto make_assembly(const BlockOperator<rows_, cols_, Operators...>& block_op)
+        {
+            return make_assembly<true>(block_op);
         }
 
         /**

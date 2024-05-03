@@ -1,0 +1,65 @@
+#pragma once
+#include "matrix_assembly.hpp"
+
+namespace samurai
+{
+    namespace petsc
+    {
+        /**
+         * Zero block
+         */
+        template <>
+        struct Assembly<int> : public MatrixAssembly
+        {
+            using scheme_t = int;  // deactivate compatibility test in block_operator.tie_unknowns()
+            using field_t  = void; // deactivate compatibility test during assembly
+
+            explicit Assembly(int value)
+            {
+                if (value != 0)
+                {
+                    std::cerr << "Unimplemented Assembly(" << value << ")" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                this->fit_block_dimensions(true);
+            }
+
+            void sparsity_pattern_scheme(std::vector<PetscInt>&) const override
+            {
+            }
+
+            void assemble_scheme(Mat&) override
+            {
+            }
+
+            void sparsity_pattern_boundary(std::vector<PetscInt>&) const override
+            {
+            }
+
+            void sparsity_pattern_projection(std::vector<PetscInt>&) const override
+            {
+            }
+
+            void sparsity_pattern_prediction(std::vector<PetscInt>&) const override
+            {
+            }
+
+            void assemble_boundary_conditions(Mat&) override
+            {
+            }
+
+            void assemble_projection(Mat&) override
+            {
+            }
+
+            void assemble_prediction(Mat&) override
+            {
+            }
+
+            void set_1_on_diag_for_useless_ghosts(Mat&) override
+            {
+            }
+        };
+
+    } // end namespace petsc
+} // end namespace samurai

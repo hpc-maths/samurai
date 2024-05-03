@@ -416,6 +416,15 @@ namespace samurai
             });
     }
 
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Func>
+    void for_each_boundary_interface__direction(const Mesh& mesh, const DirectionVector<Mesh::dim>& direction, Func&& f)
+    {
+        static constexpr std::size_t dim = Mesh::dim;
+
+        Stencil<2, dim> comput_stencil = in_out_stencil<dim>(direction);
+        for_each_boundary_interface__direction<run_type, get_type>(mesh, direction, comput_stencil, std::forward<Func>(f));
+    }
+
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_boundary_interface__both_directions(const Mesh& mesh,
                                                       std::size_t level,
