@@ -11,11 +11,12 @@
 using aux_t = xt::xtensor<double, 2>;
 
 template <class Mesh_e>
-struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t>
+struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>: type of field the block applies to
+                                                                       // (= unknown field type if the block must be inversed)
 {
     const Mesh_e& mesh_e;
 
-    Coupling_auxCe_e(const Mesh_e& m)
+    explicit Coupling_auxCe_e(const Mesh_e& m)
         : mesh_e(m)
     {
         this->set_name("Coupling_auxCe_e");
@@ -64,7 +65,7 @@ struct Coupling_e_auxCe : public samurai::petsc::ManualAssembly<field_t>
 {
     const aux_t& aux_Ce;
 
-    Coupling_e_auxCe(const aux_t& t)
+    explicit Coupling_e_auxCe(const aux_t& t)
         : aux_Ce(t)
     {
         this->set_name("Coupling_e_auxCe");
@@ -124,7 +125,7 @@ struct Coupling_s_auxCe : public samurai::petsc::ManualAssembly<field_t>
 {
     const aux_t* aux_Ce;
 
-    Coupling_s_auxCe(const aux_t& t)
+    explicit Coupling_s_auxCe(const aux_t& t)
         : aux_Ce(&t)
     {
         this->set_name("Coupling_s_auxCe");
@@ -156,7 +157,7 @@ struct Coupling_auxCe_s : public samurai::petsc::ManualAssembly<aux_t>
 {
     const Mesh_s& mesh_s;
 
-    Coupling_auxCe_s(const Mesh_s& m)
+    explicit Coupling_auxCe_s(const Mesh_s& m)
         : mesh_s(m)
     {
         this->set_name("Coupling_auxCe_s");
