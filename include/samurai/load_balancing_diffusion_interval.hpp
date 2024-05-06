@@ -82,11 +82,12 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
         inline std::string getName() const { return "Interface_Prop_LB"; } 
 
         template<class Mesh_t>
-        void load_balance_impl( Mesh_t & mesh ){
+        Mesh_t load_balance_impl( Mesh_t & mesh ){
 
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
             using CellList_t      = typename Mesh_t::cl_type;
             using CellArray_t     = samurai::CellArray<dim>;
+            using mesh_id_t       = typename Mesh_t::mesh_id_t;
 
             boost::mpi::communicator world;
 
@@ -124,12 +125,17 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
             bool balancing_done = false;
             while( ! balancing_done ){
              
-                // select neighbour to which we needs to sent the more load
+                // select neighbour with the highest needs of load
                 bool neighbour_found = false;
                 std::size_t requester   = 0;
                 int requested_load = 0;
                 for(std::size_t nbi=0; nbi<n_neighbours; ++nbi ){
+
+                    // skip neighbour that need to send load
                     if( new_fluxes[ nbi ] >= 0 ) continue;
+
+                    // FIX: Add condition (&& interface not empty ) ?
+                    // Neighbourhood should have been updated in a way that an interface exists !
                     if( - new_fluxes[ nbi ] > requested_load ){
                         requested_load  = - new_fluxes[ nbi ];
                         requester       = nbi;
@@ -163,7 +169,9 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
                     if( nelement == 0 ){
                         new_fluxes[ requester ] = 0;
 
-                        { // debug 
+                        { // debug
+                            std::cerr << fmt::format("\t> Process {}, Warning no interface with a requester neighbour # {}", world.rank(),
+                                                     neighbourhood[ requester ].rank ) << std::endl;
                             logs << "Requester neighbour, no interface found, set fluxes to " << new_fluxes[ requester ] << std::endl;
                         }
                     }else{
@@ -207,6 +215,12 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
 
             }
 
+            /* ---------------------------------------------------------------------------------------------------------- */
+            /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
+            /* ---------------------------------------------------------------------------------------------------------- */
+            
+            CellList_t new_cl, need_remove;
+
             // at this point local mesh of neighbour are modified ( technically it should match what would results from send)
             // and local mesh has been modified
             for(size_t ni=0; ni<n_neighbours; ++ni ){
@@ -214,22 +228,61 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
                 if( fluxes [ ni ] == 0 ) continue; 
 
                 if( fluxes[ ni ] > 0 ) { // receive data
-                    samurai::CellArray<dim> to_rcv;
+                    CellArray_t to_rcv;
                     world.recv( neighbourhood[ ni ].rank, 42, to_rcv );
-                    mesh.merge( to_rcv );
+
+                    logs << fmt::format("\t> Rank # {} receiving {} cells from rank # {}", world.rank(), to_rcv.nb_cells(), neighbourhood[ ni ].rank) << std::endl;
+                    
+                    // old strategy
+                    // mesh.merge( to_rcv );
+
+                    // add to future mesh of current process
+                    samurai::for_each_interval(to_rcv,
+                             [&](std::size_t level, const auto& interval, const auto& index)
+                             {
+                                new_cl[ level ][ index ].add_interval( interval );
+                             });
+
                 }else{ // send data to
                     CellArray_t to_send = { cl_to_send[ ni ], false };
                     world.send( neighbourhood[ ni ].rank, 42, to_send );
+
+                    logs << fmt::format("\t> Rank # {} sending {} cells to rank # {}", world.rank(), to_send.nb_cells(), neighbourhood[ ni ].rank) << std::endl;
+
+                    samurai::for_each_interval( to_send,
+                            [&](std::size_t level, const auto& interval, const auto& index)
+                            {
+                                need_remove[ level ][ index ].add_interval( interval );
+                            });
                 }
             }
 
-            // update neighbour mesh - this should end up with the same result but .. 
-            mesh.update_mesh_neighbour();
+            /* ---------------------------------------------------------------------------------------------------------- */
+            /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
+            /* ---------------------------------------------------------------------------------------------------------- */
+
+            // add to new_cl interval that were not sent
+            CellArray_t need_remove_ca = { need_remove }; // to optimize
+            for( size_t level=mesh.min_level(); level<=mesh.max_level(); ++level ){
+                auto diff = samurai::difference( mesh[ mesh_id_t::cells ][ level ], need_remove_ca[ level ] );
+
+                diff([&]( auto & interval, auto & index ){
+                    new_cl[ level ][ index ].add_interval( interval );
+                });
+            }
+
+            Mesh_t new_mesh( new_cl, mesh );
+
+            logs << fmt::format("Rank # {} old mesh {} nb cells", world.rank(), mesh.nb_cells() ) << std::endl;
+            logs << fmt::format("Rank # {} new mesh {} nb cells", world.rank(), new_mesh.nb_cells() ) << std::endl;
 
             // update neighbour connectivity
-            samurai::discover_neighbour<dim>( mesh );
-            samurai::discover_neighbour<dim>( mesh );
+            // samurai::discover_neighbour<dim>( mesh );
+            // samurai::discover_neighbour<dim>( mesh );
 
+            samurai::save("./", "new-mesh-LB", new_mesh);
+
+            return new_mesh;
         }
 
         template<class Mesh_t>
