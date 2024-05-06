@@ -200,8 +200,9 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
 
                 { // remove interval from current process mesh and add it to neighbour mesh local copy !
                     CellArray_t ca_for_neighbour = { cl_for_neighbour, false };
-                    mesh.remove( ca_for_neighbour );
-                    neighbourhood[ requester ].mesh.merge( ca_for_neighbour );
+                    
+                    // mesh.remove( ca_for_neighbour );
+                    // neighbourhood[ requester ].mesh.merge( ca_for_neighbour );
 
                     // update gobal list that will be sent to neighbour process
                     samurai::for_each_interval( ca_for_neighbour, [&]( std::size_t level, const auto & interval, const auto & index ){
@@ -223,7 +224,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
 
             // at this point local mesh of neighbour are modified ( technically it should match what would results from send)
             // and local mesh has been modified
-            for(size_t ni=0; ni<n_neighbours; ++ni ){
+            for(std::size_t ni=0; ni<n_neighbours; ++ni ){
                 
                 if( fluxes [ ni ] == 0 ) continue; 
 
@@ -231,7 +232,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
                     CellArray_t to_rcv;
                     world.recv( neighbourhood[ ni ].rank, 42, to_rcv );
 
-                    logs << fmt::format("\t> Rank # {} receiving {} cells from rank # {}", world.rank(), to_rcv.nb_cells(), neighbourhood[ ni ].rank) << std::endl;
+                    logs << fmt::format("\t>[load_balance_impl]::interval Rank # {} receiving {} cells from rank # {}", world.rank(), to_rcv.nb_cells(), neighbourhood[ ni ].rank) << std::endl;
                     
                     // old strategy
                     // mesh.merge( to_rcv );
@@ -247,7 +248,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
                     CellArray_t to_send = { cl_to_send[ ni ], false };
                     world.send( neighbourhood[ ni ].rank, 42, to_send );
 
-                    logs << fmt::format("\t> Rank # {} sending {} cells to rank # {}", world.rank(), to_send.nb_cells(), neighbourhood[ ni ].rank) << std::endl;
+                    logs << fmt::format("\t>[load_balance_impl]::interval Rank # {} sending {} cells to rank # {}", world.rank(), to_send.nb_cells(), neighbourhood[ ni ].rank) << std::endl;
 
                     samurai::for_each_interval( to_send,
                             [&](std::size_t level, const auto& interval, const auto& index)
@@ -255,6 +256,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
                                 need_remove[ level ][ index ].add_interval( interval );
                             });
                 }
+
             }
 
             /* ---------------------------------------------------------------------------------------------------------- */
@@ -273,19 +275,11 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
 
             Mesh_t new_mesh( new_cl, mesh );
 
-            logs << fmt::format("Rank # {} old mesh {} nb cells", world.rank(), mesh.nb_cells() ) << std::endl;
-            logs << fmt::format("Rank # {} new mesh {} nb cells", world.rank(), new_mesh.nb_cells() ) << std::endl;
-
-            // update neighbour connectivity
-            // samurai::discover_neighbour<dim>( mesh );
-            // samurai::discover_neighbour<dim>( mesh );
-
-            samurai::save("./", "new-mesh-LB", new_mesh);
-
             return new_mesh;
         }
 
         template<class Mesh_t>
+        [[deprecated]]
         void load_balance_impl2( Mesh_t & mesh ){
 
             using interval_t      = typename Mesh_t::interval_t;
