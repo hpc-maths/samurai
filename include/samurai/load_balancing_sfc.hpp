@@ -253,10 +253,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
         Mesh_t new_mesh( new_cl, mesh );
 
-        // update neighbour connectivity
-        // samurai::discover_neighbour<dim>(new_mesh);
-        // samurai::discover_neighbour<dim>(new_mesh);
-
         return new_mesh;
     }
 };
