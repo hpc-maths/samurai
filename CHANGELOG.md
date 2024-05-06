@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.13.0](https://github.com/hpc-maths/samurai/compare/v0.12.0...v0.13.0) (2024-05-06)
+
+
+### Features
+
+* Block matrix improvements ([#198](https://github.com/hpc-maths/samurai/issues/198)) ([7b7c690](https://github.com/hpc-maths/samurai/commit/7b7c690a0b2989d55082114b8eb521234c24b41c))
+* Diffusion operator with different coefficient by field component ([#194](https://github.com/hpc-maths/samurai/issues/194)) ([0a53b5e](https://github.com/hpc-maths/samurai/commit/0a53b5e18782aa069d0b99f559c2d7b59560e6f8))
+
+
+### Bug Fixes
+
+* data structure xtensor by default if existing CMakeCache ([#192](https://github.com/hpc-maths/samurai/issues/192)) ([bc90aef](https://github.com/hpc-maths/samurai/commit/bc90aef741e12baff5c6da9bdadc290cbdfdb7f3))
+* detail operator with samurai_check_nan compilation option ([#190](https://github.com/hpc-maths/samurai/issues/190)) ([08cdb9d](https://github.com/hpc-maths/samurai/commit/08cdb9d14b1cc4663a22ca966845b0bf0f1d88a8))
+* Fix compilation issue on non-linear cell-based scheme ([#193](https://github.com/hpc-maths/samurai/issues/193)) ([df0ac4f](https://github.com/hpc-maths/samurai/commit/df0ac4f77fda74b7e86e3e0f3ceecf9322d6800a))
+* MPI ([#199](https://github.com/hpc-maths/samurai/issues/199)) ([d599908](https://github.com/hpc-maths/samurai/commit/d599908dbd93662345a75828530fb55390dbb391))
+* periodic ([#188](https://github.com/hpc-maths/samurai/issues/188)) ([485377a](https://github.com/hpc-maths/samurai/commit/485377a38ff683edd88a1ae46d364bdd47135491))
+
+
+### Performance Improvements
+
+* change of FluxValue&lt;cfg&gt; structure ([#186](https://github.com/hpc-maths/samurai/issues/186)) ([b1b8bf2](https://github.com/hpc-maths/samurai/commit/b1b8bf2b0f62b736ebd31a2b0ee2590ba3807ce1))
+* Vectorization of linear homogeneous operators ([#182](https://github.com/hpc-maths/samurai/issues/182)) ([153b2f2](https://github.com/hpc-maths/samurai/commit/153b2f25489e37884c23f0b681451899c4345caf))
+
 ## [0.12.0](https://github.com/hpc-maths/samurai/compare/v0.11.0...v0.12.0) (2024-04-06)
 
 
