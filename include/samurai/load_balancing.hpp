@@ -299,61 +299,75 @@ namespace samurai
             using value_t   = typename Field_t::value_type;
             boost::mpi::communicator world;
 
+            std::ofstream logs; 
+            logs.open( "log_" + std::to_string( world.rank() ) + ".dat", std::ofstream::app );
+            logs << fmt::format("> [LoadBalancer]::update_field rank # {} -> '{}' ", world.rank(), field.name() ) << std::endl;
+
             Field_t new_field("new_f", new_mesh);
             new_field.fill(0);
 
-            auto& mesh = field.mesh();
+            auto & old_mesh = field.mesh();
 
             // auto min_level = boost::mpi::all_reduce(world, mesh[mesh_id_t::cells].min_level(), boost::mpi::minimum<std::size_t>());
             // auto max_level = boost::mpi::all_reduce(world, mesh[mesh_id_t::cells].max_level(), boost::mpi::maximum<std::size_t>());
 
-            auto min_level = mesh.min_level();
-            auto max_level = mesh.max_level();
+            auto min_level = old_mesh.min_level();
+            auto max_level = old_mesh.max_level();
 
+            // copy data of intervals that are didn't move
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
-                set.apply_op(copy(new_field, field));
+                auto intersect_old_new = intersection(old_mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                intersect_old_new.apply_op( samurai::copy( new_field, field ) );
             }
 
-            std::vector<mpi::request> req;
+            logs << fmt::format("> [LoadBalancer]::update_field rank # {}: data copied for intersection old/new ", world.rank() ) << std::endl;
+
+            std::vector<boost::mpi::request> req;
             std::vector<std::vector<value_t>> to_send(new_mesh.mpi_neighbourhood().size());
 
             std::size_t i_neigh = 0;
 
+            // build payload of field that has been sent to neighbour, so compare old mesh with new neighbour mesh 
             for (auto& neighbour : new_mesh.mpi_neighbourhood())
             {
+                auto & neighbour_new_mesh = neighbour.mesh;
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    if (!mesh[mesh_id_t::cells][level].empty() && !neighbour.mesh[mesh_id_t::cells][level].empty())
+                    if (!old_mesh[mesh_id_t::cells][level].empty() && !neighbour_new_mesh[mesh_id_t::cells][level].empty())
                     {
-                        auto out_interface = intersection(mesh[mesh_id_t::cells][level], neighbour.mesh[mesh_id_t::cells][level]);
-                        out_interface(
-                            [&](const auto& i, const auto& index)
-                            {
-                                std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
-                                // std::cerr << fmt::format("Process {}, send interval {}", world.rank(), i) << std::endl;
+                        auto intersect_old_mesh_new_neigh = intersection( old_mesh[mesh_id_t::cells][level], neighbour_new_mesh[mesh_id_t::cells][level] );
+                        intersect_old_mesh_new_neigh(
+                            [&](const auto & interval, const auto & index)
+                            {   
+                                std::copy(field(level, interval, index).begin(), field(level, interval, index).end(), std::back_inserter(to_send[i_neigh]));
                             });
                     }
                 }
 
                 if (to_send[i_neigh].size() != 0)
                 {
-                    req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh++]));
+                    req.push_back( world.isend( neighbour.rank, neighbour.rank, to_send[ i_neigh ] ) );
+                    i_neigh ++;
+
+                    logs << fmt::format("> [LoadBalancer]::update_field rank # {}: data to send to {}", world.rank(), neighbour.rank ) << std::endl;
                 }
             }
 
-            for (auto& neighbour : mesh.mpi_neighbourhood())
+            logs << fmt::format("> [LoadBalancer]::update_field rank # {}, nb req isend {}", world.rank(), req.size() ) << std::endl;
+
+            // build payload of field that I need to receive from neighbour, so compare NEW mesh with OLD neighbour mesh 
+            for (auto& old_neighbour : old_mesh.mpi_neighbourhood())
             {
                 bool isintersect = false;
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    if (!new_mesh[mesh_id_t::cells][level].empty() && !neighbour.mesh[mesh_id_t::cells][level].empty())
+                    if (!new_mesh[mesh_id_t::cells][level].empty() && !old_neighbour.mesh[mesh_id_t::cells][level].empty())
                     {
                         std::vector<value_t> to_recv;
                         std::ptrdiff_t count = 0;
 
-                        auto in_interface = intersection(neighbour.mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                        auto in_interface = intersection(old_neighbour.mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
 
                         in_interface(
                             [&]( [[maybe_unused]]const auto& i, [[maybe_unused]]const auto& index)
@@ -372,13 +386,13 @@ namespace samurai
                 {
                     std::ptrdiff_t count = 0;
                     std::vector<value_t> to_recv;
-                    world.recv(neighbour.rank, world.rank(), to_recv);
+                    world.recv(old_neighbour.rank, world.rank(), to_recv);
 
                     for (std::size_t level = min_level; level <= max_level; ++level)
                     {
-                        if (!new_mesh[mesh_id_t::cells][level].empty() && !neighbour.mesh[mesh_id_t::cells][level].empty())
+                        if (!new_mesh[mesh_id_t::cells][level].empty() && !old_neighbour.mesh[mesh_id_t::cells][level].empty())
                         {
-                            auto in_interface = intersection(neighbour.mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                            auto in_interface = intersection(old_neighbour.mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
 
                             in_interface(
                                 [&](const auto& i, const auto& index)
@@ -421,19 +435,30 @@ namespace samurai
         template <class Mesh, class Field_t, class... Fields>
         void load_balance(Mesh& mesh, Field_t& field, Fields&... kw)
         {
-            // build new mesh using "Flavor" load balancing strategy
+            // specific load balancing strategy
             auto new_mesh = static_cast<Flavor*>(this)->load_balance_impl(mesh);
 
-            // Manage physical fields on new load balanced mesh
+            // update each physical field on the new load balanced mesh
+            SAMURAI_TRACE("[LoadBalancer::load_balance]::Updating fields ... ");
             update_fields(new_mesh, field, kw...);
 
-            // std::swap(mesh, new_mesh);
-
-            // swapping meshes
+            // swap mesh reference to new load balanced mesh. FIX: this is not clean
+            SAMURAI_TRACE("[LoadBalancer::load_balance]::Swapping meshes ... ");
             field.mesh().swap(new_mesh);
-            // save("load_balance", mesh, field);
+
+            // discover neighbours: add new neighbours if a new interface appears or remove old neighbours 
+            discover_neighbour< static_cast<int>(Mesh::dim) >( new_mesh );
+            discover_neighbour< static_cast<int>(Mesh::dim) >( new_mesh );
         }
 
+        /**
+        * Try to evaluate / compute a load balancing score. We expect from a good load 
+        * balancing strategy to:
+        *   - optimize the number of neighbours   (reduce comm.)
+        *   - optimize the number of ghosts cells (reduce comm.)
+        *   - load balance charge between processes
+        *   - optimize the size of interval (samurai specific, expect better perf, better simd)
+        */
         template <class Mesh>
         void evaluate_balancing(Mesh& mesh) const
         {
