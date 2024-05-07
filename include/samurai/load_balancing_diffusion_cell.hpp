@@ -91,6 +91,14 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             // Interface for each neighbour as cell_array
             auto interface = samurai::_computeCartesianInterface<dim, samurai::Direction_t::FACE_AND_DIAG>( mesh );
 
+            std::vector<size_t> ncells_interface ( interface.size(), 0 );
+            for(int ni=0; ni<interface.size(); ni++){
+                CellArray_t _tmp = { interface[ ni ] };
+                samurai::for_each_interval( _tmp, [&](std::size_t level, const auto & interval, const auto & index ){
+                    ncells_interface[ ni ] ++;
+                });
+            }
+
             // compute some point of reference in mesh and interval-based interface
             // Coord_t barycenter = _cmpIntervalBarycenter( mesh[ mesh_id_t::cells ] );
             Coord_t barycenter = samurai::_cmpCellBarycenter<dim>( mesh[ mesh_id_t::cells ] );
@@ -140,6 +148,8 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 double coeff_current = currentSV / loads[ static_cast<size_t>( world.rank() ) ];
                 double winner_dist = samurai::getDistance<dim, fdist>( cc, barycenter ) * coeff_current;
 
+                std::vector<size_t> mload( world.size(), 0 );
+
                 // select the neighbour
                 for( std::size_t ni=0; ni<n_neighbours; ++ni ){ // for each neighbour
 
@@ -152,14 +162,14 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                     //                         distance_inf<dim>( mid_point, barycenter_neighbours[ ni ] ) );
 
                     // double dist = samurai::getDistance<dim, fdist>( cell, barycenter_interface_neighbours[ ni ] ) / loads[ neighbour_rank ];
-                    double coeff = sv[ ni ] / loads[ neighbour_rank ]; // / sv[ ni ];
+                    double coeff = sv[ ni ] / ( loads[ neighbour_rank ] + mload[ neighbour_rank ] ) ; // / sv[ ni ];
                     double dist = samurai::getDistance<dim, fdist>( cell.center(), barycenter_neighbours[ ni ] ) * coeff;
 
-                    // double dist = std::max( d1, d2 );
-
-                    if( dist < winner_dist ){
+                    if( dist < winner_dist && ncells_interface[ ni ] > 0 ){
                         winner_id   = static_cast<int>( ni );
                         winner_dist = dist;
+
+                        mload[ neighbour_rank ] += 1;
                     }
                     
                 }
@@ -273,10 +283,6 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             }
 
             Mesh_t new_mesh( new_cl, mesh );
-
-            // discover neighbours, since it might have changed
-            // samurai::discover_neighbour<dim>( new_mesh );
-            // samurai::discover_neighbour<dim>( new_mesh );
             
             return new_mesh;
         }
