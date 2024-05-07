@@ -6,12 +6,15 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/interval.hpp>
 
+#ifdef SAMURAI_WITH_MPI
 #include <samurai/load_balancing.hpp>
+#endif
 
 #include <vector>
 
 namespace samurai {
 
+#ifdef SAMURAI_WITH_MPI
     /*
     * test cmptLoad;
     */
@@ -85,5 +88,6 @@ namespace samurai {
         ASSERT_EQ( interface.nb_cells(), 10 );
 
     }
-    
+
+#endif
 }
