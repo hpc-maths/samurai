@@ -76,7 +76,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                                        // convert logical coordinate to max level logical coordinates
                                        for (int idim = 0; idim < dim; ++idim)
                                        {
-                                           icell(idim) = icell(idim) << (mesh.max_level() - level + 1);
+                                           icell(idim) = icell(idim) << (mesh.max_level() - level ); // +1
                                        }
 
                                        // this is where things can get nasty,  we expect indices to be positive values !!
