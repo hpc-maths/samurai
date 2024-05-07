@@ -683,44 +683,44 @@ namespace samurai
         box_t subdomain_box                          = {min_corner, max_corner};
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
 
-        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
-        for (int ir = 0; ir < size; ++ir)
-        {
-            if (ir != rank)
-            {
-                m_mpi_neighbourhood.push_back(ir);
-            }
-        }
+        // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
+        // for (int ir = 0; ir < size; ++ir)
+        // {
+        //     if (ir != rank)
+        //     {
+        //         m_mpi_neighbourhood.push_back(ir);
+        //     }
+        // }
 
         // // Neighbours
-        // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
-        // auto neighbour = [&](xt::xtensor_fixed<int, xt::xshape<dim>> shift)
-        // {
-        //     auto neighbour_rank            = rank;
-        //     int product_of_preceding_sizes = 1;
-        //     for (std::size_t d = 0; d < dim; ++d)
-        //     {
-        //         neighbour_rank += product_of_preceding_sizes * shift[d];
-        //         product_of_preceding_sizes *= sizes[d];
-        //     }
-        //     return neighbour_rank;
-        // };
+        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
+        auto neighbour = [&](xt::xtensor_fixed<int, xt::xshape<dim>> shift)
+        {
+            auto neighbour_rank            = rank;
+            int product_of_preceding_sizes = 1;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                neighbour_rank += product_of_preceding_sizes * shift[d];
+                product_of_preceding_sizes *= sizes[d];
+            }
+            return neighbour_rank;
+        };
 
-        // static_nested_loop<dim, -1, 2>(
-        //     [&](auto& shift)
-        //     {
-        //         if (xt::any(shift))
-        //         {
-        //             for (std::size_t d = 0; d < dim; ++d)
-        //             {
-        //                 if (coords[d] + shift[d] < 0 || coords[d] + shift[d] >= sizes[d])
-        //                 {
-        //                     return;
-        //                 }
-        //             }
-        //             m_mpi_neighbourhood.push_back(neighbour(shift));
-        //         }
-        //     });
+        static_nested_loop<dim, -1, 2>(
+            [&](auto& shift)
+            {
+                if (xt::any(shift))
+                {
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        if (coords[d] + shift[d] < 0 || coords[d] + shift[d] >= sizes[d])
+                        {
+                            return;
+                        }
+                    }
+                    m_mpi_neighbourhood.push_back(neighbour(shift));
+                }
+            });
 #endif
     }
 
