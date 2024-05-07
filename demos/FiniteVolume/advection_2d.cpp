@@ -267,7 +267,7 @@ int main(int argc, char* argv[])
     // SFC_LoadBalancer_interval<dim, Morton> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
-    load_balancing::Diffusion balancer;
+    Load_balancing::Diffusion balancer;
 
     while (t != Tf)
     {
@@ -275,15 +275,9 @@ int main(int argc, char* argv[])
         {
             std::cout << "\t> Load balancing mesh ... " << std::endl;
 
-            std::string suffix = fmt::format("_loadbalanced_bf_{}", nt);
-            save( path, filename, u, suffix);
-
             myTimers.start("load-balancing");
             balancer.load_balance(mesh, u);
             myTimers.stop("load-balancing");
-
-            suffix = fmt::format("_loadbalanced_af_{}", nt);
-            save( path, filename, u, suffix);
         }
 
         myTimers.start("MRadaptation");
