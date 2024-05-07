@@ -4,13 +4,21 @@
 #include "load_balancing.hpp"
 #include <samurai/field.hpp>
 
-namespace load_balancing{
+// for std::sort
+#include <algorithm>
+
+namespace Load_balancing{
 
     class Diffusion : public samurai::LoadBalancer<Diffusion> {
 
         private:
             int _ndomains;
             int _rank;
+
+            template<class Mesh_t, class Stencil, class Field_t>  
+            void propagate( const Mesh_t & mesh, const Stencil & dir, Field_t & field, int value, int &given ) const {
+
+            }
 
         public:
 
@@ -26,7 +34,7 @@ namespace load_balancing{
     #endif
             }
 
-            inline std::string getName() const { return "diffusion"; } 
+            inline std::string getName() const { return "diffusion"; }
 
             template<class Mesh_t>
             Mesh_t load_balance_impl( Mesh_t & mesh ){
@@ -36,9 +44,8 @@ namespace load_balancing{
                 using CellArray_t     = typename Mesh_t::ca_type;
                 using mesh_id_t       = typename Mesh_t::mesh_id_t;
 
-                using Coord_t    = xt::xtensor_fixed<double, xt::xshape<Mesh_t::dim>>;
-
-                constexpr int dim = static_cast<int>( Mesh_t::dim );
+                using Coord_t = xt::xtensor_fixed<double, xt::xshape<Mesh_t::dim>>;
+                using Stencil = xt::xtensor_fixed<int, xt::xshape<Mesh_t::dim>>;
 
                 boost::mpi::communicator world;
 
@@ -73,164 +80,131 @@ namespace load_balancing{
 
                 std::vector<CellList_t> cl_to_send( n_neighbours );
 
+                // set field "flags" for each rank. Initialized to current for all cells (leaves only)
                 auto flags = samurai::make_field<int, 1>("diffusion_flag", mesh);
                 for_each_interval( mesh[ mesh_id_t::cells ], [&]( std::size_t level, const auto & interval, const auto & index ){
                     flags( level, interval, index ) = _rank;
                 });
 
-                
+                // load balancing order
+                std::vector<size_t> order( n_neighbours );
+                {
+                    for( size_t i=0; i<order.size(); ++i ){ order[ i ] = i; }
 
-                bool balancing_done = false;
-                while( ! balancing_done ){
-                
-                    // select neighbour with the highest needs of load
-                    bool neighbour_found = false;
-                    std::size_t requester   = 0;
-                    int requested_load = 0;
-                    for(std::size_t nbi=0; nbi<n_neighbours; ++nbi ){
+                    // order neighbour to echange data with, based on load
+                    std::sort( order.begin(), order.end(), [&fluxes]( size_t i, size_t j){
+                        return fluxes[ i ] < fluxes[ j ] ;
+                    });
 
-                        // skip neighbour that need to send load
-                        if( new_fluxes[ nbi ] >= 0 ) continue;
+                }
 
-                        // FIX: Add condition (&& interface not empty ) ?
-                        // Neighbourhood should have been updated in a way that an interface exists !
-                        if( - new_fluxes[ nbi ] > requested_load ){
-                            requested_load  = - new_fluxes[ nbi ];
-                            requester       = nbi;
-                            neighbour_found = true;
-                        }
-                    }
+                for(size_t neigh_i=0; neigh_i<n_neighbours; ++neigh_i ){
 
-                    if( ! neighbour_found ){
-                        { // debug 
-                            logs << "No more neighbour found " << std::endl;
-                        }
+                    // neighbour [0, n_neighbours[
+                    auto neighbour_local_id = order[ neigh_i ];
 
-                        balancing_done = true;
-                        break;
-                    }
+                    // all cells have been given, neighbours that might left are "givers" (remember the fluxes were sorted)
+                    if( fluxes[ neighbour_local_id ] >= 0 ) break;
 
-                    { // debug 
-                        logs << "Requester neighbour : " << neighbourhood[ requester ].rank << ", fluxes : " << requested_load << std::endl;
-                    }
-
-                    // select interval for this neighbour by moving in cartesian direction by one 
-                    auto interface = samurai::cmptInterface<Mesh_t::dim, samurai::Direction_t::FACE>( mesh, neighbourhood[ requester ].mesh );
-
-                    { // check emptyness of interface, if it is empty, then set fluxes for this neighbour to 0
-                        size_t nelement = 0;
-                        samurai::for_each_interval( interface, [&]( [[maybe_unused]] std::size_t level, [[maybe_unused]] const auto & interval, 
-                                                                    [[maybe_unused]] const auto & index ){
-                            nelement += 1;
-                        });
-
-                        if( nelement == 0 ){
-                            new_fluxes[ requester ] = 0;
-
-                            { // debug
-                                std::cerr << fmt::format("\t> Process {}, Warning no interface with a requester neighbour # {}", world.rank(),
-                                                        neighbourhood[ requester ].rank ) << std::endl;
-                                logs << "Requester neighbour, no interface found, set fluxes to " << new_fluxes[ requester ] << std::endl;
-                            }
-                        }else{
-                            { // debug 
-                                logs << "Requester neighbour, interface  " << nelement << " intervals " << std::endl;
-                            }
-                        }
-                    }
-
-                    // go through interval on the interface and add as much as possible
-                    // skip this to add the whole interface
-                    CellList_t cl_for_neighbour;
-
-                    size_t nbIntervalAdded = 0;
+                    // compute initial interface with this neighbour
+                    auto interface = samurai::cmptInterface<Mesh_t::dim, samurai::Direction_t::FACE>( mesh, neighbourhood[ neighbour_local_id ].mesh );
                     samurai::for_each_interval( interface, [&]( std::size_t level, const auto & interval, const auto & index ){
 
-                        if( new_fluxes[ requester ] < 0 ){
-                            cl_for_neighbour[ level ][ index ].add_interval( interval );
-                            // new_fluxes[ requester ] += 1; // here interval load == 1, no weight;
-                            nbIntervalAdded += 1;
+                        // this might be not correct. We might need a cell-basis loop
+                        if( flags[ interval.start + interval.index ] == world.rank() )
+                            flags( level, interval, index ) = - neighbourhood[ neighbour_local_id ].rank;
+                    });
+
+                    // move the interface in the direction of "the center of mass" of the domain
+                    // we basically want to move based on the normalized cartesian axis
+                    //
+                    // Q?: take into account already given intervals to compute BC ?
+                    // (no weight here) 
+                    Coord_t bc_current   = samurai::_cmpCellBarycenter<Mesh_t::dim>( mesh[ mesh_id_t::cells ] );
+                    Coord_t bc_neighbour = samurai::_cmpCellBarycenter<Mesh_t::dim>( neighbourhood[ neighbour_local_id ].mesh[ mesh_id_t::cells ] );
+
+                    // Compute normalized direction to neighbour, i.e. stencil
+                    Stencil dir_from_neighbour;
+                    {
+                        Coord_t tmp;
+                        double n2 = 0.;
+                        for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
+                            tmp( idim ) = bc_current( idim ) - bc_neighbour( idim );
+                            n2 += tmp( idim ) * tmp( idim );
                         }
 
-                    });
+                        n2 = std::sqrt( n2 );
 
-                    new_fluxes[ requester ] += nbIntervalAdded;
+                        for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
+                            tmp( idim ) /= n2;
+                            dir_from_neighbour( idim ) = static_cast<int>( tmp( idim ) / 0.5 );
+                        }
 
-                    { // remove interval from current process mesh and add it to neighbour mesh local copy !
-                        CellArray_t ca_for_neighbour = { cl_for_neighbour, false };
+                        logs << fmt::format("\t\t> stencil for neighbour # {} :", neighbourhood[ neighbour_local_id ].rank);
+                        for(size_t idim=0; idim<Mesh_t::dim; ++idim ){
+                            logs << dir_from_neighbour( idim ) << ",";
+                        }
+                        logs << std::endl;
+                    }
+
+                    // propagate in direction
+                    {
+                        int nbInterStep = 1; // validate the while condition on starter
+
+                        // let's suppose the interface is up-to-date based on "flags" already given
+                        while( new_fluxes[ neighbour_local_id ] < 0 && nbInterStep != 0 ){
+
+                            logs << fmt::format("\t\t\t> Propagate for neighbour rank # {}", neighbourhood[ neighbour_local_id ].rank) << std::endl;
+                            
+                            int nbInterGiven = 0; 
+                            CellList_t cl_given;
+
+                            nbInterStep = 0;
+                            for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
+
+                                // translate interface in direction of center of current mesh
+                                auto set       = samurai::translate( interface[ level ], dir_from_neighbour );
+                                auto intersect = samurai::intersection( set, mesh[ mesh_id_t::cells ][ level ]).on( level ); // need handle level difference here !
+
+                                intersect( [&]( const auto & interval, [[maybe_unused]] const auto & index ){
+                                    
+                                    nbInterStep += 1;
+                                    // if( flags[ interval.start + interval.index ] == world.rank() )
+                                    {
+                                        flags[ interval.start + interval.index ] = -10 * neighbourhood[ neighbour_local_id ].rank;
+                                        nbInterGiven += 1;
+
+                                        cl_given[ level ][ index ].add_interval( interval );
+                                    }
+
+                                });
+
+                                logs << fmt::format("\t\t\t> NbIntervalTot : {} vs NbIntervalGiven : {}", nbInterStep, nbInterGiven ) << std::endl;
+
+                            }
+
+                            interface = { cl_given, false };
+
+                            new_fluxes[ neighbour_local_id ] += nbInterGiven;
+
+                            logs << fmt::format("\t\t\t> Number of interval given to rank {} : {}", neighbourhood[ neighbour_local_id ].rank, nbInterGiven ) << std::endl;
+                        }
                         
-                        // mesh.remove( ca_for_neighbour );
-                        // neighbourhood[ requester ].mesh.merge( ca_for_neighbour );
-
-                        // update gobal list that will be sent to neighbour process
-                        samurai::for_each_interval( ca_for_neighbour, [&]( std::size_t level, const auto & interval, const auto & index ){
-                            cl_to_send[ requester ][ level ][ index ].add_interval( interval );
-                        });
                     }
-
-                    { // debug 
-                        logs << "New flux for this neighbour : " << new_fluxes[ requester ] << std::endl;
-                    }
-
-                }
-
-                /* ---------------------------------------------------------------------------------------------------------- */
-                /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
-                /* ---------------------------------------------------------------------------------------------------------- */
-                
-                CellList_t new_cl, need_remove;
-
-                // at this point local mesh of neighbour are modified ( technically it should match what would results from send)
-                // and local mesh has been modified
-                for(std::size_t ni=0; ni<n_neighbours; ++ni ){
                     
-                    if( fluxes [ ni ] == 0 ) continue; 
-
-                    if( fluxes[ ni ] > 0 ) { // receive data
-                        CellArray_t to_rcv;
-                        world.recv( neighbourhood[ ni ].rank, 42, to_rcv );
-
-                        logs << fmt::format("\t>[load_balance_impl]::interval Rank # {} receiving {} cells from rank # {}", world.rank(), to_rcv.nb_cells(), neighbourhood[ ni ].rank) << std::endl;
-                        
-                        // old strategy
-                        // mesh.merge( to_rcv );
-
-                        // add to future mesh of current process
-                        samurai::for_each_interval(to_rcv,
-                                [&](std::size_t level, const auto& interval, const auto& index)
-                                {
-                                    new_cl[ level ][ index ].add_interval( interval );
-                                });
-
-                    }else{ // send data to
-                        CellArray_t to_send = { cl_to_send[ ni ], false };
-                        world.send( neighbourhood[ ni ].rank, 42, to_send );
-
-                        logs << fmt::format("\t>[load_balance_impl]::interval Rank # {} sending {} cells to rank # {}", world.rank(), to_send.nb_cells(), neighbourhood[ ni ].rank) << std::endl;
-
-                        samurai::for_each_interval( to_send,
-                                [&](std::size_t level, const auto& interval, const auto& index)
-                                {
-                                    need_remove[ level ][ index ].add_interval( interval );
-                                });
+                    if( new_fluxes[ neighbour_local_id ] < 0 ){
+                        std::cerr << "\t> Error cannot fullfill the neighbour ! " << std::endl;
                     }
 
+                    // only one neighbour processed
+                    break;
+
                 }
 
-                /* ---------------------------------------------------------------------------------------------------------- */
-                /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
-                /* ---------------------------------------------------------------------------------------------------------- */
+                const std::string fn = fmt::format("test-diffusion");
+                samurai::save( fn, mesh, flags );
 
-                // add to new_cl interval that were not sent
-                CellArray_t need_remove_ca = { need_remove }; // to optimize
-                for( size_t level=mesh.min_level(); level<=mesh.max_level(); ++level ){
-                    auto diff = samurai::difference( mesh[ mesh_id_t::cells ][ level ], need_remove_ca[ level ] );
-
-                    diff([&]( auto & interval, auto & index ){
-                        new_cl[ level ][ index ].add_interval( interval );
-                    });
-                }
-
+                CellList_t new_cl;
                 Mesh_t new_mesh( new_cl, mesh );
 
                 return new_mesh;
