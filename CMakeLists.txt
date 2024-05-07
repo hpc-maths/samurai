@@ -189,7 +189,7 @@ endif()
 
 # Package the project
 package_project(
-  TARGETS samurai project_options project_warnings
+  TARGETS samurai project_options project_warnings libdeps
   INTERFACE_DEPENDENCIES_CONFIGURED ${DEPENDENCIES_CONFIGURED}
   INTERFACE_INCLUDES ${INCLUDE_DIR}
 )
