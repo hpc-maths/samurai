@@ -133,6 +133,7 @@ namespace samurai
                 std::vector<Mat> J_list(n_threads);
                 std::vector<Vec> r_list(n_threads);
 
+#pragma omp parallel for
                 for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
                 {
                     SNESCreate(PETSC_COMM_SELF, &snes_list[thread_num]);
@@ -184,6 +185,7 @@ namespace samurai
                                             VecDestroy(&b);
                                         });
 
+#pragma omp parallel for
                 for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
                 {
                     MatDestroy(&J_list[thread_num]);
