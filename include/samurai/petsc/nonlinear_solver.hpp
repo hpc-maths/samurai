@@ -113,7 +113,6 @@ namespace samurai
             {
                 SNESCreate(PETSC_COMM_SELF, &m_snes);
                 SNESSetType(m_snes, SNESNEWTONLS);
-                SNESSetFromOptions(m_snes);
             }
 
           protected:
@@ -147,6 +146,8 @@ namespace samurai
                 assembly().create_matrix(m_J);
                 // assembly().assemble_matrix(m_J);
                 SNESSetJacobian(m_snes, m_J, m_J, PETSC_jacobian_function, this);
+
+                SNESSetFromOptions(m_snes);
 
                 m_is_set_up = true;
             }
