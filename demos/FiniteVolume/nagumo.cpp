@@ -35,8 +35,8 @@ int main(int argc, char* argv[])
 {
     samurai::initialize(argc, argv);
 
-    static constexpr std::size_t dim        = 2; // back to 1 before pushing
-    static constexpr std::size_t field_size = 2; // back to 1 before pushing
+    static constexpr std::size_t dim        = 1;
+    static constexpr std::size_t field_size = 1;
     using Config                            = samurai::MRConfig<dim>;
     using Box                               = samurai::Box<double, dim>;
     using point_t                           = typename Box::point_t;

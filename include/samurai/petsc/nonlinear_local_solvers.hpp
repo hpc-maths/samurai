@@ -123,9 +123,11 @@ namespace samurai
                 static constexpr PetscInt n = field_t::size;
 
 #ifdef ENABLE_PARALLEL_NONLINEAR_SOLVES
-                std::size_t n_threads = static_cast<std::size_t>(omp_get_max_threads());
+                static constexpr Run run_type = Run::Parallel;
+                std::size_t n_threads         = static_cast<std::size_t>(omp_get_max_threads());
 #else
-                std::size_t n_threads = 1;
+                static constexpr Run run_type = Run::Sequential;
+                std::size_t n_threads         = 1;
 #endif
                 std::vector<SNES> snes_list(n_threads);
                 std::vector<Mat> J_list(n_threads);
@@ -138,51 +140,46 @@ namespace samurai
                     VecCreateSeq(PETSC_COMM_SELF, n, &r_list[thread_num]);
                 }
 
-#ifdef ENABLE_PARALLEL_NONLINEAR_SOLVES
-                parallel_for_each_cell(
-#else
-                for_each_cell(
-#endif
-                    unknown().mesh(),
-                    [&](auto& cell)
-                    {
-                        std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
+                for_each_cell<run_type>(unknown().mesh(),
+                                        [&](auto& cell)
+                                        {
+                                            std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
 
-                        SNES& snes = snes_list[thread_num];
-                        Mat& J     = J_list[thread_num];
-                        Vec& r     = r_list[thread_num];
-                        Vec x;
-                        Vec b;
+                                            SNES& snes = snes_list[thread_num];
+                                            Mat& J     = J_list[thread_num];
+                                            Vec& r     = r_list[thread_num];
+                                            Vec x;
+                                            Vec b;
 
-                        if constexpr (n > 1 && field_t::is_soa)
-                        {
-                            VecCreateSeq(PETSC_COMM_SELF, n, &x);
-                            copy(unknown(), cell, x);
+                                            if constexpr (n > 1 && field_t::is_soa)
+                                            {
+                                                VecCreateSeq(PETSC_COMM_SELF, n, &x);
+                                                copy(unknown(), cell, x);
 
-                            VecCreateSeq(PETSC_COMM_SELF, n, &b);
-                            copy(rhs, cell, b);
-                        }
-                        else
-                        {
-                            x = create_petsc_vector_from(unknown(), cell);
-                            b = create_petsc_vector_from(rhs, cell);
-                        }
+                                                VecCreateSeq(PETSC_COMM_SELF, n, &b);
+                                                copy(rhs, cell, b);
+                                            }
+                                            else
+                                            {
+                                                x = create_petsc_vector_from(unknown(), cell);
+                                                b = create_petsc_vector_from(rhs, cell);
+                                            }
 
-                        CellContextForPETSc ctx{&m_scheme, &cell};
-                        SNESSetFunction(snes, r, PETSC_nonlinear_function, &ctx);
-                        SNESSetJacobian(snes, J, J, PETSC_jacobian_function, &ctx);
-                        SNESSetFromOptions(snes);
+                                            CellContextForPETSc ctx{&m_scheme, &cell};
+                                            SNESSetFunction(snes, r, PETSC_nonlinear_function, &ctx);
+                                            SNESSetJacobian(snes, J, J, PETSC_jacobian_function, &ctx);
+                                            SNESSetFromOptions(snes);
 
-                        solve_system(snes, b, x);
+                                            solve_system(snes, b, x);
 
-                        if constexpr (n > 1 && field_t::is_soa)
-                        {
-                            copy(x, unknown(), cell);
-                        }
+                                            if constexpr (n > 1 && field_t::is_soa)
+                                            {
+                                                copy(x, unknown(), cell);
+                                            }
 
-                        VecDestroy(&x);
-                        VecDestroy(&b);
-                    });
+                                            VecDestroy(&x);
+                                            VecDestroy(&b);
+                                        });
 
                 for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
                 {
