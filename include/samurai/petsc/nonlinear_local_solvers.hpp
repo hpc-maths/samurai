@@ -143,8 +143,11 @@ namespace samurai
                 for_each_cell<run_type>(unknown().mesh(),
                                         [&](auto& cell)
                                         {
+#ifdef ENABLE_PARALLEL_NONLINEAR_SOLVES
                                             std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
-
+#else
+                                            std::size_t thread_num = 0;
+#endif
                                             SNES& snes = snes_list[thread_num];
                                             Mat& J     = J_list[thread_num];
                                             Vec& r     = r_list[thread_num];
