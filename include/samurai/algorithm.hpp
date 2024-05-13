@@ -258,6 +258,19 @@ namespace samurai
         // std::cout << "     time: " << timer.Elapsed();
     }
 
+    template <Run run_type, std::size_t dim, class TInterval, class Func>
+    inline void for_each_cell(const LevelCellArray<dim, TInterval>& lca, Func&& f)
+    {
+        if constexpr (run_type == Run::Parallel)
+        {
+            parallel_for_each_cell(lca, std::forward<Func>(f));
+        }
+        else
+        {
+            for_each_cell(lca, std::forward<Func>(f));
+        }
+    }
+
     template <std::size_t dim, class TInterval, class Func, class F, class... CT>
     inline void for_each_cell(const LevelCellArray<dim, TInterval>& lca, subset_operator<F, CT...> set, Func&& f)
     {
@@ -287,14 +300,7 @@ namespace samurai
         {
             if (!ca[level].empty())
             {
-                if constexpr (run_type == Run::Parallel)
-                {
-                    parallel_for_each_cell(ca[level], std::forward<Func>(f));
-                }
-                else
-                {
-                    for_each_cell(ca[level], std::forward<Func>(f));
-                }
+                for_each_cell<run_type>(ca[level], std::forward<Func>(f));
             }
         }
     }
