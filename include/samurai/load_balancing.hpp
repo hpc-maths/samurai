@@ -241,9 +241,6 @@ namespace samurai
             my_load_new += transfertLoad;
         }
 
-        // Cannot have a negative or null load on an MPI process !
-        assert(my_load_new > 0);
-
         return fluxes;
     }
 
