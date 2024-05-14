@@ -198,15 +198,14 @@ namespace samurai
 
             static PetscErrorCode PETSC_nonlinear_function(SNES, Vec x, Vec f, void* ctx)
             {
-                CellContextForPETSc* petsc_ctx = reinterpret_cast<CellContextForPETSc*>(ctx);
-                auto& scheme                   = *petsc_ctx->scheme;
-                auto& cell                     = *petsc_ctx->cell;
+                auto petsc_ctx = reinterpret_cast<CellContextForPETSc*>(ctx);
+                auto& scheme   = *petsc_ctx->scheme;
+                auto& cell     = *petsc_ctx->cell;
 
                 // Wrap a LocalField structure around the data of the Petsc vector x
                 const PetscScalar* x_data;
                 VecGetArrayRead(x, &x_data);
                 LocalField<field_t> x_field(cell, x_data);
-                VecRestoreArrayRead(x, &x_data);
 
                 // PetscScalar* f_data;
                 // VecGetArray(f, &f_data);
@@ -217,7 +216,7 @@ namespace samurai
 
                 copy(f_field, f);
 
-                // VecRestoreArrayRead(x, &x_data);
+                VecRestoreArrayRead(x, &x_data);
                 //  VecRestoreArray(f, &f_data);
                 return 0; // PETSC_SUCCESS
             }
