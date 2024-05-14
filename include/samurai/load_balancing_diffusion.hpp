@@ -156,6 +156,21 @@ namespace Load_balancing{
                         logs << std::endl;
                     }
 
+                    // Avoid diagonals exchange, and emphaze x-axis
+
+                    if constexpr ( Mesh_t::dim == 2 ) { 
+                        if( std::abs(dir_from_neighbour[0]) == 1 && std::abs( dir_from_neighbour[1]) == 1 ){
+                            dir_from_neighbour[1] = 0;
+                        }
+                    }
+
+                    if constexpr ( Mesh_t::dim == 3 ) { 
+                        if( std::abs(dir_from_neighbour[0]) == 1 && std::abs( dir_from_neighbour[1]) == 1 && std::abs(dir_from_neighbour[2]) == 1){
+                            dir_from_neighbour[1] = 0;
+                            dir_from_neighbour[2] = 0;
+                        }
+                    }
+
                     // propagate in direction
                     {
                         int nbInterStep = 1; // validate the while condition on starter
@@ -255,9 +270,6 @@ namespace Load_balancing{
                     } 
 
                 });
-
-                // const std::string fn = fmt::format("test-diffusion");
-                // samurai::save( fn, mesh, flags );
 
                 /* ---------------------------------------------------------------------------------------------------------- */
                 /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
