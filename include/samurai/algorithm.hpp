@@ -12,8 +12,6 @@
 #include "mesh_holder.hpp"
 #include "mesh_interval.hpp"
 
-// #include "schemes/fv/Timer.hpp"
-
 namespace samurai
 {
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
@@ -227,15 +225,11 @@ namespace samurai
         using cell_t        = Cell<dim, TInterval>;
         using index_value_t = typename cell_t::value_t;
 
-        // Timer timer;
-        // timer.Start();
-
 #pragma omp parallel
 #pragma omp single nowait
         {
             for (auto it = lca.cbegin(); it != lca.cend(); ++it)
             {
-                // #pragma omp parallel for
 #pragma omp task
                 for (index_value_t i = it->start; i < it->end; ++i)
                 {
@@ -245,17 +239,11 @@ namespace samurai
                         index[d + 1] = it.index()[d];
                     }
                     index[0] = i;
-                    // #pragma omp task private(index)
-                    {
-                        cell_t cell{lca.level(), index, it->index + i};
-                        f(cell);
-                    }
+                    cell_t cell{lca.level(), index, it->index + i};
+                    f(cell);
                 }
             }
         }
-        // #pragma omp taskwait
-        // timer.Stop();
-        // std::cout << "     time: " << timer.Elapsed();
     }
 
     template <Run run_type, std::size_t dim, class TInterval, class Func>

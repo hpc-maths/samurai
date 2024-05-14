@@ -217,7 +217,7 @@ namespace samurai
                 copy(f_field, f);
 
                 VecRestoreArrayRead(x, &x_data);
-                //  VecRestoreArray(f, &f_data);
+                // VecRestoreArray(f, &f_data);
                 return 0; // PETSC_SUCCESS
             }
 
