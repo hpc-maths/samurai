@@ -219,6 +219,46 @@ namespace samurai
         }
     }
 
+    template <std::size_t dim, class TInterval, class Func>
+    inline void parallel_for_each_cell(const LevelCellArray<dim, TInterval>& lca, Func&& f)
+    {
+        using cell_t        = Cell<dim, TInterval>;
+        using index_value_t = typename cell_t::value_t;
+
+#pragma omp parallel
+#pragma omp single nowait
+        {
+            for (auto it = lca.cbegin(); it != lca.cend(); ++it)
+            {
+#pragma omp task
+                for (index_value_t i = it->start; i < it->end; ++i)
+                {
+                    typename cell_t::indices_t index;
+                    for (std::size_t d = 0; d < dim - 1; ++d)
+                    {
+                        index[d + 1] = it.index()[d];
+                    }
+                    index[0] = i;
+                    cell_t cell{lca.level(), index, it->index + i};
+                    f(cell);
+                }
+            }
+        }
+    }
+
+    template <Run run_type, std::size_t dim, class TInterval, class Func>
+    inline void for_each_cell(const LevelCellArray<dim, TInterval>& lca, Func&& f)
+    {
+        if constexpr (run_type == Run::Parallel)
+        {
+            parallel_for_each_cell(lca, std::forward<Func>(f));
+        }
+        else
+        {
+            for_each_cell(lca, std::forward<Func>(f));
+        }
+    }
+
     template <std::size_t dim, class TInterval, class Func, class F, class... CT>
     inline void for_each_cell(const LevelCellArray<dim, TInterval>& lca, subset_operator<F, CT...> set, Func&& f)
     {
@@ -241,23 +281,35 @@ namespace samurai
             });
     }
 
-    template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
+    template <Run run_type, std::size_t dim, class TInterval, std::size_t max_size, class Func>
     inline void for_each_cell(const CellArray<dim, TInterval, max_size>& ca, Func&& f)
     {
         for (std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
         {
             if (!ca[level].empty())
             {
-                for_each_cell(ca[level], std::forward<Func>(f));
+                for_each_cell<run_type>(ca[level], std::forward<Func>(f));
             }
         }
+    }
+
+    template <std::size_t dim, class TInterval, std::size_t max_size, class Func>
+    inline void for_each_cell(const CellArray<dim, TInterval, max_size>& ca, Func&& f)
+    {
+        for_each_cell<Run::Sequential>(ca, std::forward<Func>(f));
+    }
+
+    template <Run run_type, class Mesh, class Func>
+    inline void for_each_cell(const Mesh& mesh, Func&& f)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        for_each_cell<run_type>(mesh[mesh_id_t::cells], std::forward<Func>(f));
     }
 
     template <class Mesh, class Func>
     inline void for_each_cell(const Mesh& mesh, Func&& f)
     {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        for_each_cell(mesh[mesh_id_t::cells], std::forward<Func>(f));
+        for_each_cell<Run::Sequential>(mesh, std::forward<Func>(f));
     }
 
     template <class Mesh, class Func>

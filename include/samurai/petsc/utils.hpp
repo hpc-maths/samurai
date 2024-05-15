@@ -158,6 +158,18 @@ namespace samurai
         }
 
         template <class Field>
+        Vec create_petsc_vector_from(Field& f, const typename Field::cell_t& cell)
+        {
+            static_assert(Field::size == 1 || !Field::is_soa);
+
+            Vec v;
+            auto vec_size        = static_cast<PetscInt>(Field::size);
+            auto cell_data_index = Field::size * static_cast<std::size_t>(cell.index);
+            VecCreateSeqWithArray(MPI_COMM_SELF, 1, vec_size, &f.array().data()[cell_data_index], &v);
+            return v;
+        }
+
+        template <class Field>
         void copy(Vec& v, Field& f, const typename Field::cell_t& cell)
         {
             PetscInt n_vec;
