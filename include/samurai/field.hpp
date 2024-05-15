@@ -150,7 +150,10 @@ namespace samurai
             {
                 this->derived_cast().m_data.resize({this->derived_cast().mesh().nb_cells()});
 #ifdef SAMURAI_CHECK_NAN
-                this->derived_cast().m_data.fill(std::nan(""));
+                if constexpr (std::is_floating_point_v<value_t>)
+                {
+                    this->derived_cast().m_data.fill(std::nan(""));
+                }
 #endif
             }
         };
@@ -887,7 +890,10 @@ namespace samurai
         using field_t = Field<mesh_t, value_t, size, SOA>;
         field_t f(name, mesh);
 #ifdef SAMURAI_CHECK_NAN
-        f.fill(static_cast<value_t>(std::nan("")));
+        if constexpr (std::is_floating_point_v<value_t>)
+        {
+            f.fill(static_cast<value_t>(std::nan("")));
+        }
 #endif
         return f;
     }
