@@ -21,15 +21,14 @@ namespace samurai
         using mesh_t           = typename base_class::mesh_t;
         using field_value_type = typename base_class::field_value_type;
 
-        using scheme_definition_t  = CellBasedSchemeDefinition<cfg>;
-        using scheme_stencil_t     = typename scheme_definition_t::scheme_stencil_t;
-        using stencil_cells_t      = typename scheme_definition_t::stencil_cells_t;
-        using scheme_value_t       = typename scheme_definition_t::scheme_value_t;
-        using scheme_func          = typename scheme_definition_t::scheme_func;
-        using local_scheme_func    = typename scheme_definition_t::local_scheme_func;
-        using jac_stencil_coeffs_t = typename scheme_definition_t::jac_stencil_coeffs_t;
-        using jacobian_func        = typename scheme_definition_t::jacobian_func;
-        using local_jacobian_func  = typename scheme_definition_t::local_jacobian_func;
+        using scheme_definition_t = CellBasedSchemeDefinition<cfg>;
+        using scheme_stencil_t    = typename scheme_definition_t::scheme_stencil_t;
+        using stencil_cells_t     = typename scheme_definition_t::stencil_cells_t;
+        using scheme_value_t      = typename scheme_definition_t::scheme_value_t;
+        using scheme_func         = typename scheme_definition_t::scheme_func;
+        using local_scheme_func   = typename scheme_definition_t::local_scheme_func;
+        using jacobian_func       = typename scheme_definition_t::jacobian_func;
+        using local_jacobian_func = typename scheme_definition_t::local_jacobian_func;
 
       private:
 
@@ -142,21 +141,6 @@ namespace samurai
             else
             {
                 return coeffs(field_i);
-            }
-        }
-
-        inline double cell_coeff(const jac_stencil_coeffs_t& coeffs,
-                                 std::size_t cell_number_in_stencil,
-                                 [[maybe_unused]] std::size_t field_i,
-                                 [[maybe_unused]] std::size_t field_j) const
-        {
-            if constexpr (field_size == 1 && output_field_size == 1)
-            {
-                return coeffs[cell_number_in_stencil];
-            }
-            else
-            {
-                return coeffs[cell_number_in_stencil](field_i, field_j);
             }
         }
 

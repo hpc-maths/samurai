@@ -180,10 +180,29 @@ namespace samurai
             explicit_scheme.apply(output_field, input_field);
         }
 
-        inline double bdry_cell_coeff(const bdry_stencil_coeffs_t& coeffs,
-                                      std::size_t cell_number_in_stencil,
-                                      [[maybe_unused]] std::size_t field_i,
-                                      [[maybe_unused]] std::size_t field_j) const
+        /**
+         * Helper functions to get coefficients from a set of matrices
+         */
+        template <class Matrix, std::size_t stencil_size_>
+        inline field_value_type cell_coeff(const Array<Matrix, stencil_size_>& coeffs,
+                                           std::size_t cell_number_in_stencil,
+                                           [[maybe_unused]] std::size_t field_i,
+                                           [[maybe_unused]] std::size_t field_j) const
+        {
+            if constexpr (field_size == 1 && output_field_size == 1)
+            {
+                return coeffs[cell_number_in_stencil];
+            }
+            else
+            {
+                return coeffs[cell_number_in_stencil](field_i, field_j);
+            }
+        }
+
+        inline field_value_type bdry_cell_coeff(const bdry_stencil_coeffs_t& coeffs,
+                                                std::size_t cell_number_in_stencil,
+                                                [[maybe_unused]] std::size_t field_i,
+                                                [[maybe_unused]] std::size_t field_j) const
         {
             if constexpr (field_size == 1 && output_field_size == 1)
             {

@@ -45,8 +45,8 @@ namespace samurai
             // MatMult(A, vec_f, vec_res);
 
             // Interior interfaces
-            scheme().for_each_interior_interface(
-                input_field.mesh(),
+            scheme().for_each_interior_interface_and_coeffs(
+                input_field,
                 [&](const auto& interface_cells, const auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
@@ -75,8 +75,8 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            scheme().for_each_boundary_interface(
-                input_field.mesh(),
+            scheme().for_each_boundary_interface_and_coeffs(
+                input_field,
                 [&](const auto& cell, const auto& comput_cells, auto& coeffs)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)

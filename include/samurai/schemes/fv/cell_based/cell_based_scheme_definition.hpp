@@ -91,7 +91,7 @@ namespace samurai
         using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, const field_t&)>;
 
         using jac_coeffs_t         = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using jac_stencil_coeffs_t = xt::xtensor_fixed<jac_coeffs_t, xt::xshape<cfg::scheme_stencil_size>>;
+        using jac_stencil_coeffs_t = Array<jac_coeffs_t, cfg::scheme_stencil_size>;
         using jacobian_func        = std::function<jac_stencil_coeffs_t(stencil_cells_t&, const field_t&)>;
 
         // Specific to implicit local schemes (unused otherwise)
@@ -132,7 +132,7 @@ namespace samurai
 
         using stencil_cells_t       = std::array<cell_t, cfg::scheme_stencil_size>;
         using local_matrix_t        = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using stencil_coeffs_t      = xt::xtensor_fixed<local_matrix_t, xt::xshape<cfg::stencil_size>>;
+        using stencil_coeffs_t      = Array<local_matrix_t, cfg::stencil_size>;
         using get_coefficients_func = std::function<stencil_coeffs_t(stencil_cells_t&)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
@@ -156,7 +156,7 @@ namespace samurai
         static constexpr std::size_t field_size = field_t::size;
 
         using local_matrix_t        = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using stencil_coeffs_t      = xt::xtensor_fixed<local_matrix_t, xt::xshape<cfg::scheme_stencil_size>>;
+        using stencil_coeffs_t      = Array<local_matrix_t, cfg::scheme_stencil_size>;
         using get_coefficients_func = std::function<stencil_coeffs_t(double)>;
 
         get_coefficients_func get_coefficients_function = nullptr;

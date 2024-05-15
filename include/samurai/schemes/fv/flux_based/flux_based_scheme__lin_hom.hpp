@@ -18,6 +18,7 @@ namespace samurai
         using base_class::dim;
         using base_class::field_size;
         using base_class::output_field_size;
+        using typename base_class::input_field_t;
         using typename base_class::mesh_id_t;
         using typename base_class::mesh_t;
 
@@ -56,27 +57,14 @@ namespace samurai
             return (face_measure / cell_measure) * flux_coeffs;
         }
 
-        inline double cell_coeff(const flux_stencil_coeffs_t& coeffs,
-                                 std::size_t cell_number_in_stencil,
-                                 [[maybe_unused]] std::size_t field_i,
-                                 [[maybe_unused]] std::size_t field_j) const
-        {
-            if constexpr (field_size == 1 && output_field_size == 1)
-            {
-                return coeffs[cell_number_in_stencil];
-            }
-            else
-            {
-                return coeffs[cell_number_in_stencil](field_i, field_j);
-            }
-        }
-
         /**
          * Iterates for each interior interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Func>
-        void for_each_interior_interface(const mesh_t& mesh, Func&& apply_coeffs) const
+        void for_each_interior_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
         {
+            auto& mesh = field.mesh();
+
             auto min_level = mesh[mesh_id_t::cells].min_level();
             auto max_level = mesh[mesh_id_t::cells].max_level();
 
@@ -156,8 +144,10 @@ namespace samurai
          * Iterates for each boundary interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Func>
-        void for_each_boundary_interface(const mesh_t& mesh, Func&& apply_coeffs) const
+        void for_each_boundary_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
         {
+            auto& mesh = field.mesh();
+
             for (std::size_t d = 0; d < dim; ++d)
             {
                 auto& flux_def = flux_definition()[d];

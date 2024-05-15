@@ -242,8 +242,8 @@ namespace samurai
             // MatMult(A, vec_f, vec_res);
 
             // Interior interfaces
-            scheme().template for_each_interior_interface<Run::Parallel, Get::Intervals>(
-                input_field.mesh(),
+            scheme().template for_each_interior_interface_and_coeffs<Run::Parallel, Get::Intervals>(
+                input_field,
                 [&](auto& interface, auto& stencil, auto& left_cell_coeffs, auto& right_cell_coeffs)
                 {
 #ifdef SAMURAI_WITH_OPENMP
@@ -266,8 +266,8 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            scheme().template for_each_boundary_interface<Run::Parallel, Get::Intervals>(
-                input_field.mesh(),
+            scheme().template for_each_boundary_interface_and_coeffs<Run::Parallel, Get::Intervals>(
+                input_field,
                 [&](auto& cell, auto& stencil, auto& coeffs)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)

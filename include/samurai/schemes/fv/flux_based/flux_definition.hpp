@@ -63,9 +63,10 @@ namespace samurai
     template <class cfg>
     struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>> : NormalFluxDefinitionBase<cfg>
     {
-        using field_t          = typename cfg::input_field_t;
-        using field_value_type = typename field_t::value_type;
-        using cell_t           = typename field_t::cell_t;
+        using field_t                           = typename cfg::input_field_t;
+        using field_value_type                  = typename field_t::value_type;
+        using cell_t                            = typename field_t::cell_t;
+        static constexpr std::size_t field_size = field_t::size;
 
         using stencil_cells_t = std::array<cell_t, cfg::stencil_size>;
 
@@ -74,8 +75,11 @@ namespace samurai
         using flux_func         = std::function<flux_value_pair_t(stencil_cells_t&, const field_t&)>; // non-conservative
         using cons_flux_func    = std::function<flux_value_t(stencil_cells_t&, const field_t&)>;      // conservative
 
-        // using flux_jac_t         = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        // using flux_jacobian_func = std::function<flux_jac_t(stencil_cells_t&, field_t&)>;
+        using jac_coeffs_t              = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
+        using jac_stencil_coeffs_t      = Array<jac_coeffs_t, cfg::stencil_size>;
+        using jac_stencil_coeffs_pair_t = Array<jac_stencil_coeffs_t, 2>;
+        using jacobian_func             = std::function<jac_stencil_coeffs_pair_t(stencil_cells_t&, const field_t&)>; // non-conservative
+        using cons_jacobian_func        = std::function<jac_stencil_coeffs_t(stencil_cells_t&, const field_t&)>;      // conservative
 
         /**
          * Conservative flux function:
@@ -90,7 +94,8 @@ namespace samurai
          */
         flux_func flux_function = nullptr;
 
-        // flux_jacobian_func flux_jac_function = nullptr;
+        cons_jacobian_func cons_jacobian_function = nullptr;
+        jacobian_func jacobian_function           = nullptr;
 
         /**
          * @returns the non-conservative flux function that calls the conservative one.
@@ -107,11 +112,28 @@ namespace samurai
             };
         }
 
+        /**
+         * @returns the non-conservative Jacobian function that calls the conservative one.
+         * This function is used to default 'jacobian_function' if it is not set.
+         */
+        jacobian_func jacobian_function_as_conservative() const
+        {
+            return [&](auto& cells, const auto& field)
+            {
+                jac_stencil_coeffs_pair_t jacobians;
+                jacobians[0] = cons_jacobian_function(cells, field);
+                jacobians[1] = -jacobians[0];
+                return jacobians;
+            };
+        }
+
         ~NormalFluxDefinition()
         {
             cons_flux_function = nullptr;
             flux_function      = nullptr;
-            // flux_jac_function = nullptr;
+
+            cons_jacobian_function = nullptr;
+            jacobian_function      = nullptr;
         }
     };
 
@@ -249,6 +271,12 @@ namespace samurai
 
     template <class cfg>
     using FluxValuePair = typename NormalFluxDefinition<cfg>::flux_value_pair_t;
+
+    template <class cfg>
+    using FluxJacobianMatrix = typename NormalFluxDefinition<cfg>::jac_coeffs_t;
+
+    template <class cfg>
+    using StencilJacobianMatrices = typename NormalFluxDefinition<cfg>::jac_stencil_coeffs_t;
 
     template <class cfg>
     using FluxStencilCoeffs = typename NormalFluxDefinition<cfg>::flux_stencil_coeffs_t;
