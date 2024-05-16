@@ -190,9 +190,12 @@ namespace samurai
                             {
                                 for (std::size_t c = 0; c < stencil_size; ++c)
                                 {
-                                    double coeff         = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                    MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
+                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
+                                    if (coeff != 0)
+                                    {
+                                        auto comput_cell_col = col_index(comput_cells[c], field_j);
+                                        MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
+                                    }
                                 }
                             }
                             set_is_row_not_empty(cell_row);
