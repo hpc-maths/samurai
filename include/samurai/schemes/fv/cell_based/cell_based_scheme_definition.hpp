@@ -8,7 +8,7 @@ namespace samurai
     template <SchemeType scheme_type_,
               std::size_t output_field_size_,
               std::size_t neighbourhood_width_,
-              std::size_t scheme_stencil_size_,
+              std::size_t stencil_size_,
               std::size_t center_index_,
               std::size_t contiguous_indices_start_,
               std::size_t contiguous_indices_size_,
@@ -18,7 +18,7 @@ namespace samurai
         static constexpr SchemeType scheme_type               = scheme_type_;
         static constexpr std::size_t output_field_size        = output_field_size_;
         static constexpr std::size_t neighbourhood_width      = neighbourhood_width_;
-        static constexpr std::size_t scheme_stencil_size      = scheme_stencil_size_;
+        static constexpr std::size_t stencil_size             = stencil_size_;
         static constexpr std::size_t center_index             = center_index_;
         static constexpr std::size_t contiguous_indices_start = contiguous_indices_start_;
         static constexpr std::size_t contiguous_indices_size  = contiguous_indices_size_;
@@ -52,12 +52,12 @@ namespace samurai
     struct CellBasedSchemeDefinitionBase
     {
         static constexpr std::size_t dim = cfg::input_field_t::dim;
-        using scheme_stencil_t           = Stencil<cfg::scheme_stencil_size, dim>;
+        using scheme_stencil_t           = Stencil<cfg::stencil_size, dim>;
         scheme_stencil_t stencil;
 
         CellBasedSchemeDefinitionBase()
         {
-            if constexpr (cfg::scheme_stencil_size == 1 + 2 * dim * cfg::neighbourhood_width && cfg::neighbourhood_width <= 2)
+            if constexpr (cfg::stencil_size == 1 + 2 * dim * cfg::neighbourhood_width && cfg::neighbourhood_width <= 2)
             {
                 stencil = samurai::star_stencil<dim, cfg::neighbourhood_width>();
             }
@@ -85,12 +85,12 @@ namespace samurai
         using cell_t                            = typename field_t::cell_t;
         static constexpr std::size_t field_size = field_t::size;
 
-        using stencil_cells_t = CollapsStdArray<cell_t, cfg::scheme_stencil_size>;
+        using stencil_cells_t = CollapsStdArray<cell_t, cfg::stencil_size>;
 
         using scheme_value_t = CollapsArray<field_value_type, cfg::output_field_size>;
         using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, const field_t&)>;
 
-        using jac_stencil_coeffs_t = Array<JacobianMatrix<cfg>, cfg::scheme_stencil_size>;
+        using jac_stencil_coeffs_t = Array<JacobianMatrix<cfg>, cfg::stencil_size>;
         using jacobian_func        = std::function<jac_stencil_coeffs_t(stencil_cells_t&, const field_t&)>;
 
         // Specific to implicit local schemes (unused otherwise)
@@ -129,9 +129,9 @@ namespace samurai
         using cell_t                            = typename field_t::cell_t;
         static constexpr std::size_t field_size = field_t::size;
 
-        using stencil_cells_t       = std::array<cell_t, cfg::scheme_stencil_size>;
+        using stencil_cells_t       = std::array<cell_t, cfg::stencil_size>;
         using local_matrix_t        = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using stencil_coeffs_t      = Array<local_matrix_t, cfg::scheme_stencil_size>;
+        using stencil_coeffs_t      = Array<local_matrix_t, cfg::stencil_size>;
         using get_coefficients_func = std::function<stencil_coeffs_t(stencil_cells_t&)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
@@ -155,7 +155,7 @@ namespace samurai
         static constexpr std::size_t field_size = field_t::size;
 
         using local_matrix_t        = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using stencil_coeffs_t      = Array<local_matrix_t, cfg::scheme_stencil_size>;
+        using stencil_coeffs_t      = Array<local_matrix_t, cfg::stencil_size>;
         using get_coefficients_func = std::function<stencil_coeffs_t(double)>;
 
         get_coefficients_func get_coefficients_function = nullptr;

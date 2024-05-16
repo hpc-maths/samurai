@@ -155,7 +155,7 @@ namespace samurai
                              stencil(),
                              [&](auto& stencil_cells)
                              {
-                                 if constexpr (cfg::scheme_stencil_size == 1)
+                                 if constexpr (cfg::stencil_size == 1)
                                  {
                                      auto contrib = contribution(stencil_cells[0], field);
                                      apply_contrib(stencil_cells[cfg::center_index], contrib);
@@ -185,7 +185,7 @@ namespace samurai
                              stencil(),
                              [&](auto& stencil_cells)
                              {
-                                 if constexpr (cfg::scheme_stencil_size == 1)
+                                 if constexpr (cfg::stencil_size == 1)
                                  {
                                      auto coeffs = jacobian_coefficients(stencil_cells[0], field);
                                      apply_jacobian_coeffs(stencil_cells, coeffs);

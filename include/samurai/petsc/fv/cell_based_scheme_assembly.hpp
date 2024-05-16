@@ -27,17 +27,17 @@ namespace samurai
 
           public:
 
-            using scheme_t                                   = Scheme;
-            using cfg_t                                      = typename Scheme::cfg_t;
-            using bdry_cfg_t                                 = typename Scheme::bdry_cfg;
-            using field_t                                    = typename Scheme::field_t;
-            using field_value_type                           = typename field_t::value_type; // double
-            static constexpr std::size_t output_field_size   = cfg_t::output_field_size;
-            static constexpr std::size_t scheme_stencil_size = cfg_t::scheme_stencil_size;
-            using local_matrix_t                             = CollapsMatrix<field_value_type, output_field_size, field_size>;
+            using scheme_t                                 = Scheme;
+            using cfg_t                                    = typename Scheme::cfg_t;
+            using bdry_cfg_t                               = typename Scheme::bdry_cfg;
+            using field_t                                  = typename Scheme::field_t;
+            using field_value_type                         = typename field_t::value_type; // double
+            static constexpr std::size_t output_field_size = cfg_t::output_field_size;
+            static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
+            using local_matrix_t                           = CollapsMatrix<field_value_type, output_field_size, field_size>;
 
-            using stencil_t         = Stencil<scheme_stencil_size, dim>;
-            using get_coeffs_func_t = std::function<std::array<local_matrix_t, scheme_stencil_size>(double)>;
+            using stencil_t         = Stencil<stencil_size, dim>;
+            using get_coeffs_func_t = std::function<std::array<local_matrix_t, stencil_size>(double)>;
 
             explicit Assembly(const Scheme& s)
                 : base_class(s)
@@ -55,7 +55,7 @@ namespace samurai
                 }
                 else if constexpr (field_t::is_soa)
                 {
-                    return field_j * scheme_stencil_size + cell_local_index;
+                    return field_j * stencil_size + cell_local_index;
                 }
                 else
                 {
@@ -71,7 +71,7 @@ namespace samurai
                 }
                 else if constexpr (field_t::is_soa)
                 {
-                    return field_i * scheme_stencil_size + cell_local_index;
+                    return field_i * stencil_size + cell_local_index;
                 }
                 else
                 {
@@ -87,14 +87,14 @@ namespace samurai
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
-                if constexpr (scheme_stencil_size == 0)
+                if constexpr (stencil_size == 0)
                 {
                     return;
                 }
 
                 for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                 {
-                    PetscInt scheme_nnz_i = scheme_stencil_size * field_size;
+                    PetscInt scheme_nnz_i = stencil_size * field_size;
 
                     // If LinearHomogeneous, take only the non-zero coefficients into account.
                     // Not sure if this optimization really makes a difference though...
@@ -127,11 +127,9 @@ namespace samurai
                                     }
                                 }
                             }
-                            if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size < cfg_t::scheme_stencil_size)
+                            if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size < cfg_t::stencil_size)
                             {
-                                for (unsigned int c = cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size;
-                                     c < scheme_stencil_size;
-                                     ++c)
+                                for (unsigned int c = cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size; c < stencil_size; ++c)
                                 {
                                     double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                     if (coeff != 0)
@@ -174,20 +172,20 @@ namespace samurai
                     [&](const auto& cells, const auto& coeffs)
                     {
                         // std::cout << "coeffs: " << std::endl;
-                        // for (std::size_t i=0; i<scheme_stencil_size; i++)
+                        // for (std::size_t i=0; i<stencil_size; i++)
                         //     std::cout << i << ": " << coeffs[i] << std::endl;
 
                         // Global rows and columns
-                        std::array<PetscInt, cfg_t::scheme_stencil_size * output_field_size> rows;
-                        for (unsigned int c = 0; c < cfg_t::scheme_stencil_size; ++c)
+                        std::array<PetscInt, cfg_t::stencil_size * output_field_size> rows;
+                        for (unsigned int c = 0; c < cfg_t::stencil_size; ++c)
                         {
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
                                 rows[local_row_index(c, field_i)] = static_cast<PetscInt>(row_index(cells[c], field_i));
                             }
                         }
-                        std::array<PetscInt, cfg_t::scheme_stencil_size * field_size> cols;
-                        for (unsigned int c = 0; c < cfg_t::scheme_stencil_size; ++c)
+                        std::array<PetscInt, cfg_t::stencil_size * field_size> cols;
+                        for (unsigned int c = 0; c < cfg_t::stencil_size; ++c)
                         {
                             for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                             {
@@ -273,11 +271,10 @@ namespace samurai
                                                      ADD_VALUES);
                                         // }
                                     }
-                                    if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size
-                                                  < cfg_t::scheme_stencil_size)
+                                    if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size < cfg_t::stencil_size)
                                     {
                                         for (unsigned int c = cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size;
-                                             c < cfg_t::scheme_stencil_size;
+                                             c < cfg_t::stencil_size;
                                              ++c)
                                         {
                                             double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
@@ -301,7 +298,7 @@ namespace samurai
                             // row (c*2)+i   --> [-1  0|-1  0| 4  0|-1  0|-1  0]
                             // row (c*2)+i+1 --> [ 0 -1| 0 -1| 0  4| 0 -1| 0 -1]
 
-                            for (unsigned int c = 0; c < scheme_stencil_size; ++c)
+                            for (unsigned int c = 0; c < stencil_size; ++c)
                             {
                                 // Insert a coefficient block of size <output_field_size x field_size>:
                                 // - in 'rows', for each cell, <output_field_size> rows are contiguous.
