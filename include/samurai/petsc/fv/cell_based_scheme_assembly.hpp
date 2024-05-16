@@ -7,11 +7,7 @@ namespace samurai
     namespace petsc
     {
         template <class Scheme>
-        class Assembly<Scheme,
-                       std::enable_if_t<is_CellBasedScheme_v<Scheme>
-                                        // && (Scheme::cfg_t::scheme_type == SchemeType::LinearHomogeneous
-                                        //     || Scheme::cfg_t::scheme_type == SchemeType::LinearHeterogeneous)
-                                        >> : public FVSchemeAssembly<Scheme>
+        class Assembly<Scheme, std::enable_if_t<is_CellBasedScheme_v<Scheme>>> : public FVSchemeAssembly<Scheme>
         {
           protected:
 
