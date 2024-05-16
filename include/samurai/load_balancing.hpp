@@ -794,11 +794,11 @@ namespace samurai
             // for each level we need to check level -1 / 0 / +1
             std::size_t minlevel_check = static_cast<std::size_t>(
                 std::max(static_cast<int>(currentMesh.min_level()), static_cast<int>(level - 1) ));
-            std::size_t maxlevel_check = std::min(currentMesh.max_level(), level + 1);
+            std::size_t maxlevel_check = std::min(currentMesh.max_level(), level + static_cast<size_t>( 1 ) );
 
             for (size_t projlevel = minlevel_check; projlevel <= maxlevel_check; ++projlevel)
             {
-                // translate neighbour from dir (hopefully to current) all direction are tested
+                // translate neighbour from dir (hopefully to current)
                 auto set       = translate( otherMesh[level], dir );
                 auto intersect = intersection(set, currentMesh[projlevel]).on(projlevel);
 
@@ -820,8 +820,34 @@ namespace samurai
 
         }
 
+        // boost::mpi::communicator world;
+        // std::ofstream logs;
+        // logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
+        // logs << fmt::format( "\t\t\t> Interface min, max : x ({},{});  min, max : y ({},{}) @ level : {}", mm[ minLevelAtInterface ].min_x, 
+        //                       mm[ minLevelAtInterface ].max_x, mm[ minLevelAtInterface ].min_y, mm[ minLevelAtInterface ].max_y, minLevelAtInterface ) << std::endl;
+        
+        struct MinMax global;
+        global.min_x = mm[ minLevelAtInterface ].min_x; 
+        global.max_x = mm[ minLevelAtInterface ].max_x;
+        global.min_y = mm[ minLevelAtInterface ].min_y;
+        global.max_y = mm[ minLevelAtInterface ].max_y;
+
+        for( size_t level=minLevelAtInterface+1; level<mm.size(); ++level ){
+            size_t diff_level = level - minLevelAtInterface;
+            // logs << fmt::format( "\t> At level {}, diff {}", level, diff_level ) << std::endl;
+            // logs << fmt::format( "\t\t\t> Origin min, max : x ({},{});  min, max : y ({},{})", mm[ level ].min_x, 
+            //                   mm[ level ].max_x, mm[ level ].min_y, mm[ level ].max_y ) << std::endl;
+            // logs << fmt::format( "\t\t\t> Eq minlevel, min, max : x ({},{});  min, max : y ({},{}) ", mm[ level ].min_x >> diff_level, 
+            //                   mm[ level ].max_x >> diff_level, mm[ level ].min_y >> diff_level, mm[ level ].max_y >> diff_level ) << std::endl;
+            
+            global.min_x = std::min( global.min_x, mm[ level ].min_x >> diff_level );
+            global.max_x = std::max( global.max_x, mm[ level ].max_x >> diff_level );
+            global.min_y = std::min( global.min_y, mm[ level ].min_y >> diff_level );
+            global.max_y = std::max( global.max_y, mm[ level ].max_y >> diff_level );
+        }
+
         CellList_t tmp;
-        tmp[ minLevelAtInterface ][ { mm[ minLevelAtInterface ].min_y } ].add_interval( { mm[ minLevelAtInterface ].min_x, mm[ minLevelAtInterface ].max_x } );
+        tmp[ minLevelAtInterface ][ { global.min_y } ].add_interval( { global.min_x, global.max_x } );
         CellArray_t ca_tmp = { tmp, false };
 
         CellList_t cl_interface;
