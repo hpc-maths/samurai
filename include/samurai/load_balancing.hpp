@@ -113,6 +113,8 @@ namespace samurai
         None
     };
 
+    static const double load_balancing_threshold = 0.025; // 2.5 % 
+
     /**
      * Compute distance base on different norm.
      */
@@ -239,6 +241,22 @@ namespace samurai
             fluxes[n_i] += transfertLoad;
 
             my_load_new += transfertLoad;
+        }
+
+        // apply threshold, if the difference is smaller than #load_balancing_threshold of the number of cells,
+        // we do not load balance those processes
+        for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
+        {
+            std::size_t neighbour_rank = static_cast<std::size_t>( neighbourhood[ n_i ].rank );
+            int neighbour_load         = loads[neighbour_rank];
+            int abs_diff               = std::abs( fluxes[ n_i ] );
+            int threshold_neigh        = static_cast<int>( load_balancing_threshold * loads[ neighbour_rank ] );
+            int threshold_curr         = static_cast<int>( load_balancing_threshold * my_load ); 
+
+            if( abs_diff < threshold_curr && abs_diff < threshold_neigh ){
+                fluxes[ n_i ] = 0;
+            }
+
         }
 
         return fluxes;
@@ -739,6 +757,89 @@ namespace samurai
         CellArray_t interface_ = {interface, false};
 
         return interface_;
+    }
+
+    /**
+     *
+     * Params:
+     *          leveldiff : max level difference. For 2:1 balance, leveldiff = 1
+     */
+    template <size_t dim, class Mesh_t, class Dir_t>
+    static auto cmptInterfaceUniform(Mesh_t& mesh, Mesh_t& omesh, const Dir_t & dir )
+    {
+        using CellList_t  = typename Mesh_t::cl_type;
+        using CellArray_t = typename Mesh_t::ca_type;
+        using mesh_id_t   = typename Mesh_t::mesh_id_t;
+
+        // operation are on leaves only
+        auto& currentMesh = mesh[mesh_id_t::cells];
+        auto& otherMesh   = omesh[mesh_id_t::cells];
+
+        size_t minlevel = otherMesh.min_level();
+        size_t maxlevel = otherMesh.max_level();
+
+        size_t minLevelAtInterface = 99;
+
+        struct MinMax {
+            int min_x = std::numeric_limits<int>::max();
+            int max_x = std::numeric_limits<int>::min();
+            int min_y = std::numeric_limits<int>::max();
+            int max_y = std::numeric_limits<int>::min();
+        };
+
+        std::vector< MinMax > mm ( std::max( mesh.max_level(), omesh.max_level() ) + 1 );
+
+        for (size_t level = minlevel; level <= maxlevel; ++level)
+        {
+            // for each level we need to check level -1 / 0 / +1
+            std::size_t minlevel_check = static_cast<std::size_t>(
+                std::max(static_cast<int>(currentMesh.min_level()), static_cast<int>(level - 1) ));
+            std::size_t maxlevel_check = std::min(currentMesh.max_level(), level + 1);
+
+            for (size_t projlevel = minlevel_check; projlevel <= maxlevel_check; ++projlevel)
+            {
+                // translate neighbour from dir (hopefully to current) all direction are tested
+                auto set       = translate( otherMesh[level], dir );
+                auto intersect = intersection(set, currentMesh[projlevel]).on(projlevel);
+
+                size_t nbInter_ = 0;
+                intersect( [&]( const auto & interval, const auto & index ) {
+                    nbInter_ += 1;
+
+                    mm[ projlevel ].min_x = std::min( interval.start, mm[ projlevel ].min_x );
+                    mm[ projlevel ].max_x = std::max( interval.end, mm[ projlevel ].max_x );
+                    mm[ projlevel ].min_y = std::min( index(0), mm[ projlevel ].min_y );
+                    mm[ projlevel ].max_y = std::max( index(0), mm[ projlevel ].max_y );                        
+                });
+
+                if (nbInter_ > 0){
+                    std::cerr << " not empty " << std::endl;
+                   minLevelAtInterface = std::min( projlevel, minLevelAtInterface );
+                }
+            }
+
+        }
+
+        CellList_t tmp;
+        tmp[ minLevelAtInterface ][ { mm[ minLevelAtInterface ].min_y } ].add_interval( { mm[ minLevelAtInterface ].min_x, mm[ minLevelAtInterface ].max_x } );
+        CellArray_t ca_tmp = { tmp, false };
+
+        CellList_t cl_interface;
+
+        size_t nbInter_ = 0;
+        for (size_t level=currentMesh.min_level(); level <= currentMesh.max_level(); ++level)
+        {
+            auto intersect = intersection( ca_tmp[ minLevelAtInterface ], currentMesh[ level ] ).on( level );
+
+            intersect( [&](const auto & interval, const auto & index) {
+               cl_interface[ level ][ index ].add_interval( interval );
+               nbInter_ += 1;
+            });
+        }
+        
+        CellArray_t interface = { cl_interface, false };
+
+        return interface;
     }
 
     /**
