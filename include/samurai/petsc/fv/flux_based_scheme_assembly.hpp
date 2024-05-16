@@ -151,16 +151,8 @@ namespace samurai
                                         if (it_ghost == this->m_ghost_recursion.end())
                                         {
                                             auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                            // if (left_cell_coeff != 0)
-                                            // {
                                             MatSetValue(A, left_cell_row, comput_cell_col, left_cell_coeff, ADD_VALUES);
-                                            // }
-                                            // if (right_cell_coeff != 0)
-                                            // {
                                             MatSetValue(A, right_cell_row, comput_cell_col, right_cell_coeff, ADD_VALUES);
-                                            // }
-                                            // MatSetValue(A, left_cell_row, left_cell_row, 0, ADD_VALUES);
-                                            // MatSetValue(A, right_cell_row, right_cell_row, 0, ADD_VALUES);
                                         }
                                         else
                                         {
@@ -176,16 +168,8 @@ namespace samurai
                                     else
                                     {
                                         auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                        // if (left_cell_coeff != 0)
-                                        // {
                                         MatSetValue(A, left_cell_row, comput_cell_col, left_cell_coeff, ADD_VALUES);
-                                        // }
-                                        // if (right_cell_coeff != 0)
-                                        // {
                                         MatSetValue(A, right_cell_row, comput_cell_col, right_cell_coeff, ADD_VALUES);
-                                        // }
-                                        // MatSetValue(A, left_cell_row, left_cell_row, 0, ADD_VALUES);
-                                        // MatSetValue(A, right_cell_row, right_cell_row, 0, ADD_VALUES);
                                     }
                                 }
                             }
@@ -206,12 +190,9 @@ namespace samurai
                             {
                                 for (std::size_t c = 0; c < stencil_size; ++c)
                                 {
-                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    if (coeff != 0)
-                                    {
-                                        auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                        MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
-                                    }
+                                    double coeff         = scheme().cell_coeff(coeffs, c, field_i, field_j);
+                                    auto comput_cell_col = col_index(comput_cells[c], field_j);
+                                    MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
                                 }
                             }
                             set_is_row_not_empty(cell_row);
