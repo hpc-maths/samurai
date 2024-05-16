@@ -90,8 +90,7 @@ namespace samurai
         using scheme_value_t = CollapsArray<field_value_type, cfg::output_field_size>;
         using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, const field_t&)>;
 
-        using jac_coeffs_t         = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using jac_stencil_coeffs_t = Array<jac_coeffs_t, cfg::scheme_stencil_size>;
+        using jac_stencil_coeffs_t = Array<JacobianMatrix<cfg>, cfg::scheme_stencil_size>;
         using jacobian_func        = std::function<jac_stencil_coeffs_t(stencil_cells_t&, const field_t&)>;
 
         // Specific to implicit local schemes (unused otherwise)
@@ -132,7 +131,7 @@ namespace samurai
 
         using stencil_cells_t       = std::array<cell_t, cfg::scheme_stencil_size>;
         using local_matrix_t        = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using stencil_coeffs_t      = Array<local_matrix_t, cfg::stencil_size>;
+        using stencil_coeffs_t      = Array<local_matrix_t, cfg::scheme_stencil_size>;
         using get_coefficients_func = std::function<stencil_coeffs_t(stencil_cells_t&)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
@@ -169,9 +168,6 @@ namespace samurai
 
     template <class cfg>
     using SchemeValue = typename CellBasedSchemeDefinition<cfg>::scheme_value_t;
-
-    template <class cfg>
-    using JacobianMatrix = typename CellBasedSchemeDefinition<cfg>::jac_coeffs_t;
 
     template <class cfg>
     using StencilCoeffs = typename CellBasedSchemeDefinition<cfg>::stencil_coeffs_t;

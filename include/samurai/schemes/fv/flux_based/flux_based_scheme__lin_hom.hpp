@@ -25,17 +25,13 @@ namespace samurai
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
 
-        using flux_definition_t     = FluxDefinition<cfg>;
-        using flux_computation_t    = typename flux_definition_t::flux_computation_t;
-        using flux_stencil_coeffs_t = typename flux_computation_t::flux_stencil_coeffs_t;
-
       private:
 
-        flux_definition_t m_flux_definition;
+        FluxDefinition<cfg> m_flux_definition;
 
       public:
 
-        explicit FluxBasedScheme(const flux_definition_t& flux_definition)
+        explicit FluxBasedScheme(const FluxDefinition<cfg>& flux_definition)
             : m_flux_definition(flux_definition)
         {
         }
@@ -50,7 +46,7 @@ namespace samurai
             return m_flux_definition;
         }
 
-        flux_stencil_coeffs_t contribution(const flux_stencil_coeffs_t& flux_coeffs, double h_face, double h_cell) const
+        FluxStencilCoeffs<cfg> contribution(const FluxStencilCoeffs<cfg>& flux_coeffs, double h_face, double h_cell) const
         {
             double face_measure = std::pow(h_face, dim - 1);
             double cell_measure = std::pow(h_cell, dim);

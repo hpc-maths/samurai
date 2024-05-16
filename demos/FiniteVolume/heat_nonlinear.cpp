@@ -79,9 +79,9 @@ auto make_nonlinear_diffusion()
                 auto& R = cells[1];
                 auto dx = L.length;
 
-                samurai::StencilJacobianMatrices<cfg> stencil_matrices;
-                auto& jac_L = stencil_matrices[0];
-                auto& jac_R = stencil_matrices[1];
+                samurai::StencilJacobian<cfg> jac;
+                auto& jac_L = jac[0];
+                auto& jac_R = jac[1];
 
                 auto _u     = (u[L] + u[R]) / 2;
                 auto grad_u = (u[L] - u[R]) / dx;
@@ -89,7 +89,7 @@ auto make_nonlinear_diffusion()
                 jac_L = grad_u / 2 + _u / dx; // derive (1) w.r.t. u[L]
                 jac_R = grad_u / 2 - _u / dx; // derive (1) w.r.t. u[R]
 
-                return stencil_matrices;
+                return jac;
             };
         });
 
