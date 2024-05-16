@@ -96,6 +96,8 @@ namespace Load_balancing{
 
                 }
 
+                samurai::save("./", "lb-diffusion-before", mesh, flags );
+
                 for( size_t neigh_i=0; neigh_i<n_neighbours; ++neigh_i ){
 
                     // neighbour [0, n_neighbours[
@@ -105,24 +107,6 @@ namespace Load_balancing{
                     if( fluxes[ neighbour_local_id ] >= 0 ) break;
 
                     logs << fmt::format("\t> Working on neighbour # {}", neighbourhood[ neighbour_local_id ].rank ) << std::endl;
-
-                    // compute initial interface with this neighbour
-                    auto interface = samurai::cmptInterface<Mesh_t::dim, samurai::Direction_t::FACE>( mesh, neighbourhood[ neighbour_local_id ].mesh );
-
-                    {
-                        size_t nCellsAtInterfaceGiven = 0, nCellsAtInterface = 0;
-                        samurai::for_each_interval( interface, [&]( std::size_t level, const auto & interval, const auto & index ){
-
-                            for(size_t ii=0; ii<interval.size(); ++ii){
-                                if( flags(level, interval, index)[ ii ] == world.rank() ){
-                                    flags( level, interval, index )[ ii ] = neighbourhood[ neighbour_local_id ].rank;
-                                    nCellsAtInterfaceGiven += 1;
-                                }
-                                nCellsAtInterface += 1;
-                            }
-                        });
-                        logs << fmt::format("\t\t> NCellsAtInterface : {}, NCellsAtInterfaceGiven : {}", nCellsAtInterface, nCellsAtInterfaceGiven ) << std::endl;
-                    }
 
                     // move the interface in the direction of "the center of mass" of the domain
                     // we basically want to move based on the normalized cartesian axis
@@ -171,6 +155,27 @@ namespace Load_balancing{
                         }
                     }
 
+                    // compute initial interface with this neighbour
+                    // using Dir_t = xt::xtensor_fixed<int, xt::xshape<Mesh_t::dim>>;
+                    // Dir_t xx = { 0, -1 };
+                    
+                    auto interface = samurai::cmptInterfaceUniform<Mesh_t::dim>( mesh, neighbourhood[ neighbour_local_id ].mesh, dir_from_neighbour );
+
+                    {
+                        size_t nCellsAtInterfaceGiven = 0, nCellsAtInterface = 0;
+                        samurai::for_each_interval( interface, [&]( std::size_t level, const auto & interval, const auto & index ){
+
+                            for(size_t ii=0; ii<interval.size(); ++ii){
+                                if( flags(level, interval, index)[ ii ] == world.rank() ){
+                                    flags( level, interval, index )[ ii ] = neighbourhood[ neighbour_local_id ].rank;
+                                    nCellsAtInterfaceGiven += 1;
+                                }
+                                nCellsAtInterface += 1;
+                            }
+                        });
+                        logs << fmt::format("\t\t> NCellsAtInterface : {}, NCellsAtInterfaceGiven : {}", nCellsAtInterface, nCellsAtInterfaceGiven ) << std::endl;
+                    }
+
                     // propagate in direction
                     {
                         int nbInterStep = 1; // validate the while condition on starter
@@ -181,12 +186,35 @@ namespace Load_balancing{
                         logs << fmt::format("\t\t\t> Propagate for neighbour rank # {}", neighbourhood[ neighbour_local_id ].rank) << std::endl;
 
                         while( new_fluxes[ neighbour_local_id ] < 0 && nbInterStep != 0 ){
+
+                            size_t minLevelInInterface = mesh.max_level();
+                            for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
+                                std::size_t minlevel_check = static_cast<std::size_t>( std::max(static_cast<int>(mesh.min_level()), static_cast<int>(level) - 1 ) );
+                                std::size_t maxlevel_check = std::min( mesh.max_level(), level + 1 );
+                                size_t nIntervalAtInterface = 0;                                
+                                for (size_t proj_level = minlevel_check; proj_level <= maxlevel_check; ++proj_level){
+
+                                    // translate interface in direction of center of current mesh
+                                    auto set       = samurai::translate( interface[ level ], dir_from_neighbour );
+                                    auto intersect = samurai::intersection( set, mesh[ mesh_id_t::cells ][ proj_level ]).on( proj_level ); // need handle level difference here !
+                                    intersect( [&]( [[maybe_unused]] const auto & interval, [[maybe_unused]] const auto & index ){
+                                        nIntervalAtInterface += 1;
+                                    });
+
+                                    if( nIntervalAtInterface > 0 ) minLevelInInterface = std::min( minLevelInInterface, proj_level );
+                                }
+                            }
                             
+                            logs << fmt::format("\t\t\t\t> Min level in interface : {}", minLevelInInterface ) << std::endl;
+
                             int nbGiven = 0; 
                             CellList_t cl_given;
 
                             nbInterStep = 0;
                             for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
+
+                                // int factor_diff_level = std::max( level - minLevelInInterface, static_cast<size_t>( 1 ) );
+                                int factor_diff_level = 1 ;
 
                                 std::size_t minlevel_check = static_cast<std::size_t>( std::max(static_cast<int>(mesh.min_level()), static_cast<int>(level) - 1 ) );
                                 std::size_t maxlevel_check = std::min( mesh.max_level(), level + 1 );
@@ -195,11 +223,11 @@ namespace Load_balancing{
                                 for (size_t proj_level = minlevel_check; proj_level <= maxlevel_check; ++proj_level){
 
                                     // translate interface in direction of center of current mesh
-                                    auto set       = samurai::translate( interface[ level ], dir_from_neighbour );
+                                    auto set       = samurai::translate( interface[ level ], dir_from_neighbour * factor_diff_level );
                                     auto intersect = samurai::intersection( set, mesh[ mesh_id_t::cells ][ proj_level ]).on( proj_level ); // need handle level difference here !
 
                                     if ( proj_level > level) {
-                                        auto set_  = samurai::translate( interface[ proj_level ], dir_from_neighbour );
+                                        auto set_  = samurai::translate( interface[ proj_level ], dir_from_neighbour * factor_diff_level );
                                         auto diff_ = samurai::difference( intersect, set_ );
 
                                         diff_( [&]( const auto & interval, const auto & index ) {
@@ -214,7 +242,9 @@ namespace Load_balancing{
                                             }
                                         });
 
-                                    }else{
+                                    }
+                                    else
+                                    {
                                         intersect( [&]( const auto & interval, [[maybe_unused]] const auto & index ){
                                             
                                             nbInterStep += 1;
@@ -244,6 +274,8 @@ namespace Load_balancing{
                             interface = { cl_given, false };
 
                             new_fluxes[ neighbour_local_id ] += nbGiven;
+
+                            nbInterStep = 0;
                         }
                         
                     }
@@ -253,6 +285,8 @@ namespace Load_balancing{
                     }
 
                 }
+
+                samurai::save("./", "lb-diffusion", mesh, flags);
 
                 CellList_t new_cl;
                 std::vector<CellList_t> payload( world.size() );
