@@ -113,7 +113,7 @@ namespace samurai
         None
     };
 
-    static const double load_balancing_threshold = 0.025; // 2.5 % 
+    static const double load_balancing_threshold = 0.03141592; // 2.5 % 
 
     /**
      * Compute distance base on different norm.
@@ -471,8 +471,8 @@ namespace samurai
 
             // discover neighbours: add new neighbours if a new interface appears or remove old neighbours
             // FIX: add boolean return to condition the need of another call, might save some MPI comm.
-            discover_neighbour( new_mesh );
-            discover_neighbour( new_mesh );
+            discover_neighbour( field.mesh() );
+            discover_neighbour( field.mesh() );
         }
 
         /**
@@ -761,12 +761,14 @@ namespace samurai
 
     /**
      *
-     * Params:
-     *          leveldiff : max level difference. For 2:1 balance, leveldiff = 1
      */
     template <size_t dim, class Mesh_t, class Dir_t>
     static auto cmptInterfaceUniform(Mesh_t& mesh, Mesh_t& omesh, const Dir_t & dir )
     {
+
+        // dim == 3 is not supported for the moment.
+        assert( dim == 2 );
+
         using CellList_t  = typename Mesh_t::cl_type;
         using CellArray_t = typename Mesh_t::ca_type;
         using mesh_id_t   = typename Mesh_t::mesh_id_t;
@@ -787,7 +789,7 @@ namespace samurai
             int max_y = std::numeric_limits<int>::min();
         };
 
-        std::vector< MinMax > mm ( std::max( mesh.max_level(), omesh.max_level() ) + 1 );
+        std::vector< MinMax > mm ( std::max( mesh.max_level(), omesh.max_level() ) + 2 );
 
         for (size_t level = minlevel; level <= maxlevel; ++level)
         {
@@ -820,9 +822,9 @@ namespace samurai
 
         }
 
-        // boost::mpi::communicator world;
-        // std::ofstream logs;
-        // logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
+        boost::mpi::communicator world;
+        std::ofstream logs;
+        logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
         // logs << fmt::format( "\t\t\t> Interface min, max : x ({},{});  min, max : y ({},{}) @ level : {}", mm[ minLevelAtInterface ].min_x, 
         //                       mm[ minLevelAtInterface ].max_x, mm[ minLevelAtInterface ].min_y, mm[ minLevelAtInterface ].max_y, minLevelAtInterface ) << std::endl;
         
@@ -847,25 +849,33 @@ namespace samurai
         }
 
         CellList_t tmp;
-        tmp[ minLevelAtInterface ][ { global.min_y } ].add_interval( { global.min_x, global.max_x } );
+        
+        // +y, -y : horizontal propagation
+        if( std::abs( dir[0] ) == 0 && std::abs( dir[1] ) == 1 ){
+            logs << "\t> Horizontal propagation ! " << std::endl;
+            if( dir[ 1 ] > 0 ){
+                tmp[ minLevelAtInterface ][ { global.min_y } ].add_interval( { global.min_x, global.max_x } );
+            } else {
+                tmp[ minLevelAtInterface ][ { global.max_y } ].add_interval( { global.min_x, global.max_x } );
+            }
+        }
+
+        // +x, -x : vertical propagation
+        if( std::abs( dir[0] ) == 1 && std::abs( dir[1] ) == 0 ){
+            logs << "\t> Vertical propagation ! " << std::endl;
+            for(int y=global.min_y; y<=global.max_y; ++y ){
+                tmp[ minLevelAtInterface ][ { y } ].add_interval( { global.min_x, global.max_x } );
+            }
+        }
+
+
         CellArray_t ca_tmp = { tmp, false };
 
-        CellList_t cl_interface;
+        logs << "Interface for propagation : " << std::endl;
+        logs << ca_tmp << std::endl;
+        logs << std::endl;
 
-        size_t nbInter_ = 0;
-        for (size_t level=currentMesh.min_level(); level <= currentMesh.max_level(); ++level)
-        {
-            auto intersect = intersection( ca_tmp[ minLevelAtInterface ], currentMesh[ level ] ).on( level );
-
-            intersect( [&](const auto & interval, const auto & index) {
-               cl_interface[ level ][ index ].add_interval( interval );
-               nbInter_ += 1;
-            });
-        }
-        
-        CellArray_t interface = { cl_interface, false };
-
-        return interface;
+        return ca_tmp;
     }
 
     /**
@@ -1238,7 +1248,6 @@ namespace samurai
         // gather neighbour mesh
         mesh.update_mesh_neighbour();
 
-        // return requireGeneralUpdate;
     }
 
 } // namespace samurai
