@@ -196,7 +196,7 @@ namespace samurai
     template <class D>
     auto noalias(const Eigen::EigenBase<D>& exp)
     {
-        return exp;
+        return exp.derived();
     }
 
     template <class T1, class T2>
