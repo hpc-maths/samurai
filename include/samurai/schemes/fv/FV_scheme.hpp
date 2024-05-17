@@ -88,7 +88,6 @@ namespace samurai
      *     - the unused ghosts
      *     - the explicit application of the scheme
      */
-    // template <class Field, std::size_t output_field_size_, class bdry_cfg_>
     template <class DerivedScheme, class cfg_, class bdry_cfg_>
     class FVScheme
     {
@@ -98,7 +97,6 @@ namespace samurai
         using field_t          = input_field_t;
         using mesh_t           = typename field_t::mesh_t;
         using mesh_id_t        = typename mesh_t::mesh_id_t;
-        using interval_t       = typename mesh_t::interval_t;
         using field_value_type = typename field_t::value_type; // double
 
         using cfg                                             = cfg_;
@@ -183,8 +181,7 @@ namespace samurai
         /**
          * Helper functions to get coefficients from a set of matrices
          */
-        template <class Matrix, std::size_t stencil_size_>
-        inline field_value_type cell_coeff(const Array<Matrix, stencil_size_>& coeffs,
+        inline field_value_type cell_coeff(const StencilJacobian<cfg>& coeffs,
                                            std::size_t cell_number_in_stencil,
                                            [[maybe_unused]] std::size_t field_i,
                                            [[maybe_unused]] std::size_t field_j) const

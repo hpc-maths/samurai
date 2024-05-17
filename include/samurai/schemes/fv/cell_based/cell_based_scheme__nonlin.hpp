@@ -24,7 +24,6 @@ namespace samurai
         using scheme_definition_t = CellBasedSchemeDefinition<cfg>;
         using scheme_stencil_t    = typename scheme_definition_t::scheme_stencil_t;
         using stencil_cells_t     = typename scheme_definition_t::stencil_cells_t;
-        using scheme_value_t      = typename scheme_definition_t::scheme_value_t;
         using scheme_func         = typename scheme_definition_t::scheme_func;
         using local_scheme_func   = typename scheme_definition_t::local_scheme_func;
         using jacobian_func       = typename scheme_definition_t::jacobian_func;
@@ -132,7 +131,7 @@ namespace samurai
             return m_scheme_definition.jacobian_function(stencil_cells, field);
         }
 
-        inline field_value_type contrib_cmpnent(const scheme_value_t& coeffs, [[maybe_unused]] std::size_t field_i) const
+        inline field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] std::size_t field_i) const
         {
             if constexpr (cfg::output_field_size == 1)
             {

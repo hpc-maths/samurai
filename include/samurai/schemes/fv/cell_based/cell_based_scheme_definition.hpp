@@ -49,6 +49,9 @@ namespace samurai
     using LocalCellSchemeConfig = StarStencilSchemeConfig<scheme_type, output_field_size, 0, InputField>;
 
     template <class cfg>
+    using StencilCoeffs = StencilJacobian<cfg>;
+
+    template <class cfg>
     struct CellBasedSchemeDefinitionBase
     {
         static constexpr std::size_t dim = cfg::input_field_t::dim;
@@ -73,6 +76,9 @@ namespace samurai
     {
     };
 
+    template <class cfg>
+    using SchemeValue = CollapsArray<typename cfg::input_field_t::value_type, cfg::output_field_size>;
+
     /**
      * Specialization of @class CellBasedSchemeDefinition.
      * Defines how to compute a NON-LINEAR cell-based scheme.
@@ -80,25 +86,19 @@ namespace samurai
     template <class cfg>
     struct CellBasedSchemeDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>> : CellBasedSchemeDefinitionBase<cfg>
     {
-        using field_t                           = typename cfg::input_field_t;
-        using field_value_type                  = typename field_t::value_type;
-        using cell_t                            = typename field_t::cell_t;
-        static constexpr std::size_t field_size = field_t::size;
+        using field_t = typename cfg::input_field_t;
 
-        using stencil_cells_t = CollapsStdArray<cell_t, cfg::stencil_size>;
+        using stencil_cells_t = StencilCells<cfg>;
 
-        using scheme_value_t = CollapsArray<field_value_type, cfg::output_field_size>;
-        using scheme_func    = std::function<scheme_value_t(stencil_cells_t&, const field_t&)>;
-
-        using jac_stencil_coeffs_t = Array<JacobianMatrix<cfg>, cfg::stencil_size>;
-        using jacobian_func        = std::function<jac_stencil_coeffs_t(stencil_cells_t&, const field_t&)>;
+        using scheme_func   = std::function<SchemeValue<cfg>(stencil_cells_t&, const field_t&)>;
+        using jacobian_func = std::function<StencilJacobian<cfg>(stencil_cells_t&, const field_t&)>;
 
         // Specific to implicit local schemes (unused otherwise)
         using local_field_t     = LocalField<field_t>;
-        using local_scheme_func = std::function<scheme_value_t(stencil_cells_t&, const local_field_t&)>; // same as 'scheme_func', but with
-                                                                                                         // 'local_field_t' instead of
-                                                                                                         // 'field_t'
-        using local_jacobian_func = std::function<jac_stencil_coeffs_t(stencil_cells_t&, const local_field_t&)>; // same as 'jacobian_func',
+        using local_scheme_func = std::function<SchemeValue<cfg>(stencil_cells_t&, const local_field_t&)>; // same as 'scheme_func', but
+                                                                                                           // with 'local_field_t' instead
+                                                                                                           // of 'field_t'
+        using local_jacobian_func = std::function<StencilJacobian<cfg>(stencil_cells_t&, const local_field_t&)>; // same as 'jacobian_func',
                                                                                                                  // but with 'local_field_t'
                                                                                                                  // instead of 'field_t'
 
@@ -124,15 +124,7 @@ namespace samurai
     struct CellBasedSchemeDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHeterogeneous>>
         : CellBasedSchemeDefinitionBase<cfg>
     {
-        using field_t                           = typename cfg::input_field_t;
-        using field_value_type                  = typename field_t::value_type;
-        using cell_t                            = typename field_t::cell_t;
-        static constexpr std::size_t field_size = field_t::size;
-
-        using stencil_cells_t       = std::array<cell_t, cfg::stencil_size>;
-        using local_matrix_t        = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using stencil_coeffs_t      = Array<local_matrix_t, cfg::stencil_size>;
-        using get_coefficients_func = std::function<stencil_coeffs_t(stencil_cells_t&)>;
+        using get_coefficients_func = std::function<StencilCoeffs<cfg>(StencilCells<cfg>&)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
 
@@ -150,13 +142,7 @@ namespace samurai
     struct CellBasedSchemeDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>>
         : CellBasedSchemeDefinitionBase<cfg>
     {
-        using field_t                           = typename cfg::input_field_t;
-        using field_value_type                  = typename field_t::value_type;
-        static constexpr std::size_t field_size = field_t::size;
-
-        using local_matrix_t        = CollapsMatrix<field_value_type, cfg::output_field_size, field_size>;
-        using stencil_coeffs_t      = Array<local_matrix_t, cfg::stencil_size>;
-        using get_coefficients_func = std::function<stencil_coeffs_t(double)>;
+        using get_coefficients_func = std::function<StencilCoeffs<cfg>(double)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
 
@@ -165,11 +151,5 @@ namespace samurai
             get_coefficients_function = nullptr;
         }
     };
-
-    template <class cfg>
-    using SchemeValue = typename CellBasedSchemeDefinition<cfg>::scheme_value_t;
-
-    template <class cfg>
-    using StencilCoeffs = typename CellBasedSchemeDefinition<cfg>::stencil_coeffs_t;
 
 } // end namespace samurai

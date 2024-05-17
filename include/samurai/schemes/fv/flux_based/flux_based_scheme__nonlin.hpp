@@ -27,17 +27,13 @@ namespace samurai
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
 
-        using flux_definition_t  = FluxDefinition<cfg>;
-        using flux_computation_t = typename flux_definition_t::flux_computation_t;
-        using flux_value_t       = typename flux_computation_t::flux_value_t;
-
       private:
 
-        flux_definition_t m_flux_definition;
+        FluxDefinition<cfg> m_flux_definition;
 
       public:
 
-        explicit FluxBasedScheme(const flux_definition_t& flux_definition)
+        explicit FluxBasedScheme(const FluxDefinition<cfg>& flux_definition)
             : m_flux_definition(flux_definition)
         {
         }
@@ -52,7 +48,7 @@ namespace samurai
             return m_flux_definition;
         }
 
-        template <class T> // flux_value_t or jac_stencil_coeffs_t
+        template <class T> // FluxValue<cfg> or StencilJacobian<cfg>
         T contribution(const T& flux_value, double h_face, double h_cell) const
         {
             double face_measure = std::pow(h_face, dim - 1);
@@ -60,7 +56,7 @@ namespace samurai
             return (face_measure / cell_measure) * flux_value;
         }
 
-        inline field_value_type flux_value_cmpnent(const flux_value_t& flux_value, [[maybe_unused]] std::size_t field_i) const
+        inline field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] std::size_t field_i) const
         {
             if constexpr (output_field_size == 1)
             {

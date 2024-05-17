@@ -122,7 +122,7 @@ namespace samurai
         }
     };
 
-    template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
+    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
     auto make_diffusion_old()
     {
         return DiffusionFV_old<Field, dirichlet_enfcmt>();
