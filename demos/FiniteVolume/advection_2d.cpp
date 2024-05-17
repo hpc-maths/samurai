@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
-    std::size_t nfiles   = 1;
+    std::size_t nfiles   = 10;
     int nt_loadbalance = 10; // nombre d'iteratio entre les equilibrages
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -257,17 +257,25 @@ int main(int argc, char* argv[])
 
     std::size_t nsave = 1;
     std::size_t nt    = 0;
+    
+    const int iof = 2;
 
     // SFC_LoadBalancer_interval<dim, Morton> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
     Load_balancing::Diffusion balancer;
 
+    std::ofstream logs;
+    boost::mpi::communicator world;
+    logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
+
     while (t != Tf)
     {
         if (nt % nt_loadbalance == 0 && nt > 1 )
         {
-            std::cout << "\t> Load balancing mesh ... " << std::endl;
+            logs << fmt::format("\n##########################################", nt ) << std::endl;
+            logs << fmt::format("\n> Load balancing mesh @ iteration {} ", nt ) << std::endl;
+            logs << fmt::format("\n##########################################", nt ) << std::endl;
 
             myTimers.start("load-balancing");
             balancer.load_balance(mesh, u);
@@ -305,7 +313,7 @@ int main(int argc, char* argv[])
         std::swap(u.array(), unp1.array());
 
         myTimers.start("I/O");
-        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf || true )
+        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf || nt % iof == 0  )
         {
             const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
