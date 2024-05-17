@@ -14,11 +14,10 @@ namespace samurai
     {
         using base_class = ExplicitFVScheme<FluxBasedScheme<cfg, bdry_cfg>>;
 
-        using scheme_t              = typename base_class::scheme_t;
-        using input_field_t         = typename base_class::input_field_t;
-        using output_field_t        = typename base_class::output_field_t;
-        using value_t               = typename input_field_t::value_type;
-        using flux_stencil_coeffs_t = typename scheme_t::flux_stencil_coeffs_t;
+        using scheme_t       = typename base_class::scheme_t;
+        using input_field_t  = typename base_class::input_field_t;
+        using output_field_t = typename base_class::output_field_t;
+        using value_t        = typename input_field_t::value_type;
         using base_class::scheme;
 
         static constexpr std::size_t field_size        = input_field_t::size;
@@ -242,8 +241,8 @@ namespace samurai
             // MatMult(A, vec_f, vec_res);
 
             // Interior interfaces
-            scheme().template for_each_interior_interface<Run::Parallel, Get::Intervals>(
-                input_field.mesh(),
+            scheme().template for_each_interior_interface_and_coeffs<Run::Parallel, Get::Intervals>(
+                input_field,
                 [&](auto& interface, auto& stencil, auto& left_cell_coeffs, auto& right_cell_coeffs)
                 {
 #ifdef SAMURAI_WITH_OPENMP
@@ -266,8 +265,8 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            scheme().template for_each_boundary_interface<Run::Parallel, Get::Intervals>(
-                input_field.mesh(),
+            scheme().template for_each_boundary_interface_and_coeffs<Run::Parallel, Get::Intervals>(
+                input_field,
                 [&](auto& cell, auto& stencil, auto& coeffs)
                 {
                     for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)

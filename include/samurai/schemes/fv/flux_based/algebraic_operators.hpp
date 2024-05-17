@@ -49,6 +49,20 @@ namespace samurai
                                 return scalar * scheme.flux_definition()[d].flux_function(cells, field);
                             };
                         }
+                        if (scheme.flux_definition()[d].cons_jacobian_function)
+                        {
+                            multiplied_scheme.flux_definition()[d].cons_jacobian_function = [=](auto& cells, const auto& field)
+                            {
+                                return scalar * scheme.flux_definition()[d].cons_jacobian_function(cells, field);
+                            };
+                        }
+                        if (scheme.flux_definition()[d].jacobian_function)
+                        {
+                            multiplied_scheme.flux_definition()[d].jacobian_function = [=](auto& cells, const auto& field)
+                            {
+                                return scalar * scheme.flux_definition()[d].jacobian_function(cells, field);
+                            };
+                        }
                     }
                 }
             });
@@ -110,6 +124,30 @@ namespace samurai
                     else
                     {
                         assert(false && "The case where scheme1.flux_function and scheme2.cons_flux_function are set is not implemented.");
+                    }
+
+                    if (scheme1.flux_definition()[d].jacobian_function && scheme2.flux_definition()[d].jacobian_function)
+                    {
+                        sum_scheme.flux_definition()[d].jacobian_function = [=](auto& cells, const auto& field)
+                        {
+                            return scheme1.flux_definition()[d].jacobian_function(cells, field)
+                                 + scheme2.flux_definition()[d].jacobian_function(cells, field);
+                        };
+                        sum_scheme.cons_jacobian_function = nullptr;
+                    }
+                    else if (scheme1.flux_definition()[d].cons_jacobian_function && scheme2.flux_definition()[d].cons_jacobian_function)
+                    {
+                        sum_scheme.flux_definition()[d].cons_jacobian_function = [=](auto& cells, const auto& field)
+                        {
+                            return scheme1.flux_definition()[d].cons_jacobian_function(cells, field)
+                                 + scheme2.flux_definition()[d].cons_jacobian_function(cells, field);
+                        };
+                        sum_scheme.flux_function = nullptr;
+                    }
+                    else
+                    {
+                        assert(false
+                               && "The case where scheme1.jacobian_function and scheme2.cons_jacobian_function are set is not implemented.");
                     }
                 }
             });

@@ -35,11 +35,11 @@ namespace samurai
             {
                 auto Identity = eye<field_value_type, field_size, field_size>();
                 StencilCoeffs<cfg> coeffs;
-                for (unsigned int i = 0; i < cfg::scheme_stencil_size; ++i)
+                for (unsigned int i = 0; i < cfg::stencil_size; ++i)
                 {
                     coeffs[i] = -Identity;
                 }
-                coeffs[cfg::center_index] = (cfg::scheme_stencil_size - 1) * Identity;
+                coeffs[cfg::center_index] = (cfg::stencil_size - 1) * Identity;
                 coeffs /= (h * h);
                 return coeffs;
             };
@@ -122,7 +122,7 @@ namespace samurai
         }
     };
 
-    template <DirichletEnforcement dirichlet_enfcmt = Equation, class Field>
+    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
     auto make_diffusion_old()
     {
         return DiffusionFV_old<Field, dirichlet_enfcmt>();

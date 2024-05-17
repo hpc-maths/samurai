@@ -23,10 +23,9 @@ namespace samurai
 
       public:
 
-        using flux_definition_t         = typename base_class::flux_definition_t;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
-        explicit DiffusionFV(const flux_definition_t& flux_definition)
+        explicit DiffusionFV(const FluxDefinition<cfg>& flux_definition)
             : base_class(flux_definition)
         {
             this->set_name("Diffusion");

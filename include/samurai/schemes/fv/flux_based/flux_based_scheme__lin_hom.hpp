@@ -18,23 +18,20 @@ namespace samurai
         using base_class::dim;
         using base_class::field_size;
         using base_class::output_field_size;
+        using typename base_class::input_field_t;
         using typename base_class::mesh_id_t;
         using typename base_class::mesh_t;
 
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
 
-        using flux_definition_t     = FluxDefinition<cfg>;
-        using flux_computation_t    = typename flux_definition_t::flux_computation_t;
-        using flux_stencil_coeffs_t = typename flux_computation_t::flux_stencil_coeffs_t;
-
       private:
 
-        flux_definition_t m_flux_definition;
+        FluxDefinition<cfg> m_flux_definition;
 
       public:
 
-        explicit FluxBasedScheme(const flux_definition_t& flux_definition)
+        explicit FluxBasedScheme(const FluxDefinition<cfg>& flux_definition)
             : m_flux_definition(flux_definition)
         {
         }
@@ -49,34 +46,21 @@ namespace samurai
             return m_flux_definition;
         }
 
-        flux_stencil_coeffs_t contribution(const flux_stencil_coeffs_t& flux_coeffs, double h_face, double h_cell) const
+        FluxStencilCoeffs<cfg> contribution(const FluxStencilCoeffs<cfg>& flux_coeffs, double h_face, double h_cell) const
         {
             double face_measure = std::pow(h_face, dim - 1);
             double cell_measure = std::pow(h_cell, dim);
             return (face_measure / cell_measure) * flux_coeffs;
         }
 
-        inline double cell_coeff(const flux_stencil_coeffs_t& coeffs,
-                                 std::size_t cell_number_in_stencil,
-                                 [[maybe_unused]] std::size_t field_i,
-                                 [[maybe_unused]] std::size_t field_j) const
-        {
-            if constexpr (field_size == 1 && output_field_size == 1)
-            {
-                return coeffs[cell_number_in_stencil];
-            }
-            else
-            {
-                return coeffs[cell_number_in_stencil](field_i, field_j);
-            }
-        }
-
         /**
          * Iterates for each interior interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Func>
-        void for_each_interior_interface(const mesh_t& mesh, Func&& apply_coeffs) const
+        void for_each_interior_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
         {
+            auto& mesh = field.mesh();
+
             auto min_level = mesh[mesh_id_t::cells].min_level();
             auto max_level = mesh[mesh_id_t::cells].max_level();
 
@@ -156,8 +140,10 @@ namespace samurai
          * Iterates for each boundary interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Func>
-        void for_each_boundary_interface(const mesh_t& mesh, Func&& apply_coeffs) const
+        void for_each_boundary_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
         {
+            auto& mesh = field.mesh();
+
             for (std::size_t d = 0; d < dim; ++d)
             {
                 auto& flux_def = flux_definition()[d];

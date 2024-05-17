@@ -22,7 +22,7 @@ namespace samurai
 
         static constexpr std::size_t field_size        = input_field_t::size;
         static constexpr std::size_t output_field_size = cfg::output_field_size;
-        static constexpr std::size_t stencil_size      = cfg::scheme_stencil_size;
+        static constexpr std::size_t stencil_size      = cfg::stencil_size;
         static constexpr std::size_t center_index      = cfg::center_index;
 
       public:

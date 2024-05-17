@@ -15,14 +15,14 @@ namespace samurai
         using base_class::field_size;
         using base_class::output_field_size;
 
-        using cfg_t         = cfg;
-        using bdry_cfg_t    = bdry_cfg;
-        using input_field_t = typename base_class::input_field_t;
-        using mesh_t        = typename base_class::mesh_t;
+        using cfg_t            = cfg;
+        using bdry_cfg_t       = bdry_cfg;
+        using input_field_t    = typename base_class::input_field_t;
+        using mesh_t           = typename base_class::mesh_t;
+        using field_value_type = typename base_class::field_value_type;
 
         using scheme_definition_t   = CellBasedSchemeDefinition<cfg>;
         using scheme_stencil_t      = typename scheme_definition_t::scheme_stencil_t;
-        using stencil_coeffs_t      = typename scheme_definition_t::stencil_coeffs_t;
         using get_coefficients_func = typename scheme_definition_t::get_coefficients_func;
 
       private:
@@ -76,21 +76,6 @@ namespace samurai
         auto coefficients(double h) const
         {
             return m_scheme_definition.get_coefficients_function(h);
-        }
-
-        inline double cell_coeff(const stencil_coeffs_t& coeffs,
-                                 std::size_t cell_number_in_stencil,
-                                 [[maybe_unused]] std::size_t field_i,
-                                 [[maybe_unused]] std::size_t field_j) const
-        {
-            if constexpr (field_size == 1 && output_field_size == 1)
-            {
-                return coeffs[cell_number_in_stencil];
-            }
-            else
-            {
-                return coeffs[cell_number_in_stencil](field_i, field_j);
-            }
         }
 
         template <class Func>

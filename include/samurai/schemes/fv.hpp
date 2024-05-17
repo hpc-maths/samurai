@@ -3,6 +3,7 @@
 
 #pragma once
 #include "../numeric/error.hpp"
+#include "../samurai.hpp"
 
 #include "fv/cell_based/cell_based_scheme__nonlin.hpp"
 #include "fv/cell_based/explicit_cell_based_scheme.hpp"

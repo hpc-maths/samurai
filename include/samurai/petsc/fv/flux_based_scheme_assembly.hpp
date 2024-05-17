@@ -11,11 +11,7 @@ namespace samurai
          * Assembly for LINEAR schemes
          */
         template <class Scheme>
-        class Assembly<Scheme,
-                       std::enable_if_t<is_FluxBasedScheme_v<Scheme>
-                                        && (Scheme::cfg_t::scheme_type == SchemeType::LinearHomogeneous
-                                            || Scheme::cfg_t::scheme_type == SchemeType::LinearHeterogeneous)>>
-            : public FVSchemeAssembly<Scheme>
+        class Assembly<Scheme, std::enable_if_t<is_FluxBasedScheme_v<Scheme>>> : public FVSchemeAssembly<Scheme>
         {
           protected:
 
@@ -32,12 +28,12 @@ namespace samurai
             using base_class::mesh;
             using base_class::scheme;
             using base_class::set_current_insert_mode;
+            using base_class::unknown;
 
             using scheme_t                                 = Scheme;
             using cfg_t                                    = typename Scheme::cfg_t;
             using bdry_cfg_t                               = typename Scheme::bdry_cfg;
             using field_t                                  = typename Scheme::field_t;
-            using flux_stencil_coeffs_t                    = typename Scheme::flux_stencil_coeffs_t;
             static constexpr std::size_t output_field_size = cfg_t::output_field_size;
             static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
 
@@ -134,8 +130,8 @@ namespace samurai
                 }
 
                 // Interior interfaces
-                scheme().for_each_interior_interface(
-                    mesh(),
+                scheme().for_each_interior_interface_and_coeffs(
+                    unknown(),
                     [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                     {
                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
@@ -155,16 +151,8 @@ namespace samurai
                                         if (it_ghost == this->m_ghost_recursion.end())
                                         {
                                             auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                            // if (left_cell_coeff != 0)
-                                            // {
                                             MatSetValue(A, left_cell_row, comput_cell_col, left_cell_coeff, ADD_VALUES);
-                                            // }
-                                            // if (right_cell_coeff != 0)
-                                            // {
                                             MatSetValue(A, right_cell_row, comput_cell_col, right_cell_coeff, ADD_VALUES);
-                                            // }
-                                            // MatSetValue(A, left_cell_row, left_cell_row, 0, ADD_VALUES);
-                                            // MatSetValue(A, right_cell_row, right_cell_row, 0, ADD_VALUES);
                                         }
                                         else
                                         {
@@ -180,16 +168,8 @@ namespace samurai
                                     else
                                     {
                                         auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                        // if (left_cell_coeff != 0)
-                                        // {
                                         MatSetValue(A, left_cell_row, comput_cell_col, left_cell_coeff, ADD_VALUES);
-                                        // }
-                                        // if (right_cell_coeff != 0)
-                                        // {
                                         MatSetValue(A, right_cell_row, comput_cell_col, right_cell_coeff, ADD_VALUES);
-                                        // }
-                                        // MatSetValue(A, left_cell_row, left_cell_row, 0, ADD_VALUES);
-                                        // MatSetValue(A, right_cell_row, right_cell_row, 0, ADD_VALUES);
                                     }
                                 }
                             }
@@ -199,27 +179,25 @@ namespace samurai
                     });
 
                 // Boundary interfaces
-                scheme().for_each_boundary_interface(mesh(),
-                                                     [&](auto& cell, auto& comput_cells, auto& coeffs)
-                                                     {
-                                                         for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
-                                                         {
-                                                             auto cell_row = this->row_index(cell, field_i);
-                                                             for (unsigned int field_j = 0; field_j < field_size; ++field_j)
-                                                             {
-                                                                 for (std::size_t c = 0; c < stencil_size; ++c)
-                                                                 {
-                                                                     double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                                                     if (coeff != 0)
-                                                                     {
-                                                                         auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                                                         MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
-                                                                     }
-                                                                 }
-                                                             }
-                                                             set_is_row_not_empty(cell_row);
-                                                         }
-                                                     });
+                scheme().for_each_boundary_interface_and_coeffs(
+                    unknown(),
+                    [&](auto& cell, auto& comput_cells, auto& coeffs)
+                    {
+                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                        {
+                            auto cell_row = this->row_index(cell, field_i);
+                            for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                            {
+                                for (std::size_t c = 0; c < stencil_size; ++c)
+                                {
+                                    double coeff         = scheme().cell_coeff(coeffs, c, field_i, field_j);
+                                    auto comput_cell_col = col_index(comput_cells[c], field_j);
+                                    MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
+                                }
+                            }
+                            set_is_row_not_empty(cell_row);
+                        }
+                    });
             }
         };
 

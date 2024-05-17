@@ -126,7 +126,7 @@ namespace samurai
               class nonlin_cfg,
               class bdry_cfg,
               std::enable_if_t<nonlin_cfg::scheme_type == SchemeType::NonLinear && lin_cfg::scheme_type == SchemeType::LinearHomogeneous
-                                   && lin_cfg::scheme_stencil_size == nonlin_cfg::scheme_stencil_size && lin_cfg::scheme_stencil_size == 1,
+                                   && lin_cfg::stencil_size == nonlin_cfg::stencil_size && lin_cfg::stencil_size == 1,
                                bool> = true>
     auto operator+(const CellBasedScheme<lin_cfg, bdry_cfg>& lin_scheme, const CellBasedScheme<nonlin_cfg, bdry_cfg>& nonlin_scheme)
     {
