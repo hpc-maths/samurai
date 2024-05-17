@@ -217,6 +217,13 @@ namespace samurai
                 auto jacobian_function = flux_def.jacobian_function ? flux_def.jacobian_function
                                                                     : flux_def.jacobian_function_as_conservative();
 
+                if (!jacobian_function)
+                {
+                    std::cerr << "The jacobian function of operator '" << this->name() << "' has not been implemented." << std::endl;
+                    std::cerr << "Use option -snes_mf or -snes_fd for an automatic computation of the jacobian matrix." << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+
                 // Same level
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {

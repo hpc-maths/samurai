@@ -177,6 +177,7 @@ namespace samurai
             if (!jacobian_function())
             {
                 std::cerr << "The jacobian function of operator '" << this->name() << "' has not been implemented." << std::endl;
+                std::cerr << "Use option -snes_mf or -snes_fd for an automatic computation of the jacobian matrix." << std::endl;
                 exit(EXIT_FAILURE);
             }
 

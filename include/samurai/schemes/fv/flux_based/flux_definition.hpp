@@ -119,6 +119,11 @@ namespace samurai
          */
         jacobian_func jacobian_function_as_conservative() const
         {
+            if (!cons_jacobian_function)
+            {
+                return nullptr;
+            }
+
             return [&](auto& cells, const auto& field)
             {
                 StencilJacobianPair<cfg> jacobians;
