@@ -55,6 +55,10 @@ set(FLUX_CONTAINER_LIST array xtensor)
 set(FLUX_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FLUX_CONTAINER_LIST}")
 set_property(CACHE FLUX_CONTAINER PROPERTY STRINGS ${FLUX_CONTAINER_LIST})
 
+set(FIELD_CONTAINER_LIST "xtensor" "eigen3")
+set(FIELD_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FIELD_CONTAINER_LIST}")
+set_property(CACHE FIELD_CONTAINER PROPERTY STRINGS ${FIELD_CONTAINER_LIST})
+
 SET(FEATURES)
 
 if(${CLANG_TIDY})
@@ -95,7 +99,7 @@ target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_
   "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 # Find dependencies:
-set(DEPENDENCIES_CONFIGURED xtensor Eigen3 HighFive pugixml fmt)
+set(DEPENDENCIES_CONFIGURED HighFive pugixml fmt)
 
 if(${ENABLE_VCPKG})
   list(APPEND DEPENDENCIES_CONFIGURED hdf5)
@@ -112,12 +116,31 @@ endforeach()
 target_link_system_libraries(
   samurai
   INTERFACE
-  xtensor
   HighFive
   pugixml::pugixml
   fmt::fmt
-  Eigen3::Eigen
 )
+
+if(FIELD_CONTAINER MATCHES xtensor)
+  message(STATUS "Using xtensor as field container")
+  list(APPEND DEPENDENCIES_CONFIGURED xtensor)
+  find_package(xtensor CONFIG REQUIRED)
+  target_link_system_libraries(
+    samurai
+    INTERFACE
+    xtensor
+  )
+elseif(FIELD_CONTAINER MATCHES eigen3)
+  message(STATUS "Using Eigen3 as field container")
+  list(APPEND DEPENDENCIES_CONFIGURED Eigen3)
+  find_package(Eigen3 CONFIG REQUIRED)
+  target_link_system_libraries(
+    samurai
+    INTERFACE
+    Eigen3::Eigen
+  )
+  target_compile_definitions(samurai INTERFACE EIGEN_ARRAYBASE_PLUGIN="${CMAKE_CURRENT_SOURCE_DIR}/include/samurai/storage/array_eigen_addons.hpp")
+endif()
 
 if(${WITH_OPENMP})
   find_package(OpenMP)
@@ -179,6 +202,13 @@ if(NOT FLUX_CONTAINER IN_LIST FLUX_CONTAINER_LIST)
     message(FATAL_ERROR "FLUX_CONTAINER must be one of: ${FLUX_CONTAINER_LIST}")
 else()
     target_compile_definitions(samurai INTERFACE FLUX_CONTAINER_${FLUX_CONTAINER})
+endif()
+
+if(NOT FIELD_CONTAINER IN_LIST FIELD_CONTAINER_LIST)
+  message(FATAL_ERROR "FIELD_CONTAINER must be one of: ${FLUX_CONTAINER_LIST}")
+else()
+  string(TOUPPER ${FIELD_CONTAINER} FIELD_CONTAINER)
+  target_compile_definitions(samurai INTERFACE SAMURAI_FIELD_CONTAINER_${FIELD_CONTAINER})
 endif()
 
 # Package the project
