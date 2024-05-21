@@ -384,6 +384,6 @@ struct fmt::formatter<samurai::Interval<TValue, TIndex>>
     template <typename FormatContext>
     auto format(const samurai::Interval<TValue, TIndex>& interval, FormatContext& ctx)
     {
-        return format_to(ctx.out(), "[{}, {}[@{}:{}", interval.start, interval.end, interval.index, interval.step);
+        return fmt::format_to(ctx.out(), "[{}, {}[@{}:{}", interval.start, interval.end, interval.index, interval.step);
     }
 };
