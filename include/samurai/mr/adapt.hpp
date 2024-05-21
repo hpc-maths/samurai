@@ -78,7 +78,7 @@ namespace samurai
         {
             using fields_t = TField&;
             using mesh_t   = typename TField::mesh_t;
-            using detail_t = Field<mesh_t, typename TField::value_type, TField::size>;
+            using detail_t = Field<mesh_t, typename TField::value_type, TField::size, TField::is_soa>;
         };
     }
 
