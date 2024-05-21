@@ -26,8 +26,8 @@ namespace fs = std::filesystem;
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
 
-// #include "storage/eigen.hpp"
 
+//#include "storage/eigen.hpp"
 #include "storage/xtensor.hpp"
 
 namespace samurai
@@ -81,8 +81,8 @@ namespace samurai
             }
         };
 
-        template <class mesh_t, class value_t>
-        struct inner_field_types<Field<mesh_t, value_t, 1>> : public crtp_field<Field<mesh_t, value_t, 1>>
+        template <class mesh_t, class value_t, bool SOA>
+        struct inner_field_types<Field<mesh_t, value_t, 1, SOA>> : public crtp_field<Field<mesh_t, value_t, 1, SOA>>
         {
             static constexpr std::size_t dim = mesh_t::dim;
             using interval_t                 = typename mesh_t::interval_t;
@@ -168,7 +168,7 @@ namespace samurai
         };
 
         template <class mesh_t, class value_t, std::size_t size, bool SOA>
-        struct inner_field_types<Field<mesh_t, value_t, size, SOA>, std::enable_if<(size > 1)>>
+        struct inner_field_types<Field<mesh_t, value_t, size, SOA>, std::enable_if_t<(size > 1)>>
             : public crtp_field<Field<mesh_t, value_t, size, SOA>>
         {
             static constexpr std::size_t dim = mesh_t::dim;

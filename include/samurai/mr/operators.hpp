@@ -327,10 +327,10 @@ namespace samurai
         }
     };
 
-    template <class T>
-    inline auto compute_detail(T&& detail, T&& field)
+    template <class T1, class T2>
+    inline auto compute_detail(T1&& detail, T2&& field)
     {
-        return make_field_operator_function<compute_detail_op>(std::forward<T>(detail), std::forward<T>(field));
+        return make_field_operator_function<compute_detail_op>(std::forward<T1>(detail), std::forward<T2>(field));
     }
 
     namespace detail
