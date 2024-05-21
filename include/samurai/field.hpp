@@ -26,9 +26,8 @@ namespace fs = std::filesystem;
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
 
-
-//#include "storage/eigen.hpp"
-#include "storage/xtensor.hpp"
+//#include "storage/eigen/eigen.hpp"
+#include "storage/xtensor/xtensor.hpp"
 
 namespace samurai
 {
