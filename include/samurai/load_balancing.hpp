@@ -789,7 +789,16 @@ namespace samurai
             int max_y = std::numeric_limits<int>::min();
         };
 
-        std::vector< MinMax > mm ( std::max( mesh.max_level(), omesh.max_level() ) + 2 );
+        boost::mpi::communicator world;
+        std::ofstream logs;
+        logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
+
+        logs << fmt::format("\t\t\t> Allocating vector of size : max({}, {})+2 : {}", mesh.max_level(), omesh.max_level(), 
+                            std::max( mesh.max_level(), omesh.max_level() ) + 2 ) << std::endl;
+
+        // FIXME: omesh.max_level() sometimes equals to uintmax .. why ??
+        size_t msize = std::min( std::max( mesh.max_level(), omesh.max_level() ) + 2, static_cast<size_t>( 22 ) );
+        std::vector< MinMax > mm ( msize );
 
         for (size_t level = minlevel; level <= maxlevel; ++level)
         {
@@ -822,11 +831,9 @@ namespace samurai
 
         }
 
-        boost::mpi::communicator world;
-        std::ofstream logs;
-        logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
-        // logs << fmt::format( "\t\t\t> Interface min, max : x ({},{});  min, max : y ({},{}) @ level : {}", mm[ minLevelAtInterface ].min_x, 
-        //                       mm[ minLevelAtInterface ].max_x, mm[ minLevelAtInterface ].min_y, mm[ minLevelAtInterface ].max_y, minLevelAtInterface ) << std::endl;
+        logs << fmt::format("\t\t\t> minLevelAtInterface : {}", minLevelAtInterface ) << std::endl;
+        logs << fmt::format( "\t\t\t> Interface min, max : x ({},{});  min, max : y ({},{}) @ level : {}", mm[ minLevelAtInterface ].min_x, 
+                               mm[ minLevelAtInterface ].max_x, mm[ minLevelAtInterface ].min_y, mm[ minLevelAtInterface ].max_y, minLevelAtInterface ) << std::endl;
         
         struct MinMax global;
         global.min_x = mm[ minLevelAtInterface ].min_x; 
