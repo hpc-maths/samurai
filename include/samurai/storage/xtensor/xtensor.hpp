@@ -7,7 +7,7 @@
 #include <xtensor/xtensor.hpp>
 #include <xtensor/xview.hpp>
 
-#include "utils.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
