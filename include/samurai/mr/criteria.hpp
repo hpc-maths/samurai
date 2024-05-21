@@ -34,7 +34,7 @@ namespace samurai
 
                 if constexpr (size == 1)
                 {
-                    // auto mask = xt::abs(detail(level, 2*i))/maxd < eps;
+                    // auto mask = abs(detail(level, 2*i))/maxd < eps;
                     auto mask = eval(abs(detail(fine_level, 2 * i)) < eps); // NO normalization
 
                     apply_on_masked(tag(fine_level, 2 * i),
@@ -52,9 +52,9 @@ namespace samurai
                 }
                 else
                 {
-                    // auto mask = xt::sum((xt::abs(detail(level, 2*i))/maxd <
+                    // auto mask = xt::sum((abs(detail(level, 2*i))/maxd <
                     // eps), {1}) > (size-1);
-                    auto mask = xt::sum((xt::abs(detail(fine_level, 2 * i)) < eps), {detail.is_soa ? 0 : 1}) > (size - 1); // No
+                    auto mask = xt::sum((abs(detail(fine_level, 2 * i)) < eps), {detail.is_soa ? 0 : 1}) > (size - 1); // No
                                                                                                                            // normalization
 
                     xt::masked_view(tag(fine_level, 2 * i), mask)     = static_cast<int>(CellFlag::coarsen);
@@ -97,18 +97,18 @@ namespace samurai
                 }
                 else
                 {
-                    // auto mask = xt::sum((xt::abs(detail(level, 2*i  ,
+                    // auto mask = xt::sum((abs(detail(level, 2*i  ,
                     // 2*j))/maxd < eps) &&
-                    //                     (xt::abs(detail(level, 2*i+1,
+                    //                     (abs(detail(level, 2*i+1,
                     //                     2*j))/maxd < eps) &&
-                    //                     (xt::abs(detail(level, 2*i  ,
+                    //                     (abs(detail(level, 2*i  ,
                     //                     2*j+1))/maxd < eps) &&
-                    //                     (xt::abs(detail(level, 2*i+1,
+                    //                     (abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (size-1);
-                    auto mask = xt::sum((xt::abs(detail(fine_level, 2 * i, 2 * j)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps),
+                    auto mask = xt::sum((abs(detail(fine_level, 2 * i, 2 * j)) < eps)
+                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
+                                            && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps)
+                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps),
                                         {detail.is_soa ? 0 : 1})
                               > (size - 1);
 
@@ -132,21 +132,21 @@ namespace samurai
 
                 if constexpr (size == 1)
                 {
-                    // auto mask = (xt::abs(detail(level, 2*i  ,   2*j))/maxd <
+                    // auto mask = (abs(detail(level, 2*i  ,   2*j))/maxd <
                     // eps) and
-                    //             (xt::abs(detail(level, 2*i+1,   2*j))/maxd <
-                    //             eps) and (xt::abs(detail(level, 2*i  ,
+                    //             (abs(detail(level, 2*i+1,   2*j))/maxd <
+                    //             eps) and (abs(detail(level, 2*i  ,
                     //             2*j+1))/maxd < eps) and
-                    //             (xt::abs(detail(level, 2*i+1, 2*j+1))/maxd <
+                    //             (abs(detail(level, 2*i+1, 2*j+1))/maxd <
                     //             eps);
-                    auto mask = (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
-                             && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
-                             && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
-                             && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
-                             && (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
-                             && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
-                             && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
-                             && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps);
+                    auto mask = (abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
+                             && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
+                             && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
+                             && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
+                             && (abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
+                             && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
+                             && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
+                             && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps);
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j, 2 * k), mask)             = static_cast<int>(CellFlag::coarsen);
                     xt::masked_view(tag(fine_level, 2 * i + 1, 2 * j, 2 * k), mask)         = static_cast<int>(CellFlag::coarsen);
@@ -159,22 +159,22 @@ namespace samurai
                 }
                 else
                 {
-                    // auto mask = xt::sum((xt::abs(detail(level, 2*i  ,
+                    // auto mask = xt::sum((abs(detail(level, 2*i  ,
                     // 2*j))/maxd < eps) and
-                    //                     (xt::abs(detail(level, 2*i+1,
+                    //                     (abs(detail(level, 2*i+1,
                     //                     2*j))/maxd < eps) and
-                    //                     (xt::abs(detail(level, 2*i  ,
+                    //                     (abs(detail(level, 2*i  ,
                     //                     2*j+1))/maxd < eps) and
-                    //                     (xt::abs(detail(level, 2*i+1,
+                    //                     (abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (size-1);
-                    auto mask = xt::sum((xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
-                                            && (xt::abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps),
+                    auto mask = xt::sum((abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
+                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
+                                            && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
+                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
+                                            && (abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
+                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
+                                            && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
+                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps),
                                         {detail.is_soa ? 0 : 1})
                               > (size - 1);
 
@@ -220,17 +220,17 @@ namespace samurai
 
                 if constexpr (size == 1)
                 {
-                    auto mask = (xt::abs(.25
+                    auto mask = (abs(.25
                                          * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
                                             - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                          / maxd * C_fourth_term)
                                  < eps)
-                             && (xt::abs(.25
+                             && (abs(.25
                                          * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
                                             - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                          / maxd))
                                     < eps
-                             && (xt::abs(.25
+                             && (abs(.25
                                          * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
                                             + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                          / maxd))
@@ -243,17 +243,17 @@ namespace samurai
                 }
                 else
                 {
-                    auto mask = xt::sum((xt::abs(.25
+                    auto mask = xt::sum((abs(.25
                                                  * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
                                                     - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                                  / maxd * C_fourth_term)
                                          < eps)
-                                            && (xt::abs(.25
+                                            && (abs(.25
                                                         * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
                                                            - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                                         / maxd))
                                                    < eps
-                                            && (xt::abs(.25
+                                            && (abs(.25
                                                         * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
                                                            + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                                         / maxd))
@@ -292,7 +292,7 @@ namespace samurai
             }
             else
             {
-                return xt::eval(xt::sum(xt::abs(detail_view) > eps, {is_soa ? 0 : 1}) > 0);
+                return xt::eval(xt::sum(abs(detail_view) > eps, {is_soa ? 0 : 1}) > 0);
             }
         }
 
@@ -367,17 +367,17 @@ namespace samurai
 
                 if constexpr (size == 1)
                 {
-                    auto mask = (xt::abs(.25
+                    auto mask = (abs(.25
                                          * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
                                             - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                          / maxd * C_fourth_term)
                                  > eps)
-                             || (xt::abs(.25
+                             || (abs(.25
                                          * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
                                             - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                          / maxd))
                                     > eps
-                             || (xt::abs(.25
+                             || (abs(.25
                                          * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
                                             + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                          / maxd))
@@ -390,17 +390,17 @@ namespace samurai
                 }
                 else
                 {
-                    auto mask = xt::sum((xt::abs(.25
+                    auto mask = xt::sum((abs(.25
                                                  * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
                                                     - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                                  / maxd * C_fourth_term)
                                          > eps)
-                                            || (xt::abs(.25
+                                            || (abs(.25
                                                         * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
                                                            - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                                         / maxd))
                                                    > eps
-                                            || (xt::abs(.25
+                                            || (abs(.25
                                                         * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
                                                            + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
                                                         / maxd))
@@ -437,7 +437,7 @@ namespace samurai
             ii.step = 1;
 
             max_detail = std::max(max_detail,
-                                  xt::amax(xt::maximum(xt::abs(detail(level + 1, ii, 2 * j)), xt::abs(detail(level + 1, ii, 2 * j + 1))))[0]);
+                                  xt::amax(xt::maximum(abs(detail(level + 1, ii, 2 * j)), abs(detail(level + 1, ii, 2 * j + 1))))[0]);
         }
     };
 
