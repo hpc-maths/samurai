@@ -233,6 +233,14 @@ And finally, if you have to use PETSc to assemble the matrix of your problem, yo
 mamba install petsc pkg-config
 ```
 
+### From Conan Center
+
+If you want to install samurai from Conan, you can use the following command:
+
+```bash
+conan install --requires=samurai/0.13.0
+```
+
 ### From source
 
 Run the cmake configuration

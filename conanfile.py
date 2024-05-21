@@ -1,15 +1,15 @@
-from conans import ConanFile, CMake
+from conan import ConanFile, CMake
 
 class SamuraiConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     requires = [
-        "xtensor/0.24.2",
-        "highfive/2.6.2",
-        "hdf5/1.14.0",
-        "pugixml/1.13",
-        "cli11/2.3.2",
+        "xtensor/0.24.6",
+        "highfive/2.7.1",
+        "hdf5/1.14.3",
+        "pugixml/1.14",
+        "cli11/3.2.0",
         "cxxopts/3.0.0",
-        "fmt/9.1.0",
+        "fmt/10.1.1",
         "rapidcheck/cci.20220514",
     ]
     generators = ["CMakeDeps", "CMakeToolchain"]
