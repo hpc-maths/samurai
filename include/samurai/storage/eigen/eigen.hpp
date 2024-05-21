@@ -3,11 +3,11 @@
 
 #pragma once
 
-#define EIGEN_ARRAYBASE_PLUGIN "/Users/loic/Work/samurai/samurai/include/samurai/storage/array_eigen_addons.hpp"
+#define EIGEN_ARRAYBASE_PLUGIN "/Users/pierrematalon/Code/samurai_loic/samurai/include/samurai/storage/eigen/array_eigen_addons.hpp"
 
 #include <Eigen/Core>
 
-#include "utils.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
@@ -174,6 +174,18 @@ namespace samurai
     auto view(const eigen_container<value_t, size, false>& container, std::size_t item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step), item);
+    }
+
+    template <class value_t, std::size_t size>
+    auto view(const eigen_container<value_t, size, false>& container, Eigen::Index index)
+    {
+        return container.data()(index, Eigen::placeholders::all);
+    }
+
+    template <class value_t, std::size_t size>
+    auto view(eigen_container<value_t, size, false>& container, Eigen::Index index)
+    {
+        return container.data()(index, Eigen::placeholders::all);
     }
 
     template <class D>
