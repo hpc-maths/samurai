@@ -67,55 +67,55 @@ namespace samurai
     template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
     auto view(xtensor_container<value_t, size, true>& container, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::all(), xt::range(range.start, range.end));
+        return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
     }
 
     template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
     auto view(xtensor_container<value_t, size, false>& container, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end));
+        return xt::view(container.data(), xt::range(range.start, range.end, range.step));
     }
 
     template <class value_t, std::size_t size>
     auto view(xtensor_container<value_t, size, true>& container, const range_t<long long>& range_item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range_item.start, range_item.end, range_item.step), xt::range(range.start, range.end));
+        return xt::view(container.data(), xt::range(range_item.start, range_item.end, range_item.step), xt::range(range.start, range.end, range.step));
     }
 
     template <class value_t, std::size_t size>
     auto view(xtensor_container<value_t, size, false>& container, const range_t<long long>& range_item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end), xt::range(range_item.start, range_item.end, range_item.step));
+        return xt::view(container.data(), xt::range(range.start, range.end, range.step), xt::range(range_item.start, range_item.end, range_item.step));
     }
 
     template <class value_t, std::size_t size>
     auto view(xtensor_container<value_t, size, true>& container, std::size_t item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), item, xt::range(range.start, range.end));
+        return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
     }
 
     template <class value_t, std::size_t size>
     auto view(xtensor_container<value_t, size, false>& container, std::size_t item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end), item);
+        return xt::view(container.data(), xt::range(range.start, range.end, range.step), item);
     }
 
     template <class value_t, bool SOA>
     auto view(const xtensor_container<value_t, 1, SOA>& container, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end));
+        return xt::view(container.data(), xt::range(range.start, range.end, range.step));
     }
 
     template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
     auto view(const xtensor_container<value_t, size, true>& container, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::all(), xt::range(range.start, range.end));
+        return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
     }
 
     template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
     auto view(const xtensor_container<value_t, size, false>& container, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end));
+        return xt::view(container.data(), xt::range(range.start, range.end, range.step));
     }
 
     template <class value_t, std::size_t size>
@@ -140,6 +140,30 @@ namespace samurai
     auto view(const xtensor_container<value_t, size, false>& container, std::size_t item, const range_t<long long>& range)
     {
         return xt::view(container.data(), xt::range(range.start, range.end), item);
+    }
+
+    template <class value_t, std::size_t size>
+    auto view(const xtensor_container<value_t, size, false>& container, std::size_t index)
+    {
+        return xt::view(container.data(), index);
+    }
+
+    template <class value_t, std::size_t size>
+    auto view(xtensor_container<value_t, size, false>& container, std::size_t index)
+    {
+        return xt::view(container.data(), index);
+    }
+
+    template <class value_t, std::size_t size>
+    auto view(const xtensor_container<value_t, size, true>& container, std::size_t index)
+    {
+        return xt::view(container.data(), xt::all(), index);
+    }
+
+    template <class value_t, std::size_t size>
+    auto view(xtensor_container<value_t, size, true>& container, std::size_t index)
+    {
+        return xt::view(container.data(), xt::all(), index);
     }
 
     template <class D>

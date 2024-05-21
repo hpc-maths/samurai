@@ -120,7 +120,7 @@ namespace samurai
             bool is_nan_or_inf = false;
             for (PetscInt i = 0; i < n; ++i)
             {
-                if (std::isnan(arr[i]) || std::isinf(arr[i]) || (abs(arr[i]) < 1e-300 && abs(arr[i]) != 0))
+                if (std::isnan(arr[i]) || std::isinf(arr[i]) || (std::abs(arr[i]) < 1e-300 && std::abs(arr[i]) != 0))
                 {
                     is_nan_or_inf = true;
                     VecView(v, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
