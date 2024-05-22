@@ -184,7 +184,7 @@ namespace samurai
             ar & m_subdomain;
             ar & m_union;
             ar & m_min_level;
-            ar & m_min_level;
+            ar & m_max_level;
         }
 #endif
     };
