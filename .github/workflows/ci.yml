@@ -166,7 +166,8 @@ jobs:
               -GNinja \
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
-              -DBUILD_TESTS=ON
+              -DBUILD_TESTS=ON \
+              -DCMAKE_CXX_STANDARD=17
 
       - name: Build
         shell: bash -l {0}
@@ -235,7 +236,8 @@ jobs:
               -DCMAKE_BUILD_TYPE=Release \
               -DWITH_MPI=ON \
               -DBUILD_DEMOS=ON \
-              -DBUILD_TESTS=ON
+              -DBUILD_TESTS=ON \
+              -DCMAKE_CXX_STANDARD=17
 
       - name: Build
         shell: bash -l {0}
@@ -293,7 +295,8 @@ jobs:
               -GNinja \
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
-              -DBUILD_TESTS=ON
+              -DBUILD_TESTS=ON \
+              -DCMAKE_CXX_STANDARD=17
 
       - name: Build
         shell: bash -l {0}
