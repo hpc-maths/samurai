@@ -797,7 +797,8 @@ namespace samurai
                             std::max( mesh.max_level(), omesh.max_level() ) + 2 ) << std::endl;
 
         // FIXME: omesh.max_level() sometimes equals to uintmax .. why ??
-        size_t msize = std::min( std::max( mesh.max_level(), omesh.max_level() ) + 2, static_cast<size_t>( 22 ) );
+        // size_t msize = std::min( std::max( mesh.max_level(), omesh.max_level() ) + 2, static_cast<size_t>( 22 ) );
+        size_t msize = std::max( mesh.max_level(), omesh.max_level() ) + 2;
         std::vector< MinMax > mm ( msize );
 
         for (size_t level = minlevel; level <= maxlevel; ++level)
