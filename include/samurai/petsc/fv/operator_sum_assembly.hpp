@@ -62,6 +62,28 @@ namespace samurai
                 return *m_sum_scheme;
             }
 
+            void set_row_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_row_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_row_shift(shift);
+                         });
+            }
+
+            void set_col_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_col_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_col_shift(shift);
+                         });
+            }
+
             void set_current_insert_mode(InsertMode insert_mode) override
             {
                 MatrixAssembly::set_current_insert_mode(insert_mode);

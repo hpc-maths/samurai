@@ -89,16 +89,14 @@ namespace samurai
                 return m_fit_block_dimensions;
             }
 
-            template <class int_type>
-            void row_shift(int_type shift)
+            virtual void set_row_shift(PetscInt shift)
             {
-                m_row_shift = static_cast<PetscInt>(shift);
+                m_row_shift = shift;
             }
 
-            template <class int_type>
-            void col_shift(int_type shift)
+            virtual void set_col_shift(PetscInt shift)
             {
-                m_col_shift = static_cast<PetscInt>(shift);
+                m_col_shift = shift;
             }
 
             PetscInt row_shift() const
