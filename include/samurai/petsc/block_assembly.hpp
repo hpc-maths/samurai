@@ -483,8 +483,8 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto col)
                     {
-                        op.row_shift(row_shift);
-                        op.col_shift(col_shift);
+                        op.set_row_shift(row_shift);
+                        op.set_col_shift(col_shift);
                         col_shift += op.matrix_cols();
                         if (col == cols - 1)
                         {
