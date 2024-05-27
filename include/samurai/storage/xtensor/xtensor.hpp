@@ -58,9 +58,6 @@ namespace samurai
         container_t m_data;
     };
 
-    template <class value_t, std::size_t size = 1, bool SOA = false>
-    using field_data_storage_t = xtensor_container<value_t, size, SOA>;
-
     template <class value_t, bool SOA>
     auto view(xtensor_container<value_t, 1, SOA>& container, const range_t<long long>& range)
     {
