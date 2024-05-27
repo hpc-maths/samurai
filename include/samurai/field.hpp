@@ -26,15 +26,10 @@ namespace fs = std::filesystem;
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
 
-//#include "storage/eigen/eigen.hpp"
-#include "storage/xtensor/xtensor.hpp"
+#include "storage/containers.hpp"
 
 namespace samurai
 {
-
-    template <class value_t, std::size_t size = 1, bool SOA = false>
-    using field_data_storage_t = xtensor_container<value_t, size, SOA>;
-
     template <class mesh_t, class value_t, std::size_t size = 1, bool SOA = false>
     class Field;
 
@@ -188,12 +183,12 @@ namespace samurai
 
             inline auto operator[](const cell_t& cell) const
             {
-                return view(m_storage, cell.index);
+                return view(m_storage, static_cast<std::size_t>(cell.index));
             }
 
             inline auto operator[](const cell_t& cell)
             {
-                return view(m_storage, cell.index);
+                return view(m_storage, static_cast<std::size_t>(cell.index));
             }
 
             inline auto operator()(std::size_t i) const
@@ -556,9 +551,10 @@ namespace samurai
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     template <class... T>
-    inline auto
-    Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw, std::size_t level, const interval_t& interval, const T... index) const
-        -> const interval_t&
+    inline auto Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw,
+                                                                 std::size_t level,
+                                                                 const interval_t& interval,
+                                                                 const T... index) const -> const interval_t&
     {
         const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index...);
 
@@ -589,11 +585,11 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline auto Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw,
-                                                                 std::size_t level,
-                                                                 const interval_t& interval,
-                                                                 const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const
-        -> const interval_t&
+    inline auto
+    Field<mesh_t, value_t, size_, SOA>::get_interval(std::string rw,
+                                                     std::size_t level,
+                                                     const interval_t& interval,
+                                                     const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const -> const interval_t&
     {
         const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index);
 

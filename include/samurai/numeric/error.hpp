@@ -31,7 +31,7 @@ namespace samurai
                                                              }
                                                              else
                                                              {
-                                                                 norm_square = xt::sum(e * e)();
+                                                                 norm_square = sum(e * e)();
                                                              }
                                                              return norm_square;
                                                          });
@@ -48,7 +48,7 @@ namespace samurai
                                                                     }
                                                                     else
                                                                     {
-                                                                        v_square = xt::sum(v * v)();
+                                                                        v_square = sum(v * v)();
                                                                     }
                                                                     return v_square;
                                                                 });
