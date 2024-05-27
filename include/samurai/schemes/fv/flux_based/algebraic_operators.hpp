@@ -21,7 +21,7 @@ namespace samurai
                     // Multiply the flux function by the scalar
                     if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
                     {
-                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto h)
+                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto h) -> FluxStencilCoeffs<cfg>
                         {
                             return scalar * scheme.flux_definition()[d].cons_flux_function(h);
                         };

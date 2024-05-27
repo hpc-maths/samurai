@@ -27,15 +27,10 @@ namespace fs = std::filesystem;
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
 
-//#include "storage/eigen/eigen.hpp"
-#include "storage/xtensor/xtensor.hpp"
+#include "storage/containers.hpp"
 
 namespace samurai
 {
-
-    template <class value_t, std::size_t size = 1, bool SOA = false>
-    using field_data_storage_t = xtensor_container<value_t, size, SOA>;
-
     template <class mesh_t, class value_t, std::size_t size = 1, bool SOA = false>
     class Field;
 
@@ -189,12 +184,12 @@ namespace samurai
 
             inline auto operator[](const cell_t& cell) const
             {
-                return view(m_storage, cell.index);
+                return view(m_storage, static_cast<std::size_t>(cell.index));
             }
 
             inline auto operator[](const cell_t& cell)
             {
-                return view(m_storage, cell.index);
+                return view(m_storage, static_cast<std::size_t>(cell.index));
             }
 
             inline auto operator()(std::size_t i) const

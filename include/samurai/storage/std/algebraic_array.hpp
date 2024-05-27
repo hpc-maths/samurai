@@ -8,7 +8,7 @@ namespace samurai
      * Simple array with algebraic operations
      */
     template <class T, std::size_t size>
-    struct AlgebraicArray
+    struct StdArrayWrapper
     {
         using value_type = T;
 
@@ -18,22 +18,22 @@ namespace samurai
 
       public:
 
-        AlgebraicArray()
+        StdArrayWrapper()
         {
         }
 
-        explicit AlgebraicArray(const std::array<T, size>& a)
+        explicit StdArrayWrapper(const std::array<T, size>& a)
             : _a(a)
         {
         }
 
-        explicit AlgebraicArray(std::array<T, size>&& a)
+        explicit StdArrayWrapper(std::array<T, size>&& a)
             : _a(std::move(a))
         {
         }
 
         template <class T2>
-        AlgebraicArray(std::initializer_list<T2> list)
+        StdArrayWrapper(std::initializer_list<T2> list)
         {
             assert(list.size() == size);
             auto it = list.begin();
@@ -45,7 +45,7 @@ namespace samurai
         }
 
         template <class... T2>
-        AlgebraicArray(xt::xfunction<T2...> xt) // cppcheck-suppress noExplicitConstructor
+        StdArrayWrapper(xt::xfunction<T2...> xt) // cppcheck-suppress noExplicitConstructor
         {
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -54,7 +54,7 @@ namespace samurai
         }
 
         template <class... T2>
-        AlgebraicArray(xt::xview<T2...> xt) // cppcheck-suppress noExplicitConstructor
+        StdArrayWrapper(xt::xview<T2...> xt) // cppcheck-suppress noExplicitConstructor
         {
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -62,7 +62,7 @@ namespace samurai
             }
         }
 
-        AlgebraicArray(T value) // cppcheck-suppress noExplicitConstructor
+        StdArrayWrapper(T value) // cppcheck-suppress noExplicitConstructor
         {
             _a.fill(value);
         }
@@ -107,7 +107,7 @@ namespace samurai
             }
         }
 
-        auto& operator+=(const AlgebraicArray<T, size>& other)
+        auto& operator+=(const StdArrayWrapper<T, size>& other)
         {
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -116,7 +116,7 @@ namespace samurai
             return *this;
         }
 
-        auto& operator*=(const AlgebraicArray<T, size>& other)
+        auto& operator*=(const StdArrayWrapper<T, size>& other)
         {
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -125,7 +125,7 @@ namespace samurai
             return *this;
         }
 
-        auto& operator-=(const AlgebraicArray<T, size>& other)
+        auto& operator-=(const StdArrayWrapper<T, size>& other)
         {
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -134,7 +134,7 @@ namespace samurai
             return *this;
         }
 
-        auto& operator/=(const AlgebraicArray<T, size>& other)
+        auto& operator/=(const StdArrayWrapper<T, size>& other)
         {
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -190,125 +190,125 @@ namespace samurai
     };
 
     template <class NumberType, class T, std::size_t size>
-    auto operator*(NumberType scalar, const AlgebraicArray<T, size>& a)
+    auto operator*(NumberType scalar, const StdArrayWrapper<T, size>& a)
     {
-        AlgebraicArray<T, size> b(a);
+        StdArrayWrapper<T, size> b(a);
         b *= scalar;
         return b;
     }
 
     template <class T, std::size_t size, class NumberType>
-    auto operator*(const AlgebraicArray<T, size>& a, NumberType scalar)
+    auto operator*(const StdArrayWrapper<T, size>& a, NumberType scalar)
     {
         return scalar * a;
     }
 
     template <class NumberType, class T, std::size_t size>
-    AlgebraicArray<T, size>&& operator*(NumberType scalar, AlgebraicArray<T, size>&& a)
+    StdArrayWrapper<T, size>&& operator*(NumberType scalar, StdArrayWrapper<T, size>&& a)
     {
         a *= scalar;
         return std::move(a);
     }
 
     template <class T, std::size_t size, class NumberType>
-    AlgebraicArray<T, size>&& operator*(AlgebraicArray<T, size>&& a, NumberType scalar)
+    StdArrayWrapper<T, size>&& operator*(StdArrayWrapper<T, size>&& a, NumberType scalar)
     {
         a *= scalar;
         return std::move(a);
     }
 
     template <class T, std::size_t size, class NumberType>
-    auto operator/(const AlgebraicArray<T, size>& a, NumberType scalar)
+    auto operator/(const StdArrayWrapper<T, size>& a, NumberType scalar)
     {
-        AlgebraicArray<T, size> b(a);
+        StdArrayWrapper<T, size> b(a);
         b /= scalar;
         return b;
     }
 
     template <class NumberType, class T, std::size_t size>
-    auto operator+(NumberType scalar, const AlgebraicArray<T, size>& a)
+    auto operator+(NumberType scalar, const StdArrayWrapper<T, size>& a)
     {
-        AlgebraicArray<T, size> b(a);
+        StdArrayWrapper<T, size> b(a);
         b += scalar;
         return b;
     }
 
     template <class T, std::size_t size, class NumberType>
-    auto operator+(const AlgebraicArray<T, size>& a, NumberType scalar)
+    auto operator+(const StdArrayWrapper<T, size>& a, NumberType scalar)
     {
         return scalar + a;
     }
 
     template <class T, std::size_t size>
-    auto operator+(const AlgebraicArray<T, size>& a, const AlgebraicArray<T, size>& b)
+    auto operator+(const StdArrayWrapper<T, size>& a, const StdArrayWrapper<T, size>& b)
     {
-        AlgebraicArray<T, size> c(a);
+        StdArrayWrapper<T, size> c(a);
         c += b;
         return c;
     }
 
     template <class T, std::size_t size>
-    AlgebraicArray<T, size>&& operator+(const AlgebraicArray<T, size>& a, AlgebraicArray<T, size>&& b)
+    StdArrayWrapper<T, size>&& operator+(const StdArrayWrapper<T, size>& a, StdArrayWrapper<T, size>&& b)
     {
         b += a;
         return std::move(b);
     }
 
     template <class T, std::size_t size>
-    AlgebraicArray<T, size>&& operator+(AlgebraicArray<T, size>&& a, const AlgebraicArray<T, size>& b)
+    StdArrayWrapper<T, size>&& operator+(StdArrayWrapper<T, size>&& a, const StdArrayWrapper<T, size>& b)
     {
         a += b;
         return std::move(a);
     }
 
     template <class T, std::size_t size>
-    auto operator+(AlgebraicArray<T, size>&& a, AlgebraicArray<T, size>&& b)
+    auto operator+(StdArrayWrapper<T, size>&& a, StdArrayWrapper<T, size>&& b)
     {
         a += b;
         return std::move(a);
     }
 
     template <class T, std::size_t size>
-    auto operator-(const AlgebraicArray<T, size>& a, const AlgebraicArray<T, size>& b)
+    auto operator-(const StdArrayWrapper<T, size>& a, const StdArrayWrapper<T, size>& b)
     {
-        AlgebraicArray<T, size> c(a);
+        StdArrayWrapper<T, size> c(a);
         c -= b;
         return c;
     }
 
     template <class T, std::size_t size>
-    AlgebraicArray<T, size>&& operator-(AlgebraicArray<T, size>&& a, const AlgebraicArray<T, size>& b)
+    StdArrayWrapper<T, size>&& operator-(StdArrayWrapper<T, size>&& a, const StdArrayWrapper<T, size>& b)
     {
         a -= b;
         return std::move(a);
     }
 
     template <class T, std::size_t size>
-    auto operator*(const AlgebraicArray<T, size>& a, const AlgebraicArray<T, size>& b)
+    auto operator*(const StdArrayWrapper<T, size>& a, const StdArrayWrapper<T, size>& b)
     {
-        AlgebraicArray<T, size> c(a);
+        StdArrayWrapper<T, size> c(a);
         c *= b;
         return c;
     }
 
     template <class T, std::size_t size>
-    auto operator/(const AlgebraicArray<T, size>& a, const AlgebraicArray<T, size>& b)
+    auto operator/(const StdArrayWrapper<T, size>& a, const StdArrayWrapper<T, size>& b)
     {
-        AlgebraicArray<T, size> c(a);
+        StdArrayWrapper<T, size> c(a);
         c /= b;
         return c;
     }
 
     template <class T, std::size_t size>
-    auto operator-(const AlgebraicArray<T, size>& a)
+    auto operator-(const StdArrayWrapper<T, size>& a)
     {
         return -1. * a;
     }
 
     template <class T, std::size_t size, class NumberType>
-    auto pow(const AlgebraicArray<T, size>& a, NumberType exponent)
+    auto pow(const StdArrayWrapper<T, size>& a, NumberType exponent)
     {
-        AlgebraicArray<T, size> b;
+        StdArrayWrapper<T, size> b;
         for (std::size_t i = 0; i < size; ++i)
         {
             b[i] = std::pow(a[i], exponent);
@@ -317,7 +317,7 @@ namespace samurai
     }
 
     template <class T, std::size_t size, class NumberType>
-    AlgebraicArray<T, size>&& pow(AlgebraicArray<T, size>&& a, NumberType exponent)
+    StdArrayWrapper<T, size>&& pow(StdArrayWrapper<T, size>&& a, NumberType exponent)
     {
         for (std::size_t i = 0; i < size; ++i)
         {
