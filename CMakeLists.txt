@@ -56,7 +56,7 @@ set(FLUX_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FLUX_CON
 set_property(CACHE FLUX_CONTAINER PROPERTY STRINGS ${FLUX_CONTAINER_LIST})
 
 set(FIELD_CONTAINER_LIST "xtensor" "eigen3")
-set(FIELD_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FIELD_CONTAINER_LIST}")
+set(FIELD_CONTAINER "xtensor" CACHE STRING "Container to store fields: ${FIELD_CONTAINER_LIST}")
 set_property(CACHE FIELD_CONTAINER PROPERTY STRINGS ${FIELD_CONTAINER_LIST})
 
 SET(FEATURES)
@@ -144,7 +144,7 @@ elseif(FIELD_CONTAINER MATCHES eigen3)
     INTERFACE
     Eigen3::Eigen
   )
-  target_compile_definitions(samurai INTERFACE EIGEN_ARRAYBASE_PLUGIN="${CMAKE_CURRENT_SOURCE_DIR}/include/samurai/storage/array_eigen_addons.hpp")
+  target_compile_definitions(samurai INTERFACE EIGEN_ARRAYBASE_PLUGIN="${CMAKE_CURRENT_SOURCE_DIR}/include/samurai/storage/eigen/array_eigen_addons.hpp")
 endif()
 
 if(${WITH_OPENMP})
