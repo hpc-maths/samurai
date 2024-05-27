@@ -3,8 +3,6 @@
 
 #pragma once
 
-#define EIGEN_ARRAYBASE_PLUGIN "/Users/pierrematalon/Code/samurai_loic/samurai/include/samurai/storage/eigen/array_eigen_addons.hpp"
-
 #include <Eigen/Core>
 
 #include "../utils.hpp"

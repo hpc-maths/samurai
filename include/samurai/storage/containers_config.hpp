@@ -8,13 +8,12 @@
 // according to the compilation variables.                                    //
 //----------------------------------------------------------------------------//
 
-// #define WITH_EIGEN
-// #define FIELD_CONTAINER_eigen
-// #define FLUX_CONTAINER_eigen
-// #define TMP_STATIC_MATRIX_CONTAINER_eigen
+// #define SAMURAI_FIELD_CONTAINER_EIGEN3
+#define FLUX_CONTAINER_eigen
+#define TMP_STATIC_MATRIX_CONTAINER_eigen
 
 #include "std/algebraic_array.hpp"
-#ifdef WITH_EIGEN
+#ifdef SAMURAI_FIELD_CONTAINER_EIGEN3
 #include "eigen/eigen.hpp"
 #include "eigen/eigen_static.hpp"
 #else
@@ -28,7 +27,7 @@ namespace samurai
     // Field container //
     //-----------------//
 
-#if defined(FIELD_CONTAINER_eigen)
+#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
 
     template <class value_type, std::size_t size = 1, bool SOA = false>
     using field_data_storage_t = eigen_container<value_type, size, SOA>;
@@ -45,13 +44,6 @@ namespace samurai
     using local_field_data_t = xtensor_collapsable_static_array<value_type, size>;
 
 #endif
-
-    //     template <class value_type, std::size_t size>
-    // #if defined(FIELD_CONTAINER_eigen)
-    //     using local_field_data_t = eigen_static_array<value_type, size>;
-    // #else // FIELD_CONTAINER_xtensor
-    //     using local_field_data_t = xtensor_static_array<value_type, size>;
-    // #endif
 
     //--------------//
     // Static array //
