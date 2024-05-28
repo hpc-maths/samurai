@@ -24,6 +24,6 @@ namespace samurai
     using JacobianMatrix = CollapsMatrix<typename cfg::input_field_t::value_type, cfg::output_field_size, cfg::input_field_t::size>;
 
     template <class cfg>
-    using StencilJacobian = Array<JacobianMatrix<cfg>, cfg::stencil_size>;
+    using StencilJacobian = StdArrayWrapper<JacobianMatrix<cfg>, cfg::stencil_size>;
 
 } // end namespace samurai

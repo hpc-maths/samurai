@@ -53,11 +53,10 @@ namespace samurai
         {
             return 1;
         }
-#ifdef WITH_EIGEN
+#ifdef SAMURAI_FIELD_CONTAINER_EIGEN3
         else if constexpr (is_eigen_matrix_v<matrix_type>)
         {
             return matrix_type::Identity();
-            // matrix_type I = zeros<matrix_type>();
         }
 #endif
         else if constexpr (is_xtensor_matrix_v<matrix_type>)

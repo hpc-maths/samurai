@@ -3,6 +3,25 @@
 
 namespace samurai
 {
+    template <class scalar_or_vectorview>
+    double __square(scalar_or_vectorview x)
+    {
+        double norm_square;
+        if constexpr (std::is_same_v<scalar_or_vectorview, double>) // scalar
+        {
+            norm_square = x * x;
+        }
+        else // vector view
+        {
+#ifdef SAMURAI_FIELD_CONTAINER_XTENSOR
+            norm_square = xt::sum(x * x)();
+#else
+            norm_square = sum(x * x);
+#endif
+        }
+        return norm_square;
+    }
+
     /**
      * Computes the L2-error with respect to an exact solution.
      * @tparam relative_error: if true, compute the relative error instead of the absolute one.
@@ -24,16 +43,7 @@ namespace samurai
                                                          [&](const auto& point)
                                                          {
                                                              auto e = exact(point) - approximate[cell];
-                                                             double norm_square;
-                                                             if constexpr (Field::size == 1)
-                                                             {
-                                                                 norm_square = e * e;
-                                                             }
-                                                             else
-                                                             {
-                                                                 norm_square = sum(e * e)();
-                                                             }
-                                                             return norm_square;
+                                                             return __square(e);
                                                          });
                           if constexpr (relative_error)
                           {
@@ -41,22 +51,13 @@ namespace samurai
                                                                 [&](const auto& point)
                                                                 {
                                                                     auto v = exact(point);
-                                                                    double v_square;
-                                                                    if constexpr (Field::size == 1)
-                                                                    {
-                                                                        v_square = v * v;
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        v_square = sum(v * v)();
-                                                                    }
-                                                                    return v_square;
+                                                                    return __square(v);
                                                                 });
                           }
                       });
 
-        error_norm    = sqrt(error_norm);
-        solution_norm = sqrt(solution_norm);
+        error_norm    = std::sqrt(error_norm);
+        solution_norm = std::sqrt(solution_norm);
         if constexpr (relative_error)
         {
             return error_norm / solution_norm;
