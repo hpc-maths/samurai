@@ -15,7 +15,10 @@ namespace samurai
 
         identity.coefficients_func() = [](double) -> StencilCoeffs<cfg>
         {
-            return {eye<field_value_type, field_size, field_size>()};
+            // return {eye<field_value_type, field_size, field_size>()};
+            StencilCoeffs<cfg> sc;
+            sc(0) = eye<field_value_type, field_size, field_size>();
+            return sc;
         };
         identity.is_symmetric(true);
         identity.is_spd(true);
