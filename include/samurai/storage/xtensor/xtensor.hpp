@@ -216,7 +216,7 @@ namespace samurai
     template <class D>
     auto sum(const xt::xcontainer<D>& exp)
     {
-        return xt::sum(exp);
+        return xt::sum(exp)[0];
     }
 
     template <class D>
