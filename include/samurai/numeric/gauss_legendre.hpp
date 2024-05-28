@@ -1,6 +1,7 @@
 #pragma once
 #include "../cell.hpp"
 #include "../static_algorithm.hpp"
+#include "../storage/containers.hpp"
 
 namespace samurai
 {
@@ -39,10 +40,10 @@ namespace samurai
             }
             else
             {
-                xt::xtensor_fixed<double, xt::xshape<func_result_size>> sum;
+                Array<double, func_result_size> sum;
                 sum.fill(0);
                 compute_quadrature_sum(cell, sum, f);
-                return xt::eval(pow(half_h, dim) * sum);
+                return eval(pow(half_h, dim) * sum);
             }
         }
 

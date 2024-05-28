@@ -1,4 +1,5 @@
 #pragma once
+#include "../collapsable.hpp"
 #include <array>
 #include <math.h>
 
@@ -333,5 +334,8 @@ namespace samurai
     {
         return std::pow(base, exponent);
     }
+
+    template <class value_type, std::size_t size>
+    using collapsable_algebraic_std_array = CollapsableArray<StdArrayWrapper<value_type, size>, value_type, size>;
 
 } // end namespace samurai

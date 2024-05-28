@@ -13,7 +13,11 @@ namespace samurai
     //------------------//
 
     template <class value_type, std::size_t size>
-    using eigen_static_array = Eigen::Matrix<value_type, size, 1>;
+    using eigen_static_array = Eigen::Array<value_type, 1, size>;
+    // using eigen_static_array = Eigen::Matrix<value_type, 1, size>;
+    // using eigen_static_array = Eigen::Array<value_type, size, 1>;
+    //  using eigen_static_array = Eigen::Matrix<value_type, size, 1>;
+    //  using eigen_static_array = Eigen::Vector<value_type, size>;
 
     template <class value_type, std::size_t rows, std::size_t cols>
     using eigen_static_matrix = Eigen::Matrix<value_type, rows, cols>;

@@ -9,17 +9,21 @@
 //----------------------------------------------------------------------------//
 
 // #define SAMURAI_FIELD_CONTAINER_EIGEN3
-#define FLUX_CONTAINER_eigen
-#define TMP_STATIC_MATRIX_CONTAINER_eigen
 
+// clang-format off
 #include "std/algebraic_array.hpp"
 #ifdef SAMURAI_FIELD_CONTAINER_EIGEN3
-#include "eigen/eigen.hpp"
-#include "eigen/eigen_static.hpp"
+    // #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int64_t
+    #include "eigen/eigen.hpp"
+    #include "eigen/eigen_static.hpp"
+
+    #define FLUX_CONTAINER_eigen
+    #define TMP_STATIC_MATRIX_CONTAINER_eigen
 #else
-#include "xtensor/xtensor.hpp"
+    #include "xtensor/xtensor.hpp"
 #endif
 #include "xtensor/xtensor_static.hpp"
+// clang-format on
 
 namespace samurai
 {
@@ -35,7 +39,7 @@ namespace samurai
     template <class value_type, std::size_t size>
     using local_field_data_t = eigen_collapsable_static_array<value_type, size>;
 
-#else // FIELD_CONTAINER_xtensor
+#else // SAMURAI_FIELD_CONTAINER_XTENSOR
 
     template <class value_type, std::size_t size = 1, bool SOA = false>
     using field_data_storage_t = xtensor_container<value_type, size, SOA>;
