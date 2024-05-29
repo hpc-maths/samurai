@@ -113,7 +113,7 @@ namespace samurai
         None
     };
 
-    static const double load_balancing_threshold = 0.03141592; // 2.5 % 
+    static const double load_balancing_threshold = 0.00; // 0.03141592; // 2.5 % 
 
     /**
      * Compute distance base on different norm.
@@ -198,11 +198,108 @@ namespace samurai
      *
      */
     template <BalanceElement_t elem, class Mesh_t>
-    std::vector<int> cmptFluxes(Mesh_t& mesh)
+    std::vector<int> cmptFluxes( Mesh_t& mesh, const std::vector<int> & neighbourhood, int niterations )
+    {
+
+        boost::mpi::communicator world;
+
+        std::ofstream logs; 
+        logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
+
+        size_t n_neighbours = neighbourhood.size();
+
+        // load of current process
+        int my_load = static_cast<int>( cmptLoad<elem>( mesh ) );
+
+        // fluxes between processes
+        std::vector<int> fluxes(n_neighbours, 0);
+
+        // load of each process (all processes not only neighbours)
+        std::vector<int> loads;
+
+        // numbers of neighbours processes for each process, used for weighting fluxes
+        std::vector<size_t> neighbourhood_n_neighbours;
+
+        // number of neighbours for each process
+        boost::mpi::all_gather(world, neighbourhood.size(), neighbourhood_n_neighbours);
+
+        // get "my_load" from other processes
+        int nt = 0;
+        while( nt < niterations ){
+            boost::mpi::all_gather(world, my_load, loads);
+
+            // compute updated my_load for current process based on its neighbourhood
+            int my_load_new = my_load;
+            for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
+            {
+                std::size_t neighbour_rank = static_cast<std::size_t>( neighbourhood[ n_i ] );
+                int neighbour_load         = loads[ neighbour_rank ];
+                double diff_load           = static_cast<double>( neighbour_load - my_load_new);
+
+                std::size_t nb_neighbours_neighbour = neighbourhood_n_neighbours[ neighbour_rank ];
+
+                double weight = 1. / static_cast<double>( std::max( n_neighbours, nb_neighbours_neighbour ) + 1 );
+
+                // if transferLoad < 0 -> need to send data, if transferLoad > 0 need to receive data
+                int transfertLoad = static_cast<int>( std::lround( weight * diff_load )) ;
+
+                fluxes[ n_i ] += transfertLoad;
+
+                // my_load_new += transfertLoad;
+
+                my_load += transfertLoad;
+            }
+
+            logs << fmt::format("it {}, neighbours : ", nt) ;
+            for( size_t in=0; in<neighbourhood.size(); ++in )
+                logs << neighbourhood[ in ] << ", ";
+            logs << std::endl << "fluxes : ";
+            for( size_t in=0; in<neighbourhood.size(); ++in )
+                logs << fluxes[ in ] << ", ";
+            logs << std::endl;
+            logs << "New theoretical laod : " << my_load << std::endl;
+
+            nt ++ ;
+        }
+
+        // apply threshold, if the difference is smaller than #load_balancing_threshold of the number of cells,
+        // we do not load balance those processes
+        for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
+        {
+            std::size_t neighbour_rank = static_cast<std::size_t>( neighbourhood[ n_i ] );
+            int neighbour_load         = loads[neighbour_rank];
+            int abs_diff               = std::abs( fluxes[ n_i ] );
+            int threshold_neigh        = static_cast<int>( load_balancing_threshold * loads[ neighbour_rank ] );
+            int threshold_curr         = static_cast<int>( load_balancing_threshold * my_load ); 
+
+            if( abs_diff < threshold_curr && abs_diff < threshold_neigh ){
+                fluxes[ n_i ] = 0;
+            }
+
+        }
+
+        return fluxes;
+    }
+
+    /**
+     * Compute fluxes based on load computing stategy based on graph with label
+     * propagation algorithm. Return, for the current process, the flux in term of
+     * load, i.e. the quantity of "load" to transfer to its neighbours. If the load
+     * is negative, it means that the process (current) must send load to neighbour,
+     * if positive it means that it must receive load.
+     *
+     * This function use 2 MPI all_gather calls.
+     *
+     */
+    template <BalanceElement_t elem, class Mesh_t>
+    std::vector<int> cmptFluxes(Mesh_t& mesh, int niterations)
     {
         using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
 
         boost::mpi::communicator world;
+
+        std::ofstream logs; 
+        logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
 
         // give access to geometricaly neighbour process rank and mesh
         std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
@@ -220,27 +317,46 @@ namespace samurai
         // numbers of neighbours processes for each process, used for weighting fluxes
         std::vector<size_t> neighbourhood_n_neighbours;
 
-        // get "my_load" from other processes
-        boost::mpi::all_gather(world, my_load, loads);
+        // number of neighbours for each process
         boost::mpi::all_gather(world, neighbourhood.size(), neighbourhood_n_neighbours);
 
-        // compute updated my_load for current process based on its neighbourhood
-        int my_load_new = my_load;
-        for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
-        {
-            std::size_t neighbour_rank = static_cast<std::size_t>(neighbourhood[n_i].rank);
-            int neighbour_load         = loads[neighbour_rank];
-            double diff_load           = static_cast<double>(neighbour_load - my_load);
+        // get "my_load" from other processes
+        int nt = 0;
+        while( nt < niterations ){
+            boost::mpi::all_gather(world, my_load, loads);
 
-            std::size_t nb_neighbours_neighbour = neighbourhood_n_neighbours[neighbour_rank];
+            // compute updated my_load for current process based on its neighbourhood
+            int my_load_new = my_load;
+            for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
+            {
+                std::size_t neighbour_rank = static_cast<std::size_t>(neighbourhood[n_i].rank);
+                int neighbour_load         = loads[neighbour_rank];
+                double diff_load           = static_cast<double>( neighbour_load - my_load_new);
 
-            double weight = 1. / static_cast<double>(std::max(n_neighbours, nb_neighbours_neighbour) + 1);
+                std::size_t nb_neighbours_neighbour = neighbourhood_n_neighbours[neighbour_rank];
 
-            int transfertLoad = static_cast<int>(std::lround(weight * diff_load));
+                double weight = 1. / static_cast<double>(std::max(n_neighbours, nb_neighbours_neighbour) + 1);
 
-            fluxes[n_i] += transfertLoad;
+                // if transferLoad < 0 -> need to send data, if transferLoad > 0 need to receive data
+                int transfertLoad = static_cast<int>(std::lround(weight * diff_load));
 
-            my_load_new += transfertLoad;
+                fluxes[n_i] += transfertLoad;
+
+                // my_load_new += transfertLoad;
+
+                my_load += transfertLoad;
+            }
+
+            logs << fmt::format("it {}, neighbours : ", nt) ;
+            for( size_t in=0; in<neighbourhood.size(); ++in )
+                logs << neighbourhood[ in ].rank << ", ";
+            logs << std::endl << "fluxes : ";
+            for( size_t in=0; in<neighbourhood.size(); ++in )
+                logs << fluxes[ in ] << ", ";
+            logs << std::endl;
+            logs << "New theoretical laod : " << my_load << std::endl;
+
+            nt ++ ;
         }
 
         // apply threshold, if the difference is smaller than #load_balancing_threshold of the number of cells,
@@ -314,6 +430,7 @@ namespace samurai
     class LoadBalancer
     {
       private:
+        int nloadbalancing;
 
         template <class Mesh_t, class Field_t>
         void update_field(Mesh_t& new_mesh, Field_t& field) const
@@ -347,14 +464,24 @@ namespace samurai
             logs << fmt::format("> [LoadBalancer]::update_field rank # {}: data copied for intersection old/new ", world.rank() ) << std::endl;
 
             std::vector<boost::mpi::request> req;
-            std::vector<std::vector<value_t>> to_send(new_mesh.mpi_neighbourhood().size());
+            std::vector<std::vector<value_t>> to_send(world.size());
 
             std::size_t i_neigh = 0;
 
+            // FIXME: this is overkill and will not scale
+            std::vector<Mesh_t> all_new_meshes, all_old_meshes;
+            boost::mpi::all_gather( world, new_mesh, all_new_meshes );
+            boost::mpi::all_gather( world, field.mesh(), all_old_meshes );
+
             // build payload of field that has been sent to neighbour, so compare old mesh with new neighbour mesh 
-            for (auto& neighbour : new_mesh.mpi_neighbourhood())
+            // for (auto& neighbour : new_mesh.mpi_neighbourhood())
+            for( size_t ni=0; ni<all_new_meshes.size(); ++ni )
             {
-                auto & neighbour_new_mesh = neighbour.mesh;
+                if( ni == world.rank() ) continue;
+
+                // auto & neighbour_new_mesh = neighbour.mesh;
+                auto & neighbour_new_mesh = all_new_meshes[ ni ];
+
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
                     if (!old_mesh[mesh_id_t::cells][level].empty() && !neighbour_new_mesh[mesh_id_t::cells][level].empty())
@@ -363,34 +490,38 @@ namespace samurai
                         intersect_old_mesh_new_neigh(
                             [&](const auto & interval, const auto & index)
                             {   
-                                std::copy(field(level, interval, index).begin(), field(level, interval, index).end(), std::back_inserter(to_send[i_neigh]));
+                                std::copy(field(level, interval, index).begin(), field(level, interval, index).end(), std::back_inserter(to_send[ni]));
                             });
                     }
                 }
 
-                if (to_send[i_neigh].size() != 0)
+                if (to_send[ni].size() != 0)
                 {
-                    req.push_back( world.isend( neighbour.rank, neighbour.rank, to_send[ i_neigh ] ) );
-                    i_neigh ++;
+                    // neighbour_rank = neighbour.rank;
+                    auto neighbour_rank = ni;
+                    req.push_back( world.isend( neighbour_rank, neighbour_rank, to_send[ ni ] ) );
+                    // i_neigh ++;
 
-                    logs << fmt::format("> [LoadBalancer]::update_field rank # {}: data to send to {}", world.rank(), neighbour.rank ) << std::endl;
+                    logs << fmt::format("> [LoadBalancer]::update_field rank # {}: data to send to {}", world.rank(), neighbour_rank ) << std::endl;
                 }
             }
 
             logs << fmt::format("> [LoadBalancer]::update_field rank # {}, nb req isend {}", world.rank(), req.size() ) << std::endl;
 
             // build payload of field that I need to receive from neighbour, so compare NEW mesh with OLD neighbour mesh 
-            for (auto& old_neighbour : old_mesh.mpi_neighbourhood())
+            for (size_t ni=0; ni<all_old_meshes.size(); ++ni )
             {
+                if( ni == world.rank() ) continue;
+
                 bool isintersect = false;
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    if (!new_mesh[mesh_id_t::cells][level].empty() && !old_neighbour.mesh[mesh_id_t::cells][level].empty())
+                    if (!new_mesh[mesh_id_t::cells][level].empty() && !all_old_meshes[ ni ][mesh_id_t::cells][level].empty())
                     {
                         std::vector<value_t> to_recv;
                         std::ptrdiff_t count = 0;
 
-                        auto in_interface = intersection(old_neighbour.mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                        auto in_interface = intersection( all_old_meshes[ ni ][mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
 
                         in_interface(
                             [&]( [[maybe_unused]]const auto& i, [[maybe_unused]]const auto& index)
@@ -409,13 +540,13 @@ namespace samurai
                 {
                     std::ptrdiff_t count = 0;
                     std::vector<value_t> to_recv;
-                    world.recv(old_neighbour.rank, world.rank(), to_recv);
+                    world.recv( ni, world.rank(), to_recv);
 
                     for (std::size_t level = min_level; level <= max_level; ++level)
                     {
-                        if (!new_mesh[mesh_id_t::cells][level].empty() && !old_neighbour.mesh[mesh_id_t::cells][level].empty())
+                        if (!new_mesh[mesh_id_t::cells][level].empty() && !all_old_meshes[ ni ][mesh_id_t::cells][level].empty())
                         {
-                            auto in_interface = intersection(old_neighbour.mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                            auto in_interface = intersection(all_old_meshes[ ni ][mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
 
                             in_interface(
                                 [&](const auto& i, const auto& index)
@@ -455,24 +586,63 @@ namespace samurai
 
       public:
 
+        LoadBalancer() {
+            nloadbalancing = 0;
+        }
+
+        /**
+        * This function reorder cells across MPI processes based on a
+        * Space Filling Curve. This is mandatory for load balancing using SFC.
+        */
+        template <class Mesh_t, class Field_t, class... Fields>
+        void reordering( Mesh_t & mesh, Field_t& field, Fields&... kw )
+        {
+            // new reordered mesh on current process + MPI exchange with others
+            auto new_mesh = static_cast<Flavor*>(this)->reordering_impl( mesh );
+
+            // update each physical field on the new reordered mesh
+            SAMURAI_TRACE("[Reordering::load_balance]::Updating fields ... ");
+            update_fields( new_mesh, field, kw... );
+
+            // swap mesh reference.
+            // FIX: this is not clean
+            SAMURAI_TRACE("[Reordering::load_balance]::Swapping meshes ... ");
+            field.mesh().swap( new_mesh );
+
+            // discover neighbours: add new neighbours if a new interface appears or remove old neighbours
+            discover_neighbour( field.mesh() );
+            discover_neighbour( field.mesh() );
+
+        }
+
         template <class Mesh_t, class Field_t, class... Fields>
         void load_balance(Mesh_t & mesh, Field_t& field, Fields&... kw)
         {
+
+            std::string lbn = static_cast<Flavor*>(this)->getName();
+
+            auto p = lbn.find( "SFC" );
+            if( nloadbalancing == 0 && p != std::string::npos ) {
+                reordering( mesh , field, kw... );
+            }
+
             // specific load balancing strategy
-            auto new_mesh = static_cast<Flavor*>(this)->load_balance_impl(mesh);
+            auto new_mesh = static_cast<Flavor*>(this)->load_balance_impl( field.mesh() );
 
             // update each physical field on the new load balanced mesh
             SAMURAI_TRACE("[LoadBalancer::load_balance]::Updating fields ... ");
-            update_fields(new_mesh, field, kw...);
+            update_fields( new_mesh, field, kw... );
 
             // swap mesh reference to new load balanced mesh. FIX: this is not clean
             SAMURAI_TRACE("[LoadBalancer::load_balance]::Swapping meshes ... ");
-            field.mesh().swap(new_mesh);
+            field.mesh().swap( new_mesh );
 
             // discover neighbours: add new neighbours if a new interface appears or remove old neighbours
             // FIX: add boolean return to condition the need of another call, might save some MPI comm.
             discover_neighbour( field.mesh() );
             discover_neighbour( field.mesh() );
+
+            nloadbalancing += 1;
         }
 
         /**
@@ -796,8 +966,6 @@ namespace samurai
         logs << fmt::format("\t\t\t> Allocating vector of size : max({}, {})+2 : {}", mesh.max_level(), omesh.max_level(), 
                             std::max( mesh.max_level(), omesh.max_level() ) + 2 ) << std::endl;
 
-        // FIXME: omesh.max_level() sometimes equals to uintmax .. why ??
-        // size_t msize = std::min( std::max( mesh.max_level(), omesh.max_level() ) + 2, static_cast<size_t>( 22 ) );
         size_t msize = std::max( mesh.max_level(), omesh.max_level() ) + 2;
         std::vector< MinMax > mm ( msize );
 
@@ -830,6 +998,14 @@ namespace samurai
                 }
             }
 
+        }
+
+        if( minLevelAtInterface == 99 ) {
+            logs << "\t\t\t> No interface found ... " << std::endl;
+
+            CellList_t tmp;
+            CellArray_t ca_tmp = { tmp, false };
+            return ca_tmp;            
         }
 
         logs << fmt::format("\t\t\t> minLevelAtInterface : {}", minLevelAtInterface ) << std::endl;
