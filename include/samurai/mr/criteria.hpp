@@ -55,7 +55,7 @@ namespace samurai
                     // auto mask = xt::sum((abs(detail(level, 2*i))/maxd <
                     // eps), {1}) > (size-1);
                     auto mask = xt::sum((abs(detail(fine_level, 2 * i)) < eps), {detail.is_soa ? 0 : 1}) > (size - 1); // No
-                                                                                                                           // normalization
+                                                                                                                       // normalization
 
                     xt::masked_view(tag(fine_level, 2 * i), mask)     = static_cast<int>(CellFlag::coarsen);
                     xt::masked_view(tag(fine_level, 2 * i + 1), mask) = static_cast<int>(CellFlag::coarsen);
@@ -105,8 +105,7 @@ namespace samurai
                     //                     2*j+1))/maxd < eps) &&
                     //                     (abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (size-1);
-                    auto mask = xt::sum((abs(detail(fine_level, 2 * i, 2 * j)) < eps)
-                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
+                    auto mask = xt::sum((abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
                                             && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps)
                                             && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps),
                                         {detail.is_soa ? 0 : 1})
@@ -221,19 +220,19 @@ namespace samurai
                 if constexpr (size == 1)
                 {
                     auto mask = (abs(.25
-                                         * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                            - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                         / maxd * C_fourth_term)
+                                     * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                        - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                     / maxd * C_fourth_term)
                                  < eps)
                              && (abs(.25
-                                         * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
-                                            - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                         / maxd))
+                                     * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
+                                        - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                     / maxd))
                                     < eps
                              && (abs(.25
-                                         * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                            + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                         / maxd))
+                                     * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                        + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                     / maxd))
                                     < eps;
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j), mask)         = static_cast<int>(CellFlag::coarsen);
@@ -244,19 +243,19 @@ namespace samurai
                 else
                 {
                     auto mask = xt::sum((abs(.25
-                                                 * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                                    - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                 / maxd * C_fourth_term)
+                                             * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                                - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                             / maxd * C_fourth_term)
                                          < eps)
                                             && (abs(.25
-                                                        * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
-                                                           - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                        / maxd))
+                                                    * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
+                                                       - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                                    / maxd))
                                                    < eps
                                             && (abs(.25
-                                                        * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                                           + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                        / maxd))
+                                                    * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                                       + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                                    / maxd))
                                                    < eps,
                                         {detail.is_soa ? 0 : 1})
                               > (size - 1);
@@ -292,7 +291,7 @@ namespace samurai
             }
             else
             {
-                return xt::eval(xt::sum(abs(detail_view) > eps, {is_soa ? 0 : 1}) > 0);
+                return eval(xt::sum(abs(detail_view) > eps, {is_soa ? 0 : 1}) > 0);
             }
         }
 
@@ -368,19 +367,19 @@ namespace samurai
                 if constexpr (size == 1)
                 {
                     auto mask = (abs(.25
-                                         * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                            - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                         / maxd * C_fourth_term)
+                                     * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                        - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                     / maxd * C_fourth_term)
                                  > eps)
                              || (abs(.25
-                                         * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
-                                            - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                         / maxd))
+                                     * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
+                                        - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                     / maxd))
                                     > eps
                              || (abs(.25
-                                         * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                            + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                         / maxd))
+                                     * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                        + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                     / maxd))
                                     > eps;
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j), mask)         = static_cast<int>(CellFlag::refine);
@@ -391,19 +390,19 @@ namespace samurai
                 else
                 {
                     auto mask = xt::sum((abs(.25
-                                                 * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                                    - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                 / maxd * C_fourth_term)
+                                             * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                                - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                             / maxd * C_fourth_term)
                                          > eps)
                                             || (abs(.25
-                                                        * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
-                                                           - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                        / maxd))
+                                                    * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
+                                                       - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                                    / maxd))
                                                    > eps
                                             || (abs(.25
-                                                        * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                                           + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                        / maxd))
+                                                    * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                                       + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                                    / maxd))
                                                    > eps,
                                         {detail.is_soa ? 0 : 1})
                               > 0;
