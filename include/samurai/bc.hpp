@@ -9,14 +9,11 @@
 #include <utility>
 #include <vector>
 
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xnoalias.hpp>
-#include <xtensor/xview.hpp>
-
 #include "samurai/cell.hpp"
 #include "samurai_config.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
+#include "storage/containers.hpp"
 
 #define APPLY_AND_STENCIL_FUNCTIONS(STENCIL_SIZE)                                                                                         \
     using apply_function_##STENCIL_SIZE = std::function<void(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)>;           \
@@ -87,38 +84,6 @@ namespace samurai
     template <class mesh_t, class value_t, std::size_t size, bool SOA>
     class Field;
 
-    namespace detail
-    {
-        template <class T, std::size_t size>
-        struct return_type
-        {
-            using type                       = xt::xtensor_fixed<T, xt::xshape<size>>;
-            static constexpr std::size_t dim = 2;
-        };
-
-        template <class T>
-        struct return_type<T, 1>
-        {
-            using type                       = T;
-            static constexpr std::size_t dim = 1;
-        };
-
-        template <class T, std::size_t size>
-        using return_type_t = typename return_type<T, size>::type;
-
-        template <class T, std::size_t size>
-        void fill(xt::xtensor_fixed<T, xt::xshape<size>>& data, T value)
-        {
-            data.fill(value);
-        }
-
-        template <class T>
-        void fill(T& data, T value)
-        {
-            data = value;
-        }
-    }
-
     ////////////////////////
     // BcValue definition //
     ////////////////////////
@@ -126,9 +91,9 @@ namespace samurai
     struct BcValue
     {
         static constexpr std::size_t dim = Field::dim;
-        using value_t                    = detail::return_type_t<typename Field::value_type, Field::size>;
+        using value_t                    = CollapsArray<typename Field::value_type, Field::size>;
         using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;
-        using direction_t                = xt::xtensor_fixed<int, xt::xshape<dim>>;
+        using direction_t                = DirectionVector<dim>;
         using cell_t                     = typename Field::cell_t;
 
         virtual ~BcValue()                 = default;
@@ -208,7 +173,7 @@ namespace samurai
     template <class Field>
     ConstantBc<Field>::ConstantBc()
     {
-        detail::fill(m_v, typename Field::value_type{0});
+        fill(m_v, typename Field::value_type{0});
     }
 
     template <class Field>
@@ -259,7 +224,7 @@ namespace samurai
     template <std::size_t dim, class TInterval>
     struct BcRegion
     {
-        using direction_t = xt::xtensor_fixed<int, xt::xshape<dim>>;
+        using direction_t = DirectionVector<dim>;
         using lca_t       = LevelCellArray<dim, TInterval>;
         using region_t    = std::pair<std::vector<direction_t>, std::vector<lca_t>>;
 
@@ -418,7 +383,7 @@ namespace samurai
 
         for (auto& stencil : m_d)
         {
-            int number_of_one = xt::sum(xt::abs(stencil))[0];
+            int number_of_one = sum(abs(stencil));
             if (number_of_one > 0)
             {
                 dir.emplace_back(stencil);
@@ -654,7 +619,7 @@ namespace samurai
         bcvalue_impl p_bcvalue;
         const lca_t& m_domain; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         region_t m_region;
-        xt::xtensor<typename Field::value_type, detail::return_type<typename Field::value_type, size>::dim> m_value;
+        // xt::xtensor<typename Field::value_type, detail::return_type<typename Field::value_type, size>::dim> m_value;
     };
 
     ///////////////////
