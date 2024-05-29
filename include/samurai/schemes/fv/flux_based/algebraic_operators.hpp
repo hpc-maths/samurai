@@ -28,7 +28,7 @@ namespace samurai
                     }
                     else if constexpr (cfg::scheme_type == SchemeType::LinearHeterogeneous)
                     {
-                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells)
+                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells) -> FluxStencilCoeffs<cfg>
                         {
                             return scalar * scheme.flux_definition()[d].cons_flux_function(cells);
                         };
@@ -37,28 +37,30 @@ namespace samurai
                     {
                         if (scheme.flux_definition()[d].cons_flux_function)
                         {
-                            multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, const auto& field)
+                            multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, const auto& field) -> FluxValue<cfg>
                             {
                                 return scalar * scheme.flux_definition()[d].cons_flux_function(cells, field);
                             };
                         }
                         if (scheme.flux_definition()[d].flux_function)
                         {
-                            multiplied_scheme.flux_definition()[d].flux_function = [=](auto& cells, const auto& field)
+                            multiplied_scheme.flux_definition()[d].flux_function = [=](auto& cells, const auto& field) -> FluxValuePair<cfg>
                             {
                                 return scalar * scheme.flux_definition()[d].flux_function(cells, field);
                             };
                         }
                         if (scheme.flux_definition()[d].cons_jacobian_function)
                         {
-                            multiplied_scheme.flux_definition()[d].cons_jacobian_function = [=](auto& cells, const auto& field)
+                            multiplied_scheme.flux_definition()[d].cons_jacobian_function = [=](auto& cells,
+                                                                                                const auto& field) -> StencilJacobian<cfg>
                             {
                                 return scalar * scheme.flux_definition()[d].cons_jacobian_function(cells, field);
                             };
                         }
                         if (scheme.flux_definition()[d].jacobian_function)
                         {
-                            multiplied_scheme.flux_definition()[d].jacobian_function = [=](auto& cells, const auto& field)
+                            multiplied_scheme.flux_definition()[d].jacobian_function = [=](auto& cells,
+                                                                                           const auto& field) -> StencilJacobianPair<cfg>
                             {
                                 return scalar * scheme.flux_definition()[d].jacobian_function(cells, field);
                             };
