@@ -96,8 +96,6 @@ namespace Load_balancing{
 
                 }
 
-                samurai::save("./", "lb-diffusion-before", mesh, flags );
-
                 for( size_t neigh_i=0; neigh_i<n_neighbours; ++neigh_i ){
 
                     // neighbour [0, n_neighbours[
@@ -131,6 +129,11 @@ namespace Load_balancing{
                         for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
                             tmp( idim ) /= n2;
                             dir_from_neighbour( idim ) = static_cast<int>( tmp( idim ) / 0.5 );
+
+                            // FIXME why needed ? 
+                            if( std::abs( dir_from_neighbour( idim ) ) > 1 ) {
+                                dir_from_neighbour( idim ) < 0 ? dir_from_neighbour( idim ) = -1 : dir_from_neighbour( idim ) = 1;
+                            }
                         }
                         
                         // Avoid diagonals exchange, and emphaze x-axis. Maybe two phases propagation in case of diagonal ?
@@ -200,7 +203,7 @@ namespace Load_balancing{
                         logs << fmt::format("\t\t> NCellsAtInterface : {}, NCellsAtInterfaceGiven : {}", nCellsAtInterface, nCellsAtInterfaceGiven ) << std::endl;
                     }
 
-                    // propagate until fullfill neighbour 
+                    // propagate until full-fill neighbour 
                     {
                         int nbElementGiven = 1; // validate the while condition on starter
                        
@@ -276,8 +279,6 @@ namespace Load_balancing{
                     }
 
                 }
-
-                samurai::save("./", "lb-diffusion", mesh, flags);
 
                 CellList_t new_cl;
                 std::vector<CellList_t> payload( world.size() );
