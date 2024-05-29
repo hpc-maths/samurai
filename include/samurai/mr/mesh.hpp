@@ -86,13 +86,13 @@ namespace samurai
                const std::array<bool, dim>& periodic,
                double approx_box_tol = lca_type::default_approx_box_tol,
                double scaling_factor = 0);
-        // Used for load balancing
-        MRMesh(const cl_type & cl, 
-		std::size_t min_level,
-	       	std::size_t max_level, 
-		std::vector<mpi_subdomain_t> & neighbourhood,
-		double approx_box_tol = lca_type::default_approx_box_tol,
-		double scaling_factor = 0);
+        // Used for load balancing, finally commented
+        //MRMesh(const cl_type & cl, 
+	//	std::size_t min_level,
+	//      std::size_t max_level, 
+	//	std::vector<mpi_subdomain_t> & neighbourhood,
+	//	double approx_box_tol = lca_type::default_approx_box_tol,
+	//	double scaling_factor = 0);
 
         void update_sub_mesh_impl();
 
@@ -139,12 +139,12 @@ namespace samurai
     {
     }
 
-    template <class Config>
-    inline MRMesh<Config>::MRMesh( const cl_type & cl, std::size_t min_level, std::size_t max_level, 
-                                    std::vector<mpi_subdomain_t> & neighbourhood)
-        : base_type(cl, min_level, max_level, neighbourhood )
-    {
-    }
+    // template <class Config>
+    // inline MRMesh<Config>::MRMesh( const cl_type & cl, std::size_t min_level, std::size_t max_level, 
+    //                                 std::vector<mpi_subdomain_t> & neighbourhood)
+    //     : base_type(cl, min_level, max_level, neighbourhood )
+    // {
+    // }
 
     template <class Config>
     inline void MRMesh<Config>::update_sub_mesh_impl()
