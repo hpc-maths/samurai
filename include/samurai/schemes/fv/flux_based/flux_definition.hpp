@@ -60,10 +60,10 @@ namespace samurai
     using FluxValue = CollapsArray<typename cfg::input_field_t::value_type, cfg::output_field_size>;
 
     template <class cfg>
-    using FluxValuePair = Array<FluxValue<cfg>, 2>;
+    using FluxValuePair = StdArrayWrapper<FluxValue<cfg>, 2>;
 
     template <class cfg>
-    using StencilJacobianPair = Array<StencilJacobian<cfg>, 2>;
+    using StencilJacobianPair = StdArrayWrapper<StencilJacobian<cfg>, 2>;
 
     /**
      * Specialization of @class NormalFluxDefinition.
