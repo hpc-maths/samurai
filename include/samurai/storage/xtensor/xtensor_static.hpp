@@ -8,6 +8,10 @@
 
 namespace samurai
 {
+    //------------------//
+    // Type definitions //
+    //------------------//
+
     template <class value_type, std::size_t size>
     using xtensor_static_array = xt::xtensor_fixed<value_type, xt::xshape<size>>;
 
@@ -33,6 +37,16 @@ namespace samurai
 
     template <class T>
     inline constexpr auto is_xtensor_matrix_v = is_xtensor_matrix<T>::value;
+
+    //-----------//
+    // Functions //
+    //-----------//
+
+    template <class value_type, std::size_t size>
+    void fill(xtensor_static_array<value_type, size>& array, value_type value)
+    {
+        array.fill(value);
+    }
 
     // template <class value_type, std::size_t rows, std::size_t cols, class T>
     // auto row(const xtensor_static_matrix<value_type, rows, cols>& A, T i)

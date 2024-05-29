@@ -244,8 +244,7 @@ int main(int argc, char* argv[])
                                                     const auto& y = coord[1];
                                                     double v_x    = 1 / (pi * pi) * sin(pi * (x + y));
                                                     double v_y    = -v_x;
-                                                    return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
-                                                    // return samurai::Array<double, dim>{v_x, v_y};
+                                                    return samurai::Array<double, dim>{v_x, v_y};
                                                 });
 
         samurai::make_bc<samurai::Neumann<1>>(pressure,
@@ -279,7 +278,6 @@ int main(int argc, char* argv[])
                                                       const auto& y = coord[1];
                                                       double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
                                                       double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-                                                      // return xt::xtensor_fixed<double, xt::xshape<dim>>{f_x, f_y};
                                                       return samurai::Array<double, dim>{f_x, f_y};
                                                   });
         auto zero = samurai::make_field<1, is_soa>("zero", mesh);
@@ -303,7 +301,6 @@ int main(int argc, char* argv[])
                                     const auto& y = coord[1];
                                     auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
                                     auto v_y      = -v_x;
-                                    // return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
                                     return samurai::Array<double, dim>{v_x, v_y};
                                 });
         std::cout.precision(2);
@@ -323,7 +320,6 @@ int main(int argc, char* argv[])
                                                                    const auto& y = coord[1];
                                                                    auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
                                                                    auto v_y      = -v_x;
-                                                                   // return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
                                                                    return samurai::Array<double, dim>{v_x, v_y};
                                                                });
         samurai::save(path, "exact_velocity", mesh, exact_velocity);
@@ -374,7 +370,6 @@ int main(int argc, char* argv[])
                        - pi * sin(t) * sin(t) * sin(pi * x) * sin(pi * y);
             double f_y = -(cos(t) + 8 * diff_coeff * pi * pi * sin(t)) * cos(2 * pi * x) * sin(2 * pi * y)
                        + pi * sin(t) * sin(t) * cos(pi * x) * cos(pi * y);
-            // return xt::xtensor_fixed<double, xt::xshape<dim>>{f_x, f_y};
             return samurai::Array<double, dim>{f_x, f_y};
         };
 
@@ -385,7 +380,6 @@ int main(int argc, char* argv[])
             const auto& y = coord[1];
             double v_x    = std::sin(t) * std::sin(2 * pi * x) * std::cos(2 * pi * y);
             double v_y    = -std::sin(t) * std::cos(2 * pi * x) * std::sin(2 * pi * y);
-            // return xt::xtensor_fixed<double, xt::xshape<dim>>{v_x, v_y};
             return samurai::Array<double, dim>{v_x, v_y};
         };
         auto exact_normal_grad_pressure = [&](double t, const auto& coord)

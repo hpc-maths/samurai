@@ -6,13 +6,6 @@
 #include <array>
 #include <type_traits>
 
-//------------------------------------------------------------//
-// This file contains the definitions of useful derived types //
-// from the containers defined in containers_config.hpp.      //
-//------------------------------------------------------------//
-
-// #include "containers_config.hpp"
-
 namespace samurai
 {
     //----------------------------------------------------------------//
@@ -65,5 +58,11 @@ namespace samurai
     // Collapsable std::array
     template <class value_type, std::size_t size>
     using CollapsStdArray = typename detail::CollapsableArray<std::array<value_type, size>, value_type, size>::Type;
+
+    template <class value_type>
+    void fill(value_type& scalar, value_type value)
+    {
+        scalar = value;
+    }
 
 }

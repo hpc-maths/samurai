@@ -45,6 +45,13 @@ namespace samurai
     //-----------//
     // Functions //
     //-----------//
+
+    template <class value_type, int size>
+    void fill(eigen_static_array<value_type, size>& array, value_type value)
+    {
+        array.fill(value);
+    }
+
     template <class value_type, int rows, int cols, class T>
     auto row(const eigen_static_matrix<value_type, rows, cols>& A, T i)
     {
