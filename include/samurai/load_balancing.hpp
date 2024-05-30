@@ -113,7 +113,7 @@ namespace samurai
         None
     };
 
-    static const double load_balancing_threshold = 0.00; // 0.03141592; // 2.5 % 
+    static const double load_balancing_threshold = 0.03141592; // 2.5 % 
 
     /**
      * Compute distance base on different norm.
@@ -430,18 +430,17 @@ namespace samurai
     class LoadBalancer
     {
       private:
+        std::ofstream logs;
         int nloadbalancing;
 
         template <class Mesh_t, class Field_t>
-        void update_field(Mesh_t& new_mesh, Field_t& field) const
+        void update_field(Mesh_t& new_mesh, Field_t& field)
         {
             using mesh_id_t = typename Mesh_t::mesh_id_t;
             using value_t   = typename Field_t::value_type;
             boost::mpi::communicator world;
 
-            std::ofstream logs; 
-            logs.open( "log_" + std::to_string( world.rank() ) + ".dat", std::ofstream::app );
-            logs << fmt::format("> [LoadBalancer]::update_field rank # {} -> '{}' ", world.rank(), field.name() ) << std::endl;
+            logs << fmt::format("\n# [LoadBalancer]::update_field rank # {} -> '{}' ", world.rank(), field.name() ) << std::endl;
 
             Field_t new_field("new_f", new_mesh);
             new_field.fill(0);
@@ -460,8 +459,6 @@ namespace samurai
                 auto intersect_old_new = intersection(old_mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
                 intersect_old_new.apply_op( samurai::copy( new_field, field ) );
             }
-
-            logs << fmt::format("> [LoadBalancer]::update_field rank # {}: data copied for intersection old/new ", world.rank() ) << std::endl;
 
             std::vector<boost::mpi::request> req;
             std::vector<std::vector<value_t>> to_send(world.size());
@@ -502,11 +499,11 @@ namespace samurai
                     req.push_back( world.isend( neighbour_rank, neighbour_rank, to_send[ ni ] ) );
                     // i_neigh ++;
 
-                    logs << fmt::format("> [LoadBalancer]::update_field rank # {}: data to send to {}", world.rank(), neighbour_rank ) << std::endl;
+                    logs << fmt::format("\t> [LoadBalancer]::update_field send data to rank # {}", neighbour_rank ) << std::endl;
                 }
             }
 
-            logs << fmt::format("> [LoadBalancer]::update_field rank # {}, nb req isend {}", world.rank(), req.size() ) << std::endl;
+            logs << fmt::format("\t> [LoadBalancer]::update_field number of isend request: {}", req.size() ) << std::endl;
 
             // build payload of field that I need to receive from neighbour, so compare NEW mesh with OLD neighbour mesh 
             for (size_t ni=0; ni<all_old_meshes.size(); ++ni )
@@ -572,7 +569,7 @@ namespace samurai
         }
 
         template <class Mesh_t, class Field_t, class... Fields_t>
-        void update_fields(Mesh_t& new_mesh, Field_t& field, Fields_t&... kw) const
+        void update_fields(Mesh_t& new_mesh, Field_t& field, Fields_t&... kw)
 
         {
             update_field(new_mesh, field);
@@ -580,14 +577,20 @@ namespace samurai
         }
 
         template <class Mesh_t>
-        void update_fields([[maybe_unused]]Mesh_t& new_mesh) const
+        void update_fields([[maybe_unused]]Mesh_t& new_mesh)
         {
         }
 
       public:
 
         LoadBalancer() {
+            boost::mpi::communicator world;
+            logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
             nloadbalancing = 0;
+        }
+
+        ~LoadBalancer() {
+            logs.close();
         }
 
         /**
@@ -620,6 +623,10 @@ namespace samurai
         {
 
             std::string lbn = static_cast<Flavor*>(this)->getName();
+
+            logs << fmt::format("\n###################################################" ) << std::endl;
+            logs << fmt::format("> Load balancing ({}) mesh @ iteration {} ", lbn, nloadbalancing ) << std::endl;
+            logs << fmt::format("###################################################\n") << std::endl;
 
             auto p = lbn.find( "SFC" );
             if( nloadbalancing == 0 && p != std::string::npos ) {
@@ -993,7 +1000,6 @@ namespace samurai
                 });
 
                 if (nbInter_ > 0){
-                    std::cerr << " not empty " << std::endl;
                    minLevelAtInterface = std::min( projlevel, minLevelAtInterface );
                 }
             }
@@ -1328,7 +1334,7 @@ namespace samurai
         // DEBUG
         std::ofstream logs;
         logs.open("log_" + std::to_string(world.rank()) + ".dat", std::ofstream::app);
-        logs << "# discover_neighbour" << std::endl;
+        logs << "\n# [LoadBalancer] discover_neighbour" << std::endl;
 
         // give access to geometricaly neighbour process rank and mesh
         std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
@@ -1350,13 +1356,13 @@ namespace samurai
 
             if (!keepNeighbour[nbi])
             {
-                logs << fmt::format("Loosing neighbour connection with {}", neighbourhood[nbi].rank) << std::endl;
+                logs << fmt::format("\t> Loosing neighbour connection with {}", neighbourhood[nbi].rank) << std::endl;
             }
 
             // check neighbour - neighbour connection
             for (size_t nbj = nbi + 1; nbj < neighbourhood.size(); ++nbj)
             {
-                logs << fmt::format("Checking neighbourhood connection {} <-> {}", neighbourhood[nbi].rank, neighbourhood[nbj].rank)
+                logs << fmt::format("\t> Checking neighbourhood connection {} <-> {}", neighbourhood[nbi].rank, neighbourhood[nbj].rank)
                      << std::endl;
                 bool connected = intersectionExists<Direction_t::FACE_AND_DIAG>(neighbourhood[nbi].mesh, neighbourhood[nbj].mesh);
 
@@ -1421,7 +1427,7 @@ namespace samurai
         }
 
         // debug
-        logs << "New neighbourhood : {";
+        logs << "\t> New neighbourhood : {";
         for (size_t nbi = 0; nbi < neighbourhood.size(); ++nbi)
         {
             logs << neighbourhood[nbi].rank << ", ";
