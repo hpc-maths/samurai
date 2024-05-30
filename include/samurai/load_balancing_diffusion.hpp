@@ -37,6 +37,11 @@ namespace Load_balancing{
             inline std::string getName() const { return "diffusion"; }
 
             template<class Mesh_t>
+            Mesh_t reordering_impl( Mesh_t & mesh ) {
+                return mesh;
+            }
+
+            template<class Mesh_t>
             Mesh_t load_balance_impl( Mesh_t & mesh ){
 
                 using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
@@ -55,7 +60,8 @@ namespace Load_balancing{
                 logs << fmt::format("> New load-balancing using {} ", getName() ) << std::endl;
 
                 // compute fluxes in terms of number of intervals to transfer/receive
-                std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh );
+                // by default, perform 5 iterations
+                std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, 5 );
                 std::vector<int> new_fluxes( fluxes );
 
                 // get loads from everyone

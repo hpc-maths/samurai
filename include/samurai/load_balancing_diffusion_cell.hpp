@@ -46,6 +46,11 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
         inline std::string getName() const { return "Gravity_LB"; } 
 
         template<class Mesh_t>
+        Mesh_t reordering_impl( Mesh_t & mesh ){
+            return mesh;
+        }
+
+        template<class Mesh_t>
         Mesh_t load_balance_impl( Mesh_t & mesh ){
 
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
@@ -70,8 +75,8 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             double my_load = static_cast<double>( samurai::cmptLoad<samurai::BalanceElement_t::CELL>( mesh ) );
             boost::mpi::all_gather( world, my_load, loads );
 
-            // get the load to neighbours (geometrical neighbour)
-            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh );
+            // get the load to neighbours (geometrical neighbour) with 5 iterations max
+            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, 5 );
 
             {
                 logs << "load : " << my_load << std::endl;
