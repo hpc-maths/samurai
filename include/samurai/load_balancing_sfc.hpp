@@ -51,7 +51,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         // For debug
         std::ofstream logs;
         logs.open("log_" + std::to_string(_rank) + ".dat", std::ofstream::app);
-        logs << "# New load balancing (load_balancing_sfc)" << std::endl;
+        logs << "# [SFC_LoadBalancer_interval::Morton] Reordering cells using SFC" << std::endl;
 
         // SFC 1D key for cells
         auto sfc_keys = samurai::make_field<SFC_key_t, 1>( "keys", mesh );
@@ -60,7 +60,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         auto flags = samurai::make_field<int, 1>("rank", mesh);
         flags.fill( world.rank() );
          
-        logs << fmt::format("\t\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName() ) << std::endl;
+        logs << fmt::format("\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName() ) << std::endl;
 
         SFC_key_t mink = std::numeric_limits<SFC_key_t>::max(), maxk = std::numeric_limits<SFC_key_t>::min();
 
@@ -89,12 +89,12 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
         // Key boundaries of current process - unused for now
         std::vector<SFC_key_t> bounds = { mink, maxk };
-        logs << "\t\t\t> Local key bounds [" << bounds[ 0 ] << ", " << bounds[ 1 ] << "]" << std::endl;
+        logs << "\t\t> Local key bounds [" << bounds[ 0 ] << ", " << bounds[ 1 ] << "]" << std::endl;
 
         std::vector<SFC_key_t> boundaries;
         boost::mpi::all_gather( world, bounds.data(), bounds.size(), boundaries );
 
-        logs << "\t\t\t> Global key boundaries [";
+        logs << "\t\t> Global key boundaries [";
         for(const auto & ik : boundaries )
             logs << ik << ",";
         logs << "]" << std::endl;
@@ -119,7 +119,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             boundaries_new[ ip ] = boundaries_new[ ip - 1 ] + ds;
         }
 
-        logs << "\t\t\t> Global key evenly distrib boundaries [";
+        logs << "\t\t> Global key evenly distrib boundaries [";
         for(const auto & ik : boundaries_new )
             logs << ik << ",";
         logs << "]" << std::endl;
@@ -145,7 +145,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
         });
 
-        logs << "\t\t\t> Comm required with processes : [";
+        logs << "\t\t> Communication for exchange required with rank : [";
         for( const auto & it : comm )
             logs << it.first << ",";
         logs << "]" << std::endl;
@@ -227,7 +227,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         // For debug
         std::ofstream logs;
         logs.open("log_" + std::to_string(_rank) + ".dat", std::ofstream::app);
-        logs << "# New load balancing (load_balancing_sfc)" << std::endl;
+        
+        logs << fmt::format("\n# [SFC_LoadBalancer_interval::Morton] Load balancing cells ") << std::endl;
 
         // SFC 1D key for cells
         std::map<SFC_key_t, typename Mesh_t::cell_t> sfc_map;
@@ -237,7 +238,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         auto flags = samurai::make_field<int, 1>("rank", mesh);
         flags.fill( world.rank() );
          
-        logs << fmt::format("\t\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName() ) << std::endl;
+        logs << fmt::format("\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName() ) << std::endl;
 
         SFC_key_t mink = std::numeric_limits<SFC_key_t>::max(), maxk = std::numeric_limits<SFC_key_t>::min();
         size_t ncells = 0;
@@ -277,7 +278,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         std::vector<size_t> globIdx( world.size() + 1, 0 ), globIdxNew( world.size() + 1, 0 );
         boost::mpi::all_gather( world, mesh.nb_cells( Mesh_t::mesh_id_t::cells ), nbCellsPerProc );
 
-        logs << "\t\t\t> Number of cells : " << mesh.nb_cells( Mesh_t::mesh_id_t::cells ) << std::endl;
+        logs << "\t\t> Number of cells : " << mesh.nb_cells( Mesh_t::mesh_id_t::cells ) << std::endl;
 
         for(size_t i=0; i<world.size(); ++i){
             globIdx[ i + 1 ] = globIdx[ i ] + nbCellsPerProc[ i ];
@@ -292,38 +293,32 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         }
 
         {
-            logs << "\t\t\t> GlobalIdx : ";
+            logs << "\t\t> GlobalIdx : ";
             for(const auto & i : globIdx )
                 logs << i << ", ";
             logs << std::endl;
 
-            logs << "\t\t\t> GlobalIdx balanced : ";
+            logs << "\t\t> GlobalIdx balanced : ";
             for(const auto & i : globIdxNew )
                 logs << i << ", ";
             logs << std::endl;
             
         }   
 
-        size_t start = 0;
-
-        // for( size_t ip=0; ip<globIdx.size(); ++ip ){
-
-        //     if( globIdxNew[ start ] > globIdx[ world.rank() ] ) break;
-        //     start ++;
-        // }
-        // start = std::min( start, static_cast<size_t>( world.size() - 1 ) );
+        int start = 0;
         while( globIdx[ world.rank() ] >= ( start + 1 ) * dc ){
             start ++;
         }
 
-        logs << "Start @ rank " << start << std::endl;
+        logs << "\t\t> Start @ rank " << start << std::endl;
 
         size_t count = globIdx[ world.rank() ];
         for( auto & it : sfc_map ) {
 
             if( count >= ( start + 1 ) * dc ){
                 start ++;
-                logs << "Incrementing Start @ rank " << start << ", count " << count << std::endl;
+                start = std::min( world.size() - 1 , start );
+                logs << "\t\t> Incrementing Start @ rank " << start << ", count " << count << std::endl;
             }
             
             flags[ it.second ] = start;
@@ -345,7 +340,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
         });
 
-        logs << "\t\t\t> Comm required with processes : [";
+        logs << "\t\t> Comm required with processes : [";
         for( const auto & it : comm )
             logs << it.first << ",";
         logs << "]" << std::endl;
