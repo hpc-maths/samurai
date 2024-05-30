@@ -219,6 +219,12 @@ namespace samurai
         return xt::sum(exp)[0];
     }
 
+    template <std::size_t axis, class D>
+    auto sum(xt::xexpression<D>&& exp)
+    {
+        return xt::sum(exp.derived_cast(), {axis});
+    }
+
     template <class D>
     auto operator>(const xt::xcontainer<D>& exp, double x)
     {
@@ -229,6 +235,18 @@ namespace samurai
     auto operator<(const xt::xcontainer<D>& exp, double x)
     {
         return exp < x;
+    }
+
+    template <class D>
+    auto operator>(xt::xexpression<D>&& exp, double x)
+    {
+        return exp.derived_cast() > x;
+    }
+
+    template <class D>
+    auto operator<(xt::xexpression<D>&& exp, double x)
+    {
+        return exp.derived_cast() < x;
     }
 
     template <class DST, class CRIT, class FUNC>
