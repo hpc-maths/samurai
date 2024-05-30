@@ -239,6 +239,20 @@ namespace samurai
         return exp.derived().sum();
     }
 
+    template <std::size_t axis, class D>
+    auto sum(const Eigen::EigenBase<D>& exp)
+    {
+        static_assert(axis < 2);
+        if constexpr (axis == 0)
+        {
+            return exp.derived().rowwise().sum();
+        }
+        else
+        {
+            return exp.derived().colwise().sum();
+        }
+    }
+
     template <class D>
     auto operator>(const Eigen::EigenBase<D>& exp, double x)
     {
