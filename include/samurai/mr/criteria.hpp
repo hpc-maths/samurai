@@ -54,8 +54,9 @@ namespace samurai
                 {
                     // auto mask = xt::sum((abs(detail(level, 2*i))/maxd <
                     // eps), {1}) > (size-1);
-                    auto mask = xt::sum((abs(detail(fine_level, 2 * i)) < eps), {detail.is_soa ? 0 : 1}) > (size - 1); // No
-                                                                                                                       // normalization
+                    constexpr std::size_t axis = T1::is_soa ? 0 : 1;
+
+                    auto mask = sum<axis>((abs(detail(fine_level, 2 * i)) < eps)) > (size - 1); // No normalization
 
                     xt::masked_view(tag(fine_level, 2 * i), mask)     = static_cast<int>(CellFlag::coarsen);
                     xt::masked_view(tag(fine_level, 2 * i + 1), mask) = static_cast<int>(CellFlag::coarsen);
@@ -105,10 +106,11 @@ namespace samurai
                     //                     2*j+1))/maxd < eps) &&
                     //                     (abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (size-1);
-                    auto mask = xt::sum((abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
-                                            && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps)
-                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps),
-                                        {detail.is_soa ? 0 : 1})
+                    constexpr std::size_t axis = T1::is_soa ? 0 : 1;
+
+                    auto mask = sum<axis>((abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
+                                          && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps)
+                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps))
                               > (size - 1);
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j), mask)         = static_cast<int>(CellFlag::coarsen);
@@ -166,15 +168,17 @@ namespace samurai
                     //                     2*j+1))/maxd < eps) and
                     //                     (abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (size-1);
-                    auto mask = xt::sum((abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
-                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
-                                            && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
-                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
-                                            && (abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
-                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
-                                            && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
-                                            && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps),
-                                        {detail.is_soa ? 0 : 1})
+
+                    constexpr std::size_t axis = T1::is_soa ? 0 : 1;
+
+                    auto mask = sum<axis>((abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
+                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
+                                          && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
+                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
+                                          && (abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
+                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
+                                          && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
+                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps))
                               > (size - 1);
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j, 2 * k), mask)             = static_cast<int>(CellFlag::coarsen);
@@ -242,22 +246,23 @@ namespace samurai
                 }
                 else
                 {
-                    auto mask = xt::sum((abs(.25
-                                             * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                                - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                             / maxd * C_fourth_term)
-                                         < eps)
-                                            && (abs(.25
-                                                    * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
-                                                       - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                    / maxd))
-                                                   < eps
-                                            && (abs(.25
-                                                    * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                                       + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                    / maxd))
-                                                   < eps,
-                                        {detail.is_soa ? 0 : 1})
+                    constexpr std::size_t axis = T1::is_soa ? 0 : 1;
+
+                    auto mask = sum<axis>((abs(.25
+                                               * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                                  - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                               / maxd * C_fourth_term)
+                                           < eps)
+                                          && (abs(.25
+                                                  * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
+                                                     - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                                  / maxd))
+                                                 < eps
+                                          && (abs(.25
+                                                  * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                                     + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                                  / maxd))
+                                                 < eps)
                               > (size - 1);
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j), mask)         = static_cast<int>(CellFlag::coarsen);
@@ -282,8 +287,8 @@ namespace samurai
 
         INIT_OPERATOR(to_refine_mr_op)
 
-        template <std::size_t size, class T1>
-        inline auto get_mask(const T1& detail_view, double eps, bool is_soa) const
+        template <std::size_t size, bool is_soa, class T1>
+        inline auto get_mask(const T1& detail_view, double eps) const
         {
             if constexpr (size == 1)
             {
@@ -291,7 +296,8 @@ namespace samurai
             }
             else
             {
-                return eval(xt::sum(abs(detail_view) > eps, {is_soa ? 0 : 1}) > 0);
+                constexpr std::size_t axis = is_soa ? 0 : 1;
+                return eval(sum<axis>(abs(detail_view) > eps) > 0);
             }
         }
 
@@ -301,7 +307,7 @@ namespace samurai
             constexpr auto size    = T1::size;
             std::size_t fine_level = level + 1;
 
-            auto mask_ghost = get_mask<size>(detail(fine_level - 1, i, index), eps / (1 << dim), detail.is_soa);
+            auto mask_ghost = get_mask<size, T1::is_soa>(detail(fine_level - 1, i, index), eps / (1 << dim));
 
             static_nested_loop<dim - 1, 0, 2>(
                 [&](auto stencil)
@@ -327,7 +333,7 @@ namespace samurai
                     {
                         for (int ii = 0; ii < 2; ++ii)
                         {
-                            auto mask = get_mask<size>(detail(fine_level, 2 * i + ii, 2 * index + stencil), eps, detail.is_soa);
+                            auto mask = get_mask<size, T1::is_soa>(detail(fine_level, 2 * i + ii, 2 * index + stencil), eps);
                             apply_on_masked(tag(fine_level, 2 * i + ii, 2 * index + stencil),
                                             mask,
                                             [](auto& e)
@@ -389,22 +395,23 @@ namespace samurai
                 }
                 else
                 {
-                    auto mask = xt::sum((abs(.25
-                                             * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                                - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                             / maxd * C_fourth_term)
-                                         > eps)
-                                            || (abs(.25
-                                                    * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
-                                                       - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                    / maxd))
-                                                   > eps
-                                            || (abs(.25
-                                                    * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
-                                                       + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
-                                                    / maxd))
-                                                   > eps,
-                                        {detail.is_soa ? 0 : 1})
+                    constexpr std::size_t axis = T1::is_soa ? 0 : 1;
+
+                    auto mask = sum<axis>((abs(.25
+                                               * (detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                                  - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                               / maxd * C_fourth_term)
+                                           > eps)
+                                          || (abs(.25
+                                                  * (-detail(fine_level, 2 * i, 2 * j) + detail(fine_level, 2 * i + 1, 2 * j)
+                                                     - detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                                  / maxd))
+                                                 > eps
+                                          || (abs(.25
+                                                  * (-detail(fine_level, 2 * i, 2 * j) - detail(fine_level, 2 * i + 1, 2 * j)
+                                                     + detail(fine_level, 2 * i, 2 * j + 1) + detail(fine_level, 2 * i + 1, 2 * j + 1))
+                                                  / maxd))
+                                                 > eps)
                               > 0;
 
                     xt::masked_view(tag(fine_level, 2 * i, 2 * j), mask)         = static_cast<int>(CellFlag::refine);
