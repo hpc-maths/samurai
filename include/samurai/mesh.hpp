@@ -97,6 +97,7 @@ namespace samurai
         const std::array<bool, dim>& periodicity() const;
         // std::vector<int>& neighbouring_ranks();
 
+        const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
 
         void swap(Mesh_base& mesh) noexcept;
@@ -180,11 +181,11 @@ namespace samurai
             {
                 ar& m_cells[id];
             }
-            ar & m_domain;
-            ar & m_subdomain;
-            ar & m_union;
-            ar & m_min_level;
-            ar & m_max_level;
+            ar& m_domain;
+            ar& m_subdomain;
+            ar& m_union;
+            ar& m_min_level;
+            ar& m_max_level;
         }
 #endif
     };
@@ -400,9 +401,8 @@ namespace samurai
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level,
-                                                   const interval_t& interval,
-                                                   const xt::xexpression<E>& index) const -> const interval_t&
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+        -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }
@@ -466,6 +466,12 @@ namespace samurai
     inline auto Mesh_base<D, Config>::periodicity() const -> const std::array<bool, dim>&
     {
         return m_periodic;
+    }
+
+    template <class D, class Config>
+    inline auto Mesh_base<D, Config>::mpi_neighbourhood() const -> const std::vector<mpi_subdomain_t>&
+    {
+        return m_mpi_neighbourhood;
     }
 
     template <class D, class Config>
