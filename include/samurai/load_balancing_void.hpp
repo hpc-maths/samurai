@@ -31,6 +31,9 @@ class Void_LoadBalancer: public samurai::LoadBalancer<Void_LoadBalancer<dim>> {
         inline std::string getName() const { return "Void_LB"; }
 
         template<class Mesh_t>
-        void load_balance_impl( [[maybe_unused]] Mesh_t & mesh ){ }
+        Mesh_t reordering_impl( Mesh_t & mesh ) { return mesh; }
+
+        template<class Mesh_t>
+        Mesh_t load_balance_impl( Mesh_t & mesh ){ return mesh; }
 
 };
