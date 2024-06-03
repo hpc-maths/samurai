@@ -101,7 +101,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
         // Check overlap with previous/next process. Does not mean that there is no overlap, but at least between "adjacent"
         // (MPI-1), (MPI+1) there is not overlap found
-        std::vector<SFC_key_t> boundaries_new( world.size() + 1 );
+        std::vector<SFC_key_t> boundaries_new( static_cast<size_t>( world.size() + 1 ) );
 
         // find max value for boundaries
         SFC_key_t globalMax = boundaries[ 0 ];
@@ -113,9 +113,9 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         globalMax += 1;
 
         // evenly spaced intervals
-        SFC_key_t ds = globalMax / world.size();
+        SFC_key_t ds = globalMax / static_cast<size_t>( world.size() );
         boundaries_new[ 0 ] = 0;
-        for(size_t ip=1; ip<world.size() + 1; ++ip){
+        for(size_t ip=1; ip<boundaries_new.size(); ++ip){
             boundaries_new[ ip ] = boundaries_new[ ip - 1 ] + ds;
         }
 
@@ -130,7 +130,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             auto key = sfc_keys[ cell ];
 
             // optimize using bisect - find proc that should have this cell
-            for( size_t ip=0; ip<world.size(); ++ip ){
+            for( size_t ip=0; ip< static_cast<size_t>( world.size() ); ++ip ){
                 if( key >= boundaries_new[ ip ] &&  key < boundaries_new[ ip + 1 ] ){
                     flags[ cell ] = static_cast<int>( ip );
 
@@ -155,7 +155,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         // /* ---------------------------------------------------------------------------------------------------------- */
 
         CellList_t new_cl;
-        std::vector<CellList_t> payload( world.size() );
+        std::vector<CellList_t> payload( static_cast<size_t>( world.size() ) );
 
         samurai::for_each_cell( mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ){
         
@@ -164,9 +164,9 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                 if constexpr ( Mesh_t::dim == 2 ){ new_cl[ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
                 if constexpr ( Mesh_t::dim == 3 ){ new_cl[ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }                        
             }else{
-                if constexpr ( Mesh_t::dim == 1 ){ payload[ flags[ cell ] ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 2 ){ payload[ flags[ cell ] ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 3 ){ payload[ flags[ cell ] ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
+                if constexpr ( Mesh_t::dim == 1 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
+                if constexpr ( Mesh_t::dim == 2 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
+                if constexpr ( Mesh_t::dim == 3 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
             } 
 
         });
@@ -182,7 +182,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             world.send( iproc, 17, reqExchg );
 
             if( reqExchg == 1 ) {
-                CellArray_t to_send = { payload[ iproc ], false };
+                CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
                 world.send( iproc, 17, to_send );
             }
             
@@ -218,7 +218,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
     template <class Mesh_t>
     Mesh_t load_balance_impl( Mesh_t & mesh )
     {
-        using inter_t     = samurai::Interval<int, long long>;
         using CellList_t  = typename Mesh_t::cl_type;
         using CellArray_t = samurai::CellArray<dim>;
 
@@ -241,7 +240,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         logs << fmt::format("\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName() ) << std::endl;
 
         SFC_key_t mink = std::numeric_limits<SFC_key_t>::max(), maxk = std::numeric_limits<SFC_key_t>::min();
-        size_t ncells = 0;
         samurai::for_each_cell( mesh[ Mesh_t::mesh_id_t::cells ], [&]( const auto & cell ) {
 
             // this is where things can get nasty, we expect indices to be positive values !!
@@ -267,28 +265,27 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             mink = std::min( mink, key );
             maxk = std::max( maxk, key ); 
 
-            ncells ++;
-
         });
 
-        assert( ncells == sfc_map.size() );
+        assert( mesh.nb_cells( Mesh_t::mesh_id_t::cells ) == sfc_map.size() );
 
         size_t ncells_tot = 0, dc = 0;
         std::vector<size_t> nbCellsPerProc;
-        std::vector<size_t> globIdx( world.size() + 1, 0 ), globIdxNew( world.size() + 1, 0 );
+        std::vector<size_t> globIdx( static_cast<size_t>( world.size() + 1 ) );
+        std::vector<size_t> globIdxNew( static_cast<size_t>( world.size() + 1 ) );
         boost::mpi::all_gather( world, mesh.nb_cells( Mesh_t::mesh_id_t::cells ), nbCellsPerProc );
 
         logs << "\t\t> Number of cells : " << mesh.nb_cells( Mesh_t::mesh_id_t::cells ) << std::endl;
 
-        for(size_t i=0; i<world.size(); ++i){
+        for(size_t i=0; i<static_cast<size_t>( world.size() ); ++i){
             globIdx[ i + 1 ] = globIdx[ i ] + nbCellsPerProc[ i ];
             ncells_tot += nbCellsPerProc[ i ];
         }
-        dc = ncells_tot / world.size();
+        dc = ncells_tot / static_cast<size_t>( world.size() );
 
         // load balanced globIdx
         globIdxNew[ 0 ] = 0;
-        for(size_t i=0; i<world.size(); ++i){
+        for(size_t i=0; i<static_cast<size_t>( world.size() ); ++i){
             globIdxNew[ i + 1 ] = globIdxNew[ i ] + dc;
         }
 
@@ -306,13 +303,13 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         }   
 
         int start = 0;
-        while( globIdx[ world.rank() ] >= ( start + 1 ) * dc ){
+        while( globIdx[ static_cast<size_t>( world.rank() ) ] >= static_cast<size_t>( start + 1 ) * dc ){
             start ++;
         }
 
         logs << "\t\t> Start @ rank " << start << std::endl;
 
-        size_t count = globIdx[ world.rank() ];
+        size_t count = globIdx[ static_cast<size_t>( world.rank() ) ];
         for( auto & it : sfc_map ) {
 
             if( count >= ( start + 1 ) * dc ){
@@ -350,7 +347,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         // /* ---------------------------------------------------------------------------------------------------------- */
 
         CellList_t new_cl;
-        std::vector<CellList_t> payload( world.size() );
+        std::vector<CellList_t> payload( static_cast<size_t>( world.size() ) );
 
         samurai::for_each_cell( mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ){
         
@@ -359,12 +356,15 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                 if constexpr ( Mesh_t::dim == 2 ){ new_cl[ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
                 if constexpr ( Mesh_t::dim == 3 ){ new_cl[ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }                        
             }else{
-                if constexpr ( Mesh_t::dim == 1 ){ payload[ flags[ cell ] ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 2 ){ payload[ flags[ cell ] ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 3 ){ payload[ flags[ cell ] ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
+                assert( static_cast<size_t>( flags[ cell ] ) < payload.size() );
+                if constexpr ( Mesh_t::dim == 1 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
+                if constexpr ( Mesh_t::dim == 2 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
+                if constexpr ( Mesh_t::dim == 3 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
             } 
 
         });
+
+        std::vector<int> req_send( world.size(), 0 ), req_recv( world.size(), 0 );
 
         for( int iproc=0; iproc<world.size(); ++iproc ){
             if( iproc == world.rank() ) continue;
@@ -372,36 +372,58 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             int reqExchg;
             comm.find( iproc ) != comm.end() ? reqExchg = 1 : reqExchg = 0;
 
-            // logs << fmt::format("\t\t\t\t> send {} to # {}", reqExchg, iproc ) << std::endl;
+            req_send[ iproc ] = reqExchg;
+
+            logs << fmt::format("\t\t\t\t> send {} to # {}", reqExchg, iproc ) << std::endl;
             world.send( iproc, 17, reqExchg );
 
-            if( reqExchg == 1 ) {
-                CellArray_t to_send = { payload[ iproc ], false };
-                world.send( iproc, 17, to_send );
-            }
+            // if( reqExchg == 1 ) {
+            //     CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
+            //     world.send( iproc, 17, to_send );
+            // }
             
         }
+
+        logs << "\t> # Data sent to processes .... #" << std::endl;
 
         for( int iproc=0; iproc<world.size(); ++iproc ){
 
             if( iproc == world.rank() ) continue;
 
             int reqExchg = 0;
-            world.recv( iproc, 17, reqExchg );
+            // world.recv( iproc, 17, reqExchg );
+            world.recv( iproc, 17, req_recv[ iproc ] );
 
-            // logs << fmt::format("\t\t\t\t> recv {} to # {}", reqExchg, iproc ) << std::endl;
+            logs << fmt::format("\t\t\t\t> recv {} from # {}", reqExchg, iproc ) << std::endl;
 
-            if( reqExchg == 1 ) {
+            // if( reqExchg == 1 ) {
+            //     CellArray_t to_rcv;
+            //     world.recv( iproc, 17, to_rcv );
+
+            //     samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
+            //         new_cl[ level ][ index ].add_interval( interval );
+            //     });
+            // }
+            
+        }
+
+        for(size_t iproc=0; iproc<world.size(); ++iproc){
+            if( iproc == world.rank() ) continue ;
+
+            if( req_send[ iproc ] == 1 ){
+                CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
+                world.send( iproc, 17, to_send );
+            }
+
+            if( req_recv[ iproc ] == 1 ) {
                 CellArray_t to_rcv;
                 world.recv( iproc, 17, to_rcv );
-
+                
                 samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
                     new_cl[ level ][ index ].add_interval( interval );
                 });
             }
-            
         }
-
 
         // /* ---------------------------------------------------------------------------------------------------------- */
         // /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
