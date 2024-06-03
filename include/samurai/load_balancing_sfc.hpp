@@ -364,7 +364,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
         });
 
-        std::vector<int> req_send( world.size(), 0 ), req_recv( world.size(), 0 );
+        std::vector<int> req_send( static_cast<size_t>( world.size() ), 0 ), req_recv( static_cast<size_t>( world.size() ), 0 );
 
         for( int iproc=0; iproc<world.size(); ++iproc ){
             if( iproc == world.rank() ) continue;
@@ -372,9 +372,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             int reqExchg;
             comm.find( iproc ) != comm.end() ? reqExchg = 1 : reqExchg = 0;
 
-            req_send[ iproc ] = reqExchg;
+            req_send[ static_cast<size_t>( iproc ) ] = reqExchg;
 
-            logs << fmt::format("\t\t\t\t> send {} to # {}", reqExchg, iproc ) << std::endl;
             world.send( iproc, 17, reqExchg );
 
             // if( reqExchg == 1 ) {
@@ -392,9 +391,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
             int reqExchg = 0;
             // world.recv( iproc, 17, reqExchg );
-            world.recv( iproc, 17, req_recv[ iproc ] );
-
-            logs << fmt::format("\t\t\t\t> recv {} from # {}", reqExchg, iproc ) << std::endl;
+            world.recv( iproc, 17, req_recv[ static_cast<size_t>( iproc ) ] );
 
             // if( reqExchg == 1 ) {
             //     CellArray_t to_rcv;
@@ -407,15 +404,15 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             
         }
 
-        for(size_t iproc=0; iproc<world.size(); ++iproc){
+        for(int iproc=0; iproc<world.size(); ++iproc){
             if( iproc == world.rank() ) continue ;
 
-            if( req_send[ iproc ] == 1 ){
+            if( req_send[ static_cast<size_t>( iproc ) ] == 1 ){
                 CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
                 world.send( iproc, 17, to_send );
             }
 
-            if( req_recv[ iproc ] == 1 ) {
+            if( req_recv[ static_cast<size_t>( iproc ) ] == 1 ) {
                 CellArray_t to_rcv;
                 world.recv( iproc, 17, to_rcv );
                 
@@ -539,7 +536,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                 CellList_t cl_to_send;
 
                 // give n-smallest morton keys to prev neighbour
-                size_t niter_send = 0;
                 for (auto iter = sfc_map.begin(); iter != sfc_map.end(); ++iter)
                 {
                     if (transfer_load_prev < 0 && my_load_i > 0)
@@ -548,7 +544,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                         iter->second.given = true; // flag "interval" has been sent
                         my_load_i -= 1;
                         transfer_load_prev += 1;
-                        niter_send++;
                     }
                     else
                     {
@@ -592,7 +587,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                 CellList_t cl_to_send;
 
                 // give n-smallest morton keys to prev neighbour
-                size_t niter_send = 0;
                 for (auto iter = sfc_map.rbegin(); iter != sfc_map.rend(); ++iter)
                 {
                     if (transfer_load_next < 0 && my_load_i > 0)
@@ -601,7 +595,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                         iter->second.given = true;
                         my_load_i -= 1;
                         transfer_load_next += 1;
-                        niter_send++;
                     }
                     else
                     {
