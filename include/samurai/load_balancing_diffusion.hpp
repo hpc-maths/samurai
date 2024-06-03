@@ -173,7 +173,7 @@ namespace Load_balancing{
                     bool empty = false;
                     {
                         size_t iii = 0;
-                        samurai::for_each_interval( interface, [&](const auto & level, const auto & i, const auto ii ){
+                        samurai::for_each_interval( interface, [&]( [[maybe_unused]] size_t level, [[maybe_unused]] const auto & i, [[maybe_unused]] const auto & ii ){
                             iii ++;
                         });
                         if( iii == 0 ) empty = true;
