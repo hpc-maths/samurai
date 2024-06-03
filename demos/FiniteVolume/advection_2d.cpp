@@ -21,6 +21,7 @@
 #include <samurai/load_balancing_diffusion.hpp>
 #include <samurai/load_balancing_diffusion_cell.hpp>
 #include <samurai/load_balancing_diffusion_interval.hpp>
+#include <samurai/load_balancing_void.hpp>
 
 #include <samurai/timers.hpp>
 
@@ -306,8 +307,8 @@ int main(int argc, char* argv[])
     
     const int iof = 1;
 
-    SFC_LoadBalancer_interval<dim, Hilbert> balancer;
-
+    SFC_LoadBalancer_interval<dim, Morton> balancer;
+    // Void_LoadBalancer<dim> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
     // Load_balancing::Diffusion balancer;
