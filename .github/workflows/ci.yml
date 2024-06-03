@@ -51,7 +51,7 @@ jobs:
       - name: Run cppcheck on samurai
         shell: bash -el {0}
         run: |
-          cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr --std=c++20 2> cppcheck_err.txt
+          cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
 
       - name: Check for errors
         run: |
@@ -166,8 +166,7 @@ jobs:
               -GNinja \
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
-              -DBUILD_TESTS=ON \
-              -DCMAKE_CXX_STANDARD=17
+              -DBUILD_TESTS=ON
 
       - name: Build
         shell: bash -l {0}
@@ -236,8 +235,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=Release \
               -DWITH_MPI=ON \
               -DBUILD_DEMOS=ON \
-              -DBUILD_TESTS=ON \
-              -DCMAKE_CXX_STANDARD=17
+              -DBUILD_TESTS=ON
 
       - name: Build
         shell: bash -l {0}
@@ -295,8 +293,7 @@ jobs:
               -GNinja \
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_DEMOS=ON \
-              -DBUILD_TESTS=ON \
-              -DCMAKE_CXX_STANDARD=17
+              -DBUILD_TESTS=ON
 
       - name: Build
         shell: bash -l {0}
