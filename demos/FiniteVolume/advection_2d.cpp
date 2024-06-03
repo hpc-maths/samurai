@@ -54,7 +54,7 @@ auto init(Mesh& mesh, const double radius, const double x_center, const double y
 }
 
 template <std::size_t dim, class Mesh>
-auto init(Mesh& mesh, const std::vector<double> & radius, const std::vector<double> & xcenters, const std::vector<double> & ycenters )
+auto init(Mesh& mesh, const std::vector<double> & radius, const std::vector<double> & rcenters )
 {
     auto u = samurai::make_field<double, 1>("u", mesh);
 
@@ -67,7 +67,12 @@ auto init(Mesh& mesh, const std::vector<double> & radius, const std::vector<doub
             auto center = cell.center();
 
             for(std::size_t nc=0; nc<radius.size(); ++nc ){
-                double dist = ((center[0] - xcenters[nc]) * (center[0] - xcenters[nc]) + (center[1] - ycenters[nc]) * (center[1] - ycenters[nc]));
+
+                double dist = 0;
+                for(size_t idim=0; idim<dim; ++idim) {
+                    size_t id = nc * dim + idim;
+                    dist += (center[ idim ] - rcenters[ id ]) * (center[ idim ] - rcenters[ id ]);
+                }
 
                 if ( dist <= radius[nc] * radius[nc] )
                 {
@@ -239,7 +244,7 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
     std::size_t nfiles   = 10;
-    int nt_loadbalance = 10; // nombre d'iteratio entre les equilibrages
+    std::size_t nt_loadbalance = 10; // nombre d'iteratio entre les equilibrages
 
     CLI::App app{"Finite volume example for the advection equation in 2d "
                  "using multiresolution"};
@@ -278,19 +283,17 @@ int main(int argc, char* argv[])
     const double dt_save = Tf / static_cast<double>(nfiles);
     double t             = 0.;
 
-    std::vector<double> xcenters, ycenters, radii;
-    xcenters.emplace_back( x_center );
-    ycenters.emplace_back( y_center );
+    std::vector<double> rcenters, radii;
+    rcenters.emplace_back( x_center );
+    rcenters.emplace_back( y_center );
     radii.emplace_back( radius );
 
-    // xcenters = { 0.3, 1., 2.3 };
-    // ycenters = { 0.3, 1.4, 3. };
-    // radii    = { 0.2, 0.23, 0.3 };
-    xcenters = { 1., 3., 1. };
-    ycenters = { 1., 1., 3. };
+    rcenters = { 1., 1., 
+                 1., 3.,
+                 1., 3. };
     radii    = { 0.2, 0.2, 0.2 };
 
-    auto u = init<dim>(mesh, radii, xcenters, ycenters);
+    auto u = init<dim>(mesh, radii, rcenters);
 
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
@@ -351,7 +354,7 @@ int main(int argc, char* argv[])
 
         if (correction)
         {
-            flux_correction(dt, a, u, unp1);
+            // flux_correction(dt, a, u, unp1);
         }
 
         std::swap(u.array(), unp1.array());
