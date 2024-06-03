@@ -64,7 +64,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
         SFC_key_t mink = std::numeric_limits<SFC_key_t>::max(), maxk = std::numeric_limits<SFC_key_t>::min();
 
-        size_t ncells = 0;
         samurai::for_each_cell(mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ) {
 
             // this is where things can get nasty, we expect indices to be positive values !!
@@ -82,8 +81,6 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             
             mink = std::min( key, mink );
             maxk = std::max( key, maxk );
-
-            ncells ++;
 
         });
 
@@ -376,32 +373,13 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
             world.send( iproc, 17, reqExchg );
 
-            // if( reqExchg == 1 ) {
-            //     CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
-            //     world.send( iproc, 17, to_send );
-            // }
-            
         }
 
         logs << "\t> # Data sent to processes .... #" << std::endl;
 
         for( int iproc=0; iproc<world.size(); ++iproc ){
-
             if( iproc == world.rank() ) continue;
-
-            int reqExchg = 0;
-            // world.recv( iproc, 17, reqExchg );
-            world.recv( iproc, 17, req_recv[ static_cast<size_t>( iproc ) ] );
-
-            // if( reqExchg == 1 ) {
-            //     CellArray_t to_rcv;
-            //     world.recv( iproc, 17, to_rcv );
-
-            //     samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
-            //         new_cl[ level ][ index ].add_interval( interval );
-            //     });
-            // }
-            
+            world.recv( iproc, 17, req_recv[ static_cast<size_t>( iproc ) ] );            
         }
 
         for(int iproc=0; iproc<world.size(); ++iproc){
@@ -458,7 +436,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
          
         logs << fmt::format("\t\t> Computing SFC ({}) 1D indices (interval) ... ", _sfc.getName() ) << std::endl;
 
-        size_t ninterval = 0;
+        [[maybe_unused]] size_t ninterval = 0;
         samurai::for_each_interval(mesh, [&]( std::size_t level, const auto & inter, const auto & index ) {
             // get Logical coordinate or first cell
             xt::xtensor_fixed<int, xt::xshape<dim>> icell;

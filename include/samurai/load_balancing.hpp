@@ -270,7 +270,6 @@ namespace samurai
         for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
         {
             std::size_t neighbour_rank = static_cast<std::size_t>( neighbourhood[ n_i ] );
-            int neighbour_load         = loads[neighbour_rank];
             int abs_diff               = std::abs( fluxes[ n_i ] );
             int threshold_neigh        = static_cast<int>( load_balancing_threshold * loads[ neighbour_rank ] );
             int threshold_curr         = static_cast<int>( load_balancing_threshold * my_load ); 
@@ -465,8 +464,6 @@ namespace samurai
             std::vector<boost::mpi::request> req;
             std::vector<std::vector<value_t>> to_send( static_cast<size_t>( world.size() ) );
 
-            std::size_t i_neigh = 0;
-
             // FIXME: this is overkill and will not scale
             std::vector<Mesh_t> all_new_meshes, all_old_meshes;
             boost::mpi::all_gather( world, new_mesh, all_new_meshes );
@@ -499,7 +496,6 @@ namespace samurai
                     // neighbour_rank = neighbour.rank;
                     auto neighbour_rank = static_cast<int>( ni );
                     req.push_back( world.isend( neighbour_rank, neighbour_rank, to_send[ ni ] ) );
-                    // i_neigh ++;
 
                     logs << fmt::format("\t> [LoadBalancer]::update_field send data to rank # {}", neighbour_rank ) << std::endl;
                 }
