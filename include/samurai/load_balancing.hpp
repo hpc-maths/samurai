@@ -113,7 +113,10 @@ namespace samurai
         None
     };
 
-    static const double load_balancing_threshold = 0.03141592; // 2.5 % 
+    static const double load_balancing_threshold = 0.03141592; // 2.5 %
+    // static const std::vector<double> load_balancing_cell_weight = { 1., 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625, 
+    //                                                                 0.0078125, 0.00390625, 0.001953125, 0.0009765625,
+    //                                                                 0.00048828125, 0.000244140625, 0.0001220703125 };
 
     /**
      * Compute distance base on different norm.
@@ -172,7 +175,7 @@ namespace samurai
             samurai::for_each_interval(current_mesh,
                                        [&]([[maybe_unused]] std::size_t level, const auto& interval, [[maybe_unused]] const auto& index)
                                        {
-                                           current_process_load += interval.size();
+                                           current_process_load += interval.size(); // * load_balancing_cell_weight[ level ];
                                        });
         }
         else
@@ -364,7 +367,6 @@ namespace samurai
         for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
         {
             std::size_t neighbour_rank = static_cast<std::size_t>( neighbourhood[ n_i ].rank );
-            int neighbour_load         = loads[neighbour_rank];
             int abs_diff               = std::abs( fluxes[ n_i ] );
             int threshold_neigh        = static_cast<int>( load_balancing_threshold * loads[ neighbour_rank ] );
             int threshold_curr         = static_cast<int>( load_balancing_threshold * my_load ); 
@@ -461,7 +463,7 @@ namespace samurai
             }
 
             std::vector<boost::mpi::request> req;
-            std::vector<std::vector<value_t>> to_send(world.size());
+            std::vector<std::vector<value_t>> to_send( static_cast<size_t>( world.size() ) );
 
             std::size_t i_neigh = 0;
 
@@ -474,7 +476,7 @@ namespace samurai
             // for (auto& neighbour : new_mesh.mpi_neighbourhood())
             for( size_t ni=0; ni<all_new_meshes.size(); ++ni )
             {
-                if( ni == world.rank() ) continue;
+                if( static_cast<int>( ni ) == world.rank() ) continue;
 
                 // auto & neighbour_new_mesh = neighbour.mesh;
                 auto & neighbour_new_mesh = all_new_meshes[ ni ];
@@ -495,7 +497,7 @@ namespace samurai
                 if (to_send[ni].size() != 0)
                 {
                     // neighbour_rank = neighbour.rank;
-                    auto neighbour_rank = ni;
+                    auto neighbour_rank = static_cast<int>( ni );
                     req.push_back( world.isend( neighbour_rank, neighbour_rank, to_send[ ni ] ) );
                     // i_neigh ++;
 
@@ -508,7 +510,7 @@ namespace samurai
             // build payload of field that I need to receive from neighbour, so compare NEW mesh with OLD neighbour mesh 
             for (size_t ni=0; ni<all_old_meshes.size(); ++ni )
             {
-                if( ni == world.rank() ) continue;
+                if( static_cast<int>( ni ) == world.rank() ) continue;
 
                 bool isintersect = false;
                 for (std::size_t level = min_level; level <= max_level; ++level)
@@ -516,7 +518,6 @@ namespace samurai
                     if (!new_mesh[mesh_id_t::cells][level].empty() && !all_old_meshes[ ni ][mesh_id_t::cells][level].empty())
                     {
                         std::vector<value_t> to_recv;
-                        std::ptrdiff_t count = 0;
 
                         auto in_interface = intersection( all_old_meshes[ ni ][mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
 
@@ -537,7 +538,7 @@ namespace samurai
                 {
                     std::ptrdiff_t count = 0;
                     std::vector<value_t> to_recv;
-                    world.recv( ni, world.rank(), to_recv);
+                    world.recv( static_cast<int>( ni ), world.rank(), to_recv);
 
                     for (std::size_t level = min_level; level <= max_level; ++level)
                     {
