@@ -12,3 +12,4 @@ dependencies:
   - cli11
   - pytest
   - h5py
+  - cgal
