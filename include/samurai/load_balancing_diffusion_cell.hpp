@@ -97,9 +97,10 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             auto interface = samurai::_computeCartesianInterface<dim, samurai::Direction_t::FACE_AND_DIAG>( mesh );
 
             std::vector<size_t> ncells_interface ( interface.size(), 0 );
-            for(int ni=0; ni<interface.size(); ni++){
+            for(size_t ni=0; ni<interface.size(); ni++){
                 CellArray_t _tmp = { interface[ ni ] };
-                samurai::for_each_interval( _tmp, [&](std::size_t level, const auto & interval, const auto & index ){
+                samurai::for_each_interval( _tmp, [&]([[maybe_unused]] std::size_t level, [[maybe_unused]] const auto & interval, 
+                                                      [[maybe_unused]] const auto & index ){
                     ncells_interface[ ni ] ++;
                 });
             }
@@ -153,7 +154,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 double coeff_current = currentSV / loads[ static_cast<size_t>( world.rank() ) ];
                 double winner_dist = samurai::getDistance<dim, fdist>( cc, barycenter ) * coeff_current;
 
-                std::vector<size_t> mload( world.size(), 0 );
+                std::vector<size_t> mload( static_cast<size_t>( world.size() ), 0 );
 
                 // select the neighbour
                 for( std::size_t ni=0; ni<n_neighbours; ++ni ){ // for each neighbour
