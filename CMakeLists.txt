@@ -1,5 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
 
+# Set version
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/version.txt")
+  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/version.txt" SAMURAI_VERSION)
+  string(STRIP "${SAMURAI_VERSION}" SAMURAI_VERSION)
+else()
+  message(FATAL_ERROR "File ${CMAKE_CURRENT_SOURCE_DIR}/version.txt not found")
+endif()
+
+project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
+
 if (NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,13 +21,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-# Set version
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/version.txt")
-  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/version.txt" SAMURAI_VERSION)
-  string(STRIP "${SAMURAI_VERSION}" SAMURAI_VERSION)
-else()
-  message(FATAL_ERROR "File ${CMAKE_CURRENT_SOURCE_DIR}/version.txt not found")
-endif()
 
 # Add project_options v0.33.0
 # https://github.com/aminya/project_options
@@ -52,7 +55,6 @@ set(FLUX_CONTAINER_LIST array xtensor)
 set(FLUX_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FLUX_CONTAINER_LIST}")
 set_property(CACHE FLUX_CONTAINER PROPERTY STRINGS ${FLUX_CONTAINER_LIST})
 
-project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
 SET(FEATURES)
 
