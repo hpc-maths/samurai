@@ -11,16 +11,6 @@ class SamuraiConan(ConanFile):
         "build_demos": False,
         "build_tests": False,
     }
-    requires = [
-        "xtensor/0.24.7",
-        "highfive/2.9.0",
-        "hdf5/1.14.3",
-        "pugixml/1.14",
-        "cli11/2.4.2",
-        "cxxopts/3.2.0",
-        "fmt/10.2.1",
-        "rapidcheck/cci.20230815"
-    ]
     generators = ["CMakeDeps", "CMakeToolchain"]
     default_options = {
         "hdf5/*:shared": False,
@@ -34,6 +24,14 @@ class SamuraiConan(ConanFile):
         cmake_layout(self)
 
     def requirements(self):
+        self.requires("xtensor/0.24.7")
+        self.requires("highfive/2.9.0")
+        self.requires("hdf5/1.14.3")
+        self.requires("pugixml/1.14")
+        self.requires("cli11/2.4.2")
+        self.requires("cxxopts/3.2.0")
+        self.requires("fmt/10.2.1")
+        self.requires("rapidcheck/cci.20230815")
         if self.options.build_demos:
             self.requires("cgal/5.6.1")
         if self.options.build_tests:
