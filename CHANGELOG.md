@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.14.0](https://github.com/hpc-maths/samurai/compare/v0.13.0...v0.14.0) (2024-05-23)
+
+
+### Features
+
+* Jacobian matrix for the flux-based operators ([#202](https://github.com/hpc-maths/samurai/issues/202)) ([95c2877](https://github.com/hpc-maths/samurai/commit/95c28778832989dd94a538b50da2e01940d08769))
+* OpenMP for independent Newton solvers ([#201](https://github.com/hpc-maths/samurai/issues/201)) ([712a490](https://github.com/hpc-maths/samurai/commit/712a4900d36bbf8e059760235b59120e8eee16a3))
+
+
+### Bug Fixes
+
+* add fmt:: prefix to function `format_to` ([#204](https://github.com/hpc-maths/samurai/issues/204)) ([2b665ac](https://github.com/hpc-maths/samurai/commit/2b665ac347cba4603c8ec417df93278875c70e68))
+* fix row_shift and col_shift for monolithic assembly of an operator sum ([#205](https://github.com/hpc-maths/samurai/issues/205)) ([f44995f](https://github.com/hpc-maths/samurai/commit/f44995fc91636b21cda1366afa0751ade673c4a9))
+
 ## [0.13.0](https://github.com/hpc-maths/samurai/compare/v0.12.0...v0.13.0) (2024-05-06)
 
 
