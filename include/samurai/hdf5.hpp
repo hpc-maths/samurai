@@ -93,7 +93,7 @@ namespace samurai
         {
             std::size_t index = 0;
             for_each_cell(submesh,
-                          [&](auto cell)
+                          [&](const auto & cell)
                           {
                               if constexpr (Field::size == 1)
                               {
@@ -136,7 +136,7 @@ namespace samurai
         std::size_t id    = 0;
         std::size_t index = 0;
         for_each_cell(mesh,
-                      [&](auto cell)
+                      [&](const auto & cell)
                       {
                           std::array<double, dim> a;
                           auto start_corner = cell.corner();
