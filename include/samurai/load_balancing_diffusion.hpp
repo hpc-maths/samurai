@@ -15,11 +15,6 @@ namespace Load_balancing{
             int _ndomains;
             int _rank;
 
-            template<class Mesh_t, class Stencil, class Field_t>  
-            void propagate( const Mesh_t & mesh, const Stencil & dir, Field_t & field, int value, int &given ) const {
-
-            }
-
         public:
 
             Diffusion() {
@@ -187,10 +182,9 @@ namespace Load_balancing{
                     {
                         size_t nCellsAtInterfaceGiven = 0, nCellsAtInterface = 0;
                         for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
-                            size_t nIntervalAtInterface = 0;
+                            
                             auto intersect = samurai::intersection( interface[ interface.min_level() ], mesh[ mesh_id_t::cells ][ level ] ).on( level ); // need handle level difference here !
                             intersect( [&]( [[maybe_unused]] const auto & interval, [[maybe_unused]] const auto & index ){
-                                nIntervalAtInterface += 1;
                                 for(size_t ii=0; ii<interval.size(); ++ii){
                                     if( flags( level, interval, index )[ ii ] == world.rank() )
                                     {
