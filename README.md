@@ -47,6 +47,7 @@ Samurai also offers a flexible and pleasant interface to easily implement numeri
 - [Features](#features)
 - [Installation](#installation)
   - [From conda](#from-conda)
+  - [From Conan Center](#from-conan-center)
   - [From source](#from-source)
 - [Get help](#get-help)
 - [Project assistance](#project-assistance)
