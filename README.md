@@ -47,6 +47,7 @@ Samurai also offers a flexible and pleasant interface to easily implement numeri
 - [Features](#features)
 - [Installation](#installation)
   - [From conda](#from-conda)
+  - [From Conan Center](#from-conan-center)
   - [From source](#from-source)
 - [Get help](#get-help)
 - [Project assistance](#project-assistance)
@@ -231,6 +232,14 @@ And finally, if you have to use PETSc to assemble the matrix of your problem, yo
 
 ```bash
 mamba install petsc pkg-config
+```
+
+### From Conan Center
+
+If you want to install samurai from Conan, you can use the following command:
+
+```bash
+conan install --requires=samurai/0.13.0
 ```
 
 ### From source
