@@ -615,6 +615,85 @@ namespace samurai
 
         }
 
+        // const field_t & not possible with flags[ cell ] why ? 
+        template<class Mesh_t, class Field_t>
+        Mesh_t update_mesh( Mesh_t & mesh, Field_t & flags ) {
+
+            using CellList_t  = typename Mesh_t::cl_type;
+            using CellArray_t = typename Mesh_t::ca_type;
+
+            boost::mpi::communicator world;
+
+            CellList_t new_cl;
+            std::vector<CellList_t> payload( static_cast<size_t>( world.size() ) );
+
+            std::map<int, bool> comm;
+
+            // build cell list for the current process && cells lists of cells for other processes
+            samurai::for_each_cell( mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ){
+            
+                if( flags[ cell ] == world.rank() ){
+                    if constexpr ( Mesh_t::dim == 1 ){ new_cl[ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
+                    if constexpr ( Mesh_t::dim == 2 ){ new_cl[ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
+                    if constexpr ( Mesh_t::dim == 3 ){ new_cl[ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }                        
+                }else{
+                    assert( static_cast<size_t>( flags[ cell ] ) < payload.size() );
+
+                    if( comm.find( flags[ cell ] ) == comm.end() ) {
+                        comm[ flags[ cell ] ] = true;
+                    }
+
+                    if constexpr ( Mesh_t::dim == 1 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
+                    if constexpr ( Mesh_t::dim == 2 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
+                    if constexpr ( Mesh_t::dim == 3 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
+                } 
+
+            });
+
+            std::vector<int> req_send( static_cast<size_t>( world.size() ), 0 ), req_recv( static_cast<size_t>( world.size() ), 0 );
+
+            // Required to know communication pattern
+            for( int iproc=0; iproc<world.size(); ++iproc ){
+                if( iproc == world.rank() ) continue;
+
+                int reqExchg;
+                comm.find( iproc ) != comm.end() ? reqExchg = 1 : reqExchg = 0;
+
+                req_send[ static_cast<size_t>( iproc ) ] = reqExchg;
+
+                world.send( iproc, 17, reqExchg );
+
+            }
+
+            for( int iproc=0; iproc<world.size(); ++iproc ){
+                if( iproc == world.rank() ) continue;
+                world.recv( iproc, 17, req_recv[ static_cast<size_t>( iproc ) ] );            
+            }
+
+            // actual data echange between processes that need to exchange data
+            for(int iproc=0; iproc<world.size(); ++iproc){
+                if( iproc == world.rank() ) continue ;
+
+                if( req_send[ static_cast<size_t>( iproc ) ] == 1 ){
+                    CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
+                    world.send( iproc, 17, to_send );
+                }
+
+                if( req_recv[ static_cast<size_t>( iproc ) ] == 1 ) {
+                    CellArray_t to_rcv;
+                    world.recv( iproc, 17, to_rcv );
+                    
+                    samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
+                        new_cl[ level ][ index ].add_interval( interval );
+                    });
+                }
+            }
+            
+            Mesh_t new_mesh( new_cl, mesh );
+
+            return new_mesh;
+        }
+
         template <class Mesh_t, class Field_t, class... Fields>
         void load_balance(Mesh_t & mesh, Field_t& field, Fields&... kw)
         {
@@ -631,7 +710,11 @@ namespace samurai
             }
 
             // specific load balancing strategy
-            auto new_mesh = static_cast<Flavor*>(this)->load_balance_impl( field.mesh() );
+            // auto new_mesh = static_cast<Flavor*>(this)->load_balance_impl( field.mesh() );
+            
+            auto flags = static_cast<Flavor*>(this)->load_balance_impl( field.mesh() );
+
+            auto new_mesh = update_mesh( mesh, flags );
 
             // update each physical field on the new load balanced mesh
             SAMURAI_TRACE("[LoadBalancer::load_balance]::Updating fields ... ");
