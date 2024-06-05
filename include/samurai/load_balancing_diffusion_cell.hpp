@@ -20,7 +20,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 
                 double s = 1.;
 
-                for(int idim=0; idim<dim; ++idim){
+                for(int idim=0; idim<Mesh_t::dim; ++idim){
                    s *= samurai::cell_length( cell.level );
                 }
 
@@ -51,7 +51,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
         }
 
         template<class Mesh_t>
-        Mesh_t load_balance_impl( Mesh_t & mesh ){
+        auto load_balance_impl( Mesh_t & mesh ){
 
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
             using CellList_t      = typename Mesh_t::cl_type;
@@ -119,6 +119,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 // barycenter_interface_neighbours[ nbi ] = _cmpCellBarycenter<dim>( interface[ nbi ] );
                 barycenter_neighbours[ nbi ] = samurai::_cmpCellBarycenter<dim>( neighbourhood[ nbi ].mesh[ mesh_id_t::cells ] );
                 
+                // surface or volume depending on dim
                 sv[ nbi ] = getSurfaceOrVolume( neighbourhood[ nbi ].mesh );
 
                 // debug
@@ -135,7 +136,8 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             };
 
             // build map of interval that needs to be sent. Warning, it does not work with classical std::map !!
-            std::multimap<double, Data> repartition;
+            auto flags = samurai::make_field<int, 1>("rank", mesh);
+            flags.fill( world.rank() );
 
             constexpr auto fdist = samurai::Distance_t::GRAVITY;
 
@@ -181,116 +183,12 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 }
 
                 if( winner_id >= 0 ){
-
-                    if( repartition.find( winner_dist ) != repartition.find( winner_dist ) ){
-                        std::cerr << "\t> WARNING: Key conflict for std::map !" << std::endl;
-                    }
-
-                    repartition.insert ( std::pair<double, Data>( winner_dist, Data { cell, static_cast<int>( winner_id ) } ) );
-
+                    flags[ cell ] = neighbourhood[ winner_id ].rank; 
                 }
 
             });
 
-
-            std::vector<CellList_t> cl_to_send( n_neighbours );
-            std::vector<CellArray_t> ca_to_send( n_neighbours );
-
-            // distribute intervals based on ordered distance to neighbours
-            // rank is not the rank but the offset in the neighbourhood
-            std::vector<int> given_ ( n_neighbours, 0 );
-            // for( auto & it : repartition ){
-            for( auto it = repartition.begin(); it != repartition.end(); it++ ){
-
-                std::size_t rank = static_cast<std::size_t>( it->second.rank );
-
-                // shouldn't we give it to the second closest neighbour ?!
-                if( given_[ rank ] + 1 <= ( - fluxes[ rank ] ) ){
-                    
-                    if constexpr ( dim == 3 ) {
-                        auto i = it->second.cell.indices[ 0 ];
-                        auto j = it->second.cell.indices[ 1 ];
-                        auto k = it->second.cell.indices[ 2 ];
-                        cl_to_send[ rank ][ it->second.cell.level ][ { j, k } ].add_point( i );
-                    }else{
-                        auto i = it->second.cell.indices[ 0 ];
-                        auto j = it->second.cell.indices[ 1 ];
-                        cl_to_send[ rank ][ it->second.cell.level ][ { j } ].add_point( i );
-                    }
-
-                    given_[ rank ] += 1;
-
-                }
-
-            }
-
-            for(size_t nbi=0; nbi<n_neighbours; ++nbi ) {
-                ca_to_send[ nbi ] = { cl_to_send[ nbi ], false };
-                logs << "\t\t> Number of cells to send to process # " << neighbourhood[ nbi ].rank
-                          << " : " << ca_to_send[ nbi ].nb_cells() << std::endl;
-            }
-
-            /* ---------------------------------------------------------------------------------------------------------- */
-            /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
-            /* ---------------------------------------------------------------------------------------------------------- */
-
-            CellList_t new_cl, need_remove;
-            for(size_t ni=0; ni<n_neighbours; ++ni ){
-                
-                if( fluxes [ ni ] == 0 ) continue; 
-
-                if( fluxes[ ni ] > 0 ) { // receive data
-                    samurai::CellArray<dim> to_rcv;
-                    world.recv( neighbourhood[ ni ].rank, 42, to_rcv );
-
-                    logs << "Receiving data from # " << neighbourhood[ ni ].rank
-                         << ", nbCells : " << to_rcv.nb_cells() << std::endl;
-
-                    // old strategy: modifying the current mesh - not working, breaks some internals 
-                    // mesh.merge( to_rcv );
-
-                    // new strategy: build a whole new mesh from a cl_t
-                    samurai::for_each_interval(to_rcv,
-                            [&](std::size_t level, const auto& interval, const auto& index)
-                            {
-                                new_cl[ level ][ index ].add_interval( interval );
-                            });
-
-                }else{ // send data to 
-                    world.send( neighbourhood[ ni ].rank, 42, ca_to_send[ ni ] );
-                    
-                    logs << "Sending data to # " << neighbourhood[ ni ].rank 
-                         << ", nbCells : " << ca_to_send[ ni ].nb_cells() << std::endl;
-
-                    // old strategy: modifying the current mesh - not working, breaks some internals 
-                    // mesh.remove( ca_to_send[ ni ] );
-
-                    samurai::for_each_interval(ca_to_send[ ni ],
-                            [&](std::size_t level, const auto& interval, const auto& index)
-                            {
-                                need_remove[ level ][ index ].add_interval( interval );
-                            });
-
-                }
-            }
-
-            /* ---------------------------------------------------------------------------------------------------------- */
-            /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
-            /* ---------------------------------------------------------------------------------------------------------- */
-
-            // add to new_cl interval that were not sent
-            CellArray_t need_remove_ca = { need_remove }; // to optimize
-            for( size_t level=mesh.min_level(); level<=mesh.max_level(); ++level ){
-                auto diff = samurai::difference( mesh[ mesh_id_t::cells ][ level ], need_remove_ca[ level ] );
-
-                diff([&]( auto & interval, auto & index ){
-                    new_cl[ level ][ index ].add_interval( interval );
-                });
-            }
-
-            Mesh_t new_mesh( new_cl, mesh );
-            
-            return new_mesh;
+            return flags;
         }
         
 };

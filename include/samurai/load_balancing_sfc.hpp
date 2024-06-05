@@ -89,7 +89,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         logs << "\t\t> Local key bounds [" << bounds[ 0 ] << ", " << bounds[ 1 ] << "]" << std::endl;
 
         std::vector<SFC_key_t> boundaries;
-        boost::mpi::all_gather( world, bounds.data(), bounds.size(), boundaries );
+        boost::mpi::all_gather( world, bounds.data(), static_cast<int>( bounds.size() ), boundaries );
 
         logs << "\t\t> Global key boundaries [";
         for(const auto & ik : boundaries )
@@ -213,7 +213,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
     }
 
     template <class Mesh_t>
-    Mesh_t load_balance_impl( Mesh_t & mesh )
+    auto load_balance_impl( Mesh_t & mesh )
     {
         using CellList_t  = typename Mesh_t::cl_type;
         using CellArray_t = samurai::CellArray<dim>;
@@ -343,70 +343,72 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         // /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
         // /* ---------------------------------------------------------------------------------------------------------- */
 
-        CellList_t new_cl;
-        std::vector<CellList_t> payload( static_cast<size_t>( world.size() ) );
+        // CellList_t new_cl;
+        // std::vector<CellList_t> payload( static_cast<size_t>( world.size() ) );
 
-        samurai::for_each_cell( mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ){
+        // samurai::for_each_cell( mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ){
         
-            if( flags[ cell ] == world.rank() ){
-                if constexpr ( Mesh_t::dim == 1 ){ new_cl[ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 2 ){ new_cl[ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 3 ){ new_cl[ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }                        
-            }else{
-                assert( static_cast<size_t>( flags[ cell ] ) < payload.size() );
-                if constexpr ( Mesh_t::dim == 1 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 2 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 3 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
-            } 
+        //     if( flags[ cell ] == world.rank() ){
+        //         if constexpr ( Mesh_t::dim == 1 ){ new_cl[ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
+        //         if constexpr ( Mesh_t::dim == 2 ){ new_cl[ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
+        //         if constexpr ( Mesh_t::dim == 3 ){ new_cl[ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }                        
+        //     }else{
+        //         assert( static_cast<size_t>( flags[ cell ] ) < payload.size() );
+        //         if constexpr ( Mesh_t::dim == 1 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
+        //         if constexpr ( Mesh_t::dim == 2 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
+        //         if constexpr ( Mesh_t::dim == 3 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
+        //     } 
 
-        });
+        // });
 
-        std::vector<int> req_send( static_cast<size_t>( world.size() ), 0 ), req_recv( static_cast<size_t>( world.size() ), 0 );
+        // std::vector<int> req_send( static_cast<size_t>( world.size() ), 0 ), req_recv( static_cast<size_t>( world.size() ), 0 );
 
-        for( int iproc=0; iproc<world.size(); ++iproc ){
-            if( iproc == world.rank() ) continue;
+        // for( int iproc=0; iproc<world.size(); ++iproc ){
+        //     if( iproc == world.rank() ) continue;
 
-            int reqExchg;
-            comm.find( iproc ) != comm.end() ? reqExchg = 1 : reqExchg = 0;
+        //     int reqExchg;
+        //     comm.find( iproc ) != comm.end() ? reqExchg = 1 : reqExchg = 0;
 
-            req_send[ static_cast<size_t>( iproc ) ] = reqExchg;
+        //     req_send[ static_cast<size_t>( iproc ) ] = reqExchg;
 
-            world.send( iproc, 17, reqExchg );
+        //     world.send( iproc, 17, reqExchg );
 
-        }
+        // }
 
-        logs << "\t> # Data sent to processes .... #" << std::endl;
+        // logs << "\t> # Data sent to processes .... #" << std::endl;
 
-        for( int iproc=0; iproc<world.size(); ++iproc ){
-            if( iproc == world.rank() ) continue;
-            world.recv( iproc, 17, req_recv[ static_cast<size_t>( iproc ) ] );            
-        }
+        // for( int iproc=0; iproc<world.size(); ++iproc ){
+        //     if( iproc == world.rank() ) continue;
+        //     world.recv( iproc, 17, req_recv[ static_cast<size_t>( iproc ) ] );            
+        // }
 
-        for(int iproc=0; iproc<world.size(); ++iproc){
-            if( iproc == world.rank() ) continue ;
+        // for(int iproc=0; iproc<world.size(); ++iproc){
+        //     if( iproc == world.rank() ) continue ;
 
-            if( req_send[ static_cast<size_t>( iproc ) ] == 1 ){
-                CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
-                world.send( iproc, 17, to_send );
-            }
+        //     if( req_send[ static_cast<size_t>( iproc ) ] == 1 ){
+        //         CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
+        //         world.send( iproc, 17, to_send );
+        //     }
 
-            if( req_recv[ static_cast<size_t>( iproc ) ] == 1 ) {
-                CellArray_t to_rcv;
-                world.recv( iproc, 17, to_rcv );
+        //     if( req_recv[ static_cast<size_t>( iproc ) ] == 1 ) {
+        //         CellArray_t to_rcv;
+        //         world.recv( iproc, 17, to_rcv );
                 
-                samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
-                    new_cl[ level ][ index ].add_interval( interval );
-                });
-            }
-        }
+        //         samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
+        //             new_cl[ level ][ index ].add_interval( interval );
+        //         });
+        //     }
+        // }
 
         // /* ---------------------------------------------------------------------------------------------------------- */
         // /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
         // /* ---------------------------------------------------------------------------------------------------------- */
 
-        Mesh_t new_mesh( new_cl, mesh );
+        // Mesh_t new_mesh( new_cl, mesh );
 
-        return new_mesh;
+        // return new_mesh;
+
+        return flags;
     }
 
     template <class Mesh_t>
