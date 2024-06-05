@@ -615,9 +615,8 @@ namespace samurai
 
         }
 
-        // const field_t & not possible with flags[ cell ] why ? 
         template<class Mesh_t, class Field_t>
-        Mesh_t update_mesh( Mesh_t & mesh, Field_t & flags ) {
+        Mesh_t update_mesh( Mesh_t & mesh, const Field_t & flags ) {
 
             using CellList_t  = typename Mesh_t::cl_type;
             using CellArray_t = typename Mesh_t::ca_type;
@@ -649,6 +648,11 @@ namespace samurai
                 } 
 
             });
+
+            logs << "\t\t>[Load_balancer::update_mesh] Comm required with processes : [";
+            for( const auto & it : comm )
+                logs << it.first << ",";
+            logs << "]" << std::endl;
 
             std::vector<int> req_send( static_cast<size_t>( world.size() ), 0 ), req_recv( static_cast<size_t>( world.size() ), 0 );
 
@@ -711,7 +715,7 @@ namespace samurai
 
             // specific load balancing strategy
             // auto new_mesh = static_cast<Flavor*>(this)->load_balance_impl( field.mesh() );
-            
+
             auto flags = static_cast<Flavor*>(this)->load_balance_impl( field.mesh() );
 
             auto new_mesh = update_mesh( mesh, flags );

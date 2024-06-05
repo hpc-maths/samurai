@@ -55,7 +55,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
 
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
             using CellList_t      = typename Mesh_t::cl_type;
-            using CellArray_t     = samurai::CellArray<dim>;
+            using CellArray_t     = typename Mesh_t::ca_type;
             using Cell_t          = typename Mesh_t::cell_t;
             using mesh_id_t       = typename Mesh_t::mesh_id_t;
 
@@ -183,7 +183,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 }
 
                 if( winner_id >= 0 ){
-                    flags[ cell ] = neighbourhood[ winner_id ].rank; 
+                    flags[ cell ] = neighbourhood[ static_cast<size_t>( winner_id ) ].rank; 
                 }
 
             });
