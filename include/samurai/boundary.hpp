@@ -9,6 +9,7 @@ namespace samurai
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         auto& cells  = mesh[mesh_id_t::cells][level];
+        // auto& domain = mesh.domain();
         auto& domain = mesh.subdomain();
 
         auto max_level    = domain.level(); // domain.level();//mesh[mesh_id_t::cells].max_level();

@@ -598,10 +598,16 @@ namespace samurai
         void reordering( Mesh_t & mesh, Field_t& field, Fields&... kw )
         {
             // new reordered mesh on current process + MPI exchange with others
-            auto new_mesh = static_cast<Flavor*>(this)->reordering_impl( mesh );
+            // auto new_mesh = static_cast<Flavor*>(this)->reordering_impl( mesh );
+            logs << "\t> Computing reordering flags ... " << std::endl;
+            auto flags = static_cast<Flavor*>(this)->reordering_impl( mesh );
+
+            logs << "\t> Update mesh based on flags ... " << std::endl;
+            auto new_mesh = update_mesh( mesh, flags );
 
             // update each physical field on the new reordered mesh
             SAMURAI_TRACE("[Reordering::load_balance]::Updating fields ... ");
+            logs << "\t> Update fields based on flags ... " << std::endl;
             update_fields( new_mesh, field, kw... );
 
             // swap mesh reference.
@@ -674,17 +680,25 @@ namespace samurai
                 world.recv( iproc, 17, req_recv[ static_cast<size_t>( iproc ) ] );            
             }
 
+            for( int iproc=0; iproc<world.size(); ++iproc ){
+               logs << fmt::format("Proc # {}, req_send : {}, req_recv: {} ", iproc, req_send[ static_cast<size_t>( iproc )  ], req_recv[ static_cast<size_t>( iproc ) ] ) << std::endl;;            
+            }
+
             // actual data echange between processes that need to exchange data
             for(int iproc=0; iproc<world.size(); ++iproc){
                 if( iproc == world.rank() ) continue ;
 
                 if( req_send[ static_cast<size_t>( iproc ) ] == 1 ){
                     CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
+
                     world.send( iproc, 17, to_send );
+
+                    logs << fmt::format("\t> Sending to # {}", iproc ) << std::endl;
                 }
 
                 if( req_recv[ static_cast<size_t>( iproc ) ] == 1 ) {
                     CellArray_t to_rcv;
+                    logs << fmt::format("\t> Recving from # {}", iproc ) << std::endl;
                     world.recv( iproc, 17, to_rcv );
                     
                     samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
@@ -692,7 +706,7 @@ namespace samurai
                     });
                 }
             }
-            
+
             Mesh_t new_mesh( new_cl, mesh );
 
             return new_mesh;
