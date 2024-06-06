@@ -42,7 +42,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
     *
     */
     template<class Mesh_t>
-    Mesh_t reordering_impl( Mesh_t & mesh ) {
+    auto reordering_impl( Mesh_t & mesh ) {
         using CellList_t  = typename Mesh_t::cl_type;
         using CellArray_t = samurai::CellArray<dim>;
 
@@ -71,7 +71,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             for (size_t idim = 0; idim < dim; ++idim) {
 
                 // FIX need shift to get only positive index
-                assert( cell.indices( 0 ) >= 0 );
+                assert( cell.indices( idim ) >= 0 );
                 ijk( idim ) = static_cast<uint32_t>( cell.indices( idim ) ) << ( mesh.max_level() - cell.level );
             }
 
@@ -142,74 +142,76 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
         });
 
-        logs << "\t\t> Communication for exchange required with rank : [";
-        for( const auto & it : comm )
-            logs << it.first << ",";
-        logs << "]" << std::endl;
+        // logs << "\t\t> Communication for exchange required with rank : [";
+        // for( const auto & it : comm )
+        //     logs << it.first << ",";
+        // logs << "]" << std::endl;
 
-        // /* ---------------------------------------------------------------------------------------------------------- */
-        // /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
-        // /* ---------------------------------------------------------------------------------------------------------- */
+        // // /* ---------------------------------------------------------------------------------------------------------- */
+        // // /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
+        // // /* ---------------------------------------------------------------------------------------------------------- */
 
-        CellList_t new_cl;
-        std::vector<CellList_t> payload( static_cast<size_t>( world.size() ) );
+        // CellList_t new_cl;
+        // std::vector<CellList_t> payload( static_cast<size_t>( world.size() ) );
 
-        samurai::for_each_cell( mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ){
+        // samurai::for_each_cell( mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ){
         
-            if( flags[ cell ] == world.rank() ){
-                if constexpr ( Mesh_t::dim == 1 ){ new_cl[ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 2 ){ new_cl[ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 3 ){ new_cl[ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }                        
-            }else{
-                if constexpr ( Mesh_t::dim == 1 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 2 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
-                if constexpr ( Mesh_t::dim == 3 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
-            } 
+        //     if( flags[ cell ] == world.rank() ){
+        //         if constexpr ( Mesh_t::dim == 1 ){ new_cl[ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
+        //         if constexpr ( Mesh_t::dim == 2 ){ new_cl[ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
+        //         if constexpr ( Mesh_t::dim == 3 ){ new_cl[ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }                        
+        //     }else{
+        //         if constexpr ( Mesh_t::dim == 1 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
+        //         if constexpr ( Mesh_t::dim == 2 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
+        //         if constexpr ( Mesh_t::dim == 3 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
+        //     } 
 
-        });
+        // });
 
-        // FIXME: this part involve a lot of communication since each process will communicate with all processes.
-        // This should be improved for better scalability.
-        for( int iproc=0; iproc<world.size(); ++iproc ){
-            if( iproc == world.rank() ) continue;
+        // // FIXME: this part involve a lot of communication since each process will communicate with all processes.
+        // // This should be improved for better scalability.
+        // for( int iproc=0; iproc<world.size(); ++iproc ){
+        //     if( iproc == world.rank() ) continue;
 
-            int reqExchg;
-            comm.find( iproc ) != comm.end() ? reqExchg = 1 : reqExchg = 0;
+        //     int reqExchg;
+        //     comm.find( iproc ) != comm.end() ? reqExchg = 1 : reqExchg = 0;
 
-            world.send( iproc, 17, reqExchg );
+        //     world.send( iproc, 17, reqExchg );
 
-            if( reqExchg == 1 ) {
-                CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
-                world.send( iproc, 17, to_send );
-            }
+        //     if( reqExchg == 1 ) {
+        //         CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
+        //         world.send( iproc, 17, to_send );
+        //     }
             
-        }
+        // }
 
-        for( int iproc=0; iproc<world.size(); ++iproc ){
+        // for( int iproc=0; iproc<world.size(); ++iproc ){
 
-            if( iproc == world.rank() ) continue;
+        //     if( iproc == world.rank() ) continue;
 
-            int reqExchg = 0;
-            world.recv( iproc, 17, reqExchg );
+        //     int reqExchg = 0;
+        //     world.recv( iproc, 17, reqExchg );
 
-            if( reqExchg == 1 ) {
-                CellArray_t to_rcv;
-                world.recv( iproc, 17, to_rcv );
+        //     if( reqExchg == 1 ) {
+        //         CellArray_t to_rcv;
+        //         world.recv( iproc, 17, to_rcv );
 
-                samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
-                    new_cl[ level ][ index ].add_interval( interval );
-                });
-            }
+        //         samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
+        //             new_cl[ level ][ index ].add_interval( interval );
+        //         });
+        //     }
             
-        }
+        // }
 
-        // /* ---------------------------------------------------------------------------------------------------------- */
-        // /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
-        // /* ---------------------------------------------------------------------------------------------------------- */
+        // // /* ---------------------------------------------------------------------------------------------------------- */
+        // // /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
+        // // /* ---------------------------------------------------------------------------------------------------------- */
 
-        Mesh_t new_mesh( new_cl, mesh );
+        // Mesh_t new_mesh( new_cl, mesh );
 
-        return new_mesh;
+        // return new_mesh;
+
+        return flags;
     }
 
     template <class Mesh_t>
