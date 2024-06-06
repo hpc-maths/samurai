@@ -10,6 +10,9 @@ namespace samurai
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         auto& cells = mesh[mesh_id_t::cells][level];
+        // auto& domain = mesh.domain();
+	// REBASE FIXME : I don't know if we need to override domain 
+        auto& domain = mesh.subdomain();
 
         auto max_level    = domain.level(); // domain.level();//mesh[mesh_id_t::cells].max_level();
         auto one_interval = layer_width << (max_level - level);
