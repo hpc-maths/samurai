@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <algorithm>
+
 #include <xtensor/xfixed.hpp>
 
 #include "../bc.hpp"
@@ -412,7 +414,9 @@ namespace samurai
         {
             if (world.rank() > neighbour.rank)
             {
-                for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
+                auto min_level = std::max<std::size_t>(1, mesh[mesh_id_t::reference].min_level());
+
+                for (std::size_t level = min_level; level <= max_level; ++level)
                 {
                     auto out_interface = intersection(mesh[mesh_id_t::cells][level], neighbour.mesh.subdomain()).on(level - 1);
                     out_interface(
