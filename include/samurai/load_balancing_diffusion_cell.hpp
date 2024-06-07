@@ -54,7 +54,6 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
         auto load_balance_impl( Mesh_t & mesh ){
 
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
-            using CellList_t      = typename Mesh_t::cl_type;
             using CellArray_t     = typename Mesh_t::ca_type;
             using Cell_t          = typename Mesh_t::cell_t;
             using mesh_id_t       = typename Mesh_t::mesh_id_t;
