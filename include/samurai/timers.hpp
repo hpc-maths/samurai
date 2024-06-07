@@ -18,6 +18,7 @@
 
 struct Timer{
     double start, elapsed;
+    uint32_t ntimes;
 };
 
 class Timers {
@@ -40,9 +41,9 @@ class Timers {
 
         inline void start( const std::string & tname ) { 
             if( _times.find( tname ) != _times.end() ){
-                _times.at( tname ).start = _getTime();
+                _times.at( tname ).start  = _getTime();
             } else {
-                _times.emplace( std::make_pair( tname, Timer { _getTime(), 0.0} ) );
+                _times.emplace( std::make_pair( tname, Timer { _getTime(), 0.0, 0} ) );
             }
         }
 
@@ -50,8 +51,9 @@ class Timers {
             SAMURAI_ASSERT( _times.find( tname ) != _times.end(), "[Timers::stop] Requested timer not found '" + tname + "' !" );
             if( _times.find( tname ) != _times.end() ){
                 _times.at( tname ).elapsed += ( _getTime() - _times.at( tname ).start );
+                _times.at( tname ).ntimes ++;
             } else {
-                _times.emplace( std::make_pair( tname, Timer {0.0, 0.0} ) );
+                _times.emplace( std::make_pair( tname, Timer {0.0, 0.0, 0} ) );
             }
         }
 
@@ -60,11 +62,6 @@ class Timers {
 
             boost::mpi::communicator world;
 
-            double total_ptime = 0.0;
-            for( const auto &timer : _times )
-                total_ptime += timer.second.elapsed;
-
-            double total_perc = 0.0;
             int setwSize = 20;
 
             if( world.rank() == 0 ){
@@ -72,7 +69,7 @@ class Timers {
                 std::cout << "\t" << std::setw(setwSize) << "Name " << std::setw(setwSize) << "Min time (s)"
                           << std::setw(8) << "" << std::setw(setwSize) << "Max time (s)"
                           << std::setw(8) << "" << std::setw(setwSize) << "Ave time (s)"
-                          << std::setw(setwSize) << "Std dev"
+                          << std::setw(setwSize) << "Std dev" << std::setw(setwSize) << "Calls"
                           << std::endl;
             }
 
@@ -114,21 +111,9 @@ class Timers {
                     std::cout << std::fixed << std::setprecision(5) << "\t" << std::setw(setwSize) << timer.first 
                               << std::setw(setwSize) << min << std::setw(2) << "[" << std::setw(4) << minrank << std::setw(2) << "]"
                               << std::setw(setwSize) << max << std::setw(2) << "[" << std::setw(4) << maxrank << std::setw(2) << "]"
-                              << std::setw(setwSize) << ave << std::setw(setwSize) << std 
+                              << std::setw(setwSize) << ave << std::setw(setwSize) << std << std::setw(setwSize) << timer.second.ntimes
                               << std::endl;
                 }
-
-                total_perc += timer.second.elapsed * 100.0 / total_ptime;
-            }
-
-            if( world.rank() == 0 ){
-                std::string msg = "------------------------";
-                std::cout << "\t" << std::setw(setwSize) << msg << std::setw(setwSize) << msg
-                        << std::setw(setwSize) << msg << std::endl;
-                std::cout << "\t" << std::setw(setwSize) << "Total" << std::setw(setwSize) << total_ptime
-                        << std::setw(setwSize) << total_perc << std::endl;
-
-                std::flush(std::cout);
             }
         }
 
@@ -148,7 +133,7 @@ class Timers {
             for (const auto &timer: _times) {
                 std::cout << "\t" << std::setw(setwSize) << timer.first << std::setw(setwSize)
                             << timer.second.elapsed << std::setw(setwSize) << std::setprecision(5)
-                            << timer.second.elapsed * 100.0 / total_ptime
+                            << timer.second.elapsed * 100.0 / total_ptime << timer.ntimes 
                             << std::endl;
                 total_perc += timer.second.elapsed * 100.0 / total_ptime;
             }
