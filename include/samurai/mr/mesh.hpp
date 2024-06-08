@@ -209,6 +209,19 @@ namespace samurai
                         {
                             lcl_type& lcl = cell_list[level];
                             lcl[index_yz].add_interval(interval);
+
+                            if (level > neighbour.mesh[mesh_id_t::reference].min_level())
+                            {
+                                lcl_type& lclm1 = cell_list[level - 1];
+
+                                static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                                    [&](auto stencil)
+                                    {
+                                        auto new_interval = interval >> 1;
+                                        lclm1[(index_yz >> 1) + stencil].add_interval(
+                                            {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                                    });
+                            }
                         });
                 }
             }
