@@ -531,7 +531,7 @@ namespace samurai
     template <typename... T, typename D>
     inline auto LevelCellArray<Dim, TInterval>::get_cell(value_t i, T... index) const -> cell_t
     {
-        return {m_level, i, index..., get_index(i, index...)};
+        return {m_level, i, xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>{index...}, get_index(i, index...)};
     }
 
     template <std::size_t Dim, class TInterval>
