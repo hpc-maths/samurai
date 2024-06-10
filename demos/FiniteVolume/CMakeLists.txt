@@ -27,6 +27,9 @@ if(PETSC_FOUND)
     target_link_libraries(manual_block_matrix_assembly samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
 endif()
 
+add_executable(finite-volume-linear-convection linear_convection.cpp)
+target_link_libraries(finite-volume-linear-convection samurai CLI11::CLI11 ${MPI_LIBRARIES})
+
 add_executable(finite-volume-amr-burgers-hat AMR_Burgers_Hat.cpp)
 target_link_libraries(finite-volume-amr-burgers-hat samurai CLI11::CLI11)
 
