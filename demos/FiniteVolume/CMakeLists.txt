@@ -13,9 +13,6 @@ if(PETSC_FOUND)
     add_executable(finite-volume-heat-nonlinear heat_nonlinear.cpp)
     target_link_libraries(finite-volume-heat-nonlinear samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
 
-    add_executable(finite-volume-linear-convection linear_convection.cpp)
-    target_link_libraries(finite-volume-linear-convection samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
-
     add_executable(finite-volume-stokes-2d stokes_2d.cpp)
     target_link_libraries(finite-volume-stokes-2d samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
 
@@ -28,6 +25,9 @@ if(PETSC_FOUND)
     add_executable(manual_block_matrix_assembly manual_block_matrix_assembly.cpp)
     target_link_libraries(manual_block_matrix_assembly samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
 endif()
+
+add_executable(finite-volume-linear-convection linear_convection.cpp)
+target_link_libraries(finite-volume-linear-convection samurai CLI11::CLI11 ${MPI_LIBRARIES})
 
 add_executable(finite-volume-amr-burgers-hat AMR_Burgers_Hat.cpp)
 target_link_libraries(finite-volume-amr-burgers-hat samurai CLI11::CLI11)
