@@ -114,9 +114,9 @@ int main(int argc, char* argv[])
     samurai::MRMesh<Config> mesh{box, min_level, max_level, periodic};
 
     // Initial solution
-    auto u = samurai::make_field<1>("u",
+    auto u = samurai::make_field<double, 1>("u",
                                     mesh,
-                                    [](const auto& coords)
+                                    [&](const auto& coords)
                                     {
                                         if constexpr (dim == 1)
                                         {
@@ -132,12 +132,15 @@ int main(int argc, char* argv[])
 
                                     });
 
-    // samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
-
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
-    auto u1 = samurai::make_field<1>("u1", mesh);
-    auto u2 = samurai::make_field<1>("u2", mesh);
+    auto u1 = samurai::make_field<double, 1>("u1", mesh);
+    auto u2 = samurai::make_field<double, 1>("u2", mesh);
+
+    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
+    samurai::make_bc<samurai::Dirichlet<1>>(unp1, 0.);
+    samurai::make_bc<samurai::Dirichlet<1>>(u1, 0.);
+    samurai::make_bc<samurai::Dirichlet<1>>(u2, 0.); 
 
     unp1.fill(0);
     u1.fill(0);
@@ -150,9 +153,9 @@ int main(int argc, char* argv[])
     // origin weno5
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
-    SFC_LoadBalancer_interval<dim, Morton> balancer;
+    // SFC_LoadBalancer_interval<dim, Morton> balancer;
     // Void_LoadBalancer<dim> balancer;
-    // Diffusion_LoadBalancer_cell<dim> balancer;
+    Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
     // Load_balancing::Diffusion balancer;
 
