@@ -5,8 +5,17 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc.hpp>
+#include <samurai/schemes/fv.hpp>
 #include <samurai/samurai.hpp>
+
+#include <samurai/load_balancing.hpp>
+#include <samurai/load_balancing_sfc.hpp>
+#include <samurai/load_balancing_diffusion.hpp>
+#include <samurai/load_balancing_diffusion_cell.hpp>
+#include <samurai/load_balancing_diffusion_interval.hpp>
+#include <samurai/load_balancing_void.hpp>
+
+#include <samurai/timers.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -44,6 +53,8 @@ int main(int argc, char* argv[])
 {
     samurai::initialize(argc, argv);
 
+    Timers myTimers;
+
     static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim, 3>;
     using Box                        = samurai::Box<double, dim>;
@@ -56,8 +67,8 @@ int main(int argc, char* argv[])
     //--------------------//
 
     // Simulation parameters
-    double left_box      = -1;
-    double right_box     = 1;
+    double left_box      = 0;
+    double right_box     = 4;
     std::string init_sol = "hat";
 
     // Time integration
@@ -75,6 +86,7 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "linear_convection_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 0;
+    std::size_t nt_loadbalance = 10;
 
     CLI::App app{"Finite volume example for the heat equation in 1d"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
@@ -85,6 +97,7 @@ int main(int argc, char* argv[])
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--nt-loadbalance", nt_loadbalance, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
@@ -109,7 +122,7 @@ int main(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     std::array<bool, dim> periodic;
-    periodic.fill(true);
+    periodic.fill(false);
     samurai::MRMesh<Config> mesh{box, min_level, max_level, periodic};
 
     // Initial solution
@@ -122,13 +135,21 @@ int main(int argc, char* argv[])
                                             auto& x = coords(0);
                                             return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
                                         }
-                                        else
+                                        else if ( dim == 2 )
                                         {
                                             auto& x = coords(0);
                                             auto& y = coords(1);
-                                            return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                            return (x <= 0.8 && x >= 0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                        }else {
+                                            auto & x = coords( 0 );
+                                            auto & y = coords( 1 );
+                                            auto & z = coords( 2 );
+                                            return (x <= 0.8 && x >= 0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
                                         }
+
                                     });
+
+    // samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
     auto unp1 = samurai::make_field<1>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
@@ -142,11 +163,15 @@ int main(int argc, char* argv[])
     // Convection operator
     samurai::VelocityVector<dim> velocity;
     velocity.fill(1);
-    if constexpr (dim == 2)
-    {
-        velocity(1) = -1;
-    }
+
+    // origin weno5
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
+
+    SFC_LoadBalancer_interval<dim, Morton> balancer;
+    // Void_LoadBalancer<dim> balancer;
+    // Diffusion_LoadBalancer_cell<dim> balancer;
+    // Diffusion_LoadBalancer_interval<dim> balancer;
+    // Load_balancing::Diffusion balancer;
 
     //--------------------//
     //   Time iteration   //
@@ -174,6 +199,14 @@ int main(int argc, char* argv[])
     double t = 0;
     while (t != Tf)
     {
+
+        if (nt % nt_loadbalance == 0 && nt > 1 )
+        {
+            myTimers.start("load-balancing");
+            balancer.load_balance(mesh, u);
+            myTimers.stop("load-balancing");
+        }
+        
         // Move to next timestep
         t += dt;
         if (t > Tf)
@@ -184,9 +217,16 @@ int main(int argc, char* argv[])
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
 
         // Mesh adaptation
+        myTimers.start("MRadaptation");
         MRadaptation(mr_epsilon, mr_regularity);
+        myTimers.stop("MRadaptation");
+
+        myTimers.start("update_ghost_mr");
         samurai::update_ghost_mr(u);
+        myTimers.stop("update_ghost_mr");
+
         unp1.resize();
+
         u1.resize();
         u2.resize();
         u1.fill(0);
@@ -228,6 +268,8 @@ int main(int argc, char* argv[])
         std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 0 --end " << nsave
                   << std::endl;
     }
+
+    myTimers.print();
 
     samurai::finalize();
     return 0;
