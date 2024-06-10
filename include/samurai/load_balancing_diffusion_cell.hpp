@@ -46,8 +46,10 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
         inline std::string getName() const { return "Gravity_LB"; } 
 
         template<class Mesh_t>
-        Mesh_t reordering_impl( Mesh_t & mesh ){
-            return mesh;
+        auto reordering_impl( Mesh_t & mesh ){
+            auto flags = samurai::make_field<int, 1>("rank", mesh);
+            flags.fill( _rank );
+            return flags;
         }
 
         template<class Mesh_t>
