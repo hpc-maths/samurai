@@ -228,7 +228,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             
         }   
 
-        int start = 0;
+        size_t start = 0;
         while( globIdx[ static_cast<size_t>( world.rank() ) ] >= static_cast<size_t>( start + 1 ) * dc ){
             start ++;
         }
@@ -240,7 +240,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
             if( count >= ( start + 1 ) * dc ){
                 start ++;
-                start = std::min( world.size() - 1 , start );
+                start = std::min( static_cast<size_t>( world.size() - 1 ) , start );
                 logs << "\t\t> Incrementing Start @ rank " << start << ", count " << count << std::endl;
             }
             
