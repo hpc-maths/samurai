@@ -65,7 +65,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         samurai::for_each_cell(mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ) {
 
             // this is where things can get nasty, we expect indices to be positive values !!
-            xt::xtensor_fixed<uint32_t, xt::xshape<dim>> ijk;
+            xt::xtensor_fixed<uint32_t, xt::xshape<Mesh_t::dim>> ijk;
             for (size_t idim = 0; idim < dim; ++idim) {
 
                 // FIX need shift to get only positive index
@@ -169,8 +169,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         samurai::for_each_cell( mesh[ Mesh_t::mesh_id_t::cells ], [&]( const auto & cell ) {
 
             // this is where things can get nasty, we expect indices to be positive values !!
-            xt::xtensor_fixed<uint32_t, xt::xshape<dim>> ijk;
-            for (size_t idim = 0; idim < dim; ++idim) {
+            xt::xtensor_fixed<uint32_t, xt::xshape<Mesh_t::dim>> ijk;
+            for (size_t idim = 0; idim < Mesh_t::dim; ++idim) {
 
                 // FIX need shift to get only positive index
                 assert( cell.indices( 0 ) >= 0 );
@@ -229,7 +229,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         }   
 
         size_t start = 0;
-        while( globIdx[ static_cast<size_t>( world.rank() ) ] >= static_cast<size_t>( start + 1 ) * dc ){
+        while( globIdx[ static_cast<size_t>( world.rank() ) ] >= ( start + 1 ) * dc ){
             start ++;
         }
 
