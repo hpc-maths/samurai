@@ -12,6 +12,7 @@ namespace Load_balancing{
     class Diffusion : public samurai::LoadBalancer<Diffusion> {
 
         private:
+
             int _ndomains;
             int _rank;
 
@@ -39,6 +40,41 @@ namespace Load_balancing{
                 return flags;
             }
 
+            template<size_t dim, typename Stencil_t, typename Coord_t>
+            std::vector<Stencil_t> getStencilToNeighbour( const Coord_t & bc_current, const Coord_t & bc_neigh ) const {
+
+                Stencil_t dir_from_neighbour;
+                std::vector<Stencil_t> stencils;
+
+                Coord_t tmp;
+                double n2 = 0.;
+                for( size_t idim = 0; idim<dim; ++idim ){
+                    tmp( idim ) = bc_current( idim ) - bc_neigh( idim );
+                    n2 += tmp( idim ) * tmp( idim );
+                }
+
+                n2 = std::sqrt( n2 );
+
+                for( size_t idim = 0; idim<dim; ++idim ){
+                    tmp( idim ) /= n2;
+                    dir_from_neighbour( idim ) = static_cast<int>( tmp( idim ) / 0.5 );
+
+                    // FIXME why needed ? 
+                    if( std::abs( dir_from_neighbour( idim ) ) > 1 ) {
+                        dir_from_neighbour( idim ) < 0 ? dir_from_neighbour( idim ) = -1 : dir_from_neighbour( idim ) = 1;
+                    }
+
+                    if( dir_from_neighbour( idim ) != 0 ) {
+                        Stencil_t dd;
+                        dd.fill(0);
+                        dd(idim) = dir_from_neighbour(idim);
+                        stencils.emplace_back( dd );
+                    }
+                }
+                
+                return stencils;
+            }
+
             template<class Mesh_t>
             auto load_balance_impl( Mesh_t & mesh ){
 
@@ -52,39 +88,45 @@ namespace Load_balancing{
                 boost::mpi::communicator world;
 
                 // For debug
-                std::ofstream logs; 
-                logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
+                // std::ofstream logs; 
+                // logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
                 logs << fmt::format("> New load-balancing using {} ", getName() ) << std::endl;
                 
-                std::vector<mpi_subdomain_t> neighbourhood;
+                std::vector<mpi_subdomain_t> & neighbourhood = mesh.mpi_neighbourhood();
 
-                std::vector<int> forceNeighbour;
-                {
-                    std::vector<mpi_subdomain_t> & neighbourhood_tmp = mesh.mpi_neighbourhood();
+                /*
+                * Correction of the list of neighbour process to take into account into the graph when computing
+                * fluxes that this load-balancing strategy does not exchange in diagonal. Might no longer be necessary
+                * if stencil are splitted by direction.
+                */
+                // std::vector<int> forceNeighbour;
+                // {
+                //     std::vector<mpi_subdomain_t> & neighbourhood_tmp = mesh.mpi_neighbourhood();
 
-                    for( auto & neighbour : neighbourhood_tmp ){
-                        auto interface = samurai::cmptInterface<Mesh_t::dim, samurai::Direction_t::FACE>( mesh, neighbour.mesh );
-                        size_t nintervals = 0;
-                        for_each_interval(interface, [&]( [[maybe_unused]] size_t level, [[maybe_unused]] const auto & i, [[maybe_unused]] const auto & ii ){
-                            nintervals ++;
-                        });
-                        if( nintervals > 0 ){
-                            forceNeighbour.emplace_back( neighbour.rank );
-                            neighbourhood.emplace_back( neighbour );
-                        }
-                    }
+                //     for( auto & neighbour : neighbourhood_tmp ){
+                //         auto interface = samurai::cmptInterface<Mesh_t::dim, samurai::Direction_t::FACE>( mesh, neighbour.mesh );
+                //         size_t nintervals = 0;
+                //         for_each_interval(interface, [&]( [[maybe_unused]] size_t level, [[maybe_unused]] const auto & i, [[maybe_unused]] const auto & ii ){
+                //             nintervals ++;
+                //         });
+                //         if( nintervals > 0 ){
+                //             forceNeighbour.emplace_back( neighbour.rank );
+                //             neighbourhood.emplace_back( neighbour );
+                //         }
+                //     }
 
-                    logs << "Corrected neighbours : ";
-                    for(const auto & fn : forceNeighbour ) 
-                        logs << fn << ", ";
-                    logs << std::endl;
-                }
+                //     logs << "Corrected neighbours : ";
+                //     for(const auto & fn : forceNeighbour ) 
+                //         logs << fn << ", ";
+                //     logs << std::endl;
+                // }
 
                 size_t n_neighbours = neighbourhood.size();
 
                 // compute fluxes in terms of number of intervals to transfer/receive
                 // by default, perform 5 iterations
-                std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, forceNeighbour, 5 );
+                // std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, forceNeighbour, 5 );
+                std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, 5 );
 
                 std::vector<int> new_fluxes( fluxes );
 
@@ -144,6 +186,13 @@ namespace Load_balancing{
                     // Compute normalized direction to neighbour
                     Stencil dir_from_neighbour;
                     {
+                        auto aa_ = getStencilToNeighbour<Mesh_t::dim, Stencil>( bc_current, bc_neighbour );
+
+                        logs << fmt::format("\t> Number of stencils: {}", aa_.size()) << std::endl;
+                        for( const auto & st : aa_ ) {
+                            logs << fmt::format("\t\t> Stencil : ({},{})", st(0), st(1) ) << std::endl;
+                        }
+
                         Coord_t tmp;
                         double n2 = 0.;
                         for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
@@ -206,7 +255,7 @@ namespace Load_balancing{
                     }
 
                     {
-                        size_t nCellsAtInterfaceGiven = 0, nCellsAtInterface = 0;
+                        int nCellsAtInterfaceGiven = 0, nCellsAtInterface = 0;
                         for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
                             
                             auto intersect = samurai::intersection( interface[ interface.min_level() ], mesh[ mesh_id_t::cells ][ level ] ).on( level ); // need handle level difference here !
