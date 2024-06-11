@@ -32,16 +32,18 @@ namespace Load_balancing{
             inline std::string getName() const { return "diffusion"; }
 
             template<class Mesh_t>
-            Mesh_t reordering_impl( Mesh_t & mesh ) {
-                return mesh;
+            auto reordering_impl( Mesh_t & mesh ) {
+                auto flags = samurai::make_field<int, 1>("diffusion_flag", mesh);
+                flags.fill( _rank );
+
+                return flags;
             }
 
             template<class Mesh_t>
-            Mesh_t load_balance_impl( Mesh_t & mesh ){
+            auto load_balance_impl( Mesh_t & mesh ){
 
                 using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
                 using CellList_t      = typename Mesh_t::cl_type;
-                using CellArray_t     = typename Mesh_t::ca_type;
                 using mesh_id_t       = typename Mesh_t::mesh_id_t;
 
                 using Coord_t = xt::xtensor_fixed<double, xt::xshape<Mesh_t::dim>>;
@@ -53,19 +55,43 @@ namespace Load_balancing{
                 std::ofstream logs; 
                 logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
                 logs << fmt::format("> New load-balancing using {} ", getName() ) << std::endl;
+                
+                std::vector<mpi_subdomain_t> neighbourhood;
+
+                std::vector<int> forceNeighbour;
+                {
+                    std::vector<mpi_subdomain_t> & neighbourhood_tmp = mesh.mpi_neighbourhood();
+
+                    for( auto & neighbour : neighbourhood_tmp ){
+                        auto interface = samurai::cmptInterface<Mesh_t::dim, samurai::Direction_t::FACE>( mesh, neighbour.mesh );
+                        size_t nintervals = 0;
+                        for_each_interval(interface, [&]( [[maybe_unused]] size_t level, [[maybe_unused]] const auto & i, [[maybe_unused]] const auto & ii ){
+                            nintervals ++;
+                        });
+                        if( nintervals > 0 ){
+                            forceNeighbour.emplace_back( neighbour.rank );
+                            neighbourhood.emplace_back( neighbour );
+                        }
+                    }
+
+                    logs << "Corrected neighbours : ";
+                    for(const auto & fn : forceNeighbour ) 
+                        logs << fn << ", ";
+                    logs << std::endl;
+                }
+
+                size_t n_neighbours = neighbourhood.size();
 
                 // compute fluxes in terms of number of intervals to transfer/receive
                 // by default, perform 5 iterations
-                std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, 5 );
+                std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, forceNeighbour, 5 );
+
                 std::vector<int> new_fluxes( fluxes );
 
                 // get loads from everyone
                 std::vector<int> loads;
                 int my_load = static_cast<int>( samurai::cmptLoad<samurai::BalanceElement_t::CELL>( mesh ) );
                 boost::mpi::all_gather( world, my_load, loads );
-
-                std::vector<mpi_subdomain_t> & neighbourhood = mesh.mpi_neighbourhood();
-                size_t n_neighbours = neighbourhood.size();
 
                 { // some debug info
                     logs << "load : " << my_load << std::endl;
@@ -142,7 +168,7 @@ namespace Load_balancing{
 
                         if constexpr ( Mesh_t::dim == 2 ) { 
                             if( std::abs(dir_from_neighbour[0]) == 1 && std::abs( dir_from_neighbour[1]) == 1 ){
-                                dir_from_neighbour[0] = 0;
+                                // dir_from_neighbour[0] = 1;
                                 dir_from_neighbour[1] = 0;
                             }
                         }
@@ -280,54 +306,7 @@ namespace Load_balancing{
 
                 }
 
-                CellList_t new_cl;
-                std::vector<CellList_t> payload( world.size() );
-
-                samurai::for_each_cell( mesh[mesh_id_t::cells], [&]( const auto & cell ){
-                
-                    if( flags[ cell ] == world.rank() ){
-                        if constexpr ( Mesh_t::dim == 1 ){ new_cl[ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
-                        if constexpr ( Mesh_t::dim == 2 ){ new_cl[ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
-                        if constexpr ( Mesh_t::dim == 3 ){ new_cl[ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }                        
-                    }else{
-                        if constexpr ( Mesh_t::dim == 1 ){ payload[ flags[ cell ] ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
-                        if constexpr ( Mesh_t::dim == 2 ){ payload[ flags[ cell ] ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
-                        if constexpr ( Mesh_t::dim == 3 ){ payload[ flags[ cell ] ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
-                    } 
-
-                });
-
-                /* ---------------------------------------------------------------------------------------------------------- */
-                /* ------- Data transfer between processes ------------------------------------------------------------------ */ 
-                /* ---------------------------------------------------------------------------------------------------------- */
-
-                for( size_t neigh_i=0; neigh_i<n_neighbours; ++neigh_i ){
-
-                    if( fluxes[ neigh_i ] == 0 ) continue;
-
-                    if( fluxes[ neigh_i ] > 0 ){ // receiver
-                        CellArray_t to_rcv;
-                        world.recv( neighbourhood[ neigh_i ].rank, 42, to_rcv );
-
-                        samurai::for_each_interval(to_rcv, [&](std::size_t level, const auto & interval, const auto & index ){
-                            new_cl[ level ][ index ].add_interval( interval );
-                        });
-
-                    }else{ // sender
-                        CellArray_t to_send = { payload[ neighbourhood[ neigh_i ].rank ], false };
-                        world.send( neighbourhood[ neigh_i ].rank, 42, to_send );
-
-                    }
-
-                }
-
-                /* ---------------------------------------------------------------------------------------------------------- */
-                /* ------- Construct new mesh for current process ----------------------------------------------------------- */ 
-                /* ---------------------------------------------------------------------------------------------------------- */
-
-                Mesh_t new_mesh( new_cl, mesh );
-
-                return new_mesh;
+                return flags;
             }
 
     };
