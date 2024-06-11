@@ -43,8 +43,6 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
-    Timers myTimers;
-
     static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim, 3>;
     using Box                        = samurai::Box<double, dim>;
@@ -155,9 +153,9 @@ int main(int argc, char* argv[])
 
     // SFC_LoadBalancer_interval<dim, Morton> balancer;
     // Void_LoadBalancer<dim> balancer;
-    Diffusion_LoadBalancer_cell<dim> balancer;
+    // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
-    // Load_balancing::Diffusion balancer;
+    Load_balancing::Diffusion balancer;
 
     //--------------------//
     //   Time iteration   //
@@ -188,9 +186,9 @@ int main(int argc, char* argv[])
 
         if (nt % nt_loadbalance == 0 && nt > 1 )
         {
-            myTimers.start("load-balancing");
+            samurai::times::timers.start("load-balancing");
             balancer.load_balance(mesh, u);
-            myTimers.stop("load-balancing");
+            samurai::times::timers.stop("load-balancing");
         }
         
         // Move to next timestep
@@ -203,15 +201,16 @@ int main(int argc, char* argv[])
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
 
         // Mesh adaptation
-        myTimers.start("MRadaptation");
+        samurai::times::timers.start("MRadaptation");
         MRadaptation(mr_epsilon, mr_regularity);
-        myTimers.stop("MRadaptation");
+        samurai::times::timers.stop("MRadaptation");
 
-        myTimers.start("update_ghost_mr");
+        samurai::times::timers.start("update_ghost_mr");
         samurai::update_ghost_mr(u);
-        myTimers.stop("update_ghost_mr");
+        samurai::times::timers.stop("update_ghost_mr");
 
         unp1.resize();
+        unp1.fill(0);
 
         u1.resize();
         u2.resize();
@@ -221,12 +220,13 @@ int main(int argc, char* argv[])
         // unp1 = u - dt * conv(u);
 
         // TVD-RK3 (SSPRK3)
+        samurai::times::timers.start("RK3");
         u1 = u - dt * conv(u);
         samurai::update_ghost_mr(u1);
         u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
         samurai::update_ghost_mr(u2);
         unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
-
+        samurai::times::timers.stop("RK3");
         // u <-- unp1
         std::swap(u.array(), unp1.array());
 
@@ -254,8 +254,6 @@ int main(int argc, char* argv[])
         std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 0 --end " << nsave
                   << std::endl;
     }
-
-    myTimers.print();
 
     samurai::finalize();
     return 0;
