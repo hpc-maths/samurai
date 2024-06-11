@@ -122,11 +122,11 @@ namespace samurai
      * Compute distance base on different norm.
      */
 
-    template <int dim, class Coord_t>
+    template <size_t dim, class Coord_t>
     static inline double distance_l2(const Coord_t& d1, const Coord_t& d2)
     {
         double dist = 0.;
-        for (size_t idim = 0; idim < static_cast<size_t>(dim); ++idim)
+        for (size_t idim = 0; idim < dim; ++idim)
         {
             double d = d1(idim) - d2(idim);
             dist += d * d;
@@ -134,22 +134,22 @@ namespace samurai
         return std::sqrt(dist);
     }
 
-    template <int dim, class Coord_t>
+    template <size_t dim, class Coord_t>
     static inline double distance_inf(const Coord_t& d1, const Coord_t& d2)
     {
         double dist = 0.;
-        for (size_t idim = 0; idim < static_cast<size_t>(dim); ++idim)
+        for (size_t idim = 0; idim <dim; ++idim)
         {
             dist = std::max(std::abs(d1(idim) - d2(idim)), dist);
         }
         return dist;
     }
 
-    template <int dim, class Coord_t>
+    template <size_t dim, class Coord_t>
     static inline double distance_l1(const Coord_t& d1, const Coord_t& d2)
     {
         double dist = 0.;
-        for (size_t idim = 0; idim < static_cast<size_t>(dim); ++idim)
+        for (size_t idim = 0; idim < dim; ++idim)
         {
             dist += std::abs(d1(idim) - d2(idim));
         }
@@ -389,7 +389,7 @@ namespace samurai
      * What should be m ? m' ? Let's G = 1.
      *
      **/
-    template <int dim, class Coord_t>
+    template <size_t dim, class Coord_t>
     static inline double gravity(const Coord_t& d1, const Coord_t& d2)
     {
         double dist = distance_l2<dim>(d1, d2);
@@ -408,7 +408,7 @@ namespace samurai
     }
 
     // we are using Cell_t to allow ponderation using level;
-    template <int dim, Distance_t dist, class Coord_t>
+    template <size_t dim, Distance_t dist, class Coord_t>
     inline constexpr double getDistance(const Coord_t& cc, const Coord_t& d)
     {
         static_assert(dim == 2 || dim == 3);
@@ -864,7 +864,7 @@ namespace samurai
     /**
      * Precompute direction to element in all direction face + diagonals: 26 in 3D, 8 in 2D
      */
-    template <int dim>
+    template <size_t dim>
     constexpr auto getDirectionFaceAndDiag()
     {
         using base_stencil = xt::xtensor_fixed<int, xt::xshape<dim>>;
