@@ -213,6 +213,7 @@ namespace samurai
 
         // load of current process
         int my_load = static_cast<int>( cmptLoad<elem>( mesh ) );
+        logs << "> Current process load : " << my_load << std::endl;
 
         // fluxes between processes
         std::vector<int> fluxes(n_neighbours, 0);
@@ -253,14 +254,14 @@ namespace samurai
                 my_load += transfertLoad;
             }
 
-            logs << fmt::format("it {}, neighbours : ", nt) ;
+            logs << fmt::format("\t> it {}, neighbours : ", nt) ;
             for( size_t in=0; in<neighbourhood.size(); ++in )
                 logs << neighbourhood[ in ] << ", ";
-            logs << std::endl << "fluxes : ";
+            logs << std::endl << "\t\t>fluxes : ";
             for( size_t in=0; in<neighbourhood.size(); ++in )
                 logs << fluxes[ in ] << ", ";
             logs << std::endl;
-            logs << "New theoretical laod : " << my_load << std::endl;
+            logs << "New theoretical load : " << my_load << std::endl;
 
             nt ++ ;
         }
@@ -310,6 +311,8 @@ namespace samurai
         // load of current process
         int my_load = static_cast<int>(cmptLoad<elem>(mesh));
 
+        logs << "> Current process load : " << my_load << std::endl;
+
         // fluxes between processes
         std::vector<int> fluxes(n_neighbours, 0);
 
@@ -349,14 +352,14 @@ namespace samurai
                 my_load += transfertLoad;
             }
 
-            logs << fmt::format("it {}, neighbours : ", nt) ;
+            logs << fmt::format("\t> it {}, neighbours : ", nt) ;
             for( size_t in=0; in<neighbourhood.size(); ++in )
                 logs << neighbourhood[ in ].rank << ", ";
-            logs << std::endl << "fluxes : ";
+            logs << std::endl << "\t> fluxes : ";
             for( size_t in=0; in<neighbourhood.size(); ++in )
                 logs << fluxes[ in ] << ", ";
             logs << std::endl;
-            logs << "New theoretical laod : " << my_load << std::endl;
+            logs << "\t> New theoretical load : " << my_load << std::endl;
 
             nt ++ ;
         }
@@ -957,7 +960,7 @@ namespace samurai
      *          leveldiff : max level difference. For 2:1 balance, leveldiff = 1
      */
     template <size_t dim, Direction_t dir, size_t leveldiff = 1, class Mesh_t>
-    static auto cmptInterface(Mesh_t& mesh, Mesh_t& omesh)
+    static auto cmptInterface(const Mesh_t& mesh, const Mesh_t& omesh)
     {
         using CellList_t  = typename Mesh_t::cl_type;
         using CellArray_t = typename Mesh_t::ca_type;
