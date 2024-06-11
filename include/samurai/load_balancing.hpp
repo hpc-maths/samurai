@@ -434,6 +434,8 @@ namespace samurai
     class LoadBalancer
     {
       private:
+
+      public:
         std::ofstream logs;
         int nloadbalancing;
 
@@ -911,7 +913,7 @@ namespace samurai
      *       by passing in parameters an array for example to modulate
      *       weight according to level
      */
-    template <int dim, class Mesh_t, Weight w=Weight::None>
+    template <size_t dim, class Mesh_t, Weight w=Weight::None>
     xt::xtensor_fixed<double, xt::xshape<dim>> _cmpCellBarycenter(Mesh_t& mesh)
     {
         using Coord_t = xt::xtensor_fixed<double, xt::xshape<dim>>;
@@ -935,7 +937,7 @@ namespace samurai
 
                                    auto cc = cell.center();
 
-                                   for (int idim = 0; idim < dim; ++idim)
+                                   for (size_t idim = 0; idim < dim; ++idim)
                                    {
                                        bary(idim) += cc(idim) * wght;
                                    }
@@ -944,7 +946,7 @@ namespace samurai
                                });
 
         wght_tot = std::max(wght_tot, 1e-12);
-        for (int idim = 0; idim < dim; ++idim)
+        for (size_t idim = 0; idim < dim; ++idim)
         {
             bary(idim) /= wght_tot;
         }
