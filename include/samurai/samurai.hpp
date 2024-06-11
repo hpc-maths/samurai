@@ -46,6 +46,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(nullptr, nullptr);
 #endif
+        times::timers.start("smr::total_runtime");
     }
 
     inline void finalize()
