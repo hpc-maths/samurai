@@ -154,11 +154,11 @@ int main(int argc, char* argv[])
     // origin weno5
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
-    // SFC_LoadBalancer_interval<dim, Morton> balancer;
+    SFC_LoadBalancer_interval<dim, Morton> balancer;
     // Void_LoadBalancer<dim> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
-    Load_balancing::Diffusion balancer;
+    // Load_balancing::Diffusion balancer;
 
     //--------------------//
     //   Time iteration   //
@@ -186,15 +186,16 @@ int main(int argc, char* argv[])
         save(path, filename, u, suffix);
     }
 
+    samurai::times::timers.start("tloop");
     double t = 0;
     while (t != Tf)
     {
 
         if (nt % nt_loadbalance == 0 && nt > 1 )
         {
-            samurai::times::timers.start("load-balancing");
+            samurai::times::timers.start("tloop.load-balancing");
             balancer.load_balance(mesh, u);
-            samurai::times::timers.stop("load-balancing");
+            samurai::times::timers.stop("tloop.load-balancing");
         }
         
         // Move to next timestep
@@ -204,17 +205,19 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
+
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush << std::endl;
 
         // Mesh adaptation
-        samurai::times::timers.start("MRadaptation");
+        samurai::times::timers.start("tloop.MRadaptation");
         MRadaptation(mr_epsilon, mr_regularity);
-        samurai::times::timers.stop("MRadaptation");
+        samurai::times::timers.stop("tloop.MRadaptation");
 
-        samurai::times::timers.start("update_ghost_mr");
+        samurai::times::timers.start("tloop.ugm");
         samurai::update_ghost_mr(u);
-        samurai::times::timers.stop("update_ghost_mr");
+        samurai::times::timers.stop("tloop.ugm");
 
+        samurai::times::timers.start("tloop.resize_fill");
         unp1.resize();
         unp1.fill(0);
 
@@ -222,21 +225,24 @@ int main(int argc, char* argv[])
         u2.resize();
         u1.fill(0);
         u2.fill(0);
+        samurai::times::timers.stop("tloop.resize_fill");
 
         // unp1 = u - dt * conv(u);
 
         // TVD-RK3 (SSPRK3)
-        samurai::times::timers.start("RK3");
+        samurai::times::timers.start("tloop.RK3");
         u1 = u - dt * conv(u);
         samurai::update_ghost_mr(u1);
         u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
         samurai::update_ghost_mr(u2);
         unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
-        samurai::times::timers.stop("RK3");
+        samurai::times::timers.stop("tloop.RK3");
+
         // u <-- unp1
         std::swap(u.array(), unp1.array());
 
         // Save the result
+        samurai::times::timers.start("tloop.io");
         if (nfiles == 0 || t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
             if (nfiles != 1)
@@ -249,8 +255,10 @@ int main(int argc, char* argv[])
                 save(path, filename, u);
             }
         }
+        samurai::times::timers.stop("tloop.io");
 
     }
+    samurai::times::timers.stop("tloop");
 
     if constexpr (dim == 1)
     {
