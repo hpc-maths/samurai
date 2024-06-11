@@ -3,7 +3,7 @@
 #include <map>
 #include "load_balancing.hpp"
 
-template<int dim>
+template<size_t dim>
 class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadBalancer_cell<dim>> {
 
     using Coord_t = xt::xtensor_fixed<double, xt::xshape<dim>>;
