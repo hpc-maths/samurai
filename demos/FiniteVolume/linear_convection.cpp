@@ -109,6 +109,8 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     std::array<bool, dim> periodic;
     periodic.fill(false);
+    
+    samurai::times::timers.start("init");
     samurai::MRMesh<Config> mesh{box, min_level, max_level, periodic};
 
     // Initial solution
@@ -129,6 +131,7 @@ int main(int argc, char* argv[])
                                         }
 
                                     });
+    samurai::times::timers.stop("init");
 
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
@@ -170,7 +173,10 @@ int main(int argc, char* argv[])
     }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
+    
+    samurai::times::timers.start("MRadaptation");
     MRadaptation(mr_epsilon, mr_regularity);
+    samurai::times::timers.stop("MRadaptation");
 
     double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
@@ -198,7 +204,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush << std::endl;
 
         // Mesh adaptation
         samurai::times::timers.start("MRadaptation");
@@ -244,7 +250,6 @@ int main(int argc, char* argv[])
             }
         }
 
-        std::cout << std::endl;
     }
 
     if constexpr (dim == 1)
