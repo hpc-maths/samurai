@@ -20,7 +20,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 
                 double s = 1.;
 
-                for(int idim=0; idim<Mesh_t::dim; ++idim){
+                for(size_t idim=0; idim<Mesh_t::dim; ++idim){
                    s *= samurai::cell_length( cell.level );
                 }
 
@@ -57,7 +57,6 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
 
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
             using CellArray_t     = typename Mesh_t::ca_type;
-            using Cell_t          = typename Mesh_t::cell_t;
             using mesh_id_t       = typename Mesh_t::mesh_id_t;
 
             boost::mpi::communicator world;
@@ -77,7 +76,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             boost::mpi::all_gather( world, my_load, loads );
 
             // get the load to neighbours (geometrical neighbour) with 5 iterations max
-            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, 5 );
+            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, 10 );
 
             {
                 logs << "load : " << my_load << std::endl;
@@ -104,6 +103,8 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                                                       [[maybe_unused]] const auto & index ){
                     ncells_interface[ ni ] ++;
                 });
+
+                if( ncells_interface[ ni ] == 0 ) fluxes[ ni ] = 0;
             }
 
             // compute some point of reference in mesh and interval-based interface
@@ -131,11 +132,6 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 logs << s_ << std::endl;
             }
 
-            struct Data {
-                Cell_t cell;
-                int rank;
-            };
-
             // build map of interval that needs to be sent. Warning, it does not work with classical std::map !!
             auto flags = samurai::make_field<int, 1>("rank", mesh);
             flags.fill( world.rank() );
@@ -144,6 +140,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
 
             double currentSV = getSurfaceOrVolume( mesh );
 
+            std::vector<int> mload( static_cast<size_t>( world.size() ), 0 );
             for_each_cell( mesh[ Mesh_t::mesh_id_t::cells ], [&]( const auto& cell ){
 
                 auto cc = cell.center();
@@ -156,8 +153,6 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 
                 double coeff_current = currentSV / loads[ static_cast<size_t>( world.rank() ) ];
                 double winner_dist = samurai::getDistance<dim, fdist>( cc, barycenter ) * coeff_current;
-
-                std::vector<size_t> mload( static_cast<size_t>( world.size() ), 0 );
 
                 // select the neighbour
                 for( std::size_t ni=0; ni<n_neighbours; ++ni ){ // for each neighbour
@@ -178,7 +173,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                         winner_id   = static_cast<int>( ni );
                         winner_dist = dist;
 
-                        mload[ neighbour_rank ] += 1;
+                        // mload[ neighbour_rank ] += 1;
                     }
                     
                 }
