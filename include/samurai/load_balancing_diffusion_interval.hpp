@@ -3,7 +3,7 @@
 #include <map>
 #include "load_balancing.hpp"
 
-template<int dim>
+template<size_t dim>
 class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_LoadBalancer_interval<dim>> {
 
     using Coord_t    = xt::xtensor_fixed<double, xt::xshape<dim>>;
@@ -33,7 +33,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
 
                 Coord_t mid = _getIntervalMidPoint( level, interval, index );
 
-                for(int idim=0; idim<dim; ++idim ){
+                for(size_t idim=0; idim<dim; ++idim ){
                     bary( idim ) += mid( idim ) * wght;
                 }
 
@@ -42,7 +42,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
             });
 
             wght_tot = std::max( wght_tot, 1e-12 );
-            for( int idim=0; idim<dim; ++idim ){
+            for( size_t idim=0; idim<dim; ++idim ){
                 bary( idim ) /= wght_tot;
             }
 
@@ -57,7 +57,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
             double csize = samurai::cell_length( level );
 
             mid( 0 ) = ( (interval.end - interval.start) * 0.5 + interval.start ) * csize ;
-            for( int idim=0; idim<dim-1; ++idim ){
+            for( size_t idim=0; idim<dim-1; ++idim ){
                 mid( idim + 1 ) = ( index( idim ) * csize ) + csize * 0.5;
             }
 
@@ -401,7 +401,7 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
                         std::cerr << "\t> WARNING: Key conflict for std::map !" << std::endl;
                     }
 
-                    repartition.insert ( std::pair<double, Data>( winner_dist, Data { level, interval, index, static_cast<int>( winner_id ) } ) );
+                    repartition.insert ( std::pair<double, Data>( winner_dist, Data { level, interval, index, winner_id } ) );
 
                 }
 
