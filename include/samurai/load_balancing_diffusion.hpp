@@ -184,173 +184,178 @@ namespace Load_balancing{
                     Coord_t bc_neighbour = samurai::_cmpCellBarycenter<Mesh_t::dim>( neighbourhood[ neighbour_local_id ].mesh[ mesh_id_t::cells ] );
 
                     // Compute normalized direction to neighbour
-                    Stencil dir_from_neighbour;
-                    {
-                        auto aa_ = getStencilToNeighbour<Mesh_t::dim, Stencil>( bc_current, bc_neighbour );
+                    // Stencil dir_from_neighbour;
+                    std::vector<Stencil> dirs = getStencilToNeighbour<Mesh_t::dim, Stencil>( bc_current, bc_neighbour ); 
+                    // {
+                    //     auto aa_ = getStencilToNeighbour<Mesh_t::dim, Stencil>( bc_current, bc_neighbour );
 
-                        logs << fmt::format("\t> Number of stencils: {}", aa_.size()) << std::endl;
-                        for( const auto & st : aa_ ) {
-                            logs << fmt::format("\t\t> Stencil : ({},{})", st(0), st(1) ) << std::endl;
-                        }
+                    //     logs << fmt::format("\t> Number of stencils: {}", aa_.size()) << std::endl;
+                    //     for( const auto & st : aa_ ) {
+                    //         logs << fmt::format("\t\t> Stencil : ({},{})", st(0), st(1) ) << std::endl;
+                    //     }
 
-                        Coord_t tmp;
-                        double n2 = 0.;
-                        for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
-                            tmp( idim ) = bc_current( idim ) - bc_neighbour( idim );
-                            n2 += tmp( idim ) * tmp( idim );
-                        }
+                    //     Coord_t tmp;
+                    //     double n2 = 0.;
+                    //     for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
+                    //         tmp( idim ) = bc_current( idim ) - bc_neighbour( idim );
+                    //         n2 += tmp( idim ) * tmp( idim );
+                    //     }
 
-                        n2 = std::sqrt( n2 );
+                    //     n2 = std::sqrt( n2 );
 
-                        for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
-                            tmp( idim ) /= n2;
-                            dir_from_neighbour( idim ) = static_cast<int>( tmp( idim ) / 0.5 );
+                    //     for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
+                    //         tmp( idim ) /= n2;
+                    //         dir_from_neighbour( idim ) = static_cast<int>( tmp( idim ) / 0.5 );
 
-                            // FIXME why needed ? 
-                            if( std::abs( dir_from_neighbour( idim ) ) > 1 ) {
-                                dir_from_neighbour( idim ) < 0 ? dir_from_neighbour( idim ) = -1 : dir_from_neighbour( idim ) = 1;
-                            }
-                        }
+                    //         // FIXME why needed ? 
+                    //         if( std::abs( dir_from_neighbour( idim ) ) > 1 ) {
+                    //             dir_from_neighbour( idim ) < 0 ? dir_from_neighbour( idim ) = -1 : dir_from_neighbour( idim ) = 1;
+                    //         }
+                    //     }
                         
-                        // Avoid diagonals exchange, and emphaze x-axis. Maybe two phases propagation in case of diagonal ?
-                        // i.e.: if (1, 1) -> (1, 0) then (0, 1) ?
+                    //     // Avoid diagonals exchange, and emphaze x-axis. Maybe two phases propagation in case of diagonal ?
+                    //     // i.e.: if (1, 1) -> (1, 0) then (0, 1) ?
 
-                        if constexpr ( Mesh_t::dim == 2 ) { 
-                            if( std::abs(dir_from_neighbour[0]) == 1 && std::abs( dir_from_neighbour[1]) == 1 ){
-                                // dir_from_neighbour[0] = 1;
-                                dir_from_neighbour[1] = 0;
-                            }
-                        }
+                    //     if constexpr ( Mesh_t::dim == 2 ) { 
+                    //         if( std::abs(dir_from_neighbour[0]) == 1 && std::abs( dir_from_neighbour[1]) == 1 ){
+                    //             // dir_from_neighbour[0] = 1;
+                    //             dir_from_neighbour[1] = 0;
+                    //         }
+                    //     }
 
-                        if constexpr ( Mesh_t::dim == 3 ) { 
-                            if( std::abs(dir_from_neighbour[0]) == 1 && std::abs( dir_from_neighbour[1]) == 1 && std::abs(dir_from_neighbour[2]) == 1){
-                                dir_from_neighbour[1] = 0;
-                                dir_from_neighbour[2] = 0;
-                            }
-                        }
+                    //     if constexpr ( Mesh_t::dim == 3 ) { 
+                    //         if( std::abs(dir_from_neighbour[0]) == 1 && std::abs( dir_from_neighbour[1]) == 1 && std::abs(dir_from_neighbour[2]) == 1){
+                    //             dir_from_neighbour[1] = 0;
+                    //             dir_from_neighbour[2] = 0;
+                    //         }
+                    //     }
 
-                        logs << fmt::format("\t\t> (corrected) stencil for this neighbour # {} :", neighbourhood[ neighbour_local_id ].rank);
-                        for(size_t idim=0; idim<Mesh_t::dim; ++idim ){
-                            logs << dir_from_neighbour( idim ) << ",";
-                        }
-                        logs << std::endl;
+                    //     logs << fmt::format("\t\t> (corrected) stencil for this neighbour # {} :", neighbourhood[ neighbour_local_id ].rank);
+                    //     for(size_t idim=0; idim<Mesh_t::dim; ++idim ){
+                    //         logs << dir_from_neighbour( idim ) << ",";
+                    //     }
+                    //     logs << std::endl;
 
-                    }
+                    // }
 
-                    // direction from neighbour domain to current domain
-                    auto interface = samurai::cmptInterfaceUniform<Mesh_t::dim>( mesh, neighbourhood[ neighbour_local_id ].mesh, dir_from_neighbour );
+                    for(const auto & dir_from_neighbour : dirs ){
+                        // direction from neighbour domain to current domain
+                        auto interface = samurai::cmptInterfaceUniform<Mesh_t::dim>( mesh, neighbourhood[ neighbour_local_id ].mesh, dir_from_neighbour );
 
-                    bool empty = false;
-                    {
-                        size_t iii = 0;
-                        samurai::for_each_interval( interface, [&]( [[maybe_unused]] size_t level, [[maybe_unused]] const auto & i, [[maybe_unused]] const auto & ii ){
-                            iii ++;
-                        });
-                        if( iii == 0 ) empty = true;
-                    }
-
-                    if( empty ) {
-                        logs << "\t> Skipping neighbour, empty interface ! " << std::endl;
-                        continue;
-                    }
-
-                    {
-                        int nCellsAtInterfaceGiven = 0, nCellsAtInterface = 0;
-                        for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
-                            
-                            auto intersect = samurai::intersection( interface[ interface.min_level() ], mesh[ mesh_id_t::cells ][ level ] ).on( level ); // need handle level difference here !
-                            intersect( [&]( [[maybe_unused]] const auto & interval, [[maybe_unused]] const auto & index ){
-                                for(size_t ii=0; ii<interval.size(); ++ii){
-                                    if( flags( level, interval, index )[ ii ] == world.rank() )
-                                    {
-                                        flags( level, interval, index )[ ii ] = neighbourhood[ neighbour_local_id ].rank;
-                                        nCellsAtInterfaceGiven += 1;
-                                    }
-                                    nCellsAtInterface += 1;
-                                }
-
+                        bool empty = false;
+                        {
+                            size_t iii = 0;
+                            samurai::for_each_interval( interface, [&]( [[maybe_unused]] size_t level, [[maybe_unused]] const auto & i, [[maybe_unused]] const auto & ii ){
+                                iii ++;
                             });
-
+                            if( iii == 0 ) empty = true;
                         }
 
-                        new_fluxes[ neighbour_local_id ] += nCellsAtInterfaceGiven;
+                        if( empty ) {
+                            logs << "\t> Skipping neighbour, empty interface ! " << std::endl;
+                            continue;
+                        }
 
-                        logs << fmt::format("\t\t> NCellsAtInterface : {}, NCellsAtInterfaceGiven : {}", nCellsAtInterface, nCellsAtInterfaceGiven ) << std::endl;
-                    }
-
-                    // propagate until full-fill neighbour 
-                    {
-                        size_t nbElementGiven = 1; // validate the while condition on starter
-                       
-                        logs << fmt::format("\t\t\t> Propagate for neighbour rank # {}", neighbourhood[ neighbour_local_id ].rank) << std::endl;
-
-                        int offset = 1;
-                        while( new_fluxes[ neighbour_local_id ] < 0 && nbElementGiven > 0 ){
-
-                            // intersection of interface with current mesh
-                            size_t minLevelInInterface = mesh.max_level();
-
-                            {
-                                auto interface_on_mesh = samurai::translate( interface[ interface.min_level() ], dir_from_neighbour * offset ); // interface is monolevel !
-                                for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
-                                    size_t nIntervalAtInterface = 0;
-                                    auto intersect = samurai::intersection( interface_on_mesh, mesh[ mesh_id_t::cells ][ level ] ).on( level ); // need handle level difference here !
-                                    intersect( [&]( [[maybe_unused]] const auto & interval, [[maybe_unused]] const auto & index ){
-                                        nIntervalAtInterface += 1;
-                                    });
-
-                                    if( nIntervalAtInterface > 0 ) minLevelInInterface = std::min( minLevelInInterface, level );
-                                }
-                            }
-
-                            if( minLevelInInterface != interface.min_level() ) { 
-                                logs << "\t\t\t\t> [WARNING] Interface need to be update !" << std::endl;
-                            }
-                            
-                            logs << fmt::format("\t\t\t\t> Min level in interface : {}", minLevelInInterface ) << std::endl;
-
-                            // CellList_t cl_given;
-
-                            nbElementGiven = 0;
-
-                            auto interface_on_mesh = translate( interface[ interface.min_level() ], dir_from_neighbour * offset ); // interface is monolevel !
+                        {
+                            int nCellsAtInterfaceGiven = 0, nCellsAtInterface = 0;
                             for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
-
-                                size_t nCellsAtInterface = 0, nCellsAtInterfaceGiven = 0;                                                                
-                                auto intersect = intersection( interface_on_mesh, mesh[ Mesh_t::mesh_id_t::cells ][ level ] ).on( level ); // need handle level difference here !
-
-                                intersect( [&]( const auto & interval, const auto & index ){
-
+                                
+                                auto intersect = samurai::intersection( interface[ interface.min_level() ], mesh[ mesh_id_t::cells ][ level ] ).on( level ); // need handle level difference here !
+                                intersect( [&]( [[maybe_unused]] const auto & interval, [[maybe_unused]] const auto & index ){
                                     for(size_t ii=0; ii<interval.size(); ++ii){
                                         if( flags( level, interval, index )[ ii ] == world.rank() )
                                         {
                                             flags( level, interval, index )[ ii ] = neighbourhood[ neighbour_local_id ].rank;
                                             nCellsAtInterfaceGiven += 1;
-
-                                            // cl_given[ level ][ index ].add_point( interval.start + ii );
                                         }
                                         nCellsAtInterface += 1;
                                     }
 
                                 });
 
-                                logs << fmt::format("\t\t\t\t> At level {}, NCellsAtInterface : {}, NCellsAtInterfaceGiven : {}, nbElementGiven : {}", level,
-                                                    nCellsAtInterface, nCellsAtInterfaceGiven, nbElementGiven ) << std::endl;
-
-                                nbElementGiven += nCellsAtInterfaceGiven;
-
                             }
 
-                            // interface = { cl_given, false };
+                            new_fluxes[ neighbour_local_id ] += nCellsAtInterfaceGiven;
 
-                            new_fluxes[ neighbour_local_id ] += static_cast<int>( nbElementGiven );
-                            offset ++;
+                            logs << fmt::format("\t\t> NCellsAtInterface : {}, NCellsAtInterfaceGiven : {}", nCellsAtInterface, nCellsAtInterfaceGiven ) << std::endl;
+                        }
+                    
+
+                        // propagate until full-fill neighbour
+                        {
+                            size_t nbElementGiven = 1; // validate the while condition on starter
+                        
+                            logs << fmt::format("\t\t\t> Propagate for neighbour rank # {}", neighbourhood[ neighbour_local_id ].rank) << std::endl;
+
+                            int offset = 1;
+                            while( new_fluxes[ neighbour_local_id ] < 0 && nbElementGiven > 0 ){
+
+                                // intersection of interface with current mesh
+                                size_t minLevelInInterface = mesh.max_level();
+
+                                {
+                                    auto interface_on_mesh = samurai::translate( interface[ interface.min_level() ], dir_from_neighbour * offset ); // interface is monolevel !
+                                    for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
+                                        size_t nIntervalAtInterface = 0;
+                                        auto intersect = samurai::intersection( interface_on_mesh, mesh[ mesh_id_t::cells ][ level ] ).on( level ); // need handle level difference here !
+                                        intersect( [&]( [[maybe_unused]] const auto & interval, [[maybe_unused]] const auto & index ){
+                                            nIntervalAtInterface += 1;
+                                        });
+
+                                        if( nIntervalAtInterface > 0 ) minLevelInInterface = std::min( minLevelInInterface, level );
+                                    }
+                                }
+
+                                if( minLevelInInterface != interface.min_level() ) { 
+                                    logs << "\t\t\t\t> [WARNING] Interface need to be update !" << std::endl;
+                                }
+                                
+                                logs << fmt::format("\t\t\t\t> Min level in interface : {}", minLevelInInterface ) << std::endl;
+
+                                // CellList_t cl_given;
+
+                                nbElementGiven = 0;
+
+                                auto interface_on_mesh = translate( interface[ interface.min_level() ], dir_from_neighbour * offset ); // interface is monolevel !
+                                for (size_t level = mesh.min_level(); level <= mesh.max_level(); ++level) {
+
+                                    size_t nCellsAtInterface = 0, nCellsAtInterfaceGiven = 0;                                                                
+                                    auto intersect = intersection( interface_on_mesh, mesh[ Mesh_t::mesh_id_t::cells ][ level ] ).on( level ); // need handle level difference here !
+
+                                    intersect( [&]( const auto & interval, const auto & index ){
+
+                                        for(size_t ii=0; ii<interval.size(); ++ii){
+                                            if( flags( level, interval, index )[ ii ] == world.rank() )
+                                            {
+                                                flags( level, interval, index )[ ii ] = neighbourhood[ neighbour_local_id ].rank;
+                                                nCellsAtInterfaceGiven += 1;
+
+                                                // cl_given[ level ][ index ].add_point( interval.start + ii );
+                                            }
+                                            nCellsAtInterface += 1;
+                                        }
+
+                                    });
+
+                                    logs << fmt::format("\t\t\t\t> At level {}, NCellsAtInterface : {}, NCellsAtInterfaceGiven : {}, nbElementGiven : {}", level,
+                                                        nCellsAtInterface, nCellsAtInterfaceGiven, nbElementGiven ) << std::endl;
+
+                                    nbElementGiven += nCellsAtInterfaceGiven;
+
+                                }
+
+                                // interface = { cl_given, false };
+
+                                new_fluxes[ neighbour_local_id ] += static_cast<int>( nbElementGiven );
+                                offset ++;
+                            }
+                            
+                        }
+                    
+                        if( new_fluxes[ neighbour_local_id ] < 0 ){
+                            logs << fmt::format("\t> Error cannot fullfill the neighbour # {}, fluxes: {} ", neighbourhood[ neighbour_local_id ].rank, new_fluxes[ neighbour_local_id ] ) << std::endl;
                         }
                         
-                    }
-                    
-                    if( new_fluxes[ neighbour_local_id ] < 0 ){
-                        logs << fmt::format("\t> Error cannot fullfill the neighbour # {}, fluxes: {} ", neighbourhood[ neighbour_local_id ].rank, new_fluxes[ neighbour_local_id ] ) << std::endl;
                     }
 
                 }
