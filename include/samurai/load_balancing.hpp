@@ -256,7 +256,7 @@ namespace samurai
 
             logs << fmt::format("\t> it {}, neighbours : ", nt) ;
             for( size_t in=0; in<neighbourhood.size(); ++in )
-                logs << neighbourhood[ in ] << ", ";
+                logs << neighbourhood[ in ] << "[" << loads[ neighbourhood[ in ]  ] << "], ";
             logs << std::endl << "\t\t>fluxes : ";
             for( size_t in=0; in<neighbourhood.size(); ++in )
                 logs << fluxes[ in ] << ", ";
