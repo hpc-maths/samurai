@@ -17,6 +17,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
 
   public:
 
+    using samurai::LoadBalancer<SFC_LoadBalancer_interval<dim, SFC_type_t>>::logs;
+
     SFC_LoadBalancer_interval()
     {
 #ifdef SAMURAI_WITH_MPI
@@ -47,8 +49,8 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         boost::mpi::communicator world;
 
         // For debug
-        std::ofstream logs;
-        logs.open("log_" + std::to_string(_rank) + ".dat", std::ofstream::app);
+        // std::ofstream logs;
+        // logs.open("log_" + std::to_string(_rank) + ".dat", std::ofstream::app);
         logs << "# [SFC_LoadBalancer_interval::Morton] Reordering cells using SFC" << std::endl;
 
         // SFC 1D key for cells
@@ -148,11 +150,9 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
     {
 
         boost::mpi::communicator world;
-
-        // For debug
-        std::ofstream logs;
-        logs.open("log_" + std::to_string(_rank) + ".dat", std::ofstream::app);
         
+        // std::ofstream logs;
+        // logs.open( "log_" + std::to_string( world.rank() ) + ".dat", std::ofstream::app );
         logs << fmt::format("\n# [SFC_LoadBalancer_interval::Morton] Load balancing cells ") << std::endl;
 
         // SFC 1D key for cells
@@ -244,7 +244,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
                 logs << "\t\t> Incrementing Start @ rank " << start << ", count " << count << std::endl;
             }
             
-            flags[ it.second ] = start;
+            flags[ it.second ] = static_cast<int>( start );
             
             count ++;
         }
