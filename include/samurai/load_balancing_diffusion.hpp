@@ -280,7 +280,7 @@ namespace Load_balancing{
 
                     // propagate until full-fill neighbour 
                     {
-                        int nbElementGiven = 1; // validate the while condition on starter
+                        size_t nbElementGiven = 1; // validate the while condition on starter
                        
                         logs << fmt::format("\t\t\t> Propagate for neighbour rank # {}", neighbourhood[ neighbour_local_id ].rank) << std::endl;
 
@@ -343,7 +343,7 @@ namespace Load_balancing{
 
                             // interface = { cl_given, false };
 
-                            new_fluxes[ neighbour_local_id ] += nbElementGiven;
+                            new_fluxes[ neighbour_local_id ] += static_cast<int>( nbElementGiven );
                             offset ++;
                         }
                         
