@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.15.0](https://github.com/hpc-maths/samurai/compare/v0.14.0...v0.15.0) (2024-06-12)
+
+
+### Bug Fixes
+
+* create missing prediction cells outside the subdomain ([#212](https://github.com/hpc-maths/samurai/issues/212)) ([fa693e0](https://github.com/hpc-maths/samurai/commit/fa693e00be8c64581dc4a4afda948a55eef66d00))
+* Fix flux-based schemes for MPI ([#209](https://github.com/hpc-maths/samurai/issues/209)) ([768a5f4](https://github.com/hpc-maths/samurai/commit/768a5f4dc15faff9e0d9ac53aa2ebd8031a290a1))
+* issue with `get_cell` function in LevelCellArray when `dim &gt; 2`. ([#211](https://github.com/hpc-maths/samurai/issues/211)) ([f5fe326](https://github.com/hpc-maths/samurai/commit/f5fe326ef212d79a685e3f7b6137ea2e81b37e55))
+* keep_only_one_coarse_tag function ([#210](https://github.com/hpc-maths/samurai/issues/210)) ([d90957a](https://github.com/hpc-maths/samurai/commit/d90957aac53259c1351d4dd6cb3a61ae1b1eb20c))
+
 ## [0.14.0](https://github.com/hpc-maths/samurai/compare/v0.13.0...v0.14.0) (2024-05-23)
 
 
