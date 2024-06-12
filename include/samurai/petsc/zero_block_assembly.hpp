@@ -59,6 +59,11 @@ namespace samurai
             void insert_value_on_diag_for_useless_ghosts(Mat&) override
             {
             }
+
+            template <class Func>
+            void for_each_useless_ghost_row(Func&&) const
+            {
+            }
         };
 
     } // end namespace petsc

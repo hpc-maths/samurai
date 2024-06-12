@@ -226,6 +226,12 @@ namespace samurai
                 std::get<0>(m_assembly_ops).insert_value_on_diag_for_useless_ghosts(A);
             }
 
+            template <class Func>
+            void for_each_useless_ghost_row(Func&& f) const
+            {
+                std::get<0>(m_assembly_ops).for_each_useless_ghost_row(std::forward<Func>(f));
+            }
+
             void set_0_for_all_ghosts(Vec& b) const
             {
                 std::get<0>(m_assembly_ops).set_0_for_all_ghosts(b);

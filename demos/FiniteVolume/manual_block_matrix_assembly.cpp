@@ -279,6 +279,15 @@ int main(int argc, char* argv[])
     // Insert the coefficients into the matrix
     assembly.assemble_matrix(J);
 
+    std::cout << "Useless ghost rows: ";
+    // assembly.get<0, 0>().for_each_useless_ghost_row(
+    assembly.for_each_useless_ghost_row(
+        [](auto row)
+        {
+            std::cout << row << " ";
+        });
+    std::cout << std::endl;
+
     Vec v = assembly.create_vector(u_e, aux_Ce, u_s);
     VecView(v, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
     std::cout << std::endl;

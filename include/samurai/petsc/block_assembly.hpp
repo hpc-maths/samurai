@@ -669,6 +669,19 @@ namespace samurai
                     });
             }
 
+            template <class Func>
+            void for_each_useless_ghost_row(Func&& f) const
+            {
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == col)
+                        {
+                            op.for_each_useless_ghost_row(std::forward<Func>(f));
+                        }
+                    });
+            }
+
             template <class... Fields>
             Vec create_rhs_vector(const std::tuple<Fields&...>& sources) const
             {

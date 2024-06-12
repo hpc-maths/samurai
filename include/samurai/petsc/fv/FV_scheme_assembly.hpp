@@ -590,6 +590,18 @@ namespace samurai
             //                      Useless ghosts                         //
             //-------------------------------------------------------------//
 
+            template <class Func>
+            void for_each_useless_ghost_row(Func&& f) const
+            {
+                for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
+                {
+                    if (m_is_row_empty[i])
+                    {
+                        f(m_row_shift + static_cast<PetscInt>(i));
+                    }
+                }
+            }
+
             void insert_value_on_diag_for_useless_ghosts(Mat& A) override
             {
                 if (current_insert_mode() == ADD_VALUES)
