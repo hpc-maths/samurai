@@ -56,8 +56,6 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
         auto load_balance_impl( Mesh_t & mesh ){
 
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
-            using CellArray_t     = typename Mesh_t::ca_type;
-            using mesh_id_t       = typename Mesh_t::mesh_id_t;
 
             boost::mpi::communicator world;
 
@@ -76,7 +74,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             boost::mpi::all_gather( world, my_load, loads );
 
             // get the load to neighbours (geometrical neighbour) with 5 iterations max
-            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, 10 );
+            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, 1 );
 
             {
                 logs << "load : " << my_load << std::endl;
@@ -90,16 +88,14 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 logs << std::endl;
             }
 
-            // pour échanger les intervalles, calcul des barycentres des cellules d'interfaces et pas le barycentre des
-            // domaines en eux mêmes !
-
-            // Interface for each neighbour as cell_array
+            // Interface for each neighbour: std::vector<Cell_array_t>
             auto interface = samurai::_computeCartesianInterface<dim, samurai::Direction_t::FACE_AND_DIAG>( mesh );
 
-            std::vector<size_t> ncells_interface ( interface.size(), 0 );
-            for(size_t ni=0; ni<interface.size(); ni++){
-                CellArray_t _tmp = { interface[ ni ] };
-                samurai::for_each_interval( _tmp, [&]([[maybe_unused]] std::size_t level, [[maybe_unused]] const auto & interval, 
+            // Invalidate fluxes with non adjacents neighbours, should not happen or might happen if load balancing exchange does not consider some
+            // direction.
+            std::vector<size_t> ncells_interface ( n_neighbours, 0 );
+            for(size_t ni=0; ni<n_neighbours; ni++){
+                samurai::for_each_interval( interface[ ni ], [&]([[maybe_unused]] std::size_t level, [[maybe_unused]] const auto & interval, 
                                                       [[maybe_unused]] const auto & index ){
                     ncells_interface[ ni ] ++;
                 });
@@ -107,9 +103,9 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 if( ncells_interface[ ni ] == 0 ) fluxes[ ni ] = 0;
             }
 
-            // compute some point of reference in mesh and interval-based interface
+            // bary center of current mesh - no weight on cells
             // Coord_t barycenter = _cmpIntervalBarycenter( mesh[ mesh_id_t::cells ] );
-            Coord_t barycenter = samurai::_cmpCellBarycenter<dim>( mesh[ mesh_id_t::cells ] );
+            Coord_t barycenter = samurai::_cmpCellBarycenter<dim>( mesh );
             logs << "Domain barycenter : " << fmt::format( " barycenter : ({}, {})", barycenter(0), barycenter(1) ) << std::endl;
 
             // std::vector<Coord_t> barycenter_interface_neighbours( n_neighbours );
@@ -119,7 +115,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             for(size_t nbi=0; nbi<n_neighbours; ++nbi ){
                 // barycenter_interface_neighbours[ nbi ] = _cmpIntervalBarycenter( interface[ nbi ] );
                 // barycenter_interface_neighbours[ nbi ] = _cmpCellBarycenter<dim>( interface[ nbi ] );
-                barycenter_neighbours[ nbi ] = samurai::_cmpCellBarycenter<dim>( neighbourhood[ nbi ].mesh[ mesh_id_t::cells ] );
+                barycenter_neighbours[ nbi ] = samurai::_cmpCellBarycenter<dim>( neighbourhood[ nbi ].mesh );
                 
                 // surface or volume depending on dim
                 sv[ nbi ] = getSurfaceOrVolume( neighbourhood[ nbi ].mesh );
@@ -136,7 +132,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             auto flags = samurai::make_field<int, 1>("rank", mesh);
             flags.fill( world.rank() );
 
-            constexpr auto fdist = samurai::Distance_t::GRAVITY;
+            constexpr auto fdist = samurai::Distance_t::L2;
 
             double currentSV = getSurfaceOrVolume( mesh );
 
@@ -151,8 +147,11 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                 // double winner_dist = std::numeric_limits<double>::max();
                 // double winner_dist = samurai::getDistance<dim, fdist>( cell, barycenter ) / loads[ world.rank() ];
                 
-                double coeff_current = currentSV / loads[ static_cast<size_t>( world.rank() ) ];
+                // double coeff_current = currentSV / loads[ static_cast<size_t>( world.rank() ) ];
+                double coeff_current = 1.; //  loads[ static_cast<size_t>( world.rank() ) ];
                 double winner_dist = samurai::getDistance<dim, fdist>( cc, barycenter ) * coeff_current;
+
+                // logs << fmt::format("\t\t> Cell : ({},{}), current mesh dist : {}", cc(0), cc(1), winner_dist ) << std::endl;
 
                 // select the neighbour
                 for( std::size_t ni=0; ni<n_neighbours; ++ni ){ // for each neighbour
@@ -166,19 +165,27 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
                     //                         distance_inf<dim>( mid_point, barycenter_neighbours[ ni ] ) );
 
                     // double dist = samurai::getDistance<dim, fdist>( cell, barycenter_interface_neighbours[ ni ] ) / loads[ neighbour_rank ];
-                    double coeff = sv[ ni ] / ( loads[ neighbour_rank ] + mload[ neighbour_rank ] ) ; // / sv[ ni ];
+                    // double coeff = sv[ ni ] / ( loads[ neighbour_rank ] ) ; // / sv[ ni ];
+                    double coeff = 1.; // loads[ neighbour_rank ] ; // mload[ neighbour_rank ];
                     double dist = samurai::getDistance<dim, fdist>( cell.center(), barycenter_neighbours[ ni ] ) * coeff;
+
+                    // logs << fmt::format("\t\t\t> Dist to neighbour {} : {}", neighbour_rank, dist ) << std::endl;
 
                     if( dist < winner_dist && ncells_interface[ ni ] > 0 ){
                         winner_id   = static_cast<int>( ni );
                         winner_dist = dist;
 
-                        // mload[ neighbour_rank ] += 1;
+                        mload[ neighbour_rank ] += 1;
+
+                        // if( mload[ neighbour_rank ] >= ( - fluxes[ ni ] ) ) fluxes[ ni ] = 0;
                     }
                     
                 }
 
+                // logs << fmt::format("\t\t\t> Cell given to process #{}", neighbourhood[ static_cast<size_t>( winner_id ) ].rank ) << std::endl;
+
                 if( winner_id >= 0 ){
+                    assert( winner_id < neighbourhood.size() );
                     flags[ cell ] = neighbourhood[ static_cast<size_t>( winner_id ) ].rank; 
                 }
 
