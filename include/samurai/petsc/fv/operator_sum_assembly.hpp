@@ -201,6 +201,20 @@ namespace samurai
                 std::get<0>(m_assembly_ops).assemble_prediction(A);
             }
 
+            void include_boundary_fluxes(bool include)
+            {
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             using op_scheme_t = typename std::decay_t<decltype(op)>::scheme_t;
+
+                             if constexpr (is_FluxBasedScheme_v<op_scheme_t>)
+                             {
+                                 op.include_boundary_fluxes(include);
+                             }
+                         });
+            }
+
             void set_1_on_diag_for_useless_ghosts(Mat& A) override
             {
                 std::get<0>(m_assembly_ops).set_1_on_diag_for_useless_ghosts(A);
