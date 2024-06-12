@@ -36,7 +36,7 @@ namespace samurai
                     [&](auto& op, auto row, auto col)
                     {
                         bool diagonal_block = (row == col);
-                        op.must_set_1_on_diag_for_useless_ghosts(diagonal_block);
+                        op.must_insert_value_on_diag_for_useless_ghosts(diagonal_block);
                         op.include_bc(diagonal_block);
                         op.assemble_proj_pred(diagonal_block);
                     });
@@ -298,12 +298,24 @@ namespace samurai
                     });
             }
 
+            void set_diag_value_for_useless_ghosts(PetscScalar value)
+            {
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == col)
+                        {
+                            op.set_diag_value_for_useless_ghosts(value);
+                        }
+                    });
+            }
+
             void set_0_for_useless_ghosts(Vec& b) const
             {
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto)
                     {
-                        if (op.must_set_1_on_diag_for_useless_ghosts())
+                        if (op.must_insert_value_on_diag_for_useless_ghosts())
                         {
                             Vec b_block;
                             VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
@@ -574,7 +586,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        if (op.must_set_1_on_diag_for_useless_ghosts())
+                        if (op.must_insert_value_on_diag_for_useless_ghosts())
                         {
                             op.sparsity_pattern_useless_ghosts(nnz);
                         }
@@ -633,14 +645,26 @@ namespace samurai
                     });
             }
 
-            void set_1_on_diag_for_useless_ghosts(Mat& A) override
+            void set_diag_value_for_useless_ghosts(PetscScalar value) override
+            {
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == col)
+                        {
+                            op.set_diag_value_for_useless_ghosts(value);
+                        }
+                    });
+            }
+
+            void insert_value_on_diag_for_useless_ghosts(Mat& A) override
             {
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        if (op.must_set_1_on_diag_for_useless_ghosts())
+                        if (op.must_insert_value_on_diag_for_useless_ghosts())
                         {
-                            op.set_1_on_diag_for_useless_ghosts(A);
+                            op.insert_value_on_diag_for_useless_ghosts(A);
                         }
                     });
             }
@@ -734,7 +758,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        if (op.must_set_1_on_diag_for_useless_ghosts())
+                        if (op.must_insert_value_on_diag_for_useless_ghosts())
                         {
                             op.set_0_for_useless_ghosts(b);
                         }

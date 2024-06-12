@@ -590,7 +590,7 @@ namespace samurai
             //                      Useless ghosts                         //
             //-------------------------------------------------------------//
 
-            void set_1_on_diag_for_useless_ghosts(Mat& A) override
+            void insert_value_on_diag_for_useless_ghosts(Mat& A) override
             {
                 if (current_insert_mode() == ADD_VALUES)
                 {
@@ -599,7 +599,7 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
                 }
-                // std::cout << "set_1_on_diag_for_useless_ghosts of " << this->name() << std::endl;
+                // std::cout << "insert_value_on_diag_for_useless_ghosts of " << this->name() << std::endl;
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
                     if (m_is_row_empty[i])
@@ -607,7 +607,7 @@ namespace samurai
                         auto error = MatSetValue(A,
                                                  m_row_shift + static_cast<PetscInt>(i),
                                                  m_col_shift + static_cast<PetscInt>(i),
-                                                 1,
+                                                 this->diag_value_for_useless_ghosts(),
                                                  INSERT_VALUES);
                         if (error)
                         {

@@ -215,9 +215,15 @@ namespace samurai
                          });
             }
 
-            void set_1_on_diag_for_useless_ghosts(Mat& A) override
+            void set_diag_value_for_useless_ghosts(PetscScalar value) override
             {
-                std::get<0>(m_assembly_ops).set_1_on_diag_for_useless_ghosts(A);
+                MatrixAssembly::set_diag_value_for_useless_ghosts(value);
+                std::get<0>(m_assembly_ops).set_diag_value_for_useless_ghosts(value);
+            }
+
+            void insert_value_on_diag_for_useless_ghosts(Mat& A) override
+            {
+                std::get<0>(m_assembly_ops).insert_value_on_diag_for_useless_ghosts(A);
             }
 
             void set_0_for_all_ghosts(Vec& b) const

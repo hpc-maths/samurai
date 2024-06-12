@@ -266,6 +266,7 @@ int main(int argc, char* argv[])
     assembly.get<0, 0>().include_bc(false);
     assembly.get<2, 2>().include_bc(false);
     assembly.get<0, 0>().include_boundary_fluxes(false);
+    assembly.set_diag_value_for_useless_ghosts(9);
 
     // Set the unknowns of the system (even if you don't want the solve it).
     // They are used to determine the size of each block, and to perform some compatibility checks.
