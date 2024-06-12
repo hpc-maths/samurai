@@ -10,7 +10,7 @@
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_sfc.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
-#include <samurai/load_balancing_diffusion_cell.hpp>
+#include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_diffusion_interval.hpp>
 #include <samurai/load_balancing_void.hpp>
 
@@ -154,9 +154,9 @@ int main(int argc, char* argv[])
     // origin weno5
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
-    SFC_LoadBalancer_interval<dim, Morton> balancer;
+    // SFC_LoadBalancer_interval<dim, Morton> balancer;
     // Void_LoadBalancer<dim> balancer;
-    // Diffusion_LoadBalancer_cell<dim> balancer;
+    Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
     // Load_balancing::Diffusion balancer;
 

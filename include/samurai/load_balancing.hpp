@@ -113,7 +113,7 @@ namespace samurai
         None
     };
 
-    static const double load_balancing_threshold = 0.03141592; // 2.5 %
+    static const double load_balancing_threshold = 0.01; // 0.03141592; // 2.5 %
     // static const std::vector<double> load_balancing_cell_weight = { 1., 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625, 
     //                                                                 0.0078125, 0.00390625, 0.001953125, 0.0009765625,
     //                                                                 0.00048828125, 0.000244140625, 0.0001220703125 };
@@ -256,7 +256,7 @@ namespace samurai
 
             logs << fmt::format("\t> it {}, neighbours : ", nt) ;
             for( size_t in=0; in<neighbourhood.size(); ++in )
-                logs << neighbourhood[ in ] << "[" << loads[ neighbourhood[ in ]  ] << "], ";
+                logs << neighbourhood[ in ] << "[" << loads[ static_cast<size_t>( neighbourhood[ in ] )  ] << "], ";
             logs << std::endl << "\t\t>fluxes : ";
             for( size_t in=0; in<neighbourhood.size(); ++in )
                 logs << fluxes[ in ] << ", ";
@@ -354,7 +354,7 @@ namespace samurai
 
             logs << fmt::format("\t> it {}, neighbours : ", nt) ;
             for( size_t in=0; in<neighbourhood.size(); ++in )
-                logs << neighbourhood[ in ].rank << ", ";
+                logs << neighbourhood[ in ].rank << "[" << loads[ static_cast<size_t>( neighbourhood[ in ].rank ) ] << "], ";
             logs << std::endl << "\t> fluxes : ";
             for( size_t in=0; in<neighbourhood.size(); ++in )
                 logs << fluxes[ in ] << ", ";
@@ -749,6 +749,7 @@ namespace samurai
 
             // discover neighbours: add new neighbours if a new interface appears or remove old neighbours
             // FIX: add boolean return to condition the need of another call, might save some MPI comm.
+            SAMURAI_TRACE("[LoadBalancer::load_balance]::discover neighbours ... ");
             discover_neighbour( field.mesh() );
             discover_neighbour( field.mesh() );
 
@@ -913,7 +914,7 @@ namespace samurai
      *       by passing in parameters an array for example to modulate
      *       weight according to level
      */
-    template <size_t dim, class Mesh_t, Weight w=Weight::None>
+    template <size_t dim, Weight w=Weight::None, class Mesh_t>
     xt::xtensor_fixed<double, xt::xshape<dim>> _cmpCellBarycenter(Mesh_t& mesh)
     {
         using Coord_t = xt::xtensor_fixed<double, xt::xshape<dim>>;
@@ -1380,8 +1381,8 @@ namespace samurai
         constexpr size_t dim = Mesh_t::dim;
 
         // operation are on leaves cells only
-        auto meshA_ = meshA[mesh_id_t::cells];
-        auto meshB_ = meshB[mesh_id_t::cells];
+        auto & meshA_ = meshA[mesh_id_t::cells];
+        auto & meshB_ = meshB[mesh_id_t::cells];
 
         // get stencils for direction
         auto dirs = getDirection<dim, dir>();
