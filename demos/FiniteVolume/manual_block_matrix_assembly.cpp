@@ -197,8 +197,8 @@ int main(int argc, char* argv[])
 
     PetscInitialize(&argc, &argv, 0, nullptr);
 
-    std::size_t min_level = 2;
-    std::size_t max_level = 2;
+    std::size_t min_level = 3;
+    std::size_t max_level = 3;
 
     Box box({0, 0}, {1, 1});
     samurai::MRMesh<Config> mesh_e{box, min_level, max_level};
@@ -239,6 +239,7 @@ int main(int argc, char* argv[])
     auto diff_e = samurai::make_diffusion_order2<decltype(u_e)>(D_e);
     double D_s  = 2;
     auto diff_s = samurai::make_diffusion_order2<decltype(u_s)>(D_s);
+    auto id     = samurai::make_identity<decltype(u_e)>();
 
     // Definition of the matrix blocks for the couplings to the auxiliary values
     Coupling_auxCe_e auxCe_e(mesh_e);
@@ -250,9 +251,9 @@ int main(int argc, char* argv[])
     // Define the block operator
 
     // clang-format off
-    auto block_op = samurai::make_block_operator<3, 3>(diff_e,  auxCe_e,        0,     // simply put 0 for zero-blocks
-                                                       e_auxCe, auxCe_auxCe, s_auxCe,
-                                                          0,    auxCe_s,     diff_s);
+    auto block_op = samurai::make_block_operator<3, 3>(id + diff_e,  auxCe_e,        0,     // simply put 0 for zero-blocks
+                                                           e_auxCe, auxCe_auxCe, s_auxCe,
+                                                               0,    auxCe_s,     diff_s);
     // clang-format on
 
     //-----------------//
@@ -264,6 +265,8 @@ int main(int argc, char* argv[])
     // Disable the assembly of the BC for the diffusion operators
     assembly.get<0, 0>().include_bc(false);
     assembly.get<2, 2>().include_bc(false);
+    assembly.get<0, 0>().include_boundary_fluxes(false);
+    assembly.set_diag_value_for_useless_ghosts(9);
 
     // Set the unknowns of the system (even if you don't want the solve it).
     // They are used to determine the size of each block, and to perform some compatibility checks.
@@ -275,6 +278,15 @@ int main(int argc, char* argv[])
     assembly.create_matrix(J);
     // Insert the coefficients into the matrix
     assembly.assemble_matrix(J);
+
+    std::cout << "Useless ghost rows: ";
+    // assembly.get<0, 0>().for_each_useless_ghost_row(
+    assembly.for_each_useless_ghost_row(
+        [](auto row)
+        {
+            std::cout << row << " ";
+        });
+    std::cout << std::endl;
 
     Vec v = assembly.create_vector(u_e, aux_Ce, u_s);
     VecView(v, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));

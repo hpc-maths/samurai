@@ -12,9 +12,10 @@ namespace samurai
             bool m_is_deleted  = false;
             std::string m_name = "(unnamed)";
 
-            bool m_include_bc                       = true;
-            bool m_assemble_proj_pred               = true;
-            bool m_set_1_on_diag_for_useless_ghosts = true;
+            bool m_include_bc                              = true;
+            bool m_assemble_proj_pred                      = true;
+            bool m_insert_value_on_diag_for_useless_ghosts = true;
+            PetscScalar m_diag_value_for_useless_ghosts    = 1;
 
             InsertMode m_current_insert_mode = INSERT_VALUES;
 
@@ -59,14 +60,24 @@ namespace samurai
                 m_assemble_proj_pred = assemble;
             }
 
-            bool must_set_1_on_diag_for_useless_ghosts() const
+            bool must_insert_value_on_diag_for_useless_ghosts() const
             {
-                return m_set_1_on_diag_for_useless_ghosts;
+                return m_insert_value_on_diag_for_useless_ghosts;
             }
 
-            void must_set_1_on_diag_for_useless_ghosts(bool value)
+            void must_insert_value_on_diag_for_useless_ghosts(bool value)
             {
-                m_set_1_on_diag_for_useless_ghosts = value;
+                m_insert_value_on_diag_for_useless_ghosts = value;
+            }
+
+            virtual void set_diag_value_for_useless_ghosts(PetscScalar value)
+            {
+                m_diag_value_for_useless_ghosts = value;
+            }
+
+            auto diag_value_for_useless_ghosts() const
+            {
+                return m_diag_value_for_useless_ghosts;
             }
 
             virtual void is_block(bool is_block)
@@ -173,7 +184,7 @@ namespace samurai
                     sparsity_pattern_projection(nnz);
                     sparsity_pattern_prediction(nnz);
                 }
-                if (m_set_1_on_diag_for_useless_ghosts)
+                if (m_insert_value_on_diag_for_useless_ghosts)
                 {
                     sparsity_pattern_useless_ghosts(nnz);
                 }
@@ -205,9 +216,9 @@ namespace samurai
                     assemble_projection(A);
                     assemble_prediction(A);
                 }
-                if (m_set_1_on_diag_for_useless_ghosts)
+                if (m_insert_value_on_diag_for_useless_ghosts)
                 {
-                    set_1_on_diag_for_useless_ghosts(A);
+                    insert_value_on_diag_for_useless_ghosts(A);
                 }
 
                 if (!m_is_block)
@@ -277,7 +288,7 @@ namespace samurai
              */
             virtual void assemble_prediction(Mat& A) = 0;
 
-            virtual void set_1_on_diag_for_useless_ghosts(Mat& A) = 0;
+            virtual void insert_value_on_diag_for_useless_ghosts(Mat& A) = 0;
 
             virtual void sparsity_pattern_useless_ghosts(std::vector<PetscInt>& nnz)
             {

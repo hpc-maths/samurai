@@ -37,10 +37,21 @@ namespace samurai
             static constexpr std::size_t output_field_size = cfg_t::output_field_size;
             static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
 
+          private:
+
+            bool m_include_boundary_fluxes = true;
+
+          public:
+
             explicit Assembly(const Scheme& s)
                 : base_class(s)
             {
                 set_current_insert_mode(ADD_VALUES);
+            }
+
+            void include_boundary_fluxes(bool include)
+            {
+                m_include_boundary_fluxes = include;
             }
 
             //-------------------------------------------------------------//
@@ -95,21 +106,24 @@ namespace samurai
                             }
                         });
 
-                    for_each_boundary_interface__both_directions(
-                        mesh(),
-                        flux_def[d].direction,
-                        flux_def[d].stencil,
-                        [&](auto& cell, auto&)
-                        {
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                    if (m_include_boundary_fluxes)
+                    {
+                        for_each_boundary_interface__both_directions(
+                            mesh(),
+                            flux_def[d].direction,
+                            flux_def[d].stencil,
+                            [&](auto& cell, auto&)
                             {
-                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                                for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                                 {
-                                    nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += static_cast<PetscInt>(stencil_size
-                                                                                                                           * field_size);
+                                    for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                                    {
+                                        nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += static_cast<PetscInt>(
+                                            stencil_size * field_size);
+                                    }
                                 }
-                            }
-                        });
+                            });
+                    }
                 }
             }
 
@@ -179,25 +193,28 @@ namespace samurai
                     });
 
                 // Boundary interfaces
-                scheme().for_each_boundary_interface_and_coeffs(
-                    unknown(),
-                    [&](auto& cell, auto& comput_cells, auto& coeffs)
-                    {
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                if (m_include_boundary_fluxes)
+                {
+                    scheme().for_each_boundary_interface_and_coeffs(
+                        unknown(),
+                        [&](auto& cell, auto& comput_cells, auto& coeffs)
                         {
-                            auto cell_row = this->row_index(cell, field_i);
-                            for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
-                                for (std::size_t c = 0; c < stencil_size; ++c)
+                                auto cell_row = this->row_index(cell, field_i);
+                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                                 {
-                                    double coeff         = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    auto comput_cell_col = col_index(comput_cells[c], field_j);
-                                    MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
+                                    for (std::size_t c = 0; c < stencil_size; ++c)
+                                    {
+                                        double coeff         = scheme().cell_coeff(coeffs, c, field_i, field_j);
+                                        auto comput_cell_col = col_index(comput_cells[c], field_j);
+                                        MatSetValue(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
+                                    }
                                 }
+                                set_is_row_not_empty(cell_row);
                             }
-                            set_is_row_not_empty(cell_row);
-                        }
-                    });
+                        });
+                }
             }
         };
 

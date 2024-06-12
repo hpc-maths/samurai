@@ -54,7 +54,12 @@ namespace samurai
             {
             }
 
-            void set_1_on_diag_for_useless_ghosts(Mat&) override
+            void insert_value_on_diag_for_useless_ghosts(Mat&) override
+            {
+            }
+
+            template <class Func>
+            void for_each_useless_ghost_row(Func&&) const
             {
             }
         };

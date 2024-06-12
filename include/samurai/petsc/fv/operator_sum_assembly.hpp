@@ -201,9 +201,35 @@ namespace samurai
                 std::get<0>(m_assembly_ops).assemble_prediction(A);
             }
 
-            void set_1_on_diag_for_useless_ghosts(Mat& A) override
+            void include_boundary_fluxes(bool include)
             {
-                std::get<0>(m_assembly_ops).set_1_on_diag_for_useless_ghosts(A);
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             using op_scheme_t = typename std::decay_t<decltype(op)>::scheme_t;
+
+                             if constexpr (is_FluxBasedScheme_v<op_scheme_t>)
+                             {
+                                 op.include_boundary_fluxes(include);
+                             }
+                         });
+            }
+
+            void set_diag_value_for_useless_ghosts(PetscScalar value) override
+            {
+                MatrixAssembly::set_diag_value_for_useless_ghosts(value);
+                std::get<0>(m_assembly_ops).set_diag_value_for_useless_ghosts(value);
+            }
+
+            void insert_value_on_diag_for_useless_ghosts(Mat& A) override
+            {
+                std::get<0>(m_assembly_ops).insert_value_on_diag_for_useless_ghosts(A);
+            }
+
+            template <class Func>
+            void for_each_useless_ghost_row(Func&& f) const // cppcheck-suppress duplInheritedMember
+            {
+                std::get<0>(m_assembly_ops).for_each_useless_ghost_row(std::forward<Func>(f));
             }
 
             void set_0_for_all_ghosts(Vec& b) const
