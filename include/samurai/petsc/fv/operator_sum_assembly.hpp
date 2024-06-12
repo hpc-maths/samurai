@@ -227,7 +227,7 @@ namespace samurai
             }
 
             template <class Func>
-            void for_each_useless_ghost_row(Func&& f) const
+            void for_each_useless_ghost_row(Func&& f) const // cppcheck-suppress duplInheritedMember
             {
                 std::get<0>(m_assembly_ops).for_each_useless_ghost_row(std::forward<Func>(f));
             }
