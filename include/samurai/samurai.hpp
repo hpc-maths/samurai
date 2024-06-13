@@ -13,7 +13,7 @@ namespace samurai
 {
     namespace times {
 
-        Timers timers;
+        static Timers timers;
     
     }
 

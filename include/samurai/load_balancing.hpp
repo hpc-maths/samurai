@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <cassert>
 #include <iostream>
+#include <fstream>
 #include <vector>
 
 #include <samurai/algorithm.hpp>
+#include <samurai/algorithm/utils.hpp>
 #include <samurai/hilbert.hpp>
 #include <samurai/mesh.hpp>
 #include <samurai/morton.hpp>
@@ -428,6 +430,26 @@ namespace samurai
         {
             return gravity<dim>(cc, d);
         }
+    }
+
+    template<class Mesh_t, class Id_t, class Coord_t>
+    bool cellExists( const Mesh_t & mesh, Id_t mesh_id, std::size_t level, const Coord_t & lo ){
+        using CellList_t  = typename Mesh_t::cl_type;
+        using CellArray_t = typename Mesh_t::ca_type;
+
+        CellList_t tmp;
+        if constexpr( Mesh_t::dim == 2 ) { tmp[ level ][ { lo( 1 ) } ].add_point( lo( 0 ) ); }
+        if constexpr( Mesh_t::dim == 3 ) { tmp[ level ][ { lo( 1 ), lo( 2 ) } ].add_point( lo( 0 ) ); }
+
+        CellArray_t tmp_ = { tmp, false };
+        auto set = intersection( mesh[ mesh_id ][level], tmp_[level]);
+
+        size_t ninterval = 0;
+        set( [&]([[maybe_unused]]const auto& i, [[maybe_unused]]const auto& index) {
+            ninterval ++ ;
+        });
+
+        return ninterval > 0 ? true : false ;
     }
 
     template <class Flavor>

@@ -14,8 +14,13 @@
 #include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_diffusion_interval.hpp>
 #include <samurai/load_balancing_void.hpp>
+#include <samurai/load_balancing_life.hpp>
 
 #include <samurai/timers.hpp>
+
+#ifdef WITH_STATS
+#include "samurai/statistics.hpp"
+#endif
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -63,6 +68,7 @@ int main(int argc, char* argv[])
     //--------------------//
     // Program parameters //
     //--------------------//
+    boost::mpi::communicator world;
 
     // Simulation parameters
     double left_box      = 0;
@@ -172,8 +178,9 @@ int main(int argc, char* argv[])
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
     // SFC_LoadBalancer_interval<dim, Morton> balancer;
+    Load_balancing::Life balancer;
     // Void_LoadBalancer<dim> balancer;
-    Diffusion_LoadBalancer_cell<dim> balancer;
+    // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
     // Load_balancing::Diffusion balancer;
 
@@ -210,9 +217,14 @@ int main(int argc, char* argv[])
 
         if (nt % nt_loadbalance == 0 && nt > 1 )
         {
-            samurai::times::timers.start("tloop.load-balancing");
+            samurai::times::timers.start("tloop.lb:"+balancer.getName());
             balancer.load_balance(mesh, u);
-            samurai::times::timers.stop("tloop.load-balancing");
+            samurai::times::timers.stop("tloop.lb:"+balancer.getName());
+
+            // std::string _stats = fmt::format("statistics_process_{}", world.rank());
+            // samurai::Statistics s(_stats);
+            // s("statistics", mesh);
+
         }
         
         // Move to next timestep
