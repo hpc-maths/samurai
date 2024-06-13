@@ -32,6 +32,12 @@ namespace samurai
         Parallel
     };
 
+    enum class Get
+    {
+        Cells,
+        Intervals
+    };
+
     ///////////////////////////////////
     // for_each_level implementation //
     ///////////////////////////////////

@@ -11,12 +11,6 @@ namespace samurai
         LinearHomogeneous
     };
 
-    enum class Get
-    {
-        Cells,
-        Intervals
-    };
-
     /**
      * Actual data structures used
      */
