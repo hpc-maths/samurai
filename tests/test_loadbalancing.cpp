@@ -5,6 +5,8 @@
 #include <samurai/samurai.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/interval.hpp>
+#include <samurai/field.hpp>
+#include <samurai/hdf5.hpp>
 
 #ifdef SAMURAI_WITH_MPI
 #include <samurai/load_balancing.hpp>
@@ -83,9 +85,63 @@ namespace samurai {
 
         auto interface = cmptInterface<dim, Direction_t::FACE, 1>( mesh_a, mesh_b );
 
-        std::cerr << interface << std::endl;
-
         ASSERT_EQ( interface.nb_cells(), 10 );
+
+    }
+
+    TEST(loadBalance, cellExists){
+        constexpr int dim = 2;
+        
+        using Config = samurai::MRConfig<dim, 1>;
+        using Mesh_t = samurai::MRMesh<Config>;
+
+        samurai::CellList<dim> cl_a, cl_b;
+
+        {
+            cl_a[0][{0}].add_interval({0, 4});   // level 0 
+            
+            cl_a[1][{2}].add_interval({0, 2});   // level 1 
+            cl_a[1][{3}].add_interval({0, 2});   // level 1
+            cl_a[1][{2}].add_interval({6, 8});   // level 1 
+            cl_a[1][{3}].add_interval({6, 8});   // level 1
+
+            cl_a[1][{2}].add_interval({2, 6});   // level 1
+            cl_a[2][{6}].add_interval({4, 6});   // level 2
+            cl_a[2][{6}].add_interval({10, 12}); // level 2 
+        }
+
+        Mesh_t mesh ( cl_a, 0, 2 );
+
+        {
+            xt::xtensor_fixed<int, xt::xshape<Mesh_t::dim>> ij = {{3, 2}};
+            ASSERT_TRUE( samurai::cellExists( mesh, Mesh_t::mesh_id_t::cells, static_cast<size_t>(1), ij ) );
+        }
+
+        {
+            xt::xtensor_fixed<int, xt::xshape<Mesh_t::dim>> ij = {{0, 1}};
+            ASSERT_FALSE( samurai::cellExists( mesh, Mesh_t::mesh_id_t::cells, static_cast<size_t>(0), ij ) );
+        }
+
+        {
+            xt::xtensor_fixed<int, xt::xshape<Mesh_t::dim>> ij = {{0, 2}};
+            ASSERT_TRUE( samurai::cellExists( mesh, Mesh_t::mesh_id_t::reference, static_cast<size_t>(0), ij ) );
+        }
+
+        auto coords      = make_field<int, dim, false>("coordinates", mesh);
+        auto level_field = make_field<std::size_t, 1, false>("level", mesh);
+        for_each_cell(mesh[Mesh_t::mesh_id_t::reference], [&](auto& cell) {
+                            if constexpr ( dim == 1 )
+                            {
+                                coords[cell] = cell.indices[0];
+                            }
+                            else
+                            {
+                                coords[cell] = cell.indices;
+                            }
+                            level_field[cell] = cell.level;
+                        });
+
+        samurai::save( "./", "test-lb-cellExists", {true, true}, mesh, coords, level_field );
 
     }
 
