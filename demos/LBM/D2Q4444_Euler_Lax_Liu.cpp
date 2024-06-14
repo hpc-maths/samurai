@@ -16,7 +16,11 @@
 
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_sfc.hpp>
-
+#include <samurai/load_balancing_diffusion.hpp>
+#include <samurai/load_balancing_force.hpp>
+#include <samurai/load_balancing_diffusion_interval.hpp>
+#include <samurai/load_balancing_void.hpp>
+#include <samurai/load_balancing_life.hpp>
 #include <samurai/timers.hpp>
 
 double gm = 1.4; // Gas constant
@@ -421,7 +425,15 @@ int main(int argc, char* argv[])
 
     std::size_t N = static_cast<std::size_t>(T / dt);
 
-    SFC_LoadBalancer_interval<dim, Morton> balancer;
+    // SFC_LoadBalancer_interval<dim, Hilbert> balancer;
+    // SFC_LoadBalancer_interval<dim, Morton> balancer;
+    // Load_balancing::Life balancer;
+    // Void_LoadBalancer<dim> balancer;
+    Diffusion_LoadBalancer_cell<dim> balancer;
+    // Diffusion_LoadBalancer_interval<dim> balancer;
+    // Load_balancing::Diffusion balancer;
+
+
 
     auto MRadaptation = samurai::make_MRAdapt(f);
 
