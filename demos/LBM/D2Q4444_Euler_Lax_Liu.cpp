@@ -195,13 +195,19 @@ void one_time_step(Field& f,
     using mesh_id_t           = typename Field::mesh_t::mesh_id_t;
 
     std::size_t max_level = mesh.max_level();
-    samurai::update_ghost_mr(f);
 
+    samurai::times::timers.start("ugm-step");
+    samurai::update_ghost_mr(f);
+    samurai::times::timers.stop("ugm-step");
+
+    samurai::times::timers.start("field-step");
     Field new_f{"new_f", mesh};
     new_f.array().fill(0.);
     Field advected{"advected", mesh};
     advected.array().fill(0.);
+    samurai::times::timers.stop("field-step");
 
+    samurai::times::timers.start("lbm-step");
     samurai::for_each_interval(
         mesh[mesh_id_t::cells],
         [&](std::size_t level, auto& i, auto& index)
@@ -319,6 +325,8 @@ void one_time_step(Field& f,
             new_f(14, level, i, j) = .25 * m3_0 - .5 / lambda * (m3_1) + .25 / (lambda * lambda) * m3_3;
             new_f(15, level, i, j) = .25 * m3_0 - .5 / lambda * (m3_2)-.25 / (lambda * lambda) * m3_3;
         });
+    
+    samurai::times::timers.stop("lbm-step");
 
     std::swap(f.array(), new_f.array());
 }
