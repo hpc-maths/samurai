@@ -573,9 +573,9 @@ namespace samurai
                                 [&](const auto& i, const auto& index)
                                 {
                                     std::copy(to_recv.begin() + count,
-                                              to_recv.begin() + count + static_cast<ptrdiff_t>(i.size()),
+                                              to_recv.begin() + count + static_cast<ptrdiff_t>(i.size()*field.size),
                                               new_field(level, i, index).begin());
-                                    count += static_cast<ptrdiff_t>(i.size());
+                                    count += static_cast<ptrdiff_t>(i.size()*field.size);
 
                                     // std::cerr << fmt::format("Process {}, recv interval {}", world.rank(), i) << std::endl;
                                 });
@@ -658,6 +658,7 @@ namespace samurai
 
             CellList_t new_cl;
             std::vector<CellList_t> payload( static_cast<size_t>( world.size() ) );
+            std::vector<size_t> payload_size( static_cast<size_t>( world.size()), 0 );
 
             std::map<int, bool> comm;
 
@@ -678,13 +679,15 @@ namespace samurai
                     if constexpr ( Mesh_t::dim == 1 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ {} ].add_point( cell.indices[ 0 ] ); }
                     if constexpr ( Mesh_t::dim == 2 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ] } ].add_point( cell.indices[ 0 ] ); }
                     if constexpr ( Mesh_t::dim == 3 ){ payload[ static_cast<size_t>( flags[ cell ] ) ][ cell.level ][ { cell.indices[ 1 ], cell.indices[ 2 ] } ].add_point( cell.indices[ 0 ] ); }
+
+                    payload_size[ static_cast<size_t>( flags[ cell ] ) ] ++;
                 } 
 
             });
 
             logs << "\t\t>[Load_balancer::update_mesh] Comm required with processes : [";
             for( const auto & it : comm )
-                logs << it.first << ",";
+                logs << it.first << fmt::format(" ({} cells),", payload_size[it.first]);
             logs << "]" << std::endl;
 
             std::vector<int> req_send( static_cast<size_t>( world.size() ), 0 ), req_recv( static_cast<size_t>( world.size() ), 0 );
@@ -696,20 +699,24 @@ namespace samurai
                 int reqExchg;
                 comm.find( iproc ) != comm.end() ? reqExchg = 1 : reqExchg = 0;
 
+                if( payload[ static_cast<size_t>( iproc ) ].empty() ) reqExchg = 0;
+
                 req_send[ static_cast<size_t>( iproc ) ] = reqExchg;
 
-                world.send( iproc, 17, reqExchg );
+                world.send( iproc, 42, reqExchg );
 
             }
 
             for( int iproc=0; iproc<world.size(); ++iproc ){
                 if( iproc == world.rank() ) continue;
-                world.recv( iproc, 17, req_recv[ static_cast<size_t>( iproc ) ] );            
+                world.recv( iproc, 42, req_recv[ static_cast<size_t>( iproc ) ] );            
             }
 
             for( int iproc=0; iproc<world.size(); ++iproc ){
                logs << fmt::format("Proc # {}, req_send : {}, req_recv: {} ", iproc, req_send[ static_cast<size_t>( iproc )  ], req_recv[ static_cast<size_t>( iproc ) ] ) << std::endl;;            
             }
+
+            std::vector<mpi::request> req;
 
             // actual data echange between processes that need to exchange data
             for(int iproc=0; iproc<world.size(); ++iproc){
@@ -718,10 +725,14 @@ namespace samurai
                 if( req_send[ static_cast<size_t>( iproc ) ] == 1 ){
                     CellArray_t to_send = { payload[ static_cast<size_t>( iproc ) ], false };
 
-                    world.send( iproc, 17, to_send );
+                    req.push_back( world.isend( iproc, 17, to_send ) );
 
                     logs << fmt::format("\t> Sending to # {}", iproc ) << std::endl;
                 }
+            }
+
+            for(int iproc=0; iproc<world.size(); ++iproc){
+                if( iproc == world.rank() ) continue ;
 
                 if( req_recv[ static_cast<size_t>( iproc ) ] == 1 ) {
                     CellArray_t to_rcv;
@@ -733,6 +744,8 @@ namespace samurai
                     });
                 }
             }
+
+            boost::mpi::wait_all( req.begin(), req.end() );
 
             Mesh_t new_mesh( new_cl, mesh );
 
