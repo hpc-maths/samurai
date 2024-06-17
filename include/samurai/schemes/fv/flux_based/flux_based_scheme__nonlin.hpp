@@ -30,6 +30,7 @@ namespace samurai
       private:
 
         FluxDefinition<cfg> m_flux_definition;
+        bool m_include_boundary_fluxes = true;
 
       public:
 
@@ -46,6 +47,16 @@ namespace samurai
         auto& flux_definition()
         {
             return m_flux_definition;
+        }
+
+        void include_boundary_fluxes(bool include)
+        {
+            m_include_boundary_fluxes = include;
+        }
+
+        bool include_boundary_fluxes() const
+        {
+            return m_include_boundary_fluxes;
         }
 
         template <class T> // FluxValue<cfg> or StencilJacobian<cfg>

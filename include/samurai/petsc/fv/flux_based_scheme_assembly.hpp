@@ -47,6 +47,7 @@ namespace samurai
                 : base_class(s)
             {
                 set_current_insert_mode(ADD_VALUES);
+                m_include_boundary_fluxes = s.include_boundary_fluxes();
             }
 
             void include_boundary_fluxes(bool include)

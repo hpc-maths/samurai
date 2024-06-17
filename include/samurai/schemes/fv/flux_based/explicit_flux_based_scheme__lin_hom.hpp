@@ -265,43 +265,48 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            scheme().template for_each_boundary_interface_and_coeffs<Run::Parallel, Get::Intervals>(
-                input_field,
-                [&](auto& cell, auto& stencil, auto& coeffs)
-                {
-                    for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+            if (scheme.include_boundary_fluxes())
+            {
+                scheme().template for_each_boundary_interface_and_coeffs<Run::Parallel, Get::Intervals>(
+                    input_field,
+                    [&](auto& cell, auto& stencil, auto& coeffs)
                     {
-                        for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                         {
-                            for (std::size_t c = 0; c < stencil_size; ++c)
+                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
                             {
-#ifdef SAMURAI_CHECK_NAN
-                                if (std::isnan(field_value(input_field, stencil.cells()[c], field_j)))
+                                for (std::size_t c = 0; c < stencil_size; ++c)
                                 {
-                                    std::cerr << "NaN detected when computing the flux on the boundary interfaces: " << stencil.cells()[c]
-                                              << std::endl;
-                                    assert(false);
-                                }
+#ifdef SAMURAI_CHECK_NAN
+                                    if (std::isnan(field_value(input_field, stencil.cells()[c], field_j)))
+                                    {
+                                        std::cerr
+                                            << "NaN detected when computing the flux on the boundary interfaces: " << stencil.cells()[c]
+                                            << std::endl;
+                                        assert(false);
+                                    }
 #endif
-                                auto coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                // field_value(output_field, cell, field_i) += coeff * field_value(input_field, stencil[c], field_j);
+                                    auto coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
+                                    // field_value(output_field, cell, field_i) += coeff * field_value(input_field, stencil[c], field_j);
 
-                                auto cell_index_init   = cell.index;
-                                auto comput_index_init = stencil.cells()[c].index;
+                                    auto cell_index_init   = cell.index;
+                                    auto comput_index_init = stencil.cells()[c].index;
 
-                                using index_t = decltype(cell_index_init);
+                                    using index_t = decltype(cell_index_init);
 
-                            // clang-format off
+                                // clang-format off
+
                                 #pragma omp simd
                                 for (index_t ii = 0; ii < static_cast<index_t>(stencil.interval().size()); ++ii)
                                 {
                                     field_value(output_field, cell_index_init + ii, field_i) += coeff * field_value(input_field, comput_index_init + ii, field_j);
                                 }
-                                // clang-format on
+                                    // clang-format on
+                                }
                             }
                         }
-                    }
-                });
+                    });
+            }
         }
     };
 

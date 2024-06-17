@@ -28,6 +28,7 @@ namespace samurai
       private:
 
         FluxDefinition<cfg> m_flux_definition;
+        bool m_include_boundary_fluxes = true;
 
       public:
 
@@ -44,6 +45,16 @@ namespace samurai
         auto& flux_definition()
         {
             return m_flux_definition;
+        }
+
+        void include_boundary_fluxes(bool include)
+        {
+            m_include_boundary_fluxes = include;
+        }
+
+        bool include_boundary_fluxes() const
+        {
+            return m_include_boundary_fluxes;
         }
 
         FluxStencilCoeffs<cfg> contribution(const FluxStencilCoeffs<cfg>& flux_coeffs, double h_face, double h_cell) const

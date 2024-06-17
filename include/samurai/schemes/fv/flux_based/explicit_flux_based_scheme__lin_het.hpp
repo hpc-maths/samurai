@@ -74,30 +74,33 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            scheme().for_each_boundary_interface_and_coeffs(
-                input_field,
-                [&](const auto& cell, const auto& comput_cells, auto& coeffs)
-                {
-                    for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+            if (scheme.include_boundary_fluxes())
+            {
+                scheme().for_each_boundary_interface_and_coeffs(
+                    input_field,
+                    [&](const auto& cell, const auto& comput_cells, auto& coeffs)
                     {
-                        for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
                         {
-                            for (std::size_t c = 0; c < stencil_size; ++c)
+                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
                             {
-#ifdef SAMURAI_CHECK_NAN
-                                if (std::isnan(field_value(input_field, comput_cells[c], field_j)))
+                                for (std::size_t c = 0; c < stencil_size; ++c)
                                 {
-                                    std::cerr << "NaN detected when computing the flux on the boundary interfaces: " << comput_cells[c]
-                                              << std::endl;
-                                    assert(false);
-                                }
+#ifdef SAMURAI_CHECK_NAN
+                                    if (std::isnan(field_value(input_field, comput_cells[c], field_j)))
+                                    {
+                                        std::cerr << "NaN detected when computing the flux on the boundary interfaces: " << comput_cells[c]
+                                                  << std::endl;
+                                        assert(false);
+                                    }
 #endif
-                                double coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                field_value(output_field, cell, field_i) += coeff * field_value(input_field, comput_cells[c], field_j);
+                                    double coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
+                                    field_value(output_field, cell, field_i) += coeff * field_value(input_field, comput_cells[c], field_j);
+                                }
                             }
                         }
-                    }
-                });
+                    });
+            }
         }
     };
 
