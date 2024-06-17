@@ -22,6 +22,7 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
                 this->fit_block_dimensions(true);
+                this->set_name("0");
             }
 
             void sparsity_pattern_scheme(std::vector<PetscInt>&) const override

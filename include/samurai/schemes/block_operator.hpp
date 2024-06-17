@@ -29,6 +29,12 @@ namespace samurai
             return m_operators;
         }
 
+        template <std::size_t row, std::size_t col>
+        auto& get()
+        {
+            return std::get<row * cols + col>(m_operators);
+        }
+
         template <class Func>
         void for_each_operator(Func&& f)
         {

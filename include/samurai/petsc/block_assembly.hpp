@@ -19,13 +19,13 @@ namespace samurai
 
           private:
 
-            const block_operator_t* m_block_operator;
+            block_operator_t m_block_operator;
             std::tuple<Assembly<Operators>...> m_assembly_ops;
 
           public:
 
             explicit BlockAssembly(const block_operator_t& block_op)
-                : m_block_operator(&block_op)
+                : m_block_operator(block_op)
                 , m_assembly_ops(transform(block_op.operators(),
                                            [](const auto& op)
                                            {
@@ -50,12 +50,12 @@ namespace samurai
 
             auto& block_operator()
             {
-                return *m_block_operator;
+                return m_block_operator;
             }
 
             auto& block_operator() const
             {
-                return *m_block_operator;
+                return m_block_operator;
             }
 
             template <class Func>
