@@ -502,7 +502,7 @@ namespace samurai
             DirectionVector<Mesh::dim> direction;
             direction.fill(0);
             direction[d] = 1;
-            for_each_boundary_interface<run_type, get_type>(mesh, direction, std::forward<Func>(f));
+            for_each_boundary_interface__both_directions<run_type, get_type>(mesh, direction, std::forward<Func>(f));
         }
     }
 

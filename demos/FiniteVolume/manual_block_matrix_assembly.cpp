@@ -237,6 +237,7 @@ int main(int argc, char* argv[])
     // Diffusion operators for the electrolyte and the solid
     double D_e  = 1; // diffusion coefficient
     auto diff_e = samurai::make_diffusion_order2<decltype(u_e)>(D_e);
+    diff_e.include_boundary_fluxes(false);
     double D_s  = 2;
     auto diff_s = samurai::make_diffusion_order2<decltype(u_s)>(D_s);
     auto id     = samurai::make_identity<decltype(u_e)>();
@@ -265,7 +266,6 @@ int main(int argc, char* argv[])
     // Disable the assembly of the BC for the diffusion operators
     assembly.get<0, 0>().include_bc(false);
     assembly.get<2, 2>().include_bc(false);
-    assembly.get<0, 0>().include_boundary_fluxes(false);
     assembly.set_diag_value_for_useless_ghosts(9);
 
     // Set the unknowns of the system (even if you don't want the solve it).

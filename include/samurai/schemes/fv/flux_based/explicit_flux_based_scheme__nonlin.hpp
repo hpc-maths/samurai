@@ -47,15 +47,18 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            scheme().template for_each_boundary_interface<Run::Parallel>( // We need the 'template' keyword...
-                input_field,
-                [&](const auto& cell, auto& contrib)
-                {
-                    for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+            if (scheme().include_boundary_fluxes())
+            {
+                scheme().template for_each_boundary_interface<Run::Parallel>( // We need the 'template' keyword...
+                    input_field,
+                    [&](const auto& cell, auto& contrib)
                     {
-                        field_value(output_field, cell, field_i) += this->scheme().flux_value_cmpnent(contrib, field_i);
-                    }
-                });
+                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                        {
+                            field_value(output_field, cell, field_i) += this->scheme().flux_value_cmpnent(contrib, field_i);
+                        }
+                    });
+            }
         }
     };
 } // end namespace samurai
