@@ -265,7 +265,7 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            if (scheme.include_boundary_fluxes())
+            if (scheme().include_boundary_fluxes())
             {
                 scheme().template for_each_boundary_interface_and_coeffs<Run::Parallel, Get::Intervals>(
                     input_field,

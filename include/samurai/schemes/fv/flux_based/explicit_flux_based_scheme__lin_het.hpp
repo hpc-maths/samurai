@@ -74,7 +74,7 @@ namespace samurai
                 });
 
             // Boundary interfaces
-            if (scheme.include_boundary_fluxes())
+            if (scheme().include_boundary_fluxes())
             {
                 scheme().for_each_boundary_interface_and_coeffs(
                     input_field,
