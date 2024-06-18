@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.0](https://github.com/hpc-maths/samurai/compare/v0.15.0...v0.16.0) (2024-06-18)
+
+
+### Bug Fixes
+
+* Fix compilation error on Get ([#215](https://github.com/hpc-maths/samurai/issues/215)) ([d855db0](https://github.com/hpc-maths/samurai/commit/d855db048871eedd09c80c44daa040a3e16c66f0))
+* Fix some minor issues in the flux-based schemes ([#217](https://github.com/hpc-maths/samurai/issues/217)) ([c15b06d](https://github.com/hpc-maths/samurai/commit/c15b06dade07d639797efbb4d5d099348fd3b945))
+
 ## [0.15.0](https://github.com/hpc-maths/samurai/compare/v0.14.0...v0.15.0) (2024-06-12)
 
 
