@@ -306,7 +306,7 @@ namespace samurai
                                                           const Submesh& submesh,
                                                           std::index_sequence<I...>)
     {
-        (void)std::initializer_list<int>{(this->save_field(grid, prefix, submesh, std::get<I>(m_fields)), 0)...};
+        (this->save_field(grid, prefix, submesh, std::get<I>(m_fields)), ...);
     }
 
     template <class D, class Mesh, class... T>
