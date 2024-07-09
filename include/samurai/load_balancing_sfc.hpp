@@ -173,7 +173,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
             for (size_t idim = 0; idim < Mesh_t::dim; ++idim) {
 
                 // FIX need shift to get only positive index
-                assert( cell.indices( 0 ) >= 0 );
+                assert( cell.indices( idim ) >= 0 );
                 ijk( idim ) = static_cast<uint32_t>( cell.indices( idim ) ) << ( mesh.max_level() - cell.level );
             }
 
@@ -209,7 +209,7 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         }
         dc = ncells_tot / static_cast<size_t>( world.size() );
 
-        // load balanced globIdx
+        // load balanced globIdx -> new theoretical key boundaries based on number of cells per proc
         globIdxNew[ 0 ] = 0;
         for(size_t i=0; i<static_cast<size_t>( world.size() ); ++i){
             globIdxNew[ i + 1 ] = globIdxNew[ i ] + dc;
