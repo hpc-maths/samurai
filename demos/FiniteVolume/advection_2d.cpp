@@ -17,6 +17,7 @@
 
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_sfc.hpp>
+#include <samurai/load_balancing_sfc_w.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
 #include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_diffusion_interval.hpp>
@@ -217,8 +218,6 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
 
-    Timers myTimers;
-
     constexpr std::size_t dim = 2;
     using Config              = samurai::MRConfig<dim>;
 
@@ -282,20 +281,21 @@ int main(int argc, char* argv[])
     rcenters.emplace_back( y_center );
     radii.emplace_back( radius );
 
-    rcenters = { 1., 1., 
-                 1., 3.,
-                 1., 3. };
-    radii    = { 0.2, 0.2, 0.2 };
+    rcenters = { 0.8, 0.8, 
+                 2., 2.,
+                 3., 1. };
+    radii    = { 0.8, 0.4, 0.2 };
 
     auto u = init<dim>(mesh, radii, rcenters);
 
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
-    myTimers.start("make_MRAdapt_init");
     auto MRadaptation = samurai::make_MRAdapt(u);
+
+    samurai::times::timers.start("MRadaptation");
     MRadaptation(mr_epsilon, mr_regularity);
-    myTimers.stop("make_MRAdapt_init");
+    samurai::times::timers.stop("MRadaptation");
 
     save(path, filename, u, "_init");
 
@@ -304,11 +304,13 @@ int main(int argc, char* argv[])
     
     const int iof = 1;
 
-    SFC_LoadBalancer_interval<dim, Morton> balancer;
+    // SFC_LoadBalancer_interval<dim, Morton> balancer;
+
     // Void_LoadBalancer<dim> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
     // Load_balancing::Diffusion balancer;
+    Load_balancing::SFCw<dim, Morton> balancer;
 
     std::ofstream logs;
     boost::mpi::communicator world;
@@ -318,14 +320,14 @@ int main(int argc, char* argv[])
     {
         if (nt % nt_loadbalance == 0 && nt > 1 )
         {
-            myTimers.start("load-balancing");
+            samurai::times::timers.start("load-balancing");
             balancer.load_balance(mesh, u);
-            myTimers.stop("load-balancing");
+            samurai::times::timers.stop("load-balancing");
         }
 
-        myTimers.start("MRadaptation");
+        samurai::times::timers.start("MRadaptation");
         MRadaptation(mr_epsilon, mr_regularity);
-        myTimers.stop("MRadaptation");
+        samurai::times::timers.stop("MRadaptation");
 
         t += dt;
         if (t > Tf)
@@ -336,15 +338,13 @@ int main(int argc, char* argv[])
 
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
-        myTimers.start("update_ghost_mr");
         samurai::update_ghost_mr(u);
-        myTimers.stop("update_ghost_mr");
 
         unp1.resize();
 
-        myTimers.start("upwind");
+        samurai::times::timers.start("upwind");
         unp1 = u - dt * samurai::upwind(a, u);
-        myTimers.stop("upwind");
+        samurai::times::timers.stop("upwind");
 
         if (correction)
         {
@@ -353,17 +353,15 @@ int main(int argc, char* argv[])
 
         std::swap(u.array(), unp1.array());
 
-        myTimers.start("I/O");
+        samurai::times::timers.start("I/O");
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf || nt % iof == 0  )
         {
             const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
         }
-        myTimers.stop("I/O");
+        samurai::times::timers.stop("I/O");
 
     }
-
-    myTimers.print();
 
     samurai::finalize();
     return 0;
