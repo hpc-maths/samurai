@@ -304,13 +304,13 @@ int main(int argc, char* argv[])
     
     const int iof = 1;
 
-    // SFC_LoadBalancer_interval<dim, Morton> balancer;
+    SFC_LoadBalancer_interval<dim, Morton> balancer;
 
     // Void_LoadBalancer<dim> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
     // Load_balancing::Diffusion balancer;
-    Load_balancing::SFCw<dim, Morton> balancer;
+    // Load_balancing::SFCw<dim, Morton> balancer;
 
     std::ofstream logs;
     boost::mpi::communicator world;
@@ -318,7 +318,11 @@ int main(int argc, char* argv[])
 
     while (t != Tf)
     {
-        if (nt % nt_loadbalance == 0 && nt > 1 )
+        bool reqBalance = balancer.require_balance( mesh );
+
+        if( reqBalance ) std::cerr << "\t> Load Balancing required !!! " << std::endl;
+
+        if ( ( nt % nt_loadbalance == 0 || reqBalance ) && nt > 1 )
         {
             samurai::times::timers.start("load-balancing");
             balancer.load_balance(mesh, u);

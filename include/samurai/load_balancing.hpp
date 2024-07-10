@@ -687,7 +687,7 @@ namespace samurai
 
             logs << "\t\t>[Load_balancer::update_mesh] Comm required with processes : [";
             for( const auto & it : comm )
-                logs << it.first << fmt::format(" ({} cells),", payload_size[it.first]);
+                logs << it.first << fmt::format(" ({} cells),", payload_size[ static_cast<size_t>( it.first ) ]);
             logs << "]" << std::endl;
 
             std::vector<int> req_send( static_cast<size_t>( world.size() ), 0 ), req_recv( static_cast<size_t>( world.size() ), 0 );
@@ -789,6 +789,15 @@ namespace samurai
             discover_neighbour( field.mesh() );
 
             nloadbalancing += 1;
+        }
+
+        /*
+        * Call balancer function that evaluate if load balancing is required or not based on balncer internal strategy
+        *
+        */
+        template<class Mesh_t>
+        bool require_balance( Mesh_t & mesh ) {
+            return static_cast<Flavor*>(this)->require_balance_impl( mesh );
         }
 
         /**
