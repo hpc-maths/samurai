@@ -27,6 +27,8 @@ namespace Load_balancing{
         int _ndomains;
         int _rank;
 
+        const double _unbalance_threshold = 0.05; // 5 %
+
     public:
 
         using samurai::LoadBalancer<SFCw<dim, SFC_type_t>>::logs;
@@ -46,6 +48,59 @@ namespace Load_balancing{
         inline std::string getName() const
         {
             return "SFCw_" + _sfc.getName() + "_LB";
+        }
+
+        /**
+        * Compute weights for cell at each level. We expect that small cell (high level)
+        * cost more computational power that largest cell (low level). But this is impacted
+        * by numerical scheme used. As default value, we use power of two starting from levelmin
+        * (low level).
+        */
+        std::vector<double> getWeights( size_t levelmin, size_t levelmax ) const {
+            // Computing weights based on maxlevel
+            std::vector<double> weights( levelmax + 1 );
+            
+            for( size_t ilvl=levelmin; ilvl<=levelmax; ++ilvl ){
+                weights[ ilvl ] = 1 << ( ( ilvl  - levelmin ) ) ;       // prioritize small cell
+                // weights[ ilvl ] = 1 << ( mesh.max_level() - ilvl ) ; // prioritize large cell
+                // weights[ ilvl ] = 1.;                                // all equal
+                logs << fmt::format("\t\t> Level {}, weight for cell : {}", ilvl, weights[ ilvl ] ) << std::endl;
+            }
+
+            return weights;
+        }
+
+        template <class Mesh_t>
+        bool require_balance_impl( Mesh_t & mesh ) {
+
+            boost::mpi::communicator world;
+
+            logs << fmt::format("\n# [SFCw_LoadBalancer::Morton] required_balance_impl ") << std::endl;
+
+            std::vector<double> weights = getWeights( mesh.min_level(), mesh.max_level() );
+
+            double load = 0;
+            samurai::for_each_cell( mesh[Mesh_t::mesh_id_t::cells], [&](const auto & cell ){
+                load +=  weights[ cell.level ];
+            });
+
+            std::vector<double> nbLoadPerProc;
+            boost::mpi::all_gather( world, load, nbLoadPerProc );
+            
+            double load_tot = 0.;
+            for(size_t i=0; i<nbLoadPerProc.size(); ++i){
+                load_tot += nbLoadPerProc[ i ];
+            }
+
+            double dc = load_tot / static_cast<double>( world.size() );
+
+            for(size_t ip=0; ip<nbLoadPerProc.size(); ++ip ) {
+                double diff = std::abs( nbLoadPerProc[ ip ] - dc ) / dc;
+
+                if( diff > _unbalance_threshold ) return true;
+            }
+
+            return false;
         }
 
         /**
@@ -177,13 +232,15 @@ namespace Load_balancing{
             flags.fill( world.rank() );
 
             // Computing weights based on maxlevel
-            std::vector<double> weights( mesh.max_level() + 1 );
-            for( size_t ilvl=mesh.min_level(); ilvl<=mesh.max_level(); ++ilvl ){
-                weights[ ilvl ] = 1 << ( ( ilvl  - mesh.min_level() ) ) ;
-                // weights[ ilvl ] = 1 << ( mesh.max_level() - ilvl ) ;
-                // weights[ ilvl ] = 1.;
-                logs << fmt::format("\t\t> Level {}, weight for cell : {}", ilvl, weights[ ilvl ] ) << std::endl;
-            }
+            // std::vector<double> weights( mesh.max_level() + 1 );
+            // for( size_t ilvl=mesh.min_level(); ilvl<=mesh.max_level(); ++ilvl ){
+            //     weights[ ilvl ] = 1 << ( ( ilvl  - mesh.min_level() ) ) ;
+            //     // weights[ ilvl ] = 1 << ( mesh.max_level() - ilvl ) ;
+            //     // weights[ ilvl ] = 1.;
+            //     logs << fmt::format("\t\t> Level {}, weight for cell : {}", ilvl, weights[ ilvl ] ) << std::endl;
+            // }
+
+            std::vector<double> weights = getWeights( mesh.min_level(), mesh.max_level() );
             
             
             logs << fmt::format("\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName() ) << std::endl;
