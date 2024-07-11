@@ -328,7 +328,9 @@ int main(int argc, char* argv[])
 
         if( reqBalance ) std::cerr << "\t> Load Balancing required !!! " << std::endl;
 
-        if ( ( nt % nt_loadbalance == 0 || reqBalance ) && nt > 1 )
+        // if ( ( nt % nt_loadbalance == 0 || reqBalance ) && nt > 1 )
+        if ( ( nt % nt_loadbalance == 0 ) && nt > 1 )
+        // if ( reqBalance && nt > 1 )
         {
             samurai::times::timers.start("load-balancing");
             balancer.load_balance(mesh, u);
