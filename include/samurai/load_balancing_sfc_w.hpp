@@ -56,7 +56,7 @@ namespace Load_balancing{
         * by numerical scheme used. As default value, we use power of two starting from levelmin
         * (low level).
         */
-        std::vector<double> getWeights( size_t levelmin, size_t levelmax ) const {
+        std::vector<double> getWeights( size_t levelmin, size_t levelmax ) {
             // Computing weights based on maxlevel
             std::vector<double> weights( levelmax + 1 );
             
