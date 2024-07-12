@@ -16,6 +16,8 @@ namespace Load_balancing{
             int _ndomains;
             int _rank;
 
+            const double _unbalance_threshold = 0.05; // 5 %
+
         public:
 
             Diffusion() {
@@ -31,6 +33,33 @@ namespace Load_balancing{
             }
 
             inline std::string getName() const { return "diffusion"; }
+
+            template <class Mesh_t>
+            bool require_balance_impl( Mesh_t & mesh ) {
+
+                boost::mpi::communicator world;
+
+                logs << fmt::format("\n# [Diffusion_LoadBalancer] required_balance_impl ") << std::endl;
+
+                double nbCells_tot = 0;
+                std::vector<double> nbCellsPerProc;
+                boost::mpi::all_gather( world, static_cast<double>( mesh.nb_cells( Mesh_t::mesh_id_t::cells ) ), nbCellsPerProc );
+
+                for(size_t ip=0; ip<nbCellsPerProc.size(); ++ip ) {
+                    nbCells_tot += nbCellsPerProc[ ip ];
+                }
+
+                // no weight while computing load 
+                double dc = nbCells_tot  / static_cast<double> ( world.size() );
+
+                for(size_t ip=0; ip<nbCellsPerProc.size(); ++ip ) {
+                    double diff = std::abs( nbCellsPerProc[ ip ] - dc ) / dc;
+
+                    if( diff > _unbalance_threshold ) return true;
+                }
+
+                return false;
+            }
 
             template<class Mesh_t>
             auto reordering_impl( Mesh_t & mesh ) {
