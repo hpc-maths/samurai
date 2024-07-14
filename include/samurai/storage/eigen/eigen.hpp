@@ -227,29 +227,32 @@ namespace samurai
         return container(range);
     }
 
-    template <class D>
-    auto abs(const Eigen::EigenBase<D>& exp)
+    namespace math
     {
-        return exp.derived().cwiseAbs();
-    }
-
-    template <class D>
-    auto sum(const Eigen::EigenBase<D>& exp)
-    {
-        return exp.derived().sum();
-    }
-
-    template <std::size_t axis, class D>
-    auto sum(const Eigen::EigenBase<D>& exp)
-    {
-        static_assert(axis < 2);
-        if constexpr (axis == 0)
+        template <class D>
+        auto abs(const Eigen::EigenBase<D>& exp)
         {
-            return exp.derived().rowwise().sum();
+            return exp.derived().cwiseAbs();
         }
-        else
+
+        template <class D>
+        auto sum(const Eigen::EigenBase<D>& exp)
         {
-            return exp.derived().colwise().sum();
+            return exp.derived().sum();
+        }
+
+        template <std::size_t axis, class D>
+        auto sum(const Eigen::EigenBase<D>& exp)
+        {
+            static_assert(axis < 2);
+            if constexpr (axis == 0)
+            {
+                return exp.derived().rowwise().sum();
+            }
+            else
+            {
+                return exp.derived().colwise().sum();
+            }
         }
     }
 
