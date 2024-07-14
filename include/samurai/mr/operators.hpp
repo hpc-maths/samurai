@@ -31,79 +31,40 @@ namespace samurai
             auto mask = (field(level + 1, 2 * i) & static_cast<int>(CellFlag::keep))
                       | (field(level + 1, 2 * i + 1) & static_cast<int>(CellFlag::keep));
 
-            apply_on_masked(field(level + 1, 2 * i),
-                            mask,
-                            [](auto& e)
-                            {
-                                e |= static_cast<int>(CellFlag::keep);
-                            });
-            apply_on_masked(field(level + 1, 2 * i + 1),
-                            mask,
-                            [](auto& e)
-                            {
-                                e |= static_cast<int>(CellFlag::keep);
-                            });
+            field(level + 1, 2 * i) |= mask * static_cast<int>(CellFlag::keep);
+            field(level + 1, 2 * i + 1) |= mask * static_cast<int>(CellFlag::keep);
 
-            apply_on_masked(field(level, i),
-                            mask,
-                            [](auto& e)
-                            {
-                                e |= static_cast<int>(CellFlag::keep);
-                            });
+            field(level, i) |= mask * static_cast<int>(CellFlag::keep);
 
             auto coarsen_mask = ((field(level + 1, 2 * i) & static_cast<int>(CellFlag::coarsen))
                                  & (field(level + 1, 2 * i + 1) & static_cast<int>(CellFlag::coarsen)));
 
-            auto not_coarsen_mask = !coarsen_mask;
+            noalias(field(level + 1, 2 * i)) = field(level + 1, 2 * i) * (!coarsen_mask & ~static_cast<int>(CellFlag::coarsen))
+                                             + coarsen_mask * field(level + 1, 2 * i);
 
-            apply_on_masked(field(level + 1, 2 * i),
-                            not_coarsen_mask,
-                            [](auto& e)
-                            {
-                                e &= ~static_cast<int>(CellFlag::coarsen);
-                            });
-            apply_on_masked(field(level + 1, 2 * i + 1),
-                            not_coarsen_mask,
-                            [](auto& e)
-                            {
-                                e &= ~static_cast<int>(CellFlag::coarsen);
-                            });
+            noalias(field(level + 1, 2 * i + 1)) = field(level + 1, 2 * i + 1) * (!coarsen_mask & ~static_cast<int>(CellFlag::coarsen))
+                                                 + coarsen_mask * field(level + 1, 2 * i + 1);
 
-            apply_on_masked(field(level, i),
-                            not_coarsen_mask,
-                            [](auto& e)
-                            {
-                                e |= static_cast<int>(CellFlag::keep);
-                            });
+            field(level, i) |= coarsen_mask * static_cast<int>(CellFlag::keep);
         }
 
         template <class T>
         inline void operator()(Dim<2>, T& field) const
         {
-            auto mask_keep = (field(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
-                           | (field(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
-                           | (field(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::keep))
-                           | (field(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::keep));
+            xt::xtensor<bool, 1> mask_keep = (field(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
+                                           | (field(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
+                                           | (field(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::keep))
+                                           | (field(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::keep));
 
             static_nested_loop<dim - 1, 0, 2>(
                 [&](auto stencil)
                 {
                     for (int ii = 0; ii < 2; ++ii)
                     {
-                        apply_on_masked(field(level + 1, 2 * i + ii, 2 * index + stencil),
-                                        mask_keep,
-                                        [](auto& e)
-                                        {
-                                            e |= static_cast<int>(CellFlag::keep);
-                                        });
+                        field(level + 1, 2 * i + ii, 2 * index + stencil) |= mask_keep * static_cast<int>(CellFlag::keep);
                     }
                 });
-            apply_on_masked(field(level, i, index),
-                            mask_keep,
-                            [](auto& e)
-                            {
-                                e |= static_cast<int>(CellFlag::keep);
-                            });
+            field(level, i, index) |= mask_keep * static_cast<int>(CellFlag::keep);
             // xt::masked_view(field(level + 1, 2 * i, 2 * j), mask) |= static_cast<int>(CellFlag::keep);
             // xt::masked_view(field(level + 1, 2 * i + 1, 2 * j), mask) |= static_cast<int>(CellFlag::keep);
             // xt::masked_view(field(level + 1, 2 * i, 2 * j + 1), mask) |= static_cast<int>(CellFlag::keep);
@@ -111,35 +72,31 @@ namespace samurai
 
             // xt::masked_view(field(level, i, j), mask) |= static_cast<int>(CellFlag::keep);
 
-            auto mask_coarsen = (field(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::coarsen))
-                              & (field(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::coarsen))
-                              & (field(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::coarsen))
-                              & (field(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::coarsen));
+            xt::xtensor<bool, 1> mask_coarsen = (field(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::coarsen))
+                                              & (field(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::coarsen))
+                                              & (field(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::coarsen))
+                                              & (field(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::coarsen));
 
             static_nested_loop<dim - 1, 0, 2>(
                 [&](auto stencil)
                 {
                     for (int ii = 0; ii < 2; ++ii)
                     {
-                        apply_on_masked(field(level + 1, 2 * i + ii, 2 * index + stencil),
-                                        mask_coarsen,
-                                        [](auto& e)
-                                        {
-                                            e &= ~static_cast<int>(CellFlag::coarsen);
-                                        });
+                        noalias(field(level + 1, 2 * i + ii, 2 * index + stencil)) = (!mask_coarsen)
+                                                                                       * (field(level + 1, 2 * i + ii, 2 * index + stencil)
+                                                                                          & (~static_cast<unsigned int>(CellFlag::coarsen)))
+                                                                                   + mask_coarsen
+                                                                                         * field(level + 1, 2 * i + ii, 2 * index + stencil);
                     }
                 });
-            apply_on_masked(field(level, i, index),
-                            mask_coarsen,
-                            [](auto& e)
-                            {
-                                e |= static_cast<int>(CellFlag::keep);
-                            });
-            // xt::masked_view(field(level + 1, 2 * i, 2 * j), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            // xt::masked_view(field(level + 1, 2 * i + 1, 2 * j), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            // xt::masked_view(field(level + 1, 2 * i, 2 * j + 1), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            // xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            // xt::masked_view(field(level, i, j), mask) |= static_cast<int>(CellFlag::keep);
+
+            field(level, i, j) |= mask_coarsen * static_cast<int>(CellFlag::keep);
+
+            // xt::masked_view(field(level + 1, 2 * i, 2 * j), !mask_coarsen) &= ~static_cast<unsigned int>(CellFlag::coarsen);
+            // xt::masked_view(field(level + 1, 2 * i + 1, 2 * j), !mask_coarsen) &= ~static_cast<unsigned int>(CellFlag::coarsen);
+            // xt::masked_view(field(level + 1, 2 * i, 2 * j + 1), !mask_coarsen) &= ~static_cast<unsigned int>(CellFlag::coarsen);
+            // xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1), !mask_coarsen) &= ~static_cast<unsigned int>(CellFlag::coarsen);
+            // xt::masked_view(field(level, i, j), mask_coarsen) |= static_cast<int>(CellFlag::keep);
         }
 
         template <class T>
@@ -154,16 +111,16 @@ namespace samurai
                                       | (field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep))
                                       | (field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep));
 
-            xt::masked_view(field(level + 1, 2 * i, 2 * j, 2 * k), mask) |= static_cast<int>(CellFlag::keep);
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j, 2 * k), mask) |= static_cast<int>(CellFlag::keep);
-            xt::masked_view(field(level + 1, 2 * i, 2 * j + 1, 2 * k), mask) |= static_cast<int>(CellFlag::keep);
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k), mask) |= static_cast<int>(CellFlag::keep);
-            xt::masked_view(field(level + 1, 2 * i, 2 * j, 2 * k + 1), mask) |= static_cast<int>(CellFlag::keep);
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1), mask) |= static_cast<int>(CellFlag::keep);
-            xt::masked_view(field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1), mask) |= static_cast<int>(CellFlag::keep);
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1), mask) |= static_cast<int>(CellFlag::keep);
+            field(level + 1, 2 * i, 2 * j, 2 * k) |= mask * static_cast<int>(CellFlag::keep);
+            field(level + 1, 2 * i + 1, 2 * j, 2 * k) |= mask * static_cast<int>(CellFlag::keep);
+            field(level + 1, 2 * i, 2 * j + 1, 2 * k) |= mask * static_cast<int>(CellFlag::keep);
+            field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k) |= mask * static_cast<int>(CellFlag::keep);
+            field(level + 1, 2 * i, 2 * j, 2 * k + 1) |= mask * static_cast<int>(CellFlag::keep);
+            field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1) |= mask * static_cast<int>(CellFlag::keep);
+            field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) |= mask * static_cast<int>(CellFlag::keep);
+            field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) |= mask * static_cast<int>(CellFlag::keep);
 
-            xt::masked_view(field(level, i, j, k), mask) |= static_cast<int>(CellFlag::keep);
+            field(level, i, j, k) |= mask * static_cast<int>(CellFlag::keep);
 
             mask = (field(level + 1, 2 * i, 2 * j, 2 * k) & static_cast<int>(CellFlag::coarsen))
                  & (field(level + 1, 2 * i + 1, 2 * j, 2 * k) & static_cast<int>(CellFlag::coarsen))
@@ -174,15 +131,31 @@ namespace samurai
                  & (field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::coarsen))
                  & (field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::coarsen));
 
-            xt::masked_view(field(level + 1, 2 * i, 2 * j, 2 * k), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j, 2 * k), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            xt::masked_view(field(level + 1, 2 * i, 2 * j + 1, 2 * k), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            xt::masked_view(field(level + 1, 2 * i, 2 * j, 2 * k + 1), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            xt::masked_view(field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            xt::masked_view(field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1), !mask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-            xt::masked_view(field(level, i, j, k), mask) |= static_cast<int>(CellFlag::keep);
+            noalias(field(level + 1, 2 * i, 2 * j, 2 * k)) = field(level + 1, 2 * i, 2 * j, 2 * k)
+                                                               * (!mask & ~static_cast<unsigned int>(CellFlag::coarsen))
+                                                           + mask * field(level + 1, 2 * i, 2 * j, 2 * k);
+            noalias(field(level + 1, 2 * i + 1, 2 * j, 2 * k)) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
+                                                                   * (!mask & ~static_cast<unsigned int>(CellFlag::coarsen))
+                                                               + mask * field(level + 1, 2 * i + 1, 2 * j, 2 * k);
+            noalias(field(level + 1, 2 * i, 2 * j + 1, 2 * k)) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
+                                                                   * (!mask & ~static_cast<unsigned int>(CellFlag::coarsen))
+                                                               + mask * field(level + 1, 2 * i, 2 * j + 1, 2 * k);
+            noalias(field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
+                                                                       * (!mask & ~static_cast<unsigned int>(CellFlag::coarsen))
+                                                                   + mask * field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k);
+            noalias(field(level + 1, 2 * i, 2 * j, 2 * k + 1)) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
+                                                                   * (!mask & ~static_cast<unsigned int>(CellFlag::coarsen))
+                                                               + mask * field(level + 1, 2 * i, 2 * j, 2 * k + 1);
+            noalias(field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
+                                                                       * (!mask & ~static_cast<unsigned int>(CellFlag::coarsen))
+                                                                   + mask * field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
+            noalias(field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
+                                                                       * (!mask & ~static_cast<unsigned int>(CellFlag::coarsen))
+                                                                   + mask * field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
+            noalias(field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
+                                                                           * (!mask & ~static_cast<unsigned int>(CellFlag::coarsen))
+                                                                       + mask * field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
+            field(level, i, j, k) |= mask * static_cast<int>(CellFlag::keep);
         }
     };
 
@@ -555,7 +528,7 @@ namespace samurai
         template <class T, class U, class V>
         inline void operator()(Dim<1>, T& keep, const U& detail, double eps) const
         {
-            auto mask = xt::abs(detail(level + 1, 2 * i)) < eps;
+            xt::xtensor<bool, 1> mask = xt::abs(detail(level + 1, 2 * i)) < eps;
             // auto mask = (.5 *
             //              (xt::abs(detail(level + 1, 2 * i)) +
             //               xt::abs(detail(level + 1, 2 * i + 1))) /
@@ -563,14 +536,14 @@ namespace samurai
 
             for (coord_index_t ii = 0; ii < 2; ++ii)
             {
-                xt::masked_view(keep(level + 1, 2 * i + ii), mask) = static_cast<int>(CellFlag::coarsen);
+                noalias(keep(level + 1, 2 * i + ii)) = mask * static_cast<int>(CellFlag::coarsen) + !mask * keep(level + 1, 2 * i + ii);
             }
         }
 
         template <class T, class U, class V>
         inline void operator()(Dim<2>, T& keep, const U& detail, double eps) const
         {
-            auto mask = xt::abs(detail(level + 1, 2 * i, 2 * j)) < eps;
+            xt::xtensor<bool, 1> mask = xt::abs(detail(level + 1, 2 * i, 2 * j)) < eps;
 
             // auto mask = (0.25 *
             //              (xt::abs(detail(level + 1, 2 * i, 2 * j)) +
@@ -583,7 +556,8 @@ namespace samurai
             {
                 for (coord_index_t ii = 0; ii < 2; ++ii)
                 {
-                    xt::masked_view(keep(level + 1, 2 * i + ii, 2 * j + jj), mask) = static_cast<int>(CellFlag::coarsen);
+                    noalias(keep(level + 1, 2 * i + ii, 2 * j + jj)) = mask * static_cast<int>(CellFlag::coarsen)
+                                                                     + !mask * keep(level + 1, 2 * i + ii, 2 * j + jj);
                 }
             }
         }
@@ -591,7 +565,7 @@ namespace samurai
         template <class T, class U, class V>
         inline void operator()(Dim<3>, T& keep, const U& detail, double eps) const
         {
-            auto mask = xt::abs(detail(level + 1, 2 * i, 2 * j, 2 * k)) < eps;
+            xt::xtensor<bool, 1> mask = xt::abs(detail(level + 1, 2 * i, 2 * j, 2 * k)) < eps;
 
             for (coord_index_t kk = 0; kk < 2; ++kk)
             {
@@ -599,7 +573,10 @@ namespace samurai
                 {
                     for (coord_index_t ii = 0; ii < 2; ++ii)
                     {
-                        xt::masked_view(keep(level + 1, 2 * i + ii, 2 * j + jj, 2 * k + kk), mask) = static_cast<int>(CellFlag::coarsen);
+                        noalias(
+                            keep(level + 1, 2 * i + ii, 2 * j + jj, 2 * k + kk)) = mask * static_cast<int>(CellFlag::coarsen)
+                                                                                 + !mask
+                                                                                       * keep(level + 1, 2 * i + ii, 2 * j + jj, 2 * k + kk);
                     }
                 }
             }
@@ -626,22 +603,22 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<1>, T& flag) const
         {
-            auto mask                                 = flag(level + 1, i) & static_cast<int>(CellFlag::keep);
-            xt::masked_view(flag(level, i / 2), mask) = static_cast<int>(CellFlag::refine);
+            xt::xtensor<bool, 1> mask   = flag(level + 1, i) & static_cast<int>(CellFlag::keep);
+            noalias(flag(level, i / 2)) = mask * static_cast<int>(CellFlag::refine) + !mask * flag(level, i / 2);
         }
 
         template <class T>
         inline void operator()(Dim<2>, T& flag) const
         {
-            auto mask                                        = flag(level + 1, i, j) & static_cast<int>(CellFlag::keep);
-            xt::masked_view(flag(level, i / 2, j / 2), mask) = static_cast<int>(CellFlag::refine);
+            xt::xtensor<bool, 1> mask          = flag(level + 1, i, j) & static_cast<int>(CellFlag::keep);
+            noalias(flag(level, i / 2, j / 2)) = mask * static_cast<int>(CellFlag::refine) + !mask * flag(level, i / 2, j / 2);
         }
 
         template <class T>
         inline void operator()(Dim<3>, T& flag) const
         {
-            auto mask                                               = flag(level + 1, i, j, k) & static_cast<int>(CellFlag::keep);
-            xt::masked_view(flag(level, i / 2, j / 2, k / 2), mask) = static_cast<int>(CellFlag::refine);
+            xt::xtensor<bool, 1> mask = flag(level + 1, i, j, k) & static_cast<int>(CellFlag::keep);
+            noalias(flag(level, i / 2, j / 2, k / 2)) = mask * static_cast<int>(CellFlag::refine) + !mask * flag(level, i / 2, j / 2, k / 2);
         }
     };
 
@@ -665,24 +642,24 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<1>, T& cell_flag) const
         {
-            auto keep_mask = cell_flag(level, i) & static_cast<int>(CellFlag::keep);
+            xt::xtensor<bool, 1> keep_mask = cell_flag(level, i) & static_cast<int>(CellFlag::keep);
 
             for (int ii = -1; ii < 2; ++ii)
             {
-                xt::masked_view(cell_flag(level, i + ii), keep_mask) |= static_cast<int>(CellFlag::enlarge);
+                cell_flag(level, i + ii) |= keep_mask * static_cast<int>(CellFlag::enlarge);
             }
         }
 
         template <class T>
         inline void operator()(Dim<2>, T& cell_flag) const
         {
-            auto keep_mask = cell_flag(level, i, j) & static_cast<int>(CellFlag::keep);
+            xt::xtensor<bool, 1> keep_mask = cell_flag(level, i, j) & static_cast<int>(CellFlag::keep);
 
             for (int jj = -1; jj < 2; ++jj)
             {
                 for (int ii = -1; ii < 2; ++ii)
                 {
-                    xt::masked_view(cell_flag(level, i + ii, j + jj), keep_mask) |= static_cast<int>(CellFlag::enlarge);
+                    cell_flag(level, i + ii, j + jj) |= keep_mask * static_cast<int>(CellFlag::enlarge);
                 }
             }
         }
@@ -690,7 +667,7 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<3>, T& cell_flag) const
         {
-            auto keep_mask = cell_flag(level, i, j, k) & static_cast<int>(CellFlag::keep);
+            xt::xtensor<bool, 1> keep_mask = cell_flag(level, i, j, k) & static_cast<int>(CellFlag::keep);
 
             for (int kk = -1; kk < 2; ++kk)
             {
@@ -698,7 +675,7 @@ namespace samurai
                 {
                     for (int ii = -1; ii < 2; ++ii)
                     {
-                        xt::masked_view(cell_flag(level, i + ii, j + jj, k + kk), keep_mask) |= static_cast<int>(CellFlag::enlarge);
+                        cell_flag(level, i + ii, j + jj, k + kk) |= keep_mask * static_cast<int>(CellFlag::enlarge);
                     }
                 }
             }
@@ -725,49 +702,33 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<1>, T& cell_flag) const
         {
-            for (std::size_t iflag = 0; iflag < cell_flag(level, i).size(); ++iflag)
+            xt::xtensor<bool, 1> refine_mask = cell_flag(level, i) & static_cast<int>(CellFlag::refine);
+
+            for (int ii = -1; ii < 2; ++ii)
             {
-                if (cell_flag(level, i)(iflag) & static_cast<int>(CellFlag::refine))
-                {
-                    for (int ii = -1; ii < 2; ++ii)
-                    {
-                        cell_flag(level, i + ii)(iflag) |= static_cast<int>(CellFlag::keep);
-                    }
-                }
+                cell_flag(level, i + ii) |= refine_mask * static_cast<int>(CellFlag::keep);
             }
         }
 
         template <class T>
         inline void operator()(Dim<2>, T& cell_flag) const
         {
-            auto refine_mask = cell_flag(level, i, j) & static_cast<int>(CellFlag::refine);
+            xt::xtensor<bool, 1> refine_mask = cell_flag(level, i, j) & static_cast<int>(CellFlag::refine);
 
             static_nested_loop<dim - 1, 0, 2>(
                 [&](auto stencil)
                 {
                     for (int ii = 0; ii < 2; ++ii)
                     {
-                        apply_on_masked(cell_flag(level, i + ii, index + stencil),
-                                        refine_mask,
-                                        [](auto& e)
-                                        {
-                                            e |= static_cast<int>(CellFlag::keep);
-                                        });
+                        cell_flag(level, i + ii, index + stencil) |= refine_mask * static_cast<int>(CellFlag::keep);
                     }
                 });
-            // for (int jj = -1; jj < 2; ++jj)
-            // {
-            //     for (int ii = -1; ii < 2; ++ii)
-            //     {
-            //         xt::masked_view(cell_flag(level, i + ii, j + jj), refine_mask) |= static_cast<int>(CellFlag::keep);
-            //     }
-            // }
         }
 
         template <class T>
         inline void operator()(Dim<3>, T& cell_flag) const
         {
-            auto refine_mask = cell_flag(level, i, j, k) & static_cast<int>(CellFlag::refine);
+            xt::xtensor<bool, 1> refine_mask = cell_flag(level, i, j, k) & static_cast<int>(CellFlag::refine);
 
             for (int kk = -1; kk < 2; ++kk)
             {
@@ -775,7 +736,7 @@ namespace samurai
                 {
                     for (int ii = -1; ii < 2; ++ii)
                     {
-                        xt::masked_view(cell_flag(level, i + ii, j + jj, k + kk), refine_mask) |= static_cast<int>(CellFlag::keep);
+                        cell_flag(level, i + ii, j + jj, k + kk) |= refine_mask * static_cast<int>(CellFlag::keep);
                     }
                 }
             }
@@ -837,25 +798,20 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<1>, T& tag) const
         {
-            auto refine_mask = tag(level, i) & static_cast<int>(samurai::CellFlag::refine);
+            xt::xtensor<bool, 1> refine_mask = tag(level, i) & static_cast<int>(samurai::CellFlag::refine);
 
             const int added_cells = 1; // 1 by default
 
             for (int ii = -added_cells; ii < added_cells + 1; ++ii)
             {
-                apply_on_masked(tag(level, i + ii),
-                                refine_mask,
-                                [](auto& e)
-                                {
-                                    e |= static_cast<int>(CellFlag::keep);
-                                });
+                tag(level, i + ii) |= refine_mask * static_cast<int>(samurai::CellFlag::keep);
             }
         }
 
         template <class T>
         inline void operator()(Dim<2>, T& tag) const
         {
-            auto refine_mask = tag(level, i, j) & static_cast<int>(samurai::CellFlag::refine);
+            xt::xtensor<bool, 1> refine_mask = tag(level, i, j) & static_cast<int>(samurai::CellFlag::refine);
 
             const int added_cells = 1; // 1 by default
 
@@ -864,12 +820,7 @@ namespace samurai
                 {
                     for (int ii = -added_cells; ii < added_cells + 1; ++ii)
                     {
-                        apply_on_masked(tag(level, i + ii, index + stencil),
-                                        refine_mask,
-                                        [](auto& e)
-                                        {
-                                            e |= static_cast<int>(CellFlag::keep);
-                                        });
+                        tag(level, i + ii, index + stencil) |= refine_mask * static_cast<int>(samurai::CellFlag::keep);
                     }
                 });
             // for (int jj = -1; jj < 2; ++jj)
@@ -884,7 +835,7 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<3>, T& tag) const
         {
-            auto refine_mask = tag(level, i, j, k) & static_cast<int>(samurai::CellFlag::refine);
+            xt::xtensor<bool, 1> refine_mask = tag(level, i, j, k) & static_cast<int>(samurai::CellFlag::refine);
 
             for (int kk = -1; kk < 2; ++kk)
             {
@@ -892,7 +843,7 @@ namespace samurai
                 {
                     for (int ii = -1; ii < 2; ++ii)
                     {
-                        xt::masked_view(tag(level, i + ii, j + jj, k + kk), refine_mask) |= static_cast<int>(samurai::CellFlag::keep);
+                        tag(level, i + ii, j + jj, k + kk) |= refine_mask * static_cast<int>(samurai::CellFlag::keep);
                     }
                 }
             }
@@ -922,25 +873,15 @@ namespace samurai
             auto i_even = i.even_elements();
             if (i_even.is_valid())
             {
-                auto mask = tag(level, i_even) & static_cast<int>(CellFlag::keep);
-                apply_on_masked(tag(level - 1, i_even >> 1),
-                                mask,
-                                [](auto& e)
-                                {
-                                    e |= static_cast<int>(CellFlag::refine);
-                                });
+                xt::xtensor<bool, 1> mask = tag(level, i_even) & static_cast<int>(CellFlag::keep);
+                tag(level - 1, i_even >> 1) |= mask * static_cast<int>(CellFlag::refine);
             }
 
             auto i_odd = i.odd_elements();
             if (i_odd.is_valid())
             {
-                auto mask = tag(level, i_odd) & static_cast<int>(CellFlag::keep);
-                apply_on_masked(tag(level - 1, i_odd >> 1),
-                                mask,
-                                [](auto& e)
-                                {
-                                    e |= static_cast<int>(CellFlag::refine);
-                                });
+                xt::xtensor<bool, 1> mask = tag(level, i_odd) & static_cast<int>(CellFlag::keep);
+                tag(level - 1, i_odd >> 1) |= mask * static_cast<int>(CellFlag::refine);
             }
         }
 
@@ -950,13 +891,8 @@ namespace samurai
             auto i_even = i.even_elements();
             if (i_even.is_valid())
             {
-                auto mask = tag(level, i_even, j) & static_cast<int>(CellFlag::keep);
-                apply_on_masked(tag(level - 1, i_even >> 1, j >> 1),
-                                mask,
-                                [](auto& e)
-                                {
-                                    e |= static_cast<int>(CellFlag::refine);
-                                });
+                xt::xtensor<bool, 1> mask = tag(level, i_even, j) & static_cast<int>(CellFlag::keep);
+                tag(level - 1, i_even >> 1, j >> 1) |= mask * static_cast<int>(CellFlag::refine);
 
                 // xt::masked_view(tag(level - 1, i_even >> 1, j >> 1), mask) |= static_cast<int>(CellFlag::refine);
             }
@@ -964,13 +900,8 @@ namespace samurai
             auto i_odd = i.odd_elements();
             if (i_odd.is_valid())
             {
-                auto mask = tag(level, i_odd, j) & static_cast<int>(CellFlag::keep);
-                apply_on_masked(tag(level - 1, i_odd >> 1, j >> 1),
-                                mask,
-                                [](auto& e)
-                                {
-                                    e |= static_cast<int>(CellFlag::refine);
-                                });
+                xt::xtensor<bool, 1> mask = tag(level, i_odd, j) & static_cast<int>(CellFlag::keep);
+                tag(level - 1, i_odd >> 1, j >> 1) |= mask * static_cast<int>(CellFlag::refine);
                 // xt::masked_view(tag(level - 1, i_odd >> 1, j >> 1), mask) |= static_cast<int>(CellFlag::refine);
             }
         }
@@ -981,15 +912,15 @@ namespace samurai
             auto i_even = i.even_elements();
             if (i_even.is_valid())
             {
-                auto mask = tag(level, i_even, j, k) & static_cast<int>(CellFlag::keep);
-                xt::masked_view(tag(level - 1, i_even >> 1, j >> 1, k >> 1), mask) |= static_cast<int>(CellFlag::refine);
+                xt::xtensor<bool, 1> mask = tag(level, i_even, j, k) & static_cast<int>(CellFlag::keep);
+                tag(level - 1, i_even >> 1, j >> 1, k >> 1) |= mask * static_cast<int>(CellFlag::refine);
             }
 
             auto i_odd = i.odd_elements();
             if (i_odd.is_valid())
             {
-                auto mask = tag(level, i_odd, j, k) & static_cast<int>(CellFlag::keep);
-                xt::masked_view(tag(level - 1, i_odd >> 1, j >> 1, k >> 1), mask) |= static_cast<int>(CellFlag::refine);
+                xt::xtensor<bool, 1> mask = tag(level, i_odd, j, k) & static_cast<int>(CellFlag::keep);
+                tag(level - 1, i_odd >> 1, j >> 1, k >> 1) |= mask * static_cast<int>(CellFlag::refine);
             }
         }
     };
