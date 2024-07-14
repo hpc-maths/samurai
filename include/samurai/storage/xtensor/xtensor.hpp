@@ -125,13 +125,17 @@ namespace samurai
     template <class value_t, std::size_t size>
     auto view(const xtensor_container<value_t, size, true>& container, const range_t<long long>& range_item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range_item.start, range_item.end, range_item.step), xt::range(range.start, range.end, range.step));
+        return xt::view(container.data(),
+                        xt::range(range_item.start, range_item.end, range_item.step),
+                        xt::range(range.start, range.end, range.step));
     }
 
     template <class value_t, std::size_t size>
     auto view(const xtensor_container<value_t, size, false>& container, const range_t<long long>& range_item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end, range.step), xt::range(range_item.start, range_item.end, range_item.step));
+        return xt::view(container.data(),
+                        xt::range(range.start, range.end, range.step),
+                        xt::range(range_item.start, range_item.end, range_item.step));
     }
 
     template <class value_t, std::size_t size>
@@ -207,22 +211,21 @@ namespace samurai
         return xt::view(container, range);
     }
 
-    template <class D>
-    auto abs(const xt::xcontainer<D>& exp)
+    namespace math
     {
-        return xt::abs(exp);
-    }
+        using xt::abs;
 
-    template <class D>
-    auto sum(const xt::xcontainer<D>& exp)
-    {
-        return xt::sum(exp)[0];
-    }
+        template <class D>
+        auto sum(xt::xexpression<D>&& exp)
+        {
+            return xt::sum(exp.derived_cast())[0];
+        }
 
-    template <std::size_t axis, class D>
-    auto sum(xt::xexpression<D>&& exp)
-    {
-        return xt::sum(exp.derived_cast(), {axis});
+        template <class F, class... CT>
+        auto sum(xt::xfunction<F, CT...>&& exp)
+        {
+            return xt::sum(exp)[0];
+        }
     }
 
     template <class D>

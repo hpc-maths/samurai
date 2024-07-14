@@ -378,6 +378,7 @@ namespace samurai
     template <std::size_t dim, class TInterval, std::size_t nd>
     inline auto OnDirection<dim, TInterval, nd>::get_region(const lca_t& domain) const -> region_t
     {
+        using namespace math;
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
 
