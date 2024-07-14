@@ -226,6 +226,12 @@ namespace samurai
         {
             return xt::sum(exp)[0];
         }
+
+        template <std::size_t axis, class D>
+        auto sum(xt::xexpression<D>&& exp)
+        {
+            return xt::sum(exp.derived_cast(), {axis});
+        }
     }
 
     template <class D>
@@ -260,6 +266,18 @@ namespace samurai
             if (criteria.derived_cast()(i))
             {
                 func(dst.derived_cast()(i));
+            }
+        }
+    }
+
+    template <class CRIT, class FUNC>
+    void apply_on_masked(const xt::xexpression<CRIT>& criteria, FUNC&& func)
+    {
+        for (std::size_t i = 0; i < criteria.derived_cast().size(); ++i)
+        {
+            if (criteria.derived_cast()(i))
+            {
+                func(i);
             }
         }
     }
