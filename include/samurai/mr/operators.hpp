@@ -51,10 +51,10 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<2>, T& field) const
         {
-            auto mask_keep = (field(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
-                           | (field(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
-                           | (field(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::keep))
-                           | (field(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::keep));
+            auto mask_keep = eval((field(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
+                                  | (field(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
+                                  | (field(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::keep))
+                                  | (field(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::keep)));
 
             // version 1
             // xt::masked_view(field(level + 1, 2 * i, 2 * j), mask_keep) |= static_cast<int>(CellFlag::keep);
@@ -77,7 +77,7 @@ namespace samurai
 
             // version 3
             apply_on_masked(mask_keep,
-                            [&](std::size_t imask)
+                            [&](auto imask)
                             {
                                 field(level + 1, 2 * i, 2 * j)(imask) |= static_cast<int>(CellFlag::keep);
                                 field(level + 1, 2 * i + 1, 2 * j)(imask) |= static_cast<int>(CellFlag::keep);
@@ -86,10 +86,10 @@ namespace samurai
                                 field(level, i, j)(imask) |= static_cast<int>(CellFlag::keep);
                             });
 
-            auto mask_coarsen = (field(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::coarsen))
-                              & (field(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::coarsen))
-                              & (field(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::coarsen))
-                              & (field(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::coarsen));
+            auto mask_coarsen = eval((field(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::coarsen))
+                                     & (field(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::coarsen))
+                                     & (field(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::coarsen))
+                                     & (field(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::coarsen)));
 
             // version 1
             // xt::masked_view(field(level + 1, 2 * i, 2 * j), !mask_coarsen) &= ~static_cast<unsigned int>(CellFlag::coarsen);
@@ -119,7 +119,7 @@ namespace samurai
 
             // version 3
             apply_on_masked(!mask_coarsen,
-                            [&](std::size_t imask)
+                            [&](auto imask)
                             {
                                 field(level + 1, 2 * i, 2 * j)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
                                 field(level + 1, 2 * i + 1, 2 * j)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
