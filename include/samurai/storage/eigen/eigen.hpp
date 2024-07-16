@@ -279,4 +279,16 @@ namespace samurai
             }
         }
     }
+
+    template <class CRIT, class FUNC>
+    void apply_on_masked(const Eigen::EigenBase<CRIT>& criteria, FUNC&& func)
+    {
+        for (std::size_t i = 0; i < criteria.size(); ++i)
+        {
+            if (criteria.derived()(i))
+            {
+                func(i);
+            }
+        }
+    }
 }
