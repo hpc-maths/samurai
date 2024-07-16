@@ -84,33 +84,34 @@ namespace samurai
             using index_t                    = typename interval_t::index_t;
             using cell_t                     = Cell<dim, interval_t>;
             using data_type                  = field_data_storage_t<value_t, 1>;
+            using size_type                  = typename data_type::size_type;
 
             inline const value_t& operator[](index_t i) const
             {
-                return m_storage.data()[static_cast<std::size_t>(i)];
+                return m_storage.data()[static_cast<size_type>(i)];
             }
 
             inline value_t& operator[](index_t i)
             {
-                return m_storage.data()[static_cast<std::size_t>(i)];
+                return m_storage.data()[static_cast<size_type>(i)];
             }
 
             inline const value_t& operator[](const cell_t& cell) const
             {
-                return m_storage.data()[static_cast<std::size_t>(cell.index)];
+                return m_storage.data()[static_cast<size_type>(cell.index)];
             }
 
             inline value_t& operator[](const cell_t& cell)
             {
-                return m_storage.data()[static_cast<std::size_t>(cell.index)];
+                return m_storage.data()[static_cast<size_type>(cell.index)];
             }
 
-            inline const value_t& operator()(std::size_t i) const
+            inline const value_t& operator()(size_type i) const
             {
                 return m_storage.data()[i];
             }
 
-            inline value_t& operator()(std::size_t i)
+            inline value_t& operator()(size_type i)
             {
                 return m_storage.data()[i];
             }
@@ -150,7 +151,7 @@ namespace samurai
 
             void resize()
             {
-                m_storage.resize(this->derived_cast().mesh().nb_cells());
+                m_storage.resize(static_cast<size_type>(this->derived_cast().mesh().nb_cells()));
 #ifdef SAMURAI_CHECK_NAN
                 if constexpr (std::is_floating_point_v<value_t>)
                 {
