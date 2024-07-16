@@ -15,6 +15,7 @@ namespace samurai
     struct xtensor_container
     {
         using container_t = xt::xtensor<value_t, (size == 1) ? 1 : 2>;
+        using size_type   = std::size_t;
 
         xtensor_container() = default;
 
