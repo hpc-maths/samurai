@@ -41,6 +41,7 @@ namespace samurai
     struct eigen_container
     {
         using container_t = detail::eigen_type_t<value_t, size, SOA>;
+        using size_type   = Eigen::Index;
 
         eigen_container() = default;
 
@@ -60,7 +61,7 @@ namespace samurai
             return m_data;
         }
 
-        void resize(std::size_t dynamic_size)
+        void resize(size_type dynamic_size)
         {
             if constexpr (size == 1)
             {
@@ -271,7 +272,7 @@ namespace samurai
     template <class DST, class CRIT, class FUNC>
     void apply_on_masked(Eigen::EigenBase<DST>&& dst, const Eigen::EigenBase<CRIT>& criteria, FUNC&& func)
     {
-        for (std::size_t i = 0; i < criteria.size(); ++i)
+        for (Eigen::Index i = 0; i < criteria.size(); ++i)
         {
             if (criteria.derived()(i))
             {
@@ -283,7 +284,7 @@ namespace samurai
     template <class CRIT, class FUNC>
     void apply_on_masked(const Eigen::EigenBase<CRIT>& criteria, FUNC&& func)
     {
-        for (std::size_t i = 0; i < criteria.size(); ++i)
+        for (Eigen::Index i = 0; i < criteria.size(); ++i)
         {
             if (criteria.derived()(i))
             {
