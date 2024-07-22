@@ -31,6 +31,12 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
+
+        boost::mpi::communicator world;
+
+        rank  = world.rank();
+        nproc = world.size();
+        mpi_tag = "ON";
 #endif
         times::timers.start("total runtime");
         return app;
