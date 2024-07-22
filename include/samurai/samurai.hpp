@@ -19,9 +19,48 @@ namespace samurai
 
     inline void initialize([[maybe_unused]] int& argc, [[maybe_unused]] char**& argv)
     {
+
+        int rank     = 0;
+        int nproc    = 1;
+        int nthreads = 1;
+        std::string mpi_tag = "OFF";
+        std::string openmp_tag = "OFF";
+
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
+
+        boost::mpi::communicator world;
+
+        rank  = world.rank();
+        nproc = world.size();
+        mpi_tag = "ON";
 #endif
+
+#ifdef SAMURAI_WITH_OPENMP
+        openmp_tag = "ON";
+        #pragma omp parallel
+        {
+            nthreads = omp_get_num_threads();
+        }
+#endif
+
+        // Message + parallel config
+        if( rank == 0 ) {
+            std::cout << std::endl;
+            std::cout << "     #####     #    #     # #     # ######     #    ### " << std::endl;
+            std::cout << "    #     #   # #   ##   ## #     # #     #   # #    #  " << std::endl;
+            std::cout << "    #        #   #  # # # # #     # #     #  #   #   #  " << std::endl;
+            std::cout << "     #####  #     # #  #  # #     # ######  #     #  #  " << std::endl;
+            std::cout << "          # ####### #     # #     # #   #   #######  #  " << std::endl;
+            std::cout << "    #     # #     # #     # #     # #    #  #     #  #  " << std::endl;
+            std::cout << "     #####  #     # #     #  #####  #     # #     # ### (v 3.14.0)" << std::endl;
+            std::cout << std::endl;
+
+            std::cout << fmt::format("Configuration: {} process x {} threads (MPI: {}, OpenMP: {})\n", 
+                                     nproc, nthreads, mpi_tag, openmp_tag) << std::endl;
+
+        }
+
         times::timers.start("smr::total_runtime");
     }
 
