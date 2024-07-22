@@ -61,8 +61,9 @@ namespace Load_balancing{
             std::vector<double> weights( levelmax + 1 );
             
             for( size_t ilvl=levelmin; ilvl<=levelmax; ++ilvl ){
-                weights[ ilvl ] = 1 << ( ( ilvl  - levelmin ) ) ;       // prioritize small cell
-                // weights[ ilvl ] = 1 << ( mesh.max_level() - ilvl ) ; // prioritize large cell
+                // weights[ ilvl ] = ( 1 << ( ilvl  - levelmin ) );       // prioritize small cell
+                weights[ ilvl ] = 1 << (ilvl * ilvl);
+                // weights[ ilvl ] = 1 << ( levelmax - ilvl ) ; // prioritize large cell
                 // weights[ ilvl ] = 1.;                                // all equal
                 logs << fmt::format("\t\t> Level {}, weight for cell : {}", ilvl, weights[ ilvl ] ) << std::endl;
             }
