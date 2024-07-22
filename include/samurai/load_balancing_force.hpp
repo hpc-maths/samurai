@@ -12,6 +12,8 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
         int _ndomains;
         int _rank;
 
+        const double _unbalance_threshold = 0.05; // 5 %
+
         template<class Mesh_t>
         double getSurfaceOrVolume( Mesh_t & mesh ) const {
 
@@ -44,6 +46,33 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
         }
 
         inline std::string getName() const { return "Gravity_LB"; } 
+
+        template <class Mesh_t>
+        bool require_balance_impl( Mesh_t & mesh ) {
+
+            boost::mpi::communicator world;
+
+            // logs << fmt::format("\n# [SFC_LoadBalancer_interval::Morton] required_balance_impl ") << std::endl;
+
+            double nbCells_tot = 0;
+            std::vector<double> nbCellsPerProc;
+            boost::mpi::all_gather( world, static_cast<double>( mesh.nb_cells( Mesh_t::mesh_id_t::cells ) ), nbCellsPerProc );
+
+            for(size_t ip=0; ip<nbCellsPerProc.size(); ++ip ) {
+                nbCells_tot += nbCellsPerProc[ ip ];
+            }
+
+            // no weight while computing load 
+            double dc = nbCells_tot  / static_cast<double> ( world.size() );
+
+            for(size_t ip=0; ip<nbCellsPerProc.size(); ++ip ) {
+                double diff = std::abs( nbCellsPerProc[ ip ] - dc ) / dc;
+
+                if( diff > _unbalance_threshold ) return true;
+            }
+
+            return false;
+        }
 
         template<class Mesh_t>
         auto reordering_impl( Mesh_t & mesh ){
@@ -132,7 +161,7 @@ class Diffusion_LoadBalancer_cell : public samurai::LoadBalancer<Diffusion_LoadB
             auto flags = samurai::make_field<int, 1>("rank", mesh);
             flags.fill( world.rank() );
 
-            constexpr auto fdist = samurai::Distance_t::L2;
+            constexpr auto fdist = samurai::Distance_t::L1;
 
             double currentSV = getSurfaceOrVolume( mesh );
 
