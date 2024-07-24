@@ -30,6 +30,14 @@ endif()
 add_executable(finite-volume-linear-convection linear_convection.cpp)
 target_link_libraries(finite-volume-linear-convection samurai CLI11::CLI11 ${MPI_LIBRARIES})
 
+# Test with Ponio (required CXX 20)
+find_package(ponio CONFIG REQUIRED)
+
+add_executable(finite-volume-linear-convection-ponio linear_convection_ponio.cpp)
+target_include_directories(finite-volume-linear-convection-ponio PUBLIC /Users/strafella/work/ponio/ponio/include/)
+target_link_libraries(finite-volume-linear-convection-ponio samurai CLI11::CLI11 ${MPI_LIBRARIES} ponio::ponio ponio::project_options ponio::project_warnings)
+
+
 add_executable(finite-volume-amr-burgers-hat AMR_Burgers_Hat.cpp)
 target_link_libraries(finite-volume-amr-burgers-hat samurai CLI11::CLI11)
 
