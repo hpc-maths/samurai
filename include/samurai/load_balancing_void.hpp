@@ -30,10 +30,21 @@ class Void_LoadBalancer: public samurai::LoadBalancer<Void_LoadBalancer<dim>> {
 
         inline std::string getName() const { return "Void_LB"; }
 
-        template<class Mesh_t>
-        Mesh_t reordering_impl( Mesh_t & mesh ) { return mesh; }
+        template <class Mesh_t>
+        bool require_balance_impl( Mesh_t & mesh ) { return false; }
 
         template<class Mesh_t>
-        Mesh_t load_balance_impl( Mesh_t & mesh ){ return mesh; }
+        auto reordering_impl( Mesh_t & mesh ) { 
+            auto flags = samurai::make_field<int, 1>("balancing_flags", mesh);
+            flags.fill( _rank );
+            return flags;
+        }
+
+        template<class Mesh_t>
+        auto load_balance_impl( Mesh_t & mesh ){
+            auto flags = samurai::make_field<int, 1>("balancing_flags", mesh);
+            flags.fill( _rank );
+            return flags;
+        }
 
 };
