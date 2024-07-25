@@ -44,11 +44,11 @@ namespace Load_balancing{
             auto load_balance_impl( Mesh_t & mesh ){
 
                 using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
-                using CellList_t      = typename Mesh_t::cl_type;
-                using mesh_id_t       = typename Mesh_t::mesh_id_t;
+                // using CellList_t      = typename Mesh_t::cl_type;
+                // using mesh_id_t       = typename Mesh_t::mesh_id_t;
 
-                using Coord_t = xt::xtensor_fixed<double, xt::xshape<Mesh_t::dim>>;
-                using Stencil = xt::xtensor_fixed<int, xt::xshape<Mesh_t::dim>>;
+                // using Coord_t = xt::xtensor_fixed<double, xt::xshape<Mesh_t::dim>>;
+                // using Stencil = xt::xtensor_fixed<int, xt::xshape<Mesh_t::dim>>;
 
                 boost::mpi::communicator world;
 
