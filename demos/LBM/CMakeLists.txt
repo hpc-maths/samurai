@@ -30,7 +30,7 @@ target_link_libraries(lbm-D1Q222-euler-sod samurai)
 # 2D Paper
 
 add_executable(lbm-D2Q4444-euler-lax-liu D2Q4444_Euler_Lax_Liu.cpp)
-target_link_libraries(lbm-D2Q4444-euler-lax-liu samurai)
+target_link_libraries(lbm-D2Q4444-euler-lax-liu samurai CLI11::CLI11 ${MPI_LIBRARIES})
 
 add_executable(lbm-D2Q4444-euler-lax-liu-uniform D2Q4444_Euler_Lax_Liu_uniform.cpp)
 target_link_libraries(lbm-D2Q4444-euler-lax-liu-uniform samurai)

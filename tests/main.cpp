@@ -1,13 +1,15 @@
-#ifdef SAMURAI_WITH_MPI
-#include <boost/mpi.hpp>
-#endif
 #include <gtest/gtest.h>
+#include <samurai/samurai.hpp>
 
 int main(int argc, char* argv[])
 {
-#ifdef SAMURAI_WITH_MPI
-    boost::mpi::environment env(argc, argv);
-#endif
+    samurai::initialize();
+
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+
+    int ret = RUN_ALL_TESTS();
+
+    samurai::finalize();
+
+    return ret;
 }
