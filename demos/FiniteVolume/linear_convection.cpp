@@ -161,7 +161,8 @@ int main(int argc, char* argv[])
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
     // SFC_LoadBalancer_interval<dim, Morton> balancer;
-    Load_balancing::Life balancer;
+    // Load_balancing::Life balancer;
+    Load_balancing::GlobalCriteria balancer;
     // Void_LoadBalancer<dim> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
@@ -203,10 +204,6 @@ int main(int argc, char* argv[])
             samurai::times::timers.start("tloop.lb:"+balancer.getName());
             balancer.load_balance(mesh, u);
             samurai::times::timers.stop("tloop.lb:"+balancer.getName());
-
-            // std::string _stats = fmt::format("statistics_process_{}", world.rank());
-            // samurai::Statistics s(_stats);
-            // s("statistics", mesh);
 
         }
         
