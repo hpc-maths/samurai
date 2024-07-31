@@ -22,6 +22,8 @@ enum class Case : int
     tanh
 };
 
+using namespace samurai::math;
+
 template <class Mesh>
 auto init(Mesh& mesh, Case& c)
 {
@@ -33,18 +35,18 @@ auto init(Mesh& mesh, Case& c)
                                [&](std::size_t level, const auto& i, const auto&)
                                {
                                    const double dx = mesh.cell_length(level);
-                                   auto x          = mesh.origin_point()[0] + dx * xt::arange(i.start, i.end) + 0.5 * dx;
+                                   auto x          = mesh.origin_point()[0] + dx * arange<double>(i.start, i.end) + 0.5 * dx;
 
                                    switch (c)
                                    {
                                        case Case::abs:
-                                           u(level, i) = xt::abs(x);
+                                           u(level, i) = abs(x);
                                            break;
                                        case Case::exp:
-                                           u(level, i) = xt::exp(-100 * x * x);
+                                           u(level, i) = exp(-100 * x * x);
                                            break;
                                        case Case::tanh:
-                                           u(level, i) = xt::tanh(50 * xt::abs(x)) - 1;
+                                           u(level, i) = tanh(50 * abs(x)) - 1;
                                            break;
                                    }
                                });
@@ -132,7 +134,7 @@ int main(int argc, char* argv[])
     samurai::for_each_interval(u_reconstruct.mesh(),
                                [&](std::size_t level, const auto& i, const auto&)
                                {
-                                   error(level, i) = xt::abs(u_reconstruct(level, i) - u_exact(level, i));
+                                   error(level, i) = abs(u_reconstruct(level, i) - u_exact(level, i));
                                });
     samurai::save(path, fmt::format("uniform_{}", filename), u_reconstruct.mesh(), u_reconstruct, error);
 

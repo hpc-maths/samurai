@@ -86,14 +86,14 @@ namespace samurai
             using data_type                  = field_data_storage_t<value_t, 1>;
             using size_type                  = typename data_type::size_type;
 
-            inline const value_t& operator[](index_t i) const
+            inline const value_t& operator[](size_type i) const
             {
-                return m_storage.data()[static_cast<size_type>(i)];
+                return m_storage.data()[i];
             }
 
-            inline value_t& operator[](index_t i)
+            inline value_t& operator[](size_type i)
             {
-                return m_storage.data()[static_cast<size_type>(i)];
+                return m_storage.data()[i];
             }
 
             inline const value_t& operator[](const cell_t& cell) const
@@ -104,16 +104,6 @@ namespace samurai
             inline value_t& operator[](const cell_t& cell)
             {
                 return m_storage.data()[static_cast<size_type>(cell.index)];
-            }
-
-            inline const value_t& operator()(size_type i) const
-            {
-                return m_storage.data()[i];
-            }
-
-            inline value_t& operator()(size_type i)
-            {
-                return m_storage.data()[i];
             }
 
             template <class... T>
@@ -127,6 +117,43 @@ namespace samurai
             inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
+                auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
+
+#ifdef SAMURAI_CHECK_NAN
+                if (xt::any(xt::isnan(data)))
+                {
+                    for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
+                         i += interval.step)
+                    {
+                        if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
+                        {
+                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
+                            auto ii   = i - interval_tmp.index;
+                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
+                            std::cerr << "READ NaN in " << cell << std::endl;
+                            break;
+                        }
+                    }
+                }
+#endif
+                return data;
+            }
+
+            inline auto
+            operator()(const std::size_t level, const interval_t& interval, const xt::xtensor_fixed<index_t, xt::xshape<dim - 1>>& index)
+            {
+                auto interval_tmp = this->derived_cast().get_interval("READ OR WRITE", level, interval, index);
+
+                // std::cout << "READ OR WRITE: " << level << " " << interval << " " << (... << index) << std::endl;
+                return view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
+            }
+
+            template <class... T>
+            inline auto
+            operator()(const std::size_t level, const interval_t& interval, const xt::xtensor_fixed<index_t, xt::xshape<dim - 1>>& index) const
+            {
+                auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index);
+                // std::cout << "READ: " << level << " " << interval << " " << (... << index) << std::endl;
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
 
 #ifdef SAMURAI_CHECK_NAN
@@ -172,35 +199,26 @@ namespace samurai
             using index_t                    = typename interval_t::index_t;
             using cell_t                     = Cell<dim, interval_t>;
             using data_type                  = field_data_storage_t<value_t, size, SOA>;
+            using size_type                  = typename data_type::size_type;
 
-            inline auto operator[](index_t i) const
+            inline auto operator[](size_type i) const
             {
-                return view(m_storage, static_cast<std::size_t>(i));
+                return view(m_storage, i);
             }
 
-            inline auto operator[](index_t i)
+            inline auto operator[](size_type i)
             {
-                return view(m_storage, static_cast<std::size_t>(i));
+                return view(m_storage, i);
             }
 
             inline auto operator[](const cell_t& cell) const
             {
-                return view(m_storage, static_cast<std::size_t>(cell.index));
+                return view(m_storage, static_cast<size_type>(cell.index));
             }
 
             inline auto operator[](const cell_t& cell)
             {
-                return view(m_storage, static_cast<std::size_t>(cell.index));
-            }
-
-            inline auto operator()(std::size_t i) const
-            {
-                return view(m_storage, i);
-            }
-
-            inline auto operator()(std::size_t i)
-            {
-                return view(m_storage, i);
+                return view(m_storage, static_cast<size_type>(cell.index));
             }
 
             template <class... T>
@@ -279,7 +297,7 @@ namespace samurai
 
             void resize()
             {
-                m_storage.resize(this->derived_cast().mesh().nb_cells());
+                m_storage.resize(static_cast<size_type>(this->derived_cast().mesh().nb_cells()));
 #ifdef SAMURAI_CHECK_NAN
                 this->derived_cast().m_data.fill(std::nan(""));
 #endif
@@ -299,16 +317,14 @@ namespace samurai
     {
       public:
 
-        static constexpr std::size_t size = size_;
-        static constexpr bool is_soa      = SOA;
-
         using self_type    = Field<mesh_t_, value_t, size_, SOA>;
         using inner_mesh_t = inner_mesh_type<mesh_t_>;
         using mesh_t       = mesh_t_;
 
         using value_type  = value_t;
-        using inner_types = detail::inner_field_types<Field<mesh_t, value_t, size, SOA>>;
+        using inner_types = detail::inner_field_types<Field<mesh_t, value_t, size_, SOA>>;
         using data_type   = typename inner_types::data_type::container_t;
+        using size_type   = typename inner_types::size_type;
         using inner_types::operator();
         using bc_container = std::vector<std::unique_ptr<Bc<Field>>>;
 
@@ -320,6 +336,9 @@ namespace samurai
         using const_iterator         = Field_iterator<const self_type, true>;
         using reverse_iterator       = Field_reverse_iterator<iterator>;
         using const_reverse_iterator = Field_reverse_iterator<const_iterator>;
+
+        static constexpr size_type size = size_;
+        static constexpr bool is_soa    = SOA;
 
         Field() = default;
 

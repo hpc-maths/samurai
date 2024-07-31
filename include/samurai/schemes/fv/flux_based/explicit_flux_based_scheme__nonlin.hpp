@@ -16,9 +16,10 @@ namespace samurai
         using scheme_t       = typename base_class::scheme_t;
         using input_field_t  = typename base_class::input_field_t;
         using output_field_t = typename base_class::output_field_t;
+        using size_type      = typename base_class::size_type;
         using base_class::scheme;
 
-        static constexpr std::size_t output_field_size = scheme_t::output_field_size;
+        static constexpr size_type output_field_size = scheme_t::output_field_size;
 
       public:
 
@@ -37,7 +38,7 @@ namespace samurai
                 input_field,
                 [&](const auto& interface_cells, auto& left_cell_contrib, auto& right_cell_contrib)
                 {
-                    for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                    for (size_type field_i = 0; field_i < output_field_size; ++field_i)
                     {
                     // clang-format off
                         #pragma omp atomic update
@@ -57,7 +58,7 @@ namespace samurai
                     input_field,
                     [&](const auto& cell, auto& contrib)
                     {
-                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                        for (size_type field_i = 0; field_i < output_field_size; ++field_i)
                         {
                             field_value(output_field, cell, field_i) += this->scheme().flux_value_cmpnent(contrib, field_i);
                         }

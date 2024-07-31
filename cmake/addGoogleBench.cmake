@@ -1,7 +1,7 @@
 include(FetchContent)
 FetchContent_Declare(googlebench
     GIT_REPOSITORY      https://github.com/google/benchmark.git
-    GIT_TAG             v1.5.2)
+    GIT_TAG             v1.8.4)
 FetchContent_GetProperties(googlebench)
 if(NOT googlebench_POPULATED)
     FetchContent_Populate(googlebench)

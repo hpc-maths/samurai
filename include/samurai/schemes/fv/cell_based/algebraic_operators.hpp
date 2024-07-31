@@ -155,7 +155,7 @@ namespace samurai
 
                 auto h      = cell.length;
                 auto coeffs = lin_scheme.coefficients(h);
-                value += mat_vec(coeffs[0], field[cell]);
+                value += mat_vec<field_t::is_soa>(coeffs[0], field[cell]);
                 return value;
             };
 
@@ -168,7 +168,7 @@ namespace samurai
 
                     auto h      = cell.length;
                     auto coeffs = lin_scheme.coefficients(h);
-                    value += mat_vec(coeffs[0], field[cell]);
+                    value += mat_vec<field_t::is_soa>(coeffs[0], field[cell]);
                     return value;
                 };
             }

@@ -116,19 +116,29 @@ int main(int argc, char* argv[])
 
                             if (i_f.is_valid())
                             {
-                                auto mask                                       = tag(level, i_f - s[0], j_f - s[1]);
-                                auto i_c                                        = i_f >> 1;
-                                auto j_c                                        = j_f >> 1;
-                                xt::masked_view(tag(level - 1, i_c, j_c), mask) = true;
+                                auto mask = tag(level, i_f - s[0], j_f - s[1]);
+                                auto i_c  = i_f >> 1;
+                                auto j_c  = j_f >> 1;
+                                samurai::apply_on_masked(tag(level - 1, i_c, j_c),
+                                                         mask,
+                                                         [](auto& a)
+                                                         {
+                                                             a = true;
+                                                         });
                             }
 
                             i_f = interval.odd_elements();
                             if (i_f.is_valid())
                             {
-                                auto mask                                       = tag(level, i_f - s[0], j_f - s[1]);
-                                auto i_c                                        = i_f >> 1;
-                                auto j_c                                        = j_f >> 1;
-                                xt::masked_view(tag(level - 1, i_c, j_c), mask) = true;
+                                auto mask = tag(level, i_f - s[0], j_f - s[1]);
+                                auto i_c  = i_f >> 1;
+                                auto j_c  = j_f >> 1;
+                                samurai::apply_on_masked(tag(level - 1, i_c, j_c),
+                                                         mask,
+                                                         [](auto& a)
+                                                         {
+                                                             a = true;
+                                                         });
                             }
                         });
                 }

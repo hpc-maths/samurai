@@ -128,8 +128,9 @@ namespace samurai
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
     auto make_diffusion_order2(const DiffCoeff<Field::dim>& K)
     {
+        using size_type                                = typename Field::size_type;
         static constexpr std::size_t dim               = Field::dim;
-        static constexpr std::size_t field_size        = Field::size;
+        static constexpr size_type field_size          = Field::size;
         static constexpr std::size_t output_field_size = field_size;
         static constexpr std::size_t stencil_size      = 2;
 
@@ -159,7 +160,7 @@ namespace samurai
                     {
                         coeffs[left].fill(0);
                         coeffs[right].fill(0);
-                        for (std::size_t i = 0; i < field_size; ++i)
+                        for (size_type i = 0; i < field_size; ++i)
                         {
                             coeffs[left](i, i)  = -1 / h;
                             coeffs[right](i, i) = 1 / h;

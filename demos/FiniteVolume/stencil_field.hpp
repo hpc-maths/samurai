@@ -67,7 +67,7 @@ namespace samurai
 
             // xt::masked_view(out, mask_close) = 0.;
 
-            return xt::eval(out);
+            return eval(out);
         }
     };
 
@@ -120,17 +120,20 @@ namespace samurai
 
             auto mc = [](auto& y)
             {
-                return xt::maximum(0., xt::minimum(xt::minimum(2. * y, .5 * (1. + y)), 2.));
+                using namespace math;
+                return maximum(0., minimum(minimum(2. * y, .5 * (1. + y)), 2.));
             };
 
             auto pos_part = [](auto& a)
             {
-                return xt::maximum(0, a);
+                using namespace math;
+                return maximum(0., a);
             };
 
             auto neg_part = [](auto& a)
             {
-                return xt::minimum(0, a);
+                using namespace math;
+                return minimum(0., a);
             };
 
             // return xt::eval((1. - minmod(std::forward<T3>(r))) *
@@ -143,30 +146,45 @@ namespace samurai
             //                                 -.5*lb*xt::pow(std::forward<T0>(vel),
             //                                 2.)*(std::forward<T2>(ur)-std::forward<T1>(ul))));
 
-            return xt::eval((neg_part(std::forward<T0>(vel)) * std::forward<T2>(ur)
-                             + pos_part(std::forward<T0>(vel)) * std::forward<T1>(ul)) // Upwind part of the flux
-                            + 0.5 * mc(std::forward<T3>(r)) * xt::abs(std::forward<T0>(vel)) * (1. - lb * xt::abs(std::forward<T0>(vel)))
-                                  * (std::forward<T2>(ur) - std::forward<T1>(ul)));
+            return eval((neg_part(std::forward<T0>(vel)) * std::forward<T2>(ur)
+                         + pos_part(std::forward<T0>(vel)) * std::forward<T1>(ul)) // Upwind part of the flux
+                        + 0.5 * mc(std::forward<T3>(r)) * abs(std::forward<T0>(vel)) * (1. - lb * abs(std::forward<T0>(vel)))
+                              * (std::forward<T2>(ur) - std::forward<T1>(ul)));
         }
 
         // 2D
         template <class T0, class T1>
         inline auto left_flux(const T0& vel, const T1& u, double dt) const
         {
+            using namespace math;
             // auto vel_at_interface = xt::eval(.5 * (vel(0, level, i-1, j) +
             // vel(0, level, i, j)));
-            auto vel_at_interface = xt::eval(3. / 8 * vel(0, level, i - 1, j) + 3. / 4 * vel(0, level, i, j)
-                                             - 1. / 8 * vel(0, level, i + 1, j));
+            auto vel_at_interface = eval(3. * vel(0, level, i - 1, j));
+            // auto vel_at_interface = eval(3. / 8 * vel(0, level, i - 1, j) + 3. / 4 * vel(0, level, i, j) - 1. / 8 * vel(0, level, i + 1,
+            // j));
 
-            auto denom                   = xt::eval(u(level, i, j) - u(level, i - 1, j));
-            auto mask                    = xt::abs(denom) < 1.e-8;
-            xt::masked_view(denom, mask) = 1.e-8;
+            auto denom = eval(u(level, i, j) - u(level, i - 1, j));
+            auto mask  = abs(denom) < 1.e-8;
+            apply_on_masked(denom,
+                            mask,
+                            [&](auto& e)
+                            {
+                                e = 1.e-8;
+                            });
 
-            xt::xtensor<bool, 1> mask_sign = vel_at_interface >= 0.;
+            auto mask_sign = vel_at_interface >= 0.;
 
-            auto rm12                         = xt::eval(1. / denom);
-            xt::masked_view(rm12, mask_sign)  = rm12 * (u(level, i - 1, j) - u(level, i - 2, j));
-            xt::masked_view(rm12, !mask_sign) = rm12 * (u(level, i + 1, j) - u(level, i, j));
+            auto rm12 = eval(1. / denom);
+            apply_on_masked(mask_sign,
+                            [&](auto imask)
+                            {
+                                rm12(imask) *= (u(level, i - 1, j)(imask) - u(level, i - 2, j)(imask));
+                            });
+            apply_on_masked(!mask_sign,
+                            [&](auto imask)
+                            {
+                                rm12(imask) *= (u(level, i + 1, j) - u(level, i, j))(imask);
+                            });
 
             auto dx = u.mesh().cell_length(level);
             return flux(vel_at_interface, u(level, i - 1, j), u(level, i, j), dt / dx, rm12);
@@ -175,20 +193,33 @@ namespace samurai
         template <class T0, class T1>
         inline auto right_flux(const T0& vel, const T1& u, double dt) const
         {
+            using namespace math;
             // auto vel_at_interface = xt::eval(.5 * (vel(0, level, i, j) +
             // vel(0, level, i+1, j)));
-            auto vel_at_interface = xt::eval(3. / 8 * vel(0, level, i + 1, j) + 3. / 4 * vel(0, level, i, j)
-                                             - 1. / 8 * vel(0, level, i - 1, j));
+            auto vel_at_interface = eval(3. / 8 * vel(0, level, i + 1, j) + 3. / 4 * vel(0, level, i, j) - 1. / 8 * vel(0, level, i - 1, j));
 
-            auto denom                   = xt::eval(u(level, i + 1, j) - u(level, i, j));
-            auto mask                    = xt::abs(denom) < 1.e-8;
-            xt::masked_view(denom, mask) = 1.e-8;
+            auto denom = eval(u(level, i + 1, j) - u(level, i, j));
+            auto mask  = abs(denom) < 1.e-8;
+            apply_on_masked(denom,
+                            mask,
+                            [&](auto& e)
+                            {
+                                e = 1.e-8;
+                            });
 
-            xt::xtensor<bool, 1> mask_sign = vel_at_interface >= 0.;
+            auto mask_sign = vel_at_interface >= 0.;
 
-            auto rp12                         = xt::eval(1. / denom);
-            xt::masked_view(rp12, mask_sign)  = rp12 * (u(level, i, j) - u(level, i - 1, j));
-            xt::masked_view(rp12, !mask_sign) = rp12 * (u(level, i + 2, j) - u(level, i + 1, j));
+            auto rp12 = eval(1. / denom);
+            apply_on_masked(mask_sign,
+                            [&](auto imask)
+                            {
+                                rp12 *= (u(level, i, j) - u(level, i - 1, j))(imask);
+                            });
+            apply_on_masked(!mask_sign,
+                            [&](auto imask)
+                            {
+                                rp12(imask) *= (u(level, i + 2, j) - u(level, i + 1, j))(imask);
+                            });
 
             auto dx = u.mesh().cell_length(level);
             return flux(vel_at_interface, u(level, i, j), u(level, i + 1, j), dt / dx, rp12);
@@ -197,20 +228,34 @@ namespace samurai
         template <class T0, class T1>
         inline auto down_flux(const T0& vel, const T1& u, double dt) const
         {
+            using namespace math;
+
             // auto vel_at_interface = xt::eval(.5 * (vel(1, level, i, j-1) +
             // vel(1, level, i, j)));
-            auto vel_at_interface = xt::eval(3. / 8 * vel(1, level, i, j - 1) + 3. / 4 * vel(1, level, i, j)
-                                             - 1. / 8 * vel(1, level, i, j + 1));
+            auto vel_at_interface = eval(3. / 8 * vel(1, level, i, j - 1) + 3. / 4 * vel(1, level, i, j) - 1. / 8 * vel(1, level, i, j + 1));
 
-            auto denom                   = xt::eval(u(level, i, j) - u(level, i, j - 1));
-            auto mask                    = xt::abs(denom) < 1.e-8;
-            xt::masked_view(denom, mask) = 1.e-8;
+            auto denom = eval(u(level, i, j) - u(level, i, j - 1));
+            auto mask  = abs(denom) < 1.e-8;
+            apply_on_masked(denom,
+                            mask,
+                            [&](auto& e)
+                            {
+                                e = 1.e-8;
+                            });
 
-            xt::xtensor<bool, 1> mask_sign = vel_at_interface >= 0.;
+            auto mask_sign = vel_at_interface >= 0.;
 
-            auto rm12                         = xt::eval(1. / denom);
-            xt::masked_view(rm12, mask_sign)  = rm12 * (u(level, i, j - 1) - u(level, i, j - 2));
-            xt::masked_view(rm12, !mask_sign) = rm12 * (u(level, i, j + 1) - u(level, i, j));
+            auto rm12 = eval(1. / denom);
+            apply_on_masked(mask_sign,
+                            [&](auto imask)
+                            {
+                                rm12(imask) *= (u(level, i, j - 1) - u(level, i, j - 2))(imask);
+                            });
+            apply_on_masked(!mask_sign,
+                            [&](auto imask)
+                            {
+                                rm12(imask) *= (u(level, i, j + 1) - u(level, i, j))(imask);
+                            });
 
             auto dx = u.mesh().cell_length(level);
             return flux(vel_at_interface, u(level, i, j - 1), u(level, i, j), dt / dx, rm12);
@@ -219,20 +264,34 @@ namespace samurai
         template <class T0, class T1>
         inline auto up_flux(const T0& vel, const T1& u, double dt) const
         {
+            using namespace math;
+
             // auto vel_at_interface = xt::eval(.5 * (vel(1, level, i, j) +
             // vel(1, level, i, j+1)));
-            auto vel_at_interface = xt::eval(3. / 8 * vel(1, level, i, j + 1) + 3. / 4 * vel(1, level, i, j)
-                                             - 1. / 8 * vel(1, level, i, j - 1));
+            auto vel_at_interface = eval(3. / 8 * vel(1, level, i, j + 1) + 3. / 4 * vel(1, level, i, j) - 1. / 8 * vel(1, level, i, j - 1));
 
-            auto denom                   = xt::eval(u(level, i, j + 1) - u(level, i, j));
-            auto mask                    = xt::abs(denom) < 1.e-8;
-            xt::masked_view(denom, mask) = 1.e-8;
+            auto denom = eval(u(level, i, j + 1) - u(level, i, j));
+            auto mask  = abs(denom) < 1.e-8;
+            apply_on_masked(denom,
+                            mask,
+                            [&](auto& e)
+                            {
+                                e = 1.e-8;
+                            });
 
-            xt::xtensor<bool, 1> mask_sign = vel_at_interface >= 0.;
+            auto mask_sign = vel_at_interface >= 0.;
 
-            auto rp12                         = xt::eval(1. / denom);
-            xt::masked_view(rp12, mask_sign)  = rp12 * (u(level, i, j) - u(level, i, j - 1));
-            xt::masked_view(rp12, !mask_sign) = rp12 * (u(level, i, j + 2) - u(level, i, j + 1));
+            auto rp12 = eval(1. / denom);
+            apply_on_masked(mask_sign,
+                            [&](auto imask)
+                            {
+                                rp12(imask) *= (u(level, i, j) - u(level, i, j - 1))(imask);
+                            });
+            apply_on_masked(!mask_sign,
+                            [&](auto imask)
+                            {
+                                rp12(imask) *= (u(level, i, j + 2) - u(level, i, j + 1))(imask);
+                            });
 
             auto dx = u.mesh().cell_length(level);
             return flux(vel_at_interface, u(level, i, j), u(level, i, j + 1), dt / dx, rp12);
@@ -256,8 +315,9 @@ namespace samurai
         template <class T1, class T2>
         inline auto flux(T1&& ul, T2&& ur, double lb) const
         {
-            return xt::eval(.5 * (.5 * xt::pow(std::forward<T1>(ul), 2.) + .5 * xt::pow(std::forward<T2>(ur), 2.))
-                            - .5 * lb * (std::forward<T2>(ur) - std::forward<T1>(ul))); // Lax-Friedrichs
+            using namespace math;
+            return eval(.5 * (.5 * pow(std::forward<T1>(ul), 2.) + .5 * pow(std::forward<T2>(ur), 2.))
+                        - .5 * lb * (std::forward<T2>(ur) - std::forward<T1>(ul))); // Lax-Friedrichs
             // return xt::eval(0.5 * xt::pow(std::forward<T1>(ul), 2.)); //
             // Upwing - it works for positive solution
         }

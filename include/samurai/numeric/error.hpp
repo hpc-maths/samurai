@@ -14,11 +14,8 @@ namespace samurai
         }
         else // vector view
         {
-#ifdef SAMURAI_FIELD_CONTAINER_XTENSOR
-            norm_square = xt::sum(x * x)();
-#else
+            using namespace samurai::math;
             norm_square = sum(x * x);
-#endif
         }
         return norm_square;
     }

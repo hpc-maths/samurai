@@ -40,7 +40,7 @@ namespace samurai
             }
             else
             {
-                Array<double, func_result_size> sum;
+                Array<double, func_result_size, false> sum;
                 sum.fill(0);
                 compute_quadrature_sum(cell, sum, f);
                 return eval(pow(half_h, dim) * sum);
