@@ -85,7 +85,8 @@ namespace samurai
     template <class Field, class SubMesh>
     auto extract_data(const Field& field, const SubMesh& submesh)
     {
-        std::array<std::size_t, 2> shape = {submesh.nb_cells(), field.size};
+        using size_type                  = typename Field::inner_types::size_type;
+        std::array<std::size_t, 2> shape = {submesh.nb_cells(), static_cast<std::size_t>(field.size)};
         xt::xtensor<typename Field::value_type, 2> data(shape);
 
         if (submesh.nb_cells() != 0)
@@ -94,7 +95,17 @@ namespace samurai
             for_each_cell(submesh,
                           [&](auto cell)
                           {
-                              xt::view(data, index) = field[cell];
+                              if constexpr (Field::size == 1)
+                              {
+                                  data(index, 0) = field[cell];
+                              }
+                              else
+                              {
+                                  for (size_type i = 0; i < field.size; ++i)
+                                  {
+                                      data(index, i) = field[cell][i];
+                                  }
+                              }
                               index++;
                           });
         }
@@ -558,10 +569,10 @@ namespace samurai
         xt::xtensor<std::size_t, 1> coords_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, local_coords.shape(0), coords_sizes.begin());
 #else
-        std::size_t rank = 0;
-        std::size_t size = 1;
+        std::size_t rank                                                 = 0;
+        std::size_t size                                                 = 1;
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> connectivity_sizes = {local_connectivity.shape(0)};
-        xt::xtensor_fixed<std::size_t, xt::xshape<1>> coords_sizes = {local_coords.shape(0)};
+        xt::xtensor_fixed<std::size_t, xt::xshape<1>> coords_sizes       = {local_coords.shape(0)};
 #endif
 
         std::vector<std::size_t> connectivity_cumsum(size + 1, 0);
@@ -708,8 +719,8 @@ namespace samurai
         xt::xtensor<std::size_t, 1> field_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, submesh.nb_cells(), field_sizes.begin());
 #else
-        std::size_t rank = 0;
-        std::size_t size = 1;
+        std::size_t rank                                          = 0;
+        std::size_t size                                          = 1;
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> field_sizes = {submesh.nb_cells()};
 #endif
         std::vector<std::size_t> field_cumsum(size + 1, 0);

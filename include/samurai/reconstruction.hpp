@@ -437,7 +437,7 @@ namespace samurai
         {
             auto pred = prediction<prediction_order, typename Field::interval_t::value_t>(delta_l, ii);
 
-            auto result = xt::zeros_like(f(element, level, i));
+            auto result = zeros_like(f(element, level, i));
 
             for (const auto& kv : pred.coeff)
             {
@@ -467,7 +467,7 @@ namespace samurai
                 }
             }
 
-            auto result = xt::zeros_like(f(element, level, i));
+            auto result = zeros_like(f(element, level, i));
 
             for (const auto& kv : values[{prediction_order, level, ii}].coeff)
             {
@@ -488,7 +488,7 @@ namespace samurai
 
             auto pred = prediction<prediction_order, index_t>(delta_l, ii);
 
-            auto result = xt::zeros_like(f(level, i));
+            auto result = zeros_like(f(level, i));
 
             for (const auto& kv : pred.coeff)
             {
@@ -517,7 +517,7 @@ namespace samurai
                 }
             }
 
-            auto result = xt::zeros_like(f(level, i));
+            auto result = zeros_like(f(level, i));
 
             for (const auto& kv : values[{prediction_order, level, ii}].coeff)
             {
@@ -542,7 +542,7 @@ namespace samurai
 
             auto pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
 
-            auto result = xt::zeros_like(f(element, level, i, j));
+            auto result = zeros_like(f(element, level, i, j));
 
             for (const auto& kv : pred.coeff)
             {
@@ -580,7 +580,7 @@ namespace samurai
                     }
                 }
             }
-            auto result = xt::zeros_like(f(element, level, i, j));
+            auto result = zeros_like(f(element, level, i, j));
 
             for (const auto& kv : values[{prediction_order, level, ii, jj}].coeff)
             {
@@ -603,7 +603,7 @@ namespace samurai
 
             auto pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
 
-            auto result = xt::zeros_like(f(level, i, j));
+            auto result = zeros_like(f(level, i, j));
 
             for (const auto& kv : pred.coeff)
             {
@@ -639,7 +639,7 @@ namespace samurai
                     }
                 }
             }
-            auto result = xt::zeros_like(f(level, i, j));
+            auto result = zeros_like(f(level, i, j));
 
             for (const auto& kv : values[{prediction_order, level, ii, jj}].coeff)
             {
@@ -666,7 +666,7 @@ namespace samurai
 
             auto pred = prediction<prediction_order, index_t>(delta_l, ii, jj, kk);
 
-            auto result = xt::zeros_like(f(element, level, i, j, k));
+            auto result = zeros_like(f(element, level, i, j, k));
 
             for (const auto& kv : pred.coeff)
             {
@@ -707,7 +707,7 @@ namespace samurai
                     }
                 }
             }
-            auto result = xt::zeros_like(f(element, level, i, j, k));
+            auto result = zeros_like(f(element, level, i, j, k));
 
             for (const auto& kv : values[{prediction_order, level, ii, jj, kk}].coeff)
             {
@@ -731,7 +731,7 @@ namespace samurai
             using index_t = typename Field::interval_t::value_t;
             auto pred     = prediction<prediction_order, index_t>(delta_l, ii, jj, kk);
 
-            auto result = xt::zeros_like(f(level, i, j, k));
+            auto result = zeros_like(f(level, i, j, k));
 
             for (const auto& kv : pred.coeff)
             {
@@ -771,7 +771,7 @@ namespace samurai
                     }
                 }
             }
-            auto result = xt::zeros_like(f(level, i, j, k));
+            auto result = zeros_like(f(level, i, j, k));
 
             for (const auto& kv : values[{prediction_order, level, ii, jj, kk}].coeff)
             {
@@ -1050,6 +1050,7 @@ namespace samurai
         static constexpr std::size_t dim = Field_src::dim;
         using mesh_id_t                  = typename Field_src::mesh_t::mesh_id_t;
         using interval_t                 = typename Field_src::interval_t;
+        using size_type                  = typename Field_src::inner_types::size_type;
         using value_t                    = typename interval_t::value_t;
         auto& mesh_src                   = field_src.mesh();
         auto& mesh_dst                   = field_dst.mesh();
@@ -1088,41 +1089,13 @@ namespace samurai
                     {
                         std::size_t shift = level_src - level_dst;
 
-                        if constexpr (dim == 1)
+                        auto src = field_src(level_src, i, index);
+                        auto dst = field_dst(level_dst, i >> shift, index >> shift);
+                        for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
                         {
-                            auto src = field_src(level_src, i);
-                            auto dst = field_dst(level_dst, i >> shift);
-                            for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
-                            {
-                                auto i_dst = static_cast<std::size_t>(((i.start + ii) >> static_cast<value_t>(shift))
-                                                                      - (i.start >> static_cast<value_t>(shift)));
-                                dst(i_dst) += src(ii) / (1 << shift);
-                            }
-                        }
-                        else if constexpr (dim == 2)
-                        {
-                            auto j   = index[0];
-                            auto src = field_src(level_src, i, j);
-                            auto dst = field_dst(level_dst, i >> shift, j >> shift);
-                            for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
-                            {
-                                auto i_dst = static_cast<std::size_t>(((i.start + ii) >> static_cast<value_t>(shift))
-                                                                      - (i.start >> static_cast<value_t>(shift)));
-                                dst(i_dst) += src(ii) / (1 << (shift * dim));
-                            }
-                        }
-                        else if constexpr (dim == 3)
-                        {
-                            auto j   = index[0];
-                            auto k   = index[1];
-                            auto src = field_src(level_src, i, j, k);
-                            auto dst = field_dst(level_dst, i >> shift, j >> shift, k >> shift);
-                            for (value_t ii = 0; ii < static_cast<value_t>(i.size()); ++ii)
-                            {
-                                auto i_dst = static_cast<std::size_t>(((i.start + ii) >> static_cast<value_t>(shift))
-                                                                      - (i.start >> static_cast<value_t>(shift)));
-                                dst(i_dst) += src(ii) / (1 << (shift * dim));
-                            }
+                            auto i_dst = static_cast<size_type>(((i.start + ii) >> static_cast<value_t>(shift))
+                                                                - (i.start >> static_cast<value_t>(shift)));
+                            view(dst, i_dst) += view(src, static_cast<size_type>(ii)) / (1 << shift * dim);
                         }
                     });
             }

@@ -100,18 +100,18 @@ namespace samurai
         // return e;
     }
 
-    template <class value_type, std::enable_if_t<std::is_floating_point_v<value_type>, bool> = true>
+    template <bool SOA, class value_type, std::enable_if_t<std::is_floating_point_v<value_type>, bool> = true>
     auto mat_vec(value_type A, value_type x)
     {
         return A * x;
     }
 
-    template <class value_type, std::size_t rows, std::size_t cols, class vector_type>
+    template <bool SOA, class value_type, std::size_t rows, std::size_t cols, class vector_type>
     auto mat_vec(const Matrix<value_type, rows, cols>& A, const vector_type& x)
     {
         // 'vector_type' can be an xt::view or a CollapsArray
 
-        CollapsArray<value_type, rows> res = zeros<CollapsMatrix<value_type, rows, cols>>();
+        CollapsArray<value_type, rows, SOA> res = zeros<CollapsMatrix<value_type, rows, cols>>();
         if constexpr (rows == 1 && cols == 1)
         {
             res = A * x;

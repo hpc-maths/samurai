@@ -33,10 +33,14 @@ namespace samurai
                 if constexpr (size == 1)
                 {
                     // auto mask = abs(detail(level, 2*i))/maxd < eps;
-                    xt::xtensor<bool, 1> mask = abs(detail(fine_level, 2 * i)) < eps; // NO normalization
+                    auto mask = abs(detail(fine_level, 2 * i)) < eps; // NO normalization
 
-                    tag(fine_level, 2 * i)     = mask * static_cast<int>(CellFlag::coarsen) + !mask * tag(fine_level, 2 * i);
-                    tag(fine_level, 2 * i + 1) = mask * static_cast<int>(CellFlag::coarsen) + !mask * tag(fine_level, 2 * i + 1);
+                    apply_on_masked(mask,
+                                    [&](auto imask)
+                                    {
+                                        tag(fine_level, 2 * i)(imask)     = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1)(imask) = static_cast<int>(CellFlag::coarsen);
+                                    });
                 }
                 else
                 {
@@ -44,10 +48,14 @@ namespace samurai
                     // eps), {1}) > (size-1);
                     constexpr std::size_t axis = T1::is_soa ? 0 : 1;
 
-                    xt::xtensor<bool, 1> mask = sum<axis>((abs(detail(fine_level, 2 * i)) < eps)) > (size - 1); // No normalization
+                    auto mask = sum<axis>((abs(detail(fine_level, 2 * i)) < eps)) > (size - 1); // No normalization
 
-                    tag(fine_level, 2 * i)     = mask * static_cast<int>(CellFlag::coarsen) + !mask * tag(fine_level, 2 * i);
-                    tag(fine_level, 2 * i + 1) = mask * static_cast<int>(CellFlag::coarsen) + !mask * tag(fine_level, 2 * i + 1);
+                    apply_on_masked(mask,
+                                    [&](auto imask)
+                                    {
+                                        tag(fine_level, 2 * i)(imask)     = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1)(imask) = static_cast<int>(CellFlag::coarsen);
+                                    });
                 }
             }
         }
@@ -144,31 +152,27 @@ namespace samurai
                     //             2*j+1))/maxd < eps) and
                     //             (abs(detail(level, 2*i+1, 2*j+1))/maxd <
                     //             eps);
-                    xt::xtensor<bool, 1> mask = (abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
-                                             && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
-                                             && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
-                                             && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
-                                             && (abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
-                                             && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
-                                             && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
-                                             && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps);
+                    auto mask = eval((abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
+                                     && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
+                                     && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
+                                     && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
+                                     && (abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
+                                     && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
+                                     && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
+                                     && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps));
 
-                    tag(fine_level, 2 * i, 2 * j, 2 * k) = mask * static_cast<int>(CellFlag::coarsen)
-                                                         + !mask * tag(fine_level, 2 * i, 2 * j, 2 * k);
-                    tag(fine_level, 2 * i + 1, 2 * j, 2 * k) = mask * static_cast<int>(CellFlag::coarsen)
-                                                             + !mask * tag(fine_level, 2 * i + 1, 2 * j, 2 * k);
-                    tag(fine_level, 2 * i, 2 * j + 1, 2 * k) = mask * static_cast<int>(CellFlag::coarsen)
-                                                             + !mask * tag(fine_level, 2 * i, 2 * j + 1, 2 * k);
-                    tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k) = mask * static_cast<int>(CellFlag::coarsen)
-                                                                 + !mask * tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k);
-                    tag(fine_level, 2 * i, 2 * j, 2 * k + 1) = mask * static_cast<int>(CellFlag::coarsen)
-                                                             + !mask * tag(fine_level, 2 * i, 2 * j, 2 * k + 1);
-                    tag(fine_level, 2 * i + 1, 2 * j, 2 * k + 1) = mask * static_cast<int>(CellFlag::coarsen)
-                                                                 + !mask * tag(fine_level, 2 * i + 1, 2 * j, 2 * k + 1);
-                    tag(fine_level, 2 * i, 2 * j + 1, 2 * k + 1) = mask * static_cast<int>(CellFlag::coarsen)
-                                                                 + !mask * tag(fine_level, 2 * i, 2 * j + 1, 2 * k + 1);
-                    tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1) = mask * static_cast<int>(CellFlag::coarsen)
-                                                                     + !mask * tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1);
+                    apply_on_masked(mask,
+                                    [&](auto imask)
+                                    {
+                                        tag(fine_level, 2 * i, 2 * j, 2 * k)(imask)             = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1, 2 * j, 2 * k)(imask)         = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i, 2 * j + 1, 2 * k)(imask)         = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)(imask)     = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i, 2 * j, 2 * k + 1)(imask)         = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)(imask)     = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)(imask)     = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)(imask) = static_cast<int>(CellFlag::coarsen);
+                                    });
                 }
                 else
                 {
@@ -183,32 +187,28 @@ namespace samurai
 
                     constexpr std::size_t axis = T1::is_soa ? 0 : 1;
 
-                    xt::xtensor<bool, 1> mask = sum<axis>((abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
-                                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
-                                                          && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
-                                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
-                                                          && (abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
-                                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
-                                                          && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
-                                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps))
-                                              > (size - 1);
+                    auto mask = sum<axis>((abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
+                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
+                                          && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k)) < eps)
+                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)) < eps)
+                                          && (abs(detail(fine_level, 2 * i, 2 * j, 2 * k + 1)) < eps)
+                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
+                                          && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
+                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps))
+                              > (size - 1);
 
-                    tag(fine_level, 2 * i, 2 * j, 2 * k) = mask * static_cast<int>(CellFlag::coarsen)
-                                                         + !mask * tag(fine_level, 2 * i, 2 * j, 2 * k);
-                    tag(fine_level, 2 * i + 1, 2 * j, 2 * k) = mask * static_cast<int>(CellFlag::coarsen)
-                                                             + !mask * tag(fine_level, 2 * i + 1, 2 * j, 2 * k);
-                    tag(fine_level, 2 * i, 2 * j + 1, 2 * k) = mask * static_cast<int>(CellFlag::coarsen)
-                                                             + !mask * tag(fine_level, 2 * i, 2 * j + 1, 2 * k);
-                    tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k) = mask * static_cast<int>(CellFlag::coarsen)
-                                                                 + !mask * tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k);
-                    tag(fine_level, 2 * i, 2 * j, 2 * k + 1) = mask * static_cast<int>(CellFlag::coarsen)
-                                                             + !mask * tag(fine_level, 2 * i, 2 * j, 2 * k + 1);
-                    tag(fine_level, 2 * i + 1, 2 * j, 2 * k + 1) = mask * static_cast<int>(CellFlag::coarsen)
-                                                                 + !mask * tag(fine_level, 2 * i + 1, 2 * j, 2 * k + 1);
-                    tag(fine_level, 2 * i, 2 * j + 1, 2 * k + 1) = mask * static_cast<int>(CellFlag::coarsen)
-                                                                 + !mask * tag(fine_level, 2 * i, 2 * j + 1, 2 * k + 1);
-                    tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1) = mask * static_cast<int>(CellFlag::coarsen)
-                                                                     + !mask * tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1);
+                    apply_on_masked(mask,
+                                    [&](auto imask)
+                                    {
+                                        tag(fine_level, 2 * i, 2 * j, 2 * k)(imask)             = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1, 2 * j, 2 * k)(imask)         = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i, 2 * j + 1, 2 * k)(imask)         = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k)(imask)     = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i, 2 * j, 2 * k + 1)(imask)         = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)(imask)     = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)(imask)     = static_cast<int>(CellFlag::coarsen);
+                                        tag(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)(imask) = static_cast<int>(CellFlag::coarsen);
+                                    });
                 }
             }
         }

@@ -22,6 +22,8 @@ enum class Case : int
     tanh
 };
 
+using namespace samurai::math;
+
 template <class Mesh>
 auto init(Mesh& mesh, Case& c)
 {
@@ -35,20 +37,20 @@ auto init(Mesh& mesh, Case& c)
                                    auto j          = index[0];
                                    auto k          = index[1];
                                    const double dx = mesh.cell_length(level);
-                                   auto x          = mesh.origin_point()[0] + dx * xt::arange(i.start, i.end) + 0.5 * dx;
+                                   auto x          = mesh.origin_point()[0] + dx * arange(i.start, i.end) + 0.5 * dx;
                                    auto y          = mesh.origin_point()[1] + j * dx + 0.5 * dx;
                                    auto z          = mesh.origin_point()[2] + k * dx + 0.5 * dx;
 
                                    switch (c)
                                    {
                                        case Case::abs:
-                                           u(level, i, j, k) = xt::abs(x) + std::abs(y) + std::abs(z);
+                                           u(level, i, j, k) = abs(x) + std::abs(y) + std::abs(z);
                                            break;
                                        case Case::exp:
-                                           u(level, i, j, k) = xt::exp(-100 * (x * x + y * y + z * z));
+                                           u(level, i, j, k) = exp(-100 * (x * x + y * y + z * z));
                                            break;
                                        case Case::tanh:
-                                           u(level, i, j, k) = xt::tanh(50 * (xt::abs(x) + std::abs(y) + std::abs(z))) - 1;
+                                           u(level, i, j, k) = tanh(50 * (abs(x) + std::abs(y) + std::abs(z))) - 1;
                                            break;
                                    }
                                });
@@ -168,7 +170,7 @@ int main(int argc, char* argv[])
                                {
                                    auto j                = index[0];
                                    auto k                = index[1];
-                                   error(level, i, j, k) = xt::abs(u_reconstruct(level, i, j, k) - u_exact(level, i, j, k));
+                                   error(level, i, j, k) = abs(u_reconstruct(level, i, j, k) - u_exact(level, i, j, k));
                                });
     samurai::save(path, fmt::format("uniform_{}", filename), u_reconstruct.mesh(), u_reconstruct, error);
 
