@@ -9,6 +9,12 @@
 
 namespace samurai
 {
+    namespace placeholders
+    {
+        static constexpr Eigen::internal::all_t _;
+
+    }
+
     namespace detail
     {
         template <class value_t, std::size_t size, bool SOA, class = void>
@@ -29,7 +35,7 @@ namespace samurai
         template <class value_t, std::size_t size>
         struct eigen_type<value_t, size, false, std::enable_if_t<(size > 1)>>
         {
-            using type = Eigen::Array<value_t, Eigen::Dynamic, size, Eigen::RowMajor>;
+            using type = Eigen::Array<value_t, Eigen::Dynamic, size, Eigen::ColMajor>;
         };
 
         template <class value_t, std::size_t size, bool SOA>
@@ -187,6 +193,18 @@ namespace samurai
         return container.data()(index, Eigen::placeholders::all);
     }
 
+    template <class value_t, std::size_t size>
+    auto view(const eigen_container<value_t, size, true>& container, Eigen::Index index)
+    {
+        return container.data()(Eigen::placeholders::all, index);
+    }
+
+    template <class value_t, std::size_t size>
+    auto view(eigen_container<value_t, size, true>& container, Eigen::Index index)
+    {
+        return container.data()(Eigen::placeholders::all, index);
+    }
+
     template <class D>
     auto eval(const Eigen::EigenBase<D>& exp)
     {
@@ -223,9 +241,29 @@ namespace samurai
     }
 
     template <class Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options, class Range>
-    auto view(const Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& container, const Range& range)
+    auto view(Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& container, const Range& range)
     {
-        return container(range);
+        if constexpr (ColsAtCompileTime > 1)
+        {
+            return container(range, Eigen::placeholders::all);
+        }
+        else
+        {
+            return container(range);
+        }
+    }
+
+    template <class D, class Range>
+    auto view(Eigen::EigenBase<D>& exp, const Range& range)
+    {
+        if constexpr (D::ColsAtCompileTime > 1)
+        {
+            return exp.derived()(range, Eigen::placeholders::all);
+        }
+        else
+        {
+            return exp.derived()(range);
+        }
     }
 
     namespace math
@@ -255,6 +293,91 @@ namespace samurai
                 return exp.derived().colwise().sum();
             }
         }
+
+        template <class D1, class D2>
+        auto minimum(const Eigen::EigenBase<D1>& exp1, const Eigen::EigenBase<D2>& exp2)
+        {
+            return exp1.derived().cwiseMin(exp2.derived());
+        }
+
+        template <class D>
+        auto minimum(double s, const Eigen::EigenBase<D>& exp)
+        {
+            return exp.derived().cwiseMin(s);
+        }
+
+        template <class Scalar, class D>
+        auto minimum(const Eigen::EigenBase<D>& exp, Scalar s)
+        {
+            return minimum(s, exp);
+        }
+
+        template <class D1, class D2>
+        auto maximum(const Eigen::EigenBase<D1>& exp1, const Eigen::EigenBase<D2>& exp2)
+        {
+            return exp1.derived().cwiseMax(exp2.derived());
+        }
+
+        template <class Scalar, class D>
+        auto maximum(Scalar s, const Eigen::ArrayBase<D>& exp)
+        {
+            return exp.derived().cwiseMax(s);
+        }
+
+        template <class Scalar, class D>
+        auto maximum(const Eigen::EigenBase<D>& exp, Scalar s)
+        {
+            return maximum(s, exp);
+        }
+
+        template <class Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options>
+        auto minimum(const Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& exp1,
+                     const Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& exp2)
+        {
+            return exp1.cwiseMin(exp2);
+        }
+
+        template <class Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options>
+        auto minimum(double s, const Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& exp)
+        {
+            return exp.cwiseMin(s);
+        }
+
+        template <class Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options>
+        auto minimum(const Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& exp, Scalar s)
+        {
+            return minimum(s, exp);
+        }
+
+        template <class Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options>
+        auto maximum(const Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& exp1,
+                     const Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& exp2)
+        {
+            return exp1.cwiseMax(exp2);
+        }
+
+        template <class Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options>
+        auto maximum(Scalar s, const Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& exp)
+        {
+            return exp.cwiseMax(s);
+        }
+
+        template <class Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options>
+        auto maximum(const Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& exp, Scalar s)
+        {
+            return maximum(s, exp);
+        }
+
+        using Eigen::abs;
+        using Eigen::exp;
+        using Eigen::pow;
+        using Eigen::tanh;
+
+        template <class Scalar>
+        auto arange(const Scalar& low, const Scalar& high)
+        {
+            return Eigen::Array<Scalar, Eigen::Dynamic, 1>::LinSpaced(static_cast<Eigen::Index>(high - low + 1), low, high);
+        }
     }
 
     template <class D>
@@ -267,6 +390,24 @@ namespace samurai
     auto operator<(const Eigen::EigenBase<D>& exp, double x)
     {
         return exp.derived().array() < x;
+    }
+
+    template <class D>
+    auto operator>=(const Eigen::EigenBase<D>& exp, double x)
+    {
+        return exp.derived().array() >= x;
+    }
+
+    template <class DST, class CRIT, class FUNC>
+    void apply_on_masked(Eigen::EigenBase<DST>& dst, const Eigen::EigenBase<CRIT>& criteria, FUNC&& func)
+    {
+        for (Eigen::Index i = 0; i < criteria.size(); ++i)
+        {
+            if (criteria.derived()(i))
+            {
+                func(dst.derived()(i));
+            }
+        }
     }
 
     template <class DST, class CRIT, class FUNC>
@@ -291,5 +432,13 @@ namespace samurai
                 func(i);
             }
         }
+    }
+
+    template <class D>
+    auto zeros_like(const Eigen::EigenBase<D>& container)
+    {
+        using Base = typename D::PlainArray;
+        Base res   = Base::Zero(container.rows(), container.cols());
+        return res;
     }
 }

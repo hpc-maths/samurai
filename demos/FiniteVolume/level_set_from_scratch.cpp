@@ -212,16 +212,20 @@ void make_graduation(Field& tag)
             mesh[SimpleID::cells][level],
             [&](std::size_t, const auto& i, const auto& index)
             {
-                auto j = index[0];
-                xt::xtensor<bool, 1> mask = (tag(level, i, j) & static_cast<int>(samurai::CellFlag::refine)); // NOLINT(misc-const-correctness)
+                auto j    = index[0];
+                auto mask = (tag(level, i, j) & static_cast<int>(samurai::CellFlag::refine)); // NOLINT(misc-const-correctness)
 
-                for (int jj = -1; jj < 2; ++jj)
-                {
-                    for (int ii = -1; ii < 2; ++ii)
-                    {
-                        xt::masked_view(tag(level, i + ii, j + jj), mask) |= static_cast<int>(samurai::CellFlag::keep);
-                    }
-                }
+                apply_on_masked(mask,
+                                [&](auto imask)
+                                {
+                                    for (int jj = -1; jj < 2; ++jj)
+                                    {
+                                        for (int ii = -1; ii < 2; ++ii)
+                                        {
+                                            tag(level, i + ii, j + jj)(imask) |= static_cast<int>(samurai::CellFlag::keep);
+                                        }
+                                    }
+                                });
             });
 
         auto keep_subset = samurai::intersection(mesh[SimpleID::cells][level], mesh[SimpleID::cells][level]).on(level - 1);
@@ -231,16 +235,20 @@ void make_graduation(Field& tag)
                 auto j = index[0];
 
                 // NOLINTBEGIN(misc-const-correctness)
-                xt::xtensor<bool, 1> mask = (tag(level, 2 * i, 2 * j) & static_cast<int>(samurai::CellFlag::keep))
-                                          | (tag(level, 2 * i + 1, 2 * j) & static_cast<int>(samurai::CellFlag::keep))
-                                          | (tag(level, 2 * i, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep))
-                                          | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep));
+                auto mask = (tag(level, 2 * i, 2 * j) & static_cast<int>(samurai::CellFlag::keep))
+                          | (tag(level, 2 * i + 1, 2 * j) & static_cast<int>(samurai::CellFlag::keep))
+                          | (tag(level, 2 * i, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep))
+                          | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(samurai::CellFlag::keep));
                 // NOLINTEND(misc-const-correctness)
 
-                xt::masked_view(tag(level, 2 * i, 2 * j), mask) |= static_cast<int>(samurai::CellFlag::keep);
-                xt::masked_view(tag(level, 2 * i + 1, 2 * j), mask) |= static_cast<int>(samurai::CellFlag::keep);
-                xt::masked_view(tag(level, 2 * i, 2 * j + 1), mask) |= static_cast<int>(samurai::CellFlag::keep);
-                xt::masked_view(tag(level, 2 * i + 1, 2 * j + 1), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                apply_on_masked(mask,
+                                [&](auto imask)
+                                {
+                                    tag(level, 2 * i, 2 * j)(imask) |= static_cast<int>(samurai::CellFlag::keep);
+                                    tag(level, 2 * i + 1, 2 * j)(imask) |= static_cast<int>(samurai::CellFlag::keep);
+                                    tag(level, 2 * i, 2 * j + 1)(imask) |= static_cast<int>(samurai::CellFlag::keep);
+                                    tag(level, 2 * i + 1, 2 * j + 1)(imask) |= static_cast<int>(samurai::CellFlag::keep);
+                                });
             });
 
         xt::xtensor_fixed<int, xt::xshape<4, Field::dim>> stencil{
@@ -268,10 +276,20 @@ void make_graduation(Field& tag)
                         auto mask = tag(level, i_f - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::refine);
                         auto i_c  = i_f >> 1;
                         auto j_c  = j_f >> 1;
-                        xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::refine);
+                        apply_on_masked(tag(level - 1, i_c, j_c),
+                                        mask,
+                                        [](auto& e)
+                                        {
+                                            e |= static_cast<int>(samurai::CellFlag::refine);
+                                        });
 
                         mask = tag(level, i_f - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::keep);
-                        xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                        apply_on_masked(tag(level - 1, i_c, j_c),
+                                        mask,
+                                        [](auto& e)
+                                        {
+                                            e |= static_cast<int>(samurai::CellFlag::refine);
+                                        });
                     }
 
                     i_f = i.odd_elements();
@@ -280,10 +298,20 @@ void make_graduation(Field& tag)
                         auto mask = tag(level, i_f - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::refine);
                         auto i_c  = i_f >> 1;
                         auto j_c  = j_f >> 1;
-                        xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::refine);
+                        apply_on_masked(tag(level - 1, i_c, j_c),
+                                        mask,
+                                        [](auto& e)
+                                        {
+                                            e |= static_cast<int>(samurai::CellFlag::refine);
+                                        });
 
                         mask = tag(level, i_f - s[0], j_f - s[1]) & static_cast<int>(samurai::CellFlag::keep);
-                        xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                        apply_on_masked(tag(level - 1, i_c, j_c),
+                                        mask,
+                                        [](auto& e)
+                                        {
+                                            e |= static_cast<int>(samurai::CellFlag::refine);
+                                        });
                     }
                 });
         }

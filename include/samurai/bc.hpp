@@ -91,7 +91,7 @@ namespace samurai
     struct BcValue
     {
         static constexpr std::size_t dim = Field::dim;
-        using value_t                    = CollapsArray<typename Field::value_type, Field::size>;
+        using value_t                    = CollapsArray<typename Field::value_type, Field::size, Field::is_soa>;
         using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;
         using direction_t                = DirectionVector<dim>;
         using cell_t                     = typename Field::cell_t;
@@ -384,7 +384,7 @@ namespace samurai
 
         for (auto& stencil : m_d)
         {
-            int number_of_one = sum(abs(stencil));
+            int number_of_one = xt::sum(xt::abs(stencil))[0];
             if (number_of_one > 0)
             {
                 dir.emplace_back(stencil);

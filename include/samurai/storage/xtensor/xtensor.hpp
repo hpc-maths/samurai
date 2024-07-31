@@ -11,6 +11,11 @@
 
 namespace samurai
 {
+    namespace placeholders
+    {
+        using xt::placeholders::_;
+    }
+
     template <class value_t, std::size_t size, bool SOA = false>
     struct xtensor_container
     {
@@ -178,7 +183,7 @@ namespace samurai
     template <class D>
     auto eval(const xt::xexpression<D>& exp)
     {
-        return xt::eval(exp);
+        return xt::eval(exp.derived_cast());
     }
 
     template <class D>
@@ -212,9 +217,11 @@ namespace samurai
         return xt::view(container, range);
     }
 
+    using xt::view;
+
     namespace math
     {
-        using xt::abs;
+        using namespace xt::math;
 
         template <class D>
         auto sum(xt::xexpression<D>&& exp)
@@ -281,5 +288,11 @@ namespace samurai
                 func(i);
             }
         }
+    }
+
+    template <class D>
+    auto zeros_like(xt::xexpression<D>&& exp)
+    {
+        return xt::zeros_like(exp.derived_cast());
     }
 }
