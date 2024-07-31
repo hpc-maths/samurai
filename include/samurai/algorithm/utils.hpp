@@ -149,8 +149,8 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<1>, T& tag) const
         {
-            xt::xtensor<bool, 1> mask = (tag(level + 1, 2 * i) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i + 1) & static_cast<int>(CellFlag::keep));
+            auto mask = (tag(level + 1, 2 * i) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i + 1) & static_cast<int>(CellFlag::keep));
 
             tag(level + 1, 2 * i) |= mask * static_cast<int>(CellFlag::keep);
             tag(level + 1, 2 * i + 1) |= mask * static_cast<int>(CellFlag::keep);
@@ -159,10 +159,10 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<2>, T& tag) const
         {
-            xt::xtensor<bool, 1> mask = (tag(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::keep));
+            auto mask = (tag(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::keep));
 
             tag(level + 1, 2 * i, 2 * j) |= mask * static_cast<int>(CellFlag::keep);
             tag(level + 1, 2 * i + 1, 2 * j) |= mask * static_cast<int>(CellFlag::keep);
@@ -173,14 +173,14 @@ namespace samurai
         template <class T>
         inline void operator()(Dim<3>, T& tag) const
         {
-            xt::xtensor<bool, 1> mask = (tag(level + 1, 2 * i, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i + 1, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i + 1, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i + 1, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep))
-                                      | (tag(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep));
+            auto mask = (tag(level + 1, 2 * i, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i + 1, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i + 1, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i + 1, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep))
+                      | (tag(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep));
 
             tag(level + 1, 2 * i, 2 * j, 2 * k) |= mask * static_cast<int>(CellFlag::keep);
             tag(level + 1, 2 * i + 1, 2 * j, 2 * k) |= mask * static_cast<int>(CellFlag::keep);
