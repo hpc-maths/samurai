@@ -18,6 +18,7 @@ namespace samurai
         using base_class::dim;
         using base_class::field_size;
         using base_class::output_field_size;
+        using size_type = typename base_class::size_type;
 
         using typename base_class::field_value_type;
         using typename base_class::input_field_t;
@@ -67,7 +68,7 @@ namespace samurai
             return (face_measure / cell_measure) * flux_value;
         }
 
-        inline field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] std::size_t field_i) const
+        inline field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] size_type field_i) const
         {
             if constexpr (output_field_size == 1)
             {

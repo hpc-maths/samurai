@@ -15,6 +15,7 @@ namespace samurai
         using scheme_t       = Scheme;
         using input_field_t  = typename scheme_t::input_field_t;
         using output_field_t = typename scheme_t::output_field_t;
+        using size_type      = typename scheme_t::size_type;
 
       private:
 
