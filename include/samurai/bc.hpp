@@ -468,13 +468,43 @@ namespace samurai
         return std::make_unique<CoordsRegion>(m_func);
     }
 
-    // TODO: must be implemented
     template <std::size_t dim, class TInterval>
-    inline auto CoordsRegion<dim, TInterval>::get_region(const lca_t&) const -> region_t
+    inline auto CoordsRegion<dim, TInterval>::get_region(const lca_t& domain) const -> region_t
     {
-        std::cerr << "CoordsRegion::get_region() not implemented" << std::endl;
-        assert(false && "To be implemented");
-        return std::make_pair(std::vector<direction_t>(), std::vector<lca_t>());
+        using lcl_t = LevelCellList<dim, TInterval>;
+
+        std::vector<direction_t> dir;
+        std::vector<lca_t> lca;
+
+        static_nested_loop<dim, -1, 2>(
+            [&](auto& dir_vector)
+            {
+                int number_of_one = xt::sum(xt::abs(dir_vector))[0];
+
+                if (number_of_one == 1)
+                {
+                    auto bdry_dir = difference(domain, translate(domain, -dir_vector));
+
+                    lcl_t cell_list(domain.level());
+
+                    for_each_cell(domain,
+                                  bdry_dir,
+                                  [&](auto& cell)
+                                  {
+                                      if (m_func(cell.face_center(dir_vector)))
+                                      {
+                                          cell_list.add_cell(cell);
+                                      }
+                                  });
+
+                    if (!cell_list.empty())
+                    {
+                        dir.emplace_back(dir_vector);
+                        lca.emplace_back(cell_list);
+                    }
+                }
+            });
+        return std::make_pair(dir, lca);
     }
 
     // SetRegion
@@ -517,10 +547,16 @@ namespace samurai
         return SetRegion<dim, TInterval, subset_operator<F, CT...>>(region);
     }
 
-    template <std::size_t dim, class TInterval, class Func>
-    auto make_region(Func&& func)
+    template <std::size_t dim, class TInterval>
+    auto make_region(const typename CoordsRegion<dim, TInterval>::function_t& func)
     {
-        return CoordsRegion<dim, TInterval>(std::forward<Func>(func));
+        return CoordsRegion<dim, TInterval>(func);
+    }
+
+    template <class Mesh>
+    auto make_region(const Mesh&, const typename CoordsRegion<Mesh::dim, typename Mesh::interval_t>::function_t& func)
+    {
+        return CoordsRegion<Mesh::dim, typename Mesh::interval_t>(func);
     }
 
     template <std::size_t dim, class TInterval>
@@ -673,7 +709,14 @@ namespace samurai
     template <class Region>
     inline auto Bc<Field>::on(const Region& region)
     {
-        m_region = make_region<dim, interval_t>(region).get_region(m_domain);
+        if constexpr (std::is_base_of_v<BcRegion<dim, interval_t>, Region>)
+        {
+            m_region = region.get_region(m_domain);
+        }
+        else
+        {
+            m_region = make_region<dim, interval_t>(region).get_region(m_domain);
+        }
         return this;
     }
 
