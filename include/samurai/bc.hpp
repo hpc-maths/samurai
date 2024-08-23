@@ -542,37 +542,37 @@ namespace samurai
     // BcRegion helper functions //
     ///////////////////////////////
     template <std::size_t dim, class TInterval, class F, class... CT>
-    auto make_region(subset_operator<F, CT...> region)
+    auto make_bc_region(subset_operator<F, CT...> region)
     {
         return SetRegion<dim, TInterval, subset_operator<F, CT...>>(region);
     }
 
     template <std::size_t dim, class TInterval>
-    auto make_region(const typename CoordsRegion<dim, TInterval>::function_t& func)
+    auto make_bc_region(const typename CoordsRegion<dim, TInterval>::function_t& func)
     {
         return CoordsRegion<dim, TInterval>(func);
     }
 
     template <class Mesh>
-    auto make_region(const Mesh&, const typename CoordsRegion<Mesh::dim, typename Mesh::interval_t>::function_t& func)
+    auto make_bc_region(const Mesh&, const typename CoordsRegion<Mesh::dim, typename Mesh::interval_t>::function_t& func)
     {
         return CoordsRegion<Mesh::dim, typename Mesh::interval_t>(func);
     }
 
     template <std::size_t dim, class TInterval>
-    auto make_region(Everywhere<dim, TInterval>)
+    auto make_bc_region(Everywhere<dim, TInterval>)
     {
         return Everywhere<dim, TInterval>();
     }
 
     template <std::size_t dim, class TInterval, std::size_t nd>
-    auto make_region(const std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, nd>& d)
+    auto make_bc_region(const std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, nd>& d)
     {
         return OnDirection<dim, TInterval, nd>(d);
     }
 
     template <std::size_t dim, class TInterval, class... dir_t>
-    auto make_region(const dir_t&... d)
+    auto make_bc_region(const dir_t&... d)
     {
         constexpr std::size_t nd = sizeof...(dir_t);
         using final_type         = OnDirection<dim, TInterval, nd>;
@@ -581,7 +581,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval>
-    auto make_region(const xt::xtensor_fixed<int, xt::xshape<dim>>& d)
+    auto make_bc_region(const xt::xtensor_fixed<int, xt::xshape<dim>>& d)
     {
         return OnDirection<dim, TInterval, 1>({d});
     }
@@ -715,7 +715,7 @@ namespace samurai
         }
         else
         {
-            m_region = make_region<dim, interval_t>(region).get_region(m_domain);
+            m_region = make_bc_region<dim, interval_t>(region).get_region(m_domain);
         }
         return this;
     }
@@ -724,7 +724,7 @@ namespace samurai
     template <class... Regions>
     inline auto Bc<Field>::on(const Regions&... regions)
     {
-        m_region = make_region<dim, interval_t>(regions...).get_region(m_domain);
+        m_region = make_bc_region<dim, interval_t>(regions...).get_region(m_domain);
         return this;
     }
 
