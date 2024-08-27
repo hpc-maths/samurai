@@ -18,9 +18,8 @@ namespace samurai
         template <class Field>
         inline auto operator()(Dim<2>, const Field& phi, const Field& phi_0, const std::size_t max_level) const
         {
-            auto out = xt::empty<double>({i.size()});
-
-            out.fill(0.);
+            using namespace math;
+            auto out = zeros_like(phi(level, i, j));
 
             if (level == max_level)
             {
@@ -39,34 +38,34 @@ namespace samurai
                 auto dyp = 1. / dx_ * (.5 * phi(level, i, j - 2) - 2. * phi(level, i, j - 1) + 1.5 * phi(level, i, j));
                 auto dym = 1. / dx_ * (-.5 * phi(level, i, j + 2) + 2. * phi(level, i, j + 1) - 1.5 * phi(level, i, j));
 
-                auto pos_part = [](auto& a)
+                auto pos_part = [](auto a)
                 {
-                    return xt::maximum(0., a);
+                    return std::max(0., a);
                 };
 
-                auto neg_part = [](auto& a)
+                auto neg_part = [](auto a)
                 {
-                    return xt::minimum(0., a);
+                    return std::min(0., a);
                 };
 
-                // auto out = xt::empty<double>({i.size()});
+                auto mask = sign(phi_0(level, i, j)) >= 0.;
 
-                xt::xtensor<bool, 1> mask = xt::sign(phi_0(level, i, j)) >= 0.;
+                apply_on_masked(mask,
+                                [&](auto ie)
+                                {
+                                    out(ie) = std::sqrt(std::max(std::pow(pos_part(dxp(ie)), 2.), std::pow(neg_part(dxm(ie)), 2.))
+                                                        + std::max(std::pow(pos_part(dyp(ie)), 2.), std::pow(neg_part(dym(ie)), 2.)))
+                                            - 1.;
+                                });
 
-                xt::masked_view(out, mask) = xt::sqrt(xt::maximum(xt::pow(pos_part(dxp), 2.), xt::pow(neg_part(dxm), 2.))
-                                                      + xt::maximum(xt::pow(pos_part(dyp), 2.), xt::pow(neg_part(dym), 2.)))
-                                           - 1.;
-
-                xt::masked_view(out, !mask) = -(xt::sqrt(xt::maximum(xt::pow(neg_part(dxp), 2.), xt::pow(pos_part(dxm), 2.))
-                                                         + xt::maximum(xt::pow(neg_part(dyp), 2.), xt::pow(pos_part(dym), 2.)))
+                apply_on_masked(!mask,
+                                [&](auto ie)
+                                {
+                                    out(ie) = -(std::sqrt(std::max(std::pow(neg_part(dxp(ie)), 2.), std::pow(pos_part(dxm(ie)), 2.))
+                                                          + std::max(std::pow(neg_part(dyp(ie)), 2.), std::pow(pos_part(dym(ie)), 2.)))
                                                 - 1.);
-
-                // xt::xtensor<bool, 1> mask_close = xt::abs(phi_0(level, i, j))
-                // > 10.*dx;
+                                });
             }
-
-            // xt::masked_view(out, mask_close) = 0.;
-
             return eval(out);
         }
     };
