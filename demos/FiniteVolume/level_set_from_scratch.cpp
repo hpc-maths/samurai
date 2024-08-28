@@ -360,6 +360,7 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
 {
     constexpr std::size_t dim = Field::dim;
     using mesh_t              = typename Field::mesh_t;
+    using size_type           = typename Field::size_type;
     using cl_type             = typename mesh_t::cl_type;
 
     auto& mesh = f.mesh();
@@ -369,8 +370,8 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
     samurai::for_each_interval(mesh[SimpleID::cells],
                                [&](std::size_t level, const auto& interval, const auto& index_yz)
                                {
-                                   auto itag = interval.start + interval.index;
-                                   for (int i = interval.start; i < interval.end; ++i)
+                                   auto itag = static_cast<size_type>(interval.start + interval.index);
+                                   for (auto i = interval.start; i < interval.end; ++i)
                                    {
                                        if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
                                        {

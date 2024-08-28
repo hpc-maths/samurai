@@ -12,12 +12,13 @@
 namespace fs = std::filesystem;
 
 template <std::size_t dim>
-double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t)
+auto exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t)
 {
     const double a  = 1;
     const double b  = 0;
     const double& x = coords(0);
-    return (a * x + b) / (a * t + 1);
+    auto value      = (a * x + b) / (a * t + 1);
+    return samurai::Array<double, dim, false>(value);
 }
 
 template <class Field>
@@ -145,7 +146,8 @@ int main_dim(int argc, char* argv[])
                                    }
                                    else
                                    {
-                                       for (std::size_t field_i = 0; field_i < field_size; ++field_i)
+                                       using size_type = typename decltype(u)::size_type;
+                                       for (size_type field_i = 0; field_i < u.size; ++field_i)
                                        {
                                            u[cell][field_i] = value;
                                        }
@@ -160,19 +162,20 @@ int main_dim(int argc, char* argv[])
                                    [&](auto& cell)
                                    {
                                        const double max = 2;
+                                       using size_type  = typename decltype(u)::size_type;
                                        for (std::size_t d = 0; d < dim; ++d)
                                        {
                                            if (cell.center(d) >= -0.5 && cell.center(d) <= 0)
                                            {
-                                               u[cell][d] = 2 * max * cell.center(d) + max;
+                                               u[cell][static_cast<size_type>(d)] = 2 * max * cell.center(d) + max;
                                            }
                                            else if (cell.center(d) >= 0 && cell.center(d) <= 0.5)
                                            {
-                                               u[cell][d] = -2 * max * cell.center(d) + max;
+                                               u[cell][static_cast<size_type>(d)] = -2 * max * cell.center(d) + max;
                                            }
                                            else
                                            {
-                                               u[cell][d] = 0;
+                                               u[cell][static_cast<size_type>(d)] = 0;
                                            }
                                        }
                                    });
