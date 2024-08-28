@@ -11,12 +11,6 @@ namespace samurai
         LinearHomogeneous
     };
 
-    enum class Get
-    {
-        Cells,
-        Intervals
-    };
-
     template <class cfg>
     using StencilCells = CollapsStdArray<typename cfg::input_field_t::cell_t, cfg::stencil_size>;
 
