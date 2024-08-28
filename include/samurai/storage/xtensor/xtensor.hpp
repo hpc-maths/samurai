@@ -222,6 +222,9 @@ namespace samurai
     namespace math
     {
         using namespace xt::math;
+        using xt::arange;
+        using xt::maximum;
+        using xt::minimum;
 
         template <class D>
         auto sum(xt::xexpression<D>&& exp)
@@ -264,6 +267,18 @@ namespace samurai
     auto operator<(xt::xexpression<D>&& exp, double x)
     {
         return exp.derived_cast() < x;
+    }
+
+    template <class DST, class CRIT, class FUNC>
+    void apply_on_masked(xt::xexpression<DST>& dst, const xt::xexpression<CRIT>& criteria, FUNC&& func)
+    {
+        for (std::size_t i = 0; i < criteria.derived_cast().size(); ++i)
+        {
+            if (criteria.derived_cast()(i))
+            {
+                func(dst.derived_cast()(i));
+            }
+        }
     }
 
     template <class DST, class CRIT, class FUNC>
