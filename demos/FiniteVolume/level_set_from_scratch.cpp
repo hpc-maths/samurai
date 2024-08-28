@@ -288,7 +288,7 @@ void make_graduation(Field& tag)
                                                  mask_keep,
                                                  [](auto& e)
                                                  {
-                                                     e |= static_cast<int>(samurai::CellFlag::refine);
+                                                     e |= static_cast<int>(samurai::CellFlag::keep);
                                                  });
                     }
 
@@ -310,7 +310,7 @@ void make_graduation(Field& tag)
                                                  mask_keep,
                                                  [](auto& e)
                                                  {
-                                                     e |= static_cast<int>(samurai::CellFlag::refine);
+                                                     e |= static_cast<int>(samurai::CellFlag::keep);
                                                  });
                     }
                 });

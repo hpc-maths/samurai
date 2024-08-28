@@ -91,6 +91,7 @@ namespace samurai
         template <class T0, class T1, class T2, class T3>
         inline auto flux(T0&& vel, T1&& ul, T2&& ur, double lb, T3&& r) const
         {
+            using namespace math;
             // // Upwind
             // return xt::eval(.5*std::forward<T0>(vel)*(std::forward<T1>(ul) +
             // std::forward<T2>(ur)) +
@@ -119,19 +120,16 @@ namespace samurai
 
             auto mc = [](auto& y)
             {
-                using namespace math;
                 return maximum(0., minimum(minimum(2. * y, .5 * (1. + y)), 2.));
             };
 
             auto pos_part = [](auto& a)
             {
-                using namespace math;
                 return maximum(0., a);
             };
 
             auto neg_part = [](auto& a)
             {
-                using namespace math;
                 return minimum(0., a);
             };
 
@@ -156,17 +154,13 @@ namespace samurai
         inline auto left_flux(const T0& vel, const T1& u, double dt) const
         {
             using namespace math;
-            // auto vel_at_interface = xt::eval(.5 * (vel(0, level, i-1, j) +
-            // vel(0, level, i, j)));
-            auto vel_at_interface = eval(3. * vel(0, level, i - 1, j));
-            // auto vel_at_interface = eval(3. / 8 * vel(0, level, i - 1, j) + 3. / 4 * vel(0, level, i, j) - 1. / 8 * vel(0, level, i + 1,
-            // j));
+            auto vel_at_interface = eval(3. / 8 * vel(0, level, i - 1, j) + 3. / 4 * vel(0, level, i, j) - 1. / 8 * vel(0, level, i + 1, j));
 
             auto denom = eval(u(level, i, j) - u(level, i - 1, j));
             auto mask  = abs(denom) < 1.e-8;
             apply_on_masked(denom,
                             mask,
-                            [&](auto& e)
+                            [](auto& e)
                             {
                                 e = 1.e-8;
                             });
@@ -193,15 +187,13 @@ namespace samurai
         inline auto right_flux(const T0& vel, const T1& u, double dt) const
         {
             using namespace math;
-            // auto vel_at_interface = xt::eval(.5 * (vel(0, level, i, j) +
-            // vel(0, level, i+1, j)));
             auto vel_at_interface = eval(3. / 8 * vel(0, level, i + 1, j) + 3. / 4 * vel(0, level, i, j) - 1. / 8 * vel(0, level, i - 1, j));
 
             auto denom = eval(u(level, i + 1, j) - u(level, i, j));
             auto mask  = abs(denom) < 1.e-8;
             apply_on_masked(denom,
                             mask,
-                            [&](auto& e)
+                            [](auto& e)
                             {
                                 e = 1.e-8;
                             });
@@ -212,7 +204,7 @@ namespace samurai
             apply_on_masked(mask_sign,
                             [&](auto imask)
                             {
-                                rp12 *= (u(level, i, j) - u(level, i - 1, j))(imask);
+                                rp12(imask) *= (u(level, i, j) - u(level, i - 1, j))(imask);
                             });
             apply_on_masked(!mask_sign,
                             [&](auto imask)
@@ -237,7 +229,7 @@ namespace samurai
             auto mask  = abs(denom) < 1.e-8;
             apply_on_masked(denom,
                             mask,
-                            [&](auto& e)
+                            [](auto& e)
                             {
                                 e = 1.e-8;
                             });
@@ -273,7 +265,7 @@ namespace samurai
             auto mask  = abs(denom) < 1.e-8;
             apply_on_masked(denom,
                             mask,
-                            [&](auto& e)
+                            [](auto& e)
                             {
                                 e = 1.e-8;
                             });
@@ -325,12 +317,15 @@ namespace samurai
         template <class T1>
         inline auto left_flux(const T1& u, double lb) const
         {
+            // std::cout << "left flux " << level << " " << i << " " << lb << std::endl;
+            // std::cout << flux(u(level, i - 1), u(level, i), lb) << std::endl;
             return flux(u(level, i - 1), u(level, i), lb);
         }
 
         template <class T1>
         inline auto right_flux(const T1& u, double lb) const
         {
+            // std::cout << flux(u(level, i), u(level, i + 1), lb) << std::endl;
             return flux(u(level, i), u(level, i + 1), lb);
         }
     };
