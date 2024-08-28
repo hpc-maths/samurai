@@ -45,11 +45,16 @@ void make_graduation(Field& tag)
         leaves(
             [&](const auto& i, const auto&)
             {
-                xt::xtensor<bool, 1> mask = (tag(level, i) & static_cast<int>(samurai::CellFlag::refine));
+                auto mask = (tag(level, i) & static_cast<int>(samurai::CellFlag::refine));
 
                 for (int ii = -1; ii <= 1; ++ii)
                 {
-                    xt::masked_view(tag(level, i + ii), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                    samurai::apply_on_masked(tag(level, i + ii),
+                                             mask,
+                                             [](auto& e)
+                                             {
+                                                 e |= static_cast<int>(samurai::CellFlag::keep);
+                                             });
                 }
             });
 
@@ -63,11 +68,21 @@ void make_graduation(Field& tag)
         leaves.on(level - 1)(
             [&](const auto& i, const auto&)
             {
-                xt::xtensor<bool, 1> mask = (tag(level, 2 * i) & static_cast<int>(samurai::CellFlag::keep))
-                                          | (tag(level, 2 * i + 1) & static_cast<int>(samurai::CellFlag::keep));
+                auto mask = (tag(level, 2 * i) & static_cast<int>(samurai::CellFlag::keep))
+                          | (tag(level, 2 * i + 1) & static_cast<int>(samurai::CellFlag::keep));
 
-                xt::masked_view(tag(level, 2 * i), mask) |= static_cast<int>(samurai::CellFlag::keep);
-                xt::masked_view(tag(level, 2 * i + 1), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                samurai::apply_on_masked(tag(level, 2 * i),
+                                         mask,
+                                         [](auto& e)
+                                         {
+                                             e |= static_cast<int>(samurai::CellFlag::keep);
+                                         });
+                samurai::apply_on_masked(tag(level, 2 * i + 1),
+                                         mask,
+                                         [](auto& e)
+                                         {
+                                             e |= static_cast<int>(samurai::CellFlag::keep);
+                                         });
             });
 
         const std::array<int, 2> stencil{1, -1};
@@ -94,12 +109,22 @@ void make_graduation(Field& tag)
             subset(
                 [&](const auto& interval, const auto&)
                 {
-                    auto mask   = tag(level, interval - s) & static_cast<int>(samurai::CellFlag::refine);
-                    auto half_i = interval >> 1;
-                    xt::masked_view(tag(level - 1, half_i), mask) |= static_cast<int>(samurai::CellFlag::refine);
+                    auto mask_refine = tag(level, interval - s) & static_cast<int>(samurai::CellFlag::refine);
+                    auto half_i      = interval >> 1;
+                    samurai::apply_on_masked(tag(level - 1, half_i),
+                                             mask_refine,
+                                             [](auto& e)
+                                             {
+                                                 e |= static_cast<int>(samurai::CellFlag::refine);
+                                             });
 
-                    mask = tag(level, interval - s) & static_cast<int>(samurai::CellFlag::keep);
-                    xt::masked_view(tag(level - 1, half_i), mask) |= static_cast<int>(samurai::CellFlag::keep);
+                    auto mask_keep = tag(level, interval - s) & static_cast<int>(samurai::CellFlag::keep);
+                    samurai::apply_on_masked(tag(level - 1, half_i),
+                                             mask_keep,
+                                             [](auto& e)
+                                             {
+                                                 e |= static_cast<int>(samurai::CellFlag::keep);
+                                             });
                 });
         }
     }

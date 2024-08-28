@@ -37,7 +37,7 @@ auto init(Mesh& mesh, Case& c)
                                    auto j          = index[0];
                                    auto k          = index[1];
                                    const double dx = mesh.cell_length(level);
-                                   auto x          = mesh.origin_point()[0] + dx * arange(i.start, i.end) + 0.5 * dx;
+                                   auto x          = mesh.origin_point()[0] + dx * arange<double>(i.start, i.end) + 0.5 * dx;
                                    auto y          = mesh.origin_point()[1] + j * dx + 0.5 * dx;
                                    auto z          = mesh.origin_point()[2] + k * dx + 0.5 * dx;
 

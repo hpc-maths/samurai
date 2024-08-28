@@ -9,6 +9,8 @@ template <class Field, class Tag>
 bool update_mesh(Field& f, const Tag& tag)
 {
     using mesh_t    = typename Field::mesh_t;
+    using size_type = typename Field::size_type;
+
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using cl_type   = typename mesh_t::cl_type;
 
@@ -40,8 +42,9 @@ bool update_mesh(Field& f, const Tag& tag)
     samurai::for_each_interval(mesh[mesh_id_t::cells],
                                [&](std::size_t level, const auto& interval, const auto&)
                                {
-                                   auto itag = interval.start + interval.index;
-                                   for (int i = interval.start; i < interval.end; ++i)
+                                   auto itag = static_cast<size_type>(interval.start + interval.index);
+
+                                   for (auto i = interval.start; i < interval.end; ++i)
                                    {
                                        if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
                                        {

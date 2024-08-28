@@ -266,6 +266,13 @@ namespace samurai
         }
     }
 
+    // hack: a view for one index of a 1d view must return a reference to the scalar value
+    template <class RowIndices, class ColIndices, class Range>
+    auto& view(Eigen::IndexedView<Eigen::Array<double, Eigen::Dynamic, 1>, RowIndices, ColIndices>& exp, const Range& range)
+    {
+        return exp(range);
+    }
+
     namespace math
     {
         template <class D>
@@ -306,8 +313,8 @@ namespace samurai
             return exp.derived().cwiseMin(s);
         }
 
-        template <class Scalar, class D>
-        auto minimum(const Eigen::EigenBase<D>& exp, Scalar s)
+        template <class D>
+        auto minimum(const Eigen::EigenBase<D>& exp, double s)
         {
             return minimum(s, exp);
         }
@@ -318,14 +325,14 @@ namespace samurai
             return exp1.derived().cwiseMax(exp2.derived());
         }
 
-        template <class Scalar, class D>
-        auto maximum(Scalar s, const Eigen::ArrayBase<D>& exp)
+        template <class D>
+        auto maximum(double s, const Eigen::EigenBase<D>& exp)
         {
             return exp.derived().cwiseMax(s);
         }
 
-        template <class Scalar, class D>
-        auto maximum(const Eigen::EigenBase<D>& exp, Scalar s)
+        template <class D>
+        auto maximum(const Eigen::EigenBase<D>& exp, double s)
         {
             return maximum(s, exp);
         }

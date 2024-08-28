@@ -295,13 +295,14 @@ namespace samurai
     template <class Field, class index_t>
     inline auto& field_value(Field& f, const typename Field::index_t& cell_index, [[maybe_unused]] index_t field_i)
     {
+        using size_type = typename Field::size_type;
         if constexpr (Field::size == 1)
         {
-            return f[cell_index];
+            return f[static_cast<size_type>(cell_index)];
         }
         else
         {
-            return f[cell_index][field_i];
+            return f[static_cast<size_type>(cell_index)][field_i];
         }
     }
 

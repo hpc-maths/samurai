@@ -149,9 +149,10 @@ int main(int argc, char* argv[])
         samurai::for_each_interval(ca,
                                    [&](std::size_t level, const auto& interval, const auto& index)
                                    {
-                                       auto j    = index[0];
-                                       auto itag = interval.start + interval.index;
-                                       for (int i = interval.start; i < interval.end; ++i)
+                                       using size_type = typename decltype(tag)::size_type;
+                                       auto j          = index[0];
+                                       auto itag       = static_cast<size_type>(interval.start + interval.index);
+                                       for (auto i = interval.start; i < interval.end; ++i)
                                        {
                                            if (tag[itag] && level < max_level)
                                            {
