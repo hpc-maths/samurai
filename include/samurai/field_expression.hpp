@@ -11,6 +11,7 @@
 #include "cell.hpp"
 #include "interval.hpp"
 #include "samurai_config.hpp"
+#include "storage/containers.hpp"
 #include "utils.hpp"
 
 namespace samurai
