@@ -31,21 +31,23 @@ namespace samurai
             auto mask = (field(level + 1, 2 * i) & static_cast<int>(CellFlag::keep))
                       | (field(level + 1, 2 * i + 1) & static_cast<int>(CellFlag::keep));
 
-            field(level + 1, 2 * i) |= mask * static_cast<int>(CellFlag::keep);
-            field(level + 1, 2 * i + 1) |= mask * static_cast<int>(CellFlag::keep);
-
-            field(level, i) |= mask * static_cast<int>(CellFlag::keep);
+            apply_on_masked(mask,
+                            [&](auto imask)
+                            {
+                                field(level + 1, 2 * i)(imask) |= static_cast<int>(CellFlag::keep);
+                                field(level + 1, 2 * i + 1)(imask) |= static_cast<int>(CellFlag::keep);
+                                field(level, i)(imask) |= static_cast<int>(CellFlag::keep);
+                            });
 
             auto coarsen_mask = ((field(level + 1, 2 * i) & static_cast<int>(CellFlag::coarsen))
                                  & (field(level + 1, 2 * i + 1) & static_cast<int>(CellFlag::coarsen)));
 
-            noalias(field(level + 1, 2 * i)) = field(level + 1, 2 * i) * (!coarsen_mask & ~static_cast<int>(CellFlag::coarsen))
-                                             + coarsen_mask * field(level + 1, 2 * i);
-
-            noalias(field(level + 1, 2 * i + 1)) = field(level + 1, 2 * i + 1) * (!coarsen_mask & ~static_cast<int>(CellFlag::coarsen))
-                                                 + coarsen_mask * field(level + 1, 2 * i + 1);
-
-            field(level, i) |= coarsen_mask * static_cast<int>(CellFlag::keep);
+            apply_on_masked(field(level, i),
+                            coarsen_mask,
+                            [&](auto& e)
+                            {
+                                e |= static_cast<int>(CellFlag::keep);
+                            });
         }
 
         template <class T>
