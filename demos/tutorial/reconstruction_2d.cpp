@@ -38,7 +38,7 @@ auto init(Mesh& mesh, Case& c)
                                {
                                    auto j          = index[0];
                                    const double dx = samurai::cell_length(level);
-                                   auto x          = dx * arange(i.start, i.end) + 0.5 * dx;
+                                   auto x          = dx * arange<double>(i.start, i.end) + 0.5 * dx;
                                    auto y          = j * dx + 0.5 * dx;
 
                                    switch (c)

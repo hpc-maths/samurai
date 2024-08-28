@@ -743,6 +743,7 @@ namespace samurai
     {
         static constexpr std::size_t dim = Tag::dim;
         using mesh_t                     = typename Tag::mesh_t;
+        using size_type                  = typename Tag::size_type;
         using mesh_id_t                  = typename Tag::mesh_t::mesh_id_t;
         using cl_type                    = typename Tag::mesh_t::cl_type;
 
@@ -753,7 +754,7 @@ namespace samurai
         for_each_interval(mesh[mesh_id_t::cells],
                           [&](std::size_t level, const auto& interval, const auto& index)
                           {
-                              auto itag = interval.start + interval.index;
+                              auto itag = static_cast<size_type>(interval.start + interval.index);
                               for (auto i = interval.start; i < interval.end; ++i)
                               {
                                   if (tag[itag] & static_cast<int>(CellFlag::refine))
@@ -814,6 +815,7 @@ namespace samurai
         using mesh_t                     = typename Field::mesh_t;
         static constexpr std::size_t dim = mesh_t::dim;
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
+        using size_type                  = typename Field::size_type;
         using interval_t                 = typename mesh_t::interval_t;
         using value_t                    = typename interval_t::value_t;
         using cl_type                    = typename Field::mesh_t::cl_type;
@@ -824,7 +826,7 @@ namespace samurai
         for_each_interval(mesh[mesh_id_t::cells],
                           [&](std::size_t level, const auto& interval, const auto& index)
                           {
-                              auto itag = interval.start + interval.index;
+                              auto itag = static_cast<size_type>(interval.start + interval.index);
                               for (value_t i = interval.start; i < interval.end; ++i)
                               {
                                   if (tag[itag] & static_cast<int>(CellFlag::refine))
