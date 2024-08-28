@@ -24,28 +24,31 @@ namespace samurai
         const derived_type& derived_cast() const& noexcept;
         derived_type derived_cast() && noexcept;
 
+        // TODO:
+        // - remove the eval calls. They are added to fix a bug with eigen
+
         template <class... CT>
         inline auto operator()(Dim<1>, CT&&... e) const
         {
-            return (derived_cast().right_flux(std::forward<CT>(e)...) - derived_cast().left_flux(std::forward<CT>(e)...))
-                 / derived_cast().dx();
+            return eval((derived_cast().right_flux(std::forward<CT>(e)...) - derived_cast().left_flux(std::forward<CT>(e)...))
+                        / derived_cast().dx());
         }
 
         template <class... CT>
         inline auto operator()(Dim<2>, CT&&... e) const
         {
-            return (-derived_cast().left_flux(std::forward<CT>(e)...) + derived_cast().right_flux(std::forward<CT>(e)...)
-                    + -derived_cast().down_flux(std::forward<CT>(e)...) + derived_cast().up_flux(std::forward<CT>(e)...))
-                 / derived_cast().dx();
+            return eval((-derived_cast().left_flux(std::forward<CT>(e)...) + derived_cast().right_flux(std::forward<CT>(e)...)
+                         - derived_cast().down_flux(std::forward<CT>(e)...) + derived_cast().up_flux(std::forward<CT>(e)...))
+                        / derived_cast().dx());
         }
 
         template <class... CT>
         inline auto operator()(Dim<3>, CT&&... e) const
         {
-            return (-derived_cast().left_flux(std::forward<CT>(e)...) + derived_cast().right_flux(std::forward<CT>(e)...)
-                    + -derived_cast().down_flux(std::forward<CT>(e)...) + derived_cast().up_flux(std::forward<CT>(e)...)
-                    + -derived_cast().front_flux(std::forward<CT>(e)...) + derived_cast().back_flux(std::forward<CT>(e)...))
-                 / derived_cast().dx();
+            return eval((-derived_cast().left_flux(std::forward<CT>(e)...) + derived_cast().right_flux(std::forward<CT>(e)...)
+                         - derived_cast().down_flux(std::forward<CT>(e)...) + derived_cast().up_flux(std::forward<CT>(e)...)
+                         - derived_cast().front_flux(std::forward<CT>(e)...) + derived_cast().back_flux(std::forward<CT>(e)...))
+                        / derived_cast().dx());
         }
 
       protected:
@@ -190,8 +193,8 @@ namespace samurai
             using namespace math;
             auto out = zeros_like(ul);
 
-            auto mask1 = (a * ul < a * ur);
-            auto mask2 = (ul * ur > 0.0);
+            auto mask1 = (a * ul) < (a * ur);
+            auto mask2 = (ul * ur) > 0.0;
 
             auto min = eval(minimum(abs(ul), abs(ur)));
             auto max = eval(maximum(abs(ul), abs(ur)));
@@ -207,9 +210,6 @@ namespace samurai
                             {
                                 out(imask) = .5 * max(imask) * max(imask);
                             });
-
-            // xt::masked_view(out, mask1 && mask2) = .5 * min * min;
-            // xt::masked_view(out, !mask1)         = .5 * max * max;
 
             return out;
         }
