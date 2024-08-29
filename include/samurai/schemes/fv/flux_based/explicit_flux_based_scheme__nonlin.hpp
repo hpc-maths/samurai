@@ -22,15 +22,18 @@ namespace samurai
 
       public:
 
+        using base_class::apply;
+
         explicit Explicit(const scheme_t& s)
             : base_class(s)
         {
         }
 
-        void apply(output_field_t& output_field, input_field_t& input_field) const override
+        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) const override
         {
             // Interior interfaces
             scheme().template for_each_interior_interface<Run::Parallel>( // We need the 'template' keyword...
+                d,
                 input_field,
                 [&](const auto& interface_cells, auto& left_cell_contrib, auto& right_cell_contrib)
                 {
@@ -50,6 +53,7 @@ namespace samurai
             if (scheme().include_boundary_fluxes())
             {
                 scheme().template for_each_boundary_interface<Run::Parallel>( // We need the 'template' keyword...
+                    d,
                     input_field,
                     [&](const auto& cell, auto& contrib)
                     {

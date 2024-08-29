@@ -26,6 +26,8 @@ namespace samurai
 
       public:
 
+        using base_class::apply;
+
         explicit Explicit(const scheme_t& s)
             : base_class(s)
         {
@@ -227,7 +229,7 @@ namespace samurai
 
       public:
 
-        void apply(output_field_t& output_field, input_field_t& input_field) const override
+        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) const override
         {
             /**
              * Implementation by matrix-vector multiplication
@@ -242,6 +244,7 @@ namespace samurai
 
             // Interior interfaces
             scheme().template for_each_interior_interface_and_coeffs<Run::Parallel, Get::Intervals>(
+                d,
                 input_field,
                 [&](auto& interface, auto& stencil, auto& left_cell_coeffs, auto& right_cell_coeffs)
                 {
@@ -268,6 +271,7 @@ namespace samurai
             if (scheme().include_boundary_fluxes())
             {
                 scheme().template for_each_boundary_interface_and_coeffs<Run::Parallel, Get::Intervals>(
+                    d,
                     input_field,
                     [&](auto& cell, auto& stencil, auto& coeffs)
                     {
