@@ -23,6 +23,7 @@
     #include "xtensor/xtensor.hpp"
 #endif
 #include "xtensor/xtensor_static.hpp"
+
 // clang-format on
 
 namespace samurai
@@ -57,7 +58,7 @@ namespace samurai
 #if defined(FLUX_CONTAINER_array)
     using Array = StdArrayWrapper<value_type, size>;
 #elif defined(FLUX_CONTAINER_eigen)
-    using Array = eigen_static_array<value_type, size, SOA>;
+    using Array              = eigen_static_array<value_type, size, SOA>;
 #else // FLUX_CONTAINER_xtensor
     using Array = xtensor_static_array<value_type, size>;
 #endif
