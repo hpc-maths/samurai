@@ -345,8 +345,8 @@ namespace samurai
         std::size_t iout         = 0;
         for (coord_index_t i = interval.start; i < interval.end; i += interval.step)
         {
-            auto row = find(lca, {i, index...});
-            if (row == -1)
+            auto offset = find(lca, {i, index...});
+            if (offset == -1)
             {
                 out[iout++] = false;
             }
