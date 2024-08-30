@@ -27,6 +27,8 @@ namespace samurai
 
       public:
 
+        using base_class::apply;
+
         explicit Explicit(const scheme_t& s)
             : base_class(s)
         {
@@ -72,6 +74,8 @@ namespace samurai
         static constexpr std::size_t output_field_size = cfg::output_field_size;
 
       public:
+
+        using base_class::apply;
 
         explicit Explicit(const scheme_t& s)
             : base_class(s)

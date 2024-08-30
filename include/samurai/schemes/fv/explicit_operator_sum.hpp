@@ -29,6 +29,15 @@ namespace samurai
                          op.apply(output_field, input_field);
                      });
         }
+
+        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) const override
+        {
+            for_each(scheme().operators(),
+                     [&](const auto& op)
+                     {
+                         op.apply(d, output_field, input_field);
+                     });
+        }
     };
 
 } // end namespace samurai

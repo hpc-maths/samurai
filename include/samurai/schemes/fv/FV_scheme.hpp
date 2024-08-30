@@ -81,7 +81,7 @@ namespace samurai
 
     /**
      * Finite Volume scheme.
-     * This is the base class of CellBasedScheme and FluxBasedSchemeAssembly.
+     * This is the base class of CellBasedScheme and FluxBasedScheme.
      * It contains the management of
      *     - the boundary conditions
      *     - the projection/prediction ghosts
@@ -176,6 +176,18 @@ namespace samurai
         {
             auto explicit_scheme = make_explicit(derived_cast());
             explicit_scheme.apply(output_field, input_field);
+        }
+
+        auto operator()(std::size_t d, input_field_t& input_field) const
+        {
+            auto explicit_scheme = make_explicit(derived_cast());
+            return explicit_scheme.apply_to(d, input_field);
+        }
+
+        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) const
+        {
+            auto explicit_scheme = make_explicit(derived_cast());
+            explicit_scheme.apply(d, output_field, input_field);
         }
 
         /**

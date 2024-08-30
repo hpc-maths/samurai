@@ -68,81 +68,87 @@ namespace samurai
          * Iterates for each interior interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <class Func>
-        void for_each_interior_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
+        void for_each_interior_interface_and_coeffs(std::size_t d, input_field_t& field, Func&& apply_coeffs) const
         {
             auto& mesh = field.mesh();
 
             auto min_level = mesh[mesh_id_t::cells].min_level();
             auto max_level = mesh[mesh_id_t::cells].max_level();
 
-            for (std::size_t d = 0; d < dim; ++d)
+            auto& flux_def = flux_definition()[d];
+
+            // Same level
+            for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto& flux_def = flux_definition()[d];
+                auto h = cell_length(level);
 
-                // Same level
-                for (std::size_t level = min_level; level <= max_level; ++level)
+                for_each_interior_interface__same_level(
+                    mesh,
+                    level,
+                    flux_def.direction,
+                    flux_def.stencil,
+                    [&](auto& interface_cells, auto& comput_cells)
+                    {
+                        auto flux_coeffs                               = flux_def.cons_flux_function(comput_cells);
+                        auto left_cell_contrib                         = contribution(flux_coeffs, h, h);
+                        decltype(left_cell_contrib) right_cell_contrib = -left_cell_contrib;
+                        apply_coeffs(interface_cells, comput_cells, left_cell_contrib, right_cell_contrib);
+                    });
+            }
+
+            // Level jumps (level -- level+1)
+            for (std::size_t level = min_level; level < max_level; ++level)
+            {
+                auto h_l   = cell_length(level);
+                auto h_lp1 = cell_length(level + 1);
+
+                //         |__|   l+1
+                //    |____|      l
+                //    --------->
+                //    direction
                 {
-                    auto h = cell_length(level);
-
-                    for_each_interior_interface__same_level(
+                    for_each_interior_interface__level_jump_direction(
                         mesh,
                         level,
                         flux_def.direction,
                         flux_def.stencil,
                         [&](auto& interface_cells, auto& comput_cells)
                         {
-                            auto flux_coeffs                               = flux_def.cons_flux_function(comput_cells);
-                            auto left_cell_contrib                         = contribution(flux_coeffs, h, h);
-                            decltype(left_cell_contrib) right_cell_contrib = -left_cell_contrib;
+                            auto flux_coeffs                        = flux_def.cons_flux_function(comput_cells);
+                            decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
+                            auto left_cell_contrib                  = contribution(flux_coeffs, h_lp1, h_l);
+                            auto right_cell_contrib                 = contribution(minus_flux_coeffs, h_lp1, h_lp1);
                             apply_coeffs(interface_cells, comput_cells, left_cell_contrib, right_cell_contrib);
                         });
                 }
-
-                // Level jumps (level -- level+1)
-                for (std::size_t level = min_level; level < max_level; ++level)
+                //    |__|        l+1
+                //       |____|   l
+                //    --------->
+                //    direction
                 {
-                    auto h_l   = cell_length(level);
-                    auto h_lp1 = cell_length(level + 1);
-
-                    //         |__|   l+1
-                    //    |____|      l
-                    //    --------->
-                    //    direction
-                    {
-                        for_each_interior_interface__level_jump_direction(
-                            mesh,
-                            level,
-                            flux_def.direction,
-                            flux_def.stencil,
-                            [&](auto& interface_cells, auto& comput_cells)
-                            {
-                                auto flux_coeffs                        = flux_def.cons_flux_function(comput_cells);
-                                decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
-                                auto left_cell_contrib                  = contribution(flux_coeffs, h_lp1, h_l);
-                                auto right_cell_contrib                 = contribution(minus_flux_coeffs, h_lp1, h_lp1);
-                                apply_coeffs(interface_cells, comput_cells, left_cell_contrib, right_cell_contrib);
-                            });
-                    }
-                    //    |__|        l+1
-                    //       |____|   l
-                    //    --------->
-                    //    direction
-                    {
-                        for_each_interior_interface__level_jump_opposite_direction(
-                            mesh,
-                            level,
-                            flux_def.direction,
-                            flux_def.stencil,
-                            [&](auto& interface_cells, auto& comput_cells)
-                            {
-                                auto flux_coeffs                        = flux_def.cons_flux_function(comput_cells);
-                                decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
-                                auto left_cell_contrib                  = contribution(flux_coeffs, h_lp1, h_lp1);
-                                auto right_cell_contrib                 = contribution(minus_flux_coeffs, h_lp1, h_l);
-                                apply_coeffs(interface_cells, comput_cells, left_cell_contrib, right_cell_contrib);
-                            });
-                    }
+                    for_each_interior_interface__level_jump_opposite_direction(
+                        mesh,
+                        level,
+                        flux_def.direction,
+                        flux_def.stencil,
+                        [&](auto& interface_cells, auto& comput_cells)
+                        {
+                            auto flux_coeffs                        = flux_def.cons_flux_function(comput_cells);
+                            decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
+                            auto left_cell_contrib                  = contribution(flux_coeffs, h_lp1, h_lp1);
+                            auto right_cell_contrib                 = contribution(minus_flux_coeffs, h_lp1, h_l);
+                            apply_coeffs(interface_cells, comput_cells, left_cell_contrib, right_cell_contrib);
+                        });
                 }
+            }
+        }
+
+        template <class Func>
+        void for_each_interior_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
+        {
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                for_each_interior_interface_and_coeffs(d, field, std::forward<Func>(apply_coeffs));
             }
         }
 
@@ -150,45 +156,51 @@ namespace samurai
          * Iterates for each boundary interface and returns (in lambda parameters) the scheme coefficients.
          */
         template <class Func>
-        void for_each_boundary_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
+        void for_each_boundary_interface_and_coeffs(std::size_t d, input_field_t& field, Func&& apply_coeffs) const
         {
             auto& mesh = field.mesh();
 
+            auto& flux_def = flux_definition()[d];
+
+            for_each_level(mesh,
+                           [&](auto level)
+                           {
+                               auto h = cell_length(level);
+
+                               // Boundary in direction
+                               for_each_boundary_interface__direction(mesh,
+                                                                      level,
+                                                                      flux_def.direction,
+                                                                      flux_def.stencil,
+                                                                      [&](auto& cell, auto& comput_cells)
+                                                                      {
+                                                                          auto flux_coeffs  = flux_def.cons_flux_function(comput_cells);
+                                                                          auto cell_contrib = contribution(flux_coeffs, h, h);
+                                                                          apply_coeffs(cell, comput_cells, cell_contrib);
+                                                                      });
+
+                               // Boundary in opposite direction
+                               for_each_boundary_interface__opposite_direction(
+                                   mesh,
+                                   level,
+                                   flux_def.direction,
+                                   flux_def.stencil,
+                                   [&](auto& cell, auto& comput_cells)
+                                   {
+                                       auto flux_coeffs                        = flux_def.cons_flux_function(comput_cells);
+                                       decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
+                                       auto cell_contrib                       = contribution(minus_flux_coeffs, h, h);
+                                       apply_coeffs(cell, comput_cells, cell_contrib);
+                                   });
+                           });
+        }
+
+        template <class Func>
+        void for_each_boundary_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
+        {
             for (std::size_t d = 0; d < dim; ++d)
             {
-                auto& flux_def = flux_definition()[d];
-
-                for_each_level(mesh,
-                               [&](auto level)
-                               {
-                                   auto h = cell_length(level);
-
-                                   // Boundary in direction
-                                   for_each_boundary_interface__direction(mesh,
-                                                                          level,
-                                                                          flux_def.direction,
-                                                                          flux_def.stencil,
-                                                                          [&](auto& cell, auto& comput_cells)
-                                                                          {
-                                                                              auto flux_coeffs  = flux_def.cons_flux_function(comput_cells);
-                                                                              auto cell_contrib = contribution(flux_coeffs, h, h);
-                                                                              apply_coeffs(cell, comput_cells, cell_contrib);
-                                                                          });
-
-                                   // Boundary in opposite direction
-                                   for_each_boundary_interface__opposite_direction(
-                                       mesh,
-                                       level,
-                                       flux_def.direction,
-                                       flux_def.stencil,
-                                       [&](auto& cell, auto& comput_cells)
-                                       {
-                                           auto flux_coeffs                        = flux_def.cons_flux_function(comput_cells);
-                                           decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
-                                           auto cell_contrib                       = contribution(minus_flux_coeffs, h, h);
-                                           apply_coeffs(cell, comput_cells, cell_contrib);
-                                       });
-                               });
+                for_each_boundary_interface_and_coeffs(d, field, std::forward<Func>(apply_coeffs));
             }
         }
     };
