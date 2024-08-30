@@ -53,7 +53,7 @@ namespace samurai
         {
             output_field_t output_field = create_output_field(input_field);
 
-            update_bc(input_field); // To remove
+            // update_bc(input_field);
             apply(output_field, input_field);
 
             return output_field;
@@ -63,7 +63,7 @@ namespace samurai
         {
             output_field_t output_field = create_output_field(input_field);
 
-            update_bc(input_field); // To remove
+            // update_bc(input_field);
             apply(d, output_field, input_field);
 
             return output_field;
