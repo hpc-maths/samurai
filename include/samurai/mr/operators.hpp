@@ -334,7 +334,7 @@ namespace samurai
         }
     };
 
-    template <class T1, class T2>
+    template <class T1, class T2, std::enable_if_t<is_field_type_v<T2>, int> = 0>
     inline auto compute_detail(T1&& detail, T2&& field)
     {
         return make_field_operator_function<compute_detail_op>(std::forward<T1>(detail), std::forward<T2>(field));
@@ -367,7 +367,7 @@ namespace samurai
             {
                 if constexpr (transpose)
                 {
-                    return xt::transpose(m_detail(m_beg, m_end, level, i, index...));
+                    return math::transpose(m_detail(m_beg, m_end, level, i, index...));
                 }
                 else
                 {
@@ -379,7 +379,7 @@ namespace samurai
             {
                 if constexpr (transpose)
                 {
-                    return xt::transpose(m_detail(m_beg, m_end, level, i, index));
+                    return math::transpose(m_detail(m_beg, m_end, level, i, index));
                 }
                 else
                 {
@@ -411,8 +411,8 @@ namespace samurai
         template <class Ranges, class T1, class T2>
         inline void compute_detail_impl(Dim<dim> d, std::size_t i_r, const Ranges& ranges, T1& detail, const T2& field) const
         {
-            auto dest_shape = detail(ranges[i_r], ranges[i_r + 1], level + 1, 2 * i, 2 * index).shape();
-            auto src_shape  = field(level + 1, 2 * i, 2 * index).shape();
+            auto dest_shape = shape(detail(ranges[i_r], ranges[i_r + 1], level + 1, 2 * i, 2 * index));
+            auto src_shape  = shape(field(level + 1, 2 * i, 2 * index));
 
             if (xt::same_shape(dest_shape, src_shape))
             {
