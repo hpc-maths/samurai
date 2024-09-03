@@ -34,6 +34,19 @@ namespace samurai
     template <class mesh_t, class value_t, std::size_t size = 1, bool SOA = false>
     class Field;
 
+    template <class T>
+    struct is_field_type : std::false_type
+    {
+    };
+
+    template <class Mesh, class value_t, std::size_t size, bool SOA>
+    struct is_field_type<Field<Mesh, value_t, size, SOA>> : std::true_type
+    {
+    };
+
+    template <class T>
+    inline constexpr bool is_field_type_v = is_field_type<T>::value;
+
     template <class Field, bool is_const>
     class Field_iterator;
 
@@ -411,9 +424,10 @@ namespace samurai
     {
       public:
 
-        using self_type       = Field_iterator<Field, is_const>;
-        using ca_iterator     = CellArray_iterator<const typename Field::mesh_t::ca_type, true>;
-        using reference       = xt::xview<typename Field::data_type&, xt::xstepped_range<long>>;
+        using self_type   = Field_iterator<Field, is_const>;
+        using ca_iterator = CellArray_iterator<const typename Field::mesh_t::ca_type, true>;
+
+        using reference       = default_view_t<typename Field::data_type>;
         using difference_type = typename ca_iterator::difference_type;
 
         Field_iterator(Field* field, const ca_iterator& ca_it);
@@ -928,6 +942,7 @@ namespace samurai
         using common_t                     = detail::common_type_t<TField, TFields...>;
         using mesh_t                       = typename TField::mesh_t;
         using mesh_id_t                    = typename mesh_t::mesh_id_t;
+        using size_type                    = typename TField::size_type;
 
         Field_tuple(TField& field, TFields&... fields)
             : m_fields(field, fields...)

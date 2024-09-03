@@ -110,14 +110,14 @@ namespace samurai
     }
 
     template <class value_t, std::size_t size>
-    auto view(eigen_container<value_t, size, true>& container, const range_t<Eigen::Index>& range_item, const range_t<Eigen::Index>& range)
+    auto view(eigen_container<value_t, size, true>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range_item.start, range_item.end - 1, range_item.step),
                                 Eigen::seq(range.start, range.end - 1, range.step));
     }
 
     template <class value_t, std::size_t size>
-    auto view(eigen_container<value_t, size, false>& container, const range_t<Eigen::Index>& range_item, const range_t<Eigen::Index>& range)
+    auto view(eigen_container<value_t, size, false>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step),
                                 Eigen::seq(range_item.start, range_item.end - 1, range_item.step));
@@ -155,7 +155,7 @@ namespace samurai
 
     template <class value_t, std::size_t size>
     auto
-    view(const eigen_container<value_t, size, true>& container, const range_t<Eigen::Index>& range_item, const range_t<Eigen::Index>& range)
+    view(const eigen_container<value_t, size, true>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range_item.start, range_item.end - 1, range_item.step),
                                 Eigen::seq(range.start, range.end - 1, range.step));
@@ -163,7 +163,7 @@ namespace samurai
 
     template <class value_t, std::size_t size>
     auto
-    view(const eigen_container<value_t, size, false>& container, const range_t<Eigen::Index>& range_item, const range_t<Eigen::Index>& range)
+    view(const eigen_container<value_t, size, false>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step),
                                 Eigen::seq(range_item.start, range_item.end - 1, range_item.step));
@@ -222,6 +222,23 @@ namespace samurai
         return exp.derived().cols();
     }
 
+    template <class D1, class D2>
+    bool compare(const Eigen::EigenBase<D1>& exp1, const Eigen::EigenBase<D2>& exp2)
+    {
+        if (exp1.derived().rows() != exp2.derived().rows() || exp1.derived().cols() != exp2.derived().cols())
+        {
+            return false;
+        }
+        return (exp1.derived() == exp2.derived()).all();
+    }
+
+    template <class D>
+    auto shape(const Eigen::EigenBase<D>& exp)
+    {
+        std::array<std::size_t, 2> shape = {static_cast<std::size_t>(exp.derived().rows()), static_cast<std::size_t>(exp.derived().cols())};
+        return shape;
+    }
+
     template <class D>
     auto noalias(const Eigen::EigenBase<D>& exp)
     {
@@ -251,6 +268,12 @@ namespace samurai
         {
             return container(range);
         }
+    }
+
+    template <class Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options, class... Ranges>
+    auto view(Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>& container, Ranges... ranges)
+    {
+        return container(ranges...);
     }
 
     template <class D, class Range>
@@ -384,6 +407,12 @@ namespace samurai
         auto arange(const Scalar& low, const Scalar& high)
         {
             return Eigen::Array<Scalar, Eigen::Dynamic, 1>::LinSpaced(static_cast<Eigen::Index>(high - low + 1), low, high);
+        }
+
+        template <class D>
+        auto transpose(Eigen::EigenBase<D>&& exp)
+        {
+            return exp.derived().transpose();
         }
     }
 

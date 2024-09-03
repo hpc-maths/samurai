@@ -83,7 +83,7 @@ namespace samurai
     }
 
     template <class value_t, std::size_t size>
-    auto view(xtensor_container<value_t, size, true>& container, const range_t<long long>& range_item, const range_t<long long>& range)
+    auto view(xtensor_container<value_t, size, true>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
     {
         return xt::view(container.data(),
                         xt::range(range_item.start, range_item.end, range_item.step),
@@ -91,7 +91,7 @@ namespace samurai
     }
 
     template <class value_t, std::size_t size>
-    auto view(xtensor_container<value_t, size, false>& container, const range_t<long long>& range_item, const range_t<long long>& range)
+    auto view(xtensor_container<value_t, size, false>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
     {
         return xt::view(container.data(),
                         xt::range(range.start, range.end, range.step),
@@ -129,7 +129,8 @@ namespace samurai
     }
 
     template <class value_t, std::size_t size>
-    auto view(const xtensor_container<value_t, size, true>& container, const range_t<long long>& range_item, const range_t<long long>& range)
+    auto
+    view(const xtensor_container<value_t, size, true>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
     {
         return xt::view(container.data(),
                         xt::range(range_item.start, range_item.end, range_item.step),
@@ -137,7 +138,8 @@ namespace samurai
     }
 
     template <class value_t, std::size_t size>
-    auto view(const xtensor_container<value_t, size, false>& container, const range_t<long long>& range_item, const range_t<long long>& range)
+    auto
+    view(const xtensor_container<value_t, size, false>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
     {
         return xt::view(container.data(),
                         xt::range(range.start, range.end, range.step),
@@ -186,6 +188,12 @@ namespace samurai
         return xt::eval(exp.derived_cast());
     }
 
+    template <class D1, class D2>
+    bool compare(const xt::xexpression<D1>& exp1, const xt::xexpression<D2>& exp2)
+    {
+        return exp1 == exp2;
+    }
+
     template <class D>
     auto shape(const xt::xexpression<D>& exp, std::size_t axis)
     {
@@ -225,6 +233,7 @@ namespace samurai
         using xt::arange;
         using xt::maximum;
         using xt::minimum;
+        using xt::transpose;
 
         template <class D>
         auto sum(xt::xexpression<D>&& exp)

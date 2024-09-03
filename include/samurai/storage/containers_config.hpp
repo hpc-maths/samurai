@@ -40,6 +40,8 @@ namespace samurai
     template <class value_type, std::size_t size, bool SOA>
     using local_field_data_t = eigen_collapsable_static_array<value_type, size, SOA>;
 
+    template <class T>
+    using default_view_t = Eigen::IndexedView<T, Eigen::internal::ArithmeticSequenceRange<16777215, -1, 16777215>, Eigen::internal::SingleRange<0>>;
 #else // SAMURAI_FIELD_CONTAINER_XTENSOR
 
     template <class value_type, std::size_t size = 1, bool SOA = false>
@@ -48,6 +50,8 @@ namespace samurai
     template <class value_type, std::size_t size, bool>
     using local_field_data_t = xtensor_collapsable_static_array<value_type, size>;
 
+    template <class T>
+    using default_view_t = xt::xview<T&, xt::xstepped_range<long>>;
 #endif
 
     //--------------//
@@ -58,7 +62,7 @@ namespace samurai
 #if defined(FLUX_CONTAINER_array)
     using Array = StdArrayWrapper<value_type, size>;
 #elif defined(FLUX_CONTAINER_eigen)
-    using Array              = eigen_static_array<value_type, size, SOA>;
+    using Array          = eigen_static_array<value_type, size, SOA>;
 #else // FLUX_CONTAINER_xtensor
     using Array = xtensor_static_array<value_type, size>;
 #endif
