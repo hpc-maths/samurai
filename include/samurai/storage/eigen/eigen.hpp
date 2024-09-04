@@ -13,6 +13,10 @@ namespace samurai
     {
         static constexpr Eigen::internal::all_t _;
 
+        inline auto all()
+        {
+            return Eigen::placeholders::all;
+        }
     }
 
     namespace detail
@@ -476,5 +480,11 @@ namespace samurai
         using Base = typename D::PlainArray;
         Base res   = Base::Zero(container.rows(), container.cols());
         return res;
+    }
+
+    template <class T>
+    auto zeros(Eigen::Index size)
+    {
+        return Eigen::Array<T, 1, Eigen::Dynamic>::Zero(1, size);
     }
 }

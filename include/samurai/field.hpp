@@ -45,7 +45,7 @@ namespace samurai
     };
 
     template <class T>
-    inline constexpr bool is_field_type_v = is_field_type<T>::value;
+    inline constexpr bool is_field_type_v = is_field_type<std::decay_t<T>>::value;
 
     template <class Field, bool is_const>
     class Field_iterator;
