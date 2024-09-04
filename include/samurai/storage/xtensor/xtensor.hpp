@@ -13,6 +13,7 @@ namespace samurai
 {
     namespace placeholders
     {
+        using xt::all;
         using xt::placeholders::_;
     }
 
@@ -201,6 +202,12 @@ namespace samurai
     }
 
     template <class D>
+    auto shape(const xt::xexpression<D>& exp)
+    {
+        return exp.derived_cast().shape();
+    }
+
+    template <class D>
     auto noalias(const xt::xexpression<D>& exp)
     {
         return xt::noalias(exp);
@@ -226,6 +233,12 @@ namespace samurai
     }
 
     using xt::view;
+
+    template <class T>
+    auto zeros(std::size_t size)
+    {
+        return xt::zeros<T>({size});
+    }
 
     namespace math
     {
