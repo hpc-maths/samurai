@@ -370,7 +370,7 @@ namespace samurai
         {
             if constexpr (T::is_soa && T::size > 1)
             {
-                return view(qs, placeholders::_, range(dec, shape(qs, 1)));
+                return view(qs, placeholders::all(), range(dec, shape(qs, 1)));
             }
             else
             {
@@ -383,11 +383,11 @@ namespace samurai
         {
             if constexpr (T::is_soa && T::size > 1)
             {
-                return view(qs, placeholders::_, range(0, safe_subs<int>(shape(qs, 1), dec)));
+                return view(qs, placeholders::all(), range(0, safe_subs<int>(shape(qs, 1), dec)));
             }
             else
             {
-                return view(qs, range(0, safe_subs<int>(shape(qs, 1), dec)));
+                return view(qs, range(0, safe_subs<int>(shape(qs, 0), dec)));
             }
         }
     }
