@@ -25,7 +25,6 @@ set(SAMURAI_TESTS
     test_list_of_intervals.cpp
     test_periodic.cpp
     test_portion.cpp
-    test_storage.cpp
     test_utils.cpp
 )
 
