@@ -55,7 +55,7 @@ namespace samurai
 
         eigen_container() = default;
 
-        eigen_container(std::size_t dynamic_size)
+        explicit eigen_container(std::size_t dynamic_size)
             : m_data()
         {
             resize(dynamic_size);

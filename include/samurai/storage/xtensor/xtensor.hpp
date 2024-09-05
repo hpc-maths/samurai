@@ -25,7 +25,7 @@ namespace samurai
 
         xtensor_container() = default;
 
-        xtensor_container(std::size_t dynamic_size)
+        explicit xtensor_container(std::size_t dynamic_size)
             : m_data()
         {
             resize(dynamic_size);
