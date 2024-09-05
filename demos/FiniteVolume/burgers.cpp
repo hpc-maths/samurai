@@ -11,14 +11,14 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <std::size_t dim>
+template <std::size_t field_size, std::size_t dim>
 auto exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t)
 {
     const double a  = 1;
     const double b  = 0;
     const double& x = coords(0);
     auto value      = (a * x + b) / (a * t + 1);
-    return samurai::Array<double, dim, false>(value);
+    return samurai::CollapsArray<double, field_size, false>(value);
 }
 
 template <class Field>
@@ -121,7 +121,7 @@ int main_dim(int argc, char* argv[])
         samurai::for_each_cell(mesh,
                                [&](auto& cell)
                                {
-                                   u[cell] = exact_solution(cell.center(), 0);
+                                   u[cell] = exact_solution<field_size>(cell.center(), 0);
                                });
     }
     else if (init_sol == "hat")
@@ -135,23 +135,12 @@ int main_dim(int argc, char* argv[])
                                    double dist = 0;
                                    for (std::size_t d = 0; d < dim; ++d)
                                    {
-                                       dist += pow(cell.center(d), 2);
+                                       dist += std::pow(cell.center(d), 2);
                                    }
-                                   dist = sqrt(dist);
+                                   dist = std::sqrt(dist);
 
                                    double value = (dist <= r) ? (-max / r * dist + max) : 0;
-                                   if constexpr (field_size == 1)
-                                   {
-                                       u[cell] = value;
-                                   }
-                                   else
-                                   {
-                                       using size_type = typename decltype(u)::size_type;
-                                       for (size_type field_i = 0; field_i < u.size; ++field_i)
-                                       {
-                                           u[cell][field_i] = value;
-                                       }
-                                   }
+                                   u[cell]      = value;
                                });
     }
     else if (dim > 1 && field_size > 1 && init_sol == "bands")
@@ -193,7 +182,7 @@ int main_dim(int argc, char* argv[])
         samurai::make_bc<samurai::Dirichlet<3>>(u,
                                                 [&](const auto&, const auto&, const auto& coord)
                                                 {
-                                                    return exact_solution(coord, 0);
+                                                    return exact_solution<field_size>(coord, 0);
                                                 });
     }
     else
@@ -261,7 +250,7 @@ int main_dim(int argc, char* argv[])
             samurai::make_bc<samurai::Dirichlet<3>>(u,
                                                     [&](const auto&, const auto&, const auto& coord)
                                                     {
-                                                        return exact_solution(coord, t - dt);
+                                                        return exact_solution<field_size>(coord, t - dt);
                                                     });
         }
 
@@ -289,7 +278,7 @@ int main_dim(int argc, char* argv[])
             double error = samurai::L2_error(u,
                                              [&](const auto& coord)
                                              {
-                                                 return exact_solution(coord, t);
+                                                 return exact_solution<field_size>(coord, t);
                                              });
             std::cout << ", L2-error: " << std::scientific << std::setprecision(2) << error;
 
@@ -301,7 +290,7 @@ int main_dim(int argc, char* argv[])
                 error         = samurai::L2_error(u_recons,
                                           [&](const auto& coord)
                                           {
-                                              return exact_solution(coord, t);
+                                              return exact_solution<field_size>(coord, t);
                                           });
                 std::cout << ", L2-error (recons): " << std::scientific << std::setprecision(2) << error;
             }
