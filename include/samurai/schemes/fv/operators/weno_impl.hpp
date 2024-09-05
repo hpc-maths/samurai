@@ -48,9 +48,9 @@ namespace samurai
         // clang-format on
 
         // (2.16) and Table II (r=3)
-        auto alpha0 = 0.1 * pow((eps + IS0), -2);
-        auto alpha1 = 0.6 * pow((eps + IS1), -2);
-        auto alpha2 = 0.3 * pow((eps + IS2), -2);
+        auto alpha0 = 0.1 / pow((eps + IS0), 2);
+        auto alpha1 = 0.6 / pow((eps + IS1), 2);
+        auto alpha2 = 0.3 / pow((eps + IS2), 2);
 
         // (2.15)
         auto sum_alphas = alpha0 + alpha1 + alpha2;

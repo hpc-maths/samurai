@@ -320,12 +320,18 @@ namespace samurai
             static_assert(axis < 2);
             if constexpr (axis == 0)
             {
-                return exp.derived().rowwise().sum();
+                return exp.derived().colwise().sum();
             }
             else
             {
-                return exp.derived().colwise().sum();
+                return exp.derived().rowwise().sum();
             }
+        }
+
+        template <std::size_t axis, std::size_t, class D>
+        auto all_true(const Eigen::EigenBase<D>& exp)
+        {
+            return sum<axis>(exp);
         }
 
         template <class D1, class D2>

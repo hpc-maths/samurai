@@ -105,10 +105,9 @@ namespace samurai
                     //                     2*j+1))/maxd < eps), {1}) > (size-1);
                     constexpr std::size_t axis = T1::is_soa ? 0 : 1;
 
-                    auto mask = sum<axis>((abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
-                                          && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps)
-                                          && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps))
-                              > (size - 1);
+                    auto mask = all_true<axis, size>(
+                        (abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
+                        && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps));
 
                     apply_on_masked(
                         mask,

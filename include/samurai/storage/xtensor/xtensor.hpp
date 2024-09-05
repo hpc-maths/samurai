@@ -265,6 +265,12 @@ namespace samurai
         {
             return xt::sum(exp.derived_cast(), {axis});
         }
+
+        template <std::size_t axis, std::size_t size, class D>
+        auto all_true(xt::xexpression<D>&& exp)
+        {
+            return xt::sum(exp.derived_cast(), {axis}) > (size - 1);
+        }
     }
 
     template <class D>
