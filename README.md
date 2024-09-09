@@ -222,16 +222,21 @@ The [tutorial](./demos/tutorial/) directory is a good first step followed by the
 mamba install samurai
 ```
 
-If you want to compile your scripts, you also have to install a C++ compiler and cmake.
+For compiling purposes, you have to install a C++ compiler, `cmake`, and (optionaly) `make`:
 
 ```bash
-mamba install cxx-compiler cmake
+mamba install cxx-compiler cmake [make]
 ```
 
-And finally, if you have to use PETSc to assemble the matrix of your problem, you need to install it
+If you have to use PETSc to assemble the matrix of your problem, you need to install it:
 
 ```bash
 mamba install petsc pkg-config
+```
+
+For parallel computation,
+```bash
+mamba install libboost-mpi libboost-devel libboost-headers 'hdf5=*=mpi*'
 ```
 
 ### From Conan Center
@@ -248,10 +253,17 @@ Run the cmake configuration
 
 - With mamba or conda
 
-    First, you need to create the environment with all the dependencies installed
+    First, you need to create the environment with all the dependencies installed, run
 
     ```bash
     mamba env create --file conda/environment.yml
+    ```
+    for sequential computation, or
+    ```bash
+    mamba env create --file conda/mpi-environment.yml
+    ```
+    for parallel computation. Then
+    ```bash
     mamba activate samurai-env
     ```
 
@@ -276,6 +288,22 @@ Build the demos
 
 ```bash
 cmake --build ./build --config Release
+```
+
+## CMake configuration
+
+Here is a minimal `CMakeLists.txt` example:
+
+```cmake
+cmake_minimum_required(VERSION 3.15)
+set(CMAKE_CXX_STANDARD 17)
+
+project(my_samurai_project CXX)
+
+find_package(samurai CONFIG REQUIRED)
+
+add_executable(my_samurai_project main.cpp)
+target_link_libraries(my_samurai_project PRIVATE samurai::samurai samurai::project_options samurai::project_warnings samurai::libdeps)
 ```
 
 ## Get help
