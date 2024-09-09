@@ -135,6 +135,9 @@ if(${WITH_OPENMP})
 endif()
 
 if(${WITH_MPI})
+  if (NOT HDF5_IS_PARALLEL)
+    message(FATAL_ERROR "HDF5 is not parallel. Please install a parallel version.")
+  endif()
   find_package(Boost REQUIRED COMPONENTS serialization mpi)
   target_link_system_libraries(
     samurai
