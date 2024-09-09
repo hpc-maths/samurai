@@ -292,7 +292,7 @@ cmake --build ./build --config Release
 
 ## CMake configuration
 
-Here is a minimal `CMakeLists.txt` example:
+Here is a minimal example of `CMakeLists.txt`:
 
 ```cmake
 cmake_minimum_required(VERSION 3.15)
