@@ -1,5 +1,5 @@
 
-option(SAMURAI_WITH_OPENMP "Enable OpenMP" ON)
+option(SAMURAI_WITH_OPENMP "Enable OpenMP" OFF)
 if(${SAMURAI_WITH_OPENMP})
     find_dependency(OpenMP)
     if(OpenMP_CXX_FOUND)
@@ -11,7 +11,7 @@ if(${SAMURAI_WITH_OPENMP})
 endif()
 
 
-option(SAMURAI_WITH_MPI "Enable MPI" ON)
+option(SAMURAI_WITH_MPI "Enable MPI" OFF)
 if(SAMURAI_WITH_MPI)
   if (NOT HDF5_IS_PARALLEL)
     message(FATAL_ERROR "HDF5 is not parallel. Please install a parallel version.")
