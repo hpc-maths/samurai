@@ -254,7 +254,8 @@ Run the cmake configuration
 
 - With mamba or conda
 
-    First, you need to create the environment with all the dependencies installed, run
+    First, you need to create the environment with all the dependencies
+    installed, run
 
     ```bash
     mamba env create --file conda/environment.yml
