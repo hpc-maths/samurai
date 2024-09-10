@@ -1,0 +1,38 @@
+
+option(SAMURAI_WITH_OPENMP "Enable OpenMP" OFF)
+if(${SAMURAI_WITH_OPENMP})
+    find_dependency(OpenMP)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(samurai::samurai INTERFACE OpenMP::OpenMP_CXX)
+        target_compile_definitions(samurai::samurai INTERFACE SAMURAI_WITH_OPENMP)
+    else()
+        message(FATAL_ERROR "OpenMP not found")
+    endif()
+endif()
+
+
+option(SAMURAI_WITH_MPI "Enable MPI" OFF)
+if(SAMURAI_WITH_MPI)
+  if (NOT HDF5_IS_PARALLEL)
+    message(FATAL_ERROR "HDF5 is not parallel. Please install a parallel version.")
+  endif()
+  find_dependency(Boost COMPONENTS serialization mpi)
+  target_link_libraries(samurai::samurai INTERFACE Boost::serialization Boost::mpi)
+  target_compile_definitions(samurai::samurai INTERFACE SAMURAI_WITH_MPI)
+endif()
+
+
+option(SAMURAI_CHECK_NAN "Check NaN in computations" OFF)
+if(SAMURAI_CHECK_NAN)
+  target_compile_definitions(samurai::samurai INTERFACE SAMURAI_CHECK_NAN)
+endif()
+
+
+set(FLUX_CONTAINER_LIST array xtensor)
+set(SAMURAI_FLUX_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FLUX_CONTAINER_LIST}")
+set_property(CACHE SAMURAI_FLUX_CONTAINER PROPERTY STRINGS ${FLUX_CONTAINER_LIST})
+if(NOT SAMURAI_FLUX_CONTAINER IN_LIST FLUX_CONTAINER_LIST)
+    message(FATAL_ERROR "SAMURAI_FLUX_CONTAINER must be one of: ${FLUX_CONTAINER_LIST}")
+else()
+    target_compile_definitions(samurai::samurai INTERFACE FLUX_CONTAINER_${FLUX_CONTAINER})
+endif()
