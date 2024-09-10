@@ -308,10 +308,7 @@ project(my_samurai_project CXX)
 find_package(samurai CONFIG REQUIRED)
 
 add_executable(my_samurai_project main.cpp)
-target_link_libraries(my_samurai_project PRIVATE samurai::samurai
-                                                 samurai::project_options
-                                                 samurai::project_warnings
-                                                 samurai::libdeps)
+target_link_libraries(my_samurai_project PRIVATE samurai::samurai samurai::libdeps)
 ```
 
 ## Get help
