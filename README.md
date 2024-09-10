@@ -235,6 +235,7 @@ mamba install petsc pkg-config
 ```
 
 For parallel computation,
+
 ```bash
 mamba install libboost-mpi libboost-devel libboost-headers 'hdf5=*=mpi*'
 ```
@@ -258,15 +259,18 @@ Run the cmake configuration
     ```bash
     mamba env create --file conda/environment.yml
     ```
+
     for sequential computation, or
+
     ```bash
     mamba env create --file conda/mpi-environment.yml
     ```
+
     for parallel computation. Then
+
     ```bash
     mamba activate samurai-env
     ```
-
 
     ```bash
     cmake . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_DEMOS=ON
@@ -303,7 +307,10 @@ project(my_samurai_project CXX)
 find_package(samurai CONFIG REQUIRED)
 
 add_executable(my_samurai_project main.cpp)
-target_link_libraries(my_samurai_project PRIVATE samurai::samurai samurai::project_options samurai::project_warnings samurai::libdeps)
+target_link_libraries(my_samurai_project PRIVATE samurai::samurai
+                                                 samurai::project_options
+                                                 samurai::project_warnings
+                                                 samurai::libdeps)
 ```
 
 ## Get help
