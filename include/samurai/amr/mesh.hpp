@@ -192,7 +192,7 @@ template <>
 struct fmt::formatter<samurai::amr::AMR_Id> : formatter<string_view>
 {
     template <typename FormatContext>
-    auto format(samurai::amr::AMR_Id c, FormatContext& ctx)
+    auto format(samurai::amr::AMR_Id c, FormatContext& ctx) const
     {
         string_view name = "unknown";
         switch (c)

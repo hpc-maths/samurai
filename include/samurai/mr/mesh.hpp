@@ -350,7 +350,7 @@ struct fmt::formatter<samurai::MRMeshId> : formatter<string_view>
 {
     // parse is inherited from formatter<string_view>.
     template <typename FormatContext>
-    auto format(samurai::MRMeshId c, FormatContext& ctx)
+    auto format(samurai::MRMeshId c, FormatContext& ctx) const
     {
         string_view name = "unknown";
         switch (c)
