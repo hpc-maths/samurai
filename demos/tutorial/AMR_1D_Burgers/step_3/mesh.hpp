@@ -94,7 +94,7 @@ template <>
 struct fmt::formatter<MeshID> : formatter<string_view>
 {
     template <typename FormatContext>
-    auto format(MeshID c, FormatContext& ctx)
+    auto format(MeshID c, FormatContext& ctx) const
     {
         string_view name = "unknown";
         switch (c)

@@ -32,7 +32,7 @@ struct fmt::formatter<SimpleID> : formatter<string_view>
 {
     // parse is inherited from formatter<string_view>.
     template <typename FormatContext>
-    auto format(SimpleID c, FormatContext& ctx)
+    auto format(SimpleID c, FormatContext& ctx) const
     {
         string_view name = "unknown";
         switch (c)

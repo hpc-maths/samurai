@@ -203,7 +203,7 @@ struct fmt::formatter<samurai::UniformMeshId> : formatter<string_view>
 {
     // parse is inherited from formatter<string_view>.
     template <typename FormatContext>
-    auto format(samurai::UniformMeshId c, FormatContext& ctx)
+    auto format(samurai::UniformMeshId c, FormatContext& ctx) const
     {
         string_view name = "unknown";
         switch (c)
