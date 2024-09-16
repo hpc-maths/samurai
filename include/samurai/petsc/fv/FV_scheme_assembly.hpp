@@ -162,6 +162,7 @@ namespace samurai
             void set_unknown(field_t& unknown)
             {
                 m_unknown = &unknown;
+                m_n_cells = unknown.mesh().nb_cells();
             }
 
             auto& unknown() const
