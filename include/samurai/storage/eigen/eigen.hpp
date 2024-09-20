@@ -328,10 +328,10 @@ namespace samurai
             }
         }
 
-        template <std::size_t axis, std::size_t, class D>
+        template <std::size_t axis, std::size_t size, class D>
         auto all_true(const Eigen::EigenBase<D>& exp)
         {
-            return sum<axis>(exp);
+            return sum<axis>(exp.derived().template cast<int>()) > (size - 1);
         }
 
         template <class D1, class D2>
